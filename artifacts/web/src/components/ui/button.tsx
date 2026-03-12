@@ -10,22 +10,22 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "default", size = "default", isLoading, children, disabled, ...props }, ref) => {
-    const baseStyles = "inline-flex items-center justify-center whitespace-nowrap rounded-xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 cursor-pointer";
+    const baseStyles = "inline-flex items-center justify-center whitespace-nowrap rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 cursor-pointer";
     
     const variants = {
-      default: "bg-[#007AFF] text-white shadow-sm hover:bg-[#0066DD]",
-      secondary: "bg-white text-foreground border border-border shadow-sm hover:bg-gray-50",
-      outline: "border border-border bg-white text-foreground shadow-sm hover:bg-gray-50",
-      ghost: "hover:bg-secondary hover:text-secondary-foreground",
-      destructive: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
-      link: "text-primary underline-offset-4 hover:underline",
+      default: "bg-[#007AFF] text-white text-[13px] hover:bg-[#0066DD]",
+      secondary: "bg-white text-foreground text-[13px] border border-border hover:bg-gray-50",
+      outline: "bg-white text-foreground text-[13px] border border-border hover:bg-gray-50",
+      ghost: "text-[13px] text-muted-foreground hover:bg-secondary hover:text-foreground",
+      destructive: "bg-destructive text-destructive-foreground text-[13px] hover:bg-destructive/90",
+      link: "text-primary text-[13px] underline-offset-4 hover:underline",
     };
 
     const sizes = {
-      default: "h-10 px-4 py-2",
-      sm: "h-8 rounded-lg px-3 text-xs",
-      lg: "h-12 rounded-xl px-8 text-base",
-      icon: "h-10 w-10",
+      default: "h-9 px-4 py-2",
+      sm: "h-8 px-3 text-xs",
+      lg: "h-11 px-6",
+      icon: "h-9 w-9",
     };
 
     return (

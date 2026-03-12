@@ -58,7 +58,7 @@ export default function UnidadesPage() {
 
   return (
     <AppLayout headerActions={headerActions}>
-      <p className="text-muted-foreground mb-6">Gerencie as sedes e filiais da sua empresa.</p>
+      <p className="text-[13px] text-muted-foreground mb-8">Gerencie as sedes e filiais da sua empresa.</p>
 
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Carregando unidades...</div>

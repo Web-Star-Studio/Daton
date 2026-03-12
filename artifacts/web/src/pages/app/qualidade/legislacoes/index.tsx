@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Plus, Upload, FileText } from "lucide-react";
+import { Plus, Upload, FileText } from "lucide-react";
 import { useForm } from "react-hook-form";
 import Papa from "papaparse";
 
@@ -101,35 +101,32 @@ export default function LegislacoesPage() {
 
   return (
     <AppLayout headerActions={headerActions}>
-      <p className="text-muted-foreground mb-6">Requisitos legais aplicáveis à organização (ISO 14001).</p>
+      <p className="text-[13px] text-muted-foreground mb-8">Requisitos legais aplicáveis à organização (ISO 14001).</p>
 
-      <div className="bg-card border border-border rounded-2xl p-4 mb-6 flex flex-wrap gap-4 items-end shadow-sm">
+      <div className="flex flex-wrap gap-6 items-end mb-8">
         <div className="flex-1 min-w-[200px]">
-          <Label className="mb-2">Buscar</Label>
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Título ou número..." 
-              className="pl-9"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <Label>Buscar</Label>
+          <Input 
+            placeholder="Título ou número..." 
+            className="mt-2"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-        <div className="w-48">
-          <Label className="mb-2">Esfera / Nível</Label>
-          <Select value={level} onChange={(e) => setLevel(e.target.value)}>
-            <option value="">Todos os níveis</option>
+        <div className="w-44">
+          <Label>Esfera / Nível</Label>
+          <Select value={level} onChange={(e) => setLevel(e.target.value)} className="mt-2">
+            <option value="">Todos</option>
             <option value="federal">Federal</option>
             <option value="estadual">Estadual</option>
             <option value="municipal">Municipal</option>
             <option value="internacional">Internacional</option>
           </Select>
         </div>
-        <div className="w-48">
-          <Label className="mb-2">Status</Label>
-          <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">Qualquer status</option>
+        <div className="w-44">
+          <Label>Status</Label>
+          <Select value={status} onChange={(e) => setStatus(e.target.value)} className="mt-2">
+            <option value="">Todos</option>
             <option value="vigente">Vigente</option>
             <option value="revogada">Revogada</option>
             <option value="alterada">Alterada</option>

@@ -96,36 +96,27 @@ export default function AuthPage() {
         <div className="w-full max-w-[520px] px-8 py-12">
           {isLogin ? (
             <>
-              <div className="mb-8">
+              <div className="mb-10">
                 <h2 className="text-lg font-semibold text-foreground">Entrar</h2>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">
                   Informe suas credenciais para acessar o ambiente e conduzir a operação.
                 </p>
               </div>
 
-              <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-8">
+                <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <Label className="text-xs font-semibold text-foreground">E-mail de trabalho</Label>
-                    <Input
-                      {...loginForm.register("email")}
-                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
-                      placeholder=""
-                    />
+                    <Label>E-mail de trabalho</Label>
+                    <Input {...loginForm.register("email")} className="mt-2" />
                     {loginForm.formState.errors.email && (
-                      <p className="text-xs text-destructive mt-1">{loginForm.formState.errors.email.message}</p>
+                      <p className="text-xs text-destructive mt-1.5">{loginForm.formState.errors.email.message}</p>
                     )}
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold text-foreground">Senha</Label>
-                    <Input
-                      type="password"
-                      {...loginForm.register("password")}
-                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
-                      placeholder=""
-                    />
+                    <Label>Senha</Label>
+                    <Input type="password" {...loginForm.register("password")} className="mt-2" />
                     {loginForm.formState.errors.password && (
-                      <p className="text-xs text-destructive mt-1">{loginForm.formState.errors.password.message}</p>
+                      <p className="text-xs text-destructive mt-1.5">{loginForm.formState.errors.password.message}</p>
                     )}
                   </div>
                 </div>
@@ -133,17 +124,17 @@ export default function AuthPage() {
                 <button
                   type="submit"
                   disabled={loginMutation.isPending}
-                  className="w-full bg-[#007AFF] text-white text-sm font-medium py-3 rounded-lg hover:bg-[#0066DD] transition-colors disabled:opacity-50"
+                  className="w-full bg-[#007AFF] text-white text-[13px] font-medium py-3 rounded-lg hover:bg-[#0066DD] transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {loginMutation.isPending ? "Entrando..." : "Entrar no Daton"}
                 </button>
 
-                <p className="text-sm text-muted-foreground">
+                <p className="text-[13px] text-muted-foreground">
                   Vai estruturar uma nova organização?{" "}
                   <button
                     type="button"
                     onClick={() => setIsLogin(false)}
-                    className="text-foreground underline underline-offset-2 hover:text-foreground/80"
+                    className="text-foreground underline underline-offset-2 hover:text-foreground/70 cursor-pointer"
                   >
                     Criar ambiente
                   </button>
@@ -152,79 +143,54 @@ export default function AuthPage() {
             </>
           ) : (
             <>
-              <div className="mb-8">
+              <div className="mb-10">
                 <h2 className="text-lg font-semibold text-foreground">Estruturar organização</h2>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">
                   Isso estabelece a base identitária da qual o restante do Daton depende: entidade legal, acesso inicial e a base de governança que depois pode se expandir para múltiplas unidades.
                 </p>
               </div>
 
-              <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-6">
-                <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+              <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-8">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-6">
                   <div>
-                    <Label className="text-xs font-semibold text-foreground">Razão social</Label>
-                    <Input
-                      {...registerForm.register("razaoSocial")}
-                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
-                      placeholder=""
-                    />
+                    <Label>Razão social</Label>
+                    <Input {...registerForm.register("razaoSocial")} className="mt-2" />
                     {registerForm.formState.errors.razaoSocial && (
-                      <p className="text-xs text-destructive mt-1">{registerForm.formState.errors.razaoSocial.message}</p>
+                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.razaoSocial.message}</p>
                     )}
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold text-foreground">Nome fantasia</Label>
-                    <Input
-                      {...registerForm.register("nomeFantasia")}
-                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
-                      placeholder=""
-                    />
+                    <Label>Nome fantasia</Label>
+                    <Input {...registerForm.register("nomeFantasia")} className="mt-2" />
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold text-foreground">CNPJ</Label>
-                    <Input
-                      {...registerForm.register("cnpj")}
-                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
-                      placeholder="00.000.000/0000-00"
-                    />
+                    <Label>CNPJ</Label>
+                    <Input {...registerForm.register("cnpj")} placeholder="00.000.000/0000-00" className="mt-2" />
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold text-foreground">Nome completo do administrador</Label>
-                    <Input
-                      {...registerForm.register("adminName")}
-                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
-                      placeholder=""
-                    />
+                    <Label>Nome completo do administrador</Label>
+                    <Input {...registerForm.register("adminName")} className="mt-2" />
                     {registerForm.formState.errors.adminName && (
-                      <p className="text-xs text-destructive mt-1">{registerForm.formState.errors.adminName.message}</p>
+                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.adminName.message}</p>
                     )}
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold text-foreground">E-mail do administrador</Label>
-                    <Input
-                      {...registerForm.register("email")}
-                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
-                      placeholder=""
-                    />
+                    <Label>E-mail do administrador</Label>
+                    <Input {...registerForm.register("email")} className="mt-2" />
                     {registerForm.formState.errors.email && (
-                      <p className="text-xs text-destructive mt-1">{registerForm.formState.errors.email.message}</p>
+                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.email.message}</p>
                     )}
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold text-foreground">Senha</Label>
-                    <Input
-                      type="password"
-                      {...registerForm.register("password")}
-                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
-                      placeholder=""
-                    />
+                    <Label>Senha</Label>
+                    <Input type="password" {...registerForm.register("password")} className="mt-2" />
                     {registerForm.formState.errors.password && (
-                      <p className="text-xs text-destructive mt-1">{registerForm.formState.errors.password.message}</p>
+                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.password.message}</p>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 pt-2">
+                <div className="flex items-start gap-3">
                   <Checkbox
                     id="terms"
                     checked={registerForm.watch("terms") === true}
@@ -244,17 +210,17 @@ export default function AuthPage() {
                 <button
                   type="submit"
                   disabled={registerMutation.isPending}
-                  className="w-full bg-[#007AFF] text-white text-sm font-medium py-3 rounded-lg hover:bg-[#0066DD] transition-colors disabled:opacity-50"
+                  className="w-full bg-[#007AFF] text-white text-[13px] font-medium py-3 rounded-lg hover:bg-[#0066DD] transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {registerMutation.isPending ? "Criando..." : "Continuar com a criação"}
                 </button>
 
-                <p className="text-sm text-muted-foreground">
+                <p className="text-[13px] text-muted-foreground">
                   Já possui um ambiente?{" "}
                   <button
                     type="button"
                     onClick={() => setIsLogin(true)}
-                    className="text-foreground underline underline-offset-2 hover:text-foreground/80"
+                    className="text-foreground underline underline-offset-2 hover:text-foreground/70 cursor-pointer"
                   >
                     Entrar
                   </button>
