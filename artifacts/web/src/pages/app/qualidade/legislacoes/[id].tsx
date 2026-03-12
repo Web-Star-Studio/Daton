@@ -7,7 +7,9 @@ import {
   useListUnits, 
   useAssignLegislationToUnit, 
   useUpdateUnitLegislation,
-  getGetLegislationQueryKey
+  getGetLegislationQueryKey,
+  getListUnitsQueryKey,
+  type UpdateUnitLegislationBodyComplianceStatus,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -29,8 +31,8 @@ export default function LegislationDetailPage() {
   const orgId = organization?.id;
   const queryClient = useQueryClient();
 
-  const { data: leg, isLoading } = useGetLegislation(orgId!, legId, { query: { enabled: !!orgId && !!legId } });
-  const { data: allUnits } = useListUnits(orgId!, { query: { enabled: !!orgId } });
+  const { data: leg, isLoading } = useGetLegislation(orgId!, legId, { query: { queryKey: getGetLegislationQueryKey(orgId!, legId), enabled: !!orgId && !!legId } });
+  const { data: allUnits } = useListUnits(orgId!, { query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId } });
   
   const assignMut = useAssignLegislationToUnit();
   const updateComplianceMut = useUpdateUnitLegislation();
@@ -38,7 +40,7 @@ export default function LegislationDetailPage() {
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [selectedUnitId, setSelectedUnitId] = useState("");
   
-  const [editingCompliance, setEditingCompliance] = useState<any>(null); // holds the unitLegislation object
+  const [editingCompliance, setEditingCompliance] = useState<{ unitId: number; complianceStatus: string; notes?: string | null; unit: { name: string } } | null>(null);
   const [statusVal, setStatusVal] = useState("");
   const [notesVal, setNotesVal] = useState("");
 
@@ -57,7 +59,7 @@ export default function LegislationDetailPage() {
     if (!orgId || !editingCompliance) return;
     await updateComplianceMut.mutateAsync({
       orgId, legId, unitId: editingCompliance.unitId,
-      data: { complianceStatus: statusVal as any, notes: notesVal }
+      data: { complianceStatus: statusVal as UpdateUnitLegislationBodyComplianceStatus, notes: notesVal }
     });
     queryClient.invalidateQueries({ queryKey: getGetLegislationQueryKey(orgId, legId) });
     setEditingCompliance(null);

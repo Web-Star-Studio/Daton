@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, ilike, sql } from "drizzle-orm";
-import { db, legislationsTable, unitLegislationsTable, unitsTable } from "@workspace/db";
+import { db, legislationsTable, unitLegislationsTable, unitsTable, type Legislation } from "@workspace/db";
 import {
   ListLegislationsParams,
   ListLegislationsQueryParams,
@@ -17,7 +17,7 @@ import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-function formatLeg(l: any) {
+function formatLeg(l: Legislation) {
   return {
     id: l.id,
     organizationId: l.organizationId,
@@ -85,10 +85,15 @@ router.post("/organizations/:orgId/legislations", requireAuth, async (req, res):
     return;
   }
 
-  const [leg] = await db.insert(legislationsTable).values({
+  const insertData = {
     ...body.data,
+    publicationDate: body.data.publicationDate instanceof Date
+      ? body.data.publicationDate.toISOString().split("T")[0]
+      : body.data.publicationDate,
     organizationId: params.data.orgId,
-  }).returning();
+  };
+
+  const [leg] = await db.insert(legislationsTable).values(insertData).returning();
 
   res.status(201).json(formatLeg(leg));
 });
@@ -116,10 +121,14 @@ router.post("/organizations/:orgId/legislations/import", requireAuth, async (req
 
   for (const item of body.data.legislations) {
     try {
-      await db.insert(legislationsTable).values({
+      const importItem = {
         ...item,
+        publicationDate: item.publicationDate instanceof Date
+          ? item.publicationDate.toISOString().split("T")[0]
+          : item.publicationDate,
         organizationId: params.data.orgId,
-      });
+      };
+      await db.insert(legislationsTable).values(importItem);
       imported++;
     } catch {
       errors++;
@@ -157,7 +166,7 @@ router.get("/organizations/:orgId/legislations/:legId", requireAuth, async (req,
     ul: unitLegislationsTable,
     unit: unitsTable,
   }).from(unitLegislationsTable)
-    .innerJoin(unitsTable, eq(unitLegislationsTable.unitId, unitsTable.id))
+    .innerJoin(unitsTable, and(eq(unitLegislationsTable.unitId, unitsTable.id), eq(unitsTable.organizationId, params.data.orgId)))
     .where(eq(unitLegislationsTable.legislationId, leg.id));
 
   res.json({
@@ -205,8 +214,15 @@ router.patch("/organizations/:orgId/legislations/:legId", requireAuth, async (re
     return;
   }
 
+  const updateData = {
+    ...body.data,
+    publicationDate: body.data.publicationDate instanceof Date
+      ? body.data.publicationDate.toISOString().split("T")[0]
+      : body.data.publicationDate,
+  };
+
   const [leg] = await db.update(legislationsTable)
-    .set(body.data)
+    .set(updateData)
     .where(and(eq(legislationsTable.id, params.data.legId), eq(legislationsTable.organizationId, params.data.orgId)))
     .returning();
 

@@ -1,7 +1,15 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is required");
+  }
+  return secret;
+}
+
+const JWT_SECRET: string = getJwtSecret();
 
 export interface AuthPayload {
   userId: number;
@@ -25,7 +33,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 
   const token = header.slice(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as AuthPayload;
+    const payload = jwt.verify(token, JWT_SECRET) as unknown as AuthPayload;
     req.auth = payload;
     next();
   } catch {

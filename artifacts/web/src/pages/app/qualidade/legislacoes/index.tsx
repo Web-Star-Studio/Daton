@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { useListLegislations, useCreateLegislation, useImportLegislations, getListLegislationsQueryKey } from "@workspace/api-client-react";
+import { useListLegislations, useCreateLegislation, useImportLegislations, getListLegislationsQueryKey, type ListLegislationsLevel, type ListLegislationsStatus, type CreateLegislationBody, type CreateLegislationBodyLevel, type CreateLegislationBodyStatus } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,8 +26,8 @@ export default function LegislacoesPage() {
   
   const { data: legislations, isLoading } = useListLegislations(
     orgId!, 
-    { search, level: level as any, status: status as any }, 
-    { query: { enabled: !!orgId } }
+    { search, level: (level || undefined) as ListLegislationsLevel | undefined, status: (status || undefined) as ListLegislationsStatus | undefined }, 
+    { query: { queryKey: getListLegislationsQueryKey(orgId!), enabled: !!orgId } }
   );
 
   const createMut = useCreateLegislation();
@@ -42,9 +42,17 @@ export default function LegislacoesPage() {
     }
   });
 
-  const onCreateSubmit = async (data: any) => {
+  const onCreateSubmit = async (data: { title: string; number: string; description: string; level: string; status: string; publicationDate: string }) => {
     if (!orgId) return;
-    await createMut.mutateAsync({ orgId, data });
+    const body: CreateLegislationBody = {
+      title: data.title,
+      number: data.number || undefined,
+      description: data.description || undefined,
+      level: data.level as CreateLegislationBodyLevel,
+      status: data.status as CreateLegislationBodyStatus,
+      publicationDate: data.publicationDate || undefined,
+    };
+    await createMut.mutateAsync({ orgId, data: body });
     queryClient.invalidateQueries({ queryKey: getListLegislationsQueryKey(orgId) });
     setIsCreateOpen(false);
     form.reset();
@@ -57,12 +65,15 @@ export default function LegislacoesPage() {
     Papa.parse(file, {
       header: true,
       complete: async (results) => {
-        const mapped = results.data.filter((r: any) => r.title).map((row: any) => ({
-          title: row.title,
-          number: row.number || undefined,
-          level: row.level?.toLowerCase() || 'federal',
-          status: row.status?.toLowerCase() || 'vigente',
-        }));
+        const mapped: CreateLegislationBody[] = results.data.filter((r) => (r as Record<string, string>).title).map((row) => {
+          const r = row as Record<string, string>;
+          return {
+            title: r.title,
+            number: r.number || undefined,
+            level: (r.level?.toLowerCase() || 'federal') as CreateLegislationBodyLevel,
+            status: (r.status?.toLowerCase() || 'vigente') as CreateLegislationBodyStatus,
+          };
+        });
         
         if (mapped.length > 0) {
           await importMut.mutateAsync({ orgId, data: { legislations: mapped } });

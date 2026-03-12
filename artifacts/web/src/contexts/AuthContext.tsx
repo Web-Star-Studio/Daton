@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { useGetMe } from "@workspace/api-client-react";
-import { type User, type Organization } from "@workspace/api-client-react/src/generated/api.schemas";
+import { useGetMe, getGetMeQueryKey, type User, type Organization } from "@workspace/api-client-react";
 
 interface AuthContextType {
   user: User | null;
@@ -19,9 +18,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Custom fetch wrapper logic assumes localstorage token, but if not we can at least render based on me
   const { data, isLoading, error, refetch } = useGetMe({
     query: {
+      queryKey: getGetMeQueryKey(),
       retry: false,
       enabled: !!token,
-    }
+    },
   });
 
   const login = (newToken: string) => {

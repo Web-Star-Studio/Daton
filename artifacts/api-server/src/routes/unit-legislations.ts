@@ -26,11 +26,19 @@ router.get("/organizations/:orgId/legislations/:legId/units", requireAuth, async
     return;
   }
 
+  const [leg] = await db.select({ id: legislationsTable.id }).from(legislationsTable)
+    .where(and(eq(legislationsTable.id, params.data.legId), eq(legislationsTable.organizationId, params.data.orgId)));
+
+  if (!leg) {
+    res.status(404).json({ error: "Legislação não encontrada" });
+    return;
+  }
+
   const results = await db.select({
     ul: unitLegislationsTable,
     unit: unitsTable,
   }).from(unitLegislationsTable)
-    .innerJoin(unitsTable, eq(unitLegislationsTable.unitId, unitsTable.id))
+    .innerJoin(unitsTable, and(eq(unitLegislationsTable.unitId, unitsTable.id), eq(unitsTable.organizationId, params.data.orgId)))
     .where(eq(unitLegislationsTable.legislationId, params.data.legId));
 
   res.json(results.map(({ ul, unit }) => ({
@@ -72,6 +80,14 @@ router.post("/organizations/:orgId/legislations/:legId/units", requireAuth, asyn
   const body = AssignLegislationToUnitBody.safeParse(req.body);
   if (!body.success) {
     res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const [leg] = await db.select({ id: legislationsTable.id }).from(legislationsTable)
+    .where(and(eq(legislationsTable.id, params.data.legId), eq(legislationsTable.organizationId, params.data.orgId)));
+
+  if (!leg) {
+    res.status(404).json({ error: "Legislação não encontrada" });
     return;
   }
 
@@ -132,7 +148,23 @@ router.patch("/organizations/:orgId/legislations/:legId/units/:unitId", requireA
     return;
   }
 
-  const updateData: any = { ...body.data };
+  const [leg] = await db.select({ id: legislationsTable.id }).from(legislationsTable)
+    .where(and(eq(legislationsTable.id, params.data.legId), eq(legislationsTable.organizationId, params.data.orgId)));
+
+  if (!leg) {
+    res.status(404).json({ error: "Legislação não encontrada" });
+    return;
+  }
+
+  const [ownerUnit] = await db.select({ id: unitsTable.id }).from(unitsTable)
+    .where(and(eq(unitsTable.id, params.data.unitId), eq(unitsTable.organizationId, params.data.orgId)));
+
+  if (!ownerUnit) {
+    res.status(404).json({ error: "Unidade não encontrada" });
+    return;
+  }
+
+  const updateData: Record<string, unknown> = { ...body.data };
   if (body.data.complianceStatus) {
     updateData.evaluatedAt = new Date();
   }
@@ -188,6 +220,22 @@ router.delete("/organizations/:orgId/legislations/:legId/units/:unitId", require
     return;
   }
 
+  const [leg] = await db.select({ id: legislationsTable.id }).from(legislationsTable)
+    .where(and(eq(legislationsTable.id, params.data.legId), eq(legislationsTable.organizationId, params.data.orgId)));
+
+  if (!leg) {
+    res.status(404).json({ error: "Legislação não encontrada" });
+    return;
+  }
+
+  const [ownerUnit] = await db.select({ id: unitsTable.id }).from(unitsTable)
+    .where(and(eq(unitsTable.id, params.data.unitId), eq(unitsTable.organizationId, params.data.orgId)));
+
+  if (!ownerUnit) {
+    res.status(404).json({ error: "Unidade não encontrada" });
+    return;
+  }
+
   const [ul] = await db.delete(unitLegislationsTable)
     .where(and(
       eq(unitLegislationsTable.legislationId, params.data.legId),
@@ -215,11 +263,19 @@ router.get("/organizations/:orgId/units/:unitId/legislations", requireAuth, asyn
     return;
   }
 
+  const [ownerUnit] = await db.select({ id: unitsTable.id }).from(unitsTable)
+    .where(and(eq(unitsTable.id, params.data.unitId), eq(unitsTable.organizationId, params.data.orgId)));
+
+  if (!ownerUnit) {
+    res.status(404).json({ error: "Unidade não encontrada" });
+    return;
+  }
+
   const results = await db.select({
     ul: unitLegislationsTable,
     legislation: legislationsTable,
   }).from(unitLegislationsTable)
-    .innerJoin(legislationsTable, eq(unitLegislationsTable.legislationId, legislationsTable.id))
+    .innerJoin(legislationsTable, and(eq(unitLegislationsTable.legislationId, legislationsTable.id), eq(legislationsTable.organizationId, params.data.orgId)))
     .where(eq(unitLegislationsTable.unitId, params.data.unitId));
 
   res.json(results.map(({ ul, legislation }) => ({

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { useListUnits, useCreateUnit, useDeleteUnit, getListUnitsQueryKey } from "@workspace/api-client-react";
+import { useListUnits, useCreateUnit, useDeleteUnit, getListUnitsQueryKey, type CreateUnitBody, type CreateUnitBodyType } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -18,7 +18,7 @@ export default function UnidadesPage() {
   const orgId = organization?.id;
   const queryClient = useQueryClient();
   
-  const { data: units, isLoading } = useListUnits(orgId!, { query: { enabled: !!orgId } });
+  const { data: units, isLoading } = useListUnits(orgId!, { query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId } });
   const createUnitMut = useCreateUnit();
   const deleteUnitMut = useDeleteUnit();
 
@@ -27,9 +27,15 @@ export default function UnidadesPage() {
     defaultValues: { name: "", type: "filial", city: "", state: "" }
   });
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: { name: string; type: string; city: string; state: string }) => {
     if (!orgId) return;
-    await createUnitMut.mutateAsync({ orgId, data });
+    const body: CreateUnitBody = {
+      name: data.name,
+      type: data.type as CreateUnitBodyType,
+      city: data.city || undefined,
+      state: data.state || undefined,
+    };
+    await createUnitMut.mutateAsync({ orgId, data: body });
     queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey(orgId) });
     setIsDialogOpen(false);
     form.reset();

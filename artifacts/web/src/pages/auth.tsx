@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "@/components/ui/toast";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -44,7 +43,7 @@ export default function AuthPage() {
       const res = await loginMutation.mutateAsync({ data });
       setAuthToken(res.token);
       setLocation("/app/qualidade/legislacoes");
-    } catch (error: any) {
+    } catch {
       alert("Credenciais inválidas");
     }
   };
@@ -54,7 +53,7 @@ export default function AuthPage() {
       const res = await registerMutation.mutateAsync({ data });
       setAuthToken(res.token);
       setLocation("/app/qualidade/legislacoes");
-    } catch (error: any) {
+    } catch {
       alert("Erro ao criar conta. Verifique os dados.");
     }
   };
