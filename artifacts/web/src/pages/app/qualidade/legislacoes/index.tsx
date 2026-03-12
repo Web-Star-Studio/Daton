@@ -153,7 +153,7 @@ export default function LegislacoesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [importLevel, setImportLevel] = useState("federal");
-  const [importResult, setImportResult] = useState<{ imported: number; errors: number; total: number } | null>(null);
+  const [importResult, setImportResult] = useState<{ imported: number; errors: number; total: number; errorDetails?: { index: number; title: string; error: string }[] } | null>(null);
   const [previewCount, setPreviewCount] = useState<number | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   
@@ -382,6 +382,16 @@ export default function LegislacoesPage() {
                 <span className="text-emerald-600">{importResult.imported} importadas</span>
                 {importResult.errors > 0 && <span className="text-red-500">{importResult.errors} erros</span>}
               </div>
+              {importResult.errorDetails && importResult.errorDetails.length > 0 && (
+                <div className="text-left bg-red-50 border border-red-200 rounded-lg p-3 text-[12px] max-h-40 overflow-y-auto space-y-1">
+                  <p className="font-semibold text-red-700 mb-1">Detalhes dos erros:</p>
+                  {importResult.errorDetails.map((ed, i) => (
+                    <p key={i} className="text-red-600">
+                      <strong>Linha {ed.index + 1}:</strong> {ed.title} — {ed.error}
+                    </p>
+                  ))}
+                </div>
+              )}
               <Button onClick={resetImport} className="mt-3">Fechar</Button>
             </div>
           ) : (

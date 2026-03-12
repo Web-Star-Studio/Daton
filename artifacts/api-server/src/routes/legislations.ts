@@ -126,7 +126,10 @@ router.post("/organizations/:orgId/legislations/import", requireAuth, async (req
   let imported = 0;
   let errors = 0;
 
-  for (const item of body.data.legislations) {
+  const errorDetails: { index: number; title: string; error: string }[] = [];
+
+  for (let i = 0; i < body.data.legislations.length; i++) {
+    const item = body.data.legislations[i];
     try {
       const importItem = {
         ...item,
@@ -134,8 +137,11 @@ router.post("/organizations/:orgId/legislations/import", requireAuth, async (req
       };
       await db.insert(legislationsTable).values(importItem);
       imported++;
-    } catch {
+    } catch (err: any) {
       errors++;
+      const msg = err?.message || String(err);
+      errorDetails.push({ index: i, title: item.title || "(sem título)", error: msg });
+      console.error(`[import] Row ${i} "${item.title}" failed:`, msg);
     }
   }
 
@@ -143,6 +149,7 @@ router.post("/organizations/:orgId/legislations/import", requireAuth, async (req
     imported,
     errors,
     total: body.data.legislations.length,
+    errorDetails,
   });
 });
 
