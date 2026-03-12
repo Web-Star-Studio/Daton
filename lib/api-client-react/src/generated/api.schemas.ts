@@ -366,12 +366,16 @@ export interface UpdateLegislationBody {
 
 export interface ImportLegislationsBody {
   legislations: CreateLegislationBody[];
+  conflictStrategy?: 'skip' | 'update';
 }
 
 export interface ImportResult {
-  imported: number;
+  created: number;
+  updated: number;
+  skipped: number;
   errors: number;
   total: number;
+  errorDetails?: { index: number; title: string; error: string }[];
 }
 
 export type AssignLegislationBodyComplianceStatus =

@@ -310,6 +310,7 @@ export const ImportLegislationsParams = zod.object({
 
 export const ImportLegislationsBody = zod.object({
   legislations: zod.array(CreateLegislationBody),
+  conflictStrategy: zod.enum(["skip", "update"]).optional(),
 });
 
 /**

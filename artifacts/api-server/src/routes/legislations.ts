@@ -118,7 +118,22 @@ router.post("/organizations/:orgId/legislations/import", requireAuth, async (req
     return;
   }
 
-  let imported = 0;
+  const conflictStrategy = body.data.conflictStrategy || "skip";
+
+  const existingLegs = await db.select().from(legislationsTable)
+    .where(eq(legislationsTable.organizationId, params.data.orgId));
+
+  const existingMap = new Map<string, typeof existingLegs[0]>();
+  for (const leg of existingLegs) {
+    if (leg.tipoNorma && leg.number) {
+      const key = `${leg.tipoNorma.trim().toLowerCase()}::${leg.number.trim().toLowerCase()}`;
+      existingMap.set(key, leg);
+    }
+  }
+
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
   let errors = 0;
 
   const errorDetails: { index: number; title: string; error: string }[] = [];
@@ -133,13 +148,62 @@ router.post("/organizations/:orgId/legislations/import", requireAuth, async (req
           pubDate = undefined;
         }
       }
-      const importItem = {
-        ...item,
-        publicationDate: pubDate,
-        organizationId: params.data.orgId,
-      };
-      await db.insert(legislationsTable).values(importItem);
-      imported++;
+
+      const tipoNorma = item.tipoNorma?.trim() || null;
+      const number = item.number?.trim() || null;
+      const dupeKey = tipoNorma && number
+        ? `${tipoNorma.toLowerCase()}::${number.toLowerCase()}`
+        : null;
+      const existing = dupeKey ? existingMap.get(dupeKey) : null;
+
+      if (existing) {
+        if (conflictStrategy === "update") {
+          const updateData: Record<string, unknown> = {};
+          if (item.title) updateData.title = item.title;
+          if (item.description) updateData.description = item.description;
+          if (item.emissor) updateData.emissor = item.emissor;
+          if (item.level) updateData.level = item.level;
+          if (item.uf) updateData.uf = item.uf;
+          if (item.municipality) updateData.municipality = item.municipality;
+          if (item.macrotema) updateData.macrotema = item.macrotema;
+          if (item.subtema) updateData.subtema = item.subtema;
+          if (item.applicability) updateData.applicability = item.applicability;
+          if (pubDate) updateData.publicationDate = pubDate;
+          if (item.sourceUrl) updateData.sourceUrl = item.sourceUrl;
+          if (item.applicableArticles) updateData.applicableArticles = item.applicableArticles;
+          if (item.reviewFrequencyDays) updateData.reviewFrequencyDays = item.reviewFrequencyDays;
+          if (item.observations) updateData.observations = item.observations;
+          if (item.generalObservations) updateData.generalObservations = item.generalObservations;
+
+          if (Object.keys(updateData).length > 0) {
+            await db.update(legislationsTable)
+              .set(updateData)
+              .where(eq(legislationsTable.id, existing.id));
+          }
+          updated++;
+        } else {
+          skipped++;
+        }
+      } else {
+        const importItem = {
+          ...item,
+          publicationDate: pubDate,
+          organizationId: params.data.orgId,
+        };
+        await db.insert(legislationsTable).values(importItem);
+        created++;
+
+        if (dupeKey) {
+          const [newLeg] = await db.select().from(legislationsTable)
+            .where(and(
+              eq(legislationsTable.organizationId, params.data.orgId),
+              eq(legislationsTable.tipoNorma, tipoNorma!),
+              eq(legislationsTable.number, number!)
+            ))
+            .limit(1);
+          if (newLeg) existingMap.set(dupeKey, newLeg);
+        }
+      }
     } catch (err: any) {
       errors++;
       const msg = err?.message || String(err);
@@ -149,7 +213,9 @@ router.post("/organizations/:orgId/legislations/import", requireAuth, async (req
   }
 
   res.status(201).json({
-    imported,
+    created,
+    updated,
+    skipped,
     errors,
     total: body.data.legislations.length,
     errorDetails,
@@ -228,9 +294,18 @@ router.patch("/organizations/:orgId/legislations/:legId", requireAuth, async (re
     return;
   }
 
-  const updateData = {
-    ...body.data,
-  };
+  const updateData = { ...body.data };
+
+  if (Object.keys(updateData).length === 0) {
+    const [existing] = await db.select().from(legislationsTable)
+      .where(and(eq(legislationsTable.id, params.data.legId), eq(legislationsTable.organizationId, params.data.orgId)));
+    if (!existing) {
+      res.status(404).json({ error: "Legislação não encontrada" });
+      return;
+    }
+    res.json(formatLeg(existing));
+    return;
+  }
 
   const [leg] = await db.update(legislationsTable)
     .set(updateData)

@@ -11,7 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Upload, FileText, CheckCircle, AlertCircle } from "lucide-react";
+import { Plus, Upload, FileText, CheckCircle, AlertCircle, RefreshCw, SkipForward } from "lucide-react";
 import { useForm } from "react-hook-form";
 import * as XLSX from "xlsx";
 
@@ -138,6 +138,61 @@ function parseXlsxRows(data: ArrayBuffer, selectedLevel: string): CreateLegislat
   return results;
 }
 
+type ImportPreview = {
+  total: number;
+  newCount: number;
+  existingCount: number;
+  noKeyCount: number;
+  existingItems: { tipoNorma: string; number: string }[];
+};
+
+function analyzeImport(
+  parsed: CreateLegislationBody[],
+  existing: { tipoNorma?: string | null; number?: string | null }[]
+): ImportPreview {
+  const existingKeys = new Set<string>();
+  for (const leg of existing) {
+    if (leg.tipoNorma && leg.number) {
+      existingKeys.add(`${leg.tipoNorma.trim().toLowerCase()}::${leg.number.trim().toLowerCase()}`);
+    }
+  }
+
+  let newCount = 0;
+  let existingCount = 0;
+  let noKeyCount = 0;
+  const existingItems: { tipoNorma: string; number: string }[] = [];
+
+  for (const item of parsed) {
+    const tipo = item.tipoNorma?.trim();
+    const num = item.number?.trim();
+    if (!tipo || !num) {
+      noKeyCount++;
+      continue;
+    }
+    const key = `${tipo.toLowerCase()}::${num.toLowerCase()}`;
+    if (existingKeys.has(key)) {
+      existingCount++;
+      if (existingItems.length < 10) {
+        existingItems.push({ tipoNorma: tipo, number: num });
+      }
+    } else {
+      newCount++;
+      existingKeys.add(key);
+    }
+  }
+
+  return { total: parsed.length, newCount, existingCount, noKeyCount, existingItems };
+}
+
+type ImportResultType = {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+  total: number;
+  errorDetails?: { index: number; title: string; error: string }[];
+};
+
 export default function LegislacoesPage() {
   const { organization } = useAuth();
   const orgId = organization?.id;
@@ -158,9 +213,10 @@ export default function LegislacoesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [importLevel, setImportLevel] = useState("federal");
-  const [importResult, setImportResult] = useState<{ imported: number; errors: number; total: number; errorDetails?: { index: number; title: string; error: string }[] } | null>(null);
-  const [previewCount, setPreviewCount] = useState<number | null>(null);
+  const [importResult, setImportResult] = useState<ImportResultType | null>(null);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [conflictStrategy, setConflictStrategy] = useState<"skip" | "update">("skip");
   
   const form = useForm({
     defaultValues: {
@@ -193,7 +249,8 @@ export default function LegislacoesPage() {
     reader.onload = (ev) => {
       const data = ev.target?.result as ArrayBuffer;
       const rows = parseXlsxRows(data, importLevel);
-      setPreviewCount(rows.length);
+      const preview = analyzeImport(rows, legislations || []);
+      setImportPreview(preview);
       setPendingFile(file);
     };
     reader.readAsArrayBuffer(file);
@@ -208,8 +265,8 @@ export default function LegislacoesPage() {
       const mapped = parseXlsxRows(data, importLevel);
       
       if (mapped.length > 0) {
-        const result = await importMut.mutateAsync({ orgId, data: { legislations: mapped } });
-        setImportResult(result as { imported: number; errors: number; total: number; errorDetails?: { index: number; title: string; error: string }[] });
+        const result = await importMut.mutateAsync({ orgId, data: { legislations: mapped, conflictStrategy } });
+        setImportResult(result as ImportResultType);
         queryClient.invalidateQueries({ queryKey: getListLegislationsQueryKey(orgId) });
       }
     };
@@ -218,8 +275,9 @@ export default function LegislacoesPage() {
 
   const resetImport = () => {
     setImportResult(null);
-    setPreviewCount(null);
+    setImportPreview(null);
     setPendingFile(null);
+    setConflictStrategy("skip");
     setIsImportOpen(false);
   };
 
@@ -353,12 +411,36 @@ export default function LegislacoesPage() {
       <Dialog open={isImportOpen} onOpenChange={(open) => { if (!open) resetImport(); else setIsImportOpen(true); }} title="Importar Legislações">
         <div className="mt-4 space-y-5 text-sm">
           {importResult ? (
-            <div className="text-center py-4 space-y-3">
-              <CheckCircle className="w-10 h-10 mx-auto text-emerald-500" />
-              <p className="text-base font-semibold">Importação concluída</p>
-              <div className="flex justify-center gap-6 text-[13px]">
-                <span className="text-emerald-600">{importResult.imported} importadas</span>
-                {importResult.errors > 0 && <span className="text-red-500">{importResult.errors} erros</span>}
+            <div className="py-4 space-y-4">
+              <div className="text-center">
+                <CheckCircle className="w-10 h-10 mx-auto text-emerald-500 mb-2" />
+                <p className="text-base font-semibold">Importação concluída</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-[13px]">
+                {importResult.created > 0 && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-emerald-700">{importResult.created}</p>
+                    <p className="text-emerald-600">novas</p>
+                  </div>
+                )}
+                {importResult.updated > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-blue-700">{importResult.updated}</p>
+                    <p className="text-blue-600">atualizadas</p>
+                  </div>
+                )}
+                {importResult.skipped > 0 && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-gray-700">{importResult.skipped}</p>
+                    <p className="text-gray-600">ignoradas</p>
+                  </div>
+                )}
+                {importResult.errors > 0 && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-red-700">{importResult.errors}</p>
+                    <p className="text-red-600">erros</p>
+                  </div>
+                )}
               </div>
               {importResult.errorDetails && importResult.errorDetails.length > 0 && (
                 <div className="text-left bg-red-50 border border-red-200 rounded-lg p-3 text-[12px] max-h-40 overflow-y-auto space-y-1">
@@ -370,13 +452,15 @@ export default function LegislacoesPage() {
                   ))}
                 </div>
               )}
-              <Button onClick={resetImport} className="mt-3">Fechar</Button>
+              <div className="text-center">
+                <Button onClick={resetImport} className="mt-1">Fechar</Button>
+              </div>
             </div>
           ) : (
             <>
               <div>
-                <Label>Tipo de legislação</Label>
-                <Select value={importLevel} onChange={(e) => { setImportLevel(e.target.value); setPreviewCount(null); setPendingFile(null); }} className="mt-1">
+                <Label>Nível / Esfera das legislações</Label>
+                <Select value={importLevel} onChange={(e) => { setImportLevel(e.target.value); setImportPreview(null); setPendingFile(null); }} className="mt-1">
                   <option value="federal">Federal</option>
                   <option value="estadual">Estadual</option>
                   <option value="municipal">Municipal</option>
@@ -398,10 +482,78 @@ export default function LegislacoesPage() {
                 />
               </div>
 
-              {previewCount !== null && (
-                <div className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg text-[13px]">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{previewCount} legislações encontradas na planilha. Confirme para importar.</span>
+              {importPreview && (
+                <div className="space-y-3">
+                  <div className="bg-secondary/50 border border-border rounded-xl p-4">
+                    <p className="font-medium text-foreground mb-3">Análise da planilha</p>
+                    <div className="grid grid-cols-3 gap-3 text-center text-[13px]">
+                      <div>
+                        <p className="text-xl font-bold text-emerald-600">{importPreview.newCount}</p>
+                        <p className="text-muted-foreground">novas</p>
+                      </div>
+                      <div>
+                        <p className="text-xl font-bold text-amber-600">{importPreview.existingCount}</p>
+                        <p className="text-muted-foreground">já cadastradas</p>
+                      </div>
+                      <div>
+                        <p className="text-xl font-bold text-gray-500">{importPreview.noKeyCount}</p>
+                        <p className="text-muted-foreground">sem tipo/número</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {importPreview.existingCount > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[13px] font-medium text-foreground">
+                        {importPreview.existingCount} legislações já existem (identificadas por Tipo + Número). O que fazer com elas?
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setConflictStrategy("skip")}
+                          className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer ${
+                            conflictStrategy === "skip"
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-muted-foreground/30"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <SkipForward className="w-4 h-4 text-muted-foreground" />
+                            <span className="font-medium text-[13px]">Ignorar</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Manter os dados atuais sem alteração</p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConflictStrategy("update")}
+                          className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer ${
+                            conflictStrategy === "update"
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-muted-foreground/30"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <RefreshCw className="w-4 h-4 text-muted-foreground" />
+                            <span className="font-medium text-[13px]">Atualizar</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Sobrescrever com os dados da planilha</p>
+                        </button>
+                      </div>
+
+                      {importPreview.existingItems.length > 0 && (
+                        <details className="text-[12px] text-muted-foreground">
+                          <summary className="cursor-pointer hover:text-foreground">
+                            Ver exemplos de legislações já cadastradas ({importPreview.existingCount > 10 ? `mostrando 10 de ${importPreview.existingCount}` : importPreview.existingCount})
+                          </summary>
+                          <ul className="mt-1 space-y-0.5 pl-4 list-disc">
+                            {importPreview.existingItems.map((item, i) => (
+                              <li key={i}>{item.tipoNorma} {item.number}</li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -409,10 +561,10 @@ export default function LegislacoesPage() {
                 <Button type="button" variant="ghost" onClick={resetImport}>Cancelar</Button>
                 <Button 
                   onClick={onConfirmImport} 
-                  disabled={!pendingFile || previewCount === 0 || importMut.isPending}
+                  disabled={!pendingFile || !importPreview || importPreview.total === 0 || importMut.isPending}
                   isLoading={importMut.isPending}
                 >
-                  Importar {previewCount ? `(${previewCount})` : ""}
+                  Importar ({importPreview?.total || 0})
                 </Button>
               </div>
             </>

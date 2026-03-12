@@ -1017,20 +1017,41 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CreateLegislationBody"
+        conflictStrategy:
+          type: string
+          enum: [skip, update]
+          description: How to handle legislations that already exist (matched by tipoNorma + number)
       required:
         - legislations
 
     ImportResult:
       type: object
       properties:
-        imported:
+        created:
+          type: integer
+        updated:
+          type: integer
+        skipped:
           type: integer
         errors:
           type: integer
         total:
           type: integer
+        errorDetails:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              title:
+                type: string
+              error:
+                type: string
       required:
-        - imported
+        - created
+        - updated
+        - skipped
         - errors
         - total
 
