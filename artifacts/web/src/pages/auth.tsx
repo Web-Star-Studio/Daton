@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import authBg from "@assets/Daton_1773346786789.png";
+import authBg from "@assets/Gemini_Generated_Image_y7vg0oy7vg0oy7vg_1773347119413.png";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
