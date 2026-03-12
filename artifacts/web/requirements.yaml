@@ -1,0 +1,17 @@
+packages:
+  "react-hook-form": "Form state management"
+  "@hookform/resolvers": "Zod validation for forms"
+  "clsx": "Utility for constructing className strings"
+  "tailwind-merge": "Utility for merging tailwind classes safely"
+  "papaparse": "Client-side CSV parsing for legislation import"
+  "@types/papaparse": "Types for papaparse"
+  "date-fns": "Date formatting"
+
+images:
+  - path: "artifacts/web/public/images/auth-bg.png"
+    description: "Abstract, very minimal and elegant light gradient background in soft whites and subtle pale blues, Apple design style, clean and airy"
+    aspect_ratio: "16:9"
+
+notes:
+  - Using @workspace/api-client-react for TanStack Query hooks.
+  - Assuming customFetch reads 'daton_token' from localStorage for Authorization headers.

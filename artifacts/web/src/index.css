@@ -1,0 +1,90 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: 'Inter', sans-serif;
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
+:root {
+  /* Clean, minimalistic light mode palette inspired by Apple HIG */
+  --background: 0 0% 98%; /* Very light gray/off-white */
+  --foreground: 240 10% 10%; /* Dark gray, almost black */
+  
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 10%;
+  
+  --border: 240 6% 90%;
+  --input: 240 6% 90%;
+  --ring: 211 100% 50%; /* Apple system blue */
+  
+  --primary: 211 100% 50%;
+  --primary-foreground: 0 0% 100%;
+  
+  --secondary: 240 5% 96%;
+  --secondary-foreground: 240 10% 15%;
+  
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 4% 46%;
+  
+  --accent: 211 100% 95%;
+  --accent-foreground: 211 100% 40%;
+  
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 240 10% 15%;
+  --sidebar-border: 240 6% 90%;
+  --sidebar-accent: 240 5% 96%;
+  --sidebar-accent-foreground: 240 10% 10%;
+
+  --radius: 0.75rem; /* 12px */
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight font-semibold text-foreground;
+  }
+}

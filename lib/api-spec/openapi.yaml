@@ -3,13 +3,24 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Daton Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: organizations
+    description: Organization management
+  - name: units
+    description: Unit management
+  - name: legislations
+    description: Legislation management
+  - name: unit-legislations
+    description: Unit-legislation compliance
+
 paths:
   /healthz:
     get:
@@ -24,6 +35,542 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user and organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}:
+    get:
+      operationId: getOrganization
+      tags: [organizations]
+      summary: Get organization details
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Organization details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateOrganization
+      tags: [organizations]
+      summary: Update organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrganizationBody"
+      responses:
+        "200":
+          description: Updated organization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+
+  /organizations/{orgId}/units:
+    get:
+      operationId: listUnits
+      tags: [units]
+      summary: List units for an organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of units
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Unit"
+    post:
+      operationId: createUnit
+      tags: [units]
+      summary: Create a unit
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUnitBody"
+      responses:
+        "201":
+          description: Unit created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Unit"
+
+  /organizations/{orgId}/units/{unitId}:
+    get:
+      operationId: getUnit
+      tags: [units]
+      summary: Get unit details
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Unit details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Unit"
+    patch:
+      operationId: updateUnit
+      tags: [units]
+      summary: Update a unit
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUnitBody"
+      responses:
+        "200":
+          description: Updated unit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Unit"
+    delete:
+      operationId: deleteUnit
+      tags: [units]
+      summary: Delete a unit
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /organizations/{orgId}/legislations:
+    get:
+      operationId: listLegislations
+      tags: [legislations]
+      summary: List legislations for an organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [federal, estadual, municipal, internacional]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [vigente, revogada, alterada]
+      responses:
+        "200":
+          description: List of legislations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Legislation"
+    post:
+      operationId: createLegislation
+      tags: [legislations]
+      summary: Create a legislation
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLegislationBody"
+      responses:
+        "201":
+          description: Legislation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Legislation"
+
+  /organizations/{orgId}/legislations/import:
+    post:
+      operationId: importLegislations
+      tags: [legislations]
+      summary: Import legislations from CSV
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportLegislationsBody"
+      responses:
+        "201":
+          description: Legislations imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+
+  /organizations/{orgId}/legislations/{legId}:
+    get:
+      operationId: getLegislation
+      tags: [legislations]
+      summary: Get legislation details
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: legId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Legislation details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegislationDetail"
+    patch:
+      operationId: updateLegislation
+      tags: [legislations]
+      summary: Update a legislation
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: legId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLegislationBody"
+      responses:
+        "200":
+          description: Updated legislation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Legislation"
+    delete:
+      operationId: deleteLegislation
+      tags: [legislations]
+      summary: Delete a legislation
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: legId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /organizations/{orgId}/legislations/{legId}/units:
+    get:
+      operationId: listLegislationUnits
+      tags: [unit-legislations]
+      summary: List units assigned to a legislation with compliance status
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: legId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of unit-legislation assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UnitLegislation"
+    post:
+      operationId: assignLegislationToUnit
+      tags: [unit-legislations]
+      summary: Assign a legislation to a unit
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: legId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignLegislationBody"
+      responses:
+        "201":
+          description: Assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitLegislation"
+
+  /organizations/{orgId}/legislations/{legId}/units/{unitId}:
+    patch:
+      operationId: updateUnitLegislation
+      tags: [unit-legislations]
+      summary: Update compliance status for a unit-legislation
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: legId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUnitLegislationBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitLegislation"
+    delete:
+      operationId: removeUnitLegislation
+      tags: [unit-legislations]
+      summary: Remove a unit-legislation assignment
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: legId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+
+  /organizations/{orgId}/units/{unitId}/legislations:
+    get:
+      operationId: listUnitLegislations
+      tags: [unit-legislations]
+      summary: List legislations assigned to a unit with compliance status
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of unit-legislation assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UnitLegislationWithLegislation"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +581,457 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    RegisterBody:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        organizationName:
+          type: string
+      required:
+        - name
+        - email
+        - password
+        - organizationName
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+      required:
+        - user
+        - token
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        organizationId:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - email
+        - organizationId
+        - createdAt
+
+    MeResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        organization:
+          $ref: "#/components/schemas/Organization"
+      required:
+        - user
+        - organization
+
+    Organization:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - createdAt
+        - updatedAt
+
+    UpdateOrganizationBody:
+      type: object
+      properties:
+        name:
+          type: string
+
+    Unit:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          enum: [sede, filial]
+        address:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - name
+        - type
+        - address
+        - city
+        - state
+        - createdAt
+        - updatedAt
+
+    CreateUnitBody:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [sede, filial]
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+      required:
+        - name
+        - type
+
+    UpdateUnitBody:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [sede, filial]
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+
+    Legislation:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        title:
+          type: string
+        number:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        level:
+          type: string
+          enum: [federal, estadual, municipal, internacional]
+        status:
+          type: string
+          enum: [vigente, revogada, alterada]
+        publicationDate:
+          type: ["string", "null"]
+          format: date
+        sourceUrl:
+          type: ["string", "null"]
+        applicableArticles:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - title
+        - number
+        - description
+        - level
+        - status
+        - publicationDate
+        - sourceUrl
+        - applicableArticles
+        - createdAt
+        - updatedAt
+
+    LegislationDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        title:
+          type: string
+        number:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        level:
+          type: string
+          enum: [federal, estadual, municipal, internacional]
+        status:
+          type: string
+          enum: [vigente, revogada, alterada]
+        publicationDate:
+          type: ["string", "null"]
+          format: date
+        sourceUrl:
+          type: ["string", "null"]
+        applicableArticles:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        unitLegislations:
+          type: array
+          items:
+            $ref: "#/components/schemas/UnitLegislation"
+      required:
+        - id
+        - organizationId
+        - title
+        - number
+        - description
+        - level
+        - status
+        - publicationDate
+        - sourceUrl
+        - applicableArticles
+        - createdAt
+        - updatedAt
+        - unitLegislations
+
+    CreateLegislationBody:
+      type: object
+      properties:
+        title:
+          type: string
+        number:
+          type: string
+        description:
+          type: string
+        level:
+          type: string
+          enum: [federal, estadual, municipal, internacional]
+        status:
+          type: string
+          enum: [vigente, revogada, alterada]
+        publicationDate:
+          type: string
+          format: date
+        sourceUrl:
+          type: string
+        applicableArticles:
+          type: string
+      required:
+        - title
+        - level
+
+    UpdateLegislationBody:
+      type: object
+      properties:
+        title:
+          type: string
+        number:
+          type: string
+        description:
+          type: string
+        level:
+          type: string
+          enum: [federal, estadual, municipal, internacional]
+        status:
+          type: string
+          enum: [vigente, revogada, alterada]
+        publicationDate:
+          type: string
+          format: date
+        sourceUrl:
+          type: string
+        applicableArticles:
+          type: string
+
+    ImportLegislationsBody:
+      type: object
+      properties:
+        legislations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateLegislationBody"
+      required:
+        - legislations
+
+    ImportResult:
+      type: object
+      properties:
+        imported:
+          type: integer
+        errors:
+          type: integer
+        total:
+          type: integer
+      required:
+        - imported
+        - errors
+        - total
+
+    UnitLegislation:
+      type: object
+      properties:
+        id:
+          type: integer
+        unitId:
+          type: integer
+        legislationId:
+          type: integer
+        complianceStatus:
+          type: string
+          enum: [conforme, nao_conforme, parcialmente_conforme, nao_avaliado]
+        notes:
+          type: ["string", "null"]
+        evidenceUrl:
+          type: ["string", "null"]
+        evaluatedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        unit:
+          $ref: "#/components/schemas/Unit"
+      required:
+        - id
+        - unitId
+        - legislationId
+        - complianceStatus
+        - notes
+        - evidenceUrl
+        - evaluatedAt
+        - createdAt
+        - updatedAt
+        - unit
+
+    AssignLegislationBody:
+      type: object
+      properties:
+        unitId:
+          type: integer
+        complianceStatus:
+          type: string
+          enum: [conforme, nao_conforme, parcialmente_conforme, nao_avaliado]
+        notes:
+          type: string
+      required:
+        - unitId
+
+    UpdateUnitLegislationBody:
+      type: object
+      properties:
+        complianceStatus:
+          type: string
+          enum: [conforme, nao_conforme, parcialmente_conforme, nao_avaliado]
+        notes:
+          type: string
+        evidenceUrl:
+          type: string
+
+    UnitLegislationWithLegislation:
+      type: object
+      properties:
+        id:
+          type: integer
+        unitId:
+          type: integer
+        legislationId:
+          type: integer
+        complianceStatus:
+          type: string
+          enum: [conforme, nao_conforme, parcialmente_conforme, nao_avaliado]
+        notes:
+          type: ["string", "null"]
+        evidenceUrl:
+          type: ["string", "null"]
+        evaluatedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        legislation:
+          $ref: "#/components/schemas/Legislation"
+      required:
+        - id
+        - unitId
+        - legislationId
+        - complianceStatus
+        - notes
+        - evidenceUrl
+        - evaluatedAt
+        - createdAt
+        - updatedAt
+        - legislation
