@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
 import { Search, Plus, Upload, FileText, Filter } from "lucide-react";
 import { useForm } from "react-hook-form";
 import Papa from "papaparse";
@@ -38,11 +39,11 @@ export default function LegislacoesPage() {
   
   const form = useForm({
     defaultValues: {
-      title: "", number: "", description: "", level: "federal", status: "vigente", publicationDate: ""
+      title: "", number: "", description: "", level: "federal", status: "vigente", publicationDate: "", sourceUrl: "", applicableArticles: ""
     }
   });
 
-  const onCreateSubmit = async (data: { title: string; number: string; description: string; level: string; status: string; publicationDate: string }) => {
+  const onCreateSubmit = async (data: { title: string; number: string; description: string; level: string; status: string; publicationDate: string; sourceUrl: string; applicableArticles: string }) => {
     if (!orgId) return;
     const body: CreateLegislationBody = {
       title: data.title,
@@ -51,6 +52,8 @@ export default function LegislacoesPage() {
       level: data.level as CreateLegislationBodyLevel,
       status: data.status as CreateLegislationBodyStatus,
       publicationDate: data.publicationDate || undefined,
+      sourceUrl: data.sourceUrl || undefined,
+      applicableArticles: data.applicableArticles || undefined,
     };
     await createMut.mutateAsync({ orgId, data: body });
     queryClient.invalidateQueries({ queryKey: getListLegislationsQueryKey(orgId) });
@@ -222,7 +225,15 @@ export default function LegislacoesPage() {
           </div>
           <div>
             <Label>Descrição / Ementa</Label>
-            <Input {...form.register("description")} />
+            <Textarea {...form.register("description")} placeholder="Resumo do conteúdo da legislação..." rows={3} />
+          </div>
+          <div>
+            <Label>URL da Fonte (Diário Oficial)</Label>
+            <Input {...form.register("sourceUrl")} placeholder="https://..." />
+          </div>
+          <div>
+            <Label>Artigos Aplicáveis</Label>
+            <Input {...form.register("applicableArticles")} placeholder="ex: Art. 2°, Art. 4°, Art. 9°" />
           </div>
           <div className="pt-4 flex justify-end gap-3">
             <Button type="button" variant="ghost" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>

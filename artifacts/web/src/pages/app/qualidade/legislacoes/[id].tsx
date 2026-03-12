@@ -7,6 +7,7 @@ import {
   useListUnits, 
   useAssignLegislationToUnit, 
   useUpdateUnitLegislation,
+  useRemoveUnitLegislation,
   getGetLegislationQueryKey,
   getListUnitsQueryKey,
   type UpdateUnitLegislationBodyComplianceStatus,
@@ -36,13 +37,15 @@ export default function LegislationDetailPage() {
   
   const assignMut = useAssignLegislationToUnit();
   const updateComplianceMut = useUpdateUnitLegislation();
+  const removeMut = useRemoveUnitLegislation();
 
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [selectedUnitId, setSelectedUnitId] = useState("");
   
-  const [editingCompliance, setEditingCompliance] = useState<{ unitId: number; complianceStatus: string; notes?: string | null; unit: { name: string } } | null>(null);
+  const [editingCompliance, setEditingCompliance] = useState<{ unitId: number; complianceStatus: string; notes?: string | null; evidenceUrl?: string | null; unit: { name: string } } | null>(null);
   const [statusVal, setStatusVal] = useState("");
   const [notesVal, setNotesVal] = useState("");
+  const [evidenceVal, setEvidenceVal] = useState("");
 
   const onAssign = async () => {
     if (!orgId || !selectedUnitId) return;
@@ -59,10 +62,16 @@ export default function LegislationDetailPage() {
     if (!orgId || !editingCompliance) return;
     await updateComplianceMut.mutateAsync({
       orgId, legId, unitId: editingCompliance.unitId,
-      data: { complianceStatus: statusVal as UpdateUnitLegislationBodyComplianceStatus, notes: notesVal }
+      data: { complianceStatus: statusVal as UpdateUnitLegislationBodyComplianceStatus, notes: notesVal, evidenceUrl: evidenceVal || undefined }
     });
     queryClient.invalidateQueries({ queryKey: getGetLegislationQueryKey(orgId, legId) });
     setEditingCompliance(null);
+  };
+
+  const onUnassign = async (unitId: number) => {
+    if (!orgId || !confirm("Deseja desvincular esta unidade da legislação?")) return;
+    await removeMut.mutateAsync({ orgId, legId, unitId });
+    queryClient.invalidateQueries({ queryKey: getGetLegislationQueryKey(orgId, legId) });
   };
 
   const getStatusBadge = (status: string) => {
@@ -168,9 +177,18 @@ export default function LegislationDetailPage() {
                             setEditingCompliance(ul);
                             setStatusVal(ul.complianceStatus);
                             setNotesVal(ul.notes || "");
+                            setEvidenceVal(ul.evidenceUrl || "");
                           }}
                         >
                           Avaliar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => onUnassign(ul.unitId)}
+                        >
+                          Desvincular
                         </Button>
                       </div>
                     </div>
@@ -265,6 +283,15 @@ export default function LegislationDetailPage() {
                 value={notesVal} 
                 onChange={e => setNotesVal(e.target.value)} 
                 placeholder="Descreva as evidências de conformidade ou planos de ação..."
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>URL da Evidência</Label>
+              <Input 
+                value={evidenceVal}
+                onChange={e => setEvidenceVal(e.target.value)}
+                placeholder="https://link-para-evidencia.com/..."
                 className="mt-1"
               />
             </div>
