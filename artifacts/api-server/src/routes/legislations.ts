@@ -126,8 +126,16 @@ router.post("/organizations/:orgId/legislations/import", requireAuth, async (req
   for (let i = 0; i < body.data.legislations.length; i++) {
     const item = body.data.legislations[i];
     try {
+      let pubDate = item.publicationDate;
+      if (pubDate) {
+        const d = new Date(pubDate);
+        if (isNaN(d.getTime()) || d.getFullYear() < 1900 || d.getFullYear() > 2100) {
+          pubDate = undefined;
+        }
+      }
       const importItem = {
         ...item,
+        publicationDate: pubDate,
         organizationId: params.data.orgId,
       };
       await db.insert(legislationsTable).values(importItem);

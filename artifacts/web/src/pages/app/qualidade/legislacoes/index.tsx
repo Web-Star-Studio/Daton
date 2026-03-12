@@ -55,29 +55,38 @@ function normalizeColumnName(col: string): string {
   return col.toLowerCase().trim().replace(/\s+/g, " ");
 }
 
+function isValidDate(y: number, m: number, d: number): boolean {
+  if (y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return false;
+  const date = new Date(y, m - 1, d);
+  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+}
+
+function formatValidDate(y: number, m: number, d: number): string | undefined {
+  if (!isValidDate(y, m, d)) return undefined;
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
 function parseDate(val: unknown): string | undefined {
   if (!val) return undefined;
   if (typeof val === "number") {
     const d = XLSX.SSF.parse_date_code(val);
     if (d) {
-      const mm = String(d.m).padStart(2, "0");
-      const dd = String(d.d).padStart(2, "0");
-      return `${d.y}-${mm}-${dd}`;
+      return formatValidDate(d.y, d.m, d.d);
     }
   }
   const s = String(val).trim();
   const brMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (brMatch) {
-    return `${brMatch[3]}-${brMatch[2].padStart(2, "0")}-${brMatch[1].padStart(2, "0")}`;
+    return formatValidDate(parseInt(brMatch[3]), parseInt(brMatch[2]), parseInt(brMatch[1]));
   }
   const isoMatch = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
   if (isoMatch) {
-    return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}-${isoMatch[3].padStart(2, "0")}`;
+    return formatValidDate(parseInt(isoMatch[1]), parseInt(isoMatch[2]), parseInt(isoMatch[3]));
   }
   const usMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
   if (usMatch) {
-    const year = usMatch[3].length === 2 ? `20${usMatch[3]}` : usMatch[3];
-    return `${year}-${usMatch[1].padStart(2, "0")}-${usMatch[2].padStart(2, "0")}`;
+    const year = usMatch[3].length === 2 ? 2000 + parseInt(usMatch[3]) : parseInt(usMatch[3]);
+    return formatValidDate(year, parseInt(usMatch[1]), parseInt(usMatch[2]));
   }
   return undefined;
 }
