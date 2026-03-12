@@ -55,32 +55,13 @@ export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps
           isSidebarOpen ? "w-60" : "w-16"
         )}
       >
-        <div className={cn("h-14 flex items-center border-b border-border/60", isSidebarOpen ? "px-5 justify-between" : "px-0 justify-center")}>
+        <div className={cn("h-14 flex items-center border-b border-border/60", isSidebarOpen ? "px-5" : "px-0 justify-center")}>
           {isSidebarOpen ? (
             <img src={datonLogo} alt="Daton" className="h-6 object-contain" />
           ) : (
             <img src={datonLogo} alt="Daton" className="h-5 w-10 object-contain object-left" />
           )}
-          {isSidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="p-1 rounded text-muted-foreground/60 hover:text-foreground transition-colors cursor-pointer"
-            >
-              <PanelLeftClose className="h-4 w-4" />
-            </button>
-          )}
         </div>
-
-        {!isSidebarOpen && (
-          <div className="flex justify-center pt-3 pb-1">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-1.5 rounded text-muted-foreground/60 hover:text-foreground transition-colors cursor-pointer"
-            >
-              <PanelLeftOpen className="h-4 w-4" />
-            </button>
-          </div>
-        )}
         
         <div className="flex-1 overflow-y-auto py-5 px-2.5 space-y-1">
           <Link 
@@ -128,45 +109,53 @@ export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps
         </div>
 
         <div className="px-2.5 py-3 border-t border-border/60">
-          <div className={cn("flex items-center", isSidebarOpen ? "gap-2" : "flex-col gap-2")}>
+          <div className={cn("flex items-center", isSidebarOpen ? "gap-2" : "justify-center")}>
             <div className="h-7 w-7 rounded-full bg-foreground/5 text-foreground/60 flex items-center justify-center text-xs font-medium shrink-0">
               {user?.name?.charAt(0).toUpperCase() || "U"}
             </div>
-            <button 
-              onClick={logout}
-              className={cn(
-                "flex items-center text-[13px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer",
-                isSidebarOpen ? "px-1" : "p-1"
-              )}
-            >
-              <LogOut className={cn("h-[16px] w-[16px] shrink-0", isSidebarOpen && "mr-1.5")} />
-              {isSidebarOpen && <span>Sair</span>}
-            </button>
+            {isSidebarOpen && (
+              <span className="text-[13px] text-muted-foreground truncate">{user?.name}</span>
+            )}
           </div>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 flex items-center justify-between px-8 border-b border-border/60 bg-white sticky top-0 z-10">
-          <nav className="flex items-center text-[13px]">
-            {breadcrumbs.map((crumb, i) => (
-              <React.Fragment key={i}>
-                {i > 0 && <span className="mx-2 text-muted-foreground/40">/</span>}
-                {crumb.href ? (
-                  <Link href={crumb.href} className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
-                    {crumb.label}
-                  </Link>
-                ) : (
-                  <span className={i === breadcrumbs.length - 1 ? "text-foreground" : "text-muted-foreground"}>
-                    {crumb.label}
-                  </span>
-                )}
-              </React.Fragment>
-            ))}
-          </nav>
+        <header className="h-14 flex items-center justify-between px-6 border-b border-border/60 bg-white sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(!isSidebarOpen)}
+              className="p-1.5 rounded text-muted-foreground/60 hover:text-foreground transition-colors cursor-pointer"
+            >
+              {isSidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+            </button>
+            <nav className="flex items-center text-[13px]">
+              {breadcrumbs.map((crumb, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <span className="mx-2 text-muted-foreground/40">/</span>}
+                  {crumb.href ? (
+                    <Link href={crumb.href} className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                      {crumb.label}
+                    </Link>
+                  ) : (
+                    <span className={i === breadcrumbs.length - 1 ? "text-foreground" : "text-muted-foreground"}>
+                      {crumb.label}
+                    </span>
+                  )}
+                </React.Fragment>
+              ))}
+            </nav>
+          </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             {headerActions}
+            <button
+              onClick={logout}
+              className="flex items-center text-[13px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer ml-2"
+            >
+              <LogOut className="h-4 w-4 mr-1.5" />
+              Sair
+            </button>
           </div>
         </header>
         
