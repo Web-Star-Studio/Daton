@@ -88,20 +88,21 @@ export default function LegislationDetailPage() {
   const availableUnits = allUnits?.filter(u => !leg.unitLegislations.find(ul => ul.unitId === u.id)) || [];
 
   const headerActions = (
-    <Button variant="secondary" size="sm" onClick={() => setIsAssignOpen(true)}>
-      <Link2 className="w-4 h-4 mr-2" />
-      Vincular Unidade
-    </Button>
+    <div className="flex items-center gap-2">
+      <Link href="/app/qualidade/legislacoes">
+        <Button variant="ghost" size="sm">
+          <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
+        </Button>
+      </Link>
+      <Button variant="secondary" size="sm" onClick={() => setIsAssignOpen(true)}>
+        <Link2 className="w-4 h-4 mr-2" />
+        Vincular Unidade
+      </Button>
+    </div>
   );
 
   return (
     <AppLayout pageTitle={leg.title} headerActions={headerActions}>
-      <div className="mb-6">
-        <Link href="/app/qualidade/legislacoes" className="text-muted-foreground hover:text-foreground inline-flex items-center text-sm font-medium transition-colors cursor-pointer">
-          <ArrowLeft className="w-4 h-4 mr-1.5" /> Voltar para lista
-        </Link>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-card border border-border p-8 rounded-3xl shadow-sm">

@@ -104,19 +104,28 @@ export default function UnitDetailPage() {
 
   if (isLoading || !unit) return <AppLayout><div className="p-8 text-center text-muted-foreground">Carregando...</div></AppLayout>;
 
-  const headerActions = editing ? (
-    <div className="flex gap-2">
-      <Button variant="ghost" size="sm" onClick={handleCancel}>
-        <X className="w-4 h-4 mr-1" /> Cancelar
-      </Button>
-      <Button size="sm" onClick={handleSave} isLoading={updateMut.isPending}>
-        <Save className="w-4 h-4 mr-1" /> Salvar
-      </Button>
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Link href="/app/organizacao/unidades">
+        <Button variant="ghost" size="sm">
+          <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
+        </Button>
+      </Link>
+      {editing ? (
+        <>
+          <Button variant="ghost" size="sm" onClick={handleCancel}>
+            <X className="w-4 h-4 mr-1" /> Cancelar
+          </Button>
+          <Button size="sm" onClick={handleSave} isLoading={updateMut.isPending}>
+            <Save className="w-4 h-4 mr-1" /> Salvar
+          </Button>
+        </>
+      ) : (
+        <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+          <Pencil className="w-4 h-4 mr-1" /> Editar
+        </Button>
+      )}
     </div>
-  ) : (
-    <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
-      <Pencil className="w-4 h-4 mr-1" /> Editar
-    </Button>
   );
 
   const Field = ({ label, field, placeholder, disabled }: { label: string; field: string; placeholder?: string; disabled?: boolean }) => (
@@ -151,12 +160,6 @@ export default function UnitDetailPage() {
 
   return (
     <AppLayout pageTitle={unit.name} headerActions={headerActions}>
-      <div className="mb-6">
-        <Link href="/app/organizacao/unidades" className="text-muted-foreground hover:text-foreground inline-flex items-center text-sm font-medium transition-colors cursor-pointer">
-          <ArrowLeft className="w-4 h-4 mr-1.5" /> Voltar para unidades
-        </Link>
-      </div>
-
       <div className="max-w-3xl space-y-8">
         <section className="bg-card border border-border rounded-xl p-6">
           <div className="flex items-center gap-3 mb-6">
