@@ -300,11 +300,6 @@ paths:
           schema:
             type: string
             enum: [federal, estadual, municipal, internacional]
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [vigente, revogada, alterada]
       responses:
         "200":
           description: List of legislations
@@ -836,8 +831,6 @@ components:
           type: ["string", "null"]
         level:
           type: string
-        status:
-          type: string
         uf:
           type: ["string", "null"]
         municipality:
@@ -872,7 +865,6 @@ components:
         - organizationId
         - title
         - level
-        - status
         - createdAt
         - updatedAt
 
@@ -894,8 +886,6 @@ components:
         emissor:
           type: ["string", "null"]
         level:
-          type: string
-        status:
           type: string
         uf:
           type: ["string", "null"]
@@ -935,7 +925,6 @@ components:
         - organizationId
         - title
         - level
-        - status
         - createdAt
         - updatedAt
         - unitLegislations
@@ -954,8 +943,6 @@ components:
         emissor:
           type: string
         level:
-          type: string
-        status:
           type: string
         uf:
           type: string
@@ -998,8 +985,6 @@ components:
         emissor:
           type: string
         level:
-          type: string
-        status:
           type: string
         uf:
           type: string

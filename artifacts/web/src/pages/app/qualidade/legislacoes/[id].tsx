@@ -12,7 +12,6 @@ import {
   getGetLegislationQueryKey,
   getListUnitsQueryKey,
   type UpdateUnitLegislationBodyComplianceStatus,
-  type LegislationDetail,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -30,8 +29,7 @@ function InlineField({ label, value, fieldKey, type = "text", onSave }: {
   label: string;
   value: string | number | null | undefined;
   fieldKey: string;
-  type?: "text" | "date" | "number" | "textarea" | "select";
-  options?: { value: string; label: string }[];
+  type?: "text" | "date" | "number" | "textarea";
   onSave: (key: string, val: string | number | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -53,7 +51,7 @@ function InlineField({ label, value, fieldKey, type = "text", onSave }: {
 
   return (
     <div className="group">
-      <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">{label}</p>
+      {label && <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">{label}</p>}
       {editing ? (
         <div className="flex items-start gap-2">
           {type === "textarea" ? (
@@ -74,6 +72,8 @@ function InlineField({ label, value, fieldKey, type = "text", onSave }: {
   );
 }
 
+type Tab = "geral" | "unidades";
+
 export default function LegislationDetailPage() {
   const [, params] = useRoute("/app/qualidade/legislacoes/:id");
   const legId = parseInt(params?.id || "0");
@@ -90,6 +90,7 @@ export default function LegislationDetailPage() {
   const updateComplianceMut = useUpdateUnitLegislation();
   const removeMut = useRemoveUnitLegislation();
 
+  const [activeTab, setActiveTab] = useState<Tab>("geral");
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [selectedUnitId, setSelectedUnitId] = useState("");
   
@@ -151,158 +152,194 @@ export default function LegislationDetailPage() {
           <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
         </Button>
       </Link>
-      <Button variant="secondary" size="sm" onClick={() => setIsAssignOpen(true)}>
-        <Link2 className="w-4 h-4 mr-2" />
-        Vincular Unidade
-      </Button>
+      {activeTab === "unidades" && (
+        <Button variant="secondary" size="sm" onClick={() => setIsAssignOpen(true)}>
+          <Link2 className="w-4 h-4 mr-2" />
+          Vincular Unidade
+        </Button>
+      )}
     </div>
   );
 
   return (
     <AppLayout pageTitle={leg.title} headerActions={headerActions}>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-card border border-border p-8 rounded-3xl shadow-sm">
-            <div className="flex gap-2 mb-4">
-              <Badge variant="outline" className="uppercase text-[10px] tracking-wider">{leg.level}</Badge>
-              <Badge variant={leg.status === 'vigente' || leg.status === 'conforme' ? 'success' : 'secondary'} className="uppercase text-[10px] tracking-wider">{leg.status}</Badge>
-            </div>
-            <h2 className="text-2xl font-bold tracking-tight mb-2 text-foreground">{leg.title}</h2>
-            {leg.number && <p className="text-xl text-muted-foreground font-medium mb-6">{leg.number}</p>}
+      <div className="mb-2">
+        <div className="flex gap-1 mb-1">
+          <Badge variant="outline" className="uppercase text-[10px] tracking-wider">{leg.level}</Badge>
+        </div>
+        {leg.number && <p className="text-lg text-muted-foreground font-medium">{leg.number}</p>}
+      </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5 pt-6 border-t border-border">
-              <InlineField label="Tipo de Norma" value={leg.tipoNorma} fieldKey="tipoNorma" onSave={onFieldSave} />
-              <InlineField label="Número" value={leg.number} fieldKey="number" onSave={onFieldSave} />
-              <InlineField label="Órgão Emissor" value={leg.emissor} fieldKey="emissor" onSave={onFieldSave} />
-              <InlineField label="Data de Publicação" value={leg.publicationDate ? leg.publicationDate.split("T")[0] : null} fieldKey="publicationDate" type="date" onSave={onFieldSave} />
-              <InlineField label="Esfera / Nível" value={leg.level} fieldKey="level" onSave={onFieldSave} />
-              <InlineField label="Status" value={leg.status} fieldKey="status" onSave={onFieldSave} />
-              <InlineField label="UF" value={leg.uf} fieldKey="uf" onSave={onFieldSave} />
-              <InlineField label="Município" value={leg.municipality} fieldKey="municipality" onSave={onFieldSave} />
-              <InlineField label="Macrotema" value={leg.macrotema} fieldKey="macrotema" onSave={onFieldSave} />
-              <InlineField label="Subtema" value={leg.subtema} fieldKey="subtema" onSave={onFieldSave} />
-              <InlineField label="Aplicabilidade" value={leg.applicability} fieldKey="applicability" onSave={onFieldSave} />
-              <InlineField label="Frequência de Revisão (dias)" value={leg.reviewFrequencyDays} fieldKey="reviewFrequencyDays" type="number" onSave={onFieldSave} />
-              <InlineField label="Artigos Aplicáveis" value={leg.applicableArticles} fieldKey="applicableArticles" onSave={onFieldSave} />
-              <div>
-                <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Fonte</p>
-                {leg.sourceUrl ? (
+      <div className="border-b border-border mb-8">
+        <nav className="flex gap-8">
+          <button
+            onClick={() => setActiveTab("geral")}
+            className={cn(
+              "pb-3 text-sm font-medium border-b-2 transition-colors cursor-pointer",
+              activeTab === "geral"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Informações Gerais
+          </button>
+          <button
+            onClick={() => setActiveTab("unidades")}
+            className={cn(
+              "pb-3 text-sm font-medium border-b-2 transition-colors cursor-pointer",
+              activeTab === "unidades"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Aplicabilidade nas Unidades
+            {leg.unitLegislations.length > 0 && (
+              <span className="ml-2 text-xs bg-secondary text-muted-foreground rounded-full px-2 py-0.5">
+                {leg.unitLegislations.length}
+              </span>
+            )}
+          </button>
+        </nav>
+      </div>
+
+      {activeTab === "geral" && (
+        <div className="bg-card border border-border p-8 rounded-3xl shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+            <InlineField label="Tipo de Norma" value={leg.tipoNorma} fieldKey="tipoNorma" onSave={onFieldSave} />
+            <InlineField label="Número" value={leg.number} fieldKey="number" onSave={onFieldSave} />
+            <InlineField label="Órgão Emissor" value={leg.emissor} fieldKey="emissor" onSave={onFieldSave} />
+            <InlineField label="Data de Publicação" value={leg.publicationDate ? leg.publicationDate.split("T")[0] : null} fieldKey="publicationDate" type="date" onSave={onFieldSave} />
+            <InlineField label="Esfera / Nível" value={leg.level} fieldKey="level" onSave={onFieldSave} />
+            <InlineField label="UF" value={leg.uf} fieldKey="uf" onSave={onFieldSave} />
+            <InlineField label="Município" value={leg.municipality} fieldKey="municipality" onSave={onFieldSave} />
+            <InlineField label="Macrotema" value={leg.macrotema} fieldKey="macrotema" onSave={onFieldSave} />
+            <InlineField label="Subtema" value={leg.subtema} fieldKey="subtema" onSave={onFieldSave} />
+            <InlineField label="Aplicabilidade" value={leg.applicability} fieldKey="applicability" onSave={onFieldSave} />
+            <InlineField label="Frequência de Revisão (dias)" value={leg.reviewFrequencyDays} fieldKey="reviewFrequencyDays" type="number" onSave={onFieldSave} />
+            <InlineField label="Artigos Aplicáveis" value={leg.applicableArticles} fieldKey="applicableArticles" onSave={onFieldSave} />
+            <div>
+              <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Fonte</p>
+              {leg.sourceUrl ? (
+                <div className="flex items-center gap-2">
                   <a href={leg.sourceUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline text-[13px] font-medium inline-flex items-center cursor-pointer">
                     Acessar <ExternalLink className="w-3 h-3 ml-1" />
                   </a>
-                ) : (
-                  <InlineField label="" value={leg.sourceUrl} fieldKey="sourceUrl" onSave={onFieldSave} />
-                )}
-              </div>
-            </div>
-
-            <div className="mt-6 pt-6 border-t border-border space-y-5">
-              <InlineField label="Descrição / Ementa" value={leg.description} fieldKey="description" type="textarea" onSave={onFieldSave} />
-              <InlineField label="Observações (como é atendido)" value={leg.observations} fieldKey="observations" type="textarea" onSave={onFieldSave} />
-              <InlineField label="Observações Gerais" value={leg.generalObservations} fieldKey="generalObservations" type="textarea" onSave={onFieldSave} />
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-xl font-bold tracking-tight mb-4">Aplicabilidade nas Unidades</h2>
-
-            <div className="space-y-4">
-              {leg.unitLegislations.length === 0 ? (
-                <div className="bg-card border border-dashed border-border rounded-2xl p-8 text-center">
-                  <AlertCircle className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground">Esta legislação ainda não foi vinculada a nenhuma unidade.</p>
                 </div>
               ) : (
-                leg.unitLegislations.map((ul) => (
-                  <Card key={ul.id} className="overflow-hidden">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 gap-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center text-muted-foreground">
-                          <Building className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="font-semibold">{ul.unit.name}</p>
-                          <p className="text-sm text-muted-foreground capitalize">{ul.unit.type} • {ul.unit.city || 'Sem cidade'}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 w-full sm:w-auto">
-                        <div className="flex-1 sm:flex-initial text-right">
-                          {getStatusBadge(ul.complianceStatus)}
-                          {ul.evaluatedAt && <p className="text-[10px] text-muted-foreground mt-1">Atualizado em {formatDate(ul.evaluatedAt)}</p>}
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => {
-                            setEditingCompliance(ul);
-                            setStatusVal(ul.complianceStatus);
-                            setNotesVal(ul.notes || "");
-                            setEvidenceVal(ul.evidenceUrl || "");
-                          }}
-                        >
-                          Avaliar
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => onUnassign(ul.unitId)}
-                        >
-                          Desvincular
-                        </Button>
-                      </div>
-                    </div>
-                    {ul.notes && (
-                      <div className="px-5 pb-5 pt-0">
-                        <div className="bg-muted p-3 rounded-lg text-sm text-muted-foreground border-l-2 border-border">
-                          <strong>Anotações:</strong> {ul.notes}
-                        </div>
-                      </div>
-                    )}
-                  </Card>
-                ))
+                <InlineField label="" value={leg.sourceUrl} fieldKey="sourceUrl" onSave={onFieldSave} />
               )}
             </div>
           </div>
-        </div>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg">Resumo de Conformidade</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {['conforme', 'parcialmente_conforme', 'nao_conforme', 'nao_avaliado'].map(st => {
-                  const count = leg.unitLegislations.filter(ul => ul.complianceStatus === st).length;
-                  const total = leg.unitLegislations.length || 1;
-                  const pct = Math.round((count / total) * 100);
-                  
-                  return (
-                    <div key={st}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="capitalize text-muted-foreground">{st.replace(/_/g, ' ')}</span>
-                        <span className="font-medium">{count}</span>
+          <div className="mt-6 pt-6 border-t border-border space-y-5">
+            <InlineField label="Descrição / Ementa" value={leg.description} fieldKey="description" type="textarea" onSave={onFieldSave} />
+            <InlineField label="Observações (como é atendido)" value={leg.observations} fieldKey="observations" type="textarea" onSave={onFieldSave} />
+            <InlineField label="Observações Gerais" value={leg.generalObservations} fieldKey="generalObservations" type="textarea" onSave={onFieldSave} />
+          </div>
+        </div>
+      )}
+
+      {activeTab === "unidades" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-4">
+            {leg.unitLegislations.length === 0 ? (
+              <div className="bg-card border border-dashed border-border rounded-2xl p-8 text-center">
+                <AlertCircle className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">Esta legislação ainda não foi vinculada a nenhuma unidade.</p>
+                <Button variant="secondary" size="sm" className="mt-4" onClick={() => setIsAssignOpen(true)}>
+                  <Link2 className="w-4 h-4 mr-2" /> Vincular Unidade
+                </Button>
+              </div>
+            ) : (
+              leg.unitLegislations.map((ul) => (
+                <Card key={ul.id} className="overflow-hidden">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center text-muted-foreground">
+                        <Building className="w-5 h-5" />
                       </div>
-                      <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                        <div 
-                          className={cn("h-full", 
-                            st === 'conforme' ? "bg-emerald-500" : 
-                            st === 'nao_conforme' ? "bg-red-500" : 
-                            st === 'parcialmente_conforme' ? "bg-amber-500" : "bg-gray-300"
-                          )}
-                          style={{ width: `${pct}%` }}
-                        />
+                      <div>
+                        <p className="font-semibold">{ul.unit.name}</p>
+                        <p className="text-sm text-muted-foreground capitalize">{ul.unit.type} • {ul.unit.city || 'Sem cidade'}</p>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                    
+                    <div className="flex items-center gap-4 w-full sm:w-auto">
+                      <div className="flex-1 sm:flex-initial text-right">
+                        {getStatusBadge(ul.complianceStatus)}
+                        {ul.evaluatedAt && <p className="text-[10px] text-muted-foreground mt-1">Atualizado em {formatDate(ul.evaluatedAt)}</p>}
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          setEditingCompliance(ul);
+                          setStatusVal(ul.complianceStatus);
+                          setNotesVal(ul.notes || "");
+                          setEvidenceVal(ul.evidenceUrl || "");
+                        }}
+                      >
+                        Avaliar
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => onUnassign(ul.unitId)}
+                      >
+                        Desvincular
+                      </Button>
+                    </div>
+                  </div>
+                  {ul.notes && (
+                    <div className="px-5 pb-5 pt-0">
+                      <div className="bg-muted p-3 rounded-lg text-sm text-muted-foreground border-l-2 border-border">
+                        <strong>Anotações:</strong> {ul.notes}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              ))
+            )}
+          </div>
+
+          <div className="space-y-6">
+            <Card>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">Resumo de Conformidade</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {['conforme', 'parcialmente_conforme', 'nao_conforme', 'nao_avaliado'].map(st => {
+                    const count = leg.unitLegislations.filter(ul => ul.complianceStatus === st).length;
+                    const total = leg.unitLegislations.length || 1;
+                    const pct = Math.round((count / total) * 100);
+                    
+                    return (
+                      <div key={st}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="capitalize text-muted-foreground">{st.replace(/_/g, ' ')}</span>
+                          <span className="font-medium">{count}</span>
+                        </div>
+                        <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                          <div 
+                            className={cn("h-full", 
+                              st === 'conforme' ? "bg-emerald-500" : 
+                              st === 'nao_conforme' ? "bg-red-500" : 
+                              st === 'parcialmente_conforme' ? "bg-amber-500" : "bg-gray-300"
+                            )}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
+      )}
 
       <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen} title="Vincular Unidade">
         <div className="space-y-4 mt-4">

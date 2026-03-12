@@ -27,7 +27,6 @@ function formatLeg(l: Legislation) {
     tipoNorma: l.tipoNorma,
     emissor: l.emissor,
     level: l.level,
-    status: l.status,
     uf: l.uf,
     municipality: l.municipality,
     macrotema: l.macrotema,
@@ -66,10 +65,6 @@ router.get("/organizations/:orgId/legislations", requireAuth, async (req, res): 
   if (query.success && query.data.level) {
     conditions.push(eq(legislationsTable.level, query.data.level));
   }
-  if (query.success && query.data.status) {
-    conditions.push(eq(legislationsTable.status, query.data.status));
-  }
-
   const legislations = await db.select().from(legislationsTable)
     .where(and(...conditions))
     .orderBy(legislationsTable.createdAt);

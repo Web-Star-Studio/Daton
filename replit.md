@@ -34,8 +34,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **organizations**: id, name (razão social), nomeFantasia, cnpj, timestamps
 - **users**: id, name, email, passwordHash, organizationId, role
 - **units**: id, name, code, type (sede/filial), cnpj, status (ativa/inativa), cep, address, streetNumber, neighborhood, city, state, country, phone, organizationId
-- **legislations**: id, title, number, description, level (federal/estadual/municipal/internacional), status (vigente/revogada/alterada), publicationDate, applicableArticles, sourceUrl, organizationId
-- **unit_legislations**: id, unitId, legislationId, complianceStatus (conforme/nao_conforme/parcialmente_conforme/nao_avaliado), notes, evaluatedAt, evaluatedBy
+- **legislations**: id, title, number, description, tipoNorma, emissor, level, uf, municipality, macrotema, subtema, applicability, publicationDate, sourceUrl, applicableArticles, reviewFrequencyDays, observations, generalObservations, organizationId. **Note: status is NOT stored per legislation — it belongs to unit_legislations only.**
+- **unit_legislations**: id, unitId, legislationId, complianceStatus (conforme/nao_conforme/parcialmente_conforme/nao_avaliado), notes, evidenceUrl, evaluatedAt, evaluatedBy
 
 ## Structure
 

@@ -303,7 +303,6 @@ router.get("/organizations/:orgId/units/:unitId/legislations", requireAuth, asyn
       number: legislation.number,
       description: legislation.description,
       level: legislation.level,
-      status: legislation.status,
       publicationDate: legislation.publicationDate,
       sourceUrl: legislation.sourceUrl,
       applicableArticles: legislation.applicableArticles,

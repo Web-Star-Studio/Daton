@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,7 +39,6 @@ const COLUMN_MAP: Record<string, string> = {
   "macrotema": "macrotema",
   "subtema": "subtema",
   "aplicabilidade": "applicability",
-  "status": "status",
   "url texto integral": "sourceUrl",
   "frequência revisão (dias)": "reviewFrequencyDays",
   "frequencia revisao (dias)": "reviewFrequencyDays",
@@ -115,7 +113,6 @@ function parseXlsxRows(data: ArrayBuffer, selectedLevel: string): CreateLegislat
       tipoNorma: mapped.tipoNorma ? String(mapped.tipoNorma).trim() : undefined,
       emissor: mapped.emissor ? String(mapped.emissor).trim() : undefined,
       level: selectedLevel,
-      status: mapped.status ? String(mapped.status).trim().toLowerCase() : "vigente",
       uf: mapped.uf ? String(mapped.uf).trim() : undefined,
       municipality: mapped.municipality ? String(mapped.municipality).trim() : undefined,
       macrotema: mapped.macrotema ? String(mapped.macrotema).trim() : undefined,
@@ -139,11 +136,10 @@ export default function LegislacoesPage() {
 
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
   
   const { data: legislations, isLoading } = useListLegislations(
     orgId!, 
-    { search, level: levelFilter || undefined, status: statusFilter || undefined }, 
+    { search, level: levelFilter || undefined }, 
     { query: { queryKey: getListLegislationsQueryKey(orgId!), enabled: !!orgId } }
   );
 
@@ -159,18 +155,17 @@ export default function LegislacoesPage() {
   
   const form = useForm({
     defaultValues: {
-      title: "", number: "", description: "", level: "federal", status: "vigente", publicationDate: "", sourceUrl: "", applicableArticles: ""
+      title: "", number: "", description: "", level: "federal", publicationDate: "", sourceUrl: "", applicableArticles: ""
     }
   });
 
-  const onCreateSubmit = async (data: { title: string; number: string; description: string; level: string; status: string; publicationDate: string; sourceUrl: string; applicableArticles: string }) => {
+  const onCreateSubmit = async (data: { title: string; number: string; description: string; level: string; publicationDate: string; sourceUrl: string; applicableArticles: string }) => {
     if (!orgId) return;
     const body: CreateLegislationBody = {
       title: data.title,
       number: data.number || undefined,
       description: data.description || undefined,
       level: data.level,
-      status: data.status,
       publicationDate: data.publicationDate || undefined,
       sourceUrl: data.sourceUrl || undefined,
       applicableArticles: data.applicableArticles || undefined,
@@ -205,7 +200,7 @@ export default function LegislacoesPage() {
       
       if (mapped.length > 0) {
         const result = await importMut.mutateAsync({ orgId, data: { legislations: mapped } });
-        setImportResult(result as { imported: number; errors: number; total: number });
+        setImportResult(result as { imported: number; errors: number; total: number; errorDetails?: { index: number; title: string; error: string }[] });
         queryClient.invalidateQueries({ queryKey: getListLegislationsQueryKey(orgId) });
       }
     };
@@ -254,16 +249,6 @@ export default function LegislacoesPage() {
             <option value="internacional">Internacional</option>
           </Select>
         </div>
-        <div className="w-44">
-          <Label>Status</Label>
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="mt-2">
-            <option value="">Todos</option>
-            <option value="vigente">Vigente</option>
-            <option value="conforme">Conforme</option>
-            <option value="revogada">Revogada</option>
-            <option value="alterada">Alterada</option>
-          </Select>
-        </div>
       </div>
 
       <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
@@ -274,16 +259,15 @@ export default function LegislacoesPage() {
                 <th className="px-6 py-4">Título / Número</th>
                 <th className="px-6 py-4">Tipo</th>
                 <th className="px-6 py-4">Esfera</th>
-                <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Publicação</th>
                 <th className="px-6 py-4 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {isLoading ? (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">Carregando...</td></tr>
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">Carregando...</td></tr>
               ) : legislations?.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">Nenhuma legislação encontrada.</td></tr>
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">Nenhuma legislação encontrada.</td></tr>
               ) : (
                 legislations?.map((leg) => (
                   <tr key={leg.id} className="hover:bg-muted/50 transition-colors">
@@ -296,11 +280,6 @@ export default function LegislacoesPage() {
                     </td>
                     <td className="px-6 py-4">
                       <span className="capitalize text-muted-foreground">{leg.level}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge variant={leg.status === 'vigente' || leg.status === 'conforme' ? 'success' : leg.status === 'revogada' || leg.status === 'nao_conforme' ? 'destructive' : 'warning'} className="capitalize">
-                        {leg.status}
-                      </Badge>
                     </td>
                     <td className="px-6 py-4 text-muted-foreground">
                       {formatDate(leg.publicationDate)}
@@ -334,24 +313,14 @@ export default function LegislacoesPage() {
               <Input type="date" {...form.register("publicationDate")} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Nível</Label>
-              <Select {...form.register("level")}>
-                <option value="federal">Federal</option>
-                <option value="estadual">Estadual</option>
-                <option value="municipal">Municipal</option>
-                <option value="internacional">Internacional</option>
-              </Select>
-            </div>
-            <div>
-              <Label>Status</Label>
-              <Select {...form.register("status")}>
-                <option value="vigente">Vigente</option>
-                <option value="alterada">Alterada</option>
-                <option value="revogada">Revogada</option>
-              </Select>
-            </div>
+          <div>
+            <Label>Nível / Esfera</Label>
+            <Select {...form.register("level")}>
+              <option value="federal">Federal</option>
+              <option value="estadual">Estadual</option>
+              <option value="municipal">Municipal</option>
+              <option value="internacional">Internacional</option>
+            </Select>
           </div>
           <div>
             <Label>Descrição / Ementa</Label>

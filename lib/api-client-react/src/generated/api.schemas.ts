@@ -202,7 +202,6 @@ export interface Legislation {
   /** @nullable */
   emissor: string | null;
   level: string;
-  status: string;
   /** @nullable */
   uf: string | null;
   /** @nullable */
@@ -237,15 +236,6 @@ export const LegislationDetailLevel = {
   estadual: "estadual",
   municipal: "municipal",
   internacional: "internacional",
-} as const;
-
-export type LegislationDetailStatus =
-  (typeof LegislationDetailStatus)[keyof typeof LegislationDetailStatus];
-
-export const LegislationDetailStatus = {
-  vigente: "vigente",
-  revogada: "revogada",
-  alterada: "alterada",
 } as const;
 
 export type UnitLegislationComplianceStatus =
@@ -287,7 +277,6 @@ export interface LegislationDetail {
   /** @nullable */
   emissor: string | null;
   level: string;
-  status: string;
   /** @nullable */
   uf: string | null;
   /** @nullable */
@@ -325,15 +314,6 @@ export const CreateLegislationBodyLevel = {
   internacional: "internacional",
 } as const;
 
-export type CreateLegislationBodyStatus =
-  (typeof CreateLegislationBodyStatus)[keyof typeof CreateLegislationBodyStatus];
-
-export const CreateLegislationBodyStatus = {
-  vigente: "vigente",
-  revogada: "revogada",
-  alterada: "alterada",
-} as const;
-
 export interface CreateLegislationBody {
   title: string;
   number?: string;
@@ -341,7 +321,6 @@ export interface CreateLegislationBody {
   tipoNorma?: string;
   emissor?: string;
   level: string;
-  status?: string;
   uf?: string;
   municipality?: string;
   macrotema?: string;
@@ -365,15 +344,6 @@ export const UpdateLegislationBodyLevel = {
   internacional: "internacional",
 } as const;
 
-export type UpdateLegislationBodyStatus =
-  (typeof UpdateLegislationBodyStatus)[keyof typeof UpdateLegislationBodyStatus];
-
-export const UpdateLegislationBodyStatus = {
-  vigente: "vigente",
-  revogada: "revogada",
-  alterada: "alterada",
-} as const;
-
 export interface UpdateLegislationBody {
   title?: string;
   number?: string;
@@ -381,7 +351,6 @@ export interface UpdateLegislationBody {
   tipoNorma?: string;
   emissor?: string;
   level?: string;
-  status?: string;
   uf?: string;
   municipality?: string;
   macrotema?: string;
@@ -466,7 +435,6 @@ export interface UnitLegislationWithLegislation {
 export type ListLegislationsParams = {
   search?: string;
   level?: ListLegislationsLevel;
-  status?: ListLegislationsStatus;
 };
 
 export type ListLegislationsLevel =
@@ -477,13 +445,4 @@ export const ListLegislationsLevel = {
   estadual: "estadual",
   municipal: "municipal",
   internacional: "internacional",
-} as const;
-
-export type ListLegislationsStatus =
-  (typeof ListLegislationsStatus)[keyof typeof ListLegislationsStatus];
-
-export const ListLegislationsStatus = {
-  vigente: "vigente",
-  revogada: "revogada",
-  alterada: "alterada",
 } as const;

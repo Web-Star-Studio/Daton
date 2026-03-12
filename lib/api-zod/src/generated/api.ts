@@ -247,7 +247,6 @@ export const ListLegislationsParams = zod.object({
 export const ListLegislationsQueryParams = zod.object({
   search: zod.coerce.string().optional(),
   level: zod.string().optional(),
-  status: zod.string().optional(),
 });
 
 export const ListLegislationsResponseItem = zod.object({
@@ -259,7 +258,6 @@ export const ListLegislationsResponseItem = zod.object({
   tipoNorma: zod.string().nullable(),
   emissor: zod.string().nullable(),
   level: zod.string(),
-  status: zod.string(),
   uf: zod.string().nullable(),
   municipality: zod.string().nullable(),
   macrotema: zod.string().nullable(),
@@ -290,7 +288,6 @@ export const CreateLegislationBody = zod.object({
   tipoNorma: zod.string().optional(),
   emissor: zod.string().optional(),
   level: zod.string(),
-  status: zod.string().optional(),
   uf: zod.string().optional(),
   municipality: zod.string().optional(),
   macrotema: zod.string().optional(),
@@ -332,7 +329,6 @@ export const GetLegislationResponse = zod.object({
   tipoNorma: zod.string().nullable(),
   emissor: zod.string().nullable(),
   level: zod.string(),
-  status: zod.string(),
   uf: zod.string().nullable(),
   municipality: zod.string().nullable(),
   macrotema: zod.string().nullable(),
@@ -392,7 +388,6 @@ export const UpdateLegislationBody = zod.object({
   tipoNorma: zod.string().optional(),
   emissor: zod.string().optional(),
   level: zod.string().optional(),
-  status: zod.string().optional(),
   uf: zod.string().optional(),
   municipality: zod.string().optional(),
   macrotema: zod.string().optional(),
@@ -415,7 +410,6 @@ export const UpdateLegislationResponse = zod.object({
   tipoNorma: zod.string().nullable(),
   emissor: zod.string().nullable(),
   level: zod.string(),
-  status: zod.string(),
   uf: zod.string().nullable(),
   municipality: zod.string().nullable(),
   macrotema: zod.string().nullable(),
