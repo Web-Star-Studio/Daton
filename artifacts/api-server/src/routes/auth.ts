@@ -97,6 +97,11 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
 
   const [org] = await db.select().from(organizationsTable).where(eq(organizationsTable.id, organizationId));
 
+  if (!org) {
+    res.status(500).json({ error: "Organização não encontrada" });
+    return;
+  }
+
   res.json({
     user: {
       id: user.id,
@@ -105,12 +110,12 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
       organizationId: user.organizationId,
       createdAt: user.createdAt.toISOString(),
     },
-    organization: org ? {
+    organization: {
       id: org.id,
       name: org.name,
       createdAt: org.createdAt.toISOString(),
       updatedAt: org.updatedAt.toISOString(),
-    } : null,
+    },
   });
 });
 

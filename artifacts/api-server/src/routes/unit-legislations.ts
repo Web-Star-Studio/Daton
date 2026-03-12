@@ -99,6 +99,14 @@ router.post("/organizations/:orgId/legislations/:legId/units", requireAuth, asyn
     return;
   }
 
+  const existing = await db.select({ id: unitLegislationsTable.id }).from(unitLegislationsTable)
+    .where(and(eq(unitLegislationsTable.unitId, body.data.unitId), eq(unitLegislationsTable.legislationId, params.data.legId)));
+
+  if (existing.length > 0) {
+    res.status(409).json({ error: "Esta unidade já está vinculada a esta legislação" });
+    return;
+  }
+
   const [ul] = await db.insert(unitLegislationsTable).values({
     unitId: body.data.unitId,
     legislationId: params.data.legId,
