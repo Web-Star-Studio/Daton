@@ -163,13 +163,6 @@ export default function LegislationDetailPage() {
 
   return (
     <AppLayout pageTitle={leg.title} headerActions={headerActions}>
-      <div className="mb-2">
-        <div className="flex gap-1 mb-1">
-          <Badge variant="outline" className="uppercase text-[10px] tracking-wider">{leg.level}</Badge>
-        </div>
-        {leg.number && <p className="text-lg text-muted-foreground font-medium">{leg.number}</p>}
-      </div>
-
       <div className="border-b border-border mb-8">
         <nav className="flex gap-8">
           <button
