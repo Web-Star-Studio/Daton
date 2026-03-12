@@ -3,3 +3,4 @@ export * from "./users";
 export * from "./units";
 export * from "./legislations";
 export * from "./unit-legislations";
+export * from "./evidence-attachments";

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRoute, Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,7 +23,28 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn, formatDate } from "@/lib/utils";
-import { ArrowLeft, ExternalLink, Link2, Building, AlertCircle, Pencil, Check, X } from "lucide-react";
+import { ArrowLeft, ExternalLink, Link2, Building, AlertCircle, Pencil, Check, X, Paperclip, Trash2, FileText, Upload, Loader2 } from "lucide-react";
+
+interface Attachment {
+  id: number;
+  unitLegislationId: number;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+  uploadedAt: string;
+}
+
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem("daton_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function InlineField({ label, value, fieldKey, type = "text", onSave }: {
   label: string;
@@ -98,6 +119,10 @@ export default function LegislationDetailPage() {
   const [statusVal, setStatusVal] = useState("");
   const [notesVal, setNotesVal] = useState("");
   const [evidenceVal, setEvidenceVal] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const onFieldSave = useCallback(async (key: string, val: string | number | null) => {
     if (!orgId) return;
@@ -114,6 +139,76 @@ export default function LegislationDetailPage() {
     queryClient.invalidateQueries({ queryKey: getGetLegislationQueryKey(orgId, legId) });
     setIsAssignOpen(false);
     setSelectedUnitId("");
+  };
+
+  const loadAttachments = useCallback(async (unitId: number) => {
+    if (!orgId) return;
+    setLoadingAttachments(true);
+    try {
+      const res = await fetch(`/api/organizations/${orgId}/legislations/${legId}/units/${unitId}/attachments`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        setAttachments(await res.json());
+      }
+    } finally {
+      setLoadingAttachments(false);
+    }
+  }, [orgId, legId]);
+
+  const openComplianceDialog = useCallback((ul: { unitId: number; complianceStatus: string; notes?: string | null; evidenceUrl?: string | null; unit: { name: string } }) => {
+    setEditingCompliance(ul);
+    setStatusVal(ul.complianceStatus);
+    setNotesVal(ul.notes || "");
+    setEvidenceVal(ul.evidenceUrl || "");
+    setAttachments([]);
+    loadAttachments(ul.unitId);
+  }, [loadAttachments]);
+
+  const uploadFile = async (file: File) => {
+    if (!orgId || !editingCompliance) return;
+    setIsUploading(true);
+    try {
+      const urlRes = await fetch("/api/storage/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
+      });
+      if (!urlRes.ok) throw new Error("Falha ao obter URL de upload");
+      const { uploadURL, objectPath } = await urlRes.json();
+
+      const putRes = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
+      if (!putRes.ok) throw new Error("Falha ao enviar arquivo");
+
+      const attachRes = await fetch(`/api/organizations/${orgId}/legislations/${legId}/units/${editingCompliance.unitId}/attachments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ fileName: file.name, fileSize: file.size, contentType: file.type || "application/octet-stream", objectPath }),
+      });
+      if (!attachRes.ok) throw new Error("Falha ao registrar anexo");
+      const attachment = await attachRes.json();
+      setAttachments(prev => [...prev, attachment]);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erro ao enviar arquivo");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const deleteAttachment = async (attachmentId: number) => {
+    if (!orgId || !editingCompliance) return;
+    const res = await fetch(`/api/organizations/${orgId}/legislations/${legId}/units/${editingCompliance.unitId}/attachments/${attachmentId}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    });
+    if (res.ok) {
+      setAttachments(prev => prev.filter(a => a.id !== attachmentId));
+    }
   };
 
   const onSaveCompliance = async () => {
@@ -265,12 +360,7 @@ export default function LegislationDetailPage() {
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => {
-                          setEditingCompliance(ul);
-                          setStatusVal(ul.complianceStatus);
-                          setNotesVal(ul.notes || "");
-                          setEvidenceVal(ul.evidenceUrl || "");
-                        }}
+                        onClick={() => openComplianceDialog(ul)}
                       >
                         Avaliar
                       </Button>
@@ -382,6 +472,64 @@ export default function LegislationDetailPage() {
                 placeholder="https://link-para-evidencia.com/..."
                 className="mt-1"
               />
+            </div>
+            <div>
+              <Label>Anexos de Evidência</Label>
+              <div className="mt-1 space-y-2">
+                {loadingAttachments && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Carregando anexos...
+                  </div>
+                )}
+                {attachments.map(a => (
+                  <div key={a.id} className="flex items-center gap-2 px-3 py-2 bg-secondary/50 rounded-md text-[13px]">
+                    <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <a
+                      href={`/api/storage${a.objectPath}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 text-primary hover:underline truncate"
+                    >
+                      {a.fileName}
+                    </a>
+                    <span className="text-xs text-muted-foreground shrink-0">{formatFileSize(a.fileSize)}</span>
+                    <button
+                      type="button"
+                      onClick={() => deleteAttachment(a.id)}
+                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {!loadingAttachments && attachments.length === 0 && (
+                  <p className="text-xs text-muted-foreground py-1">Nenhum anexo adicionado.</p>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) uploadFile(file);
+                  }}
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.txt,.csv"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full"
+                >
+                  {isUploading ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enviando...</>
+                  ) : (
+                    <><Paperclip className="w-4 h-4 mr-2" /> Anexar Arquivo</>
+                  )}
+                </Button>
+              </div>
             </div>
             <div className="pt-4 flex justify-end gap-3">
               <Button variant="ghost" onClick={() => setEditingCompliance(null)}>Cancelar</Button>

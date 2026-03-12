@@ -584,3 +584,49 @@ export const ListUnitLegislationsResponseItem = zod.object({
 export const ListUnitLegislationsResponse = zod.array(
   ListUnitLegislationsResponseItem,
 );
+
+export const RequestUploadUrlBody = zod.object({
+  name: zod.string().min(1),
+  size: zod.number().int().min(1),
+  contentType: zod.string().min(1),
+});
+
+export const RequestUploadUrlResponse = zod.object({
+  uploadURL: zod.string(),
+  objectPath: zod.string(),
+  metadata: zod.object({
+    name: zod.string(),
+    size: zod.number(),
+    contentType: zod.string(),
+  }).optional(),
+});
+
+export const EvidenceAttachmentResponse = zod.object({
+  id: zod.number(),
+  unitLegislationId: zod.number(),
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+  uploadedAt: zod.string(),
+});
+
+export const CreateEvidenceAttachmentBody = zod.object({
+  fileName: zod.string().min(1),
+  fileSize: zod.number().int().min(1),
+  contentType: zod.string().min(1),
+  objectPath: zod.string().min(1),
+});
+
+export const EvidenceAttachmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  legId: zod.coerce.number(),
+  unitId: zod.coerce.number(),
+});
+
+export const DeleteEvidenceAttachmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  legId: zod.coerce.number(),
+  unitId: zod.coerce.number(),
+  attachmentId: zod.coerce.number(),
+});

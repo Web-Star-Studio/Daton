@@ -36,6 +36,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **units**: id, name, code, type (sede/filial), cnpj, status (ativa/inativa), cep, address, streetNumber, neighborhood, city, state, country, phone, organizationId
 - **legislations**: id, title, number, description, tipoNorma, emissor, level, uf, municipality, macrotema, subtema, applicability, publicationDate, sourceUrl, applicableArticles, reviewFrequencyDays, observations, generalObservations, organizationId. **Note: status is NOT stored per legislation — it belongs to unit_legislations only.**
 - **unit_legislations**: id, unitId, legislationId, complianceStatus (conforme/nao_conforme/parcialmente_conforme/nao_avaliado), notes, evidenceUrl, evaluatedAt, evaluatedBy
+- **evidence_attachments**: id, unitLegislationId, fileName, fileSize, contentType, objectPath, uploadedAt — file evidence attached to compliance evaluations, stored via GCS presigned URL upload
 
 ## Structure
 
@@ -71,6 +72,10 @@ artifacts-monorepo/
 - GET/PATCH/DELETE /api/organizations/:orgId/legislations/:legId — Legislation CRUD
 - GET/POST /api/organizations/:orgId/legislations/:legId/units — List/assign unit compliance
 - PATCH/DELETE /api/organizations/:orgId/legislations/:legId/units/:unitId — Update/remove compliance
+- GET/POST /api/organizations/:orgId/legislations/:legId/units/:unitId/attachments — List/create evidence attachments
+- DELETE /api/organizations/:orgId/legislations/:legId/units/:unitId/attachments/:attachmentId — Remove attachment
+- POST /api/storage/uploads/request-url — Request presigned upload URL (GCS)
+- GET /api/storage/objects/* — Serve uploaded objects
 
 ## Frontend Routes
 

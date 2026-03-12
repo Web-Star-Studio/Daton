@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, unitLegislationsTable, unitsTable, legislationsTable } from "@workspace/db";
+import { db, unitLegislationsTable, unitsTable, legislationsTable, evidenceAttachmentsTable } from "@workspace/db";
 import {
   ListLegislationUnitsParams,
   AssignLegislationToUnitParams,
@@ -9,6 +9,9 @@ import {
   UpdateUnitLegislationBody,
   RemoveUnitLegislationParams,
   ListUnitLegislationsParams,
+  CreateEvidenceAttachmentBody,
+  EvidenceAttachmentParams,
+  DeleteEvidenceAttachmentParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 
@@ -310,6 +313,117 @@ router.get("/organizations/:orgId/units/:unitId/legislations", requireAuth, asyn
       updatedAt: legislation.updatedAt.toISOString(),
     },
   })));
+});
+
+router.get("/organizations/:orgId/legislations/:legId/units/:unitId/attachments", requireAuth, async (req, res): Promise<void> => {
+  const params = EvidenceAttachmentParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (params.data.orgId !== req.auth!.organizationId) {
+    res.status(403).json({ error: "Acesso negado" });
+    return;
+  }
+
+  const [ul] = await db.select({ id: unitLegislationsTable.id }).from(unitLegislationsTable)
+    .innerJoin(legislationsTable, and(eq(unitLegislationsTable.legislationId, legislationsTable.id), eq(legislationsTable.organizationId, params.data.orgId)))
+    .where(and(eq(unitLegislationsTable.legislationId, params.data.legId), eq(unitLegislationsTable.unitId, params.data.unitId)));
+
+  if (!ul) {
+    res.status(404).json({ error: "Vínculo não encontrado" });
+    return;
+  }
+
+  const attachments = await db.select().from(evidenceAttachmentsTable)
+    .where(eq(evidenceAttachmentsTable.unitLegislationId, ul.id));
+
+  res.json(attachments.map(a => ({
+    id: a.id,
+    unitLegislationId: a.unitLegislationId,
+    fileName: a.fileName,
+    fileSize: a.fileSize,
+    contentType: a.contentType,
+    objectPath: a.objectPath,
+    uploadedAt: a.uploadedAt.toISOString(),
+  })));
+});
+
+router.post("/organizations/:orgId/legislations/:legId/units/:unitId/attachments", requireAuth, async (req, res): Promise<void> => {
+  const params = EvidenceAttachmentParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (params.data.orgId !== req.auth!.organizationId) {
+    res.status(403).json({ error: "Acesso negado" });
+    return;
+  }
+
+  const body = CreateEvidenceAttachmentBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const [ul] = await db.select({ id: unitLegislationsTable.id }).from(unitLegislationsTable)
+    .innerJoin(legislationsTable, and(eq(unitLegislationsTable.legislationId, legislationsTable.id), eq(legislationsTable.organizationId, params.data.orgId)))
+    .where(and(eq(unitLegislationsTable.legislationId, params.data.legId), eq(unitLegislationsTable.unitId, params.data.unitId)));
+
+  if (!ul) {
+    res.status(404).json({ error: "Vínculo não encontrado" });
+    return;
+  }
+
+  const [attachment] = await db.insert(evidenceAttachmentsTable).values({
+    unitLegislationId: ul.id,
+    fileName: body.data.fileName,
+    fileSize: body.data.fileSize,
+    contentType: body.data.contentType,
+    objectPath: body.data.objectPath,
+  }).returning();
+
+  res.status(201).json({
+    id: attachment.id,
+    unitLegislationId: attachment.unitLegislationId,
+    fileName: attachment.fileName,
+    fileSize: attachment.fileSize,
+    contentType: attachment.contentType,
+    objectPath: attachment.objectPath,
+    uploadedAt: attachment.uploadedAt.toISOString(),
+  });
+});
+
+router.delete("/organizations/:orgId/legislations/:legId/units/:unitId/attachments/:attachmentId", requireAuth, async (req, res): Promise<void> => {
+  const params = DeleteEvidenceAttachmentParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (params.data.orgId !== req.auth!.organizationId) {
+    res.status(403).json({ error: "Acesso negado" });
+    return;
+  }
+
+  const [ul] = await db.select({ id: unitLegislationsTable.id }).from(unitLegislationsTable)
+    .innerJoin(legislationsTable, and(eq(unitLegislationsTable.legislationId, legislationsTable.id), eq(legislationsTable.organizationId, params.data.orgId)))
+    .where(and(eq(unitLegislationsTable.legislationId, params.data.legId), eq(unitLegislationsTable.unitId, params.data.unitId)));
+
+  if (!ul) {
+    res.status(404).json({ error: "Vínculo não encontrado" });
+    return;
+  }
+
+  const [deleted] = await db.delete(evidenceAttachmentsTable)
+    .where(and(eq(evidenceAttachmentsTable.id, params.data.attachmentId), eq(evidenceAttachmentsTable.unitLegislationId, ul.id)))
+    .returning();
+
+  if (!deleted) {
+    res.status(404).json({ error: "Anexo não encontrado" });
+    return;
+  }
+
+  res.sendStatus(204);
 });
 
 export default router;
