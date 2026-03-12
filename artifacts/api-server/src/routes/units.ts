@@ -14,6 +14,28 @@ import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
+function serializeUnit(u: typeof unitsTable.$inferSelect) {
+  return {
+    id: u.id,
+    organizationId: u.organizationId,
+    name: u.name,
+    code: u.code,
+    type: u.type,
+    cnpj: u.cnpj,
+    status: u.status,
+    cep: u.cep,
+    address: u.address,
+    streetNumber: u.streetNumber,
+    neighborhood: u.neighborhood,
+    city: u.city,
+    state: u.state,
+    country: u.country,
+    phone: u.phone,
+    createdAt: u.createdAt.toISOString(),
+    updatedAt: u.updatedAt.toISOString(),
+  };
+}
+
 router.get("/organizations/:orgId/units", requireAuth, async (req, res): Promise<void> => {
   const params = ListUnitsParams.safeParse(req.params);
   if (!params.success) {
@@ -30,17 +52,7 @@ router.get("/organizations/:orgId/units", requireAuth, async (req, res): Promise
     .where(eq(unitsTable.organizationId, params.data.orgId))
     .orderBy(unitsTable.createdAt);
 
-  res.json(units.map(u => ({
-    id: u.id,
-    organizationId: u.organizationId,
-    name: u.name,
-    type: u.type,
-    address: u.address,
-    city: u.city,
-    state: u.state,
-    createdAt: u.createdAt.toISOString(),
-    updatedAt: u.updatedAt.toISOString(),
-  })));
+  res.json(units.map(serializeUnit));
 });
 
 router.post("/organizations/:orgId/units", requireAuth, async (req, res): Promise<void> => {
@@ -66,17 +78,7 @@ router.post("/organizations/:orgId/units", requireAuth, async (req, res): Promis
     organizationId: params.data.orgId,
   }).returning();
 
-  res.status(201).json({
-    id: unit.id,
-    organizationId: unit.organizationId,
-    name: unit.name,
-    type: unit.type,
-    address: unit.address,
-    city: unit.city,
-    state: unit.state,
-    createdAt: unit.createdAt.toISOString(),
-    updatedAt: unit.updatedAt.toISOString(),
-  });
+  res.status(201).json(serializeUnit(unit));
 });
 
 router.get("/organizations/:orgId/units/:unitId", requireAuth, async (req, res): Promise<void> => {
@@ -99,17 +101,7 @@ router.get("/organizations/:orgId/units/:unitId", requireAuth, async (req, res):
     return;
   }
 
-  res.json({
-    id: unit.id,
-    organizationId: unit.organizationId,
-    name: unit.name,
-    type: unit.type,
-    address: unit.address,
-    city: unit.city,
-    state: unit.state,
-    createdAt: unit.createdAt.toISOString(),
-    updatedAt: unit.updatedAt.toISOString(),
-  });
+  res.json(serializeUnit(unit));
 });
 
 router.patch("/organizations/:orgId/units/:unitId", requireAuth, async (req, res): Promise<void> => {
@@ -140,17 +132,7 @@ router.patch("/organizations/:orgId/units/:unitId", requireAuth, async (req, res
     return;
   }
 
-  res.json({
-    id: unit.id,
-    organizationId: unit.organizationId,
-    name: unit.name,
-    type: unit.type,
-    address: unit.address,
-    city: unit.city,
-    state: unit.state,
-    createdAt: unit.createdAt.toISOString(),
-    updatedAt: unit.updatedAt.toISOString(),
-  });
+  res.json(serializeUnit(unit));
 });
 
 router.delete("/organizations/:orgId/units/:unitId", requireAuth, async (req, res): Promise<void> => {

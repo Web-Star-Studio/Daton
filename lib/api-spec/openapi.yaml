@@ -709,14 +709,31 @@ components:
           type: integer
         name:
           type: string
+        code:
+          type: ["string", "null"]
         type:
           type: string
           enum: [sede, filial]
+        cnpj:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [ativa, inativa]
+        cep:
+          type: ["string", "null"]
         address:
+          type: ["string", "null"]
+        streetNumber:
+          type: ["string", "null"]
+        neighborhood:
           type: ["string", "null"]
         city:
           type: ["string", "null"]
         state:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        phone:
           type: ["string", "null"]
         createdAt:
           type: string
@@ -729,9 +746,7 @@ components:
         - organizationId
         - name
         - type
-        - address
-        - city
-        - state
+        - status
         - createdAt
         - updatedAt
 
@@ -740,14 +755,31 @@ components:
       properties:
         name:
           type: string
+        code:
+          type: string
         type:
           type: string
           enum: [sede, filial]
+        cnpj:
+          type: string
+        status:
+          type: string
+          enum: [ativa, inativa]
+        cep:
+          type: string
         address:
+          type: string
+        streetNumber:
+          type: string
+        neighborhood:
           type: string
         city:
           type: string
         state:
+          type: string
+        country:
+          type: string
+        phone:
           type: string
       required:
         - name
@@ -758,14 +790,31 @@ components:
       properties:
         name:
           type: string
+        code:
+          type: string
         type:
           type: string
           enum: [sede, filial]
+        cnpj:
+          type: string
+        status:
+          type: string
+          enum: [ativa, inativa]
+        cep:
+          type: string
         address:
+          type: string
+        streetNumber:
+          type: string
+        neighborhood:
           type: string
         city:
           type: string
         state:
+          type: string
+        country:
+          type: string
+        phone:
           type: string
 
     Legislation:

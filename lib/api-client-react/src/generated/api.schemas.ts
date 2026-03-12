@@ -68,17 +68,40 @@ export const UnitType = {
   filial: "filial",
 } as const;
 
+export type UnitStatus =
+  (typeof UnitStatus)[keyof typeof UnitStatus];
+
+export const UnitStatus = {
+  ativa: "ativa",
+  inativa: "inativa",
+} as const;
+
 export interface Unit {
   id: number;
   organizationId: number;
   name: string;
+  /** @nullable */
+  code: string | null;
   type: UnitType;
   /** @nullable */
+  cnpj: string | null;
+  status: UnitStatus;
+  /** @nullable */
+  cep: string | null;
+  /** @nullable */
   address: string | null;
+  /** @nullable */
+  streetNumber: string | null;
+  /** @nullable */
+  neighborhood: string | null;
   /** @nullable */
   city: string | null;
   /** @nullable */
   state: string | null;
+  /** @nullable */
+  country: string | null;
+  /** @nullable */
+  phone: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -91,12 +114,28 @@ export const CreateUnitBodyType = {
   filial: "filial",
 } as const;
 
+export type CreateUnitBodyStatus =
+  (typeof CreateUnitBodyStatus)[keyof typeof CreateUnitBodyStatus];
+
+export const CreateUnitBodyStatus = {
+  ativa: "ativa",
+  inativa: "inativa",
+} as const;
+
 export interface CreateUnitBody {
   name: string;
+  code?: string;
   type: CreateUnitBodyType;
+  cnpj?: string;
+  status?: CreateUnitBodyStatus;
+  cep?: string;
   address?: string;
+  streetNumber?: string;
+  neighborhood?: string;
   city?: string;
   state?: string;
+  country?: string;
+  phone?: string;
 }
 
 export type UpdateUnitBodyType =
@@ -107,12 +146,28 @@ export const UpdateUnitBodyType = {
   filial: "filial",
 } as const;
 
+export type UpdateUnitBodyStatus =
+  (typeof UpdateUnitBodyStatus)[keyof typeof UpdateUnitBodyStatus];
+
+export const UpdateUnitBodyStatus = {
+  ativa: "ativa",
+  inativa: "inativa",
+} as const;
+
 export interface UpdateUnitBody {
   name?: string;
+  code?: string;
   type?: UpdateUnitBodyType;
+  cnpj?: string;
+  status?: UpdateUnitBodyStatus;
+  cep?: string;
   address?: string;
+  streetNumber?: string;
+  neighborhood?: string;
   city?: string;
   state?: string;
+  country?: string;
+  phone?: string;
 }
 
 export type LegislationLevel =

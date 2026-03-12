@@ -33,7 +33,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 - **organizations**: id, name (razão social), nomeFantasia, cnpj, timestamps
 - **users**: id, name, email, passwordHash, organizationId, role
-- **units**: id, name, type (sede/filial), organizationId, city, state, cnpj
+- **units**: id, name, code, type (sede/filial), cnpj, status (ativa/inativa), cep, address, streetNumber, neighborhood, city, state, country, phone, organizationId
 - **legislations**: id, title, number, description, level (federal/estadual/municipal/internacional), status (vigente/revogada/alterada), publicationDate, applicableArticles, sourceUrl, organizationId
 - **unit_legislations**: id, unitId, legislationId, complianceStatus (conforme/nao_conforme/parcialmente_conforme/nao_avaliado), notes, evaluatedAt, evaluatedBy
 
@@ -77,7 +77,8 @@ artifacts-monorepo/
 - / and /auth — Login/register page (split layout: left image panel, right form panel)
 - /app/qualidade/legislacoes — Legislations list with filters, create dialog, CSV import
 - /app/qualidade/legislacoes/:id — Legislation detail with unit compliance tracking
-- /app/organizacao/unidades — Units management
+- /app/organizacao/unidades — Units management (minimalist cards, clickable)
+- /app/organizacao/unidades/:id — Unit detail with inline editing
 
 ## TypeScript & Composite Projects
 
