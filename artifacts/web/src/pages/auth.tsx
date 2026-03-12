@@ -5,10 +5,10 @@ import * as z from "zod";
 import { useLocation } from "wouter";
 import { useLogin, useRegister } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import authBg from "@assets/Daton_1773346786789.png";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -16,11 +16,17 @@ const loginSchema = z.object({
 });
 
 const registerSchema = z.object({
-  name: z.string().min(2, "Nome é obrigatório"),
+  razaoSocial: z.string().min(2, "Razão social é obrigatória"),
+  nomeFantasia: z.string().optional(),
+  cnpj: z.string().optional(),
+  adminName: z.string().min(2, "Nome do administrador é obrigatório"),
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
-  organizationName: z.string().min(2, "Nome da organização é obrigatório"),
+  terms: z.literal(true, { errorMap: () => ({ message: "Você deve aceitar os termos" }) }),
 });
+
+type LoginData = z.infer<typeof loginSchema>;
+type RegisterData = z.infer<typeof registerSchema>;
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -30,15 +36,15 @@ export default function AuthPage() {
   const loginMutation = useLogin();
   const registerMutation = useRegister();
 
-  const loginForm = useForm<z.infer<typeof loginSchema>>({
+  const loginForm = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
   });
 
-  const registerForm = useForm<z.infer<typeof registerSchema>>({
+  const registerForm = useForm<RegisterData>({
     resolver: zodResolver(registerSchema),
   });
 
-  const onLogin = async (data: z.infer<typeof loginSchema>) => {
+  const onLogin = async (data: LoginData) => {
     try {
       const res = await loginMutation.mutateAsync({ data });
       setAuthToken(res.token);
@@ -48,9 +54,18 @@ export default function AuthPage() {
     }
   };
 
-  const onRegister = async (data: z.infer<typeof registerSchema>) => {
+  const onRegister = async (data: RegisterData) => {
     try {
-      const res = await registerMutation.mutateAsync({ data });
+      const res = await registerMutation.mutateAsync({
+        data: {
+          razaoSocial: data.razaoSocial,
+          nomeFantasia: data.nomeFantasia,
+          cnpj: data.cnpj,
+          adminName: data.adminName,
+          email: data.email,
+          password: data.password,
+        },
+      });
       setAuthToken(res.token);
       setLocation("/app/qualidade/legislacoes");
     } catch {
@@ -59,82 +74,195 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex relative">
-      {/* Background image requested via requirements */}
-      <div className="absolute inset-0 z-0">
-        <img 
-          src={`${import.meta.env.BASE_URL}images/auth-bg.png`} 
-          alt="Abstract elegant background" 
-          className="w-full h-full object-cover opacity-60"
+    <div className="min-h-screen w-full flex">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        <img
+          src={authBg}
+          alt="Edifício com vegetação"
+          className="absolute inset-0 w-full h-full object-cover"
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30" />
+        <div className="relative z-10 flex flex-col justify-between p-10 w-full">
+          <p className="text-white/90 text-xl tracking-wide font-light">daton</p>
+          <h1 className="text-white text-[2.5rem] leading-tight font-bold max-w-[520px]">
+            {isLogin
+              ? "Bem-vindo ao Daton — sua plataforma de gestão ESG."
+              : "Estruture a organização e habilite o primeiro responsável para sustentar a governança ESG desde o primeiro dia."}
+          </h1>
+        </div>
       </div>
 
-      <div className="relative z-10 flex w-full items-center justify-center p-4">
-        <Card className="w-full max-w-md bg-white/80 backdrop-blur-xl border-white/40 shadow-2xl">
-          <CardHeader className="text-center space-y-2 pb-8">
-            <div className="w-12 h-12 bg-primary text-primary-foreground rounded-xl flex items-center justify-center text-2xl font-bold mx-auto mb-4 shadow-lg shadow-primary/20">
-              d.
-            </div>
-            <CardTitle className="text-2xl font-bold tracking-tight">
-              Bem-vindo ao Daton
-            </CardTitle>
-            <p className="text-muted-foreground text-sm">
-              Plataforma unificada de ESG, Qualidade e Compliance
-            </p>
-          </CardHeader>
-          <CardContent>
-            {isLogin ? (
-              <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
-                <div>
-                  <Label>Email</Label>
-                  <Input {...loginForm.register("email")} placeholder="seu@email.com" />
-                  {loginForm.formState.errors.email && (
-                    <p className="text-sm text-destructive mt-1">{loginForm.formState.errors.email.message}</p>
-                  )}
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-white">
+        <div className="w-full max-w-[520px] px-8 py-12">
+          {isLogin ? (
+            <>
+              <div className="mb-8">
+                <h2 className="text-lg font-semibold text-foreground">Entrar</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Informe suas credenciais para acessar o ambiente e conduzir a operação.
+                </p>
+              </div>
+
+              <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs font-semibold text-foreground">E-mail de trabalho</Label>
+                    <Input
+                      {...loginForm.register("email")}
+                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
+                      placeholder=""
+                    />
+                    {loginForm.formState.errors.email && (
+                      <p className="text-xs text-destructive mt-1">{loginForm.formState.errors.email.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-foreground">Senha</Label>
+                    <Input
+                      type="password"
+                      {...loginForm.register("password")}
+                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
+                      placeholder=""
+                    />
+                    {loginForm.formState.errors.password && (
+                      <p className="text-xs text-destructive mt-1">{loginForm.formState.errors.password.message}</p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <Label>Senha</Label>
-                  <Input type="password" {...loginForm.register("password")} placeholder="••••••••" />
-                </div>
-                <Button type="submit" className="w-full" isLoading={loginMutation.isPending}>
-                  Entrar
-                </Button>
-                <div className="text-center mt-4">
-                  <button type="button" onClick={() => setIsLogin(false)} className="text-sm text-primary hover:underline">
-                    Não tem uma conta? Cadastre-se
+
+                <button
+                  type="submit"
+                  disabled={loginMutation.isPending}
+                  className="w-full bg-[#007AFF] text-white text-sm font-medium py-3 rounded-lg hover:bg-[#0066DD] transition-colors disabled:opacity-50"
+                >
+                  {loginMutation.isPending ? "Entrando..." : "Entrar no Daton"}
+                </button>
+
+                <p className="text-sm text-muted-foreground">
+                  Vai estruturar uma nova organização?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setIsLogin(false)}
+                    className="text-foreground underline underline-offset-2 hover:text-foreground/80"
+                  >
+                    Criar ambiente
                   </button>
-                </div>
+                </p>
               </form>
-            ) : (
-              <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
-                <div>
-                  <Label>Nome Completo</Label>
-                  <Input {...registerForm.register("name")} placeholder="João Silva" />
+            </>
+          ) : (
+            <>
+              <div className="mb-8">
+                <h2 className="text-lg font-semibold text-foreground">Estruturar organização</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Isso estabelece a base identitária da qual o restante do Daton depende: entidade legal, acesso inicial e a base de governança que depois pode se expandir para múltiplas unidades.
+                </p>
+              </div>
+
+              <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-6">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+                  <div>
+                    <Label className="text-xs font-semibold text-foreground">Razão social</Label>
+                    <Input
+                      {...registerForm.register("razaoSocial")}
+                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
+                      placeholder=""
+                    />
+                    {registerForm.formState.errors.razaoSocial && (
+                      <p className="text-xs text-destructive mt-1">{registerForm.formState.errors.razaoSocial.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-foreground">Nome fantasia</Label>
+                    <Input
+                      {...registerForm.register("nomeFantasia")}
+                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
+                      placeholder=""
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-foreground">CNPJ</Label>
+                    <Input
+                      {...registerForm.register("cnpj")}
+                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
+                      placeholder="00.000.000/0000-00"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-foreground">Nome completo do administrador</Label>
+                    <Input
+                      {...registerForm.register("adminName")}
+                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
+                      placeholder=""
+                    />
+                    {registerForm.formState.errors.adminName && (
+                      <p className="text-xs text-destructive mt-1">{registerForm.formState.errors.adminName.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-foreground">E-mail do administrador</Label>
+                    <Input
+                      {...registerForm.register("email")}
+                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
+                      placeholder=""
+                    />
+                    {registerForm.formState.errors.email && (
+                      <p className="text-xs text-destructive mt-1">{registerForm.formState.errors.email.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-foreground">Senha</Label>
+                    <Input
+                      type="password"
+                      {...registerForm.register("password")}
+                      className="mt-1.5 border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-foreground bg-transparent"
+                      placeholder=""
+                    />
+                    {registerForm.formState.errors.password && (
+                      <p className="text-xs text-destructive mt-1">{registerForm.formState.errors.password.message}</p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <Label>Email corporativo</Label>
-                  <Input {...registerForm.register("email")} placeholder="joao@empresa.com" />
+
+                <div className="flex items-start gap-3 pt-2">
+                  <Checkbox
+                    id="terms"
+                    checked={registerForm.watch("terms") === true}
+                    onCheckedChange={(checked) =>
+                      registerForm.setValue("terms", checked === true ? true : (false as unknown as true), { shouldValidate: true })
+                    }
+                    className="mt-0.5"
+                  />
+                  <label htmlFor="terms" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
+                    Ao marcar esta caixa, declaro que li, entendi e concordo com os Termos de Serviço, a Política de Privacidade, o EULA e a Política de Uso Aceitável do Daton.
+                  </label>
                 </div>
-                <div>
-                  <Label>Senha</Label>
-                  <Input type="password" {...registerForm.register("password")} placeholder="••••••••" />
-                </div>
-                <div>
-                  <Label>Nome da Organização</Label>
-                  <Input {...registerForm.register("organizationName")} placeholder="Acme Corp" />
-                </div>
-                <Button type="submit" className="w-full mt-2" isLoading={registerMutation.isPending}>
-                  Criar conta
-                </Button>
-                <div className="text-center mt-4">
-                  <button type="button" onClick={() => setIsLogin(true)} className="text-sm text-primary hover:underline">
-                    Já tem uma conta? Entre
+                {registerForm.formState.errors.terms && (
+                  <p className="text-xs text-destructive">{registerForm.formState.errors.terms.message}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={registerMutation.isPending}
+                  className="w-full bg-[#007AFF] text-white text-sm font-medium py-3 rounded-lg hover:bg-[#0066DD] transition-colors disabled:opacity-50"
+                >
+                  {registerMutation.isPending ? "Criando..." : "Continuar com a criação"}
+                </button>
+
+                <p className="text-sm text-muted-foreground">
+                  Já possui um ambiente?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setIsLogin(true)}
+                    className="text-foreground underline underline-offset-2 hover:text-foreground/80"
+                  >
+                    Entrar
                   </button>
-                </div>
+                </p>
               </form>
-            )}
-          </CardContent>
-        </Card>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

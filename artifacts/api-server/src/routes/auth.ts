@@ -14,7 +14,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
-  const { name, email, password, organizationName } = parsed.data;
+  const { razaoSocial, nomeFantasia, cnpj, adminName, email, password } = parsed.data;
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.email, email));
   if (existing.length > 0) {
@@ -24,10 +24,14 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  const [org] = await db.insert(organizationsTable).values({ name: organizationName }).returning();
+  const [org] = await db.insert(organizationsTable).values({
+    name: razaoSocial,
+    nomeFantasia: nomeFantasia || null,
+    cnpj: cnpj || null,
+  }).returning();
 
   const [user] = await db.insert(usersTable).values({
-    name,
+    name: adminName,
     email,
     passwordHash,
     organizationId: org.id,

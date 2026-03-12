@@ -600,7 +600,13 @@ components:
     RegisterBody:
       type: object
       properties:
-        name:
+        razaoSocial:
+          type: string
+        nomeFantasia:
+          type: string
+        cnpj:
+          type: string
+        adminName:
           type: string
         email:
           type: string
@@ -608,13 +614,11 @@ components:
         password:
           type: string
           minLength: 6
-        organizationName:
-          type: string
       required:
-        - name
+        - razaoSocial
+        - adminName
         - email
         - password
-        - organizationName
 
     LoginBody:
       type: object

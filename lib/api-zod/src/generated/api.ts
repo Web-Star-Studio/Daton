@@ -21,10 +21,12 @@ export const HealthCheckResponse = zod.object({
 export const registerBodyPasswordMin = 6;
 
 export const RegisterBody = zod.object({
-  name: zod.string(),
+  razaoSocial: zod.string(),
+  nomeFantasia: zod.string().optional(),
+  cnpj: zod.string().optional(),
+  adminName: zod.string(),
   email: zod.string().email(),
   password: zod.string().min(registerBodyPasswordMin),
-  organizationName: zod.string(),
 });
 
 /**

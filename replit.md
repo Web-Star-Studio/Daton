@@ -23,7 +23,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ## Auth & Multi-Tenancy
 
 - Login: POST /api/auth/login with {email, password} → returns {user, token}
-- Register: POST /api/auth/register with {name, email, password, organizationName}
+- Register: POST /api/auth/register with {razaoSocial, nomeFantasia?, cnpj?, adminName, email, password}
 - JWT_SECRET stored as environment secret
 - Token injected automatically by `lib/api-client-react/src/custom-fetch.ts` for same-origin requests only
 - Each user belongs to one organization (tenant); all data queries are scoped by orgId
@@ -31,7 +31,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ## Database Schema
 
-- **organizations**: id, name, cnpj, timestamps
+- **organizations**: id, name (razão social), nomeFantasia, cnpj, timestamps
 - **users**: id, name, email, passwordHash, organizationId, role
 - **units**: id, name, type (sede/filial), organizationId, city, state, cnpj
 - **legislations**: id, title, number, description, level (federal/estadual/municipal/internacional), status (vigente/revogada/alterada), publicationDate, applicableArticles, sourceUrl, organizationId
@@ -74,7 +74,7 @@ artifacts-monorepo/
 
 ## Frontend Routes
 
-- / and /auth — Login/register page
+- / and /auth — Login/register page (split layout: left image panel, right form panel)
 - /app/qualidade/legislacoes — Legislations list with filters, create dialog, CSV import
 - /app/qualidade/legislacoes/:id — Legislation detail with unit compliance tracking
 - /app/organizacao/unidades — Units management
