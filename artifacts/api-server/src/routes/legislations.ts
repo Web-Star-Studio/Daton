@@ -97,9 +97,6 @@ router.post("/organizations/:orgId/legislations", requireAuth, async (req, res):
 
   const insertData = {
     ...body.data,
-    publicationDate: body.data.publicationDate instanceof Date
-      ? body.data.publicationDate.toISOString().split("T")[0]
-      : body.data.publicationDate,
     organizationId: params.data.orgId,
   };
 
@@ -133,9 +130,6 @@ router.post("/organizations/:orgId/legislations/import", requireAuth, async (req
     try {
       const importItem = {
         ...item,
-        publicationDate: item.publicationDate instanceof Date
-          ? item.publicationDate.toISOString().split("T")[0]
-          : item.publicationDate,
         organizationId: params.data.orgId,
       };
       await db.insert(legislationsTable).values(importItem);
@@ -226,9 +220,6 @@ router.patch("/organizations/:orgId/legislations/:legId", requireAuth, async (re
 
   const updateData = {
     ...body.data,
-    publicationDate: body.data.publicationDate instanceof Date
-      ? body.data.publicationDate.toISOString().split("T")[0]
-      : body.data.publicationDate,
   };
 
   const [leg] = await db.update(legislationsTable)
