@@ -49,18 +49,16 @@ export default function UnidadesPage() {
 
   if (!orgId) return null;
 
+  const headerActions = (
+    <Button onClick={() => setIsDialogOpen(true)}>
+      <Plus className="w-4 h-4 mr-2" />
+      Nova Unidade
+    </Button>
+  );
+
   return (
-    <AppLayout>
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Unidades da Organização</h1>
-          <p className="text-muted-foreground mt-1">Gerencie as sedes e filiais da sua empresa.</p>
-        </div>
-        <Button onClick={() => setIsDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Unidade
-        </Button>
-      </div>
+    <AppLayout headerActions={headerActions}>
+      <p className="text-muted-foreground mb-6">Gerencie as sedes e filiais da sua empresa.</p>
 
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Carregando unidades...</div>
@@ -78,7 +76,7 @@ export default function UnidadesPage() {
                   </Badge>
                   <button 
                     onClick={() => handleDelete(unit.id)}
-                    className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

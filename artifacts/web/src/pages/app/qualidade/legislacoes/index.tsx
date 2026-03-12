@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Plus, Upload, FileText, Filter } from "lucide-react";
+import { Search, Plus, Upload, FileText } from "lucide-react";
 import { useForm } from "react-hook-form";
 import Papa from "papaparse";
 
@@ -88,22 +88,20 @@ export default function LegislacoesPage() {
     });
   };
 
+  const headerActions = (
+    <>
+      <Button variant="secondary" onClick={() => setIsImportOpen(true)}>
+        <Upload className="w-4 h-4 mr-2" /> Importar CSV
+      </Button>
+      <Button onClick={() => setIsCreateOpen(true)}>
+        <Plus className="w-4 h-4 mr-2" /> Nova Legislação
+      </Button>
+    </>
+  );
+
   return (
-    <AppLayout>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Banco de Legislações</h1>
-          <p className="text-muted-foreground mt-1">Requisitos legais aplicáveis à organização (ISO 14001).</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={() => setIsImportOpen(true)}>
-            <Upload className="w-4 h-4 mr-2" /> Importar CSV
-          </Button>
-          <Button onClick={() => setIsCreateOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" /> Nova Legislação
-          </Button>
-        </div>
-      </div>
+    <AppLayout headerActions={headerActions}>
+      <p className="text-muted-foreground mb-6">Requisitos legais aplicáveis à organização (ISO 14001).</p>
 
       <div className="bg-card border border-border rounded-2xl p-4 mb-6 flex flex-wrap gap-4 items-end shadow-sm">
         <div className="flex-1 min-w-[200px]">
@@ -175,7 +173,7 @@ export default function LegislacoesPage() {
                       {formatDate(leg.publicationDate)}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Link href={`/app/qualidade/legislacoes/${leg.id}`} className="text-primary hover:underline font-medium inline-flex items-center">
+                      <Link href={`/app/qualidade/legislacoes/${leg.id}`} className="text-primary hover:underline font-medium inline-flex items-center cursor-pointer">
                         Detalhes
                       </Link>
                     </td>
@@ -187,7 +185,6 @@ export default function LegislacoesPage() {
         </div>
       </div>
 
-      {/* Create Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen} title="Cadastrar Legislação">
         <form onSubmit={form.handleSubmit(onCreateSubmit)} className="space-y-4 mt-4">
           <div>
@@ -242,7 +239,6 @@ export default function LegislacoesPage() {
         </form>
       </Dialog>
 
-      {/* Import Dialog */}
       <Dialog open={isImportOpen} onOpenChange={setIsImportOpen} title="Importar Legislações">
         <div className="mt-4 space-y-4 text-sm">
           <p className="text-muted-foreground">

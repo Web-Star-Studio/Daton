@@ -85,26 +85,31 @@ export default function LegislationDetailPage() {
 
   if (isLoading || !leg) return <AppLayout><div className="p-8 text-center">Carregando...</div></AppLayout>;
 
-  // Filter out units that are already assigned
   const availableUnits = allUnits?.filter(u => !leg.unitLegislations.find(ul => ul.unitId === u.id)) || [];
 
+  const headerActions = (
+    <Button variant="secondary" size="sm" onClick={() => setIsAssignOpen(true)}>
+      <Link2 className="w-4 h-4 mr-2" />
+      Vincular Unidade
+    </Button>
+  );
+
   return (
-    <AppLayout>
+    <AppLayout pageTitle={leg.title} headerActions={headerActions}>
       <div className="mb-6">
-        <Link href="/app/qualidade/legislacoes" className="text-muted-foreground hover:text-foreground inline-flex items-center text-sm font-medium transition-colors">
+        <Link href="/app/qualidade/legislacoes" className="text-muted-foreground hover:text-foreground inline-flex items-center text-sm font-medium transition-colors cursor-pointer">
           <ArrowLeft className="w-4 h-4 mr-1.5" /> Voltar para lista
         </Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          {/* Header Info */}
           <div className="bg-card border border-border p-8 rounded-3xl shadow-sm">
             <div className="flex gap-2 mb-4">
               <Badge variant="outline" className="uppercase text-[10px] tracking-wider">{leg.level}</Badge>
               <Badge variant={leg.status === 'vigente' ? 'success' : 'secondary'} className="uppercase text-[10px] tracking-wider">{leg.status}</Badge>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight mb-2 text-foreground">{leg.title}</h1>
+            <h2 className="text-2xl font-bold tracking-tight mb-2 text-foreground">{leg.title}</h2>
             {leg.number && <p className="text-xl text-muted-foreground font-medium mb-6">{leg.number}</p>}
             
             {leg.description && (
@@ -127,7 +132,7 @@ export default function LegislationDetailPage() {
               {leg.sourceUrl && (
                 <div>
                   <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Fonte</p>
-                  <a href={leg.sourceUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium inline-flex items-center">
+                  <a href={leg.sourceUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium inline-flex items-center cursor-pointer">
                     Acessar Diário Oficial <ExternalLink className="w-3 h-3 ml-1" />
                   </a>
                 </div>
@@ -135,15 +140,8 @@ export default function LegislationDetailPage() {
             </div>
           </div>
 
-          {/* Compliance Panel */}
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold tracking-tight">Aplicabilidade nas Unidades</h2>
-              <Button size="sm" variant="outline" onClick={() => setIsAssignOpen(true)}>
-                <Link2 className="w-4 h-4 mr-2" />
-                Vincular Unidade
-              </Button>
-            </div>
+            <h2 className="text-xl font-bold tracking-tight mb-4">Aplicabilidade nas Unidades</h2>
 
             <div className="space-y-4">
               {leg.unitLegislations.length === 0 ? (
@@ -206,7 +204,6 @@ export default function LegislationDetailPage() {
           </div>
         </div>
 
-        {/* Sidebar info */}
         <div className="space-y-6">
           <Card>
             <CardHeader className="pb-4">
@@ -244,7 +241,6 @@ export default function LegislationDetailPage() {
         </div>
       </div>
 
-      {/* Assign Dialog */}
       <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen} title="Vincular Unidade">
         <div className="space-y-4 mt-4">
           <Label>Selecione a Unidade aplicável</Label>
@@ -263,7 +259,6 @@ export default function LegislationDetailPage() {
         </div>
       </Dialog>
 
-      {/* Evaluate Dialog */}
       <Dialog open={!!editingCompliance} onOpenChange={(v) => !v && setEditingCompliance(null)} title="Avaliar Conformidade">
         {editingCompliance && (
           <div className="space-y-4 mt-4">
