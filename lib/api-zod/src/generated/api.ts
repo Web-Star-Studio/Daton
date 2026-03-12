@@ -246,10 +246,8 @@ export const ListLegislationsParams = zod.object({
 
 export const ListLegislationsQueryParams = zod.object({
   search: zod.coerce.string().optional(),
-  level: zod
-    .enum(["federal", "estadual", "municipal", "internacional"])
-    .optional(),
-  status: zod.enum(["vigente", "revogada", "alterada"]).optional(),
+  level: zod.string().optional(),
+  status: zod.string().optional(),
 });
 
 export const ListLegislationsResponseItem = zod.object({
@@ -258,11 +256,21 @@ export const ListLegislationsResponseItem = zod.object({
   title: zod.string(),
   number: zod.string().nullable(),
   description: zod.string().nullable(),
-  level: zod.enum(["federal", "estadual", "municipal", "internacional"]),
-  status: zod.enum(["vigente", "revogada", "alterada"]),
+  tipoNorma: zod.string().nullable(),
+  emissor: zod.string().nullable(),
+  level: zod.string(),
+  status: zod.string(),
+  uf: zod.string().nullable(),
+  municipality: zod.string().nullable(),
+  macrotema: zod.string().nullable(),
+  subtema: zod.string().nullable(),
+  applicability: zod.string().nullable(),
   publicationDate: zod.date().nullable(),
   sourceUrl: zod.string().nullable(),
   applicableArticles: zod.string().nullable(),
+  reviewFrequencyDays: zod.number().nullable(),
+  observations: zod.string().nullable(),
+  generalObservations: zod.string().nullable(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -279,11 +287,21 @@ export const CreateLegislationBody = zod.object({
   title: zod.string(),
   number: zod.string().optional(),
   description: zod.string().optional(),
-  level: zod.enum(["federal", "estadual", "municipal", "internacional"]),
-  status: zod.enum(["vigente", "revogada", "alterada"]).optional(),
+  tipoNorma: zod.string().optional(),
+  emissor: zod.string().optional(),
+  level: zod.string(),
+  status: zod.string().optional(),
+  uf: zod.string().optional(),
+  municipality: zod.string().optional(),
+  macrotema: zod.string().optional(),
+  subtema: zod.string().optional(),
+  applicability: zod.string().optional(),
   publicationDate: zod.date().optional(),
   sourceUrl: zod.string().optional(),
   applicableArticles: zod.string().optional(),
+  reviewFrequencyDays: zod.number().optional(),
+  observations: zod.string().optional(),
+  generalObservations: zod.string().optional(),
 });
 
 /**
@@ -294,18 +312,7 @@ export const ImportLegislationsParams = zod.object({
 });
 
 export const ImportLegislationsBody = zod.object({
-  legislations: zod.array(
-    zod.object({
-      title: zod.string(),
-      number: zod.string().optional(),
-      description: zod.string().optional(),
-      level: zod.enum(["federal", "estadual", "municipal", "internacional"]),
-      status: zod.enum(["vigente", "revogada", "alterada"]).optional(),
-      publicationDate: zod.date().optional(),
-      sourceUrl: zod.string().optional(),
-      applicableArticles: zod.string().optional(),
-    }),
-  ),
+  legislations: zod.array(CreateLegislationBody),
 });
 
 /**
@@ -322,11 +329,21 @@ export const GetLegislationResponse = zod.object({
   title: zod.string(),
   number: zod.string().nullable(),
   description: zod.string().nullable(),
-  level: zod.enum(["federal", "estadual", "municipal", "internacional"]),
-  status: zod.enum(["vigente", "revogada", "alterada"]),
+  tipoNorma: zod.string().nullable(),
+  emissor: zod.string().nullable(),
+  level: zod.string(),
+  status: zod.string(),
+  uf: zod.string().nullable(),
+  municipality: zod.string().nullable(),
+  macrotema: zod.string().nullable(),
+  subtema: zod.string().nullable(),
+  applicability: zod.string().nullable(),
   publicationDate: zod.date().nullable(),
   sourceUrl: zod.string().nullable(),
   applicableArticles: zod.string().nullable(),
+  reviewFrequencyDays: zod.number().nullable(),
+  observations: zod.string().nullable(),
+  generalObservations: zod.string().nullable(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
   unitLegislations: zod.array(
@@ -372,13 +389,21 @@ export const UpdateLegislationBody = zod.object({
   title: zod.string().optional(),
   number: zod.string().optional(),
   description: zod.string().optional(),
-  level: zod
-    .enum(["federal", "estadual", "municipal", "internacional"])
-    .optional(),
-  status: zod.enum(["vigente", "revogada", "alterada"]).optional(),
+  tipoNorma: zod.string().optional(),
+  emissor: zod.string().optional(),
+  level: zod.string().optional(),
+  status: zod.string().optional(),
+  uf: zod.string().optional(),
+  municipality: zod.string().optional(),
+  macrotema: zod.string().optional(),
+  subtema: zod.string().optional(),
+  applicability: zod.string().optional(),
   publicationDate: zod.date().optional(),
   sourceUrl: zod.string().optional(),
   applicableArticles: zod.string().optional(),
+  reviewFrequencyDays: zod.number().optional(),
+  observations: zod.string().optional(),
+  generalObservations: zod.string().optional(),
 });
 
 export const UpdateLegislationResponse = zod.object({
@@ -387,11 +412,21 @@ export const UpdateLegislationResponse = zod.object({
   title: zod.string(),
   number: zod.string().nullable(),
   description: zod.string().nullable(),
-  level: zod.enum(["federal", "estadual", "municipal", "internacional"]),
-  status: zod.enum(["vigente", "revogada", "alterada"]),
+  tipoNorma: zod.string().nullable(),
+  emissor: zod.string().nullable(),
+  level: zod.string(),
+  status: zod.string(),
+  uf: zod.string().nullable(),
+  municipality: zod.string().nullable(),
+  macrotema: zod.string().nullable(),
+  subtema: zod.string().nullable(),
+  applicability: zod.string().nullable(),
   publicationDate: zod.date().nullable(),
   sourceUrl: zod.string().nullable(),
   applicableArticles: zod.string().nullable(),
+  reviewFrequencyDays: zod.number().nullable(),
+  observations: zod.string().nullable(),
+  generalObservations: zod.string().nullable(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });

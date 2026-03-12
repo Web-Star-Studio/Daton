@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRoute, Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
   useGetLegislation, 
+  useUpdateLegislation,
   useListUnits, 
   useAssignLegislationToUnit, 
   useUpdateUnitLegislation,
@@ -11,6 +12,7 @@ import {
   getGetLegislationQueryKey,
   getListUnitsQueryKey,
   type UpdateUnitLegislationBodyComplianceStatus,
+  type LegislationDetail,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -22,7 +24,55 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn, formatDate } from "@/lib/utils";
-import { ArrowLeft, ExternalLink, Link2, Building, AlertCircle } from "lucide-react";
+import { ArrowLeft, ExternalLink, Link2, Building, AlertCircle, Pencil, Check, X } from "lucide-react";
+
+function InlineField({ label, value, fieldKey, type = "text", onSave }: {
+  label: string;
+  value: string | number | null | undefined;
+  fieldKey: string;
+  type?: "text" | "date" | "number" | "textarea" | "select";
+  options?: { value: string; label: string }[];
+  onSave: (key: string, val: string | number | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value ?? ""));
+
+  useEffect(() => { setDraft(String(value ?? "")); }, [value]);
+
+  const save = () => {
+    const trimmed = draft.trim();
+    if (type === "number") {
+      onSave(fieldKey, trimmed ? parseInt(trimmed, 10) : null);
+    } else {
+      onSave(fieldKey, trimmed || null);
+    }
+    setEditing(false);
+  };
+
+  const cancel = () => { setDraft(String(value ?? "")); setEditing(false); };
+
+  return (
+    <div className="group">
+      <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">{label}</p>
+      {editing ? (
+        <div className="flex items-start gap-2">
+          {type === "textarea" ? (
+            <Textarea value={draft} onChange={e => setDraft(e.target.value)} rows={3} className="flex-1 text-[13px]" autoFocus />
+          ) : (
+            <Input type={type === "number" ? "number" : type === "date" ? "date" : "text"} value={draft} onChange={e => setDraft(e.target.value)} className="flex-1 text-[13px]" autoFocus />
+          )}
+          <Button variant="ghost" size="sm" onClick={save} className="shrink-0 h-8 w-8 p-0"><Check className="w-4 h-4 text-emerald-600" /></Button>
+          <Button variant="ghost" size="sm" onClick={cancel} className="shrink-0 h-8 w-8 p-0"><X className="w-4 h-4 text-muted-foreground" /></Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1 cursor-pointer" onClick={() => setEditing(true)}>
+          <p className="text-[13px] font-medium text-foreground min-h-[20px]">{value != null && value !== "" ? String(value) : "—"}</p>
+          <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function LegislationDetailPage() {
   const [, params] = useRoute("/app/qualidade/legislacoes/:id");
@@ -35,6 +85,7 @@ export default function LegislationDetailPage() {
   const { data: leg, isLoading } = useGetLegislation(orgId!, legId, { query: { queryKey: getGetLegislationQueryKey(orgId!, legId), enabled: !!orgId && !!legId } });
   const { data: allUnits } = useListUnits(orgId!, { query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId } });
   
+  const updateMut = useUpdateLegislation();
   const assignMut = useAssignLegislationToUnit();
   const updateComplianceMut = useUpdateUnitLegislation();
   const removeMut = useRemoveUnitLegislation();
@@ -46,6 +97,12 @@ export default function LegislationDetailPage() {
   const [statusVal, setStatusVal] = useState("");
   const [notesVal, setNotesVal] = useState("");
   const [evidenceVal, setEvidenceVal] = useState("");
+
+  const onFieldSave = useCallback(async (key: string, val: string | number | null) => {
+    if (!orgId) return;
+    await updateMut.mutateAsync({ orgId, legId, data: { [key]: val ?? undefined } as any });
+    queryClient.invalidateQueries({ queryKey: getGetLegislationQueryKey(orgId, legId) });
+  }, [orgId, legId, updateMut, queryClient]);
 
   const onAssign = async () => {
     if (!orgId || !selectedUnitId) return;
@@ -108,36 +165,41 @@ export default function LegislationDetailPage() {
           <div className="bg-card border border-border p-8 rounded-3xl shadow-sm">
             <div className="flex gap-2 mb-4">
               <Badge variant="outline" className="uppercase text-[10px] tracking-wider">{leg.level}</Badge>
-              <Badge variant={leg.status === 'vigente' ? 'success' : 'secondary'} className="uppercase text-[10px] tracking-wider">{leg.status}</Badge>
+              <Badge variant={leg.status === 'vigente' || leg.status === 'conforme' ? 'success' : 'secondary'} className="uppercase text-[10px] tracking-wider">{leg.status}</Badge>
             </div>
             <h2 className="text-2xl font-bold tracking-tight mb-2 text-foreground">{leg.title}</h2>
             {leg.number && <p className="text-xl text-muted-foreground font-medium mb-6">{leg.number}</p>}
-            
-            {leg.description && (
-              <div className="prose prose-sm max-w-none text-muted-foreground mb-6">
-                <p>{leg.description}</p>
-              </div>
-            )}
 
-            <div className="flex flex-wrap gap-x-8 gap-y-4 pt-6 border-t border-border mt-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5 pt-6 border-t border-border">
+              <InlineField label="Tipo de Norma" value={leg.tipoNorma} fieldKey="tipoNorma" onSave={onFieldSave} />
+              <InlineField label="Número" value={leg.number} fieldKey="number" onSave={onFieldSave} />
+              <InlineField label="Órgão Emissor" value={leg.emissor} fieldKey="emissor" onSave={onFieldSave} />
+              <InlineField label="Data de Publicação" value={leg.publicationDate ? leg.publicationDate.split("T")[0] : null} fieldKey="publicationDate" type="date" onSave={onFieldSave} />
+              <InlineField label="Esfera / Nível" value={leg.level} fieldKey="level" onSave={onFieldSave} />
+              <InlineField label="Status" value={leg.status} fieldKey="status" onSave={onFieldSave} />
+              <InlineField label="UF" value={leg.uf} fieldKey="uf" onSave={onFieldSave} />
+              <InlineField label="Município" value={leg.municipality} fieldKey="municipality" onSave={onFieldSave} />
+              <InlineField label="Macrotema" value={leg.macrotema} fieldKey="macrotema" onSave={onFieldSave} />
+              <InlineField label="Subtema" value={leg.subtema} fieldKey="subtema" onSave={onFieldSave} />
+              <InlineField label="Aplicabilidade" value={leg.applicability} fieldKey="applicability" onSave={onFieldSave} />
+              <InlineField label="Frequência de Revisão (dias)" value={leg.reviewFrequencyDays} fieldKey="reviewFrequencyDays" type="number" onSave={onFieldSave} />
+              <InlineField label="Artigos Aplicáveis" value={leg.applicableArticles} fieldKey="applicableArticles" onSave={onFieldSave} />
               <div>
-                <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Publicação</p>
-                <p className="font-medium">{formatDate(leg.publicationDate)}</p>
-              </div>
-              {leg.applicableArticles && (
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Artigos Aplicáveis</p>
-                  <p className="font-medium">{leg.applicableArticles}</p>
-                </div>
-              )}
-              {leg.sourceUrl && (
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Fonte</p>
-                  <a href={leg.sourceUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium inline-flex items-center cursor-pointer">
-                    Acessar Diário Oficial <ExternalLink className="w-3 h-3 ml-1" />
+                <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Fonte</p>
+                {leg.sourceUrl ? (
+                  <a href={leg.sourceUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline text-[13px] font-medium inline-flex items-center cursor-pointer">
+                    Acessar <ExternalLink className="w-3 h-3 ml-1" />
                   </a>
-                </div>
-              )}
+                ) : (
+                  <InlineField label="" value={leg.sourceUrl} fieldKey="sourceUrl" onSave={onFieldSave} />
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-border space-y-5">
+              <InlineField label="Descrição / Ementa" value={leg.description} fieldKey="description" type="textarea" onSave={onFieldSave} />
+              <InlineField label="Observações (como é atendido)" value={leg.observations} fieldKey="observations" type="textarea" onSave={onFieldSave} />
+              <InlineField label="Observações Gerais" value={leg.generalObservations} fieldKey="generalObservations" type="textarea" onSave={onFieldSave} />
             </div>
           </div>
 
@@ -220,7 +282,7 @@ export default function LegislationDetailPage() {
                   return (
                     <div key={st}>
                       <div className="flex justify-between text-sm mb-1">
-                        <span className="capitalize text-muted-foreground">{st.replace('_', ' ')}</span>
+                        <span className="capitalize text-muted-foreground">{st.replace(/_/g, ' ')}</span>
                         <span className="font-medium">{count}</span>
                       </div>
                       <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">

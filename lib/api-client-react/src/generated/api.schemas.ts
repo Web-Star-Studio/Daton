@@ -197,14 +197,34 @@ export interface Legislation {
   number: string | null;
   /** @nullable */
   description: string | null;
-  level: LegislationLevel;
-  status: LegislationStatus;
+  /** @nullable */
+  tipoNorma: string | null;
+  /** @nullable */
+  emissor: string | null;
+  level: string;
+  status: string;
+  /** @nullable */
+  uf: string | null;
+  /** @nullable */
+  municipality: string | null;
+  /** @nullable */
+  macrotema: string | null;
+  /** @nullable */
+  subtema: string | null;
+  /** @nullable */
+  applicability: string | null;
   /** @nullable */
   publicationDate: string | null;
   /** @nullable */
   sourceUrl: string | null;
   /** @nullable */
   applicableArticles: string | null;
+  /** @nullable */
+  reviewFrequencyDays: number | null;
+  /** @nullable */
+  observations: string | null;
+  /** @nullable */
+  generalObservations: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -262,14 +282,34 @@ export interface LegislationDetail {
   number: string | null;
   /** @nullable */
   description: string | null;
-  level: LegislationDetailLevel;
-  status: LegislationDetailStatus;
+  /** @nullable */
+  tipoNorma: string | null;
+  /** @nullable */
+  emissor: string | null;
+  level: string;
+  status: string;
+  /** @nullable */
+  uf: string | null;
+  /** @nullable */
+  municipality: string | null;
+  /** @nullable */
+  macrotema: string | null;
+  /** @nullable */
+  subtema: string | null;
+  /** @nullable */
+  applicability: string | null;
   /** @nullable */
   publicationDate: string | null;
   /** @nullable */
   sourceUrl: string | null;
   /** @nullable */
   applicableArticles: string | null;
+  /** @nullable */
+  reviewFrequencyDays: number | null;
+  /** @nullable */
+  observations: string | null;
+  /** @nullable */
+  generalObservations: string | null;
   createdAt: string;
   updatedAt: string;
   unitLegislations: UnitLegislation[];
@@ -298,11 +338,21 @@ export interface CreateLegislationBody {
   title: string;
   number?: string;
   description?: string;
-  level: CreateLegislationBodyLevel;
-  status?: CreateLegislationBodyStatus;
+  tipoNorma?: string;
+  emissor?: string;
+  level: string;
+  status?: string;
+  uf?: string;
+  municipality?: string;
+  macrotema?: string;
+  subtema?: string;
+  applicability?: string;
   publicationDate?: string;
   sourceUrl?: string;
   applicableArticles?: string;
+  reviewFrequencyDays?: number;
+  observations?: string;
+  generalObservations?: string;
 }
 
 export type UpdateLegislationBodyLevel =
@@ -328,11 +378,21 @@ export interface UpdateLegislationBody {
   title?: string;
   number?: string;
   description?: string;
-  level?: UpdateLegislationBodyLevel;
-  status?: UpdateLegislationBodyStatus;
+  tipoNorma?: string;
+  emissor?: string;
+  level?: string;
+  status?: string;
+  uf?: string;
+  municipality?: string;
+  macrotema?: string;
+  subtema?: string;
+  applicability?: string;
   publicationDate?: string;
   sourceUrl?: string;
   applicableArticles?: string;
+  reviewFrequencyDays?: number;
+  observations?: string;
+  generalObservations?: string;
 }
 
 export interface ImportLegislationsBody {

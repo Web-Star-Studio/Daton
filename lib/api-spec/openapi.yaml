@@ -830,18 +830,36 @@ components:
           type: ["string", "null"]
         description:
           type: ["string", "null"]
+        tipoNorma:
+          type: ["string", "null"]
+        emissor:
+          type: ["string", "null"]
         level:
           type: string
-          enum: [federal, estadual, municipal, internacional]
         status:
           type: string
-          enum: [vigente, revogada, alterada]
+        uf:
+          type: ["string", "null"]
+        municipality:
+          type: ["string", "null"]
+        macrotema:
+          type: ["string", "null"]
+        subtema:
+          type: ["string", "null"]
+        applicability:
+          type: ["string", "null"]
         publicationDate:
           type: ["string", "null"]
           format: date
         sourceUrl:
           type: ["string", "null"]
         applicableArticles:
+          type: ["string", "null"]
+        reviewFrequencyDays:
+          type: ["integer", "null"]
+        observations:
+          type: ["string", "null"]
+        generalObservations:
           type: ["string", "null"]
         createdAt:
           type: string
@@ -853,13 +871,8 @@ components:
         - id
         - organizationId
         - title
-        - number
-        - description
         - level
         - status
-        - publicationDate
-        - sourceUrl
-        - applicableArticles
         - createdAt
         - updatedAt
 
@@ -876,18 +889,36 @@ components:
           type: ["string", "null"]
         description:
           type: ["string", "null"]
+        tipoNorma:
+          type: ["string", "null"]
+        emissor:
+          type: ["string", "null"]
         level:
           type: string
-          enum: [federal, estadual, municipal, internacional]
         status:
           type: string
-          enum: [vigente, revogada, alterada]
+        uf:
+          type: ["string", "null"]
+        municipality:
+          type: ["string", "null"]
+        macrotema:
+          type: ["string", "null"]
+        subtema:
+          type: ["string", "null"]
+        applicability:
+          type: ["string", "null"]
         publicationDate:
           type: ["string", "null"]
           format: date
         sourceUrl:
           type: ["string", "null"]
         applicableArticles:
+          type: ["string", "null"]
+        reviewFrequencyDays:
+          type: ["integer", "null"]
+        observations:
+          type: ["string", "null"]
+        generalObservations:
           type: ["string", "null"]
         createdAt:
           type: string
@@ -903,13 +934,8 @@ components:
         - id
         - organizationId
         - title
-        - number
-        - description
         - level
         - status
-        - publicationDate
-        - sourceUrl
-        - applicableArticles
         - createdAt
         - updatedAt
         - unitLegislations
@@ -923,18 +949,36 @@ components:
           type: string
         description:
           type: string
+        tipoNorma:
+          type: string
+        emissor:
+          type: string
         level:
           type: string
-          enum: [federal, estadual, municipal, internacional]
         status:
           type: string
-          enum: [vigente, revogada, alterada]
+        uf:
+          type: string
+        municipality:
+          type: string
+        macrotema:
+          type: string
+        subtema:
+          type: string
+        applicability:
+          type: string
         publicationDate:
           type: string
           format: date
         sourceUrl:
           type: string
         applicableArticles:
+          type: string
+        reviewFrequencyDays:
+          type: integer
+        observations:
+          type: string
+        generalObservations:
           type: string
       required:
         - title
@@ -949,18 +993,36 @@ components:
           type: string
         description:
           type: string
+        tipoNorma:
+          type: string
+        emissor:
+          type: string
         level:
           type: string
-          enum: [federal, estadual, municipal, internacional]
         status:
           type: string
-          enum: [vigente, revogada, alterada]
+        uf:
+          type: string
+        municipality:
+          type: string
+        macrotema:
+          type: string
+        subtema:
+          type: string
+        applicability:
+          type: string
         publicationDate:
           type: string
           format: date
         sourceUrl:
           type: string
         applicableArticles:
+          type: string
+        reviewFrequencyDays:
+          type: integer
+        observations:
+          type: string
+        generalObservations:
           type: string
 
     ImportLegislationsBody:
