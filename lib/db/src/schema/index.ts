@@ -9,3 +9,5 @@ export * from "./messages";
 export * from "./questionnaire";
 export * from "./employees";
 export * from "./departments";
+export * from "./documents";
+export * from "./notifications";

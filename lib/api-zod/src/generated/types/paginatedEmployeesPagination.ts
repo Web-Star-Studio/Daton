@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UpdateOrganizationBody {
-  name?: string;
-}
+export type PaginatedEmployeesPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};

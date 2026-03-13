@@ -6,6 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UpdateOrganizationBody {
-  name?: string;
+export interface ApproveDocumentBody {
+  comment?: string;
 }

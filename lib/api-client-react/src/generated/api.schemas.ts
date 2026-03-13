@@ -48,11 +48,6 @@ export interface AuthResponse {
 export interface Organization {
   id: number;
   name: string;
-  nomeFantasia?: string | null;
-  cnpj?: string | null;
-  inscricaoEstadual?: string | null;
-  dataFundacao?: string | null;
-  statusOperacional?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -64,11 +59,6 @@ export interface MeResponse {
 
 export interface UpdateOrganizationBody {
   name?: string;
-  nomeFantasia?: string | null;
-  cnpj?: string | null;
-  inscricaoEstadual?: string | null;
-  dataFundacao?: string | null;
-  statusOperacional?: string | null;
 }
 
 export type UnitType = (typeof UnitType)[keyof typeof UnitType];
@@ -470,6 +460,512 @@ export interface ComplianceTag {
   sourceQuestionId?: number | null;
 }
 
+export type EmployeeContractType =
+  (typeof EmployeeContractType)[keyof typeof EmployeeContractType];
+
+export const EmployeeContractType = {
+  clt: "clt",
+  pj: "pj",
+  intern: "intern",
+  temporary: "temporary",
+} as const;
+
+export type EmployeeStatus =
+  (typeof EmployeeStatus)[keyof typeof EmployeeStatus];
+
+export const EmployeeStatus = {
+  active: "active",
+  inactive: "inactive",
+  on_leave: "on_leave",
+} as const;
+
+export interface Employee {
+  id: number;
+  organizationId: number;
+  unitId?: number | null;
+  name: string;
+  cpf?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  position?: string | null;
+  department?: string | null;
+  contractType: EmployeeContractType;
+  admissionDate?: string | null;
+  terminationDate?: string | null;
+  status: EmployeeStatus;
+  unitName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type EmployeeCompetencyType =
+  (typeof EmployeeCompetencyType)[keyof typeof EmployeeCompetencyType];
+
+export const EmployeeCompetencyType = {
+  formacao: "formacao",
+  experiencia: "experiencia",
+  habilidade: "habilidade",
+} as const;
+
+export interface EmployeeCompetency {
+  id: number;
+  employeeId: number;
+  name: string;
+  description?: string | null;
+  type: EmployeeCompetencyType;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  requiredLevel: number;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  acquiredLevel: number;
+  evidence?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type EmployeeTrainingStatus =
+  (typeof EmployeeTrainingStatus)[keyof typeof EmployeeTrainingStatus];
+
+export const EmployeeTrainingStatus = {
+  pendente: "pendente",
+  concluido: "concluido",
+  vencido: "vencido",
+} as const;
+
+export interface EmployeeTraining {
+  id: number;
+  employeeId: number;
+  title: string;
+  description?: string | null;
+  institution?: string | null;
+  workloadHours?: number | null;
+  completionDate?: string | null;
+  expirationDate?: string | null;
+  status: EmployeeTrainingStatus;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EmployeeAwareness {
+  id: number;
+  employeeId: number;
+  topic: string;
+  description?: string | null;
+  date: string;
+  verificationMethod?: string | null;
+  result?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type PaginatedEmployeesPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export interface PaginatedEmployees {
+  data: Employee[];
+  pagination: PaginatedEmployeesPagination;
+}
+
+export interface LinkedUnit {
+  id: number;
+  name: string;
+}
+
+export type EmployeeDetail = Employee & {
+  units?: LinkedUnit[];
+  competencies?: EmployeeCompetency[];
+  trainings?: EmployeeTraining[];
+  awareness?: EmployeeAwareness[];
+};
+
+export type CreateEmployeeBodyContractType =
+  (typeof CreateEmployeeBodyContractType)[keyof typeof CreateEmployeeBodyContractType];
+
+export const CreateEmployeeBodyContractType = {
+  clt: "clt",
+  pj: "pj",
+  intern: "intern",
+  temporary: "temporary",
+} as const;
+
+export type CreateEmployeeBodyStatus =
+  (typeof CreateEmployeeBodyStatus)[keyof typeof CreateEmployeeBodyStatus];
+
+export const CreateEmployeeBodyStatus = {
+  active: "active",
+  inactive: "inactive",
+  on_leave: "on_leave",
+} as const;
+
+export interface CreateEmployeeBody {
+  name: string;
+  cpf?: string;
+  email?: string;
+  phone?: string;
+  position?: string;
+  department?: string;
+  unitId?: number;
+  contractType?: CreateEmployeeBodyContractType;
+  admissionDate?: string;
+  terminationDate?: string;
+  status?: CreateEmployeeBodyStatus;
+}
+
+export type UpdateEmployeeBodyContractType =
+  (typeof UpdateEmployeeBodyContractType)[keyof typeof UpdateEmployeeBodyContractType];
+
+export const UpdateEmployeeBodyContractType = {
+  clt: "clt",
+  pj: "pj",
+  intern: "intern",
+  temporary: "temporary",
+} as const;
+
+export type UpdateEmployeeBodyStatus =
+  (typeof UpdateEmployeeBodyStatus)[keyof typeof UpdateEmployeeBodyStatus];
+
+export const UpdateEmployeeBodyStatus = {
+  active: "active",
+  inactive: "inactive",
+  on_leave: "on_leave",
+} as const;
+
+export interface UpdateEmployeeBody {
+  name?: string;
+  cpf?: string;
+  email?: string;
+  phone?: string;
+  position?: string;
+  department?: string;
+  unitId?: number | null;
+  contractType?: UpdateEmployeeBodyContractType;
+  admissionDate?: string | null;
+  terminationDate?: string | null;
+  status?: UpdateEmployeeBodyStatus;
+}
+
+export type CreateCompetencyBodyType =
+  (typeof CreateCompetencyBodyType)[keyof typeof CreateCompetencyBodyType];
+
+export const CreateCompetencyBodyType = {
+  formacao: "formacao",
+  experiencia: "experiencia",
+  habilidade: "habilidade",
+} as const;
+
+export interface CreateCompetencyBody {
+  name: string;
+  description?: string;
+  type?: CreateCompetencyBodyType;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  requiredLevel?: number;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  acquiredLevel?: number;
+  evidence?: string;
+}
+
+export type CreateTrainingBodyStatus =
+  (typeof CreateTrainingBodyStatus)[keyof typeof CreateTrainingBodyStatus];
+
+export const CreateTrainingBodyStatus = {
+  pendente: "pendente",
+  concluido: "concluido",
+  vencido: "vencido",
+} as const;
+
+export interface CreateTrainingBody {
+  title: string;
+  description?: string;
+  institution?: string;
+  workloadHours?: number;
+  completionDate?: string;
+  expirationDate?: string;
+  status?: CreateTrainingBodyStatus;
+}
+
+export interface CreateAwarenessBody {
+  topic: string;
+  description?: string;
+  date: string;
+  verificationMethod?: string;
+  result?: string;
+}
+
+export type UpdateCompetencyBodyType =
+  (typeof UpdateCompetencyBodyType)[keyof typeof UpdateCompetencyBodyType];
+
+export const UpdateCompetencyBodyType = {
+  formacao: "formacao",
+  experiencia: "experiencia",
+  habilidade: "habilidade",
+} as const;
+
+export interface UpdateCompetencyBody {
+  name?: string;
+  description?: string;
+  type?: UpdateCompetencyBodyType;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  requiredLevel?: number;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  acquiredLevel?: number;
+  evidence?: string;
+}
+
+export type UpdateTrainingBodyStatus =
+  (typeof UpdateTrainingBodyStatus)[keyof typeof UpdateTrainingBodyStatus];
+
+export const UpdateTrainingBodyStatus = {
+  pendente: "pendente",
+  concluido: "concluido",
+  vencido: "vencido",
+} as const;
+
+export interface UpdateTrainingBody {
+  title?: string;
+  description?: string;
+  institution?: string;
+  workloadHours?: number;
+  completionDate?: string;
+  expirationDate?: string;
+  status?: UpdateTrainingBodyStatus;
+}
+
+export interface UpdateAwarenessBody {
+  topic?: string;
+  description?: string;
+  date?: string;
+  verificationMethod?: string;
+  result?: string;
+}
+
+export interface Department {
+  id: number;
+  organizationId?: number;
+  name: string;
+  description?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateDepartmentBody {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateDepartmentBody {
+  name?: string;
+  description?: string;
+}
+
+export interface Position {
+  id: number;
+  organizationId?: number;
+  name: string;
+  description?: string | null;
+  education?: string | null;
+  experience?: string | null;
+  requirements?: string | null;
+  responsibilities?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreatePositionBody {
+  name: string;
+  description?: string;
+  education?: string;
+  experience?: string;
+  requirements?: string;
+  responsibilities?: string;
+}
+
+export interface UpdatePositionBody {
+  name?: string;
+  description?: string;
+  education?: string;
+  experience?: string;
+  requirements?: string;
+  responsibilities?: string;
+}
+
+export interface OrgUser {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export interface DocumentSummary {
+  id: number;
+  title: string;
+  type: string;
+  status: string;
+  currentVersion: number;
+  validityDate?: string | null;
+  createdByName?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type DocumentDetailUnitsItem = {
+  id?: number;
+  name?: string;
+};
+
+export type DocumentDetailApproversItem = {
+  id?: number;
+  userId?: number;
+  name?: string;
+  status?: string;
+  approvedAt?: string | null;
+  comment?: string | null;
+};
+
+export type DocumentDetailRecipientsItem = {
+  id?: number;
+  userId?: number;
+  name?: string;
+  receivedAt?: string | null;
+  readAt?: string | null;
+};
+
+export type DocumentDetailReferencesItem = {
+  id?: number;
+  documentId?: number;
+  title?: string;
+};
+
+export interface DocumentAttachment {
+  id: number;
+  documentId?: number;
+  versionNumber?: number;
+  fileName: string;
+  fileSize?: number;
+  contentType?: string;
+  objectPath: string;
+  uploadedByName?: string;
+  uploadedAt?: string;
+}
+
+export interface DocumentVersion {
+  id: number;
+  versionNumber: number;
+  changeDescription: string;
+  changedByName?: string;
+  changedFields?: string | null;
+  createdAt: string;
+}
+
+export interface DocumentDetail {
+  id: number;
+  title: string;
+  type: string;
+  status: string;
+  currentVersion: number;
+  validityDate?: string | null;
+  createdById?: number;
+  createdByName?: string;
+  createdAt: string;
+  updatedAt?: string;
+  units?: DocumentDetailUnitsItem[];
+  elaborators?: OrgUser[];
+  approvers?: DocumentDetailApproversItem[];
+  recipients?: DocumentDetailRecipientsItem[];
+  references?: DocumentDetailReferencesItem[];
+  attachments?: DocumentAttachment[];
+  versions?: DocumentVersion[];
+}
+
+export type CreateDocumentBodyType =
+  (typeof CreateDocumentBodyType)[keyof typeof CreateDocumentBodyType];
+
+export const CreateDocumentBodyType = {
+  manual: "manual",
+  procedimento: "procedimento",
+  instrucao: "instrucao",
+  formulario: "formulario",
+  registro: "registro",
+  politica: "politica",
+  outro: "outro",
+} as const;
+
+export type CreateDocumentBodyAttachmentsItem = {
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+};
+
+export interface CreateDocumentBody {
+  title: string;
+  type: CreateDocumentBodyType;
+  validityDate?: string;
+  unitIds?: number[];
+  elaboratorIds?: number[];
+  approverIds: number[];
+  recipientIds?: number[];
+  referenceIds?: number[];
+  attachments?: CreateDocumentBodyAttachmentsItem[];
+}
+
+export interface UpdateDocumentBody {
+  title?: string;
+  type?: string;
+  validityDate?: string;
+  unitIds?: number[];
+  elaboratorIds?: number[];
+  approverIds?: number[];
+  recipientIds?: number[];
+  referenceIds?: number[];
+  changeDescription?: string;
+}
+
+export interface AddDocumentAttachmentBody {
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+}
+
+export interface ApproveDocumentBody {
+  comment?: string;
+}
+
+export interface RejectDocumentBody {
+  comment: string;
+}
+
+export interface NotificationItem {
+  id: number;
+  type: string;
+  title: string;
+  description: string;
+  read: boolean;
+  relatedEntityType?: string | null;
+  relatedEntityId?: number | null;
+  createdAt: string;
+}
+
 export type ListLegislationsParams = {
   search?: string;
   level?: ListLegislationsLevel;
@@ -491,225 +987,39 @@ export const ListLegislationsLevel = {
 
 export type GetUnitQuestionnaireResponses200 = { [key: string]: unknown };
 
-export interface EmployeeListItem {
-  id: number;
-  organizationId: number;
-  unitId?: number | null;
-  name: string;
-  cpf?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  position?: string | null;
-  department?: string | null;
-  contractType: string;
-  admissionDate?: string | null;
-  terminationDate?: string | null;
-  status: string;
-  unitName?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface EmployeeCompetency {
-  id: number;
-  employeeId: number;
-  name: string;
-  description?: string | null;
-  type: string;
-  requiredLevel: number;
-  acquiredLevel: number;
-  evidence?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface EmployeeTraining {
-  id: number;
-  employeeId: number;
-  title: string;
-  description?: string | null;
-  institution?: string | null;
-  workloadHours?: number | null;
-  completionDate?: string | null;
-  expirationDate?: string | null;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface EmployeeAwareness {
-  id: number;
-  employeeId: number;
-  topic: string;
-  description?: string | null;
-  date: string;
-  verificationMethod?: string | null;
-  result?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface LinkedUnit {
-  id: number;
-  name: string;
-}
-
-export interface EmployeeDetail extends EmployeeListItem {
-  units: LinkedUnit[];
-  competencies: EmployeeCompetency[];
-  trainings: EmployeeTraining[];
-  awareness: EmployeeAwareness[];
-}
-
-export interface CreateEmployeeBody {
-  name: string;
-  cpf?: string;
-  email?: string;
-  phone?: string;
-  position?: string;
-  department?: string;
-  unitId?: number;
-  contractType?: string;
-  admissionDate?: string;
-  terminationDate?: string;
-  status?: string;
-}
-
-export interface UpdateEmployeeBody {
-  name?: string;
-  cpf?: string;
-  email?: string;
-  phone?: string;
-  position?: string;
-  department?: string;
-  unitId?: number | null;
-  contractType?: string;
-  admissionDate?: string | null;
-  terminationDate?: string | null;
-  status?: string;
-}
-
-export interface CreateCompetencyBody {
-  name: string;
-  description?: string;
-  type?: string;
-  requiredLevel?: number;
-  acquiredLevel?: number;
-  evidence?: string;
-}
-
-export interface UpdateCompetencyBody {
-  name?: string;
-  description?: string;
-  type?: string;
-  requiredLevel?: number;
-  acquiredLevel?: number;
-  evidence?: string;
-}
-
-export interface CreateTrainingBody {
-  title: string;
-  description?: string;
-  institution?: string;
-  workloadHours?: number;
-  completionDate?: string;
-  expirationDate?: string;
-  status?: string;
-}
-
-export interface UpdateTrainingBody {
-  title?: string;
-  description?: string;
-  institution?: string;
-  workloadHours?: number;
-  completionDate?: string | null;
-  expirationDate?: string | null;
-  status?: string;
-}
-
-export interface CreateAwarenessBody {
-  topic: string;
-  description?: string;
-  date: string;
-  verificationMethod?: string;
-  result?: string;
-}
-
-export interface UpdateAwarenessBody {
-  topic?: string;
-  description?: string;
-  date?: string;
-  verificationMethod?: string;
-  result?: string;
-}
-
 export type ListEmployeesParams = {
   search?: string;
   unitId?: number;
   position?: string;
   status?: string;
+  /**
+   * @minimum 1
+   */
   page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
   pageSize?: number;
 };
 
-export type PaginationInfo = {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
+export type LinkEmployeeUnitBody = {
+  unitId: number;
 };
 
-export type PaginatedEmployees = {
-  data: EmployeeListItem[];
-  pagination: PaginationInfo;
+export type LinkEmployeeUnit201 = {
+  id?: number;
+  employeeId?: number;
+  unitId?: number;
 };
 
-export interface Department {
-  id: number;
-  organizationId: number;
-  name: string;
-  description: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+export type ListDocumentsParams = {
+  search?: string;
+  type?: string;
+  status?: string;
+};
 
-export interface CreateDepartmentBody {
-  name: string;
-  description?: string;
-}
-
-export interface UpdateDepartmentBody {
-  name?: string;
-  description?: string;
-}
-
-export interface Position {
-  id: number;
-  organizationId: number;
-  name: string;
-  description: string | null;
-  education: string | null;
-  experience: string | null;
-  requirements: string | null;
-  responsibilities: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreatePositionBody {
-  name: string;
-  description?: string;
-  education?: string;
-  experience?: string;
-  requirements?: string;
-  responsibilities?: string;
-}
-
-export interface UpdatePositionBody {
-  name?: string;
-  description?: string;
-  education?: string;
-  experience?: string;
-  requirements?: string;
-  responsibilities?: string;
-}
+export type ListNotifications200 = {
+  notifications?: NotificationItem[];
+  unreadCount?: number;
+};

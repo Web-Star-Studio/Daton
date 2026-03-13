@@ -97,11 +97,6 @@ export const UpdateOrganizationParams = zod.object({
 
 export const UpdateOrganizationBody = zod.object({
   name: zod.string().optional(),
-  nomeFantasia: zod.string().nullish(),
-  cnpj: zod.string().nullish(),
-  inscricaoEstadual: zod.string().nullish(),
-  dataFundacao: zod.string().nullish(),
-  statusOperacional: zod.string().nullish(),
 });
 
 export const UpdateOrganizationResponse = zod.object({
@@ -447,7 +442,6 @@ export const UpdateLegislationBody = zod.object({
   sourceUrl: zod.string().optional(),
   applicableArticles: zod.string().optional(),
   reviewFrequencyDays: zod.number().optional(),
-  tags: zod.array(zod.string()).optional(),
   observations: zod.string().optional(),
   generalObservations: zod.string().optional(),
   tags: zod.array(zod.string()).optional(),
@@ -771,13 +765,48 @@ export const ListEmployeesParams = zod.object({
   orgId: zod.coerce.number(),
 });
 
+export const listEmployeesQueryPageSizeMax = 100;
+
 export const ListEmployeesQueryParams = zod.object({
-  search: zod.string().optional(),
+  search: zod.coerce.string().optional(),
   unitId: zod.coerce.number().optional(),
-  position: zod.string().optional(),
-  status: zod.string().optional(),
-  page: zod.coerce.number().int().min(1).optional(),
-  pageSize: zod.coerce.number().int().min(1).max(100).optional(),
+  position: zod.coerce.string().optional(),
+  status: zod.coerce.string().optional(),
+  page: zod.coerce.number().min(1).optional(),
+  pageSize: zod.coerce
+    .number()
+    .min(1)
+    .max(listEmployeesQueryPageSizeMax)
+    .optional(),
+});
+
+export const ListEmployeesResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      organizationId: zod.number(),
+      unitId: zod.number().nullish(),
+      name: zod.string(),
+      cpf: zod.string().nullish(),
+      email: zod.string().nullish(),
+      phone: zod.string().nullish(),
+      position: zod.string().nullish(),
+      department: zod.string().nullish(),
+      contractType: zod.enum(["clt", "pj", "intern", "temporary"]),
+      admissionDate: zod.string().nullish(),
+      terminationDate: zod.string().nullish(),
+      status: zod.enum(["active", "inactive", "on_leave"]),
+      unitName: zod.string().nullish(),
+      createdAt: zod.date(),
+      updatedAt: zod.date(),
+    }),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    pageSize: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
 });
 
 /**
@@ -788,26 +817,118 @@ export const CreateEmployeeParams = zod.object({
 });
 
 export const CreateEmployeeBody = zod.object({
-  name: zod.string().min(1),
+  name: zod.string(),
   cpf: zod.string().optional(),
   email: zod.string().email().optional(),
   phone: zod.string().optional(),
   position: zod.string().optional(),
   department: zod.string().optional(),
-  unitId: zod.coerce.number().optional(),
-  contractType: zod.string().optional(),
+  unitId: zod.number().optional(),
+  contractType: zod.enum(["clt", "pj", "intern", "temporary"]).optional(),
   admissionDate: zod.string().optional(),
   terminationDate: zod.string().optional(),
-  status: zod.string().optional(),
+  status: zod.enum(["active", "inactive", "on_leave"]).optional(),
 });
 
 /**
- * @summary Get employee
+ * @summary Get employee with competencies, trainings, awareness
  */
 export const GetEmployeeParams = zod.object({
   orgId: zod.coerce.number(),
   empId: zod.coerce.number(),
 });
+
+export const getEmployeeResponseTwoCompetenciesItemRequiredLevelMin = 0;
+export const getEmployeeResponseTwoCompetenciesItemRequiredLevelMax = 5;
+
+export const getEmployeeResponseTwoCompetenciesItemAcquiredLevelMin = 0;
+export const getEmployeeResponseTwoCompetenciesItemAcquiredLevelMax = 5;
+
+export const GetEmployeeResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    unitId: zod.number().nullish(),
+    name: zod.string(),
+    cpf: zod.string().nullish(),
+    email: zod.string().nullish(),
+    phone: zod.string().nullish(),
+    position: zod.string().nullish(),
+    department: zod.string().nullish(),
+    contractType: zod.enum(["clt", "pj", "intern", "temporary"]),
+    admissionDate: zod.string().nullish(),
+    terminationDate: zod.string().nullish(),
+    status: zod.enum(["active", "inactive", "on_leave"]),
+    unitName: zod.string().nullish(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+  })
+  .and(
+    zod.object({
+      units: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            name: zod.string(),
+          }),
+        )
+        .optional(),
+      competencies: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            employeeId: zod.number(),
+            name: zod.string(),
+            description: zod.string().nullish(),
+            type: zod.enum(["formacao", "experiencia", "habilidade"]),
+            requiredLevel: zod
+              .number()
+              .min(getEmployeeResponseTwoCompetenciesItemRequiredLevelMin)
+              .max(getEmployeeResponseTwoCompetenciesItemRequiredLevelMax),
+            acquiredLevel: zod
+              .number()
+              .min(getEmployeeResponseTwoCompetenciesItemAcquiredLevelMin)
+              .max(getEmployeeResponseTwoCompetenciesItemAcquiredLevelMax),
+            evidence: zod.string().nullish(),
+            createdAt: zod.date().optional(),
+            updatedAt: zod.date().optional(),
+          }),
+        )
+        .optional(),
+      trainings: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            employeeId: zod.number(),
+            title: zod.string(),
+            description: zod.string().nullish(),
+            institution: zod.string().nullish(),
+            workloadHours: zod.number().nullish(),
+            completionDate: zod.string().nullish(),
+            expirationDate: zod.string().nullish(),
+            status: zod.enum(["pendente", "concluido", "vencido"]),
+            createdAt: zod.date().optional(),
+            updatedAt: zod.date().optional(),
+          }),
+        )
+        .optional(),
+      awareness: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            employeeId: zod.number(),
+            topic: zod.string(),
+            description: zod.string().nullish(),
+            date: zod.string(),
+            verificationMethod: zod.string().nullish(),
+            result: zod.string().nullish(),
+            createdAt: zod.date().optional(),
+            updatedAt: zod.date().optional(),
+          }),
+        )
+        .optional(),
+    }),
+  );
 
 /**
  * @summary Update employee
@@ -818,17 +939,36 @@ export const UpdateEmployeeParams = zod.object({
 });
 
 export const UpdateEmployeeBody = zod.object({
-  name: zod.string().min(1).optional(),
+  name: zod.string().optional(),
   cpf: zod.string().optional(),
   email: zod.string().email().optional(),
   phone: zod.string().optional(),
   position: zod.string().optional(),
   department: zod.string().optional(),
-  unitId: zod.coerce.number().nullable().optional(),
-  contractType: zod.string().optional(),
-  admissionDate: zod.string().nullable().optional(),
-  terminationDate: zod.string().nullable().optional(),
-  status: zod.string().optional(),
+  unitId: zod.number().nullish(),
+  contractType: zod.enum(["clt", "pj", "intern", "temporary"]).optional(),
+  admissionDate: zod.string().nullish(),
+  terminationDate: zod.string().nullish(),
+  status: zod.enum(["active", "inactive", "on_leave"]).optional(),
+});
+
+export const UpdateEmployeeResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullish(),
+  name: zod.string(),
+  cpf: zod.string().nullish(),
+  email: zod.string().nullish(),
+  phone: zod.string().nullish(),
+  position: zod.string().nullish(),
+  department: zod.string().nullish(),
+  contractType: zod.enum(["clt", "pj", "intern", "temporary"]),
+  admissionDate: zod.string().nullish(),
+  terminationDate: zod.string().nullish(),
+  status: zod.enum(["active", "inactive", "on_leave"]),
+  unitName: zod.string().nullish(),
+  createdAt: zod.date(),
+  updatedAt: zod.date(),
 });
 
 /**
@@ -847,6 +987,32 @@ export const ListCompetenciesParams = zod.object({
   empId: zod.coerce.number(),
 });
 
+export const listCompetenciesResponseRequiredLevelMin = 0;
+export const listCompetenciesResponseRequiredLevelMax = 5;
+
+export const listCompetenciesResponseAcquiredLevelMin = 0;
+export const listCompetenciesResponseAcquiredLevelMax = 5;
+
+export const ListCompetenciesResponseItem = zod.object({
+  id: zod.number(),
+  employeeId: zod.number(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  type: zod.enum(["formacao", "experiencia", "habilidade"]),
+  requiredLevel: zod
+    .number()
+    .min(listCompetenciesResponseRequiredLevelMin)
+    .max(listCompetenciesResponseRequiredLevelMax),
+  acquiredLevel: zod
+    .number()
+    .min(listCompetenciesResponseAcquiredLevelMin)
+    .max(listCompetenciesResponseAcquiredLevelMax),
+  evidence: zod.string().nullish(),
+  createdAt: zod.date().optional(),
+  updatedAt: zod.date().optional(),
+});
+export const ListCompetenciesResponse = zod.array(ListCompetenciesResponseItem);
+
 /**
  * @summary Create competency
  */
@@ -855,12 +1021,26 @@ export const CreateCompetencyParams = zod.object({
   empId: zod.coerce.number(),
 });
 
+export const createCompetencyBodyRequiredLevelMin = 0;
+export const createCompetencyBodyRequiredLevelMax = 5;
+
+export const createCompetencyBodyAcquiredLevelMin = 0;
+export const createCompetencyBodyAcquiredLevelMax = 5;
+
 export const CreateCompetencyBody = zod.object({
-  name: zod.string().min(1),
+  name: zod.string(),
   description: zod.string().optional(),
-  type: zod.string().optional(),
-  requiredLevel: zod.coerce.number().min(0).max(5).optional(),
-  acquiredLevel: zod.coerce.number().min(0).max(5).optional(),
+  type: zod.enum(["formacao", "experiencia", "habilidade"]).optional(),
+  requiredLevel: zod
+    .number()
+    .min(createCompetencyBodyRequiredLevelMin)
+    .max(createCompetencyBodyRequiredLevelMax)
+    .optional(),
+  acquiredLevel: zod
+    .number()
+    .min(createCompetencyBodyAcquiredLevelMin)
+    .max(createCompetencyBodyAcquiredLevelMax)
+    .optional(),
   evidence: zod.string().optional(),
 });
 
@@ -873,13 +1053,52 @@ export const UpdateCompetencyParams = zod.object({
   compId: zod.coerce.number(),
 });
 
+export const updateCompetencyBodyRequiredLevelMin = 0;
+export const updateCompetencyBodyRequiredLevelMax = 5;
+
+export const updateCompetencyBodyAcquiredLevelMin = 0;
+export const updateCompetencyBodyAcquiredLevelMax = 5;
+
 export const UpdateCompetencyBody = zod.object({
-  name: zod.string().min(1).optional(),
+  name: zod.string().optional(),
   description: zod.string().optional(),
-  type: zod.string().optional(),
-  requiredLevel: zod.coerce.number().min(0).max(5).optional(),
-  acquiredLevel: zod.coerce.number().min(0).max(5).optional(),
+  type: zod.enum(["formacao", "experiencia", "habilidade"]).optional(),
+  requiredLevel: zod
+    .number()
+    .min(updateCompetencyBodyRequiredLevelMin)
+    .max(updateCompetencyBodyRequiredLevelMax)
+    .optional(),
+  acquiredLevel: zod
+    .number()
+    .min(updateCompetencyBodyAcquiredLevelMin)
+    .max(updateCompetencyBodyAcquiredLevelMax)
+    .optional(),
   evidence: zod.string().optional(),
+});
+
+export const updateCompetencyResponseRequiredLevelMin = 0;
+export const updateCompetencyResponseRequiredLevelMax = 5;
+
+export const updateCompetencyResponseAcquiredLevelMin = 0;
+export const updateCompetencyResponseAcquiredLevelMax = 5;
+
+export const UpdateCompetencyResponse = zod.object({
+  id: zod.number(),
+  employeeId: zod.number(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  type: zod.enum(["formacao", "experiencia", "habilidade"]),
+  requiredLevel: zod
+    .number()
+    .min(updateCompetencyResponseRequiredLevelMin)
+    .max(updateCompetencyResponseRequiredLevelMax),
+  acquiredLevel: zod
+    .number()
+    .min(updateCompetencyResponseAcquiredLevelMin)
+    .max(updateCompetencyResponseAcquiredLevelMax),
+  evidence: zod.string().nullish(),
+  createdAt: zod.date().optional(),
+  updatedAt: zod.date().optional(),
 });
 
 /**
@@ -899,6 +1118,21 @@ export const ListTrainingsParams = zod.object({
   empId: zod.coerce.number(),
 });
 
+export const ListTrainingsResponseItem = zod.object({
+  id: zod.number(),
+  employeeId: zod.number(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  institution: zod.string().nullish(),
+  workloadHours: zod.number().nullish(),
+  completionDate: zod.string().nullish(),
+  expirationDate: zod.string().nullish(),
+  status: zod.enum(["pendente", "concluido", "vencido"]),
+  createdAt: zod.date().optional(),
+  updatedAt: zod.date().optional(),
+});
+export const ListTrainingsResponse = zod.array(ListTrainingsResponseItem);
+
 /**
  * @summary Create training
  */
@@ -908,13 +1142,13 @@ export const CreateTrainingParams = zod.object({
 });
 
 export const CreateTrainingBody = zod.object({
-  title: zod.string().min(1),
+  title: zod.string(),
   description: zod.string().optional(),
   institution: zod.string().optional(),
-  workloadHours: zod.coerce.number().optional(),
+  workloadHours: zod.number().optional(),
   completionDate: zod.string().optional(),
   expirationDate: zod.string().optional(),
-  status: zod.string().optional(),
+  status: zod.enum(["pendente", "concluido", "vencido"]).optional(),
 });
 
 /**
@@ -927,13 +1161,27 @@ export const UpdateTrainingParams = zod.object({
 });
 
 export const UpdateTrainingBody = zod.object({
-  title: zod.string().min(1).optional(),
+  title: zod.string().optional(),
   description: zod.string().optional(),
   institution: zod.string().optional(),
-  workloadHours: zod.coerce.number().optional(),
-  completionDate: zod.string().nullable().optional(),
-  expirationDate: zod.string().nullable().optional(),
-  status: zod.string().optional(),
+  workloadHours: zod.number().optional(),
+  completionDate: zod.string().optional(),
+  expirationDate: zod.string().optional(),
+  status: zod.enum(["pendente", "concluido", "vencido"]).optional(),
+});
+
+export const UpdateTrainingResponse = zod.object({
+  id: zod.number(),
+  employeeId: zod.number(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  institution: zod.string().nullish(),
+  workloadHours: zod.number().nullish(),
+  completionDate: zod.string().nullish(),
+  expirationDate: zod.string().nullish(),
+  status: zod.enum(["pendente", "concluido", "vencido"]),
+  createdAt: zod.date().optional(),
+  updatedAt: zod.date().optional(),
 });
 
 /**
@@ -953,6 +1201,19 @@ export const ListAwarenessParams = zod.object({
   empId: zod.coerce.number(),
 });
 
+export const ListAwarenessResponseItem = zod.object({
+  id: zod.number(),
+  employeeId: zod.number(),
+  topic: zod.string(),
+  description: zod.string().nullish(),
+  date: zod.string(),
+  verificationMethod: zod.string().nullish(),
+  result: zod.string().nullish(),
+  createdAt: zod.date().optional(),
+  updatedAt: zod.date().optional(),
+});
+export const ListAwarenessResponse = zod.array(ListAwarenessResponseItem);
+
 /**
  * @summary Create awareness record
  */
@@ -962,7 +1223,7 @@ export const CreateAwarenessParams = zod.object({
 });
 
 export const CreateAwarenessBody = zod.object({
-  topic: zod.string().min(1),
+  topic: zod.string(),
   description: zod.string().optional(),
   date: zod.string(),
   verificationMethod: zod.string().optional(),
@@ -979,11 +1240,23 @@ export const UpdateAwarenessParams = zod.object({
 });
 
 export const UpdateAwarenessBody = zod.object({
-  topic: zod.string().min(1).optional(),
+  topic: zod.string().optional(),
   description: zod.string().optional(),
   date: zod.string().optional(),
   verificationMethod: zod.string().optional(),
   result: zod.string().optional(),
+});
+
+export const UpdateAwarenessResponse = zod.object({
+  id: zod.number(),
+  employeeId: zod.number(),
+  topic: zod.string(),
+  description: zod.string().nullish(),
+  date: zod.string(),
+  verificationMethod: zod.string().nullish(),
+  result: zod.string().nullish(),
+  createdAt: zod.date().optional(),
+  updatedAt: zod.date().optional(),
 });
 
 /**
@@ -995,25 +1268,47 @@ export const DeleteAwarenessParams = zod.object({
   awaId: zod.coerce.number(),
 });
 
+/**
+ * @summary Link unit to employee
+ */
 export const LinkEmployeeUnitParams = zod.object({
   orgId: zod.coerce.number(),
   empId: zod.coerce.number(),
 });
 
 export const LinkEmployeeUnitBody = zod.object({
-  unitId: zod.coerce.number(),
+  unitId: zod.number(),
 });
 
+/**
+ * @summary Unlink unit from employee
+ */
 export const UnlinkEmployeeUnitParams = zod.object({
   orgId: zod.coerce.number(),
   empId: zod.coerce.number(),
   unitId: zod.coerce.number(),
 });
 
+/**
+ * @summary List departments
+ */
 export const ListDepartmentsParams = zod.object({
   orgId: zod.coerce.number(),
 });
 
+export const ListDepartmentsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number().optional(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  createdAt: zod.string().optional(),
+  updatedAt: zod.string().optional(),
+});
+export const ListDepartmentsResponse = zod.array(ListDepartmentsResponseItem);
+
+/**
+ * @summary Create department
+ */
 export const CreateDepartmentParams = zod.object({
   orgId: zod.coerce.number(),
 });
@@ -1023,6 +1318,9 @@ export const CreateDepartmentBody = zod.object({
   description: zod.string().optional(),
 });
 
+/**
+ * @summary Update department
+ */
 export const UpdateDepartmentParams = zod.object({
   orgId: zod.coerce.number(),
   deptId: zod.coerce.number(),
@@ -1033,15 +1331,47 @@ export const UpdateDepartmentBody = zod.object({
   description: zod.string().optional(),
 });
 
+export const UpdateDepartmentResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number().optional(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  createdAt: zod.string().optional(),
+  updatedAt: zod.string().optional(),
+});
+
+/**
+ * @summary Delete department
+ */
 export const DeleteDepartmentParams = zod.object({
   orgId: zod.coerce.number(),
   deptId: zod.coerce.number(),
 });
 
+/**
+ * @summary List positions
+ */
 export const ListPositionsParams = zod.object({
   orgId: zod.coerce.number(),
 });
 
+export const ListPositionsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number().optional(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  education: zod.string().nullish(),
+  experience: zod.string().nullish(),
+  requirements: zod.string().nullish(),
+  responsibilities: zod.string().nullish(),
+  createdAt: zod.string().optional(),
+  updatedAt: zod.string().optional(),
+});
+export const ListPositionsResponse = zod.array(ListPositionsResponseItem);
+
+/**
+ * @summary Create position
+ */
 export const CreatePositionParams = zod.object({
   orgId: zod.coerce.number(),
 });
@@ -1055,6 +1385,9 @@ export const CreatePositionBody = zod.object({
   responsibilities: zod.string().optional(),
 });
 
+/**
+ * @summary Update position
+ */
 export const UpdatePositionParams = zod.object({
   orgId: zod.coerce.number(),
   posId: zod.coerce.number(),
@@ -1069,7 +1402,813 @@ export const UpdatePositionBody = zod.object({
   responsibilities: zod.string().optional(),
 });
 
+export const UpdatePositionResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number().optional(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  education: zod.string().nullish(),
+  experience: zod.string().nullish(),
+  requirements: zod.string().nullish(),
+  responsibilities: zod.string().nullish(),
+  createdAt: zod.string().optional(),
+  updatedAt: zod.string().optional(),
+});
+
+/**
+ * @summary Delete position
+ */
 export const DeletePositionParams = zod.object({
   orgId: zod.coerce.number(),
   posId: zod.coerce.number(),
 });
+
+/**
+ * @summary List documents
+ */
+export const ListDocumentsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListDocumentsQueryParams = zod.object({
+  search: zod.coerce.string().optional(),
+  type: zod.coerce.string().optional(),
+  status: zod.coerce.string().optional(),
+});
+
+export const ListDocumentsResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  type: zod.string(),
+  status: zod.string(),
+  currentVersion: zod.number(),
+  validityDate: zod.string().nullish(),
+  createdByName: zod.string().optional(),
+  createdAt: zod.string(),
+  updatedAt: zod.string().optional(),
+});
+export const ListDocumentsResponse = zod.array(ListDocumentsResponseItem);
+
+/**
+ * @summary Create a new document
+ */
+export const CreateDocumentParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateDocumentBody = zod.object({
+  title: zod.string(),
+  type: zod.enum([
+    "manual",
+    "procedimento",
+    "instrucao",
+    "formulario",
+    "registro",
+    "politica",
+    "outro",
+  ]),
+  validityDate: zod.string().optional(),
+  unitIds: zod.array(zod.number()).optional(),
+  elaboratorIds: zod.array(zod.number()).optional(),
+  approverIds: zod.array(zod.number()),
+  recipientIds: zod.array(zod.number()).optional(),
+  referenceIds: zod.array(zod.number()).optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod.number(),
+        contentType: zod.string(),
+        objectPath: zod.string(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Get document details
+ */
+export const GetDocumentParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const GetDocumentResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  type: zod.string(),
+  status: zod.string(),
+  currentVersion: zod.number(),
+  validityDate: zod.string().nullish(),
+  createdById: zod.number().optional(),
+  createdByName: zod.string().optional(),
+  createdAt: zod.string(),
+  updatedAt: zod.string().optional(),
+  units: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        name: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  elaborators: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        email: zod.string(),
+      }),
+    )
+    .optional(),
+  approvers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        approvedAt: zod.string().nullish(),
+        comment: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  recipients: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        receivedAt: zod.string().nullish(),
+        readAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  references: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        documentId: zod.number().optional(),
+        title: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        documentId: zod.number().optional(),
+        versionNumber: zod.number().optional(),
+        fileName: zod.string(),
+        fileSize: zod.number().optional(),
+        contentType: zod.string().optional(),
+        objectPath: zod.string(),
+        uploadedByName: zod.string().optional(),
+        uploadedAt: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  versions: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        versionNumber: zod.number(),
+        changeDescription: zod.string(),
+        changedByName: zod.string().optional(),
+        changedFields: zod.string().nullish(),
+        createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Update document (creates new version)
+ */
+export const UpdateDocumentParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const UpdateDocumentBody = zod.object({
+  title: zod.string().optional(),
+  type: zod.string().optional(),
+  validityDate: zod.string().optional(),
+  unitIds: zod.array(zod.number()).optional(),
+  elaboratorIds: zod.array(zod.number()).optional(),
+  approverIds: zod.array(zod.number()).optional(),
+  recipientIds: zod.array(zod.number()).optional(),
+  referenceIds: zod.array(zod.number()).optional(),
+  changeDescription: zod.string().optional(),
+});
+
+export const UpdateDocumentResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  type: zod.string(),
+  status: zod.string(),
+  currentVersion: zod.number(),
+  validityDate: zod.string().nullish(),
+  createdById: zod.number().optional(),
+  createdByName: zod.string().optional(),
+  createdAt: zod.string(),
+  updatedAt: zod.string().optional(),
+  units: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        name: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  elaborators: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        email: zod.string(),
+      }),
+    )
+    .optional(),
+  approvers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        approvedAt: zod.string().nullish(),
+        comment: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  recipients: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        receivedAt: zod.string().nullish(),
+        readAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  references: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        documentId: zod.number().optional(),
+        title: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        documentId: zod.number().optional(),
+        versionNumber: zod.number().optional(),
+        fileName: zod.string(),
+        fileSize: zod.number().optional(),
+        contentType: zod.string().optional(),
+        objectPath: zod.string(),
+        uploadedByName: zod.string().optional(),
+        uploadedAt: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  versions: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        versionNumber: zod.number(),
+        changeDescription: zod.string(),
+        changedByName: zod.string().optional(),
+        changedFields: zod.string().nullish(),
+        createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Delete a document
+ */
+export const DeleteDocumentParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+/**
+ * @summary List document version history
+ */
+export const ListDocumentVersionsParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const ListDocumentVersionsResponseItem = zod.object({
+  id: zod.number(),
+  versionNumber: zod.number(),
+  changeDescription: zod.string(),
+  changedByName: zod.string().optional(),
+  changedFields: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+export const ListDocumentVersionsResponse = zod.array(
+  ListDocumentVersionsResponseItem,
+);
+
+/**
+ * @summary Add attachment to document
+ */
+export const AddDocumentAttachmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const AddDocumentAttachmentBody = zod.object({
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Delete document attachment
+ */
+export const DeleteDocumentAttachmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+  attachId: zod.coerce.number(),
+});
+
+/**
+ * @summary Submit document for review
+ */
+export const SubmitDocumentForReviewParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const SubmitDocumentForReviewResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  type: zod.string(),
+  status: zod.string(),
+  currentVersion: zod.number(),
+  validityDate: zod.string().nullish(),
+  createdById: zod.number().optional(),
+  createdByName: zod.string().optional(),
+  createdAt: zod.string(),
+  updatedAt: zod.string().optional(),
+  units: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        name: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  elaborators: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        email: zod.string(),
+      }),
+    )
+    .optional(),
+  approvers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        approvedAt: zod.string().nullish(),
+        comment: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  recipients: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        receivedAt: zod.string().nullish(),
+        readAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  references: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        documentId: zod.number().optional(),
+        title: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        documentId: zod.number().optional(),
+        versionNumber: zod.number().optional(),
+        fileName: zod.string(),
+        fileSize: zod.number().optional(),
+        contentType: zod.string().optional(),
+        objectPath: zod.string(),
+        uploadedByName: zod.string().optional(),
+        uploadedAt: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  versions: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        versionNumber: zod.number(),
+        changeDescription: zod.string(),
+        changedByName: zod.string().optional(),
+        changedFields: zod.string().nullish(),
+        createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Approve document
+ */
+export const ApproveDocumentParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const ApproveDocumentBody = zod.object({
+  comment: zod.string().optional(),
+});
+
+export const ApproveDocumentResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  type: zod.string(),
+  status: zod.string(),
+  currentVersion: zod.number(),
+  validityDate: zod.string().nullish(),
+  createdById: zod.number().optional(),
+  createdByName: zod.string().optional(),
+  createdAt: zod.string(),
+  updatedAt: zod.string().optional(),
+  units: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        name: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  elaborators: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        email: zod.string(),
+      }),
+    )
+    .optional(),
+  approvers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        approvedAt: zod.string().nullish(),
+        comment: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  recipients: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        receivedAt: zod.string().nullish(),
+        readAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  references: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        documentId: zod.number().optional(),
+        title: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        documentId: zod.number().optional(),
+        versionNumber: zod.number().optional(),
+        fileName: zod.string(),
+        fileSize: zod.number().optional(),
+        contentType: zod.string().optional(),
+        objectPath: zod.string(),
+        uploadedByName: zod.string().optional(),
+        uploadedAt: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  versions: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        versionNumber: zod.number(),
+        changeDescription: zod.string(),
+        changedByName: zod.string().optional(),
+        changedFields: zod.string().nullish(),
+        createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Reject document
+ */
+export const RejectDocumentParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const RejectDocumentBody = zod.object({
+  comment: zod.string(),
+});
+
+export const RejectDocumentResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  type: zod.string(),
+  status: zod.string(),
+  currentVersion: zod.number(),
+  validityDate: zod.string().nullish(),
+  createdById: zod.number().optional(),
+  createdByName: zod.string().optional(),
+  createdAt: zod.string(),
+  updatedAt: zod.string().optional(),
+  units: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        name: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  elaborators: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        email: zod.string(),
+      }),
+    )
+    .optional(),
+  approvers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        approvedAt: zod.string().nullish(),
+        comment: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  recipients: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        receivedAt: zod.string().nullish(),
+        readAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  references: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        documentId: zod.number().optional(),
+        title: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        documentId: zod.number().optional(),
+        versionNumber: zod.number().optional(),
+        fileName: zod.string(),
+        fileSize: zod.number().optional(),
+        contentType: zod.string().optional(),
+        objectPath: zod.string(),
+        uploadedByName: zod.string().optional(),
+        uploadedAt: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  versions: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        versionNumber: zod.number(),
+        changeDescription: zod.string(),
+        changedByName: zod.string().optional(),
+        changedFields: zod.string().nullish(),
+        createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Distribute approved document to recipients
+ */
+export const DistributeDocumentParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const DistributeDocumentResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  type: zod.string(),
+  status: zod.string(),
+  currentVersion: zod.number(),
+  validityDate: zod.string().nullish(),
+  createdById: zod.number().optional(),
+  createdByName: zod.string().optional(),
+  createdAt: zod.string(),
+  updatedAt: zod.string().optional(),
+  units: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        name: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  elaborators: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        email: zod.string(),
+      }),
+    )
+    .optional(),
+  approvers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        approvedAt: zod.string().nullish(),
+        comment: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  recipients: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        receivedAt: zod.string().nullish(),
+        readAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  references: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        documentId: zod.number().optional(),
+        title: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        documentId: zod.number().optional(),
+        versionNumber: zod.number().optional(),
+        fileName: zod.string(),
+        fileSize: zod.number().optional(),
+        contentType: zod.string().optional(),
+        objectPath: zod.string(),
+        uploadedByName: zod.string().optional(),
+        uploadedAt: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  versions: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        versionNumber: zod.number(),
+        changeDescription: zod.string(),
+        changedByName: zod.string().optional(),
+        changedFields: zod.string().nullish(),
+        createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Acknowledge receipt and reading of document
+ */
+export const AcknowledgeDocumentParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const AcknowledgeDocumentResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary List notifications for current user
+ */
+export const ListNotificationsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListNotificationsResponse = zod.object({
+  notifications: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        type: zod.string(),
+        title: zod.string(),
+        description: zod.string(),
+        read: zod.boolean(),
+        relatedEntityType: zod.string().nullish(),
+        relatedEntityId: zod.number().nullish(),
+        createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+  unreadCount: zod.number().optional(),
+});
+
+/**
+ * @summary Mark notification as read
+ */
+export const MarkNotificationReadParams = zod.object({
+  orgId: zod.coerce.number(),
+  notifId: zod.coerce.number(),
+});
+
+export const MarkNotificationReadResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Mark all notifications as read
+ */
+export const MarkAllNotificationsReadParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const MarkAllNotificationsReadResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary List users in organization
+ */
+export const ListOrgUsersParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListOrgUsersResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+});
+export const ListOrgUsersResponse = zod.array(ListOrgUsersResponseItem);

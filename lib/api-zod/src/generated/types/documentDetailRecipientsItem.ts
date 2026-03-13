@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UpdateOrganizationBody {
+export type DocumentDetailRecipientsItem = {
+  id?: number;
+  userId?: number;
   name?: string;
-}
+  receivedAt?: string | null;
+  readAt?: string | null;
+};

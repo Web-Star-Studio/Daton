@@ -11,6 +11,8 @@ import questionnaireRouter from "./questionnaire";
 import autoTagRouter from "./auto-tag";
 import employeesRouter from "./employees";
 import departmentsRouter from "./departments";
+import documentsRouter from "./documents";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -26,5 +28,7 @@ router.use(questionnaireRouter);
 router.use(autoTagRouter);
 router.use(employeesRouter);
 router.use(departmentsRouter);
+router.use(documentsRouter);
+router.use(notificationsRouter);
 
 export default router;

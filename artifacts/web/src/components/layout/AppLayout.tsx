@@ -16,9 +16,10 @@ import { cn } from "@/lib/utils";
 import datonLogo from "@assets/daton-logo-header-DC_evyPp_1773347395767.png";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
+import { useListNotifications } from "@workspace/api-client-react";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, logout, organization } = useAuth();
   const [location] = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isChatOpen, setChatOpen] = useState(false);
@@ -28,6 +29,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const qualidadeRef = useRef<HTMLDivElement>(null);
   const popoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { headerActions, pageTitle } = useLayoutState();
+  const orgId = organization?.id;
+  const { data: notifData } = useListNotifications(orgId!, { query: { enabled: !!orgId, refetchInterval: 30000 } });
+  const unreadNotifCount = notifData?.unreadCount ?? 0;
 
   const isActive = (path: string) => location.startsWith(path);
 
@@ -44,6 +48,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       } else if (location.startsWith("/app/qualidade/colaboradores")) {
         crumbs.push({ label: "Colaboradores", href: "/app/qualidade/colaboradores" });
         if (pageTitle && location !== "/app/qualidade/colaboradores") {
+          crumbs.push({ label: pageTitle });
+        }
+      } else if (location.startsWith("/app/qualidade/documentacao")) {
+        crumbs.push({ label: "Documentação", href: "/app/qualidade/documentacao" });
+        if (pageTitle && location !== "/app/qualidade/documentacao") {
           crumbs.push({ label: pageTitle });
         }
       }
@@ -152,6 +161,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               >
                 Colaboradores
               </Link>
+              <Link
+                href="/app/qualidade/documentacao"
+                onClick={() => setQualidadePopover(false)}
+                className={cn(
+                  "flex items-center px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
+                  isActive("/app/qualidade/documentacao")
+                    ? "text-foreground font-medium bg-muted/50"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                )}
+              >
+                Documentação
+              </Link>
             </div>
           )}
         </div>
@@ -214,9 +235,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               title="Notificações"
             >
               <Bell className="h-4 w-4" />
-              <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold leading-none">
-                3
-              </span>
+              {unreadNotifCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold leading-none">
+                  {unreadNotifCount}
+                </span>
+              )}
             </button>
             {isNotificationsOpen && (
               <NotificationsPanel onClose={() => setNotificationsOpen(false)} />

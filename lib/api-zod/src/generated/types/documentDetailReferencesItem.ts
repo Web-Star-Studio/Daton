@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UpdateOrganizationBody {
-  name?: string;
-}
+export type DocumentDetailReferencesItem = {
+  id?: number;
+  documentId?: number;
+  title?: string;
+};

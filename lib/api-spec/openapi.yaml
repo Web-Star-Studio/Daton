@@ -30,6 +30,10 @@ tags:
     description: Employee awareness records (ISO 9001:2015 §7.3)
   - name: employee-units
     description: Employee-unit linkage (many-to-many)
+  - name: documents
+    description: Document management (ISO 9001:2015 §7.5)
+  - name: notifications
+    description: In-app notifications
 
 paths:
   /healthz:
@@ -1262,6 +1266,617 @@ paths:
         "204":
           description: Unit unlinked
 
+  /organizations/{orgId}/departments:
+    get:
+      operationId: listDepartments
+      tags: [organizations]
+      summary: List departments
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of departments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Department"
+    post:
+      operationId: createDepartment
+      tags: [organizations]
+      summary: Create department
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDepartmentBody"
+      responses:
+        "201":
+          description: Department created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Department"
+
+  /organizations/{orgId}/departments/{deptId}:
+    patch:
+      operationId: updateDepartment
+      tags: [organizations]
+      summary: Update department
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: deptId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDepartmentBody"
+      responses:
+        "200":
+          description: Updated department
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Department"
+    delete:
+      operationId: deleteDepartment
+      tags: [organizations]
+      summary: Delete department
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: deptId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Department deleted
+
+  /organizations/{orgId}/positions:
+    get:
+      operationId: listPositions
+      tags: [organizations]
+      summary: List positions
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of positions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Position"
+    post:
+      operationId: createPosition
+      tags: [organizations]
+      summary: Create position
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePositionBody"
+      responses:
+        "201":
+          description: Position created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Position"
+
+  /organizations/{orgId}/positions/{posId}:
+    patch:
+      operationId: updatePosition
+      tags: [organizations]
+      summary: Update position
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: posId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePositionBody"
+      responses:
+        "200":
+          description: Updated position
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Position"
+    delete:
+      operationId: deletePosition
+      tags: [organizations]
+      summary: Delete position
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: posId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Position deleted
+
+  /organizations/{orgId}/documents:
+    get:
+      operationId: listDocuments
+      tags: [documents]
+      summary: List documents
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentSummary"
+    post:
+      operationId: createDocument
+      tags: [documents]
+      summary: Create a new document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDocumentBody"
+      responses:
+        "201":
+          description: Document created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentDetail"
+
+  /organizations/{orgId}/documents/{docId}:
+    get:
+      operationId: getDocument
+      tags: [documents]
+      summary: Get document details
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Document details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentDetail"
+    patch:
+      operationId: updateDocument
+      tags: [documents]
+      summary: Update document (creates new version)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDocumentBody"
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentDetail"
+    delete:
+      operationId: deleteDocument
+      tags: [documents]
+      summary: Delete a document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Document deleted
+
+  /organizations/{orgId}/documents/{docId}/versions:
+    get:
+      operationId: listDocumentVersions
+      tags: [documents]
+      summary: List document version history
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Version history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentVersion"
+
+  /organizations/{orgId}/documents/{docId}/attachments:
+    post:
+      operationId: addDocumentAttachment
+      tags: [documents]
+      summary: Add attachment to document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddDocumentAttachmentBody"
+      responses:
+        "201":
+          description: Attachment added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentAttachment"
+
+  /organizations/{orgId}/documents/{docId}/attachments/{attachId}:
+    delete:
+      operationId: deleteDocumentAttachment
+      tags: [documents]
+      summary: Delete document attachment
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: attachId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Attachment deleted
+
+  /organizations/{orgId}/documents/{docId}/submit:
+    post:
+      operationId: submitDocumentForReview
+      tags: [documents]
+      summary: Submit document for review
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Document submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentDetail"
+
+  /organizations/{orgId}/documents/{docId}/approve:
+    post:
+      operationId: approveDocument
+      tags: [documents]
+      summary: Approve document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveDocumentBody"
+      responses:
+        "200":
+          description: Document approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentDetail"
+
+  /organizations/{orgId}/documents/{docId}/reject:
+    post:
+      operationId: rejectDocument
+      tags: [documents]
+      summary: Reject document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectDocumentBody"
+      responses:
+        "200":
+          description: Document rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentDetail"
+
+  /organizations/{orgId}/documents/{docId}/distribute:
+    post:
+      operationId: distributeDocument
+      tags: [documents]
+      summary: Distribute approved document to recipients
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Document distributed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentDetail"
+
+  /organizations/{orgId}/documents/{docId}/acknowledge:
+    post:
+      operationId: acknowledgeDocument
+      tags: [documents]
+      summary: Acknowledge receipt and reading of document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /organizations/{orgId}/notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List notifications for current user
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifications:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/NotificationItem"
+                  unreadCount:
+                    type: integer
+
+  /organizations/{orgId}/notifications/{notifId}/read:
+    post:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark notification as read
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: notifId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /organizations/{orgId}/notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: All marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /organizations/{orgId}/users:
+    get:
+      operationId: listOrgUsers
+      tags: [organizations]
+      summary: List users in organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OrgUser"
+
 components:
   schemas:
     HealthStatus:
@@ -2383,3 +2998,444 @@ components:
           type: string
         result:
           type: string
+
+    Department:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+
+    CreateDepartmentBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+      required:
+        - name
+
+    UpdateDepartmentBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    Position:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        education:
+          type: string
+          nullable: true
+        experience:
+          type: string
+          nullable: true
+        requirements:
+          type: string
+          nullable: true
+        responsibilities:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+
+    CreatePositionBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        education:
+          type: string
+        experience:
+          type: string
+        requirements:
+          type: string
+        responsibilities:
+          type: string
+      required:
+        - name
+
+    UpdatePositionBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        education:
+          type: string
+        experience:
+          type: string
+        requirements:
+          type: string
+        responsibilities:
+          type: string
+
+    OrgUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+      required:
+        - id
+        - name
+        - email
+
+    DocumentSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        currentVersion:
+          type: integer
+        validityDate:
+          type: string
+          nullable: true
+        createdByName:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - title
+        - type
+        - status
+        - currentVersion
+        - createdAt
+
+    DocumentDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        currentVersion:
+          type: integer
+        validityDate:
+          type: string
+          nullable: true
+        createdById:
+          type: integer
+        createdByName:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        units:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+        elaborators:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrgUser"
+        approvers:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              userId:
+                type: integer
+              name:
+                type: string
+              status:
+                type: string
+              approvedAt:
+                type: string
+                nullable: true
+              comment:
+                type: string
+                nullable: true
+        recipients:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              userId:
+                type: integer
+              name:
+                type: string
+              receivedAt:
+                type: string
+                nullable: true
+              readAt:
+                type: string
+                nullable: true
+        references:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              documentId:
+                type: integer
+              title:
+                type: string
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentAttachment"
+        versions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentVersion"
+      required:
+        - id
+        - title
+        - type
+        - status
+        - currentVersion
+        - createdAt
+
+    CreateDocumentBody:
+      type: object
+      properties:
+        title:
+          type: string
+        type:
+          type: string
+          enum: [manual, procedimento, instrucao, formulario, registro, politica, outro]
+        validityDate:
+          type: string
+        unitIds:
+          type: array
+          items:
+            type: integer
+        elaboratorIds:
+          type: array
+          items:
+            type: integer
+        approverIds:
+          type: array
+          items:
+            type: integer
+        recipientIds:
+          type: array
+          items:
+            type: integer
+        referenceIds:
+          type: array
+          items:
+            type: integer
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              fileName:
+                type: string
+              fileSize:
+                type: integer
+              contentType:
+                type: string
+              objectPath:
+                type: string
+            required:
+              - fileName
+              - fileSize
+              - contentType
+              - objectPath
+      required:
+        - title
+        - type
+        - approverIds
+
+    UpdateDocumentBody:
+      type: object
+      properties:
+        title:
+          type: string
+        type:
+          type: string
+        validityDate:
+          type: string
+        unitIds:
+          type: array
+          items:
+            type: integer
+        elaboratorIds:
+          type: array
+          items:
+            type: integer
+        approverIds:
+          type: array
+          items:
+            type: integer
+        recipientIds:
+          type: array
+          items:
+            type: integer
+        referenceIds:
+          type: array
+          items:
+            type: integer
+        changeDescription:
+          type: string
+
+    AddDocumentAttachmentBody:
+      type: object
+      properties:
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        contentType:
+          type: string
+        objectPath:
+          type: string
+      required:
+        - fileName
+        - fileSize
+        - contentType
+        - objectPath
+
+    DocumentAttachment:
+      type: object
+      properties:
+        id:
+          type: integer
+        documentId:
+          type: integer
+        versionNumber:
+          type: integer
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        contentType:
+          type: string
+        objectPath:
+          type: string
+        uploadedByName:
+          type: string
+        uploadedAt:
+          type: string
+      required:
+        - id
+        - fileName
+        - objectPath
+
+    DocumentVersion:
+      type: object
+      properties:
+        id:
+          type: integer
+        versionNumber:
+          type: integer
+        changeDescription:
+          type: string
+        changedByName:
+          type: string
+        changedFields:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - versionNumber
+        - changeDescription
+        - createdAt
+
+    ApproveDocumentBody:
+      type: object
+      properties:
+        comment:
+          type: string
+
+    RejectDocumentBody:
+      type: object
+      properties:
+        comment:
+          type: string
+      required:
+        - comment
+
+    NotificationItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        read:
+          type: boolean
+        relatedEntityType:
+          type: string
+          nullable: true
+        relatedEntityId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - type
+        - title
+        - description
+        - read
+        - createdAt

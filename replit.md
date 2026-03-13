@@ -2,7 +2,7 @@
 
 ## Overview
 
-Multi-tenant SaaS platform for ESG, quality, compliance, and operations management. Built in Portuguese (pt-BR). Current focus: SGQ (Sistema de Gestão de Qualidade) module with "Legislações" (ISO 14001) and "Colaboradores" (ISO 9001:2015) submodules. Apple HIG-inspired minimal design.
+Multi-tenant SaaS platform for ESG, quality, compliance, and operations management. Built in Portuguese (pt-BR). Current focus: SGQ (Sistema de Gestão de Qualidade) module with "Legislações" (ISO 14001), "Colaboradores" (ISO 9001:2015 §7.2/§7.3), and "Documentação" (ISO 9001:2015 §7.5) submodules. Apple HIG-inspired minimal design.
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
 
@@ -50,6 +50,15 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **employee_competencies**: id, employeeId (FK), name, description, type (formacao/experiencia/habilidade), requiredLevel (0-5), acquiredLevel (0-5), evidence, timestamps — ISO 9001:2015 §7.2 competency tracking
 - **employee_trainings**: id, employeeId (FK), title, description, institution, workloadHours, completionDate, expirationDate, status (pendente/concluido/vencido), timestamps — ISO 9001:2015 §7.2 training records. Auto-expiry: completed trainings past expirationDate shown as "vencido"
 - **employee_awareness_records**: id, employeeId (FK), topic, description, date, verificationMethod, result, timestamps — ISO 9001:2015 §7.3 awareness verification
+- **documents**: id, organizationId, title, type (manual/procedimento/instrucao/formulario/registro/politica/outro), status (draft/in_review/approved/rejected/distributed), currentVersion, validityDate, createdById, timestamps — ISO 9001:2015 §7.5 document control
+- **document_units**: id, documentId, unitId — many-to-many junction for document branch assignment
+- **document_elaborators**: id, documentId, userId — users who elaborated/authored the document
+- **document_approvers**: id, documentId, userId, status (pending/approved/rejected), approvedAt, comment — approval workflow tracking
+- **document_recipients**: id, documentId, userId, receivedAt, readAt — distribution receipt acknowledgement
+- **document_references**: id, documentId, referencedDocumentId — cross-reference between documents
+- **document_attachments**: id, documentId, versionNumber, fileName, fileSize, contentType, objectPath, uploadedById, uploadedAt — file attachments per version
+- **document_versions**: id, documentId, versionNumber, changeDescription, changedById, changedFields, createdAt — git-like version history
+- **notifications**: id, organizationId, userId, type, title, description, read, relatedEntityType, relatedEntityId, createdAt — in-app notifications system
 
 ## Structure
 
@@ -109,6 +118,23 @@ artifacts-monorepo/
 - PATCH/DELETE /api/organizations/:orgId/employees/:empId/awareness/:awaId — Awareness CRUD
 - POST /api/organizations/:orgId/employees/:empId/units — Link unit to employee (many-to-many)
 - DELETE /api/organizations/:orgId/employees/:empId/units/:unitId — Unlink unit from employee
+- GET/POST /api/organizations/:orgId/departments — List/create departments
+- PATCH/DELETE /api/organizations/:orgId/departments/:deptId — Department CRUD
+- GET/POST /api/organizations/:orgId/positions — List/create positions
+- PATCH/DELETE /api/organizations/:orgId/positions/:posId — Position CRUD
+- GET/POST /api/organizations/:orgId/documents — List/create documents (supports search, type, status query params)
+- GET/PATCH/DELETE /api/organizations/:orgId/documents/:docId — Document CRUD
+- GET /api/organizations/:orgId/documents/:docId/versions — Version history
+- POST/DELETE /api/organizations/:orgId/documents/:docId/attachments — Add/remove attachments
+- POST /api/organizations/:orgId/documents/:docId/submit — Submit for review (draft→in_review)
+- POST /api/organizations/:orgId/documents/:docId/approve — Approve document
+- POST /api/organizations/:orgId/documents/:docId/reject — Reject document
+- POST /api/organizations/:orgId/documents/:docId/distribute — Distribute document (approved→distributed)
+- POST /api/organizations/:orgId/documents/:docId/acknowledge — Acknowledge receipt
+- GET /api/organizations/:orgId/notifications — List user notifications
+- POST /api/organizations/:orgId/notifications/:notifId/read — Mark notification as read
+- POST /api/organizations/:orgId/notifications/read-all — Mark all notifications as read
+- GET /api/organizations/:orgId/users — List org users (for multi-select fields)
 
 ## Frontend Routes
 
@@ -119,6 +145,9 @@ artifacts-monorepo/
 - /app/organizacao/unidades/:id — Unit detail with inline editing + compliance questionnaire modal
 - /app/qualidade/colaboradores — Employee list with search, filters, stats cards, create dialog
 - /app/qualidade/colaboradores/:id — Employee detail with tabs: Dados (inline editing), Competências, Treinamentos, Conscientização
+- /app/qualidade/documentacao — Document listing with search, type/status filters
+- /app/qualidade/documentacao/novo — Create new document form (multi-select fields for branches, elaborators, approvers, recipients, references; file upload)
+- /app/qualidade/documentacao/:id — Document detail with tabs: Informações, Anexos, Versões, Fluxo (approval workflow). Status flow: draft→in_review→approved/rejected→distributed→acknowledged
 
 ## TypeScript & Composite Projects
 

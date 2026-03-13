@@ -1,0 +1,688 @@
+import { Router, type IRouter } from "express";
+import { eq, and, ilike, or, desc } from "drizzle-orm";
+import {
+  db,
+  documentsTable,
+  documentUnitsTable,
+  documentElaboratorsTable,
+  documentApproversTable,
+  documentRecipientsTable,
+  documentReferencesTable,
+  documentAttachmentsTable,
+  documentVersionsTable,
+  usersTable,
+  unitsTable,
+  notificationsTable,
+} from "@workspace/db";
+import {
+  ListDocumentsParams,
+  ListDocumentsQueryParams,
+  CreateDocumentParams,
+  CreateDocumentBody,
+  GetDocumentParams,
+  UpdateDocumentParams,
+  UpdateDocumentBody,
+  SubmitDocumentForReviewParams,
+  ApproveDocumentParams,
+  ApproveDocumentBody,
+  RejectDocumentParams,
+  RejectDocumentBody,
+  DistributeDocumentParams,
+  AcknowledgeDocumentParams,
+  ListDocumentVersionsParams,
+  AddDocumentAttachmentParams,
+  AddDocumentAttachmentBody,
+  DeleteDocumentAttachmentParams,
+  DeleteDocumentParams,
+} from "@workspace/api-zod";
+import { requireAuth } from "../middlewares/auth";
+
+const router: IRouter = Router();
+
+async function createNotification(orgId: number, userId: number, type: string, title: string, description: string, entityType?: string, entityId?: number) {
+  await db.insert(notificationsTable).values({
+    organizationId: orgId,
+    userId,
+    type,
+    title,
+    description,
+    relatedEntityType: entityType || null,
+    relatedEntityId: entityId || null,
+  });
+}
+
+async function getDocumentDetail(docId: number, orgId: number) {
+  const [doc] = await db.select({
+    id: documentsTable.id,
+    title: documentsTable.title,
+    type: documentsTable.type,
+    status: documentsTable.status,
+    currentVersion: documentsTable.currentVersion,
+    validityDate: documentsTable.validityDate,
+    createdById: documentsTable.createdById,
+    createdByName: usersTable.name,
+    createdAt: documentsTable.createdAt,
+    updatedAt: documentsTable.updatedAt,
+  })
+    .from(documentsTable)
+    .leftJoin(usersTable, eq(documentsTable.createdById, usersTable.id))
+    .where(and(eq(documentsTable.id, docId), eq(documentsTable.organizationId, orgId)));
+
+  if (!doc) return null;
+
+  const unitRows = await db.select({ id: unitsTable.id, name: unitsTable.name })
+    .from(documentUnitsTable)
+    .innerJoin(unitsTable, eq(documentUnitsTable.unitId, unitsTable.id))
+    .where(eq(documentUnitsTable.documentId, docId));
+
+  const elaboratorRows = await db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
+    .from(documentElaboratorsTable)
+    .innerJoin(usersTable, eq(documentElaboratorsTable.userId, usersTable.id))
+    .where(eq(documentElaboratorsTable.documentId, docId));
+
+  const approverRows = await db.select({
+    id: documentApproversTable.id,
+    userId: documentApproversTable.userId,
+    name: usersTable.name,
+    status: documentApproversTable.status,
+    approvedAt: documentApproversTable.approvedAt,
+    comment: documentApproversTable.comment,
+  })
+    .from(documentApproversTable)
+    .innerJoin(usersTable, eq(documentApproversTable.userId, usersTable.id))
+    .where(eq(documentApproversTable.documentId, docId));
+
+  const recipientRows = await db.select({
+    id: documentRecipientsTable.id,
+    userId: documentRecipientsTable.userId,
+    name: usersTable.name,
+    receivedAt: documentRecipientsTable.receivedAt,
+    readAt: documentRecipientsTable.readAt,
+  })
+    .from(documentRecipientsTable)
+    .innerJoin(usersTable, eq(documentRecipientsTable.userId, usersTable.id))
+    .where(eq(documentRecipientsTable.documentId, docId));
+
+  const refRows = await db.select({
+    id: documentReferencesTable.id,
+    documentId: documentReferencesTable.referencedDocumentId,
+    title: documentsTable.title,
+  })
+    .from(documentReferencesTable)
+    .innerJoin(documentsTable, eq(documentReferencesTable.referencedDocumentId, documentsTable.id))
+    .where(eq(documentReferencesTable.documentId, docId));
+
+  const attachmentRows = await db.select({
+    id: documentAttachmentsTable.id,
+    documentId: documentAttachmentsTable.documentId,
+    versionNumber: documentAttachmentsTable.versionNumber,
+    fileName: documentAttachmentsTable.fileName,
+    fileSize: documentAttachmentsTable.fileSize,
+    contentType: documentAttachmentsTable.contentType,
+    objectPath: documentAttachmentsTable.objectPath,
+    uploadedByName: usersTable.name,
+    uploadedAt: documentAttachmentsTable.uploadedAt,
+  })
+    .from(documentAttachmentsTable)
+    .leftJoin(usersTable, eq(documentAttachmentsTable.uploadedById, usersTable.id))
+    .where(eq(documentAttachmentsTable.documentId, docId))
+    .orderBy(desc(documentAttachmentsTable.uploadedAt));
+
+  const versionRows = await db.select({
+    id: documentVersionsTable.id,
+    versionNumber: documentVersionsTable.versionNumber,
+    changeDescription: documentVersionsTable.changeDescription,
+    changedByName: usersTable.name,
+    changedFields: documentVersionsTable.changedFields,
+    createdAt: documentVersionsTable.createdAt,
+  })
+    .from(documentVersionsTable)
+    .leftJoin(usersTable, eq(documentVersionsTable.changedById, usersTable.id))
+    .where(eq(documentVersionsTable.documentId, docId))
+    .orderBy(desc(documentVersionsTable.versionNumber));
+
+  return {
+    ...doc,
+    createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt,
+    updatedAt: doc.updatedAt instanceof Date ? doc.updatedAt.toISOString() : doc.updatedAt,
+    units: unitRows,
+    elaborators: elaboratorRows,
+    approvers: approverRows.map(a => ({
+      ...a,
+      approvedAt: a.approvedAt instanceof Date ? a.approvedAt.toISOString() : a.approvedAt,
+    })),
+    recipients: recipientRows.map(r => ({
+      ...r,
+      receivedAt: r.receivedAt instanceof Date ? r.receivedAt.toISOString() : r.receivedAt,
+      readAt: r.readAt instanceof Date ? r.readAt.toISOString() : r.readAt,
+    })),
+    references: refRows,
+    attachments: attachmentRows.map(a => ({
+      ...a,
+      uploadedAt: a.uploadedAt instanceof Date ? a.uploadedAt.toISOString() : a.uploadedAt,
+    })),
+    versions: versionRows.map(v => ({
+      ...v,
+      createdAt: v.createdAt instanceof Date ? v.createdAt.toISOString() : v.createdAt,
+    })),
+  };
+}
+
+router.get("/organizations/:orgId/documents", requireAuth, async (req, res): Promise<void> => {
+  const params = ListDocumentsParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const query = ListDocumentsQueryParams.safeParse(req.query);
+  const conditions = [eq(documentsTable.organizationId, params.data.orgId)];
+
+  if (query.success && query.data.search) {
+    conditions.push(ilike(documentsTable.title, `%${query.data.search}%`));
+  }
+  if (query.success && query.data.type) {
+    conditions.push(eq(documentsTable.type, query.data.type));
+  }
+  if (query.success && query.data.status) {
+    conditions.push(eq(documentsTable.status, query.data.status));
+  }
+
+  const rows = await db.select({
+    id: documentsTable.id,
+    title: documentsTable.title,
+    type: documentsTable.type,
+    status: documentsTable.status,
+    currentVersion: documentsTable.currentVersion,
+    validityDate: documentsTable.validityDate,
+    createdByName: usersTable.name,
+    createdAt: documentsTable.createdAt,
+    updatedAt: documentsTable.updatedAt,
+  })
+    .from(documentsTable)
+    .leftJoin(usersTable, eq(documentsTable.createdById, usersTable.id))
+    .where(and(...conditions))
+    .orderBy(desc(documentsTable.updatedAt));
+
+  res.json(rows.map(r => ({
+    ...r,
+    createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+    updatedAt: r.updatedAt instanceof Date ? r.updatedAt.toISOString() : r.updatedAt,
+  })));
+});
+
+router.post("/organizations/:orgId/documents", requireAuth, async (req, res): Promise<void> => {
+  const params = CreateDocumentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = CreateDocumentBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const userId = req.auth!.userId;
+  const orgId = params.data.orgId;
+
+  const [doc] = await db.insert(documentsTable).values({
+    organizationId: orgId,
+    title: body.data.title,
+    type: body.data.type,
+    validityDate: body.data.validityDate || null,
+    createdById: userId,
+    status: "draft",
+    currentVersion: 1,
+  }).returning();
+
+  if (body.data.unitIds?.length) {
+    await db.insert(documentUnitsTable).values(
+      body.data.unitIds.map(unitId => ({ documentId: doc.id, unitId }))
+    );
+  }
+
+  if (body.data.elaboratorIds?.length) {
+    await db.insert(documentElaboratorsTable).values(
+      body.data.elaboratorIds.map(uid => ({ documentId: doc.id, userId: uid }))
+    );
+  }
+
+  if (body.data.approverIds?.length) {
+    await db.insert(documentApproversTable).values(
+      body.data.approverIds.map(uid => ({ documentId: doc.id, userId: uid }))
+    );
+  }
+
+  if (body.data.recipientIds?.length) {
+    await db.insert(documentRecipientsTable).values(
+      body.data.recipientIds.map(uid => ({ documentId: doc.id, userId: uid }))
+    );
+  }
+
+  if (body.data.referenceIds?.length) {
+    await db.insert(documentReferencesTable).values(
+      body.data.referenceIds.map(refId => ({ documentId: doc.id, referencedDocumentId: refId }))
+    );
+  }
+
+  if (body.data.attachments?.length) {
+    await db.insert(documentAttachmentsTable).values(
+      body.data.attachments.map(att => ({
+        documentId: doc.id,
+        versionNumber: 1,
+        fileName: att.fileName,
+        fileSize: att.fileSize,
+        contentType: att.contentType,
+        objectPath: att.objectPath,
+        uploadedById: userId,
+      }))
+    );
+  }
+
+  await db.insert(documentVersionsTable).values({
+    documentId: doc.id,
+    versionNumber: 1,
+    changeDescription: "Documento criado",
+    changedById: userId,
+    changedFields: "all",
+  });
+
+  const detail = await getDocumentDetail(doc.id, orgId);
+  res.status(201).json(detail);
+});
+
+router.get("/organizations/:orgId/documents/:docId", requireAuth, async (req, res): Promise<void> => {
+  const params = GetDocumentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const detail = await getDocumentDetail(params.data.docId, params.data.orgId);
+  if (!detail) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
+  res.json(detail);
+});
+
+router.patch("/organizations/:orgId/documents/:docId", requireAuth, async (req, res): Promise<void> => {
+  const params = UpdateDocumentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = UpdateDocumentBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const userId = req.auth!.userId;
+  const orgId = params.data.orgId;
+  const docId = params.data.docId;
+
+  const [existing] = await db.select().from(documentsTable)
+    .where(and(eq(documentsTable.id, docId), eq(documentsTable.organizationId, orgId)));
+  if (!existing) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
+  const changedFields: string[] = [];
+  const updates: Record<string, unknown> = {};
+
+  if (body.data.title && body.data.title !== existing.title) {
+    updates.title = body.data.title;
+    changedFields.push("título");
+  }
+  if (body.data.type && body.data.type !== existing.type) {
+    updates.type = body.data.type;
+    changedFields.push("tipo");
+  }
+  if (body.data.validityDate !== undefined) {
+    updates.validityDate = body.data.validityDate || null;
+    changedFields.push("data de validade");
+  }
+
+  const newVersion = existing.currentVersion + 1;
+  updates.currentVersion = newVersion;
+
+  await db.update(documentsTable).set(updates).where(eq(documentsTable.id, docId));
+
+  if (body.data.unitIds) {
+    await db.delete(documentUnitsTable).where(eq(documentUnitsTable.documentId, docId));
+    if (body.data.unitIds.length) {
+      await db.insert(documentUnitsTable).values(body.data.unitIds.map(uid => ({ documentId: docId, unitId: uid })));
+    }
+    changedFields.push("filiais");
+  }
+
+  if (body.data.elaboratorIds) {
+    await db.delete(documentElaboratorsTable).where(eq(documentElaboratorsTable.documentId, docId));
+    if (body.data.elaboratorIds.length) {
+      await db.insert(documentElaboratorsTable).values(body.data.elaboratorIds.map(uid => ({ documentId: docId, userId: uid })));
+    }
+    changedFields.push("elaboradores");
+  }
+
+  if (body.data.approverIds) {
+    await db.delete(documentApproversTable).where(eq(documentApproversTable.documentId, docId));
+    if (body.data.approverIds.length) {
+      await db.insert(documentApproversTable).values(body.data.approverIds.map(uid => ({ documentId: docId, userId: uid })));
+    }
+    changedFields.push("aprovadores");
+  }
+
+  if (body.data.recipientIds) {
+    await db.delete(documentRecipientsTable).where(eq(documentRecipientsTable.documentId, docId));
+    if (body.data.recipientIds.length) {
+      await db.insert(documentRecipientsTable).values(body.data.recipientIds.map(uid => ({ documentId: docId, userId: uid })));
+    }
+    changedFields.push("destinatários");
+  }
+
+  if (body.data.referenceIds) {
+    await db.delete(documentReferencesTable).where(eq(documentReferencesTable.documentId, docId));
+    if (body.data.referenceIds.length) {
+      await db.insert(documentReferencesTable).values(body.data.referenceIds.map(refId => ({ documentId: docId, referencedDocumentId: refId })));
+    }
+    changedFields.push("referências");
+  }
+
+  const changeDesc = body.data.changeDescription || `Alterações: ${changedFields.join(", ") || "metadados"}`;
+  await db.insert(documentVersionsTable).values({
+    documentId: docId,
+    versionNumber: newVersion,
+    changeDescription: changeDesc,
+    changedById: userId,
+    changedFields: changedFields.join(", ") || null,
+  });
+
+  const detail = await getDocumentDetail(docId, orgId);
+  res.json(detail);
+});
+
+router.delete("/organizations/:orgId/documents/:docId", requireAuth, async (req, res): Promise<void> => {
+  const params = DeleteDocumentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const [doc] = await db.delete(documentsTable)
+    .where(and(eq(documentsTable.id, params.data.docId), eq(documentsTable.organizationId, params.data.orgId)))
+    .returning();
+
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+  res.sendStatus(204);
+});
+
+router.get("/organizations/:orgId/documents/:docId/versions", requireAuth, async (req, res): Promise<void> => {
+  const params = ListDocumentVersionsParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const [doc] = await db.select({ id: documentsTable.id }).from(documentsTable)
+    .where(and(eq(documentsTable.id, params.data.docId), eq(documentsTable.organizationId, params.data.orgId)));
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
+  const rows = await db.select({
+    id: documentVersionsTable.id,
+    versionNumber: documentVersionsTable.versionNumber,
+    changeDescription: documentVersionsTable.changeDescription,
+    changedByName: usersTable.name,
+    changedFields: documentVersionsTable.changedFields,
+    createdAt: documentVersionsTable.createdAt,
+  })
+    .from(documentVersionsTable)
+    .leftJoin(usersTable, eq(documentVersionsTable.changedById, usersTable.id))
+    .where(eq(documentVersionsTable.documentId, params.data.docId))
+    .orderBy(desc(documentVersionsTable.versionNumber));
+
+  res.json(rows.map(v => ({
+    ...v,
+    createdAt: v.createdAt instanceof Date ? v.createdAt.toISOString() : v.createdAt,
+  })));
+});
+
+router.post("/organizations/:orgId/documents/:docId/attachments", requireAuth, async (req, res): Promise<void> => {
+  const params = AddDocumentAttachmentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = AddDocumentAttachmentBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const [doc] = await db.select().from(documentsTable)
+    .where(and(eq(documentsTable.id, params.data.docId), eq(documentsTable.organizationId, params.data.orgId)));
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
+  const userId = req.auth!.userId;
+  const newVersion = doc.currentVersion + 1;
+
+  const [att] = await db.insert(documentAttachmentsTable).values({
+    documentId: doc.id,
+    versionNumber: newVersion,
+    fileName: body.data.fileName,
+    fileSize: body.data.fileSize,
+    contentType: body.data.contentType,
+    objectPath: body.data.objectPath,
+    uploadedById: userId,
+  }).returning();
+
+  await db.update(documentsTable).set({ currentVersion: newVersion }).where(eq(documentsTable.id, doc.id));
+
+  await db.insert(documentVersionsTable).values({
+    documentId: doc.id,
+    versionNumber: newVersion,
+    changeDescription: `Anexo adicionado: ${body.data.fileName}`,
+    changedById: userId,
+    changedFields: "anexos",
+  });
+
+  const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
+
+  res.status(201).json({
+    ...att,
+    uploadedByName: userName?.name || "",
+    uploadedAt: att.uploadedAt instanceof Date ? att.uploadedAt.toISOString() : att.uploadedAt,
+  });
+});
+
+router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", requireAuth, async (req, res): Promise<void> => {
+  const params = DeleteDocumentAttachmentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const [doc] = await db.select({ id: documentsTable.id }).from(documentsTable)
+    .where(and(eq(documentsTable.id, params.data.docId), eq(documentsTable.organizationId, params.data.orgId)));
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
+  const [att] = await db.delete(documentAttachmentsTable)
+    .where(and(eq(documentAttachmentsTable.id, params.data.attachId), eq(documentAttachmentsTable.documentId, params.data.docId)))
+    .returning();
+
+  if (!att) { res.status(404).json({ error: "Anexo não encontrado" }); return; }
+  res.sendStatus(204);
+});
+
+router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, async (req, res): Promise<void> => {
+  const params = SubmitDocumentForReviewParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const orgId = params.data.orgId;
+  const docId = params.data.docId;
+
+  const [doc] = await db.select().from(documentsTable)
+    .where(and(eq(documentsTable.id, docId), eq(documentsTable.organizationId, orgId)));
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
+  if (doc.status !== "draft" && doc.status !== "rejected") {
+    res.status(400).json({ error: "Documento não pode ser submetido neste estado" });
+    return;
+  }
+
+  await db.update(documentsTable).set({ status: "in_review" }).where(eq(documentsTable.id, docId));
+  await db.update(documentApproversTable).set({ status: "pending", approvedAt: null, comment: null }).where(eq(documentApproversTable.documentId, docId));
+
+  const approvers = await db.select({ userId: documentApproversTable.userId })
+    .from(documentApproversTable).where(eq(documentApproversTable.documentId, docId));
+
+  for (const approver of approvers) {
+    await createNotification(
+      orgId, approver.userId, "document_review",
+      "Documento aguardando aprovação",
+      `O documento "${doc.title}" foi enviado para sua aprovação.`,
+      "document", docId
+    );
+  }
+
+  const detail = await getDocumentDetail(docId, orgId);
+  res.json(detail);
+});
+
+router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, async (req, res): Promise<void> => {
+  const params = ApproveDocumentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = ApproveDocumentBody.safeParse(req.body || {});
+  const orgId = params.data.orgId;
+  const docId = params.data.docId;
+  const userId = req.auth!.userId;
+
+  const [doc] = await db.select().from(documentsTable)
+    .where(and(eq(documentsTable.id, docId), eq(documentsTable.organizationId, orgId)));
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+  if (doc.status !== "in_review") { res.status(400).json({ error: "Documento não está em revisão" }); return; }
+
+  const [approver] = await db.select().from(documentApproversTable)
+    .where(and(eq(documentApproversTable.documentId, docId), eq(documentApproversTable.userId, userId)));
+  if (!approver) { res.status(403).json({ error: "Você não é um aprovador deste documento" }); return; }
+
+  await db.update(documentApproversTable)
+    .set({ status: "approved", approvedAt: new Date(), comment: body.success ? body.data.comment || null : null })
+    .where(eq(documentApproversTable.id, approver.id));
+
+  const pending = await db.select().from(documentApproversTable)
+    .where(and(eq(documentApproversTable.documentId, docId), eq(documentApproversTable.status, "pending")));
+
+  if (pending.length === 0) {
+    await db.update(documentsTable).set({ status: "approved" }).where(eq(documentsTable.id, docId));
+
+    await createNotification(
+      orgId, doc.createdById, "document_approved",
+      "Documento aprovado",
+      `O documento "${doc.title}" foi aprovado por todos os aprovadores.`,
+      "document", docId
+    );
+  }
+
+  const detail = await getDocumentDetail(docId, orgId);
+  res.json(detail);
+});
+
+router.post("/organizations/:orgId/documents/:docId/reject", requireAuth, async (req, res): Promise<void> => {
+  const params = RejectDocumentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = RejectDocumentBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const orgId = params.data.orgId;
+  const docId = params.data.docId;
+  const userId = req.auth!.userId;
+
+  const [doc] = await db.select().from(documentsTable)
+    .where(and(eq(documentsTable.id, docId), eq(documentsTable.organizationId, orgId)));
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+  if (doc.status !== "in_review") { res.status(400).json({ error: "Documento não está em revisão" }); return; }
+
+  const [approver] = await db.select().from(documentApproversTable)
+    .where(and(eq(documentApproversTable.documentId, docId), eq(documentApproversTable.userId, userId)));
+  if (!approver) { res.status(403).json({ error: "Você não é um aprovador deste documento" }); return; }
+
+  await db.update(documentApproversTable)
+    .set({ status: "rejected", comment: body.data.comment })
+    .where(eq(documentApproversTable.id, approver.id));
+
+  await db.update(documentsTable).set({ status: "rejected" }).where(eq(documentsTable.id, docId));
+
+  const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
+
+  await createNotification(
+    orgId, doc.createdById, "document_rejected",
+    "Documento rejeitado",
+    `O documento "${doc.title}" foi rejeitado por ${userName?.name || "um aprovador"}. Motivo: ${body.data.comment}`,
+    "document", docId
+  );
+
+  const detail = await getDocumentDetail(docId, orgId);
+  res.json(detail);
+});
+
+router.post("/organizations/:orgId/documents/:docId/distribute", requireAuth, async (req, res): Promise<void> => {
+  const params = DistributeDocumentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const orgId = params.data.orgId;
+  const docId = params.data.docId;
+
+  const [doc] = await db.select().from(documentsTable)
+    .where(and(eq(documentsTable.id, docId), eq(documentsTable.organizationId, orgId)));
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+  if (doc.status !== "approved") { res.status(400).json({ error: "Documento precisa estar aprovado para ser distribuído" }); return; }
+
+  await db.update(documentsTable).set({ status: "distributed" }).where(eq(documentsTable.id, docId));
+
+  const recipients = await db.select({ userId: documentRecipientsTable.userId })
+    .from(documentRecipientsTable).where(eq(documentRecipientsTable.documentId, docId));
+
+  for (const recipient of recipients) {
+    await createNotification(
+      orgId, recipient.userId, "document_distributed",
+      "Novo documento para leitura",
+      `O documento "${doc.title}" foi distribuído para você. Acuse o recebimento e a leitura.`,
+      "document", docId
+    );
+  }
+
+  const detail = await getDocumentDetail(docId, orgId);
+  res.json(detail);
+});
+
+router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, async (req, res): Promise<void> => {
+  const params = AcknowledgeDocumentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const orgId = params.data.orgId;
+  const docId = params.data.docId;
+  const userId = req.auth!.userId;
+
+  const [recipient] = await db.select().from(documentRecipientsTable)
+    .where(and(eq(documentRecipientsTable.documentId, docId), eq(documentRecipientsTable.userId, userId)));
+  if (!recipient) { res.status(403).json({ error: "Você não é um destinatário deste documento" }); return; }
+
+  const now = new Date();
+  await db.update(documentRecipientsTable)
+    .set({ receivedAt: recipient.receivedAt || now, readAt: now })
+    .where(eq(documentRecipientsTable.id, recipient.id));
+
+  const [doc] = await db.select().from(documentsTable)
+    .where(eq(documentsTable.id, docId));
+
+  const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
+
+  if (doc) {
+    await createNotification(
+      orgId, doc.createdById, "document_acknowledged",
+      "Documento recebido",
+      `${userName?.name || "Um destinatário"} acusou o recebimento e leitura do documento "${doc.title}".`,
+      "document", docId
+    );
+  }
+
+  res.json({ message: "Recebimento confirmado" });
+});
+
+router.get("/organizations/:orgId/users", requireAuth, async (req, res): Promise<void> => {
+  const orgId = parseInt(req.params.orgId);
+  if (isNaN(orgId)) { res.status(400).json({ error: "orgId inválido" }); return; }
+  if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const rows = await db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.organizationId, orgId))
+    .orderBy(usersTable.name);
+
+  res.json(rows);
+});
+
+export default router;
