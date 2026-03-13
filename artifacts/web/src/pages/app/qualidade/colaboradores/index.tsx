@@ -45,11 +45,15 @@ export default function ColaboradoresPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [unitFilter, setUnitFilter] = useState("");
+  const [positionFilter, setPositionFilter] = useState("");
   const [isCreateOpen, setCreateOpen] = useState(false);
 
   const { data: employees = [], isLoading } = useListEmployees(orgId!, {
     search: search || undefined,
     status: statusFilter || undefined,
+    unitId: unitFilter ? Number(unitFilter) : undefined,
+    position: positionFilter || undefined,
   });
 
   const { data: units = [] } = useListUnits(orgId!);
@@ -129,6 +133,20 @@ export default function ColaboradoresPage() {
             <option value="inactive">Inativo</option>
             <option value="on_leave">Afastado</option>
           </Select>
+          <Select
+            value={unitFilter}
+            onChange={(e) => setUnitFilter(e.target.value)}
+            className="h-9 text-[13px] w-44"
+          >
+            <option value="">Todas as unidades</option>
+            {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </Select>
+          <Input
+            placeholder="Filtrar por cargo..."
+            value={positionFilter}
+            onChange={(e) => setPositionFilter(e.target.value)}
+            className="h-9 text-[13px] w-44"
+          />
         </div>
 
         {isLoading ? (

@@ -46,7 +46,26 @@ async function verifyEmployeeOwnership(empId: number, orgId: number): Promise<bo
   return !!emp;
 }
 
-function formatEmployee(e: any) {
+interface EmployeeRow {
+  id: number;
+  organizationId: number;
+  unitId: number | null;
+  name: string;
+  cpf: string | null;
+  email: string | null;
+  phone: string | null;
+  position: string | null;
+  department: string | null;
+  contractType: string;
+  admissionDate: string | null;
+  terminationDate: string | null;
+  status: string;
+  unitName?: string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+function formatEmployee(e: EmployeeRow) {
   return {
     id: e.id,
     organizationId: e.organizationId,
@@ -124,6 +143,12 @@ router.post("/organizations/:orgId/employees", requireAuth, async (req, res): Pr
   const body = CreateEmployeeBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
+  if (body.data.unitId) {
+    const [unit] = await db.select({ id: unitsTable.id }).from(unitsTable)
+      .where(and(eq(unitsTable.id, body.data.unitId), eq(unitsTable.organizationId, params.data.orgId)));
+    if (!unit) { res.status(400).json({ error: "Unidade não pertence a esta organização" }); return; }
+  }
+
   const [emp] = await db.insert(employeesTable).values({
     ...body.data,
     organizationId: params.data.orgId,
@@ -193,6 +218,12 @@ router.patch("/organizations/:orgId/employees/:empId", requireAuth, async (req, 
 
   const body = UpdateEmployeeBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  if (body.data.unitId) {
+    const [unit] = await db.select({ id: unitsTable.id }).from(unitsTable)
+      .where(and(eq(unitsTable.id, body.data.unitId), eq(unitsTable.organizationId, params.data.orgId)));
+    if (!unit) { res.status(400).json({ error: "Unidade não pertence a esta organização" }); return; }
+  }
 
   const [emp] = await db.update(employeesTable)
     .set(body.data)

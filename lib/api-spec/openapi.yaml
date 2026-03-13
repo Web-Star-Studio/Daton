@@ -20,6 +20,14 @@ tags:
     description: Legislation management
   - name: unit-legislations
     description: Unit-legislation compliance
+  - name: employees
+    description: Employee management (ISO 9001:2015)
+  - name: competencies
+    description: Employee competency tracking (ISO 9001:2015 §7.2)
+  - name: trainings
+    description: Employee training records (ISO 9001:2015 §7.2)
+  - name: awareness
+    description: Employee awareness records (ISO 9001:2015 §7.3)
 
 paths:
   /healthz:
@@ -710,6 +718,472 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ComplianceTag"
+
+  /organizations/{orgId}/employees:
+    get:
+      operationId: listEmployees
+      tags: [employees]
+      summary: List employees
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: unitId
+          in: query
+          schema:
+            type: integer
+        - name: position
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of employees
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Employee"
+    post:
+      operationId: createEmployee
+      tags: [employees]
+      summary: Create employee
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmployeeBody"
+      responses:
+        "201":
+          description: Created employee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Employee"
+
+  /organizations/{orgId}/employees/{empId}:
+    get:
+      operationId: getEmployee
+      tags: [employees]
+      summary: Get employee with competencies, trainings, awareness
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Employee detail with competencies, trainings, awareness
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeDetail"
+    patch:
+      operationId: updateEmployee
+      tags: [employees]
+      summary: Update employee
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmployeeBody"
+      responses:
+        "200":
+          description: Updated employee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Employee"
+    delete:
+      operationId: deleteEmployee
+      tags: [employees]
+      summary: Delete employee
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Employee deleted
+
+  /organizations/{orgId}/employees/{empId}/competencies:
+    get:
+      operationId: listCompetencies
+      tags: [competencies]
+      summary: List employee competencies
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of competencies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmployeeCompetency"
+    post:
+      operationId: createCompetency
+      tags: [competencies]
+      summary: Create competency
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCompetencyBody"
+      responses:
+        "201":
+          description: Created competency
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeCompetency"
+
+  /organizations/{orgId}/employees/{empId}/competencies/{compId}:
+    patch:
+      operationId: updateCompetency
+      tags: [competencies]
+      summary: Update competency
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: compId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCompetencyBody"
+      responses:
+        "200":
+          description: Updated competency
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeCompetency"
+    delete:
+      operationId: deleteCompetency
+      tags: [competencies]
+      summary: Delete competency
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: compId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Competency deleted
+
+  /organizations/{orgId}/employees/{empId}/trainings:
+    get:
+      operationId: listTrainings
+      tags: [trainings]
+      summary: List employee trainings
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of trainings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmployeeTraining"
+    post:
+      operationId: createTraining
+      tags: [trainings]
+      summary: Create training
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTrainingBody"
+      responses:
+        "201":
+          description: Created training
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeTraining"
+
+  /organizations/{orgId}/employees/{empId}/trainings/{trainId}:
+    patch:
+      operationId: updateTraining
+      tags: [trainings]
+      summary: Update training
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: trainId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTrainingBody"
+      responses:
+        "200":
+          description: Updated training
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeTraining"
+    delete:
+      operationId: deleteTraining
+      tags: [trainings]
+      summary: Delete training
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: trainId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Training deleted
+
+  /organizations/{orgId}/employees/{empId}/awareness:
+    get:
+      operationId: listAwareness
+      tags: [awareness]
+      summary: List employee awareness records
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of awareness records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmployeeAwareness"
+    post:
+      operationId: createAwareness
+      tags: [awareness]
+      summary: Create awareness record
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAwarenessBody"
+      responses:
+        "201":
+          description: Created awareness record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeAwareness"
+
+  /organizations/{orgId}/employees/{empId}/awareness/{awaId}:
+    patch:
+      operationId: updateAwareness
+      tags: [awareness]
+      summary: Update awareness record
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: awaId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAwarenessBody"
+      responses:
+        "200":
+          description: Updated awareness record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeAwareness"
+    delete:
+      operationId: deleteAwareness
+      tags: [awareness]
+      summary: Delete awareness record
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: awaId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Awareness record deleted
 
 components:
   schemas:
@@ -1428,3 +1902,367 @@ components:
       required:
         - id
         - tag
+
+    Employee:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        unitId:
+          type: integer
+          nullable: true
+        name:
+          type: string
+        cpf:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        position:
+          type: string
+          nullable: true
+        department:
+          type: string
+          nullable: true
+        contractType:
+          type: string
+          enum: [clt, pj, intern, temporary]
+        admissionDate:
+          type: string
+          nullable: true
+        terminationDate:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, inactive, on_leave]
+        unitName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - name
+        - contractType
+        - status
+        - createdAt
+        - updatedAt
+
+    EmployeeCompetency:
+      type: object
+      properties:
+        id:
+          type: integer
+        employeeId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [technical, behavioral]
+        requiredLevel:
+          type: integer
+          minimum: 0
+          maximum: 5
+        acquiredLevel:
+          type: integer
+          minimum: 0
+          maximum: 5
+        evidence:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - employeeId
+        - name
+        - type
+        - requiredLevel
+        - acquiredLevel
+
+    EmployeeTraining:
+      type: object
+      properties:
+        id:
+          type: integer
+        employeeId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        institution:
+          type: string
+          nullable: true
+        workloadHours:
+          type: integer
+          nullable: true
+        completionDate:
+          type: string
+          nullable: true
+        expirationDate:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [planned, in_progress, completed, expired]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - employeeId
+        - title
+        - status
+
+    EmployeeAwareness:
+      type: object
+      properties:
+        id:
+          type: integer
+        employeeId:
+          type: integer
+        topic:
+          type: string
+        description:
+          type: string
+          nullable: true
+        date:
+          type: string
+        verificationMethod:
+          type: string
+          nullable: true
+        result:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - employeeId
+        - topic
+        - date
+
+    EmployeeDetail:
+      allOf:
+        - $ref: "#/components/schemas/Employee"
+        - type: object
+          properties:
+            competencies:
+              type: array
+              items:
+                $ref: "#/components/schemas/EmployeeCompetency"
+            trainings:
+              type: array
+              items:
+                $ref: "#/components/schemas/EmployeeTraining"
+            awareness:
+              type: array
+              items:
+                $ref: "#/components/schemas/EmployeeAwareness"
+
+    CreateEmployeeBody:
+      type: object
+      properties:
+        name:
+          type: string
+        cpf:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        position:
+          type: string
+        department:
+          type: string
+        unitId:
+          type: integer
+        contractType:
+          type: string
+          enum: [clt, pj, intern, temporary]
+        admissionDate:
+          type: string
+        terminationDate:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, on_leave]
+      required:
+        - name
+
+    UpdateEmployeeBody:
+      type: object
+      properties:
+        name:
+          type: string
+        cpf:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        position:
+          type: string
+        department:
+          type: string
+        unitId:
+          type: integer
+          nullable: true
+        contractType:
+          type: string
+          enum: [clt, pj, intern, temporary]
+        admissionDate:
+          type: string
+          nullable: true
+        terminationDate:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, inactive, on_leave]
+
+    CreateCompetencyBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [technical, behavioral]
+        requiredLevel:
+          type: integer
+          minimum: 0
+          maximum: 5
+        acquiredLevel:
+          type: integer
+          minimum: 0
+          maximum: 5
+        evidence:
+          type: string
+      required:
+        - name
+
+    CreateTrainingBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        institution:
+          type: string
+        workloadHours:
+          type: integer
+        completionDate:
+          type: string
+        expirationDate:
+          type: string
+        status:
+          type: string
+          enum: [planned, in_progress, completed, expired]
+      required:
+        - title
+
+    CreateAwarenessBody:
+      type: object
+      properties:
+        topic:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+        verificationMethod:
+          type: string
+        result:
+          type: string
+      required:
+        - topic
+        - date
+
+    UpdateCompetencyBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [technical, behavioral]
+        requiredLevel:
+          type: integer
+          minimum: 0
+          maximum: 5
+        acquiredLevel:
+          type: integer
+          minimum: 0
+          maximum: 5
+        evidence:
+          type: string
+
+    UpdateTrainingBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        institution:
+          type: string
+        workloadHours:
+          type: integer
+        completionDate:
+          type: string
+        expirationDate:
+          type: string
+        status:
+          type: string
+          enum: [planned, in_progress, completed, expired]
+
+    UpdateAwarenessBody:
+      type: object
+      properties:
+        topic:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+        verificationMethod:
+          type: string
+        result:
+          type: string

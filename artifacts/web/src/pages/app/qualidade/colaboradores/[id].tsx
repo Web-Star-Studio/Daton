@@ -661,7 +661,7 @@ export default function ColaboradorDetailPage() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId!, empId) });
 
   const handleFieldSave = async (key: string, val: string | number | null) => {
-    const data: Record<string, any> = {};
+    const data: Record<string, string | number | null | undefined> = {};
     if (key === "unitId") {
       data.unitId = val ? Number(val) : null;
     } else {
