@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import ReactDOM from "react-dom";
 import { X, ChevronLeft, ChevronRight, CheckCircle, ClipboardList, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -152,8 +153,8 @@ export function QuestionnaireModal({ isOpen, onClose, orgId, unitId, unitName }:
 
   const activeTheme = themes?.[activeThemeIndex];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[200] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px] animate-[overlayIn_200ms_ease-out]" onClick={handleClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-[960px] max-w-[95vw] max-h-[90vh] flex flex-col overflow-hidden animate-[modalIn_250ms_cubic-bezier(0.16,1,0.3,1)]">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/60">
@@ -388,6 +389,7 @@ function QuestionRenderer({
           );
         })}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

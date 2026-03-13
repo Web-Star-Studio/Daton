@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import ReactDOM from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,13 +23,13 @@ export function Dialog({ open, onOpenChange, children, title, description }: Dia
 
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[200] flex items-center justify-center">
       <div 
         className="fixed inset-0 bg-black/20 backdrop-blur-[2px] animate-[overlayIn_200ms_ease-out]" 
         onClick={() => onOpenChange(false)}
       />
-      <div className="relative z-50 grid w-full max-w-lg gap-4 bg-card p-6 shadow-xl sm:rounded-2xl border border-border animate-[modalIn_250ms_cubic-bezier(0.16,1,0.3,1)]">
+      <div className="relative z-[201] grid w-full max-w-lg gap-4 bg-card p-6 shadow-xl sm:rounded-2xl border border-border animate-[modalIn_250ms_cubic-bezier(0.16,1,0.3,1)] mx-4">
         <button
           onClick={() => onOpenChange(false)}
           className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
@@ -42,6 +43,7 @@ export function Dialog({ open, onOpenChange, children, title, description }: Dia
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
