@@ -187,16 +187,16 @@ export default function OrganizacaoPage() {
   return (
     <>
       <div className="mb-6">
-        <nav className="inline-flex items-center gap-1 rounded-xl p-1">
+        <nav className="flex items-center gap-6 border-b border-border">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                "px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-200 cursor-pointer",
+                "relative pb-2.5 text-[13px] font-medium transition-colors duration-200 cursor-pointer hover:text-foreground",
                 activeTab === tab.key
-                  ? "bg-white text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "text-foreground font-semibold after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:bg-foreground after:rounded-full"
+                  : "text-muted-foreground"
               )}
             >
               {tab.label}
