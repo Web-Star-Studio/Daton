@@ -442,6 +442,7 @@ export const UpdateLegislationBody = zod.object({
   sourceUrl: zod.string().optional(),
   applicableArticles: zod.string().optional(),
   reviewFrequencyDays: zod.number().optional(),
+  tags: zod.array(zod.string()).optional(),
   observations: zod.string().optional(),
   generalObservations: zod.string().optional(),
   tags: zod.array(zod.string()).optional(),

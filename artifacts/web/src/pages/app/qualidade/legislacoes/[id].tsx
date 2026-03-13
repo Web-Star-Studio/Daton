@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn, formatDate } from "@/lib/utils";
-import { ArrowLeft, ExternalLink, Link2, Building, AlertCircle, Pencil, Check, X, Paperclip, Trash2, FileText, Upload, Loader2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, Link2, Building, AlertCircle, Pencil, Check, X, Paperclip, Trash2, FileText, Upload, Loader2, Sparkles } from "lucide-react";
 
 interface Attachment {
   id: number;
@@ -213,6 +213,7 @@ export default function LegislationDetailPage() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [isAutoTagging, setIsAutoTagging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const onFieldSave = useCallback(async (key: string, val: string | number | null) => {
@@ -319,6 +320,31 @@ export default function LegislationDetailPage() {
     setEditingCompliance(null);
   };
 
+  const onAutoTag = async () => {
+    if (!orgId) return;
+    setIsAutoTagging(true);
+    try {
+      const token = localStorage.getItem("daton_token");
+      const res = await fetch(`/api/organizations/${orgId}/legislations/${legId}/auto-tag`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (res.ok) {
+        queryClient.invalidateQueries({ queryKey: getGetLegislationQueryKey(orgId, legId) });
+      } else {
+        const err = await res.json().catch(() => ({ error: "Erro desconhecido" }));
+        alert(err.error || "Erro ao classificar legislação");
+      }
+    } catch {
+      alert("Erro de conexão ao classificar legislação");
+    } finally {
+      setIsAutoTagging(false);
+    }
+  };
+
   const onUnassign = async (unitId: number) => {
     if (!orgId || !confirm("Deseja desvincular esta unidade da legislação?")) return;
     await removeMut.mutateAsync({ orgId, legId, unitId });
@@ -345,6 +371,10 @@ export default function LegislationDetailPage() {
           <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
         </Button>
       </Link>
+      <Button variant="secondary" size="sm" onClick={onAutoTag} disabled={isAutoTagging}>
+        {isAutoTagging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+        {isAutoTagging ? "Classificando..." : "Auto-classificar tags"}
+      </Button>
       {activeTab === "unidades" && (
         <Button variant="secondary" size="sm" onClick={() => setIsAssignOpen(true)}>
           <Link2 className="w-4 h-4 mr-2" />
@@ -418,7 +448,16 @@ export default function LegislationDetailPage() {
           </div>
 
           <div className="mt-6 pt-6 border-t border-border space-y-5">
-            <TagEditor tags={leg.tags ?? []} vocabulary={tagVocabulary ?? []} onSave={onTagsSave} />
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-muted-foreground uppercase font-semibold">Tags de Compliance</p>
+                <Button variant="ghost" size="sm" onClick={onAutoTag} disabled={isAutoTagging} className="h-7 text-xs">
+                  {isAutoTagging ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                  {isAutoTagging ? "Classificando..." : "Reclassificar"}
+                </Button>
+              </div>
+              <TagEditor tags={leg.tags ?? []} vocabulary={tagVocabulary ?? []} onSave={onTagsSave} />
+            </div>
             <InlineField label="Descrição / Ementa" value={leg.description} fieldKey="description" type="textarea" onSave={onFieldSave} />
             <InlineField label="Observações (como é atendido)" value={leg.observations} fieldKey="observations" type="textarea" onSave={onFieldSave} />
             <InlineField label="Observações Gerais" value={leg.generalObservations} fieldKey="generalObservations" type="textarea" onSave={onFieldSave} />

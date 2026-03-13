@@ -11,7 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Upload, FileText, CheckCircle, AlertCircle, RefreshCw, SkipForward } from "lucide-react";
+import { Plus, Upload, FileText, CheckCircle, AlertCircle, RefreshCw, SkipForward, Sparkles, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import * as XLSX from "xlsx";
 
@@ -240,6 +240,10 @@ export default function LegislacoesPage() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [conflictStrategy, setConflictStrategy] = useState<"skip" | "update">("skip");
   
+  const [isAutoTagging, setIsAutoTagging] = useState(false);
+  const [autoTagProgress, setAutoTagProgress] = useState<{ total: number; tagged: number; errors: number; current: number } | null>(null);
+  const [autoTagComplete, setAutoTagComplete] = useState(false);
+
   const form = useForm({
     defaultValues: {
       title: "", number: "", description: "", level: "federal", publicationDate: "", sourceUrl: "", applicableArticles: ""
@@ -295,6 +299,78 @@ export default function LegislacoesPage() {
     reader.readAsArrayBuffer(pendingFile);
   };
 
+  const onBatchAutoTag = async () => {
+    if (!orgId) return;
+    setIsAutoTagging(true);
+    setAutoTagProgress(null);
+    setAutoTagComplete(false);
+
+    try {
+      const token = localStorage.getItem("daton_token");
+      const res = await fetch(`/api/organizations/${orgId}/legislations/auto-tag/batch`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Erro desconhecido" }));
+        alert(err.error || "Erro ao classificar legislações");
+        setIsAutoTagging(false);
+        return;
+      }
+
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("text/event-stream")) {
+        const reader = res.body?.getReader();
+        const decoder = new TextDecoder();
+        if (reader) {
+          let buf = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            const lines = buf.split("\n");
+            buf = lines.pop() || "";
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              try {
+                const evt = JSON.parse(line.slice(6));
+                if (evt.type === "started") {
+                  setAutoTagProgress({ total: evt.total, tagged: 0, errors: 0, current: 0 });
+                } else if (evt.type === "progress") {
+                  setAutoTagProgress({ total: evt.total, tagged: evt.tagged, errors: evt.errors, current: evt.index + 1 });
+                } else if (evt.type === "complete") {
+                  setAutoTagProgress({ total: evt.total, tagged: evt.tagged, errors: evt.errors, current: evt.total });
+                  setAutoTagComplete(true);
+                }
+              } catch {}
+            }
+          }
+        }
+      } else {
+        const data = await res.json();
+        setAutoTagProgress({ total: data.total || 0, tagged: data.tagged || 0, errors: data.errors || 0, current: data.total || 0 });
+        setAutoTagComplete(true);
+      }
+
+      queryClient.invalidateQueries({ queryKey: getListLegislationsQueryKey(orgId) });
+    } catch (err) {
+      alert("Erro de conexão ao classificar legislações");
+    } finally {
+      if (!autoTagComplete) setIsAutoTagging(false);
+    }
+  };
+
+  const resetAutoTag = () => {
+    setIsAutoTagging(false);
+    setAutoTagProgress(null);
+    setAutoTagComplete(false);
+  };
+
   const resetImport = () => {
     setImportResult(null);
     setImportPreview(null);
@@ -306,6 +382,10 @@ export default function LegislacoesPage() {
 
   const headerActions = (
     <>
+      <Button variant="secondary" onClick={onBatchAutoTag} disabled={isAutoTagging}>
+        {isAutoTagging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+        {isAutoTagging ? "Classificando..." : "Auto-classificar tags"}
+      </Button>
       <Button variant="secondary" onClick={() => setIsImportOpen(true)}>
         <Upload className="w-4 h-4 mr-2" /> Importar
       </Button>
@@ -423,6 +503,67 @@ export default function LegislacoesPage() {
           </table>
         </div>
       </div>
+
+      <Dialog open={isAutoTagging || autoTagComplete} onOpenChange={(open) => { if (!open) resetAutoTag(); }} title="Auto-classificação de Tags">
+        <div className="mt-4 space-y-5 text-sm">
+          {autoTagComplete && autoTagProgress ? (
+            <div className="py-4 space-y-4">
+              <div className="text-center">
+                <CheckCircle className="w-10 h-10 mx-auto text-emerald-500 mb-2" />
+                <p className="text-base font-semibold">Classificação concluída</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-[13px]">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-emerald-700">{autoTagProgress.tagged}</p>
+                  <p className="text-emerald-600">classificadas</p>
+                </div>
+                {autoTagProgress.errors > 0 && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-red-700">{autoTagProgress.errors}</p>
+                    <p className="text-red-600">erros</p>
+                  </div>
+                )}
+              </div>
+              <div className="text-center">
+                <Button onClick={resetAutoTag} className="mt-1">Fechar</Button>
+              </div>
+            </div>
+          ) : autoTagProgress ? (
+            <div className="py-4 space-y-4">
+              <div className="text-center">
+                <Loader2 className="w-10 h-10 mx-auto text-primary mb-2 animate-spin" />
+                <p className="text-base font-semibold">Classificando legislações com IA...</p>
+                <p className="text-muted-foreground text-[13px] mt-1">
+                  {autoTagProgress.current} de {autoTagProgress.total}
+                </p>
+              </div>
+              <div className="w-full bg-secondary rounded-full h-2.5 overflow-hidden">
+                <div 
+                  className="bg-primary h-full transition-all duration-300" 
+                  style={{ width: `${autoTagProgress.total > 0 ? (autoTagProgress.current / autoTagProgress.total) * 100 : 0}%` }} 
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-[13px]">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-center">
+                  <p className="text-xl font-bold text-emerald-700">{autoTagProgress.tagged}</p>
+                  <p className="text-emerald-600">classificadas</p>
+                </div>
+                {autoTagProgress.errors > 0 && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+                    <p className="text-xl font-bold text-red-700">{autoTagProgress.errors}</p>
+                    <p className="text-red-600">erros</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="py-4 text-center">
+              <Loader2 className="w-8 h-8 mx-auto text-muted-foreground animate-spin mb-2" />
+              <p className="text-muted-foreground">Iniciando classificação...</p>
+            </div>
+          )}
+        </div>
+      </Dialog>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen} title="Cadastrar Legislação">
         <form onSubmit={form.handleSubmit(onCreateSubmit)} className="space-y-4 mt-4">
