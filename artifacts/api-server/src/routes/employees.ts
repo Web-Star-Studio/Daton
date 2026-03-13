@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike, or, count, sql } from "drizzle-orm";
+import { eq, and, ilike, or, count, sql, exists } from "drizzle-orm";
 import {
   db,
   employeesTable,
@@ -69,6 +69,16 @@ interface EmployeeRow {
   updatedAt: Date | string;
 }
 
+function deriveTrainingStatus(status: string, expirationDate: string | null): string {
+  if (expirationDate) {
+    const expDate = new Date(expirationDate);
+    if (expDate < new Date()) {
+      return "vencido";
+    }
+  }
+  return status;
+}
+
 function formatEmployee(e: EmployeeRow) {
   return {
     id: e.id,
@@ -103,7 +113,20 @@ router.get("/organizations/:orgId/employees", requireAuth, async (req, res): Pro
     conditions.push(or(ilike(employeesTable.name, s), ilike(employeesTable.cpf, s))!);
   }
   if (query.success && query.data.unitId) {
-    conditions.push(eq(employeesTable.unitId, query.data.unitId));
+    const targetUnitId = query.data.unitId;
+    conditions.push(
+      or(
+        eq(employeesTable.unitId, targetUnitId),
+        exists(
+          db.select({ id: employeeUnitsTable.id })
+            .from(employeeUnitsTable)
+            .where(and(
+              eq(employeeUnitsTable.employeeId, employeesTable.id),
+              eq(employeeUnitsTable.unitId, targetUnitId)
+            ))
+        )
+      )!
+    );
   }
   if (query.success && query.data.position) {
     conditions.push(eq(employeesTable.position, query.data.position));
@@ -228,21 +251,12 @@ router.get("/organizations/:orgId/employees/:empId", requireAuth, async (req, re
       createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
       updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
     })),
-    trainings: trainings.map(t => {
-      let effectiveStatus = t.status;
-      if (t.expirationDate && t.status === "concluido") {
-        const expDate = new Date(t.expirationDate);
-        if (expDate < new Date()) {
-          effectiveStatus = "vencido";
-        }
-      }
-      return {
-        ...t,
-        status: effectiveStatus,
-        createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
-        updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
-      };
-    }),
+    trainings: trainings.map(t => ({
+      ...t,
+      status: deriveTrainingStatus(t.status, t.expirationDate),
+      createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
+      updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
+    })),
     awareness: awareness.map(a => ({
       ...a,
       createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt,
@@ -360,7 +374,12 @@ router.get("/organizations/:orgId/employees/:empId/trainings", requireAuth, asyn
   if (!emp) { res.status(404).json({ error: "Colaborador não encontrado" }); return; }
 
   const rows = await db.select().from(employeeTrainingsTable).where(eq(employeeTrainingsTable.employeeId, params.data.empId)).orderBy(employeeTrainingsTable.createdAt);
-  res.json(rows);
+  res.json(rows.map(t => ({
+    ...t,
+    status: deriveTrainingStatus(t.status, t.expirationDate),
+    createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
+    updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
+  })));
 });
 
 router.post("/organizations/:orgId/employees/:empId/trainings", requireAuth, async (req, res): Promise<void> => {

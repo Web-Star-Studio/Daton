@@ -2891,10 +2891,14 @@ export const useDeleteEmployee = <TError = ErrorType<unknown>, TContext = unknow
 };
 
 export const createCompetency = async (
-  orgId: number, empId: number, body: CreateCompetencyBody, options?: RequestInit,
+  orgId: number,
+  empId: number,
+  body: CreateCompetencyBody,
+  options?: RequestInit,
 ): Promise<EmployeeCompetency> => {
   return customFetch<EmployeeCompetency>(`/api/organizations/${orgId}/employees/${empId}/competencies`, {
-    ...options, method: "POST",
+    ...options,
+    method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
     body: JSON.stringify(body),
   });
@@ -2909,10 +2913,15 @@ export const useCreateCompetency = <TError = ErrorType<unknown>, TContext = unkn
 };
 
 export const updateCompetency = async (
-  orgId: number, empId: number, compId: number, body: UpdateCompetencyBody, options?: RequestInit,
+  orgId: number,
+  empId: number,
+  compId: number,
+  body: UpdateCompetencyBody,
+  options?: RequestInit,
 ): Promise<EmployeeCompetency> => {
   return customFetch<EmployeeCompetency>(`/api/organizations/${orgId}/employees/${empId}/competencies/${compId}`, {
-    ...options, method: "PATCH",
+    ...options,
+    method: "PATCH",
     headers: { "Content-Type": "application/json", ...options?.headers },
     body: JSON.stringify(body),
   });
@@ -2927,10 +2936,14 @@ export const useUpdateCompetency = <TError = ErrorType<unknown>, TContext = unkn
 };
 
 export const deleteCompetency = async (
-  orgId: number, empId: number, compId: number, options?: RequestInit,
+  orgId: number,
+  empId: number,
+  compId: number,
+  options?: RequestInit,
 ): Promise<void> => {
   return customFetch<void>(`/api/organizations/${orgId}/employees/${empId}/competencies/${compId}`, {
-    ...options, method: "DELETE",
+    ...options,
+    method: "DELETE",
   });
 };
 
@@ -2943,10 +2956,14 @@ export const useDeleteCompetency = <TError = ErrorType<unknown>, TContext = unkn
 };
 
 export const createTraining = async (
-  orgId: number, empId: number, body: CreateTrainingBody, options?: RequestInit,
+  orgId: number,
+  empId: number,
+  body: CreateTrainingBody,
+  options?: RequestInit,
 ): Promise<EmployeeTraining> => {
   return customFetch<EmployeeTraining>(`/api/organizations/${orgId}/employees/${empId}/trainings`, {
-    ...options, method: "POST",
+    ...options,
+    method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
     body: JSON.stringify(body),
   });
@@ -2961,10 +2978,15 @@ export const useCreateTraining = <TError = ErrorType<unknown>, TContext = unknow
 };
 
 export const updateTraining = async (
-  orgId: number, empId: number, trainId: number, body: UpdateTrainingBody, options?: RequestInit,
+  orgId: number,
+  empId: number,
+  trainId: number,
+  body: UpdateTrainingBody,
+  options?: RequestInit,
 ): Promise<EmployeeTraining> => {
   return customFetch<EmployeeTraining>(`/api/organizations/${orgId}/employees/${empId}/trainings/${trainId}`, {
-    ...options, method: "PATCH",
+    ...options,
+    method: "PATCH",
     headers: { "Content-Type": "application/json", ...options?.headers },
     body: JSON.stringify(body),
   });
@@ -2979,10 +3001,14 @@ export const useUpdateTraining = <TError = ErrorType<unknown>, TContext = unknow
 };
 
 export const deleteTraining = async (
-  orgId: number, empId: number, trainId: number, options?: RequestInit,
+  orgId: number,
+  empId: number,
+  trainId: number,
+  options?: RequestInit,
 ): Promise<void> => {
   return customFetch<void>(`/api/organizations/${orgId}/employees/${empId}/trainings/${trainId}`, {
-    ...options, method: "DELETE",
+    ...options,
+    method: "DELETE",
   });
 };
 
@@ -2995,10 +3021,14 @@ export const useDeleteTraining = <TError = ErrorType<unknown>, TContext = unknow
 };
 
 export const createAwareness = async (
-  orgId: number, empId: number, body: CreateAwarenessBody, options?: RequestInit,
+  orgId: number,
+  empId: number,
+  body: CreateAwarenessBody,
+  options?: RequestInit,
 ): Promise<EmployeeAwareness> => {
   return customFetch<EmployeeAwareness>(`/api/organizations/${orgId}/employees/${empId}/awareness`, {
-    ...options, method: "POST",
+    ...options,
+    method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
     body: JSON.stringify(body),
   });
@@ -3013,10 +3043,15 @@ export const useCreateAwareness = <TError = ErrorType<unknown>, TContext = unkno
 };
 
 export const updateAwareness = async (
-  orgId: number, empId: number, awaId: number, body: UpdateAwarenessBody, options?: RequestInit,
+  orgId: number,
+  empId: number,
+  awaId: number,
+  body: UpdateAwarenessBody,
+  options?: RequestInit,
 ): Promise<EmployeeAwareness> => {
   return customFetch<EmployeeAwareness>(`/api/organizations/${orgId}/employees/${empId}/awareness/${awaId}`, {
-    ...options, method: "PATCH",
+    ...options,
+    method: "PATCH",
     headers: { "Content-Type": "application/json", ...options?.headers },
     body: JSON.stringify(body),
   });
@@ -3031,10 +3066,14 @@ export const useUpdateAwareness = <TError = ErrorType<unknown>, TContext = unkno
 };
 
 export const deleteAwareness = async (
-  orgId: number, empId: number, awaId: number, options?: RequestInit,
+  orgId: number,
+  empId: number,
+  awaId: number,
+  options?: RequestInit,
 ): Promise<void> => {
   return customFetch<void>(`/api/organizations/${orgId}/employees/${empId}/awareness/${awaId}`, {
-    ...options, method: "DELETE",
+    ...options,
+    method: "DELETE",
   });
 };
 
@@ -3047,7 +3086,10 @@ export const useDeleteAwareness = <TError = ErrorType<unknown>, TContext = unkno
 };
 
 export const linkEmployeeUnit = async (
-  orgId: number, empId: number, unitId: number, options?: RequestInit,
+  orgId: number,
+  empId: number,
+  unitId: number,
+  options?: RequestInit,
 ): Promise<{ id: number; employeeId: number; unitId: number }> => {
   return customFetch<{ id: number; employeeId: number; unitId: number }>(`/api/organizations/${orgId}/employees/${empId}/units`, {
     ...options,
@@ -3066,10 +3108,14 @@ export const useLinkEmployeeUnit = <TError = ErrorType<unknown>, TContext = unkn
 };
 
 export const unlinkEmployeeUnit = async (
-  orgId: number, empId: number, unitId: number, options?: RequestInit,
+  orgId: number,
+  empId: number,
+  unitId: number,
+  options?: RequestInit,
 ): Promise<void> => {
   return customFetch<void>(`/api/organizations/${orgId}/employees/${empId}/units/${unitId}`, {
-    ...options, method: "DELETE",
+    ...options,
+    method: "DELETE",
   });
 };
 
