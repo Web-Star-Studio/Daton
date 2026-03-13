@@ -67,16 +67,28 @@ async function upsertUser(claims: Record<string, unknown>) {
   const name = [firstName, lastName].filter(Boolean).join(" ") || email;
   const profileImageUrl = (claims.profile_image_url || claims.picture) as string | null;
 
-  const [existing] = await db.select().from(usersTable).where(eq(usersTable.replitId, replitId));
+  const [existingByReplitId] = await db.select().from(usersTable).where(eq(usersTable.replitId, replitId));
 
-  if (existing) {
+  if (existingByReplitId) {
     await db.update(usersTable).set({
       name,
       email,
       profileImageUrl,
       updatedAt: new Date(),
-    }).where(eq(usersTable.id, existing.id));
-    return { ...existing, name, email, profileImageUrl };
+    }).where(eq(usersTable.id, existingByReplitId.id));
+    return { ...existingByReplitId, name, email, profileImageUrl };
+  }
+
+  const [existingByEmail] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+
+  if (existingByEmail) {
+    await db.update(usersTable).set({
+      name,
+      replitId,
+      profileImageUrl,
+      updatedAt: new Date(),
+    }).where(eq(usersTable.id, existingByEmail.id));
+    return { ...existingByEmail, name, replitId, profileImageUrl };
   }
 
   const [org] = await db.insert(organizationsTable).values({
