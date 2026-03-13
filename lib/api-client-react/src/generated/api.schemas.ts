@@ -48,6 +48,11 @@ export interface AuthResponse {
 export interface Organization {
   id: number;
   name: string;
+  nomeFantasia?: string | null;
+  cnpj?: string | null;
+  inscricaoEstadual?: string | null;
+  dataFundacao?: string | null;
+  statusOperacional?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -59,6 +64,11 @@ export interface MeResponse {
 
 export interface UpdateOrganizationBody {
   name?: string;
+  nomeFantasia?: string | null;
+  cnpj?: string | null;
+  inscricaoEstadual?: string | null;
+  dataFundacao?: string | null;
+  statusOperacional?: string | null;
 }
 
 export type UnitType = (typeof UnitType)[keyof typeof UnitType];

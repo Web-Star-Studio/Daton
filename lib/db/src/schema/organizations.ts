@@ -7,6 +7,9 @@ export const organizationsTable = pgTable("organizations", {
   name: text("name").notNull(),
   nomeFantasia: text("nome_fantasia"),
   cnpj: text("cnpj"),
+  inscricaoEstadual: text("inscricao_estadual"),
+  dataFundacao: text("data_fundacao"),
+  statusOperacional: text("status_operacional").default("ativa"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

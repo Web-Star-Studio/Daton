@@ -17,10 +17,11 @@ import {
   useListUnits, useCreateUnit, useDeleteUnit, getListUnitsQueryKey,
   useListDepartments, useCreateDepartment, useDeleteDepartment, useUpdateDepartment, getListDepartmentsQueryKey,
   useListPositions, useCreatePosition, useDeletePosition, useUpdatePosition, getListPositionsQueryKey,
+  useGetOrganization, useUpdateOrganization, getGetOrganizationQueryKey,
   type CreateUnitBody, type CreateUnitBodyType,
 } from "@workspace/api-client-react";
 
-type Tab = "unidades" | "departamentos" | "cargos";
+type Tab = "visao-geral" | "unidades" | "departamentos" | "cargos";
 
 type UnitFormData = {
   name: string;
@@ -57,7 +58,7 @@ export default function OrganizacaoPage() {
   const orgId = organization?.id;
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
-  const [activeTab, setActiveTab] = useState<Tab>("unidades");
+  const [activeTab, setActiveTab] = useState<Tab>("visao-geral");
 
   const { data: units, isLoading: unitsLoading } = useListUnits(orgId!, { query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId } });
   const createUnitMut = useCreateUnit();
@@ -88,8 +89,54 @@ export default function OrganizacaoPage() {
   const emptyPosForm: PositionFormData = { name: "", description: "", education: "", experience: "", requirements: "", responsibilities: "" };
   const posForm = useForm<PositionFormData>({ defaultValues: emptyPosForm });
 
+  const { data: orgData } = useGetOrganization(orgId!, { query: { queryKey: getGetOrganizationQueryKey(orgId!), enabled: !!orgId } });
+  const updateOrgMut = useUpdateOrganization();
+  const [isEditingOrg, setIsEditingOrg] = useState(false);
+  const [orgForm, setOrgForm] = useState({
+    name: "", nomeFantasia: "", cnpj: "", inscricaoEstadual: "", dataFundacao: "", statusOperacional: "ativa",
+  });
+
+  React.useEffect(() => {
+    if (orgData) {
+      setOrgForm({
+        name: orgData.name || "",
+        nomeFantasia: orgData.nomeFantasia || "",
+        cnpj: orgData.cnpj || "",
+        inscricaoEstadual: orgData.inscricaoEstadual || "",
+        dataFundacao: orgData.dataFundacao || "",
+        statusOperacional: orgData.statusOperacional || "ativa",
+      });
+    }
+  }, [orgData]);
+
+  const handleSaveOrg = async () => {
+    if (!orgId) return;
+    await updateOrgMut.mutateAsync({
+      orgId,
+      data: {
+        name: orgForm.name,
+        nomeFantasia: orgForm.nomeFantasia || null,
+        cnpj: orgForm.cnpj || null,
+        inscricaoEstadual: orgForm.inscricaoEstadual || null,
+        dataFundacao: orgForm.dataFundacao || null,
+        statusOperacional: orgForm.statusOperacional || null,
+      },
+    });
+    queryClient.invalidateQueries({ queryKey: getGetOrganizationQueryKey(orgId) });
+    setIsEditingOrg(false);
+  };
+
+  const sede = units?.find((u) => u.type === "sede");
+
   const headerActions = useMemo(() => {
     switch (activeTab) {
+      case "visao-geral":
+        return isEditingOrg ? null : (
+          <Button size="sm" variant="outline" onClick={() => setIsEditingOrg(true)}>
+            <Pencil className="h-3.5 w-3.5 mr-1.5" />
+            Editar
+          </Button>
+        );
       case "unidades":
         return (
           <Button size="sm" onClick={() => setUnitDialogOpen(true)}>
@@ -112,7 +159,7 @@ export default function OrganizacaoPage() {
           </Button>
         );
     }
-  }, [activeTab]);
+  }, [activeTab, isEditingOrg]);
   useHeaderActions(headerActions);
 
   if (!orgId) return null;
@@ -179,6 +226,7 @@ export default function OrganizacaoPage() {
   };
 
   const tabs: { key: Tab; label: string }[] = [
+    { key: "visao-geral", label: "Visão Geral" },
     { key: "unidades", label: "Unidades" },
     { key: "departamentos", label: "Departamentos" },
     { key: "cargos", label: "Cargos" },
@@ -204,6 +252,105 @@ export default function OrganizacaoPage() {
           ))}
         </nav>
       </div>
+
+      {activeTab === "visao-geral" && (
+        <div className="space-y-8">
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Dados Cadastrais</h3>
+            {isEditingOrg ? (
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>Razão Social</Label>
+                  <Input value={orgForm.name} onChange={(e) => setOrgForm((f) => ({ ...f, name: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>CNPJ</Label>
+                  <Input value={orgForm.cnpj} onChange={(e) => setOrgForm((f) => ({ ...f, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" />
+                </div>
+                <div>
+                  <Label>Nome Fantasia</Label>
+                  <Input value={orgForm.nomeFantasia} onChange={(e) => setOrgForm((f) => ({ ...f, nomeFantasia: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Data de Fundação</Label>
+                  <Input value={orgForm.dataFundacao} onChange={(e) => setOrgForm((f) => ({ ...f, dataFundacao: e.target.value }))} placeholder="DD/MM/AAAA" />
+                </div>
+                <div>
+                  <Label>Inscrição Estadual</Label>
+                  <Input value={orgForm.inscricaoEstadual} onChange={(e) => setOrgForm((f) => ({ ...f, inscricaoEstadual: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Status Operacional</Label>
+                  <Select value={orgForm.statusOperacional} onChange={(e) => setOrgForm((f) => ({ ...f, statusOperacional: e.target.value }))}>
+                    <option value="ativa">Ativa</option>
+                    <option value="inativa">Inativa</option>
+                  </Select>
+                </div>
+                <div className="col-span-3 flex justify-end gap-3 pt-2">
+                  <Button variant="outline" size="sm" onClick={() => { setIsEditingOrg(false); if (orgData) setOrgForm({ name: orgData.name || "", nomeFantasia: orgData.nomeFantasia || "", cnpj: orgData.cnpj || "", inscricaoEstadual: orgData.inscricaoEstadual || "", dataFundacao: orgData.dataFundacao || "", statusOperacional: orgData.statusOperacional || "ativa" }); }}>
+                    Cancelar
+                  </Button>
+                  <Button size="sm" onClick={handleSaveOrg} isLoading={updateOrgMut.isPending} disabled={!orgForm.name}>
+                    Salvar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-x-8 gap-y-5">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Razão Social</p>
+                  <p className="text-[14px] font-medium text-foreground">{orgData?.name || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">CNPJ</p>
+                  <p className="text-[14px] font-medium text-foreground">{orgData?.cnpj || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Nome Fantasia</p>
+                  <p className="text-[14px] font-medium text-foreground">{orgData?.nomeFantasia || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Data de Fundação</p>
+                  <p className="text-[14px] font-medium text-foreground">{orgData?.dataFundacao || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Inscrição Estadual</p>
+                  <p className="text-[14px] font-medium text-foreground">{orgData?.inscricaoEstadual || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Status Operacional</p>
+                  <p className="text-[14px] font-medium text-foreground">
+                    {orgData?.statusOperacional === "ativa" ? "Ativa" : orgData?.statusOperacional === "inativa" ? "Inativa" : "—"}
+                    {orgData?.statusOperacional === "ativa" && <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 ml-2" />}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {sede && (
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Sede Principal</h3>
+              <div className="bg-muted/30 rounded-xl overflow-hidden">
+                <div className="bg-gradient-to-br from-slate-200 to-slate-300 h-40 relative">
+                  <div className="absolute bottom-4 left-4 bg-white rounded-xl shadow-sm p-4 max-w-xs">
+                    <p className="text-[14px] font-semibold text-foreground">{sede.name}</p>
+                    <p className="text-[12px] text-muted-foreground mt-0.5">
+                      {sede.city && sede.state ? `${sede.city}, ${sede.state}` : "Localização não informada"}{sede.country ? `, ${sede.country}` : ""}
+                    </p>
+                    {(sede.address || sede.neighborhood) && (
+                      <p className="text-[12px] text-muted-foreground mt-0.5">
+                        {[sede.address, sede.streetNumber].filter(Boolean).join(", ")}
+                        {sede.neighborhood ? ` \u2022 ${sede.neighborhood}` : ""}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {activeTab === "unidades" && (
         <>

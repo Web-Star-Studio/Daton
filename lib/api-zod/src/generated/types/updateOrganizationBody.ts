@@ -8,4 +8,9 @@
 
 export interface UpdateOrganizationBody {
   name?: string;
+  nomeFantasia?: string | null;
+  cnpj?: string | null;
+  inscricaoEstadual?: string | null;
+  dataFundacao?: string | null;
+  statusOperacional?: string | null;
 }

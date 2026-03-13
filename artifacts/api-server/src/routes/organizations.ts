@@ -27,6 +27,11 @@ router.get("/organizations/:orgId", requireAuth, async (req, res): Promise<void>
   res.json({
     id: org.id,
     name: org.name,
+    nomeFantasia: org.nomeFantasia,
+    cnpj: org.cnpj,
+    inscricaoEstadual: org.inscricaoEstadual,
+    dataFundacao: org.dataFundacao,
+    statusOperacional: org.statusOperacional,
     createdAt: org.createdAt.toISOString(),
     updatedAt: org.updatedAt.toISOString(),
   });
@@ -63,6 +68,11 @@ router.patch("/organizations/:orgId", requireAuth, async (req, res): Promise<voi
   res.json({
     id: org.id,
     name: org.name,
+    nomeFantasia: org.nomeFantasia,
+    cnpj: org.cnpj,
+    inscricaoEstadual: org.inscricaoEstadual,
+    dataFundacao: org.dataFundacao,
+    statusOperacional: org.statusOperacional,
     createdAt: org.createdAt.toISOString(),
     updatedAt: org.updatedAt.toISOString(),
   });

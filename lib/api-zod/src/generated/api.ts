@@ -97,6 +97,11 @@ export const UpdateOrganizationParams = zod.object({
 
 export const UpdateOrganizationBody = zod.object({
   name: zod.string().optional(),
+  nomeFantasia: zod.string().nullish(),
+  cnpj: zod.string().nullish(),
+  inscricaoEstadual: zod.string().nullish(),
+  dataFundacao: zod.string().nullish(),
+  statusOperacional: zod.string().nullish(),
 });
 
 export const UpdateOrganizationResponse = zod.object({
