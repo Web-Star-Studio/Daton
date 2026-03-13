@@ -10,22 +10,22 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "default", size = "default", isLoading, children, disabled, ...props }, ref) => {
-    const baseStyles = "inline-flex items-center justify-center whitespace-nowrap rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 cursor-pointer";
+    const baseStyles = "inline-flex items-center justify-center whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 cursor-pointer";
     
     const variants = {
-      default: "bg-[#007AFF] text-white text-[13px] hover:bg-[#0066DD]",
-      secondary: "bg-white text-foreground text-[13px] border border-border hover:bg-gray-50",
-      outline: "bg-white text-foreground text-[13px] border border-border hover:bg-gray-50",
-      ghost: "text-[13px] text-muted-foreground hover:bg-secondary hover:text-foreground",
-      destructive: "bg-destructive text-destructive-foreground text-[13px] hover:bg-destructive/90",
+      default: "bg-[#007AFF] text-white text-[13px] rounded-full hover:bg-[#0066DD] shadow-sm",
+      secondary: "bg-white text-foreground text-[13px] border border-border rounded-lg hover:bg-gray-50",
+      outline: "bg-white text-foreground text-[13px] border border-border rounded-lg hover:bg-gray-50",
+      ghost: "text-[13px] text-muted-foreground rounded-lg hover:bg-secondary hover:text-foreground",
+      destructive: "bg-destructive text-destructive-foreground text-[13px] rounded-full hover:bg-destructive/90",
       link: "text-primary text-[13px] underline-offset-4 hover:underline",
     };
 
     const sizes = {
-      default: "h-9 px-4 py-2",
-      sm: "h-8 px-3 text-xs",
+      default: "h-9 px-5 py-2",
+      sm: "h-8 px-4 text-xs",
       lg: "h-11 px-6",
-      icon: "h-9 w-9",
+      icon: "h-9 w-9 rounded-lg",
     };
 
     return (

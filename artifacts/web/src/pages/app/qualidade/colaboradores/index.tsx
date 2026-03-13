@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Link } from "wouter";
-import { useHeaderActions } from "@/contexts/LayoutContext";
+import { useHeaderActions, usePageSubtitle } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useListEmployees,
@@ -85,6 +85,8 @@ export default function ColaboradoresPage() {
   const handleFilterChange = () => {
     setPage(1);
   };
+
+  usePageSubtitle("Gerencie colaboradores, competências e treinamentos");
 
   useHeaderActions(
     orgId ? (

@@ -905,23 +905,28 @@ export default function ColaboradorDetailPage() {
           </Button>
         </div>
 
-        <div className="border-b border-border/60">
-          <div className="flex gap-0">
+        <div>
+          <div className="inline-flex items-center rounded-lg border border-border bg-white p-0.5">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={cn(
-                  "flex items-center gap-1.5 px-4 py-2.5 text-[13px] border-b-2 transition-colors cursor-pointer",
+                  "flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-medium rounded-md transition-all cursor-pointer",
                   activeTab === tab.key
-                    ? "border-primary text-primary font-medium"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    ? "bg-foreground text-white shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <tab.icon className="h-3.5 w-3.5" />
                 {tab.label}
                 {tab.count !== undefined && tab.count > 0 && (
-                  <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">
+                  <span className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+                    activeTab === tab.key
+                      ? "bg-white/20 text-white"
+                      : "bg-secondary text-muted-foreground"
+                  )}>
                     {tab.count}
                   </span>
                 )}
