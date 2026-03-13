@@ -6,3 +6,4 @@ export * from "./unit-legislations";
 export * from "./evidence-attachments";
 export * from "./conversations";
 export * from "./messages";
+export * from "./questionnaire";

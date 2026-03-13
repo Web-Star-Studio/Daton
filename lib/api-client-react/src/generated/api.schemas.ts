@@ -439,6 +439,7 @@ export interface UnitLegislationWithLegislation {
 export type ListLegislationsParams = {
   search?: string;
   level?: ListLegislationsLevel;
+  unitId?: number;
 };
 
 export type ListLegislationsLevel =
@@ -450,3 +451,52 @@ export const ListLegislationsLevel = {
   municipal: "municipal",
   internacional: "internacional",
 } as const;
+
+export type QuestionnaireQuestionType =
+  (typeof QuestionnaireQuestionType)[keyof typeof QuestionnaireQuestionType];
+
+export const QuestionnaireQuestionType = {
+  single_select: "single_select",
+  multi_select: "multi_select",
+  text: "text",
+} as const;
+
+export interface QuestionnaireQuestion {
+  id: number;
+  code: string;
+  questionNumber: string;
+  text: string;
+  type: QuestionnaireQuestionType;
+  options: string[] | null;
+  conditionalOn: string | null;
+  conditionalValue: string | null;
+  sortOrder: number;
+}
+
+export interface QuestionnaireTheme {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  sortOrder: number;
+  questions: QuestionnaireQuestion[];
+}
+
+export interface SaveQuestionnaireResponsesBody {
+  answers: Record<string, string | string[]>;
+}
+
+export interface SuccessResponse {
+  success: boolean;
+}
+
+export interface SubmitQuestionnaireResponse {
+  tags: string[];
+  count: number;
+}
+
+export interface ComplianceTag {
+  id: number;
+  tag: string;
+  sourceQuestionId: number | null;
+}

@@ -300,6 +300,11 @@ paths:
           schema:
             type: string
             enum: [federal, estadual, municipal, internacional]
+        - name: unitId
+          in: query
+          schema:
+            type: integer
+          description: Filter legislations by unit compliance tags
       responses:
         "200":
           description: List of legislations
@@ -565,6 +570,130 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/UnitLegislationWithLegislation"
+
+  /organizations/{orgId}/questionnaire/themes:
+    get:
+      operationId: listQuestionnaireThemes
+      tags: [questionnaire]
+      summary: List questionnaire themes with questions
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of themes with questions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QuestionnaireTheme"
+
+  /organizations/{orgId}/units/{unitId}/questionnaire/responses:
+    get:
+      operationId: getUnitQuestionnaireResponses
+      tags: [questionnaire]
+      summary: Get saved responses for a unit
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Map of question code to answer
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    put:
+      operationId: saveUnitQuestionnaireResponses
+      tags: [questionnaire]
+      summary: Save questionnaire responses for a unit
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveQuestionnaireResponsesBody"
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /organizations/{orgId}/units/{unitId}/questionnaire/submit:
+    post:
+      operationId: submitUnitQuestionnaire
+      tags: [questionnaire]
+      summary: Submit questionnaire and generate compliance tags
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Tags generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmitQuestionnaireResponse"
+
+  /organizations/{orgId}/units/{unitId}/questionnaire/tags:
+    get:
+      operationId: getUnitComplianceTags
+      tags: [questionnaire]
+      summary: Get compliance tags for a unit
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of compliance tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ComplianceTag"
 
 components:
   schemas:
@@ -1156,3 +1285,107 @@ components:
         - createdAt
         - updatedAt
         - legislation
+
+    QuestionnaireQuestion:
+      type: object
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        questionNumber:
+          type: string
+        text:
+          type: string
+        type:
+          type: string
+          enum: [single_select, multi_select, text]
+        options:
+          type: array
+          items:
+            type: string
+          nullable: true
+        conditionalOn:
+          type: string
+          nullable: true
+        conditionalValue:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+      required:
+        - id
+        - code
+        - questionNumber
+        - text
+        - type
+        - sortOrder
+
+    QuestionnaireTheme:
+      type: object
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuestionnaireQuestion"
+      required:
+        - id
+        - code
+        - name
+        - sortOrder
+        - questions
+
+    SaveQuestionnaireResponsesBody:
+      type: object
+      properties:
+        answers:
+          type: object
+          additionalProperties: true
+      required:
+        - answers
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
+
+    SubmitQuestionnaireResponse:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            type: string
+        count:
+          type: integer
+      required:
+        - tags
+        - count
+
+    ComplianceTag:
+      type: object
+      properties:
+        id:
+          type: integer
+        tag:
+          type: string
+        sourceQuestionId:
+          type: integer
+          nullable: true
+      required:
+        - id
+        - tag

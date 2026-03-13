@@ -16,7 +16,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { ArrowLeft, Pencil, Save, X } from "lucide-react";
+import { ArrowLeft, Pencil, Save, X, ClipboardList } from "lucide-react";
+import { QuestionnaireModal } from "@/components/questionnaire/QuestionnaireModal";
 
 export default function UnitDetailPage() {
   const [, params] = useRoute("/app/organizacao/unidades/:id");
@@ -33,6 +34,7 @@ export default function UnitDetailPage() {
 
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
 
   useEffect(() => {
     if (unit) {
@@ -111,6 +113,9 @@ export default function UnitDetailPage() {
           <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
         </Button>
       </Link>
+      <Button variant="secondary" size="sm" onClick={() => setQuestionnaireOpen(true)}>
+        <ClipboardList className="w-4 h-4 mr-1" /> Questionário
+      </Button>
       {editing ? (
         <>
           <Button variant="ghost" size="sm" onClick={handleCancel}>
@@ -192,6 +197,14 @@ export default function UnitDetailPage() {
           </div>
         </section>
       </div>
+
+      <QuestionnaireModal
+        isOpen={questionnaireOpen}
+        onClose={() => setQuestionnaireOpen(false)}
+        orgId={orgId!}
+        unitId={unitId}
+        unitName={unit.name}
+      />
     </AppLayout>
   );
 }

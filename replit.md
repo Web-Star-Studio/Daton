@@ -39,6 +39,10 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **evidence_attachments**: id, unitLegislationId, fileName, fileSize, contentType, objectPath, uploadedAt — file evidence attached to compliance evaluations, stored via GCS presigned URL upload
 - **conversations**: id, userId, organizationId, title, createdAt — AI chat conversations per user/org
 - **messages**: id, conversationId, role (user/assistant), content, createdAt — chat messages within conversations
+- **questionnaire_themes**: id, code, name, description, sortOrder — global questionnaire theme categories (e.g., "Instalações")
+- **questionnaire_questions**: id, themeId, code, questionNumber, text, type (single_select/multi_select/text), options (jsonb), tags (jsonb mapping answer→tag[]), conditionalOn, conditionalValue, sortOrder — questions within themes
+- **unit_questionnaire_responses**: id, unitId, questionId, answer (jsonb), respondedAt — unit-specific questionnaire answers
+- **unit_compliance_tags**: id, unitId, tag, sourceQuestionId, createdAt — compliance tags generated from questionnaire answers, used to filter legislation lists
 
 ## Structure
 
@@ -77,6 +81,11 @@ artifacts-monorepo/
 - PATCH/DELETE /api/organizations/:orgId/legislations/:legId/units/:unitId — Update/remove compliance
 - GET/POST /api/organizations/:orgId/legislations/:legId/units/:unitId/attachments — List/create evidence attachments
 - DELETE /api/organizations/:orgId/legislations/:legId/units/:unitId/attachments/:attachmentId — Remove attachment
+- GET /api/organizations/:orgId/questionnaire/themes — List questionnaire themes with questions
+- GET /api/organizations/:orgId/units/:unitId/questionnaire/responses — Get unit's saved answers
+- PUT /api/organizations/:orgId/units/:unitId/questionnaire/responses — Save/update answers
+- POST /api/organizations/:orgId/units/:unitId/questionnaire/submit — Submit questionnaire, generates compliance tags
+- GET /api/organizations/:orgId/units/:unitId/questionnaire/tags — Get unit's compliance tags
 - POST /api/storage/uploads/request-url — Request presigned upload URL (GCS)
 - GET /api/storage/objects/* — Serve uploaded objects
 - GET /api/ai/conversations — List user's AI conversations
@@ -90,7 +99,7 @@ artifacts-monorepo/
 - /app/qualidade/legislacoes — Legislations list with filters, create dialog, CSV import
 - /app/qualidade/legislacoes/:id — Legislation detail with unit compliance tracking
 - /app/organizacao/unidades — Units management (minimalist cards, clickable)
-- /app/organizacao/unidades/:id — Unit detail with inline editing
+- /app/organizacao/unidades/:id — Unit detail with inline editing + compliance questionnaire modal
 
 ## TypeScript & Composite Projects
 
@@ -112,5 +121,6 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 - Compliance statuses: conforme, nao_conforme, parcialmente_conforme, nao_avaliado
 - CSV import route must be registered BEFORE /:legId routes in Express to avoid conflicts
 - custom-fetch only injects auth tokens for same-origin requests (security measure)
-- Seed data includes 8 real Brazilian environmental legislations and 3 units
+- Seed data includes 8 real Brazilian environmental legislations, 3 units, and 30 questionnaire questions in "Instalações" theme
+- Unit profiling questionnaire generates compliance tags from answers; legislation list supports filtering by unit (unitId query param) matching tags against macrotema/subtema
 - AI assistant (Daton AI) uses OpenAI via Replit AI Integrations (gpt-4o-mini). System prompt in Portuguese describing the platform schema. Read-only DB query tool with $ORG_ID placeholder for multi-tenant isolation. SSE streaming for real-time responses. Chat panel in AppLayout header (Sparkles icon).

@@ -7,6 +7,7 @@ import legislationsRouter from "./legislations";
 import unitLegislationsRouter from "./unit-legislations";
 import storageRouter from "./storage";
 import aiRouter from "./ai";
+import questionnaireRouter from "./questionnaire";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(legislationsRouter);
 router.use(unitLegislationsRouter);
 router.use(storageRouter);
 router.use(aiRouter);
+router.use(questionnaireRouter);
 
 export default router;

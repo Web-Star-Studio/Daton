@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike, sql } from "drizzle-orm";
-import { db, legislationsTable, unitLegislationsTable, unitsTable, type Legislation } from "@workspace/db";
+import { eq, and, ilike, sql, or, inArray } from "drizzle-orm";
+import { db, legislationsTable, unitLegislationsTable, unitsTable, unitComplianceTagsTable, type Legislation } from "@workspace/db";
 import {
   ListLegislationsParams,
   ListLegislationsQueryParams,
@@ -65,6 +65,28 @@ router.get("/organizations/:orgId/legislations", requireAuth, async (req, res): 
   if (query.success && query.data.level) {
     conditions.push(eq(legislationsTable.level, query.data.level));
   }
+
+  const unitIdParam = req.query.unitId ? parseInt(String(req.query.unitId)) : undefined;
+  if (unitIdParam && !isNaN(unitIdParam)) {
+    const unitCheck = await db.select().from(unitsTable).where(and(eq(unitsTable.id, unitIdParam), eq(unitsTable.organizationId, params.data.orgId)));
+    if (unitCheck.length === 0) {
+      res.status(404).json({ error: "Unidade não encontrada" });
+      return;
+    }
+    const tags = await db.select().from(unitComplianceTagsTable).where(eq(unitComplianceTagsTable.unitId, unitIdParam));
+    const tagValues = tags.map((t) => t.tag.toLowerCase());
+    if (tagValues.length > 0) {
+      const tagConditions = tagValues.flatMap((tag) => [
+        ilike(legislationsTable.macrotema, `%${tag}%`),
+        ilike(legislationsTable.subtema, `%${tag}%`),
+      ]);
+      conditions.push(or(...tagConditions)!);
+    } else {
+      res.json([]);
+      return;
+    }
+  }
+
   const legislations = await db.select().from(legislationsTable)
     .where(and(...conditions))
     .orderBy(legislationsTable.createdAt);

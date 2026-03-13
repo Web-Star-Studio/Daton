@@ -247,6 +247,7 @@ export const ListLegislationsParams = zod.object({
 export const ListLegislationsQueryParams = zod.object({
   search: zod.coerce.string().optional(),
   level: zod.string().optional(),
+  unitId: zod.coerce.number().optional(),
 });
 
 export const ListLegislationsResponseItem = zod.object({
@@ -629,4 +630,67 @@ export const DeleteEvidenceAttachmentParams = zod.object({
   legId: zod.coerce.number(),
   unitId: zod.coerce.number(),
   attachmentId: zod.coerce.number(),
+});
+
+/**
+ * @summary Questionnaire
+ */
+export const ListQuestionnaireThemesParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const QuestionnaireQuestionItem = zod.object({
+  id: zod.number(),
+  code: zod.string(),
+  questionNumber: zod.string(),
+  text: zod.string(),
+  type: zod.enum(["single_select", "multi_select", "text"]),
+  options: zod.array(zod.string()).nullable(),
+  conditionalOn: zod.string().nullable(),
+  conditionalValue: zod.string().nullable(),
+  sortOrder: zod.number(),
+});
+
+export const QuestionnaireThemeItem = zod.object({
+  id: zod.number(),
+  code: zod.string(),
+  name: zod.string(),
+  description: zod.string().nullable(),
+  sortOrder: zod.number(),
+  questions: zod.array(QuestionnaireQuestionItem),
+});
+
+export const GetUnitQuestionnaireResponsesParams = zod.object({
+  orgId: zod.coerce.number(),
+  unitId: zod.coerce.number(),
+});
+
+export const SaveUnitQuestionnaireResponsesParams = zod.object({
+  orgId: zod.coerce.number(),
+  unitId: zod.coerce.number(),
+});
+
+export const SaveUnitQuestionnaireResponsesBody = zod.object({
+  answers: zod.record(zod.string(), zod.any()),
+});
+
+export const SubmitUnitQuestionnaireParams = zod.object({
+  orgId: zod.coerce.number(),
+  unitId: zod.coerce.number(),
+});
+
+export const SubmitQuestionnaireResponse = zod.object({
+  tags: zod.array(zod.string()),
+  count: zod.number(),
+});
+
+export const GetUnitComplianceTagsParams = zod.object({
+  orgId: zod.coerce.number(),
+  unitId: zod.coerce.number(),
+});
+
+export const ComplianceTagItem = zod.object({
+  id: zod.number(),
+  tag: zod.string(),
+  sourceQuestionId: zod.number().nullable(),
 });

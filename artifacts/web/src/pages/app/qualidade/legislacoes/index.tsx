@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { useListLegislations, useCreateLegislation, useImportLegislations, getListLegislationsQueryKey, type CreateLegislationBody } from "@workspace/api-client-react";
+import { useListLegislations, useCreateLegislation, useImportLegislations, getListLegislationsQueryKey, useListUnits, getListUnitsQueryKey, type CreateLegislationBody } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -200,11 +200,16 @@ export default function LegislacoesPage() {
 
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState("");
+  const [unitFilter, setUnitFilter] = useState("");
   
+  const { data: units } = useListUnits(orgId!, {
+    query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
+  });
+
   const { data: legislations, isLoading } = useListLegislations(
     orgId!, 
-    { search, level: levelFilter || undefined }, 
-    { query: { queryKey: getListLegislationsQueryKey(orgId!), enabled: !!orgId } }
+    { search, level: levelFilter || undefined, unitId: unitFilter ? parseInt(unitFilter) : undefined }, 
+    { query: { queryKey: [...getListLegislationsQueryKey(orgId!), unitFilter], enabled: !!orgId } }
   );
 
   const createMut = useCreateLegislation();
@@ -316,6 +321,15 @@ export default function LegislacoesPage() {
             <option value="estadual">Estadual</option>
             <option value="municipal">Municipal</option>
             <option value="internacional">Internacional</option>
+          </Select>
+        </div>
+        <div className="w-52">
+          <Label>Filtrar por Unidade</Label>
+          <Select value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)} className="mt-2">
+            <option value="">Todas as unidades</option>
+            {units?.map((u) => (
+              <option key={u.id} value={String(u.id)}>{u.name}</option>
+            ))}
           </Select>
         </div>
       </div>
