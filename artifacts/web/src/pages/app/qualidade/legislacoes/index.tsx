@@ -514,9 +514,6 @@ export default function LegislacoesPage() {
                 {autoTagProgress.tagged} legislaç{autoTagProgress.tagged === 1 ? "ão classificada" : "ões classificadas"}
                 {autoTagProgress.errors > 0 && <>, {autoTagProgress.errors} erro{autoTagProgress.errors > 1 ? "s" : ""}</>}
               </p>
-              <div className="pt-4">
-                <Button variant="outline" size="sm" onClick={resetAutoTag}>Fechar</Button>
-              </div>
             </div>
           ) : autoTagProgress ? (
             <div className="py-4 space-y-4">
