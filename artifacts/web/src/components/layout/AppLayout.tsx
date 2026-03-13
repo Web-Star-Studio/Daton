@@ -63,7 +63,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         )}
       >
         <div className={cn("h-14 flex items-center justify-center border-b border-border/60")}>
-          <img src={datonLogo} alt="Daton" className={cn("object-contain", isSidebarOpen ? "h-6" : "h-5")} />
+          <img src={datonLogo} alt="Daton" className={cn("object-contain transition-all duration-300", isSidebarOpen ? "h-6" : "h-4")} />
         </div>
         
         <div className="flex-1 overflow-y-auto py-5 px-2.5 space-y-1">
