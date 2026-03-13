@@ -114,7 +114,7 @@ export default function UnitDetailPage() {
         </Button>
       </Link>
       <Button variant="secondary" size="sm" onClick={() => setQuestionnaireOpen(true)}>
-        <ClipboardList className="w-4 h-4 mr-1" /> Questionário
+        <ClipboardList className="w-4 h-4 mr-1" /> Questionário de Compliance
       </Button>
       {editing ? (
         <>
