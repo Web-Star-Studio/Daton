@@ -8,10 +8,12 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import datonLogo from "@assets/daton-logo-header-DC_evyPp_1773347395767.png";
+import { ChatPanel } from "@/components/chat/ChatPanel";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -24,6 +26,7 @@ export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps
   const [location] = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isQualidadeOpen, setQualidadeOpen] = useState(true);
+  const [isChatOpen, setChatOpen] = useState(false);
 
   const isActive = (path: string) => location.startsWith(path);
 
@@ -150,8 +153,19 @@ export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps
           <div className="flex items-center gap-3">
             {headerActions}
             <button
+              onClick={() => setChatOpen(!isChatOpen)}
+              className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                isChatOpen
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground/60 hover:text-foreground hover:bg-secondary/60"
+              }`}
+              title="Daton AI"
+            >
+              <Sparkles className="h-4 w-4" />
+            </button>
+            <button
               onClick={logout}
-              className="flex items-center text-[13px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer ml-2"
+              className="flex items-center text-[13px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer ml-1"
             >
               <LogOut className="h-4 w-4 mr-1.5" />
               Sair
@@ -165,6 +179,8 @@ export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps
           </div>
         </div>
       </main>
+
+      <ChatPanel isOpen={isChatOpen} onClose={() => setChatOpen(false)} />
     </div>
   );
 }

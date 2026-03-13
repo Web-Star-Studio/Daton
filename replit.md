@@ -37,6 +37,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **legislations**: id, title, number, description, tipoNorma, emissor, level, uf, municipality, macrotema, subtema, applicability, publicationDate, sourceUrl, applicableArticles, reviewFrequencyDays, observations, generalObservations, organizationId. **Note: status is NOT stored per legislation — it belongs to unit_legislations only.**
 - **unit_legislations**: id, unitId, legislationId, complianceStatus (conforme/nao_conforme/parcialmente_conforme/nao_avaliado), notes, evidenceUrl, evaluatedAt, evaluatedBy
 - **evidence_attachments**: id, unitLegislationId, fileName, fileSize, contentType, objectPath, uploadedAt — file evidence attached to compliance evaluations, stored via GCS presigned URL upload
+- **conversations**: id, userId, organizationId, title, createdAt — AI chat conversations per user/org
+- **messages**: id, conversationId, role (user/assistant), content, createdAt — chat messages within conversations
 
 ## Structure
 
@@ -50,6 +52,7 @@ artifacts-monorepo/
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks + custom-fetch
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
+│   ├── integrations-openai-ai-server/  # OpenAI SDK client (via Replit AI Integrations)
 │   └── db/                 # Drizzle ORM schema + DB connection
 ├── scripts/                # Utility scripts
 ├── pnpm-workspace.yaml
@@ -76,6 +79,10 @@ artifacts-monorepo/
 - DELETE /api/organizations/:orgId/legislations/:legId/units/:unitId/attachments/:attachmentId — Remove attachment
 - POST /api/storage/uploads/request-url — Request presigned upload URL (GCS)
 - GET /api/storage/objects/* — Serve uploaded objects
+- GET /api/ai/conversations — List user's AI conversations
+- POST /api/ai/conversations — Create new conversation
+- GET /api/ai/conversations/:convId/messages — Get conversation messages
+- POST /api/ai/conversations/:convId/messages — Send message (SSE streaming response, AI with DB query tool)
 
 ## Frontend Routes
 
@@ -106,3 +113,4 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 - CSV import route must be registered BEFORE /:legId routes in Express to avoid conflicts
 - custom-fetch only injects auth tokens for same-origin requests (security measure)
 - Seed data includes 8 real Brazilian environmental legislations and 3 units
+- AI assistant (Daton AI) uses OpenAI via Replit AI Integrations (gpt-4o-mini). System prompt in Portuguese describing the platform schema. Read-only DB query tool with $ORG_ID placeholder for multi-tenant isolation. SSE streaming for real-time responses. Chat panel in AppLayout header (Sparkles icon).
