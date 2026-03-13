@@ -50,8 +50,8 @@ export function QuestionnaireModal({ isOpen, onClose, orgId, unitId, unitName }:
   const submitMut = useSubmitUnitQuestionnaire();
 
   useEffect(() => {
-    if (savedResponses && Object.keys(savedResponses).length > 0) {
-      setAnswers(savedResponses);
+    if (savedResponses) {
+      setAnswers(Object.keys(savedResponses).length > 0 ? savedResponses : {});
     }
   }, [savedResponses]);
 
