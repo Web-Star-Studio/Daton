@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { X, Send, Sparkles, Loader2, Database } from "lucide-react";
 
-const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
-
 function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem("daton_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -46,7 +44,7 @@ export function ChatPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
   const ensureConversation = useCallback(async (): Promise<number> => {
     if (conversationId) return conversationId;
 
-    const res = await fetch(`${API_BASE}api/ai/conversations`, {
+    const res = await fetch(`/api/ai/conversations`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({ title: "Chat" }),
@@ -68,7 +66,7 @@ export function ChatPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     try {
       const convId = await ensureConversation();
 
-      const res = await fetch(`${API_BASE}api/ai/conversations/${convId}/messages`, {
+      const res = await fetch(`/api/ai/conversations/${convId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ content: text }),
