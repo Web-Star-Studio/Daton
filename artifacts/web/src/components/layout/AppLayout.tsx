@@ -60,14 +60,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const breadcrumbs = getBreadcrumbs();
 
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden">
+    <div className="flex h-screen w-full bg-background overflow-hidden p-2.5 gap-2.5">
       <aside 
         className={cn(
-          "flex flex-col bg-white border-r border-border/60 transition-all duration-300 z-20",
-          isSidebarOpen ? "w-60" : "w-16"
+          "flex flex-col bg-white rounded-2xl border border-border/60 shadow-sm transition-all duration-300 z-20 shrink-0",
+          isSidebarOpen ? "w-[228px]" : "w-14"
         )}
       >
-        <div className={cn("h-14 flex items-center justify-center border-b border-border/60")}>
+        <div className={cn("h-14 flex items-center justify-center")}>
           <img src={datonLogo} alt="Daton" className={cn("object-contain transition-all duration-300", isSidebarOpen ? "h-6" : "h-4")} />
         </div>
         
@@ -156,7 +156,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </div>
 
-        <div className="px-2.5 py-3 border-t border-border/60">
+        <div className="px-2.5 py-3">
           <div className={cn("flex items-center", isSidebarOpen ? "gap-2 justify-between" : "justify-center")}>
             <div className="flex items-center gap-2">
               <div className="h-7 w-7 rounded-full bg-foreground/5 text-foreground/60 flex items-center justify-center text-xs font-medium shrink-0">
@@ -179,8 +179,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 flex items-center justify-between px-6 border-b border-border/60 bg-white sticky top-0 z-10">
+      <main className="flex-1 flex flex-col min-w-0 bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+        <header className="h-14 flex items-center justify-between px-6 border-b border-border/40 sticky top-0 z-10">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(!isSidebarOpen)}
