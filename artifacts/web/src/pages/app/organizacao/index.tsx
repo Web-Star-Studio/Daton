@@ -187,7 +187,7 @@ export default function OrganizacaoPage() {
   return (
     <>
       <div className="mb-6">
-        <nav className="inline-flex items-center gap-1 rounded-xl bg-muted/60 p-1">
+        <nav className="inline-flex items-center gap-1 rounded-xl p-1">
           {tabs.map((tab) => (
             <button
               key={tab.key}

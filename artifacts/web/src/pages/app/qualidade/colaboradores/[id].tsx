@@ -906,7 +906,7 @@ export default function ColaboradorDetailPage() {
         </div>
 
         <div className="mb-1">
-          <div className="inline-flex items-center gap-1 rounded-xl bg-muted/60 p-1">
+          <div className="inline-flex items-center gap-1 rounded-xl p-1">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
