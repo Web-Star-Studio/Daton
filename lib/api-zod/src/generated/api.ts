@@ -270,6 +270,7 @@ export const ListLegislationsResponseItem = zod.object({
   reviewFrequencyDays: zod.number().nullable(),
   observations: zod.string().nullable(),
   generalObservations: zod.string().nullable(),
+  tags: zod.array(zod.string()),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -300,6 +301,7 @@ export const CreateLegislationBody = zod.object({
   reviewFrequencyDays: zod.number().optional(),
   observations: zod.string().optional(),
   generalObservations: zod.string().optional(),
+  tags: zod.array(zod.string()).optional(),
 });
 
 /**
@@ -342,6 +344,7 @@ export const GetLegislationResponse = zod.object({
   reviewFrequencyDays: zod.number().nullable(),
   observations: zod.string().nullable(),
   generalObservations: zod.string().nullable(),
+  tags: zod.array(zod.string()),
   createdAt: zod.date(),
   updatedAt: zod.date(),
   unitLegislations: zod.array(
@@ -401,6 +404,7 @@ export const UpdateLegislationBody = zod.object({
   reviewFrequencyDays: zod.number().optional(),
   observations: zod.string().optional(),
   generalObservations: zod.string().optional(),
+  tags: zod.array(zod.string()).optional(),
 });
 
 export const UpdateLegislationResponse = zod.object({
@@ -423,6 +427,7 @@ export const UpdateLegislationResponse = zod.object({
   reviewFrequencyDays: zod.number().nullable(),
   observations: zod.string().nullable(),
   generalObservations: zod.string().nullable(),
+  tags: zod.array(zod.string()),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -694,3 +699,8 @@ export const ComplianceTagItem = zod.object({
   tag: zod.string(),
   sourceQuestionId: zod.number().nullable(),
 });
+
+/**
+ * @summary Get full compliance tag vocabulary
+ */
+export const ComplianceTagVocabularyResponse = zod.array(zod.string());

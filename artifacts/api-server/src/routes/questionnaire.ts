@@ -12,6 +12,24 @@ import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
+router.get("/compliance-tag-vocabulary", requireAuth, async (_req, res): Promise<void> => {
+  const questions = await db.select({ tags: questionnaireQuestionsTable.tags }).from(questionnaireQuestionsTable);
+
+  const tagSet = new Set<string>();
+  for (const q of questions) {
+    if (!q.tags) continue;
+    const tagMapping = q.tags as Record<string, string[]>;
+    for (const tagList of Object.values(tagMapping)) {
+      for (const tag of tagList) {
+        tagSet.add(tag);
+      }
+    }
+  }
+
+  const sorted = Array.from(tagSet).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  res.json(sorted);
+});
+
 router.get("/organizations/:orgId/questionnaire/themes", requireAuth, async (req, res): Promise<void> => {
   const orgId = parseInt(req.params.orgId);
   if (orgId !== req.auth!.organizationId) {

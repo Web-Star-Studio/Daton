@@ -224,6 +224,7 @@ export interface Legislation {
   observations: string | null;
   /** @nullable */
   generalObservations: string | null;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -299,6 +300,7 @@ export interface LegislationDetail {
   observations: string | null;
   /** @nullable */
   generalObservations: string | null;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
   unitLegislations: UnitLegislation[];
@@ -332,6 +334,7 @@ export interface CreateLegislationBody {
   reviewFrequencyDays?: number;
   observations?: string;
   generalObservations?: string;
+  tags?: string[];
 }
 
 export type UpdateLegislationBodyLevel =
@@ -362,6 +365,7 @@ export interface UpdateLegislationBody {
   reviewFrequencyDays?: number;
   observations?: string;
   generalObservations?: string;
+  tags?: string[];
 }
 
 export interface ImportLegislationsBody {

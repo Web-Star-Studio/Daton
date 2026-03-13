@@ -9,7 +9,9 @@ import {
   useAssignLegislationToUnit, 
   useUpdateUnitLegislation,
   useRemoveUnitLegislation,
+  useComplianceTagVocabulary,
   getGetLegislationQueryKey,
+  getListLegislationsQueryKey,
   getListUnitsQueryKey,
   type UpdateUnitLegislationBodyComplianceStatus,
 } from "@workspace/api-client-react";
@@ -93,6 +95,94 @@ function InlineField({ label, value, fieldKey, type = "text", onSave }: {
   );
 }
 
+function TagEditor({ tags, vocabulary, onSave }: {
+  tags: string[];
+  vocabulary: string[];
+  onSave: (tags: string[]) => void;
+}) {
+  const [inputVal, setInputVal] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = inputVal.trim()
+    ? vocabulary.filter(t => t.toLowerCase().includes(inputVal.toLowerCase()) && !tags.includes(t)).slice(0, 10)
+    : [];
+
+  const addTag = (tag: string) => {
+    if (!tags.includes(tag)) {
+      onSave([...tags, tag]);
+    }
+    setInputVal("");
+    setShowSuggestions(false);
+    inputRef.current?.focus();
+  };
+
+  const removeTag = (tag: string) => {
+    onSave(tags.filter(t => t !== tag));
+  };
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={containerRef}>
+      <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Tags de Compliance</p>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {tags.map(tag => (
+          <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#007AFF]/10 text-[#007AFF]">
+            {tag}
+            <button type="button" onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors cursor-pointer">
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="relative">
+        <Input
+          ref={inputRef}
+          value={inputVal}
+          onChange={e => { setInputVal(e.target.value); setShowSuggestions(true); }}
+          onFocus={() => setShowSuggestions(true)}
+          onKeyDown={e => {
+            if (e.key === "Enter" && inputVal.trim()) {
+              e.preventDefault();
+              if (filtered.length > 0) {
+                addTag(filtered[0]);
+              } else if (inputVal.trim()) {
+                addTag(inputVal.trim());
+              }
+            }
+          }}
+          placeholder="Buscar ou adicionar tag..."
+          className="text-[13px]"
+        />
+        {showSuggestions && filtered.length > 0 && (
+          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+            {filtered.map(tag => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => addTag(tag)}
+                className="w-full text-left px-3 py-2 text-[13px] hover:bg-muted/50 transition-colors cursor-pointer first:rounded-t-lg last:rounded-b-lg"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 type Tab = "geral" | "unidades";
 
 export default function LegislationDetailPage() {
@@ -105,6 +195,7 @@ export default function LegislationDetailPage() {
 
   const { data: leg, isLoading } = useGetLegislation(orgId!, legId, { query: { queryKey: getGetLegislationQueryKey(orgId!, legId), enabled: !!orgId && !!legId } });
   const { data: allUnits } = useListUnits(orgId!, { query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId } });
+  const { data: tagVocabulary } = useComplianceTagVocabulary();
   
   const updateMut = useUpdateLegislation();
   const assignMut = useAssignLegislationToUnit();
@@ -128,6 +219,13 @@ export default function LegislationDetailPage() {
     if (!orgId) return;
     await updateMut.mutateAsync({ orgId, legId, data: { [key]: val ?? undefined } as any });
     queryClient.invalidateQueries({ queryKey: getGetLegislationQueryKey(orgId, legId) });
+  }, [orgId, legId, updateMut, queryClient]);
+
+  const onTagsSave = useCallback(async (newTags: string[]) => {
+    if (!orgId) return;
+    await updateMut.mutateAsync({ orgId, legId, data: { tags: newTags } });
+    queryClient.invalidateQueries({ queryKey: getGetLegislationQueryKey(orgId, legId) });
+    queryClient.invalidateQueries({ queryKey: getListLegislationsQueryKey(orgId) });
   }, [orgId, legId, updateMut, queryClient]);
 
   const onAssign = async () => {
@@ -320,6 +418,7 @@ export default function LegislationDetailPage() {
           </div>
 
           <div className="mt-6 pt-6 border-t border-border space-y-5">
+            <TagEditor tags={leg.tags ?? []} vocabulary={tagVocabulary ?? []} onSave={onTagsSave} />
             <InlineField label="Descrição / Ementa" value={leg.description} fieldKey="description" type="textarea" onSave={onFieldSave} />
             <InlineField label="Observações (como é atendido)" value={leg.observations} fieldKey="observations" type="textarea" onSave={onFieldSave} />
             <InlineField label="Observações Gerais" value={leg.generalObservations} fieldKey="generalObservations" type="textarea" onSave={onFieldSave} />

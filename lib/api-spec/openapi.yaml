@@ -571,6 +571,22 @@ paths:
                 items:
                   $ref: "#/components/schemas/UnitLegislationWithLegislation"
 
+  /compliance-tag-vocabulary:
+    get:
+      operationId: getComplianceTagVocabulary
+      tags: [questionnaire]
+      summary: Get full compliance tag vocabulary
+      description: Returns all unique tag strings from the questionnaire questions tags JSONB column, sorted alphabetically
+      responses:
+        "200":
+          description: Sorted list of all compliance tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
   /organizations/{orgId}/questionnaire/themes:
     get:
       operationId: listQuestionnaireThemes
@@ -983,6 +999,10 @@ components:
           type: ["string", "null"]
         generalObservations:
           type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
         createdAt:
           type: string
           format: date-time
@@ -994,6 +1014,7 @@ components:
         - organizationId
         - title
         - level
+        - tags
         - createdAt
         - updatedAt
 
@@ -1039,6 +1060,10 @@ components:
           type: ["string", "null"]
         generalObservations:
           type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
         createdAt:
           type: string
           format: date-time
@@ -1054,6 +1079,7 @@ components:
         - organizationId
         - title
         - level
+        - tags
         - createdAt
         - updatedAt
         - unitLegislations
@@ -1096,6 +1122,10 @@ components:
           type: string
         generalObservations:
           type: string
+        tags:
+          type: array
+          items:
+            type: string
       required:
         - title
         - level
@@ -1138,6 +1168,10 @@ components:
           type: string
         generalObservations:
           type: string
+        tags:
+          type: array
+          items:
+            type: string
 
     ImportLegislationsBody:
       type: object

@@ -49,6 +49,7 @@ const COLUMN_MAP: Record<string, string> = {
   "observaçãoes gerais, envios datas e responsáveis": "generalObservations",
   "observações gerais": "generalObservations",
   "observacoes gerais": "generalObservations",
+  "tags": "tags",
 };
 
 function normalizeColumnName(col: string): string {
@@ -115,6 +116,10 @@ function parseXlsxRows(data: ArrayBuffer, selectedLevel: string): CreateLegislat
     const pubDate = parseDate(mapped.publicationDate);
     const freqDays = mapped.reviewFrequencyDays ? parseInt(String(mapped.reviewFrequencyDays), 10) : undefined;
 
+    const parsedTags = mapped.tags
+      ? String(mapped.tags).split(",").map(t => t.trim()).filter(Boolean)
+      : undefined;
+
     results.push({
       title,
       number: mapped.number ? String(mapped.number).trim() : undefined,
@@ -132,6 +137,7 @@ function parseXlsxRows(data: ArrayBuffer, selectedLevel: string): CreateLegislat
       reviewFrequencyDays: freqDays && !isNaN(freqDays) ? freqDays : undefined,
       observations: mapped.observations ? String(mapped.observations).trim() : undefined,
       generalObservations: mapped.generalObservations ? String(mapped.generalObservations).trim() : undefined,
+      tags: parsedTags,
     });
   }
 
@@ -357,6 +363,20 @@ export default function LegislacoesPage() {
                     <td className="px-6 py-4">
                       <div className="font-medium text-foreground">{leg.title}</div>
                       {leg.number && <div className="text-muted-foreground mt-0.5">{leg.number}</div>}
+                      {leg.tags && leg.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {leg.tags.slice(0, 3).map((tag) => (
+                            <span key={tag} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#007AFF]/10 text-[#007AFF]">
+                              {tag}
+                            </span>
+                          ))}
+                          {leg.tags.length > 3 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-secondary text-muted-foreground">
+                              +{leg.tags.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-muted-foreground text-xs">{leg.tipoNorma || '—'}</span>

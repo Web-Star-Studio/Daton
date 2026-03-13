@@ -1,4 +1,5 @@
 import { pgTable, text, serial, timestamp, integer, date } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
@@ -25,6 +26,7 @@ export const legislationsTable = pgTable("legislations", {
   observations: text("observations"),
   generalObservations: text("general_observations"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 

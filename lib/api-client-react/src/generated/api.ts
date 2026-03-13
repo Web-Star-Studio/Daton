@@ -2107,6 +2107,40 @@ export function useListUnitLegislations<
 }
 
 /**
+ * Compliance Tag Vocabulary
+ */
+export const getComplianceTagVocabularyUrl = () => {
+  return `/api/compliance-tag-vocabulary`;
+};
+
+export const getComplianceTagVocabulary = async (
+  options?: RequestInit,
+): Promise<string[]> => {
+  return customFetch<string[]>(getComplianceTagVocabularyUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getComplianceTagVocabularyQueryKey = () => {
+  return [`/api/compliance-tag-vocabulary`] as const;
+};
+
+export function useComplianceTagVocabulary<
+  TData = Awaited<ReturnType<typeof getComplianceTagVocabulary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getComplianceTagVocabulary>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryKey = options?.query?.queryKey ?? getComplianceTagVocabularyQueryKey();
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getComplianceTagVocabulary>>> = ({ signal }) =>
+    getComplianceTagVocabulary({ signal, ...options?.request });
+  const query = useQuery({ queryKey, queryFn, ...options?.query }) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  return { ...query, queryKey };
+}
+
+/**
  * Questionnaire
  */
 export const getListQuestionnaireThemesUrl = (orgId: number) => {

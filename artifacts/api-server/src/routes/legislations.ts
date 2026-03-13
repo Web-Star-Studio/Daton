@@ -38,6 +38,7 @@ function formatLeg(l: Legislation) {
     reviewFrequencyDays: l.reviewFrequencyDays,
     observations: l.observations,
     generalObservations: l.generalObservations,
+    tags: l.tags ?? [],
     createdAt: l.createdAt instanceof Date ? l.createdAt.toISOString() : l.createdAt,
     updatedAt: l.updatedAt instanceof Date ? l.updatedAt.toISOString() : l.updatedAt,
   };
@@ -196,6 +197,7 @@ router.post("/organizations/:orgId/legislations/import", requireAuth, async (req
           if (item.reviewFrequencyDays) updateData.reviewFrequencyDays = item.reviewFrequencyDays;
           if (item.observations) updateData.observations = item.observations;
           if (item.generalObservations) updateData.generalObservations = item.generalObservations;
+          if (item.tags) updateData.tags = item.tags;
 
           if (Object.keys(updateData).length > 0) {
             await db.update(legislationsTable)
