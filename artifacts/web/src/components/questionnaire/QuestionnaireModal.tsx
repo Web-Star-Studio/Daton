@@ -55,6 +55,14 @@ export function QuestionnaireModal({ isOpen, onClose, orgId, unitId, unitName }:
     }
   }, [savedResponses]);
 
+  const flushSave = useCallback((currentAnswers: Record<string, string | string[]>) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    saveMut.mutate({ orgId, unitId, data: { answers: currentAnswers } });
+  }, [orgId, unitId, saveMut]);
+
   const autoSave = useCallback((currentAnswers: Record<string, string | string[]>) => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
@@ -104,11 +112,20 @@ export function QuestionnaireModal({ isOpen, onClose, orgId, unitId, unitName }:
   };
 
   const handleClose = () => {
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    if (saveTimeoutRef.current) {
+      flushSave(answers);
+    }
     setActiveThemeIndex(0);
     setSubmitted(false);
     setSubmittedTags([]);
     onClose();
+  };
+
+  const changeTheme = (index: number) => {
+    if (saveTimeoutRef.current) {
+      flushSave(answers);
+    }
+    setActiveThemeIndex(index);
   };
 
   const isQuestionVisible = (question: QuestionnaireQuestion): boolean => {
@@ -188,7 +205,7 @@ export function QuestionnaireModal({ isOpen, onClose, orgId, unitId, unitName }:
                 return (
                   <button
                     key={theme.id}
-                    onClick={() => setActiveThemeIndex(index)}
+                    onClick={() => changeTheme(index)}
                     className={`w-full text-left px-4 py-3 transition-colors cursor-pointer ${
                       isActive
                         ? "bg-white border-r-2 border-primary"
@@ -245,7 +262,7 @@ export function QuestionnaireModal({ isOpen, onClose, orgId, unitId, unitName }:
               <div className="flex-shrink-0 border-t border-border/60 px-8 py-4 flex items-center justify-between bg-white">
                 <Button
                   variant="ghost"
-                  onClick={() => setActiveThemeIndex(Math.max(0, activeThemeIndex - 1))}
+                  onClick={() => changeTheme(Math.max(0, activeThemeIndex - 1))}
                   disabled={activeThemeIndex === 0}
                 >
                   <ChevronLeft className="w-4 h-4 mr-1" /> Tema anterior
@@ -263,7 +280,7 @@ export function QuestionnaireModal({ isOpen, onClose, orgId, unitId, unitName }:
                     </Button>
                   ) : (
                     <Button
-                      onClick={() => setActiveThemeIndex(Math.min((themes?.length || 1) - 1, activeThemeIndex + 1))}
+                      onClick={() => changeTheme(Math.min((themes?.length || 1) - 1, activeThemeIndex + 1))}
                     >
                       Próximo tema <ChevronRight className="w-4 h-4 ml-1" />
                     </Button>

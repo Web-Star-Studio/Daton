@@ -95,9 +95,13 @@ router.put("/organizations/:orgId/units/:unitId/questionnaire/responses", requir
   const questions = await db.select().from(questionnaireQuestionsTable);
   const questionMap = new Map(questions.map((q) => [q.code, q]));
 
-  for (const [code, answer] of Object.entries(answers)) {
+  for (const [code, rawAnswer] of Object.entries(answers)) {
     const question = questionMap.get(code);
     if (!question) continue;
+
+    const answer: string | string[] = Array.isArray(rawAnswer)
+      ? rawAnswer.map(String)
+      : String(rawAnswer);
 
     const hasAnswer = Array.isArray(answer) ? answer.length > 0 : answer !== "" && answer !== null && answer !== undefined;
 
@@ -107,11 +111,11 @@ router.put("/organizations/:orgId/units/:unitId/questionnaire/responses", requir
         .values({
           unitId,
           questionId: question.id,
-          answer: answer as any,
+          answer,
         })
         .onConflictDoUpdate({
           target: [unitQuestionnaireResponsesTable.unitId, unitQuestionnaireResponsesTable.questionId],
-          set: { answer: answer as any, updatedAt: new Date() },
+          set: { answer, updatedAt: new Date() },
         });
     } else {
       await db
