@@ -397,8 +397,6 @@ export default function LegislacoesPage() {
 
   return (
     <AppLayout headerActions={headerActions}>
-      <p className="text-[13px] text-muted-foreground mb-8">Requisitos legais aplicáveis à organização (ISO 14001).</p>
-
       <div className="flex flex-wrap gap-6 items-end mb-8">
         <div className="flex-1 min-w-[200px]">
           <Label>Buscar</Label>

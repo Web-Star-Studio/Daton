@@ -91,13 +91,7 @@ export default function ColaboradoresPage() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">Colaboradores</h1>
-            <p className="text-[13px] text-muted-foreground mt-0.5">
-              Gestão de pessoas — ISO 9001:2015
-            </p>
-          </div>
+        <div className="flex items-center justify-end">
           <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1.5" />
             Novo Colaborador
