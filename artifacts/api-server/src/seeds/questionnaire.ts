@@ -389,8 +389,67 @@ const pesagem: ThemeDef = {
   ],
 };
 
+const lgpd: ThemeDef = {
+  code: "lgpd",
+  name: "LGPD",
+  description: "Questões sobre a Lei Geral de Proteção de Dados e fornecimento a consumidor pessoa física",
+  sortOrder: 21,
+  questions: [
+    { code: "lgpd_01", questionNumber: "1", text: "A unidade fornece produtos e/ou serviços diretamente ao consumidor (pessoa física)?", type: "single_select", options: ["Sim", "Não se aplica"], tags: { "Sim": ["lgpd_consumidor_pf", "lgpd"] }, sortOrder: 1 },
+  ],
+};
+
+const licenciamento: ThemeDef = {
+  code: "licenciamento",
+  name: "Licenciamento",
+  description: "Questões sobre licenciamento ambiental, cadastro técnico federal, porte da empresa e documentos de monitoramento",
+  sortOrder: 1,
+  questions: [
+    { code: "lic_01", questionNumber: "1", text: "A unidade está sujeita ao licenciamento ambiental?", type: "multi_select", options: ["Possui declaração/certidão de dispensa", "Não Se Aplica", "Sim"], tags: { "Sim": ["licenciamento_ambiental"], "Possui declaração/certidão de dispensa": ["dispensa_licenciamento"] }, sortOrder: 1 },
+    { code: "lic_01_1", questionNumber: "1.1", text: "Em qual âmbito?", type: "multi_select", options: ["Federal", "Estadual", "Municipal"], conditionalOn: "lic_01", conditionalValue: "Sim", tags: { "Federal": ["licenciamento_federal"], "Estadual": ["licenciamento_estadual"], "Municipal": ["licenciamento_municipal"] }, sortOrder: 2 },
+    { code: "lic_01_2", questionNumber: "1.2", text: "No licenciamento da unidade, foi exigido EIA/RIMA?", type: "single_select", options: ["Sim", "Não Se Aplica"], conditionalOn: "lic_01", conditionalValue: "Sim", tags: { "Sim": ["eia_rima"] }, sortOrder: 3 },
+    { code: "lic_01_3", questionNumber: "1.3", text: "No licenciamento da unidade, a compensação ambiental foi exigida?", type: "multi_select", options: ["Sim", "Não Se Aplica", "Financeira", "Outras Medidas Mitigadoras"], conditionalOn: "lic_01", conditionalValue: "Sim", tags: { "Financeira": ["compensacao_ambiental_financeira"], "Outras Medidas Mitigadoras": ["compensacao_ambiental_mitigadora"] }, sortOrder: 4 },
+    { code: "lic_01_4", questionNumber: "1.4", text: "No licenciamento da unidade, foram executadas audiências públicas?", type: "single_select", options: ["Sim", "Não Se Aplica"], conditionalOn: "lic_01", conditionalValue: "Sim", tags: { "Sim": ["audiencias_publicas"] }, sortOrder: 5 },
+    { code: "lic_02", questionNumber: "2", text: "A unidade está sujeita ao Cadastro Técnico Federal (IBAMA) e/ou Cadastro Técnico Estadual (Órgão Ambiental Estadual) e/ou Municipal (Órgão Municipal)?", type: "multi_select", options: ["Municipal", "Não Se Aplica", "Federal", "Estadual"], tags: { "Federal": ["ctf_ibama"], "Estadual": ["ctf_estadual"], "Municipal": ["ctf_municipal"] }, sortOrder: 6 },
+    { code: "lic_03", questionNumber: "3", text: "Qual o porte da empresa?", type: "single_select", options: ["Micro-empresa (empresa Que Se Enquadra No Disposto Na Lei Complementar Nº 123, de 14-12-2006)", "Pequena (empresa Que Se Enquadra No Disposto Na Lei Complementar Nº 123, de 14-12-2006)", "Média (empresa Com Receita Bruta Anual Superior A R$ 1.200.000,00 e Igual Ou Inferior A R$ 12.000.000,00.)", "Grande (empresa Com Receita Bruta Anual Superior A R$ 12.000.000,00)"], tags: { "Micro-empresa (empresa Que Se Enquadra No Disposto Na Lei Complementar Nº 123, de 14-12-2006)": ["porte_micro"], "Pequena (empresa Que Se Enquadra No Disposto Na Lei Complementar Nº 123, de 14-12-2006)": ["porte_pequena"], "Média (empresa Com Receita Bruta Anual Superior A R$ 1.200.000,00 e Igual Ou Inferior A R$ 12.000.000,00.)": ["porte_media"], "Grande (empresa Com Receita Bruta Anual Superior A R$ 12.000.000,00)": ["porte_grande"] }, sortOrder: 7 },
+    { code: "lic_04", questionNumber: "4", text: "A empresa realiza o acesso/remessa de patrimônio genético e/ou o acesso ao conhecimento tradicional associado para fins de pesquisa científica; bioprospecção e desenvolvimento tecnológico?", type: "single_select", options: ["Não se aplica", "Sim"], tags: { "Sim": ["patrimonio_genetico", "biodiversidade"] }, sortOrder: 8 },
+    { code: "lic_05", questionNumber: "5", text: "A unidade está sujeita a elaboração do Plano de Recuperação de Área Degradada - PRAD?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["prad_area_degradada"] }, sortOrder: 9 },
+    { code: "lic_06", questionNumber: "6", text: "Indique quais documentos externos a unidade deseja monitorar pelo sistema como 'Outros Requisitos':", type: "multi_select", options: ["Política de Saúde e Segurança Ocupacional", "Licenças Ambientais das Transportadoras de Produtos Perigosos", "Comprovante de Pagamento de Taxa de Fiscalização Ambiental", "Licenças Ambientais", "Licenças Para Uso de Produtos Controlados", "Cadastro Técnico Federal - Ibama", "Alvará de Localização e Funcionamento", "Outorga de Direito de Uso de Recurso Hídrico", "Avcb", "Alvarás Sanitários de Ambulatório e Refeitório", "Política da Empresa", "Fluxograma do Processo Produtivo", "Inventário de Resíduos", "Balanço de Energia", "Licenciamento de Destinação de Resíduos Industriais", "Acordo Coletivo de Trabalho", "Convenção Coletiva de Trabalho", "Não Se Aplica", "Autos de Infração", "Exigências de Clientes", "Controle e Atualização de Documentos", "Licenças e Outros Docs. de Fornecedores / Prestadores de Serviço"], tags: { "Licenças Ambientais": ["monitora_licencas_ambientais"], "Cadastro Técnico Federal - Ibama": ["monitora_ctf_ibama"], "Outorga de Direito de Uso de Recurso Hídrico": ["monitora_outorga"], "Avcb": ["monitora_avcb"] }, sortOrder: 10 },
+  ],
+};
+
+const localizacaoFaunaFlora: ThemeDef = {
+  code: "localizacao_fauna_flora",
+  name: "Localização / Fauna / Flora",
+  description: "Questões sobre localização da unidade, áreas de preservação, fauna silvestre, vegetação e comunidades tradicionais",
+  sortOrder: 3,
+  questions: [
+    { code: "lff_01", questionNumber: "1", text: "A unidade encontra-se em região rural, industrial ou urbana?", type: "multi_select", options: ["Mista", "Rural", "Urbana", "Industrial"], tags: { "Rural": ["regiao_rural"], "Industrial": ["regiao_industrial"], "Urbana": ["regiao_urbana"] }, sortOrder: 1 },
+    { code: "lff_01_1", questionNumber: "1.1", text: "Encontra-se em região metropolitana?", type: "single_select", options: ["Sim", "Não Se Aplica"], conditionalOn: "lff_01", conditionalValue: "Urbana", tags: { "Sim": ["regiao_metropolitana"] }, sortOrder: 2 },
+    { code: "lff_02", questionNumber: "2", text: "O site da unidade possui áreas verdes?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["areas_verdes"] }, sortOrder: 3 },
+    { code: "lff_03", questionNumber: "3", text: "Existem animais da fauna silvestre em cativeiro?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["fauna_silvestre_cativeiro", "ibama"] }, sortOrder: 4 },
+    { code: "lff_04", questionNumber: "4", text: "Existe RPPN (Reserva Particular do Patrimônio Natural) constituída pela unidade?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["rppn", "unidade_conservacao"] }, sortOrder: 5 },
+    { code: "lff_05", questionNumber: "5", text: "A unidade encontra-se em área com ocorrência de patrimônio histórico, arqueológico ou fósseis?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["patrimonio_historico_arqueologico"] }, sortOrder: 6 },
+    { code: "lff_06", questionNumber: "6", text: "A unidade está localizada em zona costeira?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["zona_costeira"] }, sortOrder: 7 },
+    { code: "lff_07", questionNumber: "7", text: "Selecione os locais onde a unidade realiza atividades:", type: "multi_select", options: ["Aeroporto", "Terminais Ferroviários", "Terminais Rodoviários", "Não Se Aplica"], tags: { "Aeroporto": ["atividades_aeroporto"], "Terminais Ferroviários": ["atividades_terminais_ferroviarios"], "Terminais Rodoviários": ["atividades_terminais_rodoviarios"] }, sortOrder: 8 },
+    { code: "lff_08", questionNumber: "8", text: "A unidade realiza atividade petrolífera?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["atividade_petrolifera"] }, sortOrder: 9 },
+    { code: "lff_09", questionNumber: "9", text: "A unidade está localizada em condomínio?", type: "single_select", options: ["Não Se Aplica", "Sim"], tags: { "Sim": ["localizada_condominio"] }, sortOrder: 10 },
+    { code: "lff_10", questionNumber: "10", text: "A unidade executa atividades em unidade de conservação, ou em suas proximidades?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["unidade_conservacao", "area_protegida"] }, sortOrder: 11 },
+    { code: "lff_11", questionNumber: "11", text: "A unidade executa atividades em áreas de preservação permanente?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["app_preservacao_permanente", "area_protegida"] }, sortOrder: 12 },
+    { code: "lff_12", questionNumber: "12", text: "O site da unidade encontra-se dentro de área de proteção ambiental - APA - instituída pelo poder público?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["apa_protecao_ambiental", "area_protegida"] }, sortOrder: 13 },
+    { code: "lff_13", questionNumber: "13", text: "Na área da unidade existem cavidades naturais subterrâneas?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["cavidades_subterraneas"] }, sortOrder: 14 },
+    { code: "lff_14", questionNumber: "14", text: "A unidade está localizada em áreas em que possa haver interação com animais?", type: "multi_select", options: ["Não Se Aplica", "Animais Silvestres Não Ameaçados de Extinção", "Animais Silvestres Ameaçados de Extinção", "Animais Domésticos"], tags: { "Animais Silvestres Ameaçados de Extinção": ["fauna_ameacada_extincao", "ibama"], "Animais Silvestres Não Ameaçados de Extinção": ["fauna_silvestre"] }, sortOrder: 15 },
+    { code: "lff_15", questionNumber: "15", text: "É feito controle de pragas nocivas na unidade (fauna sinantrópica nociva, tais como: ratos, baratas, etc)?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["controle_pragas"] }, sortOrder: 16 },
+    { code: "lff_16", questionNumber: "16", text: "A unidade realiza atividades as quais possam ocasionar supressão de vegetação?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["supressao_vegetacao", "flora"] }, sortOrder: 17 },
+    { code: "lff_17", questionNumber: "17", text: "A unidade realiza queima controlada?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["queima_controlada"] }, sortOrder: 18 },
+    { code: "lff_18", questionNumber: "18", text: "Existe comunidade indígena ou quilombola próxima às atividades realizadas pela empresa?", type: "multi_select", options: ["Não Se Aplica", "Indígena", "Quilombola"], tags: { "Indígena": ["comunidade_indigena"], "Quilombola": ["comunidade_quilombola"] }, sortOrder: 19 },
+  ],
+};
+
 export async function seedQuestionnaire() {
+  await seedTheme(licenciamento);
   await seedTheme(instalacoes);
+  await seedTheme(localizacaoFaunaFlora);
   await seedTheme(produtosInsumos);
   await seedTheme(produtosFlorestais);
   await seedTheme(combustiveisInflamaveis);
@@ -407,4 +466,5 @@ export async function seedQuestionnaire() {
   await seedTheme(normasRegulamentadoras);
   await seedTheme(mineracao);
   await seedTheme(pesagem);
+  await seedTheme(lgpd);
 }
