@@ -1447,6 +1447,7 @@ export const ListDocumentsResponseItem = zod.object({
   createdByName: zod.string().optional(),
   createdAt: zod.string(),
   updatedAt: zod.string().optional(),
+  approvedByName: zod.string().nullish(),
 });
 export const ListDocumentsResponse = zod.array(ListDocumentsResponseItem);
 

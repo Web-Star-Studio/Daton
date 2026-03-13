@@ -234,6 +234,14 @@ router.get("/organizations/:orgId/documents", requireAuth, async (req, res): Pro
     createdByName: usersTable.name,
     createdAt: documentsTable.createdAt,
     updatedAt: documentsTable.updatedAt,
+    approvedByName: sql<string | null>`(
+      SELECT u2.name FROM document_approvers da
+      JOIN users u2 ON da.user_id = u2.id
+      WHERE da.document_id = ${documentsTable.id}
+        AND da.status = 'approved'
+      ORDER BY da.approved_at DESC
+      LIMIT 1
+    )`.as("approved_by_name"),
   })
     .from(documentsTable)
     .leftJoin(usersTable, eq(documentsTable.createdById, usersTable.id))
@@ -244,6 +252,7 @@ router.get("/organizations/:orgId/documents", requireAuth, async (req, res): Pro
     ...r,
     createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
     updatedAt: r.updatedAt instanceof Date ? r.updatedAt.toISOString() : r.updatedAt,
+    approvedByName: r.approvedByName || null,
   })));
 });
 

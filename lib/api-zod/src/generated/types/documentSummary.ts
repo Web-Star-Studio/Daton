@@ -16,4 +16,5 @@ export interface DocumentSummary {
   createdByName?: string;
   createdAt: string;
   updatedAt?: string;
+  approvedByName?: string | null;
 }

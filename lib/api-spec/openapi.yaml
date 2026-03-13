@@ -3265,6 +3265,9 @@ components:
           type: string
         updatedAt:
           type: string
+        approvedByName:
+          type: string
+          nullable: true
       required:
         - id
         - title
