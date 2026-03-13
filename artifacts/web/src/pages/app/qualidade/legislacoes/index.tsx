@@ -382,15 +382,15 @@ export default function LegislacoesPage() {
 
   const headerActions = (
     <>
-      <Button variant="secondary" onClick={onBatchAutoTag} disabled={isAutoTagging}>
-        {isAutoTagging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+      <Button variant="secondary" size="sm" onClick={onBatchAutoTag} disabled={isAutoTagging}>
+        {isAutoTagging ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
         {isAutoTagging ? "Classificando..." : "Classificar Tags"}
       </Button>
-      <Button variant="secondary" onClick={() => setIsImportOpen(true)}>
-        <Upload className="w-4 h-4 mr-2" /> Importar
+      <Button variant="secondary" size="sm" onClick={() => setIsImportOpen(true)}>
+        <Upload className="h-3.5 w-3.5 mr-1.5" /> Importar
       </Button>
-      <Button onClick={() => setIsCreateOpen(true)}>
-        <Plus className="w-4 h-4 mr-2" /> Nova Legislação
+      <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+        <Plus className="h-3.5 w-3.5 mr-1.5" /> Nova Legislação
       </Button>
     </>
   );
