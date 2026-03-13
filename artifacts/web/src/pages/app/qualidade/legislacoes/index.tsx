@@ -507,25 +507,15 @@ export default function LegislacoesPage() {
       <Dialog open={isAutoTagging || autoTagComplete} onOpenChange={(open) => { if (!open) resetAutoTag(); }} title="Auto-classificação de Tags">
         <div className="mt-4 space-y-5 text-sm">
           {autoTagComplete && autoTagProgress ? (
-            <div className="py-4 space-y-4">
-              <div className="text-center">
-                <CheckCircle className="w-10 h-10 mx-auto text-emerald-500 mb-2" />
-                <p className="text-base font-semibold">Classificação concluída</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-[13px]">
-                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-center">
-                  <p className="text-2xl font-bold text-emerald-700">{autoTagProgress.tagged}</p>
-                  <p className="text-emerald-600">classificadas</p>
-                </div>
-                {autoTagProgress.errors > 0 && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
-                    <p className="text-2xl font-bold text-red-700">{autoTagProgress.errors}</p>
-                    <p className="text-red-600">erros</p>
-                  </div>
-                )}
-              </div>
-              <div className="text-center">
-                <Button onClick={resetAutoTag} className="mt-1">Fechar</Button>
+            <div className="py-6 text-center space-y-1">
+              <CheckCircle className="w-8 h-8 mx-auto text-emerald-500 mb-3" />
+              <p className="text-[13px] font-medium">Classificação concluída</p>
+              <p className="text-[13px] text-muted-foreground">
+                {autoTagProgress.tagged} legislaç{autoTagProgress.tagged === 1 ? "ão classificada" : "ões classificadas"}
+                {autoTagProgress.errors > 0 && <>, {autoTagProgress.errors} erro{autoTagProgress.errors > 1 ? "s" : ""}</>}
+              </p>
+              <div className="pt-4">
+                <Button variant="outline" size="sm" onClick={resetAutoTag}>Fechar</Button>
               </div>
             </div>
           ) : autoTagProgress ? (
