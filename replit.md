@@ -26,7 +26,7 @@ Key architectural decisions include:
 
 - **PostgreSQL:** Primary relational database for all application data.
 - **OpenAI (via Replit AI Integrations):** Used for the Daton AI assistant, specifically gpt-4o-mini for natural language processing and database querying.
-- **Google Cloud Storage (GCS):** Utilized for secure storage of file evidence and document attachments, with presigned URLs for direct uploads.
+- **File Storage:** File uploads use local filesystem storage (`.data/uploads/`) with metadata sidecar files. Files are uploaded via `POST /api/storage/uploads/direct` (raw body with `X-File-Content-Type` and `X-File-Name` headers) and served via `GET /api/storage/objects/*`. GCS sidecar auth is broken (401 on token exchange), so local filesystem is used as a reliable fallback. The serving route checks local storage first, then falls back to GCS for legacy objects.
 - **Orval:** API client code generation tool, based on OpenAPI specifications.
 - **Resend (via Replit Integrations):** Email delivery service for sending invitation emails.
 - **Tailwind CSS:** Utility-first CSS framework for rapid UI development.

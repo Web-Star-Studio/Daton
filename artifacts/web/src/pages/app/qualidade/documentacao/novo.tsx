@@ -119,6 +119,7 @@ export default function NovoDocumentoPage() {
 
     setIsUploading(true);
     const token = localStorage.getItem("daton_token");
+    const baseUrl = import.meta.env.BASE_URL || "/";
 
     for (const file of Array.from(files)) {
       if (!ALLOWED_TYPES.includes(file.type)) {
@@ -126,29 +127,26 @@ export default function NovoDocumentoPage() {
       }
 
       try {
-        const urlRes = await fetch("/api/storage/uploads/request-url", {
+        const arrayBuffer = await file.arrayBuffer();
+        const uploadRes = await fetch(`${baseUrl}api/storage/uploads/direct`, {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "X-File-Content-Type": file.type,
+            "X-File-Name": encodeURIComponent(file.name),
+            "Content-Type": "application/octet-stream",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
-        });
-
-        if (!urlRes.ok) continue;
-        const { uploadURL, objectPath } = await urlRes.json();
-
-        const uploadRes = await fetch(uploadURL, {
-          method: "PUT",
-          body: file,
-          headers: { "Content-Type": file.type },
+          body: arrayBuffer,
         });
 
         if (uploadRes.ok) {
+          const { objectPath } = await uploadRes.json();
           setUploadedFiles((prev) => [
             ...prev,
             { fileName: file.name, fileSize: file.size, contentType: file.type, objectPath },
           ]);
+        } else {
+          console.error("Upload failed:", await uploadRes.text());
         }
       } catch (err) {
         console.error("Upload failed:", err);

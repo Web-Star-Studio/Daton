@@ -258,11 +258,11 @@ router.post("/organizations/:orgId/documents", requireAuth, async (req, res): Pr
   const userId = req.auth!.userId;
   const orgId = params.data.orgId;
 
-  const allUserIds = [
+  const allUserIds = [...new Set([
     ...(body.data.elaboratorIds || []),
     ...(body.data.approverIds || []),
     ...(body.data.recipientIds || []),
-  ];
+  ])];
   if (allUserIds.length > 0 && !(await validateOrgUsers(allUserIds, orgId))) {
     res.status(400).json({ error: "Um ou mais usuários selecionados não pertencem a esta organização" });
     return;
@@ -374,11 +374,11 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, async (req, 
     return;
   }
 
-  const allUserIds = [
+  const allUserIds = [...new Set([
     ...(body.data.elaboratorIds || []),
     ...(body.data.approverIds || []),
     ...(body.data.recipientIds || []),
-  ];
+  ])];
   if (allUserIds.length > 0 && !(await validateOrgUsers(allUserIds, orgId))) {
     res.status(400).json({ error: "Um ou mais usuários selecionados não pertencem a esta organização" });
     return;

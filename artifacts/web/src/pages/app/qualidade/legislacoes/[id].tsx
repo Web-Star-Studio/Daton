@@ -267,26 +267,27 @@ export default function LegislationDetailPage() {
   const uploadFile = async (file: File) => {
     if (!orgId || !editingCompliance) return;
     setIsUploading(true);
+    const baseUrl = import.meta.env.BASE_URL || "/";
     try {
-      const urlRes = await fetch("/api/storage/uploads/request-url", {
+      const contentType = file.type || "application/octet-stream";
+      const arrayBuffer = await file.arrayBuffer();
+      const uploadRes = await fetch(`${baseUrl}api/storage/uploads/direct`, {
+        method: "POST",
+        headers: {
+          "X-File-Content-Type": contentType,
+          "X-File-Name": encodeURIComponent(file.name),
+          "Content-Type": "application/octet-stream",
+          ...getAuthHeaders(),
+        },
+        body: arrayBuffer,
+      });
+      if (!uploadRes.ok) throw new Error("Falha ao enviar arquivo");
+      const { objectPath } = await uploadRes.json();
+
+      const attachRes = await fetch(`${baseUrl}api/organizations/${orgId}/legislations/${legId}/units/${editingCompliance.unitId}/attachments`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
-      });
-      if (!urlRes.ok) throw new Error("Falha ao obter URL de upload");
-      const { uploadURL, objectPath } = await urlRes.json();
-
-      const putRes = await fetch(uploadURL, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-      });
-      if (!putRes.ok) throw new Error("Falha ao enviar arquivo");
-
-      const attachRes = await fetch(`/api/organizations/${orgId}/legislations/${legId}/units/${editingCompliance.unitId}/attachments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ fileName: file.name, fileSize: file.size, contentType: file.type || "application/octet-stream", objectPath }),
+        body: JSON.stringify({ fileName: file.name, fileSize: file.size, contentType, objectPath }),
       });
       if (!attachRes.ok) throw new Error("Falha ao registrar anexo");
       const attachment = await attachRes.json();

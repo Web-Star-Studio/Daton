@@ -1,6 +1,8 @@
 import { Storage, File } from "@google-cloud/storage";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
+import * as fs from "fs";
+import * as path from "path";
 import {
   ObjectAclPolicy,
   ObjectPermission,
@@ -28,6 +30,8 @@ export const objectStorageClient = new Storage({
   },
   projectId: "",
 });
+
+const LOCAL_UPLOADS_DIR = path.join(process.cwd(), ".data", "uploads");
 
 export class ObjectNotFoundError extends Error {
   constructor() {
@@ -126,6 +130,38 @@ export class ObjectStorageService {
       method: "PUT",
       ttlSec: 900,
     });
+  }
+
+  async uploadDirect(data: Buffer, contentType: string): Promise<string> {
+    const objectId = randomUUID();
+    const uploadDir = path.join(LOCAL_UPLOADS_DIR, "uploads");
+    await fs.promises.mkdir(uploadDir, { recursive: true });
+    const filePath = path.join(uploadDir, objectId);
+    await fs.promises.writeFile(filePath, data);
+    const metaPath = `${filePath}.meta`;
+    await fs.promises.writeFile(metaPath, JSON.stringify({ contentType }));
+    return `/objects/uploads/${objectId}`;
+  }
+
+  async getLocalFile(objectPath: string): Promise<{ data: Buffer; contentType: string } | null> {
+    if (!objectPath.startsWith("/objects/")) return null;
+    const parts = objectPath.slice(1).split("/");
+    if (parts.length < 2) return null;
+    const entityId = parts.slice(1).join("/");
+    const filePath = path.join(LOCAL_UPLOADS_DIR, entityId);
+    try {
+      await fs.promises.access(filePath);
+      const data = await fs.promises.readFile(filePath);
+      let contentType = "application/octet-stream";
+      try {
+        const metaStr = await fs.promises.readFile(`${filePath}.meta`, "utf-8");
+        const meta = JSON.parse(metaStr);
+        if (meta.contentType) contentType = meta.contentType;
+      } catch {}
+      return { data, contentType };
+    } catch {
+      return null;
+    }
   }
 
   async getObjectEntityFile(objectPath: string): Promise<File> {
@@ -264,4 +300,15 @@ async function signObjectURL({
 
   const { signed_url: signedURL } = await response.json();
   return signedURL;
+}
+
+async function uploadToGCSDirect(
+  bucketName: string,
+  objectName: string,
+  data: Buffer,
+  contentType: string
+): Promise<void> {
+  const bucket = objectStorageClient.bucket(bucketName);
+  const file = bucket.file(objectName);
+  await file.save(data, { contentType });
 }

@@ -1,22 +1,15 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
+import express from "express";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
-import { ObjectPermission } from "../lib/objectAcl";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
-/**
- * POST /storage/uploads/request-url
- *
- * Request a presigned URL for file upload.
- * The client sends JSON metadata (name, size, contentType) — NOT the file.
- * Then uploads the file directly to the returned presigned URL.
- */
 router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
@@ -38,10 +31,43 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
       }),
     );
   } catch (error) {
-    console.error("Error generating upload URL:", error);
+    console.error("Error generating upload URL (signed URL fallback):", error);
     res.status(500).json({ error: "Failed to generate upload URL" });
   }
 });
+
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
+
+router.post(
+  "/storage/uploads/direct",
+  express.raw({ type: () => true, limit: "20mb" }),
+  async (req: Request, res: Response) => {
+    try {
+      const contentType = req.headers["x-file-content-type"] as string || req.headers["content-type"] || "application/octet-stream";
+      const fileName = req.headers["x-file-name"] as string || "upload";
+
+      if (!req.body || req.body.length === 0) {
+        res.status(400).json({ error: "No file data received" });
+        return;
+      }
+
+      if (req.body.length > MAX_FILE_SIZE) {
+        res.status(413).json({ error: "File too large (max 20MB)" });
+        return;
+      }
+
+      const objectPath = await objectStorageService.uploadDirect(
+        Buffer.from(req.body),
+        contentType
+      );
+
+      res.json({ objectPath, fileName, fileSize: req.body.length, contentType });
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  }
+);
 
 /**
  * GET /storage/public-objects/*
@@ -89,22 +115,17 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
     const objectPath = `/objects/${wildcardPath}`;
-    const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
-    // --- Protected route example (uncomment when using replit-auth) ---
-    // if (!req.isAuthenticated()) {
-    //   res.status(401).json({ error: "Unauthorized" });
-    //   return;
-    // }
-    // const canAccess = await objectStorageService.canAccessObjectEntity({
-    //   userId: req.user.id,
-    //   objectFile,
-    //   requestedPermission: ObjectPermission.READ,
-    // });
-    // if (!canAccess) {
-    //   res.status(403).json({ error: "Forbidden" });
-    //   return;
-    // }
+    const localFile = await objectStorageService.getLocalFile(objectPath);
+    if (localFile) {
+      res.setHeader("Content-Type", localFile.contentType);
+      res.setHeader("Content-Length", String(localFile.data.length));
+      res.setHeader("Cache-Control", "private, max-age=3600");
+      res.send(localFile.data);
+      return;
+    }
+
+    const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
     const response = await objectStorageService.downloadObject(objectFile);
 
