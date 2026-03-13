@@ -115,7 +115,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
           {qualidadePopover && (
             <div
-              className="fixed z-[100] min-w-[180px] bg-white border border-border/60 rounded-xl shadow-lg py-2 px-1.5"
+              className="fixed z-[100] min-w-[180px] bg-white border border-border/60 rounded-xl shadow-lg py-2 px-1.5 animate-[popoverIn_150ms_cubic-bezier(0.16,1,0.3,1)]"
               style={{ top: popoverPos.top, left: popoverPos.left }}
               onMouseEnter={() => {
                 if (popoverTimeoutRef.current) clearTimeout(popoverTimeoutRef.current);
@@ -218,7 +218,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </header>
         
         <div className="flex-1 overflow-auto p-8">
-          <div className="max-w-6xl mx-auto">
+          <div key={location} className="max-w-6xl mx-auto animate-fade-in-up">
             {children}
           </div>
         </div>

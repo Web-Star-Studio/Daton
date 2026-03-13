@@ -154,8 +154,8 @@ export function QuestionnaireModal({ isOpen, onClose, orgId, unitId, unitName }:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-[960px] max-w-[95vw] max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px] animate-[overlayIn_200ms_ease-out]" onClick={handleClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-[960px] max-w-[95vw] max-h-[90vh] flex flex-col overflow-hidden animate-[modalIn_250ms_cubic-bezier(0.16,1,0.3,1)]">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/60">
           <div className="flex items-center gap-3">
             <div>
