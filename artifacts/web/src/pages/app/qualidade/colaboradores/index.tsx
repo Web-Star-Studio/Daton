@@ -168,7 +168,7 @@ export default function ColaboradoresPage() {
           </div>
         ) : (
           <>
-            <div className="bg-white border border-border/60 rounded-xl overflow-hidden">
+            <div className="overflow-hidden">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border/60">

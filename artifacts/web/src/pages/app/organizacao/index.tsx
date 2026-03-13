@@ -264,7 +264,7 @@ export default function OrganizacaoPage() {
         posLoading ? (
           <div className="text-center py-12 text-muted-foreground">Carregando...</div>
         ) : (
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="overflow-hidden">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
@@ -473,7 +473,7 @@ function SimpleTable({
   }
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
+    <div className="overflow-hidden">
       <table className="w-full">
         <thead>
           <tr className="border-b border-border bg-muted/30">

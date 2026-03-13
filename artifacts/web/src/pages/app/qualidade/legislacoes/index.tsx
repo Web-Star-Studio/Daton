@@ -428,7 +428,7 @@ export default function LegislacoesPage() {
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+      <div className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="bg-secondary/50 text-muted-foreground text-xs uppercase font-semibold">
