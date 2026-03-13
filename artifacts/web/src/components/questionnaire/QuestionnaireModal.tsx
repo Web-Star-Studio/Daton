@@ -158,7 +158,6 @@ export function QuestionnaireModal({ isOpen, onClose, orgId, unitId, unitName }:
       <div className="relative bg-white rounded-2xl shadow-2xl w-[960px] max-w-[95vw] max-h-[90vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/60">
           <div className="flex items-center gap-3">
-            <ClipboardList className="w-5 h-5 text-primary" />
             <div>
               <h2 className="text-base font-semibold text-foreground">Questionário de Compliance</h2>
               <p className="text-[12px] text-muted-foreground mt-0.5">{unitName}</p>
