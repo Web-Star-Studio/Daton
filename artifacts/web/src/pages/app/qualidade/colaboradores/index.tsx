@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Link } from "wouter";
-import { AppLayout } from "@/components/layout/AppLayout";
+import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useListEmployees,
@@ -86,17 +86,19 @@ export default function ColaboradoresPage() {
     setPage(1);
   };
 
-  if (!orgId) return null;
-
-  const headerActions = (
-    <Button size="sm" onClick={() => setCreateOpen(true)}>
-      <Plus className="h-3.5 w-3.5 mr-1.5" />
-      Novo Colaborador
-    </Button>
+  useHeaderActions(
+    orgId ? (
+      <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Plus className="h-3.5 w-3.5 mr-1.5" />
+        Novo Colaborador
+      </Button>
+    ) : null
   );
 
+  if (!orgId) return null;
+
   return (
-    <AppLayout headerActions={headerActions}>
+    <>
       <div className="space-y-6">
         <div className="grid grid-cols-4 gap-4">
           <div className="bg-white border border-border/60 rounded-xl px-4 py-3">
@@ -308,6 +310,6 @@ export default function ColaboradoresPage() {
           </div>
         </form>
       </Dialog>
-    </AppLayout>
+    </>
   );
 }

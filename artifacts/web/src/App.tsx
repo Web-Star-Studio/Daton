@@ -1,11 +1,11 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 
-// Contexts
 import { AuthProvider } from "@/contexts/AuthContext";
+import { LayoutProvider } from "@/contexts/LayoutContext";
+import { AppLayout } from "@/components/layout/AppLayout";
 
-// Pages
 import AuthPage from "@/pages/auth";
 import AppIndex from "@/pages/app/index";
 import OrganizacaoPage from "@/pages/app/organizacao";
@@ -25,13 +25,9 @@ const queryClient = new QueryClient({
   },
 });
 
-function Router() {
+function AppPages() {
   return (
     <Switch>
-      <Route path="/" component={AuthPage} />
-      <Route path="/auth" component={AuthPage} />
-      
-      {/* App Routes */}
       <Route path="/app" component={AppIndex} />
       <Route path="/app/organizacao" component={OrganizacaoPage} />
       <Route path="/app/organizacao/unidades" component={OrganizacaoPage} />
@@ -40,7 +36,29 @@ function Router() {
       <Route path="/app/qualidade/legislacoes/:id" component={LegislationDetailPage} />
       <Route path="/app/qualidade/colaboradores" component={ColaboradoresPage} />
       <Route path="/app/qualidade/colaboradores/:id" component={ColaboradorDetailPage} />
-      
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function Router() {
+  const [location] = useLocation();
+  const isAppRoute = location.startsWith("/app");
+
+  if (isAppRoute) {
+    return (
+      <LayoutProvider>
+        <AppLayout>
+          <AppPages />
+        </AppLayout>
+      </LayoutProvider>
+    );
+  }
+
+  return (
+    <Switch>
+      <Route path="/" component={AuthPage} />
+      <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
   );

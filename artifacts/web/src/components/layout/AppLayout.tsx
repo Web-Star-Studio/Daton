@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLayoutState } from "@/contexts/LayoutContext";
 import { 
   Building2, 
   Scale, 
@@ -15,18 +16,13 @@ import { cn } from "@/lib/utils";
 import datonLogo from "@assets/daton-logo-header-DC_evyPp_1773347395767.png";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 
-interface AppLayoutProps {
-  children: React.ReactNode;
-  pageTitle?: string;
-  headerActions?: React.ReactNode;
-}
-
-export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps) {
+export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isQualidadeOpen, setQualidadeOpen] = useState(true);
   const [isChatOpen, setChatOpen] = useState(false);
+  const { headerActions, pageTitle } = useLayoutState();
 
   const isActive = (path: string) => location.startsWith(path);
 
@@ -66,12 +62,8 @@ export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps
           isSidebarOpen ? "w-60" : "w-16"
         )}
       >
-        <div className={cn("h-14 flex items-center border-b border-border/60", isSidebarOpen ? "px-5" : "px-0 justify-center")}>
-          {isSidebarOpen ? (
-            <img src={datonLogo} alt="Daton" className="h-6 object-contain" />
-          ) : (
-            <img src={datonLogo} alt="Daton" className="h-5 w-10 object-contain object-left" />
-          )}
+        <div className={cn("h-14 flex items-center justify-center border-b border-border/60")}>
+          <img src={datonLogo} alt="Daton" className={cn("object-contain", isSidebarOpen ? "h-6" : "h-5")} />
         </div>
         
         <div className="flex-1 overflow-y-auto py-5 px-2.5 space-y-1">

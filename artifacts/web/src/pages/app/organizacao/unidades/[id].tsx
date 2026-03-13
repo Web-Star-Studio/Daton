@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRoute, Link } from "wouter";
-import { AppLayout } from "@/components/layout/AppLayout";
+import { useHeaderActions, usePageTitle } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useGetUnit,
@@ -104,34 +104,37 @@ export default function UnitDetailPage() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  if (isLoading || !unit) return <AppLayout><div className="p-8 text-center text-muted-foreground">Carregando...</div></AppLayout>;
-
-  const headerActions = (
-    <div className="flex items-center gap-2">
-      <Link href="/app/organizacao">
-        <Button variant="ghost" size="sm">
-          <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
-        </Button>
-      </Link>
-      <Button variant="secondary" size="sm" onClick={() => setQuestionnaireOpen(true)}>
-        <ClipboardList className="w-4 h-4 mr-1" /> Questionário de Compliance
-      </Button>
-      {editing ? (
-        <>
-          <Button variant="ghost" size="sm" onClick={handleCancel}>
-            <X className="w-4 h-4 mr-1" /> Cancelar
+  usePageTitle(unit?.name);
+  useHeaderActions(
+    unit ? (
+      <div className="flex items-center gap-2">
+        <Link href="/app/organizacao">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
           </Button>
-          <Button size="sm" onClick={handleSave} isLoading={updateMut.isPending}>
-            <Save className="w-4 h-4 mr-1" /> Salvar
-          </Button>
-        </>
-      ) : (
-        <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
-          <Pencil className="w-4 h-4 mr-1" /> Editar
+        </Link>
+        <Button variant="secondary" size="sm" onClick={() => setQuestionnaireOpen(true)}>
+          <ClipboardList className="w-4 h-4 mr-1" /> Questionário de Compliance
         </Button>
-      )}
-    </div>
+        {editing ? (
+          <>
+            <Button variant="ghost" size="sm" onClick={handleCancel}>
+              <X className="w-4 h-4 mr-1" /> Cancelar
+            </Button>
+            <Button size="sm" onClick={handleSave} isLoading={updateMut.isPending}>
+              <Save className="w-4 h-4 mr-1" /> Salvar
+            </Button>
+          </>
+        ) : (
+          <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+            <Pencil className="w-4 h-4 mr-1" /> Editar
+          </Button>
+        )}
+      </div>
+    ) : null
   );
+
+  if (isLoading || !unit) return <div className="p-8 text-center text-muted-foreground">Carregando...</div>;
 
   const Field = ({ label, field, placeholder, disabled }: { label: string; field: string; placeholder?: string; disabled?: boolean }) => (
     <div>
@@ -164,7 +167,7 @@ export default function UnitDetailPage() {
   );
 
   return (
-    <AppLayout pageTitle={unit.name} headerActions={headerActions}>
+    <>
       <div className="max-w-3xl space-y-8">
         <section className="bg-card border border-border rounded-xl p-6">
           <div className="flex items-center gap-3 mb-6">
@@ -205,6 +208,6 @@ export default function UnitDetailPage() {
         unitId={unitId}
         unitName={unit.name}
       />
-    </AppLayout>
+    </>
   );
 }

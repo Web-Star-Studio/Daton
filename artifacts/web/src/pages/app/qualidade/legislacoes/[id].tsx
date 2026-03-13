@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRoute, Link } from "wouter";
-import { AppLayout } from "@/components/layout/AppLayout";
+import { useHeaderActions, usePageTitle } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
   useGetLegislation, 
@@ -360,32 +360,35 @@ export default function LegislationDetailPage() {
     }
   };
 
-  if (isLoading || !leg) return <AppLayout><div className="p-8 text-center">Carregando...</div></AppLayout>;
+  usePageTitle(leg?.title);
+  useHeaderActions(
+    leg ? (
+      <div className="flex items-center gap-2">
+        <Link href="/app/qualidade/legislacoes">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
+          </Button>
+        </Link>
+        <Button variant="secondary" size="sm" onClick={onAutoTag} disabled={isAutoTagging}>
+          {isAutoTagging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+          {isAutoTagging ? "Classificando..." : "Auto-classificar tags"}
+        </Button>
+        {activeTab === "unidades" && (
+          <Button variant="secondary" size="sm" onClick={() => setIsAssignOpen(true)}>
+            <Link2 className="w-4 h-4 mr-2" />
+            Vincular Unidade
+          </Button>
+        )}
+      </div>
+    ) : null
+  );
+
+  if (isLoading || !leg) return <div className="p-8 text-center">Carregando...</div>;
 
   const availableUnits = allUnits?.filter(u => !leg.unitLegislations.find(ul => ul.unitId === u.id)) || [];
 
-  const headerActions = (
-    <div className="flex items-center gap-2">
-      <Link href="/app/qualidade/legislacoes">
-        <Button variant="ghost" size="sm">
-          <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
-        </Button>
-      </Link>
-      <Button variant="secondary" size="sm" onClick={onAutoTag} disabled={isAutoTagging}>
-        {isAutoTagging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-        {isAutoTagging ? "Classificando..." : "Auto-classificar tags"}
-      </Button>
-      {activeTab === "unidades" && (
-        <Button variant="secondary" size="sm" onClick={() => setIsAssignOpen(true)}>
-          <Link2 className="w-4 h-4 mr-2" />
-          Vincular Unidade
-        </Button>
-      )}
-    </div>
-  );
-
   return (
-    <AppLayout pageTitle={leg.title} headerActions={headerActions}>
+    <>
       <div className="border-b border-border mb-8">
         <nav className="flex gap-8">
           <button
@@ -676,6 +679,6 @@ export default function LegislationDetailPage() {
           </div>
         )}
       </Dialog>
-    </AppLayout>
+    </>
   );
 }

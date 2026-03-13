@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "wouter";
-import { AppLayout } from "@/components/layout/AppLayout";
+import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useListLegislations, useCreateLegislation, useImportLegislations, getListLegislationsQueryKey, useListUnits, getListUnitsQueryKey, useGetUnitComplianceTags, type CreateLegislationBody } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -380,7 +380,7 @@ export default function LegislacoesPage() {
     setIsImportOpen(false);
   };
 
-  const headerActions = (
+  useHeaderActions(
     <>
       <Button variant="secondary" size="sm" onClick={onBatchAutoTag} disabled={isAutoTagging}>
         {isAutoTagging ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
@@ -396,7 +396,7 @@ export default function LegislacoesPage() {
   );
 
   return (
-    <AppLayout headerActions={headerActions}>
+    <>
       <div className="flex flex-wrap gap-6 items-end mb-8">
         <div className="flex-1 min-w-[200px]">
           <Label>Buscar</Label>
@@ -738,6 +738,6 @@ export default function LegislacoesPage() {
           )}
         </div>
       </Dialog>
-    </AppLayout>
+    </>
   );
 }

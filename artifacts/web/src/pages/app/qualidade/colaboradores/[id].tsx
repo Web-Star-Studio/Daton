@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useRoute, Link } from "wouter";
-import { AppLayout } from "@/components/layout/AppLayout";
+import { usePageTitle } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useGetEmployee,
@@ -854,28 +854,24 @@ export default function ColaboradorDetailPage() {
     navigate("/app/qualidade/colaboradores");
   };
 
+  usePageTitle(employee?.name);
+
   if (!orgId) return null;
 
   if (isLoading) {
-    return (
-      <AppLayout>
-        <div className="text-center py-20 text-[13px] text-muted-foreground">Carregando...</div>
-      </AppLayout>
-    );
+    return <div className="text-center py-20 text-[13px] text-muted-foreground">Carregando...</div>;
   }
 
   if (error || !employee) {
     return (
-      <AppLayout>
-        <div className="text-center py-20">
-          <p className="text-[13px] text-muted-foreground">Colaborador não encontrado</p>
-          <Link href="/app/qualidade/colaboradores">
-            <Button variant="outline" size="sm" className="mt-4 cursor-pointer">
-              Voltar
-            </Button>
-          </Link>
-        </div>
-      </AppLayout>
+      <div className="text-center py-20">
+        <p className="text-[13px] text-muted-foreground">Colaborador não encontrado</p>
+        <Link href="/app/qualidade/colaboradores">
+          <Button variant="outline" size="sm" className="mt-4 cursor-pointer">
+            Voltar
+          </Button>
+        </Link>
+      </div>
     );
   }
 
@@ -887,7 +883,7 @@ export default function ColaboradorDetailPage() {
   ];
 
   return (
-    <AppLayout pageTitle={employee.name}>
+    <>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1000,6 +996,6 @@ export default function ColaboradorDetailPage() {
           <ConscientizacaoTab awareness={employee.awareness || []} orgId={orgId} empId={empId} />
         )}
       </div>
-    </AppLayout>
+    </>
   );
 }

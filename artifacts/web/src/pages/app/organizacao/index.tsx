@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
+import React, { useState, useMemo } from "react";
+import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -88,6 +88,33 @@ export default function OrganizacaoPage() {
   const emptyPosForm: PositionFormData = { name: "", description: "", education: "", experience: "", requirements: "", responsibilities: "" };
   const posForm = useForm<PositionFormData>({ defaultValues: emptyPosForm });
 
+  const headerActions = useMemo(() => {
+    switch (activeTab) {
+      case "unidades":
+        return (
+          <Button size="sm" onClick={() => setUnitDialogOpen(true)}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            Nova Unidade
+          </Button>
+        );
+      case "departamentos":
+        return (
+          <Button size="sm" onClick={() => { setEditingDeptId(null); deptForm.reset({ name: "", description: "" }); setDeptDialogOpen(true); }}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            Novo Departamento
+          </Button>
+        );
+      case "cargos":
+        return (
+          <Button size="sm" onClick={() => { setEditingPosId(null); posForm.reset(emptyPosForm); setPosDialogOpen(true); }}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            Novo Cargo
+          </Button>
+        );
+    }
+  }, [activeTab]);
+  useHeaderActions(headerActions);
+
   if (!orgId) return null;
 
   const onUnitSubmit = async (data: UnitFormData) => {
@@ -151,32 +178,6 @@ export default function OrganizacaoPage() {
     posForm.reset();
   };
 
-  const headerActions = (() => {
-    switch (activeTab) {
-      case "unidades":
-        return (
-          <Button size="sm" onClick={() => setUnitDialogOpen(true)}>
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Nova Unidade
-          </Button>
-        );
-      case "departamentos":
-        return (
-          <Button size="sm" onClick={() => { setEditingDeptId(null); deptForm.reset({ name: "", description: "" }); setDeptDialogOpen(true); }}>
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Novo Departamento
-          </Button>
-        );
-      case "cargos":
-        return (
-          <Button size="sm" onClick={() => { setEditingPosId(null); posForm.reset(emptyPosForm); setPosDialogOpen(true); }}>
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Novo Cargo
-          </Button>
-        );
-    }
-  })();
-
   const tabs: { key: Tab; label: string }[] = [
     { key: "unidades", label: "Unidades" },
     { key: "departamentos", label: "Departamentos" },
@@ -184,7 +185,7 @@ export default function OrganizacaoPage() {
   ];
 
   return (
-    <AppLayout headerActions={headerActions}>
+    <>
       <div className="border-b border-border mb-6">
         <nav className="flex gap-6">
           {tabs.map((tab) => (
@@ -454,7 +455,7 @@ export default function OrganizacaoPage() {
           </div>
         </form>
       </Dialog>
-    </AppLayout>
+    </>
   );
 }
 
