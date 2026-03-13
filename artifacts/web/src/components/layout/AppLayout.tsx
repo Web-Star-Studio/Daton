@@ -176,17 +176,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-3">
             {headerActions}
-            <button
-              onClick={() => setChatOpen(!isChatOpen)}
-              className={`p-2 rounded-lg transition-colors cursor-pointer ${
-                isChatOpen
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground/60 hover:text-foreground hover:bg-secondary/60"
-              }`}
-              title="Daton AI"
-            >
-              <Sparkles className="h-4 w-4" />
-            </button>
+            {!isChatOpen && (
+              <button
+                onClick={() => setChatOpen(true)}
+                className="p-2 rounded-lg transition-colors cursor-pointer text-muted-foreground/60 hover:text-foreground hover:bg-secondary/60"
+                title="Daton AI"
+              >
+                <Sparkles className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </header>
         
