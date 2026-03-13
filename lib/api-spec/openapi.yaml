@@ -1194,6 +1194,72 @@ paths:
         "204":
           description: Awareness record deleted
 
+  /organizations/{orgId}/employees/{empId}/units:
+    post:
+      operationId: linkEmployeeUnit
+      tags: [employee-units]
+      summary: Link unit to employee
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                unitId:
+                  type: integer
+              required: [unitId]
+      responses:
+        "201":
+          description: Unit linked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  employeeId:
+                    type: integer
+                  unitId:
+                    type: integer
+
+  /organizations/{orgId}/employees/{empId}/units/{unitId}:
+    delete:
+      operationId: unlinkEmployeeUnit
+      tags: [employee-units]
+      summary: Unlink unit from employee
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Unit unlinked
+
 components:
   schemas:
     HealthStatus:

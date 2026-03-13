@@ -3049,14 +3049,12 @@ export const useDeleteAwareness = <TError = ErrorType<unknown>, TContext = unkno
 export const linkEmployeeUnit = async (
   orgId: number, empId: number, unitId: number, options?: RequestInit,
 ): Promise<{ id: number; employeeId: number; unitId: number }> => {
-  const res = await fetchWithAuth(`${BASE_URL}/organizations/${orgId}/employees/${empId}/units`, {
+  return customFetch<{ id: number; employeeId: number; unitId: number }>(`/api/organizations/${orgId}/employees/${empId}/units`, {
+    ...options,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ unitId }),
-    ...options,
   });
-  if (!res.ok) throw new Error(`Failed to link unit: ${res.status}`);
-  return res.json();
 };
 
 export const useLinkEmployeeUnit = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
@@ -3070,11 +3068,9 @@ export const useLinkEmployeeUnit = <TError = ErrorType<unknown>, TContext = unkn
 export const unlinkEmployeeUnit = async (
   orgId: number, empId: number, unitId: number, options?: RequestInit,
 ): Promise<void> => {
-  const res = await fetchWithAuth(`${BASE_URL}/organizations/${orgId}/employees/${empId}/units/${unitId}`, {
-    method: "DELETE",
-    ...options,
+  return customFetch<void>(`/api/organizations/${orgId}/employees/${empId}/units/${unitId}`, {
+    ...options, method: "DELETE",
   });
-  if (!res.ok) throw new Error(`Failed to unlink unit: ${res.status}`);
 };
 
 export const useUnlinkEmployeeUnit = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
