@@ -9,7 +9,7 @@ import {
   useAssignLegislationToUnit, 
   useUpdateUnitLegislation,
   useRemoveUnitLegislation,
-  useComplianceTagVocabulary,
+  useGetComplianceTagVocabulary,
   getGetLegislationQueryKey,
   getListLegislationsQueryKey,
   getListUnitsQueryKey,
@@ -195,7 +195,7 @@ export default function LegislationDetailPage() {
 
   const { data: leg, isLoading } = useGetLegislation(orgId!, legId, { query: { queryKey: getGetLegislationQueryKey(orgId!, legId), enabled: !!orgId && !!legId } });
   const { data: allUnits } = useListUnits(orgId!, { query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId } });
-  const { data: tagVocabulary } = useComplianceTagVocabulary();
+  const { data: tagVocabulary } = useGetComplianceTagVocabulary();
   
   const updateMut = useUpdateLegislation();
   const assignMut = useAssignLegislationToUnit();
