@@ -9,8 +9,7 @@ import {
   PanelLeftOpen,
   ChevronDown,
   ChevronRight,
-  Sparkles,
-  Users
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import datonLogo from "@assets/daton-logo-header-DC_evyPp_1773347395767.png";
@@ -124,7 +123,6 @@ export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Users className="h-3.5 w-3.5 mr-2 shrink-0" />
                 Colaboradores
               </Link>
             </>
