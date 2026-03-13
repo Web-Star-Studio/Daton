@@ -569,27 +569,29 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, async
     .where(and(eq(documentApproversTable.documentId, docId), eq(documentApproversTable.status, "pending")));
 
   if (pending.length === 0) {
-    await db.update(documentsTable).set({ status: "distributed" }).where(eq(documentsTable.id, docId));
+    await db.update(documentsTable).set({ status: "approved" }).where(eq(documentsTable.id, docId));
 
     await createNotification(
       orgId, doc.createdById, "document_approved",
-      "Documento aprovado e distribuído",
-      `O documento "${doc.title}" foi aprovado por todos os aprovadores e distribuído automaticamente.`,
+      "Documento aprovado",
+      `O documento "${doc.title}" foi aprovado por todos os aprovadores.`,
       "document", docId
     );
 
     const recipients = await db.select().from(documentRecipientsTable)
       .where(eq(documentRecipientsTable.documentId, docId));
-    for (const r of recipients) {
-      await db.update(documentRecipientsTable)
-        .set({ receivedAt: new Date() })
-        .where(eq(documentRecipientsTable.id, r.id));
-      await createNotification(
-        orgId, r.userId, "document_distributed",
-        "Novo documento para leitura",
-        `O documento "${doc.title}" foi distribuído para você.`,
-        "document", docId
-      );
+
+    if (recipients.length > 0) {
+      await db.update(documentsTable).set({ status: "distributed" }).where(eq(documentsTable.id, docId));
+
+      for (const r of recipients) {
+        await createNotification(
+          orgId, r.userId, "document_distributed",
+          "Novo documento para leitura",
+          `O documento "${doc.title}" foi distribuído para você. Confirme o recebimento.`,
+          "document", docId
+        );
+      }
     }
   }
 

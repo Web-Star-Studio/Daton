@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   useCreateDocument,
   useListUnits,
@@ -8,8 +11,8 @@ import {
   useListDocuments,
   getListDocumentsQueryKey,
   getListUnitsQueryKey,
-  type CreateDocumentBody,
 } from "@workspace/api-client-react";
+import type { OrgUser } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +43,19 @@ const ALLOWED_TYPES = [
   "application/vnd.ms-excel",
 ];
 
+const createDocumentSchema = z.object({
+  title: z.string().min(1, "Título é obrigatório"),
+  type: z.enum(["manual", "procedimento", "instrucao", "formulario", "registro", "politica", "outro"]),
+  validityDate: z.string().min(1, "Data de validade é obrigatória"),
+  unitIds: z.array(z.number()),
+  elaboratorIds: z.array(z.number()).min(1, "Selecione ao menos um elaborador"),
+  approverIds: z.array(z.number()).min(1, "Selecione ao menos um aprovador"),
+  recipientIds: z.array(z.number()).min(1, "Selecione ao menos um destinatário"),
+  referenceIds: z.array(z.number()),
+});
+
+type CreateDocumentFormData = z.infer<typeof createDocumentSchema>;
+
 interface UploadedFile {
   fileName: string;
   fileSize: number;
@@ -54,17 +70,34 @@ export default function NovoDocumentoPage() {
   const [, navigate] = useLocation();
   usePageTitle("Novo Documento");
 
-  const [title, setTitle] = useState("");
-  const [type, setType] = useState("manual");
-  const [validityDate, setValidityDate] = useState(new Date().toISOString().split("T")[0]);
-  const [selectedUnits, setSelectedUnits] = useState<number[]>([]);
-  const [selectedElaborators, setSelectedElaborators] = useState<number[]>([]);
-  const [selectedApprovers, setSelectedApprovers] = useState<number[]>([]);
-  const [selectedRecipients, setSelectedRecipients] = useState<number[]>([]);
-  const [selectedReferences, setSelectedReferences] = useState<number[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<CreateDocumentFormData>({
+    resolver: zodResolver(createDocumentSchema),
+    defaultValues: {
+      title: "",
+      type: "manual",
+      validityDate: new Date().toISOString().split("T")[0],
+      unitIds: [],
+      elaboratorIds: [],
+      approverIds: [],
+      recipientIds: [],
+      referenceIds: [],
+    },
+  });
+
+  const unitIds = watch("unitIds");
+  const elaboratorIds = watch("elaboratorIds");
+  const approverIds = watch("approverIds");
+  const recipientIds = watch("recipientIds");
+  const referenceIds = watch("referenceIds");
 
   const { data: units } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
@@ -130,38 +163,33 @@ export default function NovoDocumentoPage() {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const toggleSelection = (arr: number[], setArr: (v: number[]) => void, id: number) => {
-    if (arr.includes(id)) {
-      setArr(arr.filter((v) => v !== id));
-    } else {
-      setArr([...arr, id]);
-    }
+  const toggleMultiSelect = (field: keyof CreateDocumentFormData, current: number[], id: number) => {
+    const next = current.includes(id) ? current.filter((v) => v !== id) : [...current, id];
+    setValue(field, next, { shouldValidate: true });
   };
 
-  const handleSubmit = async () => {
-    if (!orgId || !title.trim() || selectedApprovers.length === 0) return;
+  const onSubmit = async (data: CreateDocumentFormData) => {
+    if (!orgId) return;
 
-    setIsSubmitting(true);
     try {
-      const body: CreateDocumentBody = {
-        title: title.trim(),
-        type,
-        validityDate: validityDate || undefined,
-        unitIds: selectedUnits.length > 0 ? selectedUnits : undefined,
-        elaboratorIds: selectedElaborators.length > 0 ? selectedElaborators : undefined,
-        approverIds: selectedApprovers,
-        recipientIds: selectedRecipients.length > 0 ? selectedRecipients : undefined,
-        referenceIds: selectedReferences.length > 0 ? selectedReferences : undefined,
-        attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined,
-      };
-
-      const doc = await createMut.mutateAsync({ orgId, data: body });
+      const doc = await createMut.mutateAsync({
+        orgId,
+        data: {
+          title: data.title.trim(),
+          type: data.type,
+          validityDate: data.validityDate || undefined,
+          unitIds: data.unitIds.length > 0 ? data.unitIds : undefined,
+          elaboratorIds: data.elaboratorIds.length > 0 ? data.elaboratorIds : undefined,
+          approverIds: data.approverIds,
+          recipientIds: data.recipientIds.length > 0 ? data.recipientIds : undefined,
+          referenceIds: data.referenceIds.length > 0 ? data.referenceIds : undefined,
+          attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined,
+        },
+      });
       queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey(orgId) });
       navigate(`/app/qualidade/documentacao/${doc.id}`);
     } catch (err) {
       console.error("Create failed:", err);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -181,21 +209,21 @@ export default function NovoDocumentoPage() {
         Voltar para Documentação
       </button>
 
-      <div className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div>
           <Label>Título do Documento *</Label>
           <Input
             placeholder="Ex.: Manual da Qualidade"
             className="mt-2"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            {...register("title")}
           />
+          {errors.title && <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-6">
           <div>
             <Label>Tipo</Label>
-            <Select value={type} onChange={(e) => setType(e.target.value)} className="mt-2">
+            <Select {...register("type")} className="mt-2">
               {TYPE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
@@ -206,8 +234,8 @@ export default function NovoDocumentoPage() {
             <MultiSelectDropdown
               placeholder="Selecione"
               options={(units || []).map((u) => ({ value: u.id, label: u.name }))}
-              selected={selectedUnits}
-              onToggle={(id) => toggleSelection(selectedUnits, setSelectedUnits, id)}
+              selected={unitIds}
+              onToggle={(id) => toggleMultiSelect("unitIds", unitIds, id)}
             />
           </div>
         </div>
@@ -217,19 +245,21 @@ export default function NovoDocumentoPage() {
             <Label>Elaborado por *</Label>
             <MultiSelectDropdown
               placeholder="Selecione"
-              options={(orgUsers || []).map((u) => ({ value: u.id, label: u.name }))}
-              selected={selectedElaborators}
-              onToggle={(id) => toggleSelection(selectedElaborators, setSelectedElaborators, id)}
+              options={(orgUsers || []).map((u: OrgUser) => ({ value: u.id!, label: u.name ?? "" }))}
+              selected={elaboratorIds}
+              onToggle={(id) => toggleMultiSelect("elaboratorIds", elaboratorIds, id)}
             />
+            {errors.elaboratorIds && <p className="text-xs text-red-500 mt-1">{errors.elaboratorIds.message}</p>}
           </div>
           <div>
             <Label>Aprovado por *</Label>
             <MultiSelectDropdown
               placeholder="Selecione"
-              options={(orgUsers || []).map((u) => ({ value: u.id, label: u.name }))}
-              selected={selectedApprovers}
-              onToggle={(id) => toggleSelection(selectedApprovers, setSelectedApprovers, id)}
+              options={(orgUsers || []).map((u: OrgUser) => ({ value: u.id!, label: u.name ?? "" }))}
+              selected={approverIds}
+              onToggle={(id) => toggleMultiSelect("approverIds", approverIds, id)}
             />
+            {errors.approverIds && <p className="text-xs text-red-500 mt-1">{errors.approverIds.message}</p>}
           </div>
         </div>
 
@@ -238,13 +268,13 @@ export default function NovoDocumentoPage() {
           <Input
             type="date"
             className="mt-2 w-64"
-            value={validityDate}
-            onChange={(e) => setValidityDate(e.target.value)}
+            {...register("validityDate")}
           />
+          {errors.validityDate && <p className="text-xs text-red-500 mt-1">{errors.validityDate.message}</p>}
         </div>
 
         <div>
-          <Label>Anexo Inicial *</Label>
+          <Label>Anexo Inicial</Label>
           <div className="mt-2">
             <label className="flex items-center gap-2 px-4 py-3 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors">
               <Upload className="h-4 w-4 text-muted-foreground" />
@@ -272,7 +302,7 @@ export default function NovoDocumentoPage() {
                       <span className="truncate">{f.fileName}</span>
                       <span className="text-muted-foreground text-xs">({formatFileSize(f.fileSize)})</span>
                     </div>
-                    <button onClick={() => removeFile(i)} className="p-1 hover:bg-muted rounded cursor-pointer">
+                    <button type="button" onClick={() => removeFile(i)} className="p-1 hover:bg-muted rounded cursor-pointer">
                       <X className="h-3.5 w-3.5 text-muted-foreground" />
                     </button>
                   </div>
@@ -286,10 +316,11 @@ export default function NovoDocumentoPage() {
           <Label>Destinatários (protocolo de recebimento) *</Label>
           <MultiSelectDropdown
             placeholder="Selecionar destinatários"
-            options={(orgUsers || []).map((u) => ({ value: u.id, label: u.name }))}
-            selected={selectedRecipients}
-            onToggle={(id) => toggleSelection(selectedRecipients, setSelectedRecipients, id)}
+            options={(orgUsers || []).map((u: OrgUser) => ({ value: u.id!, label: u.name ?? "" }))}
+            selected={recipientIds}
+            onToggle={(id) => toggleMultiSelect("recipientIds", recipientIds, id)}
           />
+          {errors.recipientIds && <p className="text-xs text-red-500 mt-1">{errors.recipientIds.message}</p>}
         </div>
 
         <div>
@@ -297,25 +328,24 @@ export default function NovoDocumentoPage() {
           <MultiSelectDropdown
             placeholder="Selecionar documentos referenciados"
             options={(existingDocs || []).map((d) => ({ value: d.id, label: d.title }))}
-            selected={selectedReferences}
-            onToggle={(id) => toggleSelection(selectedReferences, setSelectedReferences, id)}
+            selected={referenceIds}
+            onToggle={(id) => toggleMultiSelect("referenceIds", referenceIds, id)}
           />
         </div>
 
         <div className="flex gap-3 pt-4 border-t border-border/40">
-          <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/documentacao")}>
+          <Button type="button" variant="outline" size="sm" onClick={() => navigate("/app/qualidade/documentacao")}>
             Cancelar
           </Button>
           <Button
+            type="submit"
             size="sm"
-            onClick={handleSubmit}
-            disabled={!title.trim() || selectedApprovers.length === 0 || isSubmitting}
             isLoading={isSubmitting}
           >
             Salvar Documento
           </Button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }
