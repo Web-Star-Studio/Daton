@@ -313,6 +313,82 @@ const pcd: ThemeDef = {
   ],
 };
 
+const saudeTrabalhador: ThemeDef = {
+  code: "saude_trabalhador",
+  name: "Saúde do Trabalhador",
+  description: "Questões sobre medicamentos, atendimento de urgência, alimentação, vacinação e condições de saúde no trabalho",
+  sortOrder: 16,
+  questions: [
+    { code: "st_01", questionNumber: "1", text: "Existem medicamentos para uso de funcionários na unidade?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["medicamentos_funcionarios", "saude_trabalhador"] }, sortOrder: 1 },
+    { code: "st_02", questionNumber: "2", text: "A unidade possui esfigmomanômetros?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["esfigmomanometros", "saude_trabalhador"] }, sortOrder: 2 },
+    { code: "st_03", questionNumber: "3", text: "A unidade contrata serviços de atendimento de urgência e emergência?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["atendimento_urgencia", "saude_trabalhador"] }, sortOrder: 3 },
+    { code: "st_04", questionNumber: "4", text: "A unidade participa do PAT - Programa de Alimentação do Trabalhador?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["pat_alimentacao", "saude_trabalhador"] }, sortOrder: 4 },
+    { code: "st_05", questionNumber: "5", text: "A unidade contrata ou realiza a aplicação de vacinas em seus funcionários?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["vacinacao_funcionarios", "saude_trabalhador"] }, sortOrder: 5 },
+    { code: "st_06", questionNumber: "6", text: "A unidade realiza ou contrata transporte aeromédico?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["transporte_aeromedico", "saude_trabalhador"] }, sortOrder: 6 },
+    { code: "st_07", questionNumber: "7", text: "Há regime de trabalho para empregados que trabalham no interior de câmaras frigoríficas ou movimentando mercadorias em ambientes frios?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["camaras_frigorificas", "saude_trabalhador"] }, sortOrder: 7 },
+    { code: "st_08", questionNumber: "8", text: "Existem reservatórios de água potável no site da empresa?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["reservatorios_agua_potavel"] }, sortOrder: 8 },
+    { code: "st_09", questionNumber: "9", text: "A unidade possui ambulância?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["ambulancia", "saude_trabalhador"] }, sortOrder: 9 },
+  ],
+};
+
+const tiposTrabalho: ThemeDef = {
+  code: "tipos_trabalho",
+  name: "Tipos de Trabalho Realizados Ou Contratados Junto A Terceiros",
+  description: "Questões sobre tipos de atividades realizadas ou contratadas pela unidade",
+  sortOrder: 17,
+  questions: [
+    { code: "tt_01", questionNumber: "1", text: "A unidade realiza atividades (utilização, transporte, armazenamento, fabricação, processamento, acondicionamento, distribuição e comercialização) com hidrogênio ou seus derivados?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["atividades_hidrogenio"] }, sortOrder: 1 },
+    { code: "tt_02", questionNumber: "2", text: "A unidade realiza suas atividades em recinto alfandegado ou sob regime aduaneiro especial?", type: "single_select", options: ["Realiza", "Não realiza"], tags: { "Realiza": ["recinto_alfandegado", "regime_aduaneiro"] }, sortOrder: 2 },
+    { code: "tt_03", questionNumber: "3", text: "É realizado trabalho em plataformas marítimas?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["plataformas_maritimas", "nr37"] }, sortOrder: 3 },
+    { code: "tt_04", questionNumber: "4", text: "A unidade realiza atividades que envolvam gás e óleo? (extração, exploração, prospecção etc.) Obs: esta pergunta não se aplica ao consumo do produto.", type: "single_select", options: ["Realiza", "Não Realiza"], tags: { "Realiza": ["atividades_gas_oleo"] }, sortOrder: 4 },
+    { code: "tt_05", questionNumber: "5", text: "É realizado trabalho submerso?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["trabalho_submerso"] }, sortOrder: 5 },
+    { code: "tt_06", questionNumber: "6", text: "Existe trabalho portuário envolvido com as atividades da unidade?", type: "multi_select", options: ["A Empresa apenas contrata terceiro/fornecedor que realiza atividades em Portos secos.", "Não Se Aplica", "A Empresa Realiza Suas Atividades Em Portos Marítimos", "A Empresa Realiza Administração E/ou Operação de Um Porto Marítimo", "A Empresa Apenas Terceiriza Trabalho Portuário Marítimo", "A Empresa Apenas Contrata Fornecedores Que Realizam Atividades Em Portos Marítimos", "A Empresa Realiza Suas Atividades Em Portos Secos (nota: Porto Seco É Considerado O Terminal Intermodal Terrestre Diretamente Ligado Por Estrada E/ou Via Férrea E/ou Até Aérea, Sendo Um Depósito Alfandegado Localizado Na Zona Secundária)"], tags: { "A Empresa Realiza Suas Atividades Em Portos Marítimos": ["trabalho_portuario_maritimo", "nr29"], "A Empresa Realiza Administração E/ou Operação de Um Porto Marítimo": ["administracao_porto_maritimo", "nr29"], "A Empresa Realiza Suas Atividades Em Portos Secos (nota: Porto Seco É Considerado O Terminal Intermodal Terrestre Diretamente Ligado Por Estrada E/ou Via Férrea E/ou Até Aérea, Sendo Um Depósito Alfandegado Localizado Na Zona Secundária)": ["trabalho_portuario_seco"] }, sortOrder: 6 },
+    { code: "tt_07", questionNumber: "7", text: "A unidade realiza atividades que envolvam diretamente o trabalho aquaviário?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["trabalho_aquaviario", "nr30"] }, sortOrder: 7 },
+    { code: "tt_08", questionNumber: "8", text: "É realizado trabalho que envolve agricultura, pecuária, silvicultura ou exploração florestal?", type: "multi_select", options: ["Não Se Aplica", "Agricultura", "Pecuária", "Silvicultura", "Exploração Florestal"], tags: { "Agricultura": ["agricultura", "nr31"], "Pecuária": ["pecuaria", "nr31"], "Silvicultura": ["silvicultura", "nr31"], "Exploração Florestal": ["exploracao_florestal", "nr31"] }, sortOrder: 8 },
+    { code: "tt_09", questionNumber: "9", text: "Existe vigilância patrimonial / segurança privada?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["vigilancia_seguranca_privada"] }, sortOrder: 9 },
+    { code: "tt_10", questionNumber: "10", text: "Há serviço de tele-atendimento (telemarketing)?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["telemarketing"] }, sortOrder: 10 },
+    { code: "tt_11", questionNumber: "11", text: "A unidade executa obras em vias e logradouros públicos?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["obras_vias_publicas"] }, sortOrder: 11 },
+    { code: "tt_12", questionNumber: "12", text: "A unidade disponibiliza vale-transporte a seus funcionários?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["vale_transporte"] }, sortOrder: 12 },
+    { code: "tt_13", questionNumber: "13", text: "A unidade realiza ou contrata serviços de concretagem?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["concretagem"] }, sortOrder: 13 },
+    { code: "tt_14", questionNumber: "14", text: "Na unidade existem atividades em que o manuseio/exposição de produtos nocivos a saúde possam gerar contaminação dos uniformes dos empregados e demandar a implementação ou contratação de serviços de lavanderia para higienização de uniformes e/ou EPI's?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["lavanderia_uniformes_epi", "saude_trabalhador"] }, sortOrder: 14 },
+    { code: "tt_15", questionNumber: "15", text: "A unidade contrata análises laboratoriais?", type: "multi_select", options: ["De Potabilidade de Água (microbiológica Ou Físico-química)", "Em Alimentos (incluindo Seus Resíduos, Embalagens, Etc.)", "Análises Ambientais (emissões Atmosféricas, Efluentes, Solo, Águas Subterrâneas, Superficiais, Etc).", "Análises Clínicas (análise de Amostras de Paciente/funcionário, Incluindo Exames Exigidos No Pcmso)", "Não Se Aplica"], tags: { "De Potabilidade de Água (microbiológica Ou Físico-química)": ["analise_potabilidade_agua"], "Análises Ambientais (emissões Atmosféricas, Efluentes, Solo, Águas Subterrâneas, Superficiais, Etc).": ["analise_ambiental"], "Análises Clínicas (análise de Amostras de Paciente/funcionário, Incluindo Exames Exigidos No Pcmso)": ["analise_clinica_pcmso"] }, sortOrder: 15 },
+    { code: "tt_16", questionNumber: "16", text: "A unidade realiza ou contrata atividades relacionadas à dragagem e/ou disposição final do material dragado?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["dragagem"] }, sortOrder: 16 },
+    { code: "tt_17", questionNumber: "17", text: "A unidade fornece produtos e/ou serviços diretamente para o consumidor (residencial, pessoa física, e/ou hipossuficiente, conforme Código de Defesa do Consumidor)?", type: "multi_select", options: ["Pessoa física", "Sim", "Não Se Aplica"], tags: { "Pessoa física": ["fornece_pessoa_fisica", "codigo_defesa_consumidor"], "Sim": ["fornece_consumidor_final", "codigo_defesa_consumidor"] }, sortOrder: 17 },
+    { code: "tt_18", questionNumber: "18", text: "A unidade possui ou contrata algum dos profissionais abaixo para realizar o controle de pragas e vetores?", type: "multi_select", options: ["Agrônomo", "Biólogo", "Químico", "Engenheiro", "Farmacêutico", "Médico Veterinário", "Não Se Aplica"], tags: { "Agrônomo": ["controle_pragas_agronomo"], "Biólogo": ["controle_pragas_biologo"], "Químico": ["controle_pragas_quimico"] }, sortOrder: 18 },
+  ],
+};
+
+const normasRegulamentadoras: ThemeDef = {
+  code: "normas_regulamentadoras",
+  name: "Normas Regulamentadoras - NR",
+  description: "Questões sobre aplicabilidade das Normas Regulamentadoras do MTE",
+  sortOrder: 18,
+  questions: [
+    { code: "nr_01", questionNumber: "1", text: "Selecione as atividades aplicáveis à unidade relacionadas às Normas Regulamentadoras - NR do Ministério do Trabalho e do Emprego (Obs: as NRs 01 a 10, 17, 23 a 28 são disponibilizadas obrigatoriamente na planilha).", type: "multi_select", options: ["Realiza atividades em Plataformas de Petróleo (nr 37) Obs: NR Setorial", "Possui Empilhadeiras, Ponte Rolantes, Talhas Ou Equipamentos de Movimentação de Material? (nr 11)", "Possui Máquinas E/ou Equipamentos Autopropelidos (ex. Prensas e Similares, Injetoras de Material Plástico, Fornos Industriais, Compressores, Etc.)? (nr 12)", "Possui Forno Industrial? (nr 14)", "Conforme Descrito No PGR, Realiza Atividades e Operações Insalubres (nr 15)", "Realiza Atividades Perigosas (eletricidade Em Alta Tensão, Combustíveis, Inflamáveis, Explosivos, Etc.) Que Determinem O Pagamento do Adicional de Periculosidade? (nr 16)", "Utiliza Explosivos? (nr 19)", "Consome Líquidos Combustíveis e Inflamáveis? (nr 20)", "Realiza Atividade de Mineração (nr 22) Obs: NR Setorial", "Realiza Trabalho Portuário (nr 29) Obs: NR Setorial", "Realiza Trabalho Aquaviário (nr 30) Obs: NR Setorial", "Realiza As Atividades de Agricultura, Pecuária Silvicultura Ou Exploração Florestal (nr 31) Obs: NR Setorial", "Possui Espaço Confinado? (nr 33)", "Realiza Atividade de Construção e Reparação Naval (nr 34) Obs: NR Setorial", "Não Se Aplica", "Realiza Atividades de Abate e Processamento de Carnes e Derivados (nr 36) Obs: NR Setorial"], tags: { "Possui Empilhadeiras, Ponte Rolantes, Talhas Ou Equipamentos de Movimentação de Material? (nr 11)": ["nr11"], "Possui Máquinas E/ou Equipamentos Autopropelidos (ex. Prensas e Similares, Injetoras de Material Plástico, Fornos Industriais, Compressores, Etc.)? (nr 12)": ["nr12"], "Possui Forno Industrial? (nr 14)": ["nr14"], "Conforme Descrito No PGR, Realiza Atividades e Operações Insalubres (nr 15)": ["nr15"], "Realiza Atividades Perigosas (eletricidade Em Alta Tensão, Combustíveis, Inflamáveis, Explosivos, Etc.) Que Determinem O Pagamento do Adicional de Periculosidade? (nr 16)": ["nr16"], "Utiliza Explosivos? (nr 19)": ["nr19"], "Consome Líquidos Combustíveis e Inflamáveis? (nr 20)": ["nr20"], "Realiza Atividade de Mineração (nr 22) Obs: NR Setorial": ["nr22"], "Realiza Trabalho Portuário (nr 29) Obs: NR Setorial": ["nr29"], "Realiza Trabalho Aquaviário (nr 30) Obs: NR Setorial": ["nr30"], "Realiza As Atividades de Agricultura, Pecuária Silvicultura Ou Exploração Florestal (nr 31) Obs: NR Setorial": ["nr31"], "Possui Espaço Confinado? (nr 33)": ["nr33"], "Realiza Atividade de Construção e Reparação Naval (nr 34) Obs: NR Setorial": ["nr34"], "Realiza Atividades de Abate e Processamento de Carnes e Derivados (nr 36) Obs: NR Setorial": ["nr36"], "Realiza atividades em Plataformas de Petróleo (nr 37) Obs: NR Setorial": ["nr37"] }, sortOrder: 1 },
+    { code: "nr_02", questionNumber: "2", text: "A unidade realiza ou contrata atividades envolvendo trabalho em altura?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["trabalho_altura", "nr35"] }, sortOrder: 2 },
+  ],
+};
+
+const mineracao: ThemeDef = {
+  code: "mineracao",
+  name: "Mineração",
+  description: "Questões sobre atividades minerárias e classes de jazidas",
+  sortOrder: 19,
+  questions: [
+    { code: "min_01", questionNumber: "1", text: "A unidade realiza atividade minerária? Em qual classe?", type: "multi_select", options: ["Não Se Aplica", "Classe Ix - Jazidas de Águas Subterrâneas", "Classe Viii - Jazidas de Águas Minerais", "Classe Vii - Jazidas de Minerais Industriais, Não Incluídas Nas Classes Precedentes", "Classe Vi - Jazidas de Gemas e Pedras Ornamentais", "Classe V - Jazidas de Rochas Betuminosas e Pirobetuminosas", "Classe Iv - Jazidas de Combustíveis Fósseis Sólidos", "Classe Iii - Jazidas de Fertilizantes", "Classe Ii - Jazidas de Substâncias Minerais de Emprego Imediato Na Construção Civil", "Classe I - Jazidas de Substâncias Minerais Metalíferas"], tags: { "Classe I - Jazidas de Substâncias Minerais Metalíferas": ["mineracao_metaliferas"], "Classe Ii - Jazidas de Substâncias Minerais de Emprego Imediato Na Construção Civil": ["mineracao_construcao_civil"], "Classe Ix - Jazidas de Águas Subterrâneas": ["mineracao_aguas_subterraneas"], "Classe Viii - Jazidas de Águas Minerais": ["mineracao_aguas_minerais"] }, sortOrder: 1 },
+  ],
+};
+
+const pesagem: ThemeDef = {
+  code: "pesagem",
+  name: "Pesagem",
+  description: "Questões sobre instrumentos de pesagem utilizados na unidade",
+  sortOrder: 20,
+  questions: [
+    { code: "pes_01", questionNumber: "1", text: "A unidade utiliza instrumentos de pesagem?", type: "multi_select", options: ["Não Se Aplica", "Automático", "Não-automáticos"], tags: { "Automático": ["pesagem_automatica", "inmetro"], "Não-automáticos": ["pesagem_nao_automatica", "inmetro"] }, sortOrder: 1 },
+  ],
+};
+
 export async function seedQuestionnaire() {
   await seedTheme(instalacoes);
   await seedTheme(produtosInsumos);
@@ -326,4 +402,9 @@ export async function seedQuestionnaire() {
   await seedTheme(energia);
   await seedTheme(profissionais);
   await seedTheme(pcd);
+  await seedTheme(saudeTrabalhador);
+  await seedTheme(tiposTrabalho);
+  await seedTheme(normasRegulamentadoras);
+  await seedTheme(mineracao);
+  await seedTheme(pesagem);
 }
