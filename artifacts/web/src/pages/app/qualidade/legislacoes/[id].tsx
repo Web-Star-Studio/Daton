@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useRoute } from "wouter";
+import { useRoute, Link } from "wouter";
 import { useHeaderActions, usePageTitle } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn, formatDate } from "@/lib/utils";
-import { ExternalLink, Link2, Building, AlertCircle, Pencil, Check, X, Paperclip, Trash2, FileText, Upload, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, ExternalLink, Link2, Building, AlertCircle, Pencil, Check, X, Paperclip, Trash2, FileText, Upload, Loader2, Sparkles } from "lucide-react";
 
 interface Attachment {
   id: number;
@@ -364,6 +364,11 @@ export default function LegislationDetailPage() {
   useHeaderActions(
     leg ? (
       <div className="flex items-center gap-2">
+        <Link href="/app/qualidade/legislacoes">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
+          </Button>
+        </Link>
         <Button variant="secondary" size="sm" onClick={onAutoTag} disabled={isAutoTagging}>
           {isAutoTagging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
           {isAutoTagging ? "Classificando..." : "Auto-classificar tags"}
@@ -384,15 +389,15 @@ export default function LegislationDetailPage() {
 
   return (
     <>
-      <div className="mb-8">
-        <div className="inline-flex items-center rounded-xl border border-border p-0.5 bg-muted/30">
+      <div className="border-b border-border mb-8">
+        <nav className="flex gap-8">
           <button
             onClick={() => setActiveTab("geral")}
             className={cn(
-              "px-4 py-1.5 text-[13px] font-medium transition-all duration-200 cursor-pointer rounded-[10px]",
+              "pb-3 text-sm font-medium border-b-2 transition-colors cursor-pointer",
               activeTab === "geral"
-                ? "bg-white text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
             Informações Gerais
@@ -400,20 +405,20 @@ export default function LegislationDetailPage() {
           <button
             onClick={() => setActiveTab("unidades")}
             className={cn(
-              "px-4 py-1.5 text-[13px] font-medium transition-all duration-200 cursor-pointer rounded-[10px] flex items-center gap-1.5",
+              "pb-3 text-sm font-medium border-b-2 transition-colors cursor-pointer",
               activeTab === "unidades"
-                ? "bg-white text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
             Aplicabilidade nas Unidades
             {leg.unitLegislations.length > 0 && (
-              <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">
+              <span className="ml-2 text-xs bg-secondary text-muted-foreground rounded-full px-2 py-0.5">
                 {leg.unitLegislations.length}
               </span>
             )}
           </button>
-        </div>
+        </nav>
       </div>
 
       {activeTab === "geral" && (

@@ -31,16 +31,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isActive = (path: string) => location.startsWith(path);
 
-  const getPageLabel = (): string => {
-    if (location.match(/\/app\/qualidade\/legislacoes\/\d/)) return pageTitle || "Legislação";
-    if (location.startsWith("/app/qualidade/legislacoes")) return "Legislações";
-    if (location.match(/\/app\/qualidade\/colaboradores\/\d/)) return pageTitle || "Colaborador";
-    if (location.startsWith("/app/qualidade/colaboradores")) return "Colaboradores";
-    if (location.startsWith("/app/organizacao/unidades/")) return pageTitle || "Unidade";
-    if (location.startsWith("/app/organizacao")) return "Organização";
-    return "";
-  };
-
   const getBreadcrumbs = (): { label: string; href?: string }[] => {
     const crumbs: { label: string; href?: string }[] = [];
 
@@ -68,7 +58,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   const breadcrumbs = getBreadcrumbs();
-  const currentPageLabel = getPageLabel();
 
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden p-2.5 gap-2.5">
@@ -82,19 +71,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <img src={datonLogo} alt="Daton" className={cn("object-contain transition-all duration-300", isSidebarOpen ? "h-6" : "h-4")} />
         </div>
         
-        <div className="flex-1 overflow-y-auto py-5 px-2.5 space-y-0.5">
+        <div className="flex-1 overflow-y-auto py-5 px-2.5 space-y-1">
           <Link 
             href="/app/organizacao"
             className={cn(
-              "flex items-center px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer relative",
+              "flex items-center px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
               isActive("/app/organizacao") 
-                ? "text-foreground font-medium bg-muted/40" 
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                ? "text-foreground font-medium" 
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
-            {isActive("/app/organizacao") && (
-              <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-[#007AFF]" />
-            )}
             <Building2 className={cn("h-[18px] w-[18px] shrink-0", isSidebarOpen && "mr-2.5")} />
             {isSidebarOpen && <span>Organização</span>}
           </Link>
@@ -116,15 +102,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Link
               href="/app/qualidade/legislacoes"
               className={cn(
-                "w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer relative",
+                "w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
                 isActive("/app/qualidade")
-                  ? "text-foreground font-medium bg-muted/40"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  ? "text-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {isActive("/app/qualidade") && (
-                <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-[#007AFF]" />
-              )}
               <div className="flex items-center">
                 <Scale className={cn("h-[18px] w-[18px] shrink-0", isSidebarOpen && "mr-2.5")} />
                 {isSidebarOpen && <span>Qualidade</span>}
@@ -197,67 +180,57 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
-        <header className="sticky top-0 z-10 bg-white">
-          <div className="flex items-center justify-between px-6 h-10">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setSidebarOpen(!isSidebarOpen)}
-                className="p-1 rounded text-muted-foreground/50 hover:text-foreground transition-colors cursor-pointer"
-              >
-                {isSidebarOpen ? <PanelLeftClose className="h-3.5 w-3.5" /> : <PanelLeftOpen className="h-3.5 w-3.5" />}
-              </button>
-              <nav className="flex items-center text-[12px]">
-                {breadcrumbs.map((crumb, i) => (
-                  <React.Fragment key={i}>
-                    {i > 0 && <span className="mx-1.5 text-muted-foreground/30">/</span>}
-                    {crumb.href ? (
-                      <Link href={crumb.href} className="text-muted-foreground/70 hover:text-foreground transition-colors cursor-pointer">
-                        {crumb.label}
-                      </Link>
-                    ) : (
-                      <span className={i === breadcrumbs.length - 1 ? "text-muted-foreground" : "text-muted-foreground/70"}>
-                        {crumb.label}
-                      </span>
-                    )}
-                  </React.Fragment>
-                ))}
-              </nav>
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setNotificationsOpen(!isNotificationsOpen)}
-                className="p-1.5 rounded-lg transition-colors cursor-pointer relative text-muted-foreground/50 hover:text-foreground"
-                title="Notificações"
-              >
-                <Bell className="h-3.5 w-3.5" />
-                <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center h-3.5 min-w-3.5 px-1 rounded-full bg-red-500 text-white text-[9px] font-semibold leading-none">
-                  3
-                </span>
-              </button>
-              {isNotificationsOpen && (
-                <NotificationsPanel onClose={() => setNotificationsOpen(false)} />
-              )}
-              {!isChatOpen && (
-                <button
-                  onClick={() => setChatOpen(true)}
-                  className="p-1.5 rounded-lg transition-colors cursor-pointer text-muted-foreground/50 hover:text-foreground"
-                  title="Daton AI"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
+        <header className="h-14 flex items-center justify-between px-6 border-b border-border/40 sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(!isSidebarOpen)}
+              className="p-1.5 rounded text-muted-foreground/60 hover:text-foreground transition-colors cursor-pointer"
+            >
+              {isSidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+            </button>
+            <nav className="flex items-center text-[13px]">
+              {breadcrumbs.map((crumb, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <span className="mx-2 text-muted-foreground/40">/</span>}
+                  {crumb.href ? (
+                    <Link href={crumb.href} className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                      {crumb.label}
+                    </Link>
+                  ) : (
+                    <span className={i === breadcrumbs.length - 1 ? "text-foreground" : "text-muted-foreground"}>
+                      {crumb.label}
+                    </span>
+                  )}
+                </React.Fragment>
+              ))}
+            </nav>
           </div>
 
-          <div className="flex items-center justify-between px-6 pb-3 pt-0.5">
-            <h1 className="text-xl font-semibold text-foreground tracking-tight">{currentPageLabel}</h1>
-            {headerActions && (
-              <div className="flex items-center gap-2">
-                {headerActions}
-              </div>
+          <div className="flex items-center gap-3">
+            {headerActions}
+            <button
+              onClick={() => setNotificationsOpen(!isNotificationsOpen)}
+              className="p-2 rounded-lg transition-colors cursor-pointer relative text-muted-foreground/60 hover:text-foreground hover:bg-secondary/60"
+              title="Notificações"
+            >
+              <Bell className="h-4 w-4" />
+              <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold leading-none">
+                3
+              </span>
+            </button>
+            {isNotificationsOpen && (
+              <NotificationsPanel onClose={() => setNotificationsOpen(false)} />
+            )}
+            {!isChatOpen && (
+              <button
+                onClick={() => setChatOpen(true)}
+                className="p-2 rounded-lg transition-colors cursor-pointer text-muted-foreground/60 hover:text-foreground hover:bg-secondary/60"
+                title="Daton AI"
+              >
+                <Sparkles className="h-4 w-4" />
+              </button>
             )}
           </div>
-          <div className="border-b border-border/40" />
         </header>
         
         <div className="flex-1 overflow-auto p-8">
