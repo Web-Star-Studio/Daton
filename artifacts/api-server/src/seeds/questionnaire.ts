@@ -255,6 +255,64 @@ const equipamentos: ThemeDef = {
   ],
 };
 
+const emissoesAtmosfericas: ThemeDef = {
+  code: "emissoes_atmosfericas",
+  name: "Emissões Atmosféricas",
+  description: "Questões sobre fontes de poluição do ar, incineração, material particulado, contaminantes e pintura",
+  sortOrder: 11,
+  questions: [
+    { code: "ea_01", questionNumber: "1", text: "A unidade possui fontes fixas e/ou móveis de poluição do ar?", type: "multi_select", options: ["Não Se Aplica", "Fontes Fixas", "Fontes Móveis"], tags: { "Fontes Fixas": ["fontes_fixas_poluicao_ar", "emissoes_atmosfericas"], "Fontes Móveis": ["fontes_moveis_poluicao_ar", "emissoes_atmosfericas"] }, sortOrder: 1 },
+    { code: "ea_02", questionNumber: "2", text: "A unidade possui incinerador de resíduos?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["incinerador_residuos", "emissoes_atmosfericas"] }, sortOrder: 2 },
+    { code: "ea_03", questionNumber: "3", text: "Há armazenamento de material fragmentado ou particulado na unidade?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["material_particulado", "emissoes_atmosfericas"] }, sortOrder: 3 },
+    { code: "ea_04", questionNumber: "4", text: "Existem áreas que apresentem risco de inalação de contaminantes nocivos no ar tais como poeiras, fumos, névoas, gases e vapores e/ou risco de inalação de ar com deficiência de oxigênio na atmosfera?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["risco_inalacao_contaminantes", "saude_trabalhador", "emissoes_atmosfericas"] }, sortOrder: 4 },
+    { code: "ea_05", questionNumber: "5", text: "Existem aparelhos de ar condicionado na unidade?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["ar_condicionado", "qualidade_ar_interior"] }, sortOrder: 5 },
+    { code: "ea_06", questionNumber: "6", text: "São realizadas atividades de pintura na empresa?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["atividades_pintura", "emissoes_atmosfericas"] }, sortOrder: 6 },
+    { code: "ea_06_1", questionNumber: "6.1", text: "Há cobertura de superfícies realizadas por aspersão, tais como pintura ou aplicação de verniz a revólver?", type: "single_select", options: ["Sim", "Não Se Aplica"], conditionalOn: "ea_06", conditionalValue: "Sim", tags: { "Sim": ["pintura_aspersao"] }, sortOrder: 7 },
+    { code: "ea_06_2", questionNumber: "6.2", text: "A unidade possui cabine de pintura?", type: "single_select", options: ["Sim", "Não Se Aplica"], conditionalOn: "ea_06", conditionalValue: "Sim", tags: { "Sim": ["cabine_pintura"] }, sortOrder: 8 },
+  ],
+};
+
+const energia: ThemeDef = {
+  code: "energia",
+  name: "Energia",
+  description: "Questões sobre fontes de energia, emissões de carbono, Protocolo de Quioto, energia elétrica e eficiência energética",
+  sortOrder: 12,
+  questions: [
+    { code: "en_01", questionNumber: "1", text: "Quais as fontes de energia a unidade utiliza?", type: "multi_select", options: ["OUTRA", "VAPOR", "PNEUMÁTICA", "TERMELÉTRICA", "GLP - GÁS LIQUEFEITO DE PETRÓLEO", "GÁS NATURAL", "EÓLICA", "ELÉTRICA", "SOLAR"], tags: { "SOLAR": ["energia_solar"], "EÓLICA": ["energia_eolica"], "GÁS NATURAL": ["energia_gas_natural"], "GLP - GÁS LIQUEFEITO DE PETRÓLEO": ["energia_glp"], "TERMELÉTRICA": ["energia_termeletrica"] }, sortOrder: 1 },
+    { code: "en_02", questionNumber: "2", text: "A unidade possui inventário de emissões de carbono?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["inventario_emissoes_carbono", "mudancas_climaticas"] }, sortOrder: 2 },
+    { code: "en_03", questionNumber: "3", text: "A unidade possui algum projeto relacionado ao Protocolo de Quioto?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["protocolo_quioto", "mudancas_climaticas"] }, sortOrder: 3 },
+    { code: "en_04", questionNumber: "4", text: "A unidade realiza alguma das atividades abaixo relacionadas ao ramo de energia elétrica?", type: "multi_select", options: ["Permissionária/concessionária Pública de Energia Elétrica", "Transformação de Energia Elétrica", "Distribuição (externa) de Energia Elétrica", "Transmissão de Energia Elétrica", "Geração/produção de Energia Elétrica (para distribuição externa ou comercialização de excedente)", "Comercialização de Energia Elétrica", "Não, é Somente Usuária de Energia Elétrica"], tags: { "Permissionária/concessionária Pública de Energia Elétrica": ["concessionaria_energia"], "Geração/produção de Energia Elétrica (para distribuição externa ou comercialização de excedente)": ["geracao_energia"], "Distribuição (externa) de Energia Elétrica": ["distribuicao_energia"], "Transmissão de Energia Elétrica": ["transmissao_energia"], "Comercialização de Energia Elétrica": ["comercializacao_energia"] }, sortOrder: 4 },
+    { code: "en_05", questionNumber: "5", text: "A unidade possui fonte alternativa de energia?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["fonte_alternativa_energia"] }, sortOrder: 5 },
+    { code: "en_05_1", questionNumber: "5.1", text: "A unidade possui centrais geradoras de energia termelétrica, eólica e de outras fontes alternativas de energia?", type: "multi_select", options: ["Termelétrica", "Eólica", "Outras", "Não Se Aplica"], conditionalOn: "en_05", conditionalValue: "Sim", tags: { "Termelétrica": ["central_termeletrica"], "Eólica": ["central_eolica"] }, sortOrder: 6 },
+    { code: "en_06", questionNumber: "6", text: "A unidade possui em seu site alguma PCH - Pequena Central Hidrelétrica?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["pch_hidreletrica"] }, sortOrder: 7 },
+    { code: "en_07", questionNumber: "7", text: "A unidade possui sistema de gestão de energia/eficiência energética seguindo as diretrizes da ISO 50001:2011?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["iso_50001", "eficiencia_energetica"] }, sortOrder: 8 },
+    { code: "en_08", questionNumber: "8", text: "A unidade contrata energia elétrica por meio de uma das modalidades abaixo?", type: "multi_select", options: ["Não Se Aplica", "Ambiente de Contratação Livre - Acl", "Leilões de Energia de Reserva (ler)"], tags: { "Ambiente de Contratação Livre - Acl": ["contratacao_livre_energia"], "Leilões de Energia de Reserva (ler)": ["leilao_energia_reserva"] }, sortOrder: 9 },
+  ],
+};
+
+const profissionais: ThemeDef = {
+  code: "profissionais",
+  name: "Profissionais",
+  description: "Questões sobre quadro de profissionais, trabalhadores avulsos e estagiários",
+  sortOrder: 14,
+  questions: [
+    { code: "prof_01", questionNumber: "1", text: "A unidade contrata trabalhador avulso?", type: "single_select", options: ["Sim", "Não"], tags: { "Sim": ["trabalhador_avulso"] }, sortOrder: 1 },
+    { code: "prof_02", questionNumber: "2", text: "Selecione os profissionais que fazem parte do quadro de empregados da unidade (considerar os cargos/funções chaves para os quais tais profissionais forem contratados e que sejam relevantes para o desempenho do SGI - considerar também os prestadores de serviços contínuos):", type: "multi_select", options: ["Assistente Social", "Sociólogo", "Técnico de Laboratório", "Piloto", "Técnicos em eletrotécnica", "Auxiliar de Enfermagem", "Técnico de Enfermagem", "Técnico Agrícola", "Técnico Industrial", "Médico", "Fonoaudiólogo", "Enfermeiro", "Nutricionista", "Químico", "Fisioterapeuta", "Terapeuta Ocupacional", "Dentista", "Engenheiro", "Bombeiro Civil", "Advogado / Consultor Jurídico", "Biomédico", "Farmacêutico", "Radiologista / Técnico de Raio X", "Arquiteto", "Agrônomo", "Médico Veterinário", "Profissional de Educação Física", "Geógrafo", "Geólogo", "Psicólogo", "Biólogo", "Oceanógrafo", "Nenhum dos Profissionais Listados", "Técnico de Segurança do Trabalho"], tags: { "Médico": ["profissional_medico"], "Enfermeiro": ["profissional_enfermeiro"], "Engenheiro": ["profissional_engenheiro"], "Técnico de Segurança do Trabalho": ["profissional_tst"], "Bombeiro Civil": ["profissional_bombeiro_civil"], "Farmacêutico": ["profissional_farmaceutico"], "Químico": ["profissional_quimico"], "Biólogo": ["profissional_biologo"] }, sortOrder: 2 },
+    { code: "prof_03", questionNumber: "3", text: "São contratados estudantes em regime de estágio?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["estagiarios"] }, sortOrder: 3 },
+  ],
+};
+
+const pcd: ThemeDef = {
+  code: "pcd",
+  name: "PCD",
+  description: "Questões sobre contratação de pessoas com deficiência e obrigatoriedade de cotas",
+  sortOrder: 15,
+  questions: [
+    { code: "pcd_01", questionNumber: "1", text: "A unidade possui mais de 100 empregados?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["mais_100_empregados", "cota_pcd"] }, sortOrder: 1 },
+    { code: "pcd_02", questionNumber: "2", text: "A empresa contrata pessoa com deficiência (PCD)?", type: "single_select", options: ["Sim", "Não Se Aplica"], tags: { "Sim": ["contrata_pcd"] }, sortOrder: 2 },
+  ],
+};
+
 export async function seedQuestionnaire() {
   await seedTheme(instalacoes);
   await seedTheme(produtosInsumos);
@@ -264,4 +322,8 @@ export async function seedQuestionnaire() {
   await seedTheme(recursosHidricos);
   await seedTheme(residuos);
   await seedTheme(equipamentos);
+  await seedTheme(emissoesAtmosfericas);
+  await seedTheme(energia);
+  await seedTheme(profissionais);
+  await seedTheme(pcd);
 }
