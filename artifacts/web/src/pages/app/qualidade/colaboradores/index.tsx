@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Search, Users, ChevronRight, ChevronLeft, Archive } from "lucide-react";
 import { useForm } from "react-hook-form";
 
@@ -245,14 +245,16 @@ export default function ColaboradoresPage() {
       <Dialog
         open={isCreateOpen}
         onOpenChange={setCreateOpen}
-        title="Novo Colaborador"
+        title="Novo colaborador"
+        description="Cadastre um novo colaborador na base da organização."
+        size="lg"
       >
-        <form onSubmit={handleSubmit(onCreateSubmit)} className="space-y-4">
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Nome *</Label>
-            <Input {...register("name", { required: true })} className="mt-1" placeholder="Nome completo" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={handleSubmit(onCreateSubmit)}>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">Nome completo *</Label>
+              <Input {...register("name", { required: true })} className="mt-1" placeholder="Nome completo" />
+            </div>
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">CPF</Label>
               <Input {...register("cpf")} className="mt-1" placeholder="000.000.000-00" />
@@ -261,34 +263,28 @@ export default function ColaboradoresPage() {
               <Label className="text-xs font-semibold text-muted-foreground">E-mail</Label>
               <Input {...register("email")} className="mt-1" type="email" placeholder="email@empresa.com" />
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">Telefone</Label>
               <Input {...register("phone")} className="mt-1" placeholder="(00) 00000-0000" />
             </div>
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Cargo</Label>
-              <Input {...register("position")} className="mt-1" placeholder="Ex: Analista Ambiental" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
               <Label className="text-xs font-semibold text-muted-foreground">Departamento</Label>
               <Input {...register("department")} className="mt-1" placeholder="Ex: SGQ" />
             </div>
             <div>
+              <Label className="text-xs font-semibold text-muted-foreground">Cargo</Label>
+              <Input {...register("position")} className="mt-1" placeholder="Ex: Analista Ambiental" />
+            </div>
+            <div>
               <Label className="text-xs font-semibold text-muted-foreground">Unidade</Label>
-              <select {...register("unitId", { setValueAs: (v) => v ? Number(v) : undefined })} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                <option value="">Selecione</option>
+              <select {...register("unitId", { setValueAs: (v) => v ? Number(v) : undefined })} className="mt-1 flex h-10 w-full border-b border-input bg-transparent px-0 py-2 text-[13px] focus:outline-none focus:border-foreground transition-colors cursor-pointer appearance-none">
+                <option value="">Selecionar unidade</option>
                 {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Tipo de Contrato</Label>
-              <select {...register("contractType")} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+              <Label className="text-xs font-semibold text-muted-foreground">Tipo de contrato</Label>
+              <select {...register("contractType")} className="mt-1 flex h-10 w-full border-b border-input bg-transparent px-0 py-2 text-[13px] focus:outline-none focus:border-foreground transition-colors cursor-pointer appearance-none">
                 <option value="clt">CLT</option>
                 <option value="pj">PJ</option>
                 <option value="intern">Estagiário</option>
@@ -296,18 +292,18 @@ export default function ColaboradoresPage() {
               </select>
             </div>
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Data de Admissão</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">Data de admissão</Label>
               <Input {...register("admissionDate")} className="mt-1" type="date" />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <DialogFooter>
             <Button type="button" variant="outline" size="sm" onClick={() => { setCreateOpen(false); reset(); }}>
               Cancelar
             </Button>
             <Button type="submit" size="sm" disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Criando..." : "Criar Colaborador"}
+              {createMutation.isPending ? "Criando..." : "Criar colaborador"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </Dialog>
     </>

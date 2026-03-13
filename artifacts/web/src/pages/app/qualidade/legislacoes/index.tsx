@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Upload, FileText, CheckCircle, AlertCircle, RefreshCw, SkipForward, Sparkles, Loader2 } from "lucide-react";
@@ -515,47 +515,47 @@ export default function LegislacoesPage() {
         </div>
       </Dialog>
 
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen} title="Cadastrar Legislação">
-        <form onSubmit={form.handleSubmit(onCreateSubmit)} className="space-y-4 mt-4">
-          <div>
-            <Label>Título (ex: Lei da Política Nacional do Meio Ambiente)</Label>
-            <Input {...form.register("title", { required: true })} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Número (ex: Lei 6.938/1981)</Label>
-              <Input {...form.register("number")} />
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen} title="Cadastrar Legislação" description="Adicione uma nova legislação ao sistema." size="lg">
+        <form onSubmit={form.handleSubmit(onCreateSubmit)}>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+            <div className="col-span-2">
+              <Label>Título</Label>
+              <Input {...form.register("title", { required: true })} placeholder="Ex: Lei da Política Nacional do Meio Ambiente" />
             </div>
             <div>
-              <Label>Data de Publicação</Label>
+              <Label>Número</Label>
+              <Input {...form.register("number")} placeholder="Ex: Lei 6.938/1981" />
+            </div>
+            <div>
+              <Label>Data de publicação</Label>
               <Input type="date" {...form.register("publicationDate")} />
             </div>
+            <div>
+              <Label>Nível / Esfera</Label>
+              <Select {...form.register("level")}>
+                <option value="federal">Federal</option>
+                <option value="estadual">Estadual</option>
+                <option value="municipal">Municipal</option>
+                <option value="internacional">Internacional</option>
+              </Select>
+            </div>
+            <div>
+              <Label>Artigos aplicáveis</Label>
+              <Input {...form.register("applicableArticles")} placeholder="Ex: Art. 2°, Art. 4°, Art. 9°" />
+            </div>
+            <div className="col-span-2">
+              <Label>Descrição / Ementa</Label>
+              <Textarea {...form.register("description")} placeholder="Resumo do conteúdo da legislação..." rows={2} />
+            </div>
+            <div className="col-span-2">
+              <Label>URL da fonte</Label>
+              <Input {...form.register("sourceUrl")} placeholder="https://..." />
+            </div>
           </div>
-          <div>
-            <Label>Nível / Esfera</Label>
-            <Select {...form.register("level")}>
-              <option value="federal">Federal</option>
-              <option value="estadual">Estadual</option>
-              <option value="municipal">Municipal</option>
-              <option value="internacional">Internacional</option>
-            </Select>
-          </div>
-          <div>
-            <Label>Descrição / Ementa</Label>
-            <Textarea {...form.register("description")} placeholder="Resumo do conteúdo da legislação..." rows={3} />
-          </div>
-          <div>
-            <Label>URL da Fonte (Diário Oficial)</Label>
-            <Input {...form.register("sourceUrl")} placeholder="https://..." />
-          </div>
-          <div>
-            <Label>Artigos Aplicáveis</Label>
-            <Input {...form.register("applicableArticles")} placeholder="ex: Art. 2°, Art. 4°, Art. 9°" />
-          </div>
-          <div className="pt-4 flex justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
-            <Button type="submit" isLoading={createMut.isPending}>Salvar</Button>
-          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
+            <Button type="submit" size="sm" isLoading={createMut.isPending}>Salvar</Button>
+          </DialogFooter>
         </form>
       </Dialog>
 
@@ -639,15 +639,16 @@ export default function LegislacoesPage() {
                 </p>
               )}
 
-              <div className="pt-2 flex justify-end gap-3">
-                <Button type="button" variant="ghost" onClick={resetImport}>Cancelar</Button>
+              <DialogFooter>
+                <Button type="button" variant="outline" size="sm" onClick={resetImport}>Cancelar</Button>
                 <Button 
+                  size="sm"
                   onClick={() => setImportStep(2)} 
                   disabled={!pendingFile || !importPreview}
                 >
                   Continuar
                 </Button>
-              </div>
+              </DialogFooter>
             </>
           ) : (
             <>
@@ -724,16 +725,17 @@ export default function LegislacoesPage() {
                 )}
               </div>
 
-              <div className="pt-2 flex justify-end gap-3">
-                <Button type="button" variant="ghost" onClick={() => setImportStep(1)}>Voltar</Button>
+              <DialogFooter>
+                <Button type="button" variant="outline" size="sm" onClick={() => setImportStep(1)}>Voltar</Button>
                 <Button 
+                  size="sm"
                   onClick={onConfirmImport} 
                   disabled={!pendingFile || !importPreview || importPreview.total === 0 || importMut.isPending}
                   isLoading={importMut.isPending}
                 >
                   Importar ({importPreview?.total || 0})
                 </Button>
-              </div>
+              </DialogFooter>
             </>
           )}
         </div>

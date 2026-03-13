@@ -32,7 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -441,22 +441,22 @@ function CompetenciasTab({
 
       <Dialog open={isCreateOpen} onOpenChange={setCreateOpen} title="Nova Competência">
         <CompetencyFormFields form={form} setForm={setForm} />
-        <div className="flex justify-end gap-2 pt-4">
+        <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
           <Button size="sm" onClick={handleCreate} disabled={!form.name || createMutation.isPending}>
             {createMutation.isPending ? "Salvando..." : "Salvar"}
           </Button>
-        </div>
+        </DialogFooter>
       </Dialog>
 
       <Dialog open={!!editingComp} onOpenChange={(open) => { if (!open) { setEditingComp(null); setForm(emptyForm); } }} title="Editar Competência">
         <CompetencyFormFields form={form} setForm={setForm} />
-        <div className="flex justify-end gap-2 pt-4">
+        <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => { setEditingComp(null); setForm(emptyForm); }}>Cancelar</Button>
           <Button size="sm" onClick={handleUpdate} disabled={!form.name || updateMutation.isPending}>
             {updateMutation.isPending ? "Salvando..." : "Atualizar"}
           </Button>
-        </div>
+        </DialogFooter>
       </Dialog>
     </div>
   );
@@ -637,22 +637,22 @@ function TreinamentosTab({
 
       <Dialog open={isCreateOpen} onOpenChange={setCreateOpen} title="Novo Treinamento">
         <TrainingFormFields form={form} setForm={setForm} />
-        <div className="flex justify-end gap-2 pt-4">
+        <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
           <Button size="sm" onClick={handleCreate} disabled={!form.title || createMutation.isPending}>
             {createMutation.isPending ? "Salvando..." : "Salvar"}
           </Button>
-        </div>
+        </DialogFooter>
       </Dialog>
 
       <Dialog open={!!editingTraining} onOpenChange={(open) => { if (!open) { setEditingTraining(null); setForm(emptyForm); } }} title="Editar Treinamento">
         <TrainingFormFields form={form} setForm={setForm} />
-        <div className="flex justify-end gap-2 pt-4">
+        <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => { setEditingTraining(null); setForm(emptyForm); }}>Cancelar</Button>
           <Button size="sm" onClick={handleUpdate} disabled={!form.title || updateMutation.isPending}>
             {updateMutation.isPending ? "Salvando..." : "Atualizar"}
           </Button>
-        </div>
+        </DialogFooter>
       </Dialog>
     </div>
   );
@@ -797,22 +797,22 @@ function ConscientizacaoTab({
 
       <Dialog open={isCreateOpen} onOpenChange={setCreateOpen} title="Novo Registro de Conscientização">
         <AwarenessFormFields form={form} setForm={setForm} />
-        <div className="flex justify-end gap-2 pt-4">
+        <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
           <Button size="sm" onClick={handleCreate} disabled={!form.topic || !form.date || createMutation.isPending}>
             {createMutation.isPending ? "Salvando..." : "Salvar"}
           </Button>
-        </div>
+        </DialogFooter>
       </Dialog>
 
       <Dialog open={!!editingAwareness} onOpenChange={(open) => { if (!open) { setEditingAwareness(null); setForm(emptyForm); } }} title="Editar Registro de Conscientização">
         <AwarenessFormFields form={form} setForm={setForm} />
-        <div className="flex justify-end gap-2 pt-4">
+        <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => { setEditingAwareness(null); setForm(emptyForm); }}>Cancelar</Button>
           <Button size="sm" onClick={handleUpdate} disabled={!form.topic || !form.date || updateMutation.isPending}>
             {updateMutation.isPending ? "Salvando..." : "Atualizar"}
           </Button>
-        </div>
+        </DialogFooter>
       </Dialog>
     </div>
   );

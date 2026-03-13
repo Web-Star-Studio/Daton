@@ -19,7 +19,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -575,11 +575,12 @@ export default function LegislationDetailPage() {
             ))}
           </Select>
           {availableUnits.length === 0 && <p className="text-sm text-amber-600">Todas as unidades já estão vinculadas.</p>}
-          <div className="pt-4 flex justify-end">
-            <Button onClick={onAssign} disabled={!selectedUnitId || assignMut.isPending} isLoading={assignMut.isPending}>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setIsAssignOpen(false)}>Cancelar</Button>
+            <Button size="sm" onClick={onAssign} disabled={!selectedUnitId || assignMut.isPending} isLoading={assignMut.isPending}>
               Confirmar Vínculo
             </Button>
-          </div>
+          </DialogFooter>
         </div>
       </Dialog>
 
@@ -672,10 +673,10 @@ export default function LegislationDetailPage() {
                 </Button>
               </div>
             </div>
-            <div className="pt-4 flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setEditingCompliance(null)}>Cancelar</Button>
-              <Button onClick={onSaveCompliance} isLoading={updateComplianceMut.isPending}>Salvar Avaliação</Button>
-            </div>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setEditingCompliance(null)}>Cancelar</Button>
+              <Button size="sm" onClick={onSaveCompliance} isLoading={updateComplianceMut.isPending}>Salvar Avaliação</Button>
+            </DialogFooter>
           </div>
         )}
       </Dialog>

@@ -5,7 +5,7 @@ import { useListUnits, useCreateUnit, useDeleteUnit, getListUnitsQueryKey, type 
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -203,10 +203,10 @@ export default function UnidadesPage() {
             </div>
           </div>
 
-          <div className="pt-4 flex justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-            <Button type="submit" isLoading={createUnitMut.isPending}>Salvar</Button>
-          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            <Button type="submit" size="sm" isLoading={createUnitMut.isPending}>Salvar</Button>
+          </DialogFooter>
         </form>
       </Dialog>
     </AppLayout>

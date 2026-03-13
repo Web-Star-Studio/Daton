@@ -3,7 +3,7 @@ import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -329,9 +329,9 @@ export default function OrganizacaoPage() {
         )
       )}
 
-      <Dialog open={unitDialogOpen} onOpenChange={setUnitDialogOpen} title="Nova Unidade">
-        <form onSubmit={unitForm.handleSubmit(onUnitSubmit)} className="space-y-5 mt-4">
-          <div className="grid grid-cols-2 gap-4">
+      <Dialog open={unitDialogOpen} onOpenChange={setUnitDialogOpen} title="Nova Unidade" description="Cadastre uma nova unidade organizacional." size="lg">
+        <form onSubmit={unitForm.handleSubmit(onUnitSubmit)}>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-5">
             <div>
               <Label>Nome</Label>
               <Input {...unitForm.register("name", { required: true })} placeholder="Ex: Filial Recife" />
@@ -340,8 +340,6 @@ export default function OrganizacaoPage() {
               <Label>Código</Label>
               <Input {...unitForm.register("code")} placeholder="FIL-001" />
             </div>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
             <div>
               <Label>Tipo</Label>
               <Select {...unitForm.register("type")}>
@@ -360,18 +358,18 @@ export default function OrganizacaoPage() {
               <Label>CNPJ</Label>
               <Input {...unitForm.register("cnpj")} placeholder="00.000.000/0000-00" />
             </div>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label>Telefone</Label>
+              <Input {...unitForm.register("phone")} placeholder="(00) 0000-0000" />
+            </div>
             <div>
               <Label>CEP</Label>
               <Input {...unitForm.register("cep")} placeholder="00000-000" />
             </div>
-            <div className="col-span-2">
+            <div>
               <Label>Endereço</Label>
               <Input {...unitForm.register("address")} placeholder="Rua, Avenida..." />
             </div>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
             <div>
               <Label>Número</Label>
               <Input {...unitForm.register("streetNumber")} placeholder="100" />
@@ -384,8 +382,6 @@ export default function OrganizacaoPage() {
               <Label>Cidade</Label>
               <Input {...unitForm.register("city")} placeholder="São Paulo" />
             </div>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
             <div>
               <Label>Estado (UF)</Label>
               <Input {...unitForm.register("state")} placeholder="SP" maxLength={2} />
@@ -394,65 +390,65 @@ export default function OrganizacaoPage() {
               <Label>País</Label>
               <Input {...unitForm.register("country")} placeholder="Brasil" />
             </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" size="sm" onClick={() => setUnitDialogOpen(false)}>Cancelar</Button>
+            <Button type="submit" size="sm" isLoading={createUnitMut.isPending}>Salvar</Button>
+          </DialogFooter>
+        </form>
+      </Dialog>
+
+      <Dialog open={deptDialogOpen} onOpenChange={setDeptDialogOpen} title={editingDeptId ? "Editar Departamento" : "Novo Departamento"} description="Defina os departamentos da organização.">
+        <form onSubmit={deptForm.handleSubmit(onDeptSubmit)}>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-5">
             <div>
-              <Label>Telefone</Label>
-              <Input {...unitForm.register("phone")} placeholder="(00) 0000-0000" />
+              <Label>Nome</Label>
+              <Input {...deptForm.register("name", { required: true })} placeholder="Nome do departamento" />
+            </div>
+            <div>
+              <Label>Descrição</Label>
+              <Input {...deptForm.register("description")} placeholder="Descrição (opcional)" />
             </div>
           </div>
-          <div className="pt-4 flex justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={() => setUnitDialogOpen(false)}>Cancelar</Button>
-            <Button type="submit" isLoading={createUnitMut.isPending}>Salvar</Button>
-          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" size="sm" onClick={() => setDeptDialogOpen(false)}>Cancelar</Button>
+            <Button type="submit" size="sm" isLoading={createDeptMut.isPending || updateDeptMut.isPending}>{editingDeptId ? "Atualizar" : "Salvar"}</Button>
+          </DialogFooter>
         </form>
       </Dialog>
 
-      <Dialog open={deptDialogOpen} onOpenChange={setDeptDialogOpen} title={editingDeptId ? "Editar Departamento" : "Novo Departamento"}>
-        <form onSubmit={deptForm.handleSubmit(onDeptSubmit)} className="space-y-5 mt-4">
-          <div>
-            <Label>Nome</Label>
-            <Input {...deptForm.register("name", { required: true })} placeholder="Nome do departamento" />
+      <Dialog open={posDialogOpen} onOpenChange={setPosDialogOpen} title={editingPosId ? "Editar Cargo" : "Novo Cargo"} description="Defina os cargos e requisitos da organização." size="lg">
+        <form onSubmit={posForm.handleSubmit(onPosSubmit)}>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+            <div>
+              <Label>Título</Label>
+              <Input {...posForm.register("name", { required: true })} placeholder="Título do cargo" />
+            </div>
+            <div>
+              <Label>Escolaridade</Label>
+              <Input {...posForm.register("education")} placeholder="Ex: Ensino Superior em Engenharia" />
+            </div>
+            <div>
+              <Label>Tempo de experiência</Label>
+              <Input {...posForm.register("experience")} placeholder="Ex: 2 anos na área" />
+            </div>
+            <div>
+              <Label>Descrição</Label>
+              <Input {...posForm.register("description")} placeholder="Descrição do cargo" />
+            </div>
+            <div className="col-span-2">
+              <Label>Requisitos</Label>
+              <Textarea {...posForm.register("requirements")} placeholder="Requisitos do cargo" rows={2} />
+            </div>
+            <div className="col-span-2">
+              <Label>Responsabilidades</Label>
+              <Textarea {...posForm.register("responsibilities")} placeholder="Responsabilidades do cargo" rows={2} />
+            </div>
           </div>
-          <div>
-            <Label>Descrição</Label>
-            <Input {...deptForm.register("description")} placeholder="Descrição (opcional)" />
-          </div>
-          <div className="pt-4 flex justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={() => setDeptDialogOpen(false)}>Cancelar</Button>
-            <Button type="submit" isLoading={createDeptMut.isPending || updateDeptMut.isPending}>{editingDeptId ? "Atualizar" : "Salvar"}</Button>
-          </div>
-        </form>
-      </Dialog>
-
-      <Dialog open={posDialogOpen} onOpenChange={setPosDialogOpen} title={editingPosId ? "Editar Cargo" : "Novo Cargo"}>
-        <form onSubmit={posForm.handleSubmit(onPosSubmit)} className="space-y-5 mt-4">
-          <div>
-            <Label>Título</Label>
-            <Input {...posForm.register("name", { required: true })} placeholder="Título do cargo" />
-          </div>
-          <div>
-            <Label>Descrição</Label>
-            <Textarea {...posForm.register("description")} placeholder="Descrição do cargo" rows={2} />
-          </div>
-          <div>
-            <Label>Escolaridade</Label>
-            <Input {...posForm.register("education")} placeholder="Ex: Ensino Superior em Engenharia" />
-          </div>
-          <div>
-            <Label>Tempo de Experiência</Label>
-            <Input {...posForm.register("experience")} placeholder="Ex: 2 anos na área" />
-          </div>
-          <div>
-            <Label>Requisitos</Label>
-            <Textarea {...posForm.register("requirements")} placeholder="Requisitos do cargo" rows={3} />
-          </div>
-          <div>
-            <Label>Responsabilidades</Label>
-            <Textarea {...posForm.register("responsibilities")} placeholder="Responsabilidades do cargo" rows={3} />
-          </div>
-          <div className="pt-4 flex justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={() => setPosDialogOpen(false)}>Cancelar</Button>
-            <Button type="submit" isLoading={createPosMut.isPending || updatePosMut.isPending}>{editingPosId ? "Atualizar" : "Salvar"}</Button>
-          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" size="sm" onClick={() => setPosDialogOpen(false)}>Cancelar</Button>
+            <Button type="submit" size="sm" isLoading={createPosMut.isPending || updatePosMut.isPending}>{editingPosId ? "Atualizar" : "Salvar"}</Button>
+          </DialogFooter>
         </form>
       </Dialog>
     </>
