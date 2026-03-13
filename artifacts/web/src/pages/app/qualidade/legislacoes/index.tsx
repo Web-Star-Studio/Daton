@@ -543,18 +543,6 @@ export default function LegislacoesPage() {
                   style={{ width: `${autoTagProgress.total > 0 ? (autoTagProgress.current / autoTagProgress.total) * 100 : 0}%` }} 
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3 text-[13px]">
-                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-center">
-                  <p className="text-xl font-bold text-emerald-700">{autoTagProgress.tagged}</p>
-                  <p className="text-emerald-600">classificadas</p>
-                </div>
-                {autoTagProgress.errors > 0 && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
-                    <p className="text-xl font-bold text-red-700">{autoTagProgress.errors}</p>
-                    <p className="text-red-600">erros</p>
-                  </div>
-                )}
-              </div>
             </div>
           ) : (
             <div className="py-4 text-center">
