@@ -157,17 +157,10 @@ export function ChatPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     setActiveQuery(null);
   };
 
-  return (
-    <>
-      {isOpen && (
-        <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
-      )}
+  if (!isOpen) return null;
 
-      <div
-        className={`fixed top-0 right-0 h-full w-[400px] max-w-[90vw] bg-white border-l border-border shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-in-out ${
-          isOpen ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
+  return (
+      <div className="w-[360px] flex-shrink-0 bg-white border-l border-border/60 flex flex-col h-full">
         <div className="h-14 flex items-center justify-between px-4 border-b border-border/60 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-primary" />
@@ -264,7 +257,6 @@ export function ChatPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
           </div>
         </div>
       </div>
-    </>
   );
 }
 

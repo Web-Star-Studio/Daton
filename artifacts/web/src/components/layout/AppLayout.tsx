@@ -112,12 +112,23 @@ export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps
         </div>
 
         <div className="px-2.5 py-3 border-t border-border/60">
-          <div className={cn("flex items-center", isSidebarOpen ? "gap-2" : "justify-center")}>
-            <div className="h-7 w-7 rounded-full bg-foreground/5 text-foreground/60 flex items-center justify-center text-xs font-medium shrink-0">
-              {user?.name?.charAt(0).toUpperCase() || "U"}
+          <div className={cn("flex items-center", isSidebarOpen ? "gap-2 justify-between" : "justify-center")}>
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-full bg-foreground/5 text-foreground/60 flex items-center justify-center text-xs font-medium shrink-0">
+                {user?.name?.charAt(0).toUpperCase() || "U"}
+              </div>
+              {isSidebarOpen && (
+                <span className="text-[13px] text-muted-foreground truncate">{user?.name}</span>
+              )}
             </div>
             {isSidebarOpen && (
-              <span className="text-[13px] text-muted-foreground truncate">{user?.name}</span>
+              <button
+                onClick={logout}
+                className="p-1.5 rounded text-muted-foreground/50 hover:text-foreground transition-colors cursor-pointer"
+                title="Sair"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
             )}
           </div>
         </div>
@@ -163,13 +174,6 @@ export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps
             >
               <Sparkles className="h-4 w-4" />
             </button>
-            <button
-              onClick={logout}
-              className="flex items-center text-[13px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer ml-1"
-            >
-              <LogOut className="h-4 w-4 mr-1.5" />
-              Sair
-            </button>
           </div>
         </header>
         
@@ -180,7 +184,7 @@ export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps
         </div>
       </main>
 
-      <ChatPanel isOpen={isChatOpen} onClose={() => setChatOpen(false)} />
+      {isChatOpen && <ChatPanel isOpen={isChatOpen} onClose={() => setChatOpen(false)} />}
     </div>
   );
 }
