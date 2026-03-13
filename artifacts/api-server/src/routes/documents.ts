@@ -762,6 +762,11 @@ router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, a
   const docId = params.data.docId;
   const userId = req.auth!.userId;
 
+  const [doc2] = await db.select().from(documentsTable)
+    .where(and(eq(documentsTable.id, docId), eq(documentsTable.organizationId, orgId)));
+  if (!doc2) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+  if (doc2.status !== "distributed") { res.status(400).json({ error: "Documento não está distribuído" }); return; }
+
   const [recipient] = await db.select().from(documentRecipientsTable)
     .where(and(eq(documentRecipientsTable.documentId, docId), eq(documentRecipientsTable.userId, userId)));
   if (!recipient) { res.status(403).json({ error: "Você não é um destinatário deste documento" }); return; }
