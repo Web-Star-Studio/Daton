@@ -88,16 +88,16 @@ export default function ColaboradoresPage() {
 
   if (!orgId) return null;
 
-  return (
-    <AppLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-end">
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Novo Colaborador
-          </Button>
-        </div>
+  const headerActions = (
+    <Button size="sm" onClick={() => setCreateOpen(true)}>
+      <Plus className="h-3.5 w-3.5 mr-1.5" />
+      Novo Colaborador
+    </Button>
+  );
 
+  return (
+    <AppLayout headerActions={headerActions}>
+      <div className="space-y-6">
         <div className="grid grid-cols-4 gap-4">
           <div className="bg-white border border-border/60 rounded-xl px-4 py-3">
             <p className="text-xs font-medium text-muted-foreground">Total</p>
