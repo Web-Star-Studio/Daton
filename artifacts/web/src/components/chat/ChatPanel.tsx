@@ -163,7 +163,6 @@ export function ChatPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
       <div className="w-[360px] flex-shrink-0 bg-white border-l border-border/60 flex flex-col h-full">
         <div className="h-14 flex items-center justify-between px-4 border-b border-border/60 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-primary" />
             <span className="text-[13px] font-semibold">Daton AI</span>
           </div>
           <div className="flex items-center gap-1">
