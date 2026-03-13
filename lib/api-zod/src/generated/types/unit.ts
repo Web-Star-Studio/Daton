@@ -5,19 +5,35 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { UnitStatus } from "./unitStatus";
 import type { UnitType } from "./unitType";
 
 export interface Unit {
   id: number;
   organizationId: number;
   name: string;
+  /** @nullable */
+  code?: string | null;
   type: UnitType;
   /** @nullable */
-  address: string | null;
+  cnpj?: string | null;
+  status: UnitStatus;
   /** @nullable */
-  city: string | null;
+  cep?: string | null;
   /** @nullable */
-  state: string | null;
+  address?: string | null;
+  /** @nullable */
+  streetNumber?: string | null;
+  /** @nullable */
+  neighborhood?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  country?: string | null;
+  /** @nullable */
+  phone?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

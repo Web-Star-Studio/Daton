@@ -1003,6 +1003,11 @@ components:
           type: array
           items:
             type: string
+        matchedTags:
+          type: array
+          items:
+            type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time

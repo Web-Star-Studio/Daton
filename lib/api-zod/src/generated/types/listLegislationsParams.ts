@@ -6,10 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ListLegislationsLevel } from "./listLegislationsLevel";
-import type { ListLegislationsStatus } from "./listLegislationsStatus";
 
 export type ListLegislationsParams = {
   search?: string;
   level?: ListLegislationsLevel;
-  status?: ListLegislationsStatus;
+  /**
+   * Filter legislations by unit compliance tags
+   */
+  unitId?: number;
 };

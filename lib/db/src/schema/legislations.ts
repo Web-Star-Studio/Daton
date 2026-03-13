@@ -25,8 +25,8 @@ export const legislationsTable = pgTable("legislations", {
   reviewFrequencyDays: integer("review_frequency_days"),
   observations: text("observations"),
   generalObservations: text("general_observations"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 

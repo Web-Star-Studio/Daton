@@ -117,18 +117,18 @@ export const ListUnitsResponseItem = zod.object({
   id: zod.number(),
   organizationId: zod.number(),
   name: zod.string(),
-  code: zod.string().nullable(),
+  code: zod.string().nullish(),
   type: zod.enum(["sede", "filial"]),
-  cnpj: zod.string().nullable(),
+  cnpj: zod.string().nullish(),
   status: zod.enum(["ativa", "inativa"]),
-  cep: zod.string().nullable(),
-  address: zod.string().nullable(),
-  streetNumber: zod.string().nullable(),
-  neighborhood: zod.string().nullable(),
-  city: zod.string().nullable(),
-  state: zod.string().nullable(),
-  country: zod.string().nullable(),
-  phone: zod.string().nullable(),
+  cep: zod.string().nullish(),
+  address: zod.string().nullish(),
+  streetNumber: zod.string().nullish(),
+  neighborhood: zod.string().nullish(),
+  city: zod.string().nullish(),
+  state: zod.string().nullish(),
+  country: zod.string().nullish(),
+  phone: zod.string().nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -169,18 +169,18 @@ export const GetUnitResponse = zod.object({
   id: zod.number(),
   organizationId: zod.number(),
   name: zod.string(),
-  code: zod.string().nullable(),
+  code: zod.string().nullish(),
   type: zod.enum(["sede", "filial"]),
-  cnpj: zod.string().nullable(),
+  cnpj: zod.string().nullish(),
   status: zod.enum(["ativa", "inativa"]),
-  cep: zod.string().nullable(),
-  address: zod.string().nullable(),
-  streetNumber: zod.string().nullable(),
-  neighborhood: zod.string().nullable(),
-  city: zod.string().nullable(),
-  state: zod.string().nullable(),
-  country: zod.string().nullable(),
-  phone: zod.string().nullable(),
+  cep: zod.string().nullish(),
+  address: zod.string().nullish(),
+  streetNumber: zod.string().nullish(),
+  neighborhood: zod.string().nullish(),
+  city: zod.string().nullish(),
+  state: zod.string().nullish(),
+  country: zod.string().nullish(),
+  phone: zod.string().nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -213,18 +213,18 @@ export const UpdateUnitResponse = zod.object({
   id: zod.number(),
   organizationId: zod.number(),
   name: zod.string(),
-  code: zod.string().nullable(),
+  code: zod.string().nullish(),
   type: zod.enum(["sede", "filial"]),
-  cnpj: zod.string().nullable(),
+  cnpj: zod.string().nullish(),
   status: zod.enum(["ativa", "inativa"]),
-  cep: zod.string().nullable(),
-  address: zod.string().nullable(),
-  streetNumber: zod.string().nullable(),
-  neighborhood: zod.string().nullable(),
-  city: zod.string().nullable(),
-  state: zod.string().nullable(),
-  country: zod.string().nullable(),
-  phone: zod.string().nullable(),
+  cep: zod.string().nullish(),
+  address: zod.string().nullish(),
+  streetNumber: zod.string().nullish(),
+  neighborhood: zod.string().nullish(),
+  city: zod.string().nullish(),
+  state: zod.string().nullish(),
+  country: zod.string().nullish(),
+  phone: zod.string().nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -246,31 +246,37 @@ export const ListLegislationsParams = zod.object({
 
 export const ListLegislationsQueryParams = zod.object({
   search: zod.coerce.string().optional(),
-  level: zod.string().optional(),
-  unitId: zod.coerce.number().optional(),
+  level: zod
+    .enum(["federal", "estadual", "municipal", "internacional"])
+    .optional(),
+  unitId: zod.coerce
+    .number()
+    .optional()
+    .describe("Filter legislations by unit compliance tags"),
 });
 
 export const ListLegislationsResponseItem = zod.object({
   id: zod.number(),
   organizationId: zod.number(),
   title: zod.string(),
-  number: zod.string().nullable(),
-  description: zod.string().nullable(),
-  tipoNorma: zod.string().nullable(),
-  emissor: zod.string().nullable(),
+  number: zod.string().nullish(),
+  description: zod.string().nullish(),
+  tipoNorma: zod.string().nullish(),
+  emissor: zod.string().nullish(),
   level: zod.string(),
-  uf: zod.string().nullable(),
-  municipality: zod.string().nullable(),
-  macrotema: zod.string().nullable(),
-  subtema: zod.string().nullable(),
-  applicability: zod.string().nullable(),
-  publicationDate: zod.string().nullable(),
-  sourceUrl: zod.string().nullable(),
-  applicableArticles: zod.string().nullable(),
-  reviewFrequencyDays: zod.number().nullable(),
-  observations: zod.string().nullable(),
-  generalObservations: zod.string().nullable(),
+  uf: zod.string().nullish(),
+  municipality: zod.string().nullish(),
+  macrotema: zod.string().nullish(),
+  subtema: zod.string().nullish(),
+  applicability: zod.string().nullish(),
+  publicationDate: zod.date().nullish(),
+  sourceUrl: zod.string().nullish(),
+  applicableArticles: zod.string().nullish(),
+  reviewFrequencyDays: zod.number().nullish(),
+  observations: zod.string().nullish(),
+  generalObservations: zod.string().nullish(),
   tags: zod.array(zod.string()),
+  matchedTags: zod.array(zod.string()).nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -295,7 +301,7 @@ export const CreateLegislationBody = zod.object({
   macrotema: zod.string().optional(),
   subtema: zod.string().optional(),
   applicability: zod.string().optional(),
-  publicationDate: zod.string().optional(),
+  publicationDate: zod.date().optional(),
   sourceUrl: zod.string().optional(),
   applicableArticles: zod.string().optional(),
   reviewFrequencyDays: zod.number().optional(),
@@ -312,8 +318,34 @@ export const ImportLegislationsParams = zod.object({
 });
 
 export const ImportLegislationsBody = zod.object({
-  legislations: zod.array(CreateLegislationBody),
-  conflictStrategy: zod.enum(["skip", "update"]).optional(),
+  legislations: zod.array(
+    zod.object({
+      title: zod.string(),
+      number: zod.string().optional(),
+      description: zod.string().optional(),
+      tipoNorma: zod.string().optional(),
+      emissor: zod.string().optional(),
+      level: zod.string(),
+      uf: zod.string().optional(),
+      municipality: zod.string().optional(),
+      macrotema: zod.string().optional(),
+      subtema: zod.string().optional(),
+      applicability: zod.string().optional(),
+      publicationDate: zod.date().optional(),
+      sourceUrl: zod.string().optional(),
+      applicableArticles: zod.string().optional(),
+      reviewFrequencyDays: zod.number().optional(),
+      observations: zod.string().optional(),
+      generalObservations: zod.string().optional(),
+      tags: zod.array(zod.string()).optional(),
+    }),
+  ),
+  conflictStrategy: zod
+    .enum(["skip", "update"])
+    .optional()
+    .describe(
+      "How to handle legislations that already exist (matched by tipoNorma + number)",
+    ),
 });
 
 /**
@@ -328,22 +360,22 @@ export const GetLegislationResponse = zod.object({
   id: zod.number(),
   organizationId: zod.number(),
   title: zod.string(),
-  number: zod.string().nullable(),
-  description: zod.string().nullable(),
-  tipoNorma: zod.string().nullable(),
-  emissor: zod.string().nullable(),
+  number: zod.string().nullish(),
+  description: zod.string().nullish(),
+  tipoNorma: zod.string().nullish(),
+  emissor: zod.string().nullish(),
   level: zod.string(),
-  uf: zod.string().nullable(),
-  municipality: zod.string().nullable(),
-  macrotema: zod.string().nullable(),
-  subtema: zod.string().nullable(),
-  applicability: zod.string().nullable(),
-  publicationDate: zod.string().nullable(),
-  sourceUrl: zod.string().nullable(),
-  applicableArticles: zod.string().nullable(),
-  reviewFrequencyDays: zod.number().nullable(),
-  observations: zod.string().nullable(),
-  generalObservations: zod.string().nullable(),
+  uf: zod.string().nullish(),
+  municipality: zod.string().nullish(),
+  macrotema: zod.string().nullish(),
+  subtema: zod.string().nullish(),
+  applicability: zod.string().nullish(),
+  publicationDate: zod.date().nullish(),
+  sourceUrl: zod.string().nullish(),
+  applicableArticles: zod.string().nullish(),
+  reviewFrequencyDays: zod.number().nullish(),
+  observations: zod.string().nullish(),
+  generalObservations: zod.string().nullish(),
   tags: zod.array(zod.string()),
   createdAt: zod.date(),
   updatedAt: zod.date(),
@@ -367,10 +399,18 @@ export const GetLegislationResponse = zod.object({
         id: zod.number(),
         organizationId: zod.number(),
         name: zod.string(),
+        code: zod.string().nullish(),
         type: zod.enum(["sede", "filial"]),
-        address: zod.string().nullable(),
-        city: zod.string().nullable(),
-        state: zod.string().nullable(),
+        cnpj: zod.string().nullish(),
+        status: zod.enum(["ativa", "inativa"]),
+        cep: zod.string().nullish(),
+        address: zod.string().nullish(),
+        streetNumber: zod.string().nullish(),
+        neighborhood: zod.string().nullish(),
+        city: zod.string().nullish(),
+        state: zod.string().nullish(),
+        country: zod.string().nullish(),
+        phone: zod.string().nullish(),
         createdAt: zod.date(),
         updatedAt: zod.date(),
       }),
@@ -398,7 +438,7 @@ export const UpdateLegislationBody = zod.object({
   macrotema: zod.string().optional(),
   subtema: zod.string().optional(),
   applicability: zod.string().optional(),
-  publicationDate: zod.string().optional(),
+  publicationDate: zod.date().optional(),
   sourceUrl: zod.string().optional(),
   applicableArticles: zod.string().optional(),
   reviewFrequencyDays: zod.number().optional(),
@@ -411,23 +451,24 @@ export const UpdateLegislationResponse = zod.object({
   id: zod.number(),
   organizationId: zod.number(),
   title: zod.string(),
-  number: zod.string().nullable(),
-  description: zod.string().nullable(),
-  tipoNorma: zod.string().nullable(),
-  emissor: zod.string().nullable(),
+  number: zod.string().nullish(),
+  description: zod.string().nullish(),
+  tipoNorma: zod.string().nullish(),
+  emissor: zod.string().nullish(),
   level: zod.string(),
-  uf: zod.string().nullable(),
-  municipality: zod.string().nullable(),
-  macrotema: zod.string().nullable(),
-  subtema: zod.string().nullable(),
-  applicability: zod.string().nullable(),
-  publicationDate: zod.string().nullable(),
-  sourceUrl: zod.string().nullable(),
-  applicableArticles: zod.string().nullable(),
-  reviewFrequencyDays: zod.number().nullable(),
-  observations: zod.string().nullable(),
-  generalObservations: zod.string().nullable(),
+  uf: zod.string().nullish(),
+  municipality: zod.string().nullish(),
+  macrotema: zod.string().nullish(),
+  subtema: zod.string().nullish(),
+  applicability: zod.string().nullish(),
+  publicationDate: zod.date().nullish(),
+  sourceUrl: zod.string().nullish(),
+  applicableArticles: zod.string().nullish(),
+  reviewFrequencyDays: zod.number().nullish(),
+  observations: zod.string().nullish(),
+  generalObservations: zod.string().nullish(),
   tags: zod.array(zod.string()),
+  matchedTags: zod.array(zod.string()).nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -467,10 +508,18 @@ export const ListLegislationUnitsResponseItem = zod.object({
     id: zod.number(),
     organizationId: zod.number(),
     name: zod.string(),
+    code: zod.string().nullish(),
     type: zod.enum(["sede", "filial"]),
-    address: zod.string().nullable(),
-    city: zod.string().nullable(),
-    state: zod.string().nullable(),
+    cnpj: zod.string().nullish(),
+    status: zod.enum(["ativa", "inativa"]),
+    cep: zod.string().nullish(),
+    address: zod.string().nullish(),
+    streetNumber: zod.string().nullish(),
+    neighborhood: zod.string().nullish(),
+    city: zod.string().nullish(),
+    state: zod.string().nullish(),
+    country: zod.string().nullish(),
+    phone: zod.string().nullish(),
     createdAt: zod.date(),
     updatedAt: zod.date(),
   }),
@@ -531,10 +580,18 @@ export const UpdateUnitLegislationResponse = zod.object({
     id: zod.number(),
     organizationId: zod.number(),
     name: zod.string(),
+    code: zod.string().nullish(),
     type: zod.enum(["sede", "filial"]),
-    address: zod.string().nullable(),
-    city: zod.string().nullable(),
-    state: zod.string().nullable(),
+    cnpj: zod.string().nullish(),
+    status: zod.enum(["ativa", "inativa"]),
+    cep: zod.string().nullish(),
+    address: zod.string().nullish(),
+    streetNumber: zod.string().nullish(),
+    neighborhood: zod.string().nullish(),
+    city: zod.string().nullish(),
+    state: zod.string().nullish(),
+    country: zod.string().nullish(),
+    phone: zod.string().nullish(),
     createdAt: zod.date(),
     updatedAt: zod.date(),
   }),
@@ -576,13 +633,24 @@ export const ListUnitLegislationsResponseItem = zod.object({
     id: zod.number(),
     organizationId: zod.number(),
     title: zod.string(),
-    number: zod.string().nullable(),
-    description: zod.string().nullable(),
-    level: zod.enum(["federal", "estadual", "municipal", "internacional"]),
-    status: zod.enum(["vigente", "revogada", "alterada"]),
-    publicationDate: zod.string().nullable(),
-    sourceUrl: zod.string().nullable(),
-    applicableArticles: zod.string().nullable(),
+    number: zod.string().nullish(),
+    description: zod.string().nullish(),
+    tipoNorma: zod.string().nullish(),
+    emissor: zod.string().nullish(),
+    level: zod.string(),
+    uf: zod.string().nullish(),
+    municipality: zod.string().nullish(),
+    macrotema: zod.string().nullish(),
+    subtema: zod.string().nullish(),
+    applicability: zod.string().nullish(),
+    publicationDate: zod.date().nullish(),
+    sourceUrl: zod.string().nullish(),
+    applicableArticles: zod.string().nullish(),
+    reviewFrequencyDays: zod.number().nullish(),
+    observations: zod.string().nullish(),
+    generalObservations: zod.string().nullish(),
+    tags: zod.array(zod.string()),
+    matchedTags: zod.array(zod.string()).nullish(),
     createdAt: zod.date(),
     updatedAt: zod.date(),
   }),
@@ -591,116 +659,101 @@ export const ListUnitLegislationsResponse = zod.array(
   ListUnitLegislationsResponseItem,
 );
 
-export const RequestUploadUrlBody = zod.object({
-  name: zod.string().min(1),
-  size: zod.number().int().min(1),
-  contentType: zod.string().min(1),
-});
-
-export const RequestUploadUrlResponse = zod.object({
-  uploadURL: zod.string(),
-  objectPath: zod.string(),
-  metadata: zod.object({
-    name: zod.string(),
-    size: zod.number(),
-    contentType: zod.string(),
-  }).optional(),
-});
-
-export const EvidenceAttachmentResponse = zod.object({
-  id: zod.number(),
-  unitLegislationId: zod.number(),
-  fileName: zod.string(),
-  fileSize: zod.number(),
-  contentType: zod.string(),
-  objectPath: zod.string(),
-  uploadedAt: zod.string(),
-});
-
-export const CreateEvidenceAttachmentBody = zod.object({
-  fileName: zod.string().min(1),
-  fileSize: zod.number().int().min(1),
-  contentType: zod.string().min(1),
-  objectPath: zod.string().min(1),
-});
-
-export const EvidenceAttachmentParams = zod.object({
-  orgId: zod.coerce.number(),
-  legId: zod.coerce.number(),
-  unitId: zod.coerce.number(),
-});
-
-export const DeleteEvidenceAttachmentParams = zod.object({
-  orgId: zod.coerce.number(),
-  legId: zod.coerce.number(),
-  unitId: zod.coerce.number(),
-  attachmentId: zod.coerce.number(),
-});
+/**
+ * Returns all unique tag strings from the questionnaire questions tags JSONB column, sorted alphabetically
+ * @summary Get full compliance tag vocabulary
+ */
+export const GetComplianceTagVocabularyResponseItem = zod.string();
+export const GetComplianceTagVocabularyResponse = zod.array(
+  GetComplianceTagVocabularyResponseItem,
+);
 
 /**
- * @summary Questionnaire
+ * @summary List questionnaire themes with questions
  */
 export const ListQuestionnaireThemesParams = zod.object({
   orgId: zod.coerce.number(),
 });
 
-export const QuestionnaireQuestionItem = zod.object({
-  id: zod.number(),
-  code: zod.string(),
-  questionNumber: zod.string(),
-  text: zod.string(),
-  type: zod.enum(["single_select", "multi_select", "text"]),
-  options: zod.array(zod.string()).nullable(),
-  conditionalOn: zod.string().nullable(),
-  conditionalValue: zod.string().nullable(),
-  sortOrder: zod.number(),
-});
-
-export const QuestionnaireThemeItem = zod.object({
+export const ListQuestionnaireThemesResponseItem = zod.object({
   id: zod.number(),
   code: zod.string(),
   name: zod.string(),
-  description: zod.string().nullable(),
+  description: zod.string().nullish(),
   sortOrder: zod.number(),
-  questions: zod.array(QuestionnaireQuestionItem),
+  questions: zod.array(
+    zod.object({
+      id: zod.number(),
+      code: zod.string(),
+      questionNumber: zod.string(),
+      text: zod.string(),
+      type: zod.enum(["single_select", "multi_select", "text"]),
+      options: zod.array(zod.string()).nullish(),
+      conditionalOn: zod.string().nullish(),
+      conditionalValue: zod.string().nullish(),
+      sortOrder: zod.number(),
+    }),
+  ),
 });
+export const ListQuestionnaireThemesResponse = zod.array(
+  ListQuestionnaireThemesResponseItem,
+);
 
+/**
+ * @summary Get saved responses for a unit
+ */
 export const GetUnitQuestionnaireResponsesParams = zod.object({
   orgId: zod.coerce.number(),
   unitId: zod.coerce.number(),
 });
 
+export const GetUnitQuestionnaireResponsesResponse = zod.record(
+  zod.string(),
+  zod.unknown(),
+);
+
+/**
+ * @summary Save questionnaire responses for a unit
+ */
 export const SaveUnitQuestionnaireResponsesParams = zod.object({
   orgId: zod.coerce.number(),
   unitId: zod.coerce.number(),
 });
 
 export const SaveUnitQuestionnaireResponsesBody = zod.object({
-  answers: zod.record(zod.string(), zod.any()),
+  answers: zod.record(zod.string(), zod.unknown()),
 });
 
+export const SaveUnitQuestionnaireResponsesResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Submit questionnaire and generate compliance tags
+ */
 export const SubmitUnitQuestionnaireParams = zod.object({
   orgId: zod.coerce.number(),
   unitId: zod.coerce.number(),
 });
 
-export const SubmitQuestionnaireResponse = zod.object({
+export const SubmitUnitQuestionnaireResponse = zod.object({
   tags: zod.array(zod.string()),
   count: zod.number(),
 });
 
+/**
+ * @summary Get compliance tags for a unit
+ */
 export const GetUnitComplianceTagsParams = zod.object({
   orgId: zod.coerce.number(),
   unitId: zod.coerce.number(),
 });
 
-export const ComplianceTagItem = zod.object({
+export const GetUnitComplianceTagsResponseItem = zod.object({
   id: zod.number(),
   tag: zod.string(),
-  sourceQuestionId: zod.number().nullable(),
+  sourceQuestionId: zod.number().nullish(),
 });
-
-/**
- * @summary Get full compliance tag vocabulary
- */
-export const ComplianceTagVocabularyResponse = zod.array(zod.string());
+export const GetUnitComplianceTagsResponse = zod.array(
+  GetUnitComplianceTagsResponseItem,
+);

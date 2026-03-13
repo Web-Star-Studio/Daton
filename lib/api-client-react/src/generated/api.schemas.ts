@@ -68,8 +68,7 @@ export const UnitType = {
   filial: "filial",
 } as const;
 
-export type UnitStatus =
-  (typeof UnitStatus)[keyof typeof UnitStatus];
+export type UnitStatus = (typeof UnitStatus)[keyof typeof UnitStatus];
 
 export const UnitStatus = {
   ativa: "ativa",
@@ -81,27 +80,27 @@ export interface Unit {
   organizationId: number;
   name: string;
   /** @nullable */
-  code: string | null;
+  code?: string | null;
   type: UnitType;
   /** @nullable */
-  cnpj: string | null;
+  cnpj?: string | null;
   status: UnitStatus;
   /** @nullable */
-  cep: string | null;
+  cep?: string | null;
   /** @nullable */
-  address: string | null;
+  address?: string | null;
   /** @nullable */
-  streetNumber: string | null;
+  streetNumber?: string | null;
   /** @nullable */
-  neighborhood: string | null;
+  neighborhood?: string | null;
   /** @nullable */
-  city: string | null;
+  city?: string | null;
   /** @nullable */
-  state: string | null;
+  state?: string | null;
   /** @nullable */
-  country: string | null;
+  country?: string | null;
   /** @nullable */
-  phone: string | null;
+  phone?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -170,74 +169,46 @@ export interface UpdateUnitBody {
   phone?: string;
 }
 
-export type LegislationLevel =
-  (typeof LegislationLevel)[keyof typeof LegislationLevel];
-
-export const LegislationLevel = {
-  federal: "federal",
-  estadual: "estadual",
-  municipal: "municipal",
-  internacional: "internacional",
-} as const;
-
-export type LegislationStatus =
-  (typeof LegislationStatus)[keyof typeof LegislationStatus];
-
-export const LegislationStatus = {
-  vigente: "vigente",
-  revogada: "revogada",
-  alterada: "alterada",
-} as const;
-
 export interface Legislation {
   id: number;
   organizationId: number;
   title: string;
   /** @nullable */
-  number: string | null;
+  number?: string | null;
   /** @nullable */
-  description: string | null;
+  description?: string | null;
   /** @nullable */
-  tipoNorma: string | null;
+  tipoNorma?: string | null;
   /** @nullable */
-  emissor: string | null;
+  emissor?: string | null;
   level: string;
   /** @nullable */
-  uf: string | null;
+  uf?: string | null;
   /** @nullable */
-  municipality: string | null;
+  municipality?: string | null;
   /** @nullable */
-  macrotema: string | null;
+  macrotema?: string | null;
   /** @nullable */
-  subtema: string | null;
+  subtema?: string | null;
   /** @nullable */
-  applicability: string | null;
+  applicability?: string | null;
   /** @nullable */
-  publicationDate: string | null;
+  publicationDate?: string | null;
   /** @nullable */
-  sourceUrl: string | null;
+  sourceUrl?: string | null;
   /** @nullable */
-  applicableArticles: string | null;
+  applicableArticles?: string | null;
   /** @nullable */
-  reviewFrequencyDays: number | null;
+  reviewFrequencyDays?: number | null;
   /** @nullable */
-  observations: string | null;
+  observations?: string | null;
   /** @nullable */
-  generalObservations: string | null;
+  generalObservations?: string | null;
   tags: string[];
+  matchedTags?: string[] | null;
   createdAt: string;
   updatedAt: string;
 }
-
-export type LegislationDetailLevel =
-  (typeof LegislationDetailLevel)[keyof typeof LegislationDetailLevel];
-
-export const LegislationDetailLevel = {
-  federal: "federal",
-  estadual: "estadual",
-  municipal: "municipal",
-  internacional: "internacional",
-} as const;
 
 export type UnitLegislationComplianceStatus =
   (typeof UnitLegislationComplianceStatus)[keyof typeof UnitLegislationComplianceStatus];
@@ -270,51 +241,41 @@ export interface LegislationDetail {
   organizationId: number;
   title: string;
   /** @nullable */
-  number: string | null;
+  number?: string | null;
   /** @nullable */
-  description: string | null;
+  description?: string | null;
   /** @nullable */
-  tipoNorma: string | null;
+  tipoNorma?: string | null;
   /** @nullable */
-  emissor: string | null;
+  emissor?: string | null;
   level: string;
   /** @nullable */
-  uf: string | null;
+  uf?: string | null;
   /** @nullable */
-  municipality: string | null;
+  municipality?: string | null;
   /** @nullable */
-  macrotema: string | null;
+  macrotema?: string | null;
   /** @nullable */
-  subtema: string | null;
+  subtema?: string | null;
   /** @nullable */
-  applicability: string | null;
+  applicability?: string | null;
   /** @nullable */
-  publicationDate: string | null;
+  publicationDate?: string | null;
   /** @nullable */
-  sourceUrl: string | null;
+  sourceUrl?: string | null;
   /** @nullable */
-  applicableArticles: string | null;
+  applicableArticles?: string | null;
   /** @nullable */
-  reviewFrequencyDays: number | null;
+  reviewFrequencyDays?: number | null;
   /** @nullable */
-  observations: string | null;
+  observations?: string | null;
   /** @nullable */
-  generalObservations: string | null;
+  generalObservations?: string | null;
   tags: string[];
   createdAt: string;
   updatedAt: string;
   unitLegislations: UnitLegislation[];
 }
-
-export type CreateLegislationBodyLevel =
-  (typeof CreateLegislationBodyLevel)[keyof typeof CreateLegislationBodyLevel];
-
-export const CreateLegislationBodyLevel = {
-  federal: "federal",
-  estadual: "estadual",
-  municipal: "municipal",
-  internacional: "internacional",
-} as const;
 
 export interface CreateLegislationBody {
   title: string;
@@ -337,16 +298,6 @@ export interface CreateLegislationBody {
   tags?: string[];
 }
 
-export type UpdateLegislationBodyLevel =
-  (typeof UpdateLegislationBodyLevel)[keyof typeof UpdateLegislationBodyLevel];
-
-export const UpdateLegislationBodyLevel = {
-  federal: "federal",
-  estadual: "estadual",
-  municipal: "municipal",
-  internacional: "internacional",
-} as const;
-
 export interface UpdateLegislationBody {
   title?: string;
   number?: string;
@@ -368,10 +319,28 @@ export interface UpdateLegislationBody {
   tags?: string[];
 }
 
+/**
+ * How to handle legislations that already exist (matched by tipoNorma + number)
+ */
+export type ImportLegislationsBodyConflictStrategy =
+  (typeof ImportLegislationsBodyConflictStrategy)[keyof typeof ImportLegislationsBodyConflictStrategy];
+
+export const ImportLegislationsBodyConflictStrategy = {
+  skip: "skip",
+  update: "update",
+} as const;
+
 export interface ImportLegislationsBody {
   legislations: CreateLegislationBody[];
-  conflictStrategy?: 'skip' | 'update';
+  /** How to handle legislations that already exist (matched by tipoNorma + number) */
+  conflictStrategy?: ImportLegislationsBodyConflictStrategy;
 }
+
+export type ImportResultErrorDetailsItem = {
+  index?: number;
+  title?: string;
+  error?: string;
+};
 
 export interface ImportResult {
   created: number;
@@ -379,7 +348,7 @@ export interface ImportResult {
   skipped: number;
   errors: number;
   total: number;
-  errorDetails?: { index: number; title: string; error: string }[];
+  errorDetails?: ImportResultErrorDetailsItem[];
 }
 
 export type AssignLegislationBodyComplianceStatus =
@@ -440,22 +409,6 @@ export interface UnitLegislationWithLegislation {
   legislation: Legislation;
 }
 
-export type ListLegislationsParams = {
-  search?: string;
-  level?: ListLegislationsLevel;
-  unitId?: number;
-};
-
-export type ListLegislationsLevel =
-  (typeof ListLegislationsLevel)[keyof typeof ListLegislationsLevel];
-
-export const ListLegislationsLevel = {
-  federal: "federal",
-  estadual: "estadual",
-  municipal: "municipal",
-  internacional: "internacional",
-} as const;
-
 export type QuestionnaireQuestionType =
   (typeof QuestionnaireQuestionType)[keyof typeof QuestionnaireQuestionType];
 
@@ -471,9 +424,9 @@ export interface QuestionnaireQuestion {
   questionNumber: string;
   text: string;
   type: QuestionnaireQuestionType;
-  options: string[] | null;
-  conditionalOn: string | null;
-  conditionalValue: string | null;
+  options?: string[] | null;
+  conditionalOn?: string | null;
+  conditionalValue?: string | null;
   sortOrder: number;
 }
 
@@ -481,13 +434,15 @@ export interface QuestionnaireTheme {
   id: number;
   code: string;
   name: string;
-  description: string | null;
+  description?: string | null;
   sortOrder: number;
   questions: QuestionnaireQuestion[];
 }
 
+export type SaveQuestionnaireResponsesBodyAnswers = { [key: string]: unknown };
+
 export interface SaveQuestionnaireResponsesBody {
-  answers: Record<string, string | string[]>;
+  answers: SaveQuestionnaireResponsesBodyAnswers;
 }
 
 export interface SuccessResponse {
@@ -502,5 +457,26 @@ export interface SubmitQuestionnaireResponse {
 export interface ComplianceTag {
   id: number;
   tag: string;
-  sourceQuestionId: number | null;
+  sourceQuestionId?: number | null;
 }
+
+export type ListLegislationsParams = {
+  search?: string;
+  level?: ListLegislationsLevel;
+  /**
+   * Filter legislations by unit compliance tags
+   */
+  unitId?: number;
+};
+
+export type ListLegislationsLevel =
+  (typeof ListLegislationsLevel)[keyof typeof ListLegislationsLevel];
+
+export const ListLegislationsLevel = {
+  federal: "federal",
+  estadual: "estadual",
+  municipal: "municipal",
+  internacional: "internacional",
+} as const;
+
+export type GetUnitQuestionnaireResponses200 = { [key: string]: unknown };

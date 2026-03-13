@@ -23,6 +23,7 @@ import type {
   CreateLegislationBody,
   CreateUnitBody,
   ErrorResponse,
+  GetUnitQuestionnaireResponses200,
   HealthStatus,
   ImportLegislationsBody,
   ImportResult,
@@ -2107,41 +2108,84 @@ export function useListUnitLegislations<
 }
 
 /**
- * Compliance Tag Vocabulary
+ * Returns all unique tag strings from the questionnaire questions tags JSONB column, sorted alphabetically
+ * @summary Get full compliance tag vocabulary
  */
-export const getComplianceTagVocabularyUrl = () => {
+export const getGetComplianceTagVocabularyUrl = () => {
   return `/api/compliance-tag-vocabulary`;
 };
 
 export const getComplianceTagVocabulary = async (
   options?: RequestInit,
 ): Promise<string[]> => {
-  return customFetch<string[]>(getComplianceTagVocabularyUrl(), {
+  return customFetch<string[]>(getGetComplianceTagVocabularyUrl(), {
     ...options,
     method: "GET",
   });
 };
 
-export const getComplianceTagVocabularyQueryKey = () => {
+export const getGetComplianceTagVocabularyQueryKey = () => {
   return [`/api/compliance-tag-vocabulary`] as const;
 };
 
-export function useComplianceTagVocabulary<
+export const getGetComplianceTagVocabularyQueryOptions = <
   TData = Awaited<ReturnType<typeof getComplianceTagVocabulary>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof getComplianceTagVocabulary>>, TError, TData>;
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getComplianceTagVocabulary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetComplianceTagVocabularyQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getComplianceTagVocabulary>>
+  > = ({ signal }) => getComplianceTagVocabulary({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getComplianceTagVocabulary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetComplianceTagVocabularyQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getComplianceTagVocabulary>>
+>;
+export type GetComplianceTagVocabularyQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get full compliance tag vocabulary
+ */
+
+export function useGetComplianceTagVocabulary<
+  TData = Awaited<ReturnType<typeof getComplianceTagVocabulary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getComplianceTagVocabulary>>,
+    TError,
+    TData
+  >;
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryKey = options?.query?.queryKey ?? getComplianceTagVocabularyQueryKey();
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getComplianceTagVocabulary>>> = ({ signal }) =>
-    getComplianceTagVocabulary({ signal, ...options?.request });
-  const query = useQuery({ queryKey, queryFn, ...options?.query }) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
-  return { ...query, queryKey };
+  const queryOptions = getGetComplianceTagVocabularyQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
 }
 
 /**
- * Questionnaire
+ * @summary List questionnaire themes with questions
  */
 export const getListQuestionnaireThemesUrl = (orgId: number) => {
   return `/api/organizations/${orgId}/questionnaire/themes`;
@@ -2151,15 +2195,63 @@ export const listQuestionnaireThemes = async (
   orgId: number,
   options?: RequestInit,
 ): Promise<QuestionnaireTheme[]> => {
-  return customFetch<QuestionnaireTheme[]>(getListQuestionnaireThemesUrl(orgId), {
-    ...options,
-    method: "GET",
-  });
+  return customFetch<QuestionnaireTheme[]>(
+    getListQuestionnaireThemesUrl(orgId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
 };
 
 export const getListQuestionnaireThemesQueryKey = (orgId: number) => {
   return [`/api/organizations/${orgId}/questionnaire/themes`] as const;
 };
+
+export const getListQuestionnaireThemesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listQuestionnaireThemes>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listQuestionnaireThemes>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListQuestionnaireThemesQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listQuestionnaireThemes>>
+  > = ({ signal }) =>
+    listQuestionnaireThemes(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listQuestionnaireThemes>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListQuestionnaireThemesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listQuestionnaireThemes>>
+>;
+export type ListQuestionnaireThemesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List questionnaire themes with questions
+ */
 
 export function useListQuestionnaireThemes<
   TData = Awaited<ReturnType<typeof listQuestionnaireThemes>>,
@@ -2167,18 +2259,30 @@ export function useListQuestionnaireThemes<
 >(
   orgId: number,
   options?: {
-    query?: UseQueryOptions<Awaited<ReturnType<typeof listQuestionnaireThemes>>, TError, TData>;
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listQuestionnaireThemes>>,
+      TError,
+      TData
+    >;
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryKey = options?.query?.queryKey ?? getListQuestionnaireThemesQueryKey(orgId);
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listQuestionnaireThemes>>> = ({ signal }) =>
-    listQuestionnaireThemes(orgId, { signal, ...options?.request });
-  const query = useQuery({ queryKey, queryFn, ...options?.query }) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
-  return { ...query, queryKey };
+  const queryOptions = getListQuestionnaireThemesQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
 }
 
-export const getUnitQuestionnaireResponsesUrl = (orgId: number, unitId: number) => {
+/**
+ * @summary Get saved responses for a unit
+ */
+export const getGetUnitQuestionnaireResponsesUrl = (
+  orgId: number,
+  unitId: number,
+) => {
   return `/api/organizations/${orgId}/units/${unitId}/questionnaire/responses`;
 };
 
@@ -2186,16 +2290,71 @@ export const getUnitQuestionnaireResponses = async (
   orgId: number,
   unitId: number,
   options?: RequestInit,
-): Promise<Record<string, string | string[]>> => {
-  return customFetch<Record<string, string | string[]>>(getUnitQuestionnaireResponsesUrl(orgId, unitId), {
-    ...options,
-    method: "GET",
-  });
+): Promise<GetUnitQuestionnaireResponses200> => {
+  return customFetch<GetUnitQuestionnaireResponses200>(
+    getGetUnitQuestionnaireResponsesUrl(orgId, unitId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
 };
 
-export const getGetUnitQuestionnaireResponsesQueryKey = (orgId: number, unitId: number) => {
-  return [`/api/organizations/${orgId}/units/${unitId}/questionnaire/responses`] as const;
+export const getGetUnitQuestionnaireResponsesQueryKey = (
+  orgId: number,
+  unitId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/units/${unitId}/questionnaire/responses`,
+  ] as const;
 };
+
+export const getGetUnitQuestionnaireResponsesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUnitQuestionnaireResponses>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  unitId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUnitQuestionnaireResponses>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetUnitQuestionnaireResponsesQueryKey(orgId, unitId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getUnitQuestionnaireResponses>>
+  > = ({ signal }) =>
+    getUnitQuestionnaireResponses(orgId, unitId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && unitId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getUnitQuestionnaireResponses>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetUnitQuestionnaireResponsesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUnitQuestionnaireResponses>>
+>;
+export type GetUnitQuestionnaireResponsesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get saved responses for a unit
+ */
 
 export function useGetUnitQuestionnaireResponses<
   TData = Awaited<ReturnType<typeof getUnitQuestionnaireResponses>>,
@@ -2204,33 +2363,52 @@ export function useGetUnitQuestionnaireResponses<
   orgId: number,
   unitId: number,
   options?: {
-    query?: UseQueryOptions<Awaited<ReturnType<typeof getUnitQuestionnaireResponses>>, TError, TData>;
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUnitQuestionnaireResponses>>,
+      TError,
+      TData
+    >;
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryKey = options?.query?.queryKey ?? getGetUnitQuestionnaireResponsesQueryKey(orgId, unitId);
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getUnitQuestionnaireResponses>>> = ({ signal }) =>
-    getUnitQuestionnaireResponses(orgId, unitId, { signal, ...options?.request });
-  const query = useQuery({ queryKey, queryFn, ...options?.query }) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
-  return { ...query, queryKey };
+  const queryOptions = getGetUnitQuestionnaireResponsesQueryOptions(
+    orgId,
+    unitId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
 }
 
-export const saveUnitQuestionnaireResponsesUrl = (orgId: number, unitId: number) => {
+/**
+ * @summary Save questionnaire responses for a unit
+ */
+export const getSaveUnitQuestionnaireResponsesUrl = (
+  orgId: number,
+  unitId: number,
+) => {
   return `/api/organizations/${orgId}/units/${unitId}/questionnaire/responses`;
 };
 
 export const saveUnitQuestionnaireResponses = async (
   orgId: number,
   unitId: number,
-  body: SaveQuestionnaireResponsesBody,
+  saveQuestionnaireResponsesBody: SaveQuestionnaireResponsesBody,
   options?: RequestInit,
 ): Promise<SuccessResponse> => {
-  return customFetch<SuccessResponse>(saveUnitQuestionnaireResponsesUrl(orgId, unitId), {
-    ...options,
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(body),
-  });
+  return customFetch<SuccessResponse>(
+    getSaveUnitQuestionnaireResponsesUrl(orgId, unitId),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(saveQuestionnaireResponsesBody),
+    },
+  );
 };
 
 export const getSaveUnitQuestionnaireResponsesMutationOptions = <
@@ -2240,40 +2418,94 @@ export const getSaveUnitQuestionnaireResponsesMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof saveUnitQuestionnaireResponses>>,
     TError,
-    { orgId: number; unitId: number; data: BodyType<SaveQuestionnaireResponsesBody> },
+    {
+      orgId: number;
+      unitId: number;
+      data: BodyType<SaveQuestionnaireResponsesBody>;
+    },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof saveUnitQuestionnaireResponses>>,
   TError,
-  { orgId: number; unitId: number; data: BodyType<SaveQuestionnaireResponsesBody> },
+  {
+    orgId: number;
+    unitId: number;
+    data: BodyType<SaveQuestionnaireResponsesBody>;
+  },
   TContext
 > => {
+  const mutationKey = ["saveUnitQuestionnaireResponses"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof saveUnitQuestionnaireResponses>>,
-    { orgId: number; unitId: number; data: BodyType<SaveQuestionnaireResponsesBody> }
-  > = (props) => saveUnitQuestionnaireResponses(props.orgId, props.unitId, props.data, options?.request);
-  return { mutationFn, ...options?.mutation };
+    {
+      orgId: number;
+      unitId: number;
+      data: BodyType<SaveQuestionnaireResponsesBody>;
+    }
+  > = (props) => {
+    const { orgId, unitId, data } = props ?? {};
+
+    return saveUnitQuestionnaireResponses(orgId, unitId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
 };
 
-export function useSaveUnitQuestionnaireResponses<
+export type SaveUnitQuestionnaireResponsesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveUnitQuestionnaireResponses>>
+>;
+export type SaveUnitQuestionnaireResponsesMutationBody =
+  BodyType<SaveQuestionnaireResponsesBody>;
+export type SaveUnitQuestionnaireResponsesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Save questionnaire responses for a unit
+ */
+export const useSaveUnitQuestionnaireResponses = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof saveUnitQuestionnaireResponses>>,
     TError,
-    { orgId: number; unitId: number; data: BodyType<SaveQuestionnaireResponsesBody> },
+    {
+      orgId: number;
+      unitId: number;
+      data: BodyType<SaveQuestionnaireResponsesBody>;
+    },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
-}) {
-  const mutationOptions = getSaveUnitQuestionnaireResponsesMutationOptions(options);
-  return useMutation(mutationOptions);
-}
+}): UseMutationResult<
+  Awaited<ReturnType<typeof saveUnitQuestionnaireResponses>>,
+  TError,
+  {
+    orgId: number;
+    unitId: number;
+    data: BodyType<SaveQuestionnaireResponsesBody>;
+  },
+  TContext
+> => {
+  return useMutation(getSaveUnitQuestionnaireResponsesMutationOptions(options));
+};
 
-export const submitUnitQuestionnaireUrl = (orgId: number, unitId: number) => {
+/**
+ * @summary Submit questionnaire and generate compliance tags
+ */
+export const getSubmitUnitQuestionnaireUrl = (
+  orgId: number,
+  unitId: number,
+) => {
   return `/api/organizations/${orgId}/units/${unitId}/questionnaire/submit`;
 };
 
@@ -2282,11 +2514,13 @@ export const submitUnitQuestionnaire = async (
   unitId: number,
   options?: RequestInit,
 ): Promise<SubmitQuestionnaireResponse> => {
-  return customFetch<SubmitQuestionnaireResponse>(submitUnitQuestionnaireUrl(orgId, unitId), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-  });
+  return customFetch<SubmitQuestionnaireResponse>(
+    getSubmitUnitQuestionnaireUrl(orgId, unitId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
 };
 
 export const getSubmitUnitQuestionnaireMutationOptions = <
@@ -2306,14 +2540,37 @@ export const getSubmitUnitQuestionnaireMutationOptions = <
   { orgId: number; unitId: number },
   TContext
 > => {
+  const mutationKey = ["submitUnitQuestionnaire"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof submitUnitQuestionnaire>>,
     { orgId: number; unitId: number }
-  > = (props) => submitUnitQuestionnaire(props.orgId, props.unitId, options?.request);
-  return { mutationFn, ...options?.mutation };
+  > = (props) => {
+    const { orgId, unitId } = props ?? {};
+
+    return submitUnitQuestionnaire(orgId, unitId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
 };
 
-export function useSubmitUnitQuestionnaire<
+export type SubmitUnitQuestionnaireMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitUnitQuestionnaire>>
+>;
+
+export type SubmitUnitQuestionnaireMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Submit questionnaire and generate compliance tags
+ */
+export const useSubmitUnitQuestionnaire = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
@@ -2324,12 +2581,19 @@ export function useSubmitUnitQuestionnaire<
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
-}) {
-  const mutationOptions = getSubmitUnitQuestionnaireMutationOptions(options);
-  return useMutation(mutationOptions);
-}
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitUnitQuestionnaire>>,
+  TError,
+  { orgId: number; unitId: number },
+  TContext
+> => {
+  return useMutation(getSubmitUnitQuestionnaireMutationOptions(options));
+};
 
-export const getUnitComplianceTagsUrl = (orgId: number, unitId: number) => {
+/**
+ * @summary Get compliance tags for a unit
+ */
+export const getGetUnitComplianceTagsUrl = (orgId: number, unitId: number) => {
   return `/api/organizations/${orgId}/units/${unitId}/questionnaire/tags`;
 };
 
@@ -2338,15 +2602,69 @@ export const getUnitComplianceTags = async (
   unitId: number,
   options?: RequestInit,
 ): Promise<ComplianceTag[]> => {
-  return customFetch<ComplianceTag[]>(getUnitComplianceTagsUrl(orgId, unitId), {
-    ...options,
-    method: "GET",
-  });
+  return customFetch<ComplianceTag[]>(
+    getGetUnitComplianceTagsUrl(orgId, unitId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
 };
 
-export const getGetUnitComplianceTagsQueryKey = (orgId: number, unitId: number) => {
-  return [`/api/organizations/${orgId}/units/${unitId}/questionnaire/tags`] as const;
+export const getGetUnitComplianceTagsQueryKey = (
+  orgId: number,
+  unitId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/units/${unitId}/questionnaire/tags`,
+  ] as const;
 };
+
+export const getGetUnitComplianceTagsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUnitComplianceTags>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  unitId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUnitComplianceTags>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetUnitComplianceTagsQueryKey(orgId, unitId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getUnitComplianceTags>>
+  > = ({ signal }) =>
+    getUnitComplianceTags(orgId, unitId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && unitId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getUnitComplianceTags>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetUnitComplianceTagsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUnitComplianceTags>>
+>;
+export type GetUnitComplianceTagsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get compliance tags for a unit
+ */
 
 export function useGetUnitComplianceTags<
   TData = Awaited<ReturnType<typeof getUnitComplianceTags>>,
@@ -2355,13 +2673,23 @@ export function useGetUnitComplianceTags<
   orgId: number,
   unitId: number,
   options?: {
-    query?: UseQueryOptions<Awaited<ReturnType<typeof getUnitComplianceTags>>, TError, TData>;
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUnitComplianceTags>>,
+      TError,
+      TData
+    >;
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryKey = options?.query?.queryKey ?? getGetUnitComplianceTagsQueryKey(orgId, unitId);
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getUnitComplianceTags>>> = ({ signal }) =>
-    getUnitComplianceTags(orgId, unitId, { signal, ...options?.request });
-  const query = useQuery({ queryKey, queryFn, ...options?.query }) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
-  return { ...query, queryKey };
+  const queryOptions = getGetUnitComplianceTagsQueryOptions(
+    orgId,
+    unitId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
 }

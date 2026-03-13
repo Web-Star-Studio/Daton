@@ -34,7 +34,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **organizations**: id, name (razão social), nomeFantasia, cnpj, timestamps
 - **users**: id, name, email, passwordHash, organizationId, role
 - **units**: id, name, code, type (sede/filial), cnpj, status (ativa/inativa), cep, address, streetNumber, neighborhood, city, state, country, phone, organizationId
-- **legislations**: id, title, number, description, tipoNorma, emissor, level, uf, municipality, macrotema, subtema, applicability, publicationDate, sourceUrl, applicableArticles, reviewFrequencyDays, observations, generalObservations, organizationId. **Note: status is NOT stored per legislation — it belongs to unit_legislations only.**
+- **legislations**: id, title, number, description, tipoNorma, emissor, level, uf, municipality, macrotema, subtema, applicability, publicationDate, sourceUrl, applicableArticles, reviewFrequencyDays, observations, generalObservations, tags (jsonb string[]), organizationId. **Note: status is NOT stored per legislation — it belongs to unit_legislations only.**
 - **unit_legislations**: id, unitId, legislationId, complianceStatus (conforme/nao_conforme/parcialmente_conforme/nao_avaliado), notes, evidenceUrl, evaluatedAt, evaluatedBy
 - **evidence_attachments**: id, unitLegislationId, fileName, fileSize, contentType, objectPath, uploadedAt — file evidence attached to compliance evaluations, stored via GCS presigned URL upload
 - **conversations**: id, userId, organizationId, title, createdAt — AI chat conversations per user/org
@@ -122,5 +122,6 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 - CSV import route must be registered BEFORE /:legId routes in Express to avoid conflicts
 - custom-fetch only injects auth tokens for same-origin requests (security measure)
 - Seed data includes 8 real Brazilian environmental legislations, 3 units, and 30 questionnaire questions in "Instalações" theme
-- Unit profiling questionnaire generates compliance tags from answers; legislation list supports filtering by unit (unitId query param) matching tags against macrotema/subtema
+- Legislations table has a `tags` (jsonb text array) column for tag-based filtering. When filtering by unit, the system uses PostgreSQL array overlap (case-insensitive) between the legislation's `tags` and the unit's compliance tags. Matched tags are returned in the API response as `matchedTags` and displayed as green badges on the frontend.
+- Unit profiling questionnaire generates compliance tags from answers; legislation list supports filtering by unit (unitId query param) using tag intersection
 - AI assistant (Daton AI) uses OpenAI via Replit AI Integrations (gpt-4o-mini). System prompt in Portuguese describing the platform schema. Read-only DB query tool with $ORG_ID placeholder for multi-tenant isolation. SSE streaming for real-time responses. Chat panel in AppLayout header (Sparkles icon).

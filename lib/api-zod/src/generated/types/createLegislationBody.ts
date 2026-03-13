@@ -5,16 +5,24 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { CreateLegislationBodyLevel } from "./createLegislationBodyLevel";
-import type { CreateLegislationBodyStatus } from "./createLegislationBodyStatus";
 
 export interface CreateLegislationBody {
   title: string;
   number?: string;
   description?: string;
-  level: CreateLegislationBodyLevel;
-  status?: CreateLegislationBodyStatus;
+  tipoNorma?: string;
+  emissor?: string;
+  level: string;
+  uf?: string;
+  municipality?: string;
+  macrotema?: string;
+  subtema?: string;
+  applicability?: string;
   publicationDate?: Date;
   sourceUrl?: string;
   applicableArticles?: string;
+  reviewFrequencyDays?: number;
+  observations?: string;
+  generalObservations?: string;
+  tags?: string[];
 }

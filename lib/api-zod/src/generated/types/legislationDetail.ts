@@ -5,8 +5,6 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { LegislationDetailLevel } from "./legislationDetailLevel";
-import type { LegislationDetailStatus } from "./legislationDetailStatus";
 import type { UnitLegislation } from "./unitLegislation";
 
 export interface LegislationDetail {
@@ -14,17 +12,37 @@ export interface LegislationDetail {
   organizationId: number;
   title: string;
   /** @nullable */
-  number: string | null;
+  number?: string | null;
   /** @nullable */
-  description: string | null;
-  level: LegislationDetailLevel;
-  status: LegislationDetailStatus;
+  description?: string | null;
   /** @nullable */
-  publicationDate: Date | null;
+  tipoNorma?: string | null;
   /** @nullable */
-  sourceUrl: string | null;
+  emissor?: string | null;
+  level: string;
   /** @nullable */
-  applicableArticles: string | null;
+  uf?: string | null;
+  /** @nullable */
+  municipality?: string | null;
+  /** @nullable */
+  macrotema?: string | null;
+  /** @nullable */
+  subtema?: string | null;
+  /** @nullable */
+  applicability?: string | null;
+  /** @nullable */
+  publicationDate?: Date | null;
+  /** @nullable */
+  sourceUrl?: string | null;
+  /** @nullable */
+  applicableArticles?: string | null;
+  /** @nullable */
+  reviewFrequencyDays?: number | null;
+  /** @nullable */
+  observations?: string | null;
+  /** @nullable */
+  generalObservations?: string | null;
+  tags: string[];
   createdAt: Date;
   updatedAt: Date;
   unitLegislations: UnitLegislation[];

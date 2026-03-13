@@ -6,7 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateLegislationBody } from "./createLegislationBody";
+import type { ImportLegislationsBodyConflictStrategy } from "./importLegislationsBodyConflictStrategy";
 
 export interface ImportLegislationsBody {
   legislations: CreateLegislationBody[];
+  /** How to handle legislations that already exist (matched by tipoNorma + number) */
+  conflictStrategy?: ImportLegislationsBodyConflictStrategy;
 }

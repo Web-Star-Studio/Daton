@@ -5,12 +5,21 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateUnitBodyStatus } from "./createUnitBodyStatus";
 import type { CreateUnitBodyType } from "./createUnitBodyType";
 
 export interface CreateUnitBody {
   name: string;
+  code?: string;
   type: CreateUnitBodyType;
+  cnpj?: string;
+  status?: CreateUnitBodyStatus;
+  cep?: string;
   address?: string;
+  streetNumber?: string;
+  neighborhood?: string;
   city?: string;
   state?: string;
+  country?: string;
+  phone?: string;
 }

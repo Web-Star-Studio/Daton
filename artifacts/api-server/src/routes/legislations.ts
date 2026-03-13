@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike, sql, or, inArray } from "drizzle-orm";
+import { eq, and, ilike, sql, inArray } from "drizzle-orm";
 import { db, legislationsTable, unitLegislationsTable, unitsTable, unitComplianceTagsTable, type Legislation } from "@workspace/db";
 import {
   ListLegislationsParams,
@@ -17,7 +17,7 @@ import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-function formatLeg(l: Legislation) {
+function formatLeg(l: Legislation, matchedTags?: string[]) {
   return {
     id: l.id,
     organizationId: l.organizationId,
@@ -39,6 +39,7 @@ function formatLeg(l: Legislation) {
     observations: l.observations,
     generalObservations: l.generalObservations,
     tags: l.tags ?? [],
+    matchedTags: matchedTags || null,
     createdAt: l.createdAt instanceof Date ? l.createdAt.toISOString() : l.createdAt,
     updatedAt: l.updatedAt instanceof Date ? l.updatedAt.toISOString() : l.updatedAt,
   };
@@ -68,20 +69,22 @@ router.get("/organizations/:orgId/legislations", requireAuth, async (req, res): 
   }
 
   const unitIdParam = req.query.unitId ? parseInt(String(req.query.unitId)) : undefined;
+  let unitTagValues: string[] = [];
+  let filteringByUnit = false;
+
   if (unitIdParam && !isNaN(unitIdParam)) {
+    filteringByUnit = true;
     const unitCheck = await db.select().from(unitsTable).where(and(eq(unitsTable.id, unitIdParam), eq(unitsTable.organizationId, params.data.orgId)));
     if (unitCheck.length === 0) {
       res.status(404).json({ error: "Unidade não encontrada" });
       return;
     }
     const tags = await db.select().from(unitComplianceTagsTable).where(eq(unitComplianceTagsTable.unitId, unitIdParam));
-    const tagValues = tags.map((t) => t.tag.toLowerCase());
-    if (tagValues.length > 0) {
-      const tagConditions = tagValues.flatMap((tag) => [
-        ilike(legislationsTable.macrotema, `%${tag}%`),
-        ilike(legislationsTable.subtema, `%${tag}%`),
-      ]);
-      conditions.push(or(...tagConditions)!);
+    unitTagValues = tags.map((t) => t.tag.toLowerCase());
+    if (unitTagValues.length > 0) {
+      conditions.push(sql`(
+        SELECT array_agg(lower(t)) FROM unnest(${legislationsTable.tags}) AS t
+      ) && array[${sql.join(unitTagValues.map(t => sql`${t}`), sql`, `)}]::text[]`);
     } else {
       res.json([]);
       return;
@@ -92,7 +95,15 @@ router.get("/organizations/:orgId/legislations", requireAuth, async (req, res): 
     .where(and(...conditions))
     .orderBy(legislationsTable.createdAt);
 
-  res.json(legislations.map(formatLeg));
+  const unitTagSet = new Set(unitTagValues);
+
+  res.json(legislations.map((l) => {
+    if (filteringByUnit && l.tags) {
+      const matched = (l.tags as string[]).filter(t => unitTagSet.has(t.toLowerCase()));
+      return formatLeg(l, matched);
+    }
+    return formatLeg(l);
+  }));
 });
 
 router.post("/organizations/:orgId/legislations", requireAuth, async (req, res): Promise<void> => {

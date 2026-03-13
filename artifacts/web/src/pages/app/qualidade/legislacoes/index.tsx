@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { useListLegislations, useCreateLegislation, useImportLegislations, getListLegislationsQueryKey, useListUnits, getListUnitsQueryKey, type CreateLegislationBody } from "@workspace/api-client-react";
+import { useListLegislations, useCreateLegislation, useImportLegislations, getListLegislationsQueryKey, useListUnits, getListUnitsQueryKey, useGetUnitComplianceTags, type CreateLegislationBody } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -212,11 +212,21 @@ export default function LegislacoesPage() {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
   });
 
+  const unitIdNum = unitFilter ? parseInt(unitFilter) : undefined;
+
   const { data: legislations, isLoading } = useListLegislations(
     orgId!, 
-    { search, level: levelFilter || undefined, unitId: unitFilter ? parseInt(unitFilter) : undefined }, 
+    { search, level: levelFilter || undefined, unitId: unitIdNum }, 
     { query: { queryKey: [...getListLegislationsQueryKey(orgId!), search, levelFilter, unitFilter], enabled: !!orgId } }
   );
+
+  const { data: unitComplianceTags } = useGetUnitComplianceTags(
+    orgId!,
+    unitIdNum!,
+    { query: { enabled: !!orgId && !!unitIdNum } }
+  );
+
+  const unitHasNoTags = !!unitIdNum && unitComplianceTags !== undefined && unitComplianceTags.length === 0;
 
   const createMut = useCreateLegislation();
   const importMut = useImportLegislations();
@@ -355,6 +365,11 @@ export default function LegislacoesPage() {
             <tbody className="divide-y divide-border">
               {isLoading ? (
                 <tr><td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">Carregando...</td></tr>
+              ) : unitHasNoTags ? (
+                <tr><td colSpan={5} className="px-6 py-12 text-center">
+                  <div className="text-muted-foreground mb-2">Esta unidade ainda não possui tags de conformidade.</div>
+                  <div className="text-sm text-muted-foreground">Preencha o questionário da unidade para gerar as tags e filtrar as legislações aplicáveis.</div>
+                </td></tr>
               ) : legislations?.length === 0 ? (
                 <tr><td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">Nenhuma legislação encontrada.</td></tr>
               ) : (
@@ -363,7 +378,7 @@ export default function LegislacoesPage() {
                     <td className="px-6 py-4">
                       <div className="font-medium text-foreground">{leg.title}</div>
                       {leg.number && <div className="text-muted-foreground mt-0.5">{leg.number}</div>}
-                      {leg.tags && leg.tags.length > 0 && (
+                      {leg.tags && leg.tags.length > 0 && !leg.matchedTags && (
                         <div className="flex flex-wrap gap-1 mt-1.5">
                           {leg.tags.slice(0, 3).map((tag) => (
                             <span key={tag} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#007AFF]/10 text-[#007AFF]">
@@ -375,6 +390,15 @@ export default function LegislacoesPage() {
                               +{leg.tags.length - 3}
                             </span>
                           )}
+                        </div>
+                      )}
+                      {leg.matchedTags && leg.matchedTags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {leg.matchedTags.map((tag) => (
+                            <span key={tag} className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 text-emerald-700 border border-emerald-200">
+                              {tag}
+                            </span>
+                          ))}
                         </div>
                       )}
                     </td>

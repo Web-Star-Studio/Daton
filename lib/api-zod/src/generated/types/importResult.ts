@@ -5,9 +5,13 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ImportResultErrorDetailsItem } from "./importResultErrorDetailsItem";
 
 export interface ImportResult {
-  imported: number;
+  created: number;
+  updated: number;
+  skipped: number;
   errors: number;
   total: number;
+  errorDetails?: ImportResultErrorDetailsItem[];
 }
