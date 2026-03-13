@@ -62,6 +62,12 @@ import type {
   ListEmployeesParams as ListEmployeesQueryParams,
   PaginatedEmployees as PaginatedEmployeesResponse,
   PaginationInfo,
+  Department,
+  CreateDepartmentBody,
+  UpdateDepartmentBody,
+  Position,
+  CreatePositionBody,
+  UpdatePositionBody,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -3125,4 +3131,172 @@ export const useUnlinkEmployeeUnit = <TError = ErrorType<unknown>, TContext = un
   const { mutation: mutationOptions } = options ?? {};
   const mutationFn: MutationFunction<Awaited<ReturnType<typeof unlinkEmployeeUnit>>, { orgId: number; empId: number; unitId: number }> = (props) => unlinkEmployeeUnit(props.orgId, props.empId, props.unitId);
   return useMutation({ mutationFn, mutationKey: ["unlinkEmployeeUnit"], ...mutationOptions });
+};
+
+export const listDepartments = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<Department[]> => {
+  return customFetch<Department[]>(`/api/organizations/${orgId}/departments`, {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListDepartmentsQueryKey = (orgId: number) => [`/api/organizations/${orgId}/departments`] as const;
+
+export const useListDepartments = <TData = Awaited<ReturnType<typeof listDepartments>>, TError = ErrorType<unknown>>(
+  orgId: number,
+  options?: { query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listDepartments>>, TError, TData>> },
+): UseQueryResult<TData, TError> => {
+  const { query: queryOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getListDepartmentsQueryKey(orgId);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listDepartments>>> = () => listDepartments(orgId);
+  return useQuery({ queryKey, queryFn, ...queryOptions }) as UseQueryResult<TData, TError>;
+};
+
+export const createDepartment = async (
+  orgId: number,
+  body: CreateDepartmentBody,
+  options?: RequestInit,
+): Promise<Department> => {
+  return customFetch<Department>(`/api/organizations/${orgId}/departments`, {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(body),
+  });
+};
+
+export const useCreateDepartment = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof createDepartment>>, TError, { orgId: number; data: BodyType<CreateDepartmentBody> }, TContext>;
+}): UseMutationResult<Awaited<ReturnType<typeof createDepartment>>, TError, { orgId: number; data: BodyType<CreateDepartmentBody> }, TContext> => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof createDepartment>>, { orgId: number; data: BodyType<CreateDepartmentBody> }> = (props) => createDepartment(props.orgId, props.data);
+  return useMutation({ mutationFn, mutationKey: ["createDepartment"], ...mutationOptions });
+};
+
+export const updateDepartment = async (
+  orgId: number,
+  deptId: number,
+  body: UpdateDepartmentBody,
+  options?: RequestInit,
+): Promise<Department> => {
+  return customFetch<Department>(`/api/organizations/${orgId}/departments/${deptId}`, {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(body),
+  });
+};
+
+export const useUpdateDepartment = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateDepartment>>, TError, { orgId: number; deptId: number; data: BodyType<UpdateDepartmentBody> }, TContext>;
+}): UseMutationResult<Awaited<ReturnType<typeof updateDepartment>>, TError, { orgId: number; deptId: number; data: BodyType<UpdateDepartmentBody> }, TContext> => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateDepartment>>, { orgId: number; deptId: number; data: BodyType<UpdateDepartmentBody> }> = (props) => updateDepartment(props.orgId, props.deptId, props.data);
+  return useMutation({ mutationFn, mutationKey: ["updateDepartment"], ...mutationOptions });
+};
+
+export const deleteDepartment = async (
+  orgId: number,
+  deptId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(`/api/organizations/${orgId}/departments/${deptId}`, {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const useDeleteDepartment = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteDepartment>>, TError, { orgId: number; deptId: number }, TContext>;
+}): UseMutationResult<Awaited<ReturnType<typeof deleteDepartment>>, TError, { orgId: number; deptId: number }, TContext> => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteDepartment>>, { orgId: number; deptId: number }> = (props) => deleteDepartment(props.orgId, props.deptId);
+  return useMutation({ mutationFn, mutationKey: ["deleteDepartment"], ...mutationOptions });
+};
+
+export const listPositions = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<Position[]> => {
+  return customFetch<Position[]>(`/api/organizations/${orgId}/positions`, {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPositionsQueryKey = (orgId: number) => [`/api/organizations/${orgId}/positions`] as const;
+
+export const useListPositions = <TData = Awaited<ReturnType<typeof listPositions>>, TError = ErrorType<unknown>>(
+  orgId: number,
+  options?: { query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof listPositions>>, TError, TData>> },
+): UseQueryResult<TData, TError> => {
+  const { query: queryOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getListPositionsQueryKey(orgId);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listPositions>>> = () => listPositions(orgId);
+  return useQuery({ queryKey, queryFn, ...queryOptions }) as UseQueryResult<TData, TError>;
+};
+
+export const createPosition = async (
+  orgId: number,
+  body: CreatePositionBody,
+  options?: RequestInit,
+): Promise<Position> => {
+  return customFetch<Position>(`/api/organizations/${orgId}/positions`, {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(body),
+  });
+};
+
+export const useCreatePosition = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof createPosition>>, TError, { orgId: number; data: BodyType<CreatePositionBody> }, TContext>;
+}): UseMutationResult<Awaited<ReturnType<typeof createPosition>>, TError, { orgId: number; data: BodyType<CreatePositionBody> }, TContext> => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPosition>>, { orgId: number; data: BodyType<CreatePositionBody> }> = (props) => createPosition(props.orgId, props.data);
+  return useMutation({ mutationFn, mutationKey: ["createPosition"], ...mutationOptions });
+};
+
+export const updatePosition = async (
+  orgId: number,
+  posId: number,
+  body: UpdatePositionBody,
+  options?: RequestInit,
+): Promise<Position> => {
+  return customFetch<Position>(`/api/organizations/${orgId}/positions/${posId}`, {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(body),
+  });
+};
+
+export const useUpdatePosition = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof updatePosition>>, TError, { orgId: number; posId: number; data: BodyType<UpdatePositionBody> }, TContext>;
+}): UseMutationResult<Awaited<ReturnType<typeof updatePosition>>, TError, { orgId: number; posId: number; data: BodyType<UpdatePositionBody> }, TContext> => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePosition>>, { orgId: number; posId: number; data: BodyType<UpdatePositionBody> }> = (props) => updatePosition(props.orgId, props.posId, props.data);
+  return useMutation({ mutationFn, mutationKey: ["updatePosition"], ...mutationOptions });
+};
+
+export const deletePosition = async (
+  orgId: number,
+  posId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(`/api/organizations/${orgId}/positions/${posId}`, {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const useDeletePosition = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof deletePosition>>, TError, { orgId: number; posId: number }, TContext>;
+}): UseMutationResult<Awaited<ReturnType<typeof deletePosition>>, TError, { orgId: number; posId: number }, TContext> => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePosition>>, { orgId: number; posId: number }> = (props) => deletePosition(props.orgId, props.posId);
+  return useMutation({ mutationFn, mutationKey: ["deletePosition"], ...mutationOptions });
 };

@@ -43,6 +43,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **questionnaire_questions**: id, themeId, code, questionNumber, text, type (single_select/multi_select/text), options (jsonb), tags (jsonb mapping answer→tag[]), conditionalOn, conditionalValue, sortOrder — questions within themes
 - **unit_questionnaire_responses**: id, unitId, questionId, answer (jsonb), respondedAt — unit-specific questionnaire answers
 - **unit_compliance_tags**: id, unitId, tag, sourceQuestionId, createdAt — compliance tags generated from questionnaire answers, used to filter legislation lists
+- **departments**: id, organizationId, name, description, timestamps — organizational departments
+- **positions**: id, organizationId, name, description, timestamps — job positions/roles (cargos)
 - **employees**: id, organizationId, unitId (nullable FK to units, legacy single-unit), name, cpf, email, phone, position, department, contractType (clt/pj/intern/temporary), admissionDate, terminationDate, status (active/inactive/on_leave), timestamps
 - **employee_units**: id, employeeId (FK cascade), unitId (FK cascade), createdAt — many-to-many junction for multi-unit employee linkage
 - **employee_competencies**: id, employeeId (FK), name, description, type (formacao/experiencia/habilidade), requiredLevel (0-5), acquiredLevel (0-5), evidence, timestamps — ISO 9001:2015 §7.2 competency tracking

@@ -108,7 +108,7 @@ export default function UnitDetailPage() {
 
   const headerActions = (
     <div className="flex items-center gap-2">
-      <Link href="/app/organizacao/unidades">
+      <Link href="/app/organizacao">
         <Button variant="ghost" size="sm">
           <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
         </Button>

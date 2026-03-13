@@ -10,6 +10,7 @@ import aiRouter from "./ai";
 import questionnaireRouter from "./questionnaire";
 import autoTagRouter from "./auto-tag";
 import employeesRouter from "./employees";
+import departmentsRouter from "./departments";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(aiRouter);
 router.use(questionnaireRouter);
 router.use(autoTagRouter);
 router.use(employeesRouter);
+router.use(departmentsRouter);
 
 export default router;

@@ -1004,3 +1004,59 @@ export const UnlinkEmployeeUnitParams = zod.object({
   empId: zod.coerce.number(),
   unitId: zod.coerce.number(),
 });
+
+export const ListDepartmentsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateDepartmentParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateDepartmentBody = zod.object({
+  name: zod.string(),
+  description: zod.string().optional(),
+});
+
+export const UpdateDepartmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  deptId: zod.coerce.number(),
+});
+
+export const UpdateDepartmentBody = zod.object({
+  name: zod.string().optional(),
+  description: zod.string().optional(),
+});
+
+export const DeleteDepartmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  deptId: zod.coerce.number(),
+});
+
+export const ListPositionsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreatePositionParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreatePositionBody = zod.object({
+  name: zod.string(),
+  description: zod.string().optional(),
+});
+
+export const UpdatePositionParams = zod.object({
+  orgId: zod.coerce.number(),
+  posId: zod.coerce.number(),
+});
+
+export const UpdatePositionBody = zod.object({
+  name: zod.string().optional(),
+  description: zod.string().optional(),
+});
+
+export const DeletePositionParams = zod.object({
+  orgId: zod.coerce.number(),
+  posId: zod.coerce.number(),
+});

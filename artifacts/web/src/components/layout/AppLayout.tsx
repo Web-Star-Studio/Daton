@@ -47,7 +47,10 @@ export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps
         }
       }
     } else if (location.startsWith("/app/organizacao")) {
-      crumbs.push({ label: "Organização" });
+      crumbs.push({ label: "Organização", href: "/app/organizacao" });
+      if (location.startsWith("/app/organizacao/unidades/") && pageTitle) {
+        crumbs.push({ label: pageTitle });
+      }
     }
 
     return crumbs;
@@ -73,7 +76,7 @@ export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps
         
         <div className="flex-1 overflow-y-auto py-5 px-2.5 space-y-1">
           <Link 
-            href="/app/organizacao/unidades"
+            href="/app/organizacao"
             className={cn(
               "flex items-center px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
               isActive("/app/organizacao") 

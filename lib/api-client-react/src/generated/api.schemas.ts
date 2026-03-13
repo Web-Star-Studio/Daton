@@ -653,3 +653,41 @@ export type PaginatedEmployees = {
   data: EmployeeListItem[];
   pagination: PaginationInfo;
 };
+
+export interface Department {
+  id: number;
+  organizationId: number;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDepartmentBody {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateDepartmentBody {
+  name?: string;
+  description?: string;
+}
+
+export interface Position {
+  id: number;
+  organizationId: number;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePositionBody {
+  name: string;
+  description?: string;
+}
+
+export interface UpdatePositionBody {
+  name?: string;
+  description?: string;
+}

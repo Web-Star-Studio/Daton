@@ -8,7 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 // Pages
 import AuthPage from "@/pages/auth";
 import AppIndex from "@/pages/app/index";
-import UnidadesPage from "@/pages/app/organizacao/unidades";
+import OrganizacaoPage from "@/pages/app/organizacao";
 import UnitDetailPage from "@/pages/app/organizacao/unidades/[id]";
 import LegislacoesPage from "@/pages/app/qualidade/legislacoes";
 import LegislationDetailPage from "@/pages/app/qualidade/legislacoes/[id]";
@@ -33,7 +33,8 @@ function Router() {
       
       {/* App Routes */}
       <Route path="/app" component={AppIndex} />
-      <Route path="/app/organizacao/unidades" component={UnidadesPage} />
+      <Route path="/app/organizacao" component={OrganizacaoPage} />
+      <Route path="/app/organizacao/unidades" component={OrganizacaoPage} />
       <Route path="/app/organizacao/unidades/:id" component={UnitDetailPage} />
       <Route path="/app/qualidade/legislacoes" component={LegislacoesPage} />
       <Route path="/app/qualidade/legislacoes/:id" component={LegislationDetailPage} />
