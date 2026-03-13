@@ -675,8 +675,12 @@ export default function OrganizacaoPage() {
               setInviteDialogOpen(false);
               queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
             } catch (err: unknown) {
-              const e = err as Record<string, Record<string, Record<string, string>>>;
-              setInviteError(e?.response?.data?.error || e?.data?.error || "Erro ao enviar convite");
+              const message =
+                err instanceof Error ? err.message :
+                typeof err === "object" && err !== null && "data" in err
+                  ? (err as { data?: { error?: string } }).data?.error
+                  : undefined;
+              setInviteError(message || "Erro ao enviar convite");
             }
           }}
         >
@@ -697,7 +701,7 @@ export default function OrganizacaoPage() {
             <Button type="button" variant="outline" size="sm" onClick={() => setInviteDialogOpen(false)}>Cancelar</Button>
             <Button type="submit" size="sm" isLoading={createInviteMut.isPending}>
               <Mail className="h-4 w-4 mr-1.5" />
-              Enviar convite
+              Enviar Convite
             </Button>
           </DialogFooter>
         </form>
