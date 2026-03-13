@@ -11,6 +11,5 @@ export interface User {
   name: string;
   email: string;
   organizationId: number;
-  profileImageUrl?: string | null;
   createdAt: Date;
 }

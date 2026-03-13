@@ -50,27 +50,74 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
-  /auth/user:
-    get:
+  /auth/register:
+    post:
+      operationId: register
       tags: [auth]
-      operationId: getCurrentAuthUser
-      summary: Get the currently authenticated user
-      parameters:
-        - $ref: '#/components/parameters/AuthorizationSessionHeader'
-        - $ref: '#/components/parameters/SessionCookie'
+      summary: Register a new user and organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
       responses:
-        '200':
-          description: Auth status resolved successfully.
+        "201":
+          description: User created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthUserEnvelope'
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
 
   /auth/me:
     get:
       operationId: getMe
       tags: [auth]
-      summary: Get current user with organization details
+      summary: Get current user
       responses:
         "200":
           description: Current user
@@ -80,100 +127,10 @@ paths:
                 $ref: "#/components/schemas/MeResponse"
         "401":
           description: Not authenticated
-
-  /login:
-    get:
-      tags: [auth]
-      operationId: beginBrowserLogin
-      summary: Start the browser OIDC login flow
-      parameters:
-        - name: returnTo
-          in: query
-          required: false
-          description: Relative path to redirect to after login (must start with `/`). Defaults to `/`.
-          schema:
-            type: string
-      responses:
-        '302':
-          description: Redirect to the OIDC authorization endpoint.
-
-  /callback:
-    get:
-      tags: [auth]
-      operationId: handleBrowserLoginCallback
-      summary: Complete the browser OIDC login flow
-      parameters:
-        - name: code
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: state
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: iss
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uri
-      responses:
-        '302':
-          description: Redirect to the returnTo path on success.
-
-  /logout:
-    get:
-      tags: [auth]
-      operationId: logoutBrowserSession
-      summary: Clear the session and begin OIDC logout
-      parameters:
-        - $ref: '#/components/parameters/AuthorizationSessionHeader'
-        - $ref: '#/components/parameters/SessionCookie'
-      responses:
-        '302':
-          description: Redirect to the OIDC provider logout URL.
-
-  /mobile-auth/token-exchange:
-    post:
-      tags: [auth]
-      operationId: exchangeMobileAuthorizationCode
-      summary: Exchange a mobile OIDC code for a session token
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MobileTokenExchangeRequest'
-      responses:
-        '200':
-          description: Session created successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MobileTokenExchangeSuccess'
-        '400':
-          description: Missing or invalid required fields.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /mobile-auth/logout:
-    post:
-      tags: [auth]
-      operationId: logoutMobileSession
-      summary: Delete a mobile session token
-      parameters:
-        - $ref: '#/components/parameters/AuthorizationSessionHeader'
-      responses:
-        '200':
-          description: Logout processed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LogoutSuccess'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /organizations/{orgId}:
     get:
@@ -1925,21 +1882,6 @@ paths:
                   $ref: "#/components/schemas/OrgUser"
 
 components:
-  parameters:
-    AuthorizationSessionHeader:
-      name: Authorization
-      in: header
-      required: false
-      description: Opaque session token — `Bearer <sid>`.
-      schema:
-        type: string
-    SessionCookie:
-      name: sid
-      in: cookie
-      required: false
-      description: Browser session cookie.
-      schema:
-        type: string
   schemas:
     HealthStatus:
       type: object
@@ -1965,80 +1907,51 @@ components:
       required:
         - message
 
-    AuthUser:
+    RegisterBody:
       type: object
-      required:
-        - id
-        - email
-        - firstName
-        - lastName
-        - profileImageUrl
       properties:
-        id:
+        razaoSocial:
+          type: string
+        nomeFantasia:
+          type: string
+        cnpj:
+          type: string
+        adminName:
           type: string
         email:
-          oneOf:
-            - type: string
-              format: email
-            - type: "null"
-        firstName:
-          oneOf:
-            - type: string
-            - type: "null"
-        lastName:
-          oneOf:
-            - type: string
-            - type: "null"
-        profileImageUrl:
-          oneOf:
-            - type: string
-            - type: "null"
-
-    AuthUserEnvelope:
-      type: object
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
       required:
-        - user
+        - razaoSocial
+        - adminName
+        - email
+        - password
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    AuthResponse:
+      type: object
       properties:
         user:
-          oneOf:
-            - $ref: "#/components/schemas/AuthUser"
-            - type: "null"
-
-    MobileTokenExchangeRequest:
-      type: object
-      required: [code, code_verifier, redirect_uri, state]
-      properties:
-        code:
-          type: string
-          minLength: 1
-        code_verifier:
-          type: string
-          minLength: 1
-        redirect_uri:
-          type: string
-          minLength: 1
-          format: uri
-        state:
-          type: string
-          minLength: 1
-        nonce:
-          type: string
-          minLength: 1
-
-    MobileTokenExchangeSuccess:
-      type: object
-      required: [token]
-      properties:
+          $ref: "#/components/schemas/User"
         token:
           type: string
-
-    LogoutSuccess:
-      type: object
-      required: [success]
-      properties:
-        success:
-          type: boolean
-          const: true
+      required:
+        - user
+        - token
 
     User:
       type: object
@@ -2051,10 +1964,6 @@ components:
           type: string
         organizationId:
           type: integer
-        profileImageUrl:
-          oneOf:
-            - type: string
-            - type: "null"
         createdAt:
           type: string
           format: date-time

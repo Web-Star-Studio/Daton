@@ -12,7 +12,6 @@
     "@google-cloud/storage": "^7.19.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
-    "@workspace/integrations-openai-ai-server": "workspace:*",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2",
@@ -20,7 +19,7 @@
     "express": "^5",
     "google-auth-library": "^10.6.1",
     "jsonwebtoken": "^9.0.3",
-    "openid-client": "^6.8.2"
+    "@workspace/integrations-openai-ai-server": "workspace:*"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",

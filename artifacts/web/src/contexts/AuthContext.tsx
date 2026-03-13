@@ -1,67 +1,53 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { useGetMe, type User, type Organization } from "@workspace/api-client-react";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { useGetMe, getGetMeQueryKey, type User, type Organization } from "@workspace/api-client-react";
 
 interface AuthContextType {
   user: User | null;
   organization: Organization | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: () => void;
+  login: (token: string) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [sessionChecked, setSessionChecked] = useState(false);
-  const [hasSession, setHasSession] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/auth/user", { credentials: "include" })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json() as Promise<{ user: { id: string } | null }>;
-      })
-      .then((data) => {
-        setHasSession(!!data.user);
-        setSessionChecked(true);
-      })
-      .catch(() => {
-        setHasSession(false);
-        setSessionChecked(true);
-      });
-  }, []);
-
-  const { data, isLoading, error } = useGetMe({
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem("daton_token"));
+  
+  // Custom fetch wrapper logic assumes localstorage token, but if not we can at least render based on me
+  const { data, isLoading, error, refetch } = useGetMe({
     query: {
+      queryKey: getGetMeQueryKey(),
       retry: false,
-      enabled: hasSession && sessionChecked,
+      enabled: !!token,
     },
   });
 
-  const login = useCallback(() => {
-    const base = import.meta.env.BASE_URL.replace(/\/+$/, "") || "/";
-    window.location.href = `/api/login?returnTo=${encodeURIComponent(base)}`;
-  }, []);
+  const login = (newToken: string) => {
+    localStorage.setItem("daton_token", newToken);
+    setToken(newToken);
+    refetch();
+  };
 
-  const logout = useCallback(() => {
-    window.location.href = "/api/logout";
-  }, []);
+  const logout = () => {
+    localStorage.removeItem("daton_token");
+    setToken(null);
+  };
 
+  // Clear token if unauthorized
   useEffect(() => {
-    if (error && sessionChecked) {
-      setHasSession(false);
+    if (error) {
+      logout();
     }
-  }, [error, sessionChecked]);
-
-  const loading = !sessionChecked || (hasSession && isLoading);
+  }, [error]);
 
   return (
     <AuthContext.Provider
       value={{
         user: data?.user || null,
         organization: data?.organization || null,
-        isLoading: loading,
+        isLoading: isLoading && !!token,
         isAuthenticated: !!data?.user,
         login,
         logout,

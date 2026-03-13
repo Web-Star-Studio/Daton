@@ -285,9 +285,14 @@ export async function customFetch<T = unknown>(
 
   const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
 
-  if (typeof window !== "undefined") {
-    if (!init.credentials) {
-      init.credentials = "include";
+  if (typeof window !== "undefined" && !headers.has("authorization")) {
+    const url = resolveUrl(input);
+    const isSameOrigin = url.startsWith("/") || url.startsWith(window.location.origin);
+    if (isSameOrigin) {
+      const token = localStorage.getItem("daton_token");
+      if (token) {
+        headers.set("authorization", `Bearer ${token}`);
+      }
     }
   }
 
