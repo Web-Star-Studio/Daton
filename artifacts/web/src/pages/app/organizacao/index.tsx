@@ -674,8 +674,9 @@ export default function OrganizacaoPage() {
               setInviteEmail("");
               setInviteDialogOpen(false);
               queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
-            } catch (err: any) {
-              setInviteError(err?.response?.data?.error || err?.data?.error || "Erro ao enviar convite");
+            } catch (err: unknown) {
+              const e = err as Record<string, Record<string, Record<string, string>>>;
+              setInviteError(e?.response?.data?.error || e?.data?.error || "Erro ao enviar convite");
             }
           }}
         >
