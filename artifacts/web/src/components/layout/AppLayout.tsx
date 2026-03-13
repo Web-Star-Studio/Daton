@@ -240,7 +240,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      {isChatOpen && <ChatPanel isOpen={isChatOpen} onClose={() => setChatOpen(false)} />}
+      <ChatPanel isOpen={isChatOpen} onClose={() => setChatOpen(false)} />
     </div>
   );
 }

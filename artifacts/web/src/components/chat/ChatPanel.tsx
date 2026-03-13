@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { X, Send, Sparkles, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem("daton_token");
@@ -138,10 +139,32 @@ export function ChatPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     setIsStreaming(false);
   };
 
-  if (!isOpen) return null;
+  const [shouldRender, setShouldRender] = useState(isOpen);
+
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+    }
+  }, [isOpen]);
+
+  const handleAnimationEnd = () => {
+    if (!isOpen) {
+      setShouldRender(false);
+    }
+  };
+
+  if (!shouldRender) return null;
 
   return (
-      <div className="w-[360px] flex-shrink-0 bg-white rounded-2xl border border-border/60 shadow-sm flex flex-col h-full overflow-hidden">
+      <div
+        className={cn(
+          "w-[360px] flex-shrink-0 bg-white rounded-2xl border border-border/60 shadow-sm flex flex-col h-full overflow-hidden transition-all duration-250 ease-out origin-right",
+          isOpen
+            ? "animate-[chatSlideIn_250ms_ease-out_forwards]"
+            : "animate-[chatSlideOut_200ms_ease-in_forwards]"
+        )}
+        onAnimationEnd={handleAnimationEnd}
+      >
         <div className="h-14 flex items-center justify-between px-4 border-b border-border/60 flex-shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-[13px] font-semibold">Daton AI</span>
