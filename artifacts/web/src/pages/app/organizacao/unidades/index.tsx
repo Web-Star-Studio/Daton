@@ -9,7 +9,6 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 
@@ -93,38 +92,60 @@ export default function UnidadesPage() {
 
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Carregando unidades...</div>
+      ) : units?.length === 0 ? (
+        <div className="text-center py-16">
+          <p className="text-muted-foreground text-[13px]">Nenhuma unidade cadastrada.</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {units?.map((unit) => (
-            <div
-              key={unit.id}
-              onClick={() => navigate(`/app/organizacao/unidades/${unit.id}`)}
-              className="bg-card border border-border rounded-xl p-5 hover:shadow-sm transition-shadow group cursor-pointer"
-            >
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="text-[15px] font-semibold text-foreground">{unit.name}</h3>
-                <div className="flex items-center gap-2">
-                  <Badge variant={unit.type === 'sede' ? 'default' : 'secondary'} className="uppercase text-[10px]">
-                    {unit.type}
-                  </Badge>
-                  <button
-                    onClick={(e) => handleDelete(e, unit.id)}
-                    className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-              <p className="text-[13px] text-muted-foreground">
-                {unit.city && unit.state ? `${unit.city}, ${unit.state}` : 'Endereço não informado'}
-              </p>
-            </div>
-          ))}
-          {units?.length === 0 && (
-            <div className="col-span-full text-center py-12 bg-card rounded-xl border border-dashed border-border">
-              <p className="text-muted-foreground text-[13px]">Nenhuma unidade cadastrada.</p>
-            </div>
-          )}
+        <div className="overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Unidade</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Localização</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Identificação</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {units?.map((unit) => (
+                <tr
+                  key={unit.id}
+                  onClick={() => navigate(`/app/organizacao/unidades/${unit.id}`)}
+                  className="border-b border-border/60 hover:bg-muted/20 transition-colors cursor-pointer group"
+                >
+                  <td className="px-6 py-4">
+                    <span className="text-[13px] font-medium text-foreground">{unit.name}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-[13px] text-muted-foreground font-medium">
+                      {unit.city && unit.state ? `${unit.city}, ${unit.state}` : 'Não informada'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-[13px] font-semibold text-foreground">{unit.code || '—'}</span>
+                    {unit.cnpj && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{unit.cnpj}</p>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-[13px] text-foreground">
+                      {unit.status === 'ativa' ? 'Ativa' : 'Inativa'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      onClick={(e) => handleDelete(e, unit.id)}
+                      className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
