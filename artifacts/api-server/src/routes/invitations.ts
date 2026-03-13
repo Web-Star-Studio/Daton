@@ -9,9 +9,33 @@ import { getResendClient } from "../lib/resend";
 
 const router: IRouter = Router();
 
-function getAppBaseUrl(): string {
-  if (process.env.REPLIT_DEPLOYMENT) {
-    return `https://${process.env.REPLIT_DEPLOYMENT}`;
+function getAllowedHosts(): string[] {
+  const hosts: string[] = [];
+  if (process.env.APP_BASE_URL) {
+    try { hosts.push(new URL(process.env.APP_BASE_URL).host); } catch {}
+  }
+  if (process.env.REPLIT_DEV_DOMAIN) hosts.push(process.env.REPLIT_DEV_DOMAIN);
+  if (process.env.REPLIT_DEPLOYMENT) hosts.push(process.env.REPLIT_DEPLOYMENT);
+  if (process.env.REPLIT_DOMAINS) {
+    process.env.REPLIT_DOMAINS.split(",").forEach(d => {
+      const trimmed = d.trim();
+      if (trimmed) hosts.push(trimmed);
+    });
+  }
+  return hosts;
+}
+
+function getAppBaseUrl(req?: { headers: Record<string, string | string[] | undefined> }): string {
+  if (process.env.APP_BASE_URL) {
+    return process.env.APP_BASE_URL.replace(/\/$/, "");
+  }
+  if (req) {
+    const rawHost = req.headers["x-forwarded-host"] || req.headers["host"];
+    const host = (Array.isArray(rawHost) ? rawHost[0] : rawHost)?.split(",")[0]?.trim();
+    const allowed = getAllowedHosts();
+    if (host && (allowed.length === 0 || allowed.includes(host))) {
+      return `https://${host}`;
+    }
   }
   if (process.env.REPLIT_DEV_DOMAIN) {
     return `https://${process.env.REPLIT_DEV_DOMAIN}`;
@@ -110,7 +134,7 @@ router.post("/invitations", requireAuth, async (req, res): Promise<void> => {
   const [inviter] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   const [org] = await db.select().from(organizationsTable).where(eq(organizationsTable.id, organizationId));
 
-  const acceptUrl = `${getAppBaseUrl()}/convite/${token}`;
+  const acceptUrl = `${getAppBaseUrl(req)}/convite/${token}`;
 
   try {
     const { client, fromEmail } = await getResendClient();
