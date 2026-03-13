@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useGetMe, getGetMeQueryKey, type User, type Organization } from "@workspace/api-client-react";
 
 interface AuthContextType {
@@ -14,8 +15,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("daton_token"));
+  const queryClient = useQueryClient();
   
-  // Custom fetch wrapper logic assumes localstorage token, but if not we can at least render based on me
   const { data, isLoading, error, refetch } = useGetMe({
     query: {
       queryKey: getGetMeQueryKey(),
@@ -33,12 +34,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     localStorage.removeItem("daton_token");
     setToken(null);
+    queryClient.clear();
+    window.location.href = import.meta.env.BASE_URL || "/";
   };
 
-  // Clear token if unauthorized
   useEffect(() => {
     if (error) {
-      logout();
+      localStorage.removeItem("daton_token");
+      setToken(null);
+      queryClient.clear();
     }
   }, [error]);
 
