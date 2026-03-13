@@ -141,7 +141,7 @@ export function ChatPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
   if (!isOpen) return null;
 
   return (
-      <div className="w-[360px] flex-shrink-0 bg-white border-l border-border/60 flex flex-col h-full">
+      <div className="w-[360px] flex-shrink-0 bg-white rounded-2xl border border-border/60 shadow-sm flex flex-col h-full overflow-hidden">
         <div className="h-14 flex items-center justify-between px-4 border-b border-border/60 flex-shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-[13px] font-semibold">Daton AI</span>
