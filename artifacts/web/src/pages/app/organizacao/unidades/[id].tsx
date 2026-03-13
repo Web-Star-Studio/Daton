@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useRoute, Link } from "wouter";
+import { useRoute } from "wouter";
 import { useHeaderActions, usePageTitle } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { ArrowLeft, Pencil, Save, X, ClipboardList } from "lucide-react";
+import { Pencil, Save, X, ClipboardList } from "lucide-react";
 import { QuestionnaireModal } from "@/components/questionnaire/QuestionnaireModal";
 
 export default function UnitDetailPage() {
@@ -108,11 +108,6 @@ export default function UnitDetailPage() {
   useHeaderActions(
     unit ? (
       <div className="flex items-center gap-2">
-        <Link href="/app/organizacao">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
-          </Button>
-        </Link>
         <Button variant="secondary" size="sm" onClick={() => setQuestionnaireOpen(true)}>
           <ClipboardList className="w-4 h-4 mr-1" /> Questionário de Compliance
         </Button>

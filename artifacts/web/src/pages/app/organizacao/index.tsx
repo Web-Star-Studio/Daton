@@ -235,22 +235,22 @@ export default function OrganizacaoPage() {
   return (
     <>
       <div className="mb-6">
-        <nav className="flex items-center gap-6 border-b border-border">
+        <div className="inline-flex items-center rounded-xl border border-border p-0.5 bg-muted/30">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                "relative pb-2.5 text-[13px] font-medium transition-colors duration-200 cursor-pointer hover:text-foreground",
+                "px-4 py-1.5 text-[13px] font-medium transition-all duration-200 cursor-pointer rounded-[10px]",
                 activeTab === tab.key
-                  ? "text-foreground font-semibold after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:bg-foreground after:rounded-full"
-                  : "text-muted-foreground"
+                  ? "bg-white text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               {tab.label}
             </button>
           ))}
-        </nav>
+        </div>
       </div>
 
       {activeTab === "visao-geral" && (

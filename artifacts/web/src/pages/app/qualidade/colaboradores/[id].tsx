@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useRoute, Link } from "wouter";
-import { usePageTitle } from "@/contexts/LayoutContext";
+import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useGetEmployee,
@@ -35,7 +35,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
-  ArrowLeft,
   Pencil,
   Check,
   X,
@@ -856,6 +855,16 @@ export default function ColaboradorDetailPage() {
 
   usePageTitle(employee?.name);
 
+  const archiveAction = React.useMemo(() => (
+    employee ? (
+      <Button variant="outline" size="sm" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={handleArchive}>
+        <Archive className="h-3.5 w-3.5 mr-1.5" />
+        Arquivar
+      </Button>
+    ) : null
+  ), [employee]);
+  useHeaderActions(archiveAction);
+
   if (!orgId) return null;
 
   if (isLoading) {
@@ -885,37 +894,21 @@ export default function ColaboradorDetailPage() {
   return (
     <>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/app/qualidade/colaboradores">
-              <button className="p-1.5 rounded-lg hover:bg-secondary/60 text-muted-foreground transition-colors cursor-pointer">
-                <ArrowLeft className="h-4 w-4" />
-              </button>
-            </Link>
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">{employee.name}</h1>
-              <p className="text-[13px] text-muted-foreground mt-0.5">
-                {employee.position || "Sem cargo"} {employee.department ? `· ${employee.department}` : ""}
-              </p>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={handleArchive}>
-            <Archive className="h-3.5 w-3.5 mr-1.5" />
-            Arquivar
-          </Button>
-        </div>
+        <p className="text-[13px] text-muted-foreground -mt-2">
+          {employee.position || "Sem cargo"} {employee.department ? `· ${employee.department}` : ""}
+        </p>
 
         <div className="mb-1">
-          <div className="flex items-center gap-6 border-b border-border">
+          <div className="inline-flex items-center rounded-xl border border-border p-0.5 bg-muted/30">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={cn(
-                  "relative flex items-center gap-1.5 pb-2.5 text-[13px] font-medium transition-colors duration-200 cursor-pointer hover:text-foreground",
+                  "flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-medium transition-all duration-200 cursor-pointer rounded-[10px]",
                   activeTab === tab.key
-                    ? "text-foreground font-semibold after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:bg-foreground after:rounded-full"
-                    : "text-muted-foreground"
+                    ? "bg-white text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <tab.icon className="h-3.5 w-3.5" />
