@@ -39,6 +39,27 @@ import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
+async function validateOrgUsers(userIds: number[], orgId: number): Promise<boolean> {
+  if (userIds.length === 0) return true;
+  const rows = await db.select({ id: usersTable.id }).from(usersTable)
+    .where(and(inArray(usersTable.id, userIds), eq(usersTable.organizationId, orgId)));
+  return rows.length === userIds.length;
+}
+
+async function validateOrgUnits(unitIds: number[], orgId: number): Promise<boolean> {
+  if (unitIds.length === 0) return true;
+  const rows = await db.select({ id: unitsTable.id }).from(unitsTable)
+    .where(and(inArray(unitsTable.id, unitIds), eq(unitsTable.organizationId, orgId)));
+  return rows.length === unitIds.length;
+}
+
+async function validateOrgDocuments(docIds: number[], orgId: number): Promise<boolean> {
+  if (docIds.length === 0) return true;
+  const rows = await db.select({ id: documentsTable.id }).from(documentsTable)
+    .where(and(inArray(documentsTable.id, docIds), eq(documentsTable.organizationId, orgId)));
+  return rows.length === docIds.length;
+}
+
 async function createNotification(orgId: number, userId: number, type: string, title: string, description: string, entityType?: string, entityId?: number) {
   await db.insert(notificationsTable).values({
     organizationId: orgId,
@@ -237,6 +258,24 @@ router.post("/organizations/:orgId/documents", requireAuth, async (req, res): Pr
   const userId = req.auth!.userId;
   const orgId = params.data.orgId;
 
+  const allUserIds = [
+    ...(body.data.elaboratorIds || []),
+    ...(body.data.approverIds || []),
+    ...(body.data.recipientIds || []),
+  ];
+  if (allUserIds.length > 0 && !(await validateOrgUsers(allUserIds, orgId))) {
+    res.status(400).json({ error: "Um ou mais usuários selecionados não pertencem a esta organização" });
+    return;
+  }
+  if (body.data.unitIds?.length && !(await validateOrgUnits(body.data.unitIds, orgId))) {
+    res.status(400).json({ error: "Uma ou mais filiais selecionadas não pertencem a esta organização" });
+    return;
+  }
+  if (body.data.referenceIds?.length && !(await validateOrgDocuments(body.data.referenceIds, orgId))) {
+    res.status(400).json({ error: "Um ou mais documentos referenciados não pertencem a esta organização" });
+    return;
+  }
+
   const [doc] = await db.insert(documentsTable).values({
     organizationId: orgId,
     title: body.data.title,
@@ -332,6 +371,24 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, async (req, 
 
   if (existing.status !== "draft" && existing.status !== "rejected") {
     res.status(400).json({ error: "Apenas documentos em rascunho ou rejeitados podem ser editados" });
+    return;
+  }
+
+  const allUserIds = [
+    ...(body.data.elaboratorIds || []),
+    ...(body.data.approverIds || []),
+    ...(body.data.recipientIds || []),
+  ];
+  if (allUserIds.length > 0 && !(await validateOrgUsers(allUserIds, orgId))) {
+    res.status(400).json({ error: "Um ou mais usuários selecionados não pertencem a esta organização" });
+    return;
+  }
+  if (body.data.unitIds?.length && !(await validateOrgUnits(body.data.unitIds, orgId))) {
+    res.status(400).json({ error: "Uma ou mais filiais selecionadas não pertencem a esta organização" });
+    return;
+  }
+  if (body.data.referenceIds?.length && !(await validateOrgDocuments(body.data.referenceIds, orgId))) {
+    res.status(400).json({ error: "Um ou mais documentos referenciados não pertencem a esta organização" });
     return;
   }
 
@@ -546,6 +603,11 @@ router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, async 
   const distinctApprovers = await db.selectDistinct({ userId: documentApproversTable.userId })
     .from(documentApproversTable)
     .where(eq(documentApproversTable.documentId, docId));
+
+  if (distinctApprovers.length === 0) {
+    res.status(400).json({ error: "O documento deve ter pelo menos um aprovador antes de ser enviado para revisão" });
+    return;
+  }
 
   for (const a of distinctApprovers) {
     await db.insert(documentApproversTable).values({
