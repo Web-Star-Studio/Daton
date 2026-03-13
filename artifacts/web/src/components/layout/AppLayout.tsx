@@ -9,17 +9,20 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Bell
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import datonLogo from "@assets/daton-logo-header-DC_evyPp_1773347395767.png";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isChatOpen, setChatOpen] = useState(false);
+  const [isNotificationsOpen, setNotificationsOpen] = useState(false);
   const [qualidadePopover, setQualidadePopover] = useState(false);
   const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0 });
   const qualidadeRef = useRef<HTMLDivElement>(null);
@@ -205,6 +208,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-3">
             {headerActions}
+            <div className="relative">
+              <button
+                onClick={() => setNotificationsOpen(!isNotificationsOpen)}
+                className={cn(
+                  "p-2 rounded-lg transition-colors cursor-pointer relative",
+                  isNotificationsOpen
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground/60 hover:text-foreground hover:bg-secondary/60"
+                )}
+                title="Notificações"
+              >
+                <Bell className="h-4 w-4" />
+                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-[#007AFF]" />
+              </button>
+              {isNotificationsOpen && (
+                <NotificationsPanel onClose={() => setNotificationsOpen(false)} />
+              )}
+            </div>
             {!isChatOpen && (
               <button
                 onClick={() => setChatOpen(true)}
