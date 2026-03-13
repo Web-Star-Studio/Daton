@@ -614,18 +614,20 @@ export default function DocumentDetailPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Anexos ({doc.attachments?.length || 0})</h3>
-            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-muted/50 rounded-lg text-sm cursor-pointer hover:bg-muted transition-colors">
-              <Upload className="h-3.5 w-3.5" />
-              {isUploading ? "Enviando..." : "Adicionar Anexo"}
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.docx,.csv,.xlsx,.xls"
-                className="hidden"
-                onChange={handleFileUpload}
-                disabled={isUploading}
-              />
-            </label>
+            {canEdit && (
+              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-muted/50 rounded-lg text-sm cursor-pointer hover:bg-muted transition-colors">
+                <Upload className="h-3.5 w-3.5" />
+                {isUploading ? "Enviando..." : "Adicionar Anexo"}
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.docx,.csv,.xlsx,.xls"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  disabled={isUploading}
+                />
+              </label>
+            )}
           </div>
 
           {(!doc.attachments || doc.attachments.length === 0) ? (
@@ -766,11 +768,11 @@ export default function DocumentDetailPage() {
           <div className="p-4 bg-muted/20 rounded-lg border border-border/40">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Fluxo do Documento</h4>
             <div className="flex items-center gap-2 flex-wrap">
-              {["draft", "in_review", "distributed"].map((step, i) => (
+              {["draft", "in_review", "approved", "distributed"].map((step, i) => (
                 <div key={step} className="flex items-center gap-2">
                   {i > 0 && <span className="text-muted-foreground/30">→</span>}
                   <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${
-                    doc.status === step || (doc.status === "distributed" && step === "distributed")
+                    doc.status === step
                       ? STATUS_COLORS[step]
                       : "bg-muted/40 text-muted-foreground/50"
                   }`}>
@@ -778,8 +780,16 @@ export default function DocumentDetailPage() {
                   </span>
                 </div>
               ))}
+              {doc.status === "rejected" && (
+                <div className="flex items-center gap-2 ml-4">
+                  <span className="text-muted-foreground/30">↩</span>
+                  <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${STATUS_COLORS["rejected"]}`}>
+                    {STATUS_LABELS["rejected"]}
+                  </span>
+                </div>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">Após aprovação de todos os aprovadores, o documento é distribuído automaticamente.</p>
+            <p className="text-xs text-muted-foreground mt-2">Após aprovação de todos os aprovadores, o documento é distribuído automaticamente aos destinatários.</p>
           </div>
         </div>
       )}
