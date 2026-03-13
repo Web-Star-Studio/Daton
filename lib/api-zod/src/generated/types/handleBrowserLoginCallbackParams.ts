@@ -5,9 +5,9 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { User } from "./user";
 
-export interface AuthResponse {
-  user: User;
-  token: string;
-}
+export type HandleBrowserLoginCallbackParams = {
+  code?: string;
+  state?: string;
+  iss?: string;
+};
