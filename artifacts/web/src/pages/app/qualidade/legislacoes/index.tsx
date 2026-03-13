@@ -458,29 +458,6 @@ export default function LegislacoesPage() {
                     <td className="px-6 py-4">
                       <div className="font-medium text-foreground">{leg.title}</div>
                       {leg.number && <div className="text-muted-foreground mt-0.5">{leg.number}</div>}
-                      {leg.tags && leg.tags.length > 0 && !leg.matchedTags && (
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {leg.tags.slice(0, 3).map((tag) => (
-                            <span key={tag} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#007AFF]/10 text-[#007AFF]">
-                              {tag}
-                            </span>
-                          ))}
-                          {leg.tags.length > 3 && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-secondary text-muted-foreground">
-                              +{leg.tags.length - 3}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {leg.matchedTags && leg.matchedTags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {leg.matchedTags.map((tag) => (
-                            <span key={tag} className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 text-emerald-700 border border-emerald-200">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-muted-foreground text-xs">{leg.tipoNorma || '—'}</span>
