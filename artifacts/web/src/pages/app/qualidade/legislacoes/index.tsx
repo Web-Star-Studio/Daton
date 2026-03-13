@@ -384,7 +384,7 @@ export default function LegislacoesPage() {
     <>
       <Button variant="secondary" onClick={onBatchAutoTag} disabled={isAutoTagging}>
         {isAutoTagging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-        {isAutoTagging ? "Classificando..." : "Auto-classificar tags"}
+        {isAutoTagging ? "Classificando..." : "Classificar Tags"}
       </Button>
       <Button variant="secondary" onClick={() => setIsImportOpen(true)}>
         <Upload className="w-4 h-4 mr-2" /> Importar
