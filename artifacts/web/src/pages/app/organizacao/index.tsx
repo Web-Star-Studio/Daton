@@ -22,7 +22,7 @@ import {
   type CreateUnitBody, type CreateUnitBodyType,
 } from "@workspace/api-client-react";
 
-type Tab = "visao-geral" | "unidades" | "departamentos" | "cargos" | "convites";
+type Tab = "visao-geral" | "unidades" | "departamentos" | "cargos" | "usuarios";
 
 type UnitFormData = {
   name: string;
@@ -97,9 +97,10 @@ export default function OrganizacaoPage() {
     name: "", nomeFantasia: "", cnpj: "", inscricaoEstadual: "", dataFundacao: "", statusOperacional: "ativa",
   });
 
-  const { data: invitationsData, isLoading: invitationsLoading } = useListInvitations({ query: { queryKey: getListInvitationsQueryKey(), enabled: activeTab === "convites" } });
+  const { data: invitationsData, isLoading: invitationsLoading } = useListInvitations({ query: { queryKey: getListInvitationsQueryKey(), enabled: activeTab === "usuarios" } });
   const createInviteMut = useCreateInvitation();
   const revokeInviteMut = useRevokeInvitation();
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteError, setInviteError] = useState("");
 
@@ -163,6 +164,13 @@ export default function OrganizacaoPage() {
           <Button size="sm" onClick={() => { setEditingPosId(null); posForm.reset(emptyPosForm); setPosDialogOpen(true); }}>
             <Plus className="h-3.5 w-3.5 mr-1.5" />
             Novo Cargo
+          </Button>
+        );
+      case "usuarios":
+        return (
+          <Button size="sm" onClick={() => { setInviteEmail(""); setInviteError(""); setInviteDialogOpen(true); }}>
+            <Mail className="h-3.5 w-3.5 mr-1.5" />
+            Convidar Usuário
           </Button>
         );
     }
@@ -237,7 +245,7 @@ export default function OrganizacaoPage() {
     { key: "unidades", label: "Unidades" },
     { key: "departamentos", label: "Departamentos" },
     { key: "cargos", label: "Cargos" },
-    { key: "convites", label: "Convites" },
+    { key: "usuarios", label: "Usuários" },
   ];
 
   return (
@@ -452,41 +460,8 @@ export default function OrganizacaoPage() {
         )
       )}
 
-      {activeTab === "convites" && (
+      {activeTab === "usuarios" && (
         <div className="space-y-6">
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setInviteError("");
-              if (!inviteEmail.trim()) return;
-              try {
-                await createInviteMut.mutateAsync({ data: { email: inviteEmail.trim() } });
-                setInviteEmail("");
-                queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
-              } catch (err: any) {
-                setInviteError(err?.response?.data?.error || err?.data?.error || "Erro ao enviar convite");
-              }
-            }}
-            className="flex items-end gap-3"
-          >
-            <div className="flex-1 max-w-md">
-              <Label>Email do convidado</Label>
-              <Input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => { setInviteEmail(e.target.value); setInviteError(""); }}
-                placeholder="colaborador@empresa.com"
-              />
-            </div>
-            <Button type="submit" size="sm" isLoading={createInviteMut.isPending}>
-              <Mail className="h-4 w-4 mr-1.5" />
-              Enviar convite
-            </Button>
-          </form>
-          {inviteError && (
-            <p className="text-sm text-destructive">{inviteError}</p>
-          )}
-
           {invitationsLoading ? (
             <div className="text-center py-12 text-muted-foreground">Carregando...</div>
           ) : (
@@ -684,6 +659,45 @@ export default function OrganizacaoPage() {
           <DialogFooter>
             <Button type="button" variant="outline" size="sm" onClick={() => setPosDialogOpen(false)}>Cancelar</Button>
             <Button type="submit" size="sm" isLoading={createPosMut.isPending || updatePosMut.isPending}>{editingPosId ? "Atualizar" : "Salvar"}</Button>
+          </DialogFooter>
+        </form>
+      </Dialog>
+
+      <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen} title="Convidar Usuário" description="Envie um convite por email para adicionar um novo usuário à organização.">
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setInviteError("");
+            if (!inviteEmail.trim()) return;
+            try {
+              await createInviteMut.mutateAsync({ data: { email: inviteEmail.trim() } });
+              setInviteEmail("");
+              setInviteDialogOpen(false);
+              queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
+            } catch (err: any) {
+              setInviteError(err?.response?.data?.error || err?.data?.error || "Erro ao enviar convite");
+            }
+          }}
+        >
+          <div>
+            <Label>Email do convidado</Label>
+            <Input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => { setInviteEmail(e.target.value); setInviteError(""); }}
+              placeholder="colaborador@empresa.com"
+              autoFocus
+            />
+          </div>
+          {inviteError && (
+            <p className="text-sm text-destructive mt-3">{inviteError}</p>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" size="sm" onClick={() => setInviteDialogOpen(false)}>Cancelar</Button>
+            <Button type="submit" size="sm" isLoading={createInviteMut.isPending}>
+              <Mail className="h-4 w-4 mr-1.5" />
+              Enviar convite
+            </Button>
           </DialogFooter>
         </form>
       </Dialog>
