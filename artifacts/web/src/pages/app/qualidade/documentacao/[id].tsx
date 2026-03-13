@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle } from "@/contexts/LayoutContext";
+import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import {
   useGetDocument,
   getGetDocumentQueryKey,
@@ -168,6 +168,110 @@ export default function DocumentDetailPage() {
   const myReceipt = doc?.recipients?.find((r: DocumentDetailRecipientsItem) => r.userId === user?.id);
   const canEdit = doc?.status === "draft" || doc?.status === "rejected";
 
+  const handleSubmitForReview = async () => {
+    if (!orgId) return;
+    await submitMut.mutateAsync({ orgId, docId });
+    invalidate();
+  };
+
+  const handleApprove = async () => {
+    if (!orgId) return;
+    await approveMut.mutateAsync({ orgId, docId, data: {} });
+    invalidate();
+  };
+
+  const handleAcknowledge = async () => {
+    if (!orgId) return;
+    await acknowledgeMut.mutateAsync({ orgId, docId });
+    invalidate();
+  };
+
+  useHeaderActions(
+    doc ? (
+      <div className="flex items-center gap-2">
+        {isEditing ? (
+          <>
+            <Button size="sm" variant="outline" onClick={() => { setIsEditing(false); setEditForm(null); }}>
+              <X className="h-3.5 w-3.5 mr-1.5" /> Cancelar
+            </Button>
+            <Button size="sm" onClick={() => {
+              if (!orgId || !editForm || !editForm.changeDescription.trim()) return;
+              updateMut.mutateAsync({
+                orgId,
+                docId,
+                data: {
+                  title: editForm.title,
+                  type: editForm.type,
+                  validityDate: editForm.validityDate || undefined,
+                  unitIds: editForm.unitIds,
+                  elaboratorIds: editForm.elaboratorIds,
+                  approverIds: editForm.approverIds,
+                  recipientIds: editForm.recipientIds,
+                  referenceIds: editForm.referenceIds,
+                  changeDescription: editForm.changeDescription,
+                },
+              }).then(() => { setIsEditing(false); setEditForm(null); invalidate(); });
+            }} isLoading={updateMut.isPending} disabled={!editForm?.changeDescription?.trim()}>
+              <Save className="h-3.5 w-3.5 mr-1.5" /> Salvar
+            </Button>
+          </>
+        ) : (
+          <>
+            {canEdit && (
+              <Button size="sm" variant="outline" onClick={() => {
+                if (!doc) return;
+                setEditForm({
+                  title: doc.title,
+                  type: doc.type,
+                  validityDate: doc.validityDate ?? "",
+                  unitIds: doc.units?.map((u: DocumentDetailUnitsItem) => u.id!).filter(Boolean) ?? [],
+                  elaboratorIds: doc.elaborators?.map((e: OrgUser) => e.id!).filter(Boolean) ?? [],
+                  approverIds: doc.approvers?.map((a: DocumentDetailApproversItem) => a.userId!).filter(Boolean) ?? [],
+                  recipientIds: doc.recipients?.map((r: DocumentDetailRecipientsItem) => r.userId!).filter(Boolean) ?? [],
+                  referenceIds: doc.references?.map((ref: DocumentDetailReferencesItem) => ref.documentId!).filter(Boolean) ?? [],
+                  changeDescription: "",
+                });
+                setIsEditing(true);
+              }}>
+                <Pencil className="h-3.5 w-3.5 mr-1.5" /> Editar
+              </Button>
+            )}
+            {doc.status === "draft" && (
+              <Button size="sm" onClick={handleSubmitForReview} isLoading={submitMut.isPending}>
+                <Send className="h-3.5 w-3.5 mr-1.5" /> Enviar para Revisão
+              </Button>
+            )}
+            {doc.status === "rejected" && (
+              <Button size="sm" onClick={handleSubmitForReview} isLoading={submitMut.isPending}>
+                <Send className="h-3.5 w-3.5 mr-1.5" /> Reenviar para Revisão
+              </Button>
+            )}
+            {doc.status === "in_review" && isApprover && myApproval?.status === "pending" && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => setRejectDialog(true)}>
+                  <XCircle className="h-3.5 w-3.5 mr-1.5" /> Rejeitar
+                </Button>
+                <Button size="sm" onClick={handleApprove} isLoading={approveMut.isPending}>
+                  <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Aprovar
+                </Button>
+              </>
+            )}
+            {doc.status === "distributed" && isRecipient && !myReceipt?.readAt && (
+              <Button size="sm" onClick={handleAcknowledge} isLoading={acknowledgeMut.isPending}>
+                <Eye className="h-3.5 w-3.5 mr-1.5" /> Confirmar Recebimento
+              </Button>
+            )}
+            {doc.status === "draft" && (
+              <Button size="sm" variant="outline" onClick={() => setDeleteDialog(true)} className="text-red-600 hover:text-red-700">
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Excluir
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+    ) : null
+  );
+
   const startEditing = () => {
     if (!doc) return;
     setEditForm({
@@ -211,29 +315,11 @@ export default function DocumentDetailPage() {
     invalidate();
   };
 
-  const handleSubmitForReview = async () => {
-    if (!orgId) return;
-    await submitMut.mutateAsync({ orgId, docId });
-    invalidate();
-  };
-
-  const handleApprove = async () => {
-    if (!orgId) return;
-    await approveMut.mutateAsync({ orgId, docId, data: {} });
-    invalidate();
-  };
-
   const handleReject = async () => {
     if (!orgId || !rejectComment.trim()) return;
     await rejectMut.mutateAsync({ orgId, docId, data: { comment: rejectComment } });
     setRejectDialog(false);
     setRejectComment("");
-    invalidate();
-  };
-
-  const handleAcknowledge = async () => {
-    if (!orgId) return;
-    await acknowledgeMut.mutateAsync({ orgId, docId });
     invalidate();
   };
 
@@ -324,58 +410,18 @@ export default function DocumentDetailPage() {
         Voltar para Documentação
       </button>
 
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-xl font-semibold">{doc.title}</h1>
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium border ${STATUS_COLORS[doc.status] || "bg-gray-100 text-gray-700"}`}>
-              {STATUS_LABELS[doc.status] || doc.status}
-            </span>
-          </div>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>{TYPE_LABELS[doc.type] || doc.type}</span>
-            <span>v{doc.currentVersion}</span>
-            <span>Criado por {doc.createdByName}</span>
-            <span>Validade: {formatDate(doc.validityDate)}</span>
-          </div>
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-2">
+          <h1 className="text-xl font-semibold">{doc.title}</h1>
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium border ${STATUS_COLORS[doc.status] || "bg-gray-100 text-gray-700"}`}>
+            {STATUS_LABELS[doc.status] || doc.status}
+          </span>
         </div>
-
-        <div className="flex items-center gap-2">
-          {canEdit && !isEditing && (
-            <Button size="sm" variant="outline" onClick={startEditing}>
-              <Pencil className="h-3.5 w-3.5 mr-1.5" /> Editar
-            </Button>
-          )}
-          {doc.status === "draft" && (
-            <Button size="sm" onClick={handleSubmitForReview} isLoading={submitMut.isPending}>
-              <Send className="h-3.5 w-3.5 mr-1.5" /> Enviar para Revisão
-            </Button>
-          )}
-          {doc.status === "rejected" && (
-            <Button size="sm" onClick={handleSubmitForReview} isLoading={submitMut.isPending}>
-              <Send className="h-3.5 w-3.5 mr-1.5" /> Reenviar para Revisão
-            </Button>
-          )}
-          {doc.status === "in_review" && isApprover && myApproval?.status === "pending" && (
-            <>
-              <Button size="sm" variant="outline" onClick={() => setRejectDialog(true)}>
-                <XCircle className="h-3.5 w-3.5 mr-1.5" /> Rejeitar
-              </Button>
-              <Button size="sm" onClick={handleApprove} isLoading={approveMut.isPending}>
-                <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Aprovar
-              </Button>
-            </>
-          )}
-          {doc.status === "distributed" && isRecipient && !myReceipt?.readAt && (
-            <Button size="sm" onClick={handleAcknowledge} isLoading={acknowledgeMut.isPending}>
-              <Eye className="h-3.5 w-3.5 mr-1.5" /> Confirmar Recebimento
-            </Button>
-          )}
-          {doc.status === "draft" && (
-            <Button size="sm" variant="outline" onClick={() => setDeleteDialog(true)} className="text-red-600 hover:text-red-700">
-              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Excluir
-            </Button>
-          )}
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <span>{TYPE_LABELS[doc.type] || doc.type}</span>
+          <span>v{doc.currentVersion}</span>
+          <span>Criado por {doc.createdByName}</span>
+          <span>Validade: {formatDate(doc.validityDate)}</span>
         </div>
       </div>
 
