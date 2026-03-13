@@ -1434,6 +1434,7 @@ export const ListDocumentsQueryParams = zod.object({
   search: zod.coerce.string().optional(),
   type: zod.coerce.string().optional(),
   status: zod.coerce.string().optional(),
+  unitId: zod.coerce.number().optional(),
 });
 
 export const ListDocumentsResponseItem = zod.object({

@@ -5,18 +5,31 @@ import { usePageTitle } from "@/contexts/LayoutContext";
 import {
   useGetDocument,
   getGetDocumentQueryKey,
+  useUpdateDocument,
   useSubmitDocumentForReview,
   useApproveDocument,
   useRejectDocument,
-  useDistributeDocument,
   useAcknowledgeDocument,
   useAddDocumentAttachment,
   useDeleteDocument,
+  useListUnits,
+  useListOrgUsers,
+  useListDocuments,
+} from "@workspace/api-client-react";
+import type {
+  DocumentDetailUnitsItem,
+  DocumentDetailApproversItem,
+  DocumentDetailRecipientsItem,
+  DocumentDetailReferencesItem,
+  DocumentAttachment,
+  DocumentVersion,
+  OrgUser,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import {
   ArrowLeft,
@@ -31,6 +44,9 @@ import {
   Paperclip,
   Trash2,
   Eye,
+  Pencil,
+  Save,
+  X,
 } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -95,6 +111,18 @@ function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+interface EditFormState {
+  title: string;
+  type: string;
+  validityDate: string;
+  unitIds: number[];
+  elaboratorIds: number[];
+  approverIds: number[];
+  recipientIds: number[];
+  referenceIds: number[];
+  changeDescription: string;
+}
+
 export default function DocumentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const docId = parseInt(id || "0", 10);
@@ -108,6 +136,8 @@ export default function DocumentDetailPage() {
   const [rejectComment, setRejectComment] = useState("");
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<EditFormState | null>(null);
 
   const { data: doc, isLoading } = useGetDocument(orgId!, docId, {
     query: {
@@ -116,22 +146,70 @@ export default function DocumentDetailPage() {
     },
   });
 
+  const { data: allUnits } = useListUnits(orgId!, { query: { enabled: !!orgId && isEditing } });
+  const { data: allUsers } = useListOrgUsers(orgId!, { query: { enabled: !!orgId && isEditing } });
+  const { data: allDocs } = useListDocuments(orgId!, {}, { query: { enabled: !!orgId && isEditing } });
+
   usePageTitle(doc?.title);
 
+  const updateMut = useUpdateDocument();
   const submitMut = useSubmitDocumentForReview();
   const approveMut = useApproveDocument();
   const rejectMut = useRejectDocument();
-  const distributeMut = useDistributeDocument();
   const acknowledgeMut = useAcknowledgeDocument();
   const addAttachmentMut = useAddDocumentAttachment();
   const deleteMut = useDeleteDocument();
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetDocumentQueryKey(orgId!, docId) });
 
-  const isApprover = doc?.approvers?.some((a: any) => a.userId === user?.id);
-  const isRecipient = doc?.recipients?.some((r: any) => r.userId === user?.id);
-  const myApproval = doc?.approvers?.find((a: any) => a.userId === user?.id);
-  const myReceipt = doc?.recipients?.find((r: any) => r.userId === user?.id);
+  const isApprover = doc?.approvers?.some((a: DocumentDetailApproversItem) => a.userId === user?.id);
+  const isRecipient = doc?.recipients?.some((r: DocumentDetailRecipientsItem) => r.userId === user?.id);
+  const myApproval = doc?.approvers?.find((a: DocumentDetailApproversItem) => a.userId === user?.id);
+  const myReceipt = doc?.recipients?.find((r: DocumentDetailRecipientsItem) => r.userId === user?.id);
+  const canEdit = doc?.status === "draft" || doc?.status === "rejected";
+
+  const startEditing = () => {
+    if (!doc) return;
+    setEditForm({
+      title: doc.title,
+      type: doc.type,
+      validityDate: doc.validityDate ?? "",
+      unitIds: doc.units?.map((u: DocumentDetailUnitsItem) => u.id!).filter(Boolean) ?? [],
+      elaboratorIds: doc.elaborators?.map((e: OrgUser) => e.id!).filter(Boolean) ?? [],
+      approverIds: doc.approvers?.map((a: DocumentDetailApproversItem) => a.userId!).filter(Boolean) ?? [],
+      recipientIds: doc.recipients?.map((r: DocumentDetailRecipientsItem) => r.userId!).filter(Boolean) ?? [],
+      referenceIds: doc.references?.map((ref: DocumentDetailReferencesItem) => ref.documentId!).filter(Boolean) ?? [],
+      changeDescription: "",
+    });
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditForm(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!orgId || !editForm || !editForm.changeDescription.trim()) return;
+    await updateMut.mutateAsync({
+      orgId,
+      docId,
+      data: {
+        title: editForm.title,
+        type: editForm.type,
+        validityDate: editForm.validityDate || undefined,
+        unitIds: editForm.unitIds,
+        elaboratorIds: editForm.elaboratorIds,
+        approverIds: editForm.approverIds,
+        recipientIds: editForm.recipientIds,
+        referenceIds: editForm.referenceIds,
+        changeDescription: editForm.changeDescription,
+      },
+    });
+    setIsEditing(false);
+    setEditForm(null);
+    invalidate();
+  };
 
   const handleSubmitForReview = async () => {
     if (!orgId) return;
@@ -150,12 +228,6 @@ export default function DocumentDetailPage() {
     await rejectMut.mutateAsync({ orgId, docId, data: { comment: rejectComment } });
     setRejectDialog(false);
     setRejectComment("");
-    invalidate();
-  };
-
-  const handleDistribute = async () => {
-    if (!orgId) return;
-    await distributeMut.mutateAsync({ orgId, docId });
     invalidate();
   };
 
@@ -217,6 +289,9 @@ export default function DocumentDetailPage() {
     e.target.value = "";
   };
 
+  const toggleMultiSelect = (arr: number[], id: number): number[] =>
+    arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
+
   if (isLoading) {
     return (
       <div className="py-12 text-center text-muted-foreground">Carregando documento...</div>
@@ -268,6 +343,11 @@ export default function DocumentDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {canEdit && !isEditing && (
+            <Button size="sm" variant="outline" onClick={startEditing}>
+              <Pencil className="h-3.5 w-3.5 mr-1.5" /> Editar
+            </Button>
+          )}
           {doc.status === "draft" && (
             <Button size="sm" onClick={handleSubmitForReview} isLoading={submitMut.isPending}>
               <Send className="h-3.5 w-3.5 mr-1.5" /> Enviar para Revisão
@@ -287,11 +367,6 @@ export default function DocumentDetailPage() {
                 <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Aprovar
               </Button>
             </>
-          )}
-          {doc.status === "approved" && (
-            <Button size="sm" onClick={handleDistribute} isLoading={distributeMut.isPending}>
-              <Send className="h-3.5 w-3.5 mr-1.5" /> Distribuir
-            </Button>
           )}
           {doc.status === "distributed" && isRecipient && !myReceipt?.readAt && (
             <Button size="sm" onClick={handleAcknowledge} isLoading={acknowledgeMut.isPending}>
@@ -323,7 +398,7 @@ export default function DocumentDetailPage() {
         ))}
       </div>
 
-      {activeTab === "info" && (
+      {activeTab === "info" && !isEditing && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-6">
             <InfoField label="Título" value={doc.title} />
@@ -342,7 +417,7 @@ export default function DocumentDetailPage() {
             <div>
               <Label className="text-muted-foreground text-xs uppercase tracking-wider">Filiais</Label>
               <div className="flex flex-wrap gap-2 mt-2">
-                {doc.units.map((u: any) => (
+                {doc.units.map((u: DocumentDetailUnitsItem) => (
                   <span key={u.id} className="px-2.5 py-1 bg-muted/50 rounded-md text-sm">{u.name}</span>
                 ))}
               </div>
@@ -353,7 +428,7 @@ export default function DocumentDetailPage() {
             <div>
               <Label className="text-muted-foreground text-xs uppercase tracking-wider">Elaboradores</Label>
               <div className="flex flex-wrap gap-2 mt-2">
-                {doc.elaborators.map((e: any) => (
+                {doc.elaborators.map((e: OrgUser) => (
                   <span key={e.id} className="px-2.5 py-1 bg-muted/50 rounded-md text-sm">{e.name}</span>
                 ))}
               </div>
@@ -364,7 +439,7 @@ export default function DocumentDetailPage() {
             <div>
               <Label className="text-muted-foreground text-xs uppercase tracking-wider">Referências</Label>
               <div className="flex flex-wrap gap-2 mt-2">
-                {doc.references.map((r: any) => (
+                {doc.references.map((r: DocumentDetailReferencesItem) => (
                   <span key={r.id} className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-sm cursor-pointer hover:bg-blue-100 transition-colors"
                     onClick={() => navigate(`/app/qualidade/documentacao/${r.documentId}`)}>
                     {r.title}
@@ -373,6 +448,165 @@ export default function DocumentDetailPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {activeTab === "info" && isEditing && editForm && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <Label>Título *</Label>
+              <Input
+                className="mt-2"
+                value={editForm.title}
+                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Tipo *</Label>
+              <Select
+                className="mt-2"
+                value={editForm.type}
+                onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
+              >
+                {Object.entries(TYPE_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <Label>Data de Validade</Label>
+              <Input
+                type="date"
+                className="mt-2"
+                value={editForm.validityDate}
+                onChange={(e) => setEditForm({ ...editForm, validityDate: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label>Filiais</Label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {allUnits?.map((u) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => setEditForm({ ...editForm, unitIds: toggleMultiSelect(editForm.unitIds, u.id) })}
+                  className={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
+                    editForm.unitIds.includes(u.id)
+                      ? "bg-foreground text-background"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {u.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label>Elaboradores</Label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {allUsers?.map((u: OrgUser) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => setEditForm({ ...editForm, elaboratorIds: toggleMultiSelect(editForm.elaboratorIds, u.id!) })}
+                  className={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
+                    editForm.elaboratorIds.includes(u.id!)
+                      ? "bg-foreground text-background"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {u.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label>Aprovadores</Label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {allUsers?.map((u: OrgUser) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => setEditForm({ ...editForm, approverIds: toggleMultiSelect(editForm.approverIds, u.id!) })}
+                  className={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
+                    editForm.approverIds.includes(u.id!)
+                      ? "bg-foreground text-background"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {u.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label>Destinatários</Label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {allUsers?.map((u: OrgUser) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => setEditForm({ ...editForm, recipientIds: toggleMultiSelect(editForm.recipientIds, u.id!) })}
+                  className={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
+                    editForm.recipientIds.includes(u.id!)
+                      ? "bg-foreground text-background"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {u.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label>Referências</Label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {allDocs
+                ?.filter((d) => d.id !== docId)
+                .map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setEditForm({ ...editForm, referenceIds: toggleMultiSelect(editForm.referenceIds, d.id) })}
+                    className={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
+                      editForm.referenceIds.includes(d.id)
+                        ? "bg-blue-600 text-white"
+                        : "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    }`}
+                  >
+                    {d.title}
+                  </button>
+                ))}
+            </div>
+          </div>
+
+          <div>
+            <Label>Descrição da Alteração *</Label>
+            <Input
+              className="mt-2"
+              placeholder="Descreva o que foi alterado nesta versão..."
+              value={editForm.changeDescription}
+              onChange={(e) => setEditForm({ ...editForm, changeDescription: e.target.value })}
+            />
+          </div>
+
+          <div className="flex items-center gap-3 pt-2">
+            <Button size="sm" onClick={handleSaveEdit} isLoading={updateMut.isPending} disabled={!editForm.title.trim() || !editForm.changeDescription.trim()}>
+              <Save className="h-3.5 w-3.5 mr-1.5" /> Salvar Alterações
+            </Button>
+            <Button size="sm" variant="outline" onClick={cancelEditing}>
+              <X className="h-3.5 w-3.5 mr-1.5" /> Cancelar
+            </Button>
+          </div>
         </div>
       )}
 
@@ -398,14 +632,14 @@ export default function DocumentDetailPage() {
             <p className="text-sm text-muted-foreground py-4">Nenhum anexo adicionado.</p>
           ) : (
             <div className="divide-y divide-border/40">
-              {doc.attachments.map((att: any) => (
+              {doc.attachments.map((att: DocumentAttachment) => (
                 <div key={att.id} className="flex items-center justify-between py-3">
                   <div className="flex items-center gap-3">
                     <FileText className="h-4 w-4 text-muted-foreground" />
                     <div>
                       <p className="text-sm font-medium">{att.fileName}</p>
                       <p className="text-xs text-muted-foreground">
-                        {formatFileSize(att.fileSize)} · v{att.versionNumber} · {att.uploadedByName} · {formatDateTime(att.uploadedAt)}
+                        {formatFileSize(att.fileSize ?? 0)} · v{att.versionNumber} · {att.uploadedByName} · {formatDateTime(att.uploadedAt)}
                       </p>
                     </div>
                   </div>
@@ -423,7 +657,7 @@ export default function DocumentDetailPage() {
             <p className="text-sm text-muted-foreground py-4">Nenhuma versão registrada.</p>
           ) : (
             <div className="relative pl-6 border-l-2 border-border/40 space-y-6">
-              {doc.versions.map((v: any) => (
+              {doc.versions.map((v: DocumentVersion) => (
                 <div key={v.id} className="relative">
                   <div className="absolute -left-[29px] top-1 w-4 h-4 rounded-full bg-white border-2 border-foreground/20 flex items-center justify-center">
                     <div className="w-1.5 h-1.5 rounded-full bg-foreground/40" />
@@ -458,7 +692,7 @@ export default function DocumentDetailPage() {
               <p className="text-sm text-muted-foreground">Nenhum aprovador definido.</p>
             ) : (
               <div className="space-y-2">
-                {doc.approvers.map((a: any) => (
+                {doc.approvers.map((a: DocumentDetailApproversItem) => (
                   <div key={a.id} className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-foreground/5 flex items-center justify-center text-xs font-medium">
@@ -500,7 +734,7 @@ export default function DocumentDetailPage() {
               <p className="text-sm text-muted-foreground">Nenhum destinatário definido.</p>
             ) : (
               <div className="space-y-2">
-                {doc.recipients.map((r: any) => (
+                {doc.recipients.map((r: DocumentDetailRecipientsItem) => (
                   <div key={r.id} className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-foreground/5 flex items-center justify-center text-xs font-medium">
@@ -532,11 +766,11 @@ export default function DocumentDetailPage() {
           <div className="p-4 bg-muted/20 rounded-lg border border-border/40">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Fluxo do Documento</h4>
             <div className="flex items-center gap-2 flex-wrap">
-              {["draft", "in_review", "approved", "distributed"].map((step, i) => (
+              {["draft", "in_review", "distributed"].map((step, i) => (
                 <div key={step} className="flex items-center gap-2">
                   {i > 0 && <span className="text-muted-foreground/30">→</span>}
                   <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${
-                    doc.status === step
+                    doc.status === step || (doc.status === "distributed" && step === "distributed")
                       ? STATUS_COLORS[step]
                       : "bg-muted/40 text-muted-foreground/50"
                   }`}>
@@ -545,6 +779,7 @@ export default function DocumentDetailPage() {
                 </div>
               ))}
             </div>
+            <p className="text-xs text-muted-foreground mt-2">Após aprovação de todos os aprovadores, o documento é distribuído automaticamente.</p>
           </div>
         </div>
       )}

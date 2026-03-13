@@ -1473,6 +1473,10 @@ paths:
           in: query
           schema:
             type: string
+        - name: unitId
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: List of documents

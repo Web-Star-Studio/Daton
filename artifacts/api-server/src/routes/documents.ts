@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike, or, desc } from "drizzle-orm";
+import { eq, and, ilike, or, desc, inArray } from "drizzle-orm";
 import {
   db,
   documentsTable,
@@ -186,6 +186,18 @@ router.get("/organizations/:orgId/documents", requireAuth, async (req, res): Pro
     conditions.push(eq(documentsTable.status, query.data.status));
   }
 
+  if (query.success && query.data.unitId) {
+    const unitDocIds = await db.select({ documentId: documentUnitsTable.documentId })
+      .from(documentUnitsTable)
+      .where(eq(documentUnitsTable.unitId, query.data.unitId));
+    const ids = unitDocIds.map(r => r.documentId);
+    if (ids.length === 0) {
+      res.json([]);
+      return;
+    }
+    conditions.push(inArray(documentsTable.id, ids));
+  }
+
   const rows = await db.select({
     id: documentsTable.id,
     title: documentsTable.title,
@@ -312,6 +324,11 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, async (req, 
   const [existing] = await db.select().from(documentsTable)
     .where(and(eq(documentsTable.id, docId), eq(documentsTable.organizationId, orgId)));
   if (!existing) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
+  if (existing.status !== "draft" && existing.status !== "rejected") {
+    res.status(400).json({ error: "Apenas documentos em rascunho ou rejeitados podem ser editados" });
+    return;
+  }
 
   const changedFields: string[] = [];
   const updates: Record<string, unknown> = {};
@@ -552,14 +569,28 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, async
     .where(and(eq(documentApproversTable.documentId, docId), eq(documentApproversTable.status, "pending")));
 
   if (pending.length === 0) {
-    await db.update(documentsTable).set({ status: "approved" }).where(eq(documentsTable.id, docId));
+    await db.update(documentsTable).set({ status: "distributed" }).where(eq(documentsTable.id, docId));
 
     await createNotification(
       orgId, doc.createdById, "document_approved",
-      "Documento aprovado",
-      `O documento "${doc.title}" foi aprovado por todos os aprovadores.`,
+      "Documento aprovado e distribuído",
+      `O documento "${doc.title}" foi aprovado por todos os aprovadores e distribuído automaticamente.`,
       "document", docId
     );
+
+    const recipients = await db.select().from(documentRecipientsTable)
+      .where(eq(documentRecipientsTable.documentId, docId));
+    for (const r of recipients) {
+      await db.update(documentRecipientsTable)
+        .set({ receivedAt: new Date() })
+        .where(eq(documentRecipientsTable.id, r.id));
+      await createNotification(
+        orgId, r.userId, "document_distributed",
+        "Novo documento para leitura",
+        `O documento "${doc.title}" foi distribuído para você.`,
+        "document", docId
+      );
+    }
   }
 
   const detail = await getDocumentDetail(docId, orgId);

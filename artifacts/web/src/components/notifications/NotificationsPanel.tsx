@@ -8,6 +8,7 @@ import {
   useMarkAllNotificationsRead,
   getListNotificationsQueryKey,
 } from "@workspace/api-client-react";
+import type { NotificationItem } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface NotificationsPanelProps {
@@ -92,7 +93,7 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
               Nenhuma notificação
             </div>
           ) : (
-            notifications.map((notification: any) => (
+            notifications.map((notification: NotificationItem) => (
               <div
                 key={notification.id}
                 onClick={() => !notification.read && handleMarkRead(notification.id)}

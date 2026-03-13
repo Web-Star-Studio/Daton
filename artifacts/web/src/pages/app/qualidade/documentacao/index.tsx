@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useListDocuments, getListDocumentsQueryKey } from "@workspace/api-client-react";
+import { useListDocuments, getListDocumentsQueryKey, useListUnits } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,11 +52,26 @@ export default function DocumentacaoPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [unitFilter, setUnitFilter] = useState<number | undefined>(undefined);
+
+  const { data: units } = useListUnits(orgId!, {
+    query: { enabled: !!orgId },
+  });
 
   const { data: documents, isLoading } = useListDocuments(
     orgId!,
-    { search: search || undefined, type: typeFilter || undefined, status: statusFilter || undefined },
-    { query: { queryKey: [...getListDocumentsQueryKey(orgId!), search, typeFilter, statusFilter], enabled: !!orgId } }
+    {
+      search: search || undefined,
+      type: typeFilter || undefined,
+      status: statusFilter || undefined,
+      unitId: unitFilter,
+    },
+    {
+      query: {
+        queryKey: [...getListDocumentsQueryKey(orgId!), search, typeFilter, statusFilter, unitFilter],
+        enabled: !!orgId,
+      },
+    }
   );
 
   useHeaderActions(
@@ -92,6 +107,19 @@ export default function DocumentacaoPage() {
             <option value="">Todos</option>
             {Object.entries(STATUS_LABELS).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
+            ))}
+          </Select>
+        </div>
+        <div className="w-44">
+          <Label>Filial</Label>
+          <Select
+            value={unitFilter?.toString() ?? ""}
+            onChange={(e) => setUnitFilter(e.target.value ? parseInt(e.target.value, 10) : undefined)}
+            className="mt-2"
+          >
+            <option value="">Todas</option>
+            {units?.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </Select>
         </div>

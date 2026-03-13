@@ -10,4 +10,5 @@ export type ListDocumentsParams = {
   search?: string;
   type?: string;
   status?: string;
+  unitId?: number;
 };

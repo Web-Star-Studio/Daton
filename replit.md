@@ -2,174 +2,29 @@
 
 ## Overview
 
-Multi-tenant SaaS platform for ESG, quality, compliance, and operations management. Built in Portuguese (pt-BR). Current focus: SGQ (Sistema de Gestão de Qualidade) module with "Legislações" (ISO 14001), "Colaboradores" (ISO 9001:2015 §7.2/§7.3), and "Documentação" (ISO 9001:2015 §7.5) submodules. Apple HIG-inspired minimal design.
+Daton is a multi-tenant SaaS platform designed for comprehensive ESG, quality, compliance, and operations management. The platform's primary goal is to streamline regulatory adherence and operational excellence for businesses. Currently, it focuses on the SGQ (Sistema de Gestão de Qualidade) module, encompassing key submodules like "Legislações" (ISO 14001 compliance), "Colaboradores" (ISO 9001:2015 §7.2/§7.3 for employee management), and "Documentação" (ISO 9001:2015 §7.5 for document control). The long-term vision is to expand into a full-suite solution addressing various aspects of governance, risk, and compliance (GRC), with a strong emphasis on user experience and data-driven insights.
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+## User Preferences
 
-## Stack
+I prefer iterative development, focusing on one feature or bug fix at a time. Please explain your thought process and proposed changes clearly before implementation. I value clean, readable code and comprehensive tests.
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **Frontend**: React + Vite + Tailwind CSS + wouter (routing) + React Query
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Auth**: JWT (bcryptjs + jsonwebtoken), token stored in localStorage as `daton_token`
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+## System Architecture
 
-## Auth & Multi-Tenancy
+The Daton platform is built as a pnpm workspace monorepo utilizing TypeScript. The frontend is developed with React, Vite, Tailwind CSS for styling, wouter for routing, and React Query for data fetching. The backend API is powered by Express 5, interacting with a PostgreSQL database managed through Drizzle ORM. Authentication is handled via JWT, with tokens stored securely in `localStorage`. Data validation is enforced using Zod, integrated with Drizzle. API client code is generated from an OpenAPI specification using Orval, ensuring type safety and consistency.
 
-- Login: POST /api/auth/login with {email, password} → returns {user, token}
-- Register: POST /api/auth/register with {razaoSocial, nomeFantasia?, cnpj?, adminName, email, password}
-- JWT_SECRET stored as environment secret
-- Token injected automatically by `lib/api-client-react/src/custom-fetch.ts` for same-origin requests only
-- Each user belongs to one organization (tenant); all data queries are scoped by orgId
-- Seed credentials: admin@demo.com / demo123 (org: "Empresa Demo LTDA")
+Key architectural decisions include:
+- **Multi-tenancy:** Each user belongs to an organization (tenant), and all data queries are strictly scoped by `orgId` to maintain data isolation.
+- **Modular Design:** The monorepo structure promotes modularity, with distinct packages for the API server, web frontend, and shared libraries (e.g., `api-spec`, `db`, `api-client-react`).
+- **UI/UX:** The design philosophy follows Apple Human Interface Guidelines, aiming for a minimal and intuitive user experience. This is reflected in the layout of key features like unit management, employee details, and document workflows, emphasizing clarity and ease of use.
+- **AI Integration:** An AI assistant, "Daton AI," is integrated for natural language interaction, leveraging OpenAI's gpt-4o-mini via Replit AI Integrations. It includes a read-only database query tool with multi-tenant isolation and uses Server-Sent Events (SSE) for real-time responses. The AI assists with tasks like generating legislation tags and answering compliance-related questions.
+- **Document Control Workflow:** A robust document management system with versioning, approval workflows (draft -> in_review -> approved/rejected -> distributed -> acknowledged), and role-based access for elaborators, approvers, and recipients.
+- **Compliance Tagging:** A system where questionnaire responses generate compliance tags for units, enabling dynamic filtering of relevant legislations based on a unit's profile.
 
-## Database Schema
+## External Dependencies
 
-- **organizations**: id, name (razão social), nomeFantasia, cnpj, timestamps
-- **users**: id, name, email, passwordHash, organizationId, role
-- **units**: id, name, code, type (sede/filial), cnpj, status (ativa/inativa), cep, address, streetNumber, neighborhood, city, state, country, phone, organizationId
-- **legislations**: id, title, number, description, tipoNorma, emissor, level, uf, municipality, macrotema, subtema, applicability, publicationDate, sourceUrl, applicableArticles, reviewFrequencyDays, observations, generalObservations, tags (text[] string[]), organizationId. **Note: status is NOT stored per legislation — it belongs to unit_legislations only.** Tags are auto-generated by AI (gpt-4o-mini) from the 371-tag compliance vocabulary defined in questionnaire seeds.
-- **unit_legislations**: id, unitId, legislationId, complianceStatus (conforme/nao_conforme/parcialmente_conforme/nao_avaliado), notes, evidenceUrl, evaluatedAt, evaluatedBy
-- **evidence_attachments**: id, unitLegislationId, fileName, fileSize, contentType, objectPath, uploadedAt — file evidence attached to compliance evaluations, stored via GCS presigned URL upload
-- **conversations**: id, userId, organizationId, title, createdAt — AI chat conversations per user/org
-- **messages**: id, conversationId, role (user/assistant), content, createdAt — chat messages within conversations
-- **questionnaire_themes**: id, code, name, description, sortOrder — global questionnaire theme categories (e.g., "Instalações")
-- **questionnaire_questions**: id, themeId, code, questionNumber, text, type (single_select/multi_select/text), options (jsonb), tags (jsonb mapping answer→tag[]), conditionalOn, conditionalValue, sortOrder — questions within themes
-- **unit_questionnaire_responses**: id, unitId, questionId, answer (jsonb), respondedAt — unit-specific questionnaire answers
-- **unit_compliance_tags**: id, unitId, tag, sourceQuestionId, createdAt — compliance tags generated from questionnaire answers, used to filter legislation lists
-- **departments**: id, organizationId, name, description, timestamps — organizational departments
-- **positions**: id, organizationId, name, description, timestamps — job positions/roles (cargos)
-- **employees**: id, organizationId, unitId (nullable FK to units, legacy single-unit), name, cpf, email, phone, position, department, contractType (clt/pj/intern/temporary), admissionDate, terminationDate, status (active/inactive/on_leave), timestamps
-- **employee_units**: id, employeeId (FK cascade), unitId (FK cascade), createdAt — many-to-many junction for multi-unit employee linkage
-- **employee_competencies**: id, employeeId (FK), name, description, type (formacao/experiencia/habilidade), requiredLevel (0-5), acquiredLevel (0-5), evidence, timestamps — ISO 9001:2015 §7.2 competency tracking
-- **employee_trainings**: id, employeeId (FK), title, description, institution, workloadHours, completionDate, expirationDate, status (pendente/concluido/vencido), timestamps — ISO 9001:2015 §7.2 training records. Auto-expiry: completed trainings past expirationDate shown as "vencido"
-- **employee_awareness_records**: id, employeeId (FK), topic, description, date, verificationMethod, result, timestamps — ISO 9001:2015 §7.3 awareness verification
-- **documents**: id, organizationId, title, type (manual/procedimento/instrucao/formulario/registro/politica/outro), status (draft/in_review/approved/rejected/distributed), currentVersion, validityDate, createdById, timestamps — ISO 9001:2015 §7.5 document control
-- **document_units**: id, documentId, unitId — many-to-many junction for document branch assignment
-- **document_elaborators**: id, documentId, userId — users who elaborated/authored the document
-- **document_approvers**: id, documentId, userId, status (pending/approved/rejected), approvedAt, comment — approval workflow tracking
-- **document_recipients**: id, documentId, userId, receivedAt, readAt — distribution receipt acknowledgement
-- **document_references**: id, documentId, referencedDocumentId — cross-reference between documents
-- **document_attachments**: id, documentId, versionNumber, fileName, fileSize, contentType, objectPath, uploadedById, uploadedAt — file attachments per version
-- **document_versions**: id, documentId, versionNumber, changeDescription, changedById, changedFields, createdAt — git-like version history
-- **notifications**: id, organizationId, userId, type, title, description, read, relatedEntityType, relatedEntityId, createdAt — in-app notifications system
-
-## Structure
-
-```text
-artifacts-monorepo/
-├── artifacts/
-│   ├── api-server/         # Express API server (port 8080)
-│   ├── web/                # React Vite frontend
-│   └── mockup-sandbox/     # Component preview server
-├── lib/
-│   ├── api-spec/           # OpenAPI spec + Orval codegen config
-│   ├── api-client-react/   # Generated React Query hooks + custom-fetch
-│   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   ├── integrations-openai-ai-server/  # OpenAI SDK client (via Replit AI Integrations)
-│   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts
-├── pnpm-workspace.yaml
-├── tsconfig.base.json
-├── tsconfig.json
-└── package.json
-```
-
-## API Routes
-
-- POST /api/auth/register — Create org + user
-- POST /api/auth/login — Login, returns JWT
-- POST /api/auth/logout — Logout
-- GET /api/auth/me — Current user + org info
-- GET /api/organizations/:orgId — Get org details
-- GET/POST /api/organizations/:orgId/units — List/create units
-- GET/PATCH/DELETE /api/organizations/:orgId/units/:unitId — Unit CRUD
-- GET/POST /api/organizations/:orgId/legislations — List/create legislations (supports search, level, status query params)
-- POST /api/organizations/:orgId/legislations/import — CSV import (must be before /:legId routes)
-- GET/PATCH/DELETE /api/organizations/:orgId/legislations/:legId — Legislation CRUD
-- GET/POST /api/organizations/:orgId/legislations/:legId/units — List/assign unit compliance
-- PATCH/DELETE /api/organizations/:orgId/legislations/:legId/units/:unitId — Update/remove compliance
-- GET/POST /api/organizations/:orgId/legislations/:legId/units/:unitId/attachments — List/create evidence attachments
-- DELETE /api/organizations/:orgId/legislations/:legId/units/:unitId/attachments/:attachmentId — Remove attachment
-- GET /api/organizations/:orgId/questionnaire/themes — List questionnaire themes with questions
-- GET /api/organizations/:orgId/units/:unitId/questionnaire/responses — Get unit's saved answers
-- PUT /api/organizations/:orgId/units/:unitId/questionnaire/responses — Save/update answers
-- POST /api/organizations/:orgId/units/:unitId/questionnaire/submit — Submit questionnaire, generates compliance tags
-- GET /api/organizations/:orgId/units/:unitId/questionnaire/tags — Get unit's compliance tags
-- POST /api/storage/uploads/request-url — Request presigned upload URL (GCS)
-- GET /api/storage/objects/* — Serve uploaded objects
-- GET /api/ai/conversations — List user's AI conversations
-- POST /api/ai/conversations — Create new conversation
-- GET /api/ai/conversations/:convId/messages — Get conversation messages
-- POST /api/ai/conversations/:convId/messages — Send message (SSE streaming response, AI with DB query tool)
-- GET/POST /api/organizations/:orgId/employees — List/create employees (supports search, unitId, position, status query params)
-- GET/PATCH/DELETE /api/organizations/:orgId/employees/:empId — Employee CRUD
-- GET/POST /api/organizations/:orgId/employees/:empId/competencies — List/create competencies
-- PATCH/DELETE /api/organizations/:orgId/employees/:empId/competencies/:compId — Competency CRUD
-- GET/POST /api/organizations/:orgId/employees/:empId/trainings — List/create trainings
-- PATCH/DELETE /api/organizations/:orgId/employees/:empId/trainings/:trainId — Training CRUD
-- GET/POST /api/organizations/:orgId/employees/:empId/awareness — List/create awareness records
-- PATCH/DELETE /api/organizations/:orgId/employees/:empId/awareness/:awaId — Awareness CRUD
-- POST /api/organizations/:orgId/employees/:empId/units — Link unit to employee (many-to-many)
-- DELETE /api/organizations/:orgId/employees/:empId/units/:unitId — Unlink unit from employee
-- GET/POST /api/organizations/:orgId/departments — List/create departments
-- PATCH/DELETE /api/organizations/:orgId/departments/:deptId — Department CRUD
-- GET/POST /api/organizations/:orgId/positions — List/create positions
-- PATCH/DELETE /api/organizations/:orgId/positions/:posId — Position CRUD
-- GET/POST /api/organizations/:orgId/documents — List/create documents (supports search, type, status query params)
-- GET/PATCH/DELETE /api/organizations/:orgId/documents/:docId — Document CRUD
-- GET /api/organizations/:orgId/documents/:docId/versions — Version history
-- POST/DELETE /api/organizations/:orgId/documents/:docId/attachments — Add/remove attachments
-- POST /api/organizations/:orgId/documents/:docId/submit — Submit for review (draft→in_review)
-- POST /api/organizations/:orgId/documents/:docId/approve — Approve document
-- POST /api/organizations/:orgId/documents/:docId/reject — Reject document
-- POST /api/organizations/:orgId/documents/:docId/distribute — Distribute document (approved→distributed)
-- POST /api/organizations/:orgId/documents/:docId/acknowledge — Acknowledge receipt
-- GET /api/organizations/:orgId/notifications — List user notifications
-- POST /api/organizations/:orgId/notifications/:notifId/read — Mark notification as read
-- POST /api/organizations/:orgId/notifications/read-all — Mark all notifications as read
-- GET /api/organizations/:orgId/users — List org users (for multi-select fields)
-
-## Frontend Routes
-
-- / and /auth — Login/register page (split layout: left image panel, right form panel)
-- /app/qualidade/legislacoes — Legislations list with filters, create dialog, CSV import
-- /app/qualidade/legislacoes/:id — Legislation detail with unit compliance tracking
-- /app/organizacao/unidades — Units management (minimalist cards, clickable)
-- /app/organizacao/unidades/:id — Unit detail with inline editing + compliance questionnaire modal
-- /app/qualidade/colaboradores — Employee list with search, filters, stats cards, create dialog
-- /app/qualidade/colaboradores/:id — Employee detail with tabs: Dados (inline editing), Competências, Treinamentos, Conscientização
-- /app/qualidade/documentacao — Document listing with search, type/status filters
-- /app/qualidade/documentacao/novo — Create new document form (multi-select fields for branches, elaborators, approvers, recipients, references; file upload)
-- /app/qualidade/documentacao/:id — Document detail with tabs: Informações, Anexos, Versões, Fluxo (approval workflow). Status flow: draft→in_review→approved/rejected→distributed→acknowledged
-
-## TypeScript & Composite Projects
-
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references.
-
-- **Always typecheck from the root** — run `pnpm run typecheck`
-- **`emitDeclarationOnly`** — only `.d.ts` files during typecheck; JS bundling by esbuild/tsx/vite
-- **Project references** — when package A depends on B, A's `tsconfig.json` must list B in `references`
-
-## Root Scripts
-
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly`
-
-## Key Implementation Notes
-
-- Legislation levels: federal, estadual, municipal, internacional
-- Legislation statuses: vigente, revogada, alterada
-- Compliance statuses: conforme, nao_conforme, parcialmente_conforme, nao_avaliado
-- CSV import route must be registered BEFORE /:legId routes in Express to avoid conflicts
-- custom-fetch only injects auth tokens for same-origin requests (security measure)
-- Seed data includes 8 real Brazilian environmental legislations, 3 units, and 30 questionnaire questions in "Instalações" theme
-- Legislations table has a `tags` (jsonb text array) column for tag-based filtering. When filtering by unit, the system uses PostgreSQL array overlap (case-insensitive) between the legislation's `tags` and the unit's compliance tags. Matched tags are returned in the API response as `matchedTags` and displayed as green badges on the frontend.
-- Unit profiling questionnaire generates compliance tags from answers; legislation list supports filtering by unit (unitId query param) using tag intersection
-- AI assistant (Daton AI) uses OpenAI via Replit AI Integrations (gpt-4o-mini). System prompt in Portuguese describing the platform schema. Read-only DB query tool with $ORG_ID placeholder for multi-tenant isolation. SSE streaming for real-time responses. Chat panel in AppLayout header (Sparkles icon).
+- **PostgreSQL:** Primary relational database for all application data.
+- **OpenAI (via Replit AI Integrations):** Used for the Daton AI assistant, specifically gpt-4o-mini for natural language processing and database querying.
+- **Google Cloud Storage (GCS):** Utilized for secure storage of file evidence and document attachments, with presigned URLs for direct uploads.
+- **Orval:** API client code generation tool, based on OpenAPI specifications.
+- **Tailwind CSS:** Utility-first CSS framework for rapid UI development.
+- **React Query:** Library for data fetching, caching, and state management in the frontend.
