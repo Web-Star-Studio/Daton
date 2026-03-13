@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { X, Send, Sparkles, Loader2, Database } from "lucide-react";
+import { X, Send, Sparkles, Loader2 } from "lucide-react";
 
 function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem("daton_token");
@@ -13,17 +13,11 @@ type Message = {
   createdAt?: string;
 };
 
-type ToolCallEvent = {
-  name: string;
-  sql: string;
-};
-
 export function ChatPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [activeQuery, setActiveQuery] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -61,7 +55,6 @@ export function ChatPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     setInput("");
     setChatMessages((prev) => [...prev, { role: "user", content: text }]);
     setIsStreaming(true);
-    setActiveQuery(null);
 
     try {
       const convId = await ensureConversation();
@@ -110,14 +103,6 @@ export function ChatPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
               });
             }
 
-            if (data.tool_call) {
-              setActiveQuery(data.tool_call.sql);
-            }
-
-            if (data.done) {
-              setActiveQuery(null);
-            }
-
             if (data.error) {
               assistantContent += `\n⚠️ ${data.error}`;
               setChatMessages((prev) => {
@@ -136,7 +121,6 @@ export function ChatPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
       ]);
     } finally {
       setIsStreaming(false);
-      setActiveQuery(null);
     }
   };
 
@@ -152,7 +136,6 @@ export function ChatPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     setChatMessages([]);
     setInput("");
     setIsStreaming(false);
-    setActiveQuery(null);
   };
 
   if (!isOpen) return null;
@@ -216,13 +199,6 @@ export function ChatPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
                 </div>
               </div>
             ))
-          )}
-
-          {activeQuery && (
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-secondary/40 rounded-lg px-3 py-2">
-              <Database className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate font-mono">{activeQuery}</span>
-            </div>
           )}
 
           <div ref={messagesEndRef} />

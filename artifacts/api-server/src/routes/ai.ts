@@ -19,6 +19,7 @@ Esquema do banco de dados disponível:
 - users (id, name, email, organization_id, created_at, updated_at)
 - units (id, organization_id, name, code, cnpj, type, status, cep, address, street_number, neighborhood, city, state, country, created_at, updated_at)
 - legislations (id, organization_id, title, number, description, tipo_norma, emissor, level, status, uf, municipality, macrotema, subtema, applicability, publication_date, source_url, applicable_articles, review_frequency_days, observations, general_observations, created_at, updated_at)
+  - IMPORTANTE: tipo_norma contém o tipo completo como "RESOLUÇÃO CNEN", "LEI", "PORTARIA DNIT", "PORTARIA CONJUNTA COTEC-COANA", "NBR", "INSTRUÇÃO NORMATIVA IBAMA", "CONSTITUIÇÃO FEDERAL". NÃO separe em tipo + emissor. Use ILIKE para buscas flexíveis, ex: WHERE tipo_norma ILIKE '%RESOLUÇÃO CNEN%'
 - unit_legislations (id, unit_id, legislation_id, compliance_status, notes, evidence_url, evaluated_at, created_at, updated_at)
   - compliance_status pode ser: 'nao_avaliado', 'conforme', 'nao_conforme', 'parcialmente_conforme'
 - evidence_attachments (id, unit_legislation_id, file_name, file_size, content_type, object_path, uploaded_at)
@@ -26,6 +27,7 @@ Esquema do banco de dados disponível:
 Regras importantes:
 - SEMPRE filtre por organization_id = $ORG_ID nas queries (será substituído automaticamente).
 - Use SOMENTE consultas SELECT (leitura). Nunca INSERT, UPDATE, DELETE.
+- SEMPRE use ILIKE ao buscar por texto (nomes, tipos, títulos). Nunca use = para strings que o usuário informou.
 - Responda de forma amigável e profissional.
 - Ao apresentar dados tabelares, use formato legível.
 - Se não tiver certeza, diga que não tem a informação ao invés de inventar.
@@ -225,7 +227,6 @@ router.post("/ai/conversations/:convId/messages", requireAuth, async (req: Reque
         let queryResult: { rows: Record<string, unknown>[]; error?: string };
         try {
           const parsed = JSON.parse(toolCallArgs);
-          res.write(`data: ${JSON.stringify({ tool_call: { name: "query_database", sql: parsed.sql } })}\n\n`);
           queryResult = await executeReadOnlyQuery(parsed.sql, organizationId);
         } catch {
           queryResult = { rows: [], error: "Erro ao parsear argumentos da ferramenta" };
