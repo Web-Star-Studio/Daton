@@ -6,6 +6,7 @@ import {
   employeeCompetenciesTable,
   employeeTrainingsTable,
   employeeAwarenessTable,
+  employeeUnitsTable,
   unitsTable,
 } from "@workspace/db";
 import {
@@ -211,9 +212,14 @@ router.get("/organizations/:orgId/employees/:empId", requireAuth, async (req, re
   const competencies = await db.select().from(employeeCompetenciesTable).where(eq(employeeCompetenciesTable.employeeId, params.data.empId)).orderBy(employeeCompetenciesTable.name);
   const trainings = await db.select().from(employeeTrainingsTable).where(eq(employeeTrainingsTable.employeeId, params.data.empId)).orderBy(employeeTrainingsTable.createdAt);
   const awareness = await db.select().from(employeeAwarenessTable).where(eq(employeeAwarenessTable.employeeId, params.data.empId)).orderBy(employeeAwarenessTable.date);
+  const linkedUnits = await db.select({ id: unitsTable.id, name: unitsTable.name })
+    .from(employeeUnitsTable)
+    .innerJoin(unitsTable, eq(employeeUnitsTable.unitId, unitsTable.id))
+    .where(eq(employeeUnitsTable.employeeId, params.data.empId));
 
   res.json({
     ...formatEmployee(rows[0]),
+    units: linkedUnits,
     competencies: competencies.map(c => ({
       ...c,
       createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
@@ -221,10 +227,10 @@ router.get("/organizations/:orgId/employees/:empId", requireAuth, async (req, re
     })),
     trainings: trainings.map(t => {
       let effectiveStatus = t.status;
-      if (t.expirationDate && t.status === "completed") {
+      if (t.expirationDate && t.status === "concluido") {
         const expDate = new Date(t.expirationDate);
         if (expDate < new Date()) {
-          effectiveStatus = "expired";
+          effectiveStatus = "vencido";
         }
       }
       return {
@@ -465,6 +471,42 @@ router.delete("/organizations/:orgId/employees/:empId/awareness/:awaId", require
     .returning();
 
   if (!record) { res.status(404).json({ error: "Registro não encontrado" }); return; }
+  res.sendStatus(204);
+});
+
+router.post("/organizations/:orgId/employees/:empId/units", requireAuth, async (req, res): Promise<void> => {
+  const orgId = Number(req.params.orgId);
+  const empId = Number(req.params.empId);
+  if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+  if (!(await verifyEmployeeOwnership(empId, orgId))) { res.status(404).json({ error: "Colaborador não encontrado" }); return; }
+
+  const { unitId } = req.body;
+  if (!unitId) { res.status(400).json({ error: "unitId é obrigatório" }); return; }
+
+  const [unit] = await db.select({ id: unitsTable.id }).from(unitsTable)
+    .where(and(eq(unitsTable.id, Number(unitId)), eq(unitsTable.organizationId, orgId)));
+  if (!unit) { res.status(400).json({ error: "Unidade não pertence à organização" }); return; }
+
+  const existing = await db.select({ id: employeeUnitsTable.id }).from(employeeUnitsTable)
+    .where(and(eq(employeeUnitsTable.employeeId, empId), eq(employeeUnitsTable.unitId, Number(unitId))));
+  if (existing.length > 0) { res.status(409).json({ error: "Unidade já vinculada" }); return; }
+
+  const [link] = await db.insert(employeeUnitsTable).values({ employeeId: empId, unitId: Number(unitId) }).returning();
+  res.status(201).json(link);
+});
+
+router.delete("/organizations/:orgId/employees/:empId/units/:unitId", requireAuth, async (req, res): Promise<void> => {
+  const orgId = Number(req.params.orgId);
+  const empId = Number(req.params.empId);
+  const unitId = Number(req.params.unitId);
+  if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+  if (!(await verifyEmployeeOwnership(empId, orgId))) { res.status(404).json({ error: "Colaborador não encontrado" }); return; }
+
+  const [deleted] = await db.delete(employeeUnitsTable)
+    .where(and(eq(employeeUnitsTable.employeeId, empId), eq(employeeUnitsTable.unitId, unitId)))
+    .returning();
+
+  if (!deleted) { res.status(404).json({ error: "Vínculo não encontrado" }); return; }
   res.sendStatus(204);
 });
 

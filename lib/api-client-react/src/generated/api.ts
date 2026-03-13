@@ -3045,3 +3045,42 @@ export const useDeleteAwareness = <TError = ErrorType<unknown>, TContext = unkno
   const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAwareness>>, { orgId: number; empId: number; awaId: number }> = (props) => deleteAwareness(props.orgId, props.empId, props.awaId);
   return useMutation({ mutationFn, mutationKey: ["deleteAwareness"], ...mutationOptions });
 };
+
+export const linkEmployeeUnit = async (
+  orgId: number, empId: number, unitId: number, options?: RequestInit,
+): Promise<{ id: number; employeeId: number; unitId: number }> => {
+  const res = await fetchWithAuth(`${BASE_URL}/organizations/${orgId}/employees/${empId}/units`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ unitId }),
+    ...options,
+  });
+  if (!res.ok) throw new Error(`Failed to link unit: ${res.status}`);
+  return res.json();
+};
+
+export const useLinkEmployeeUnit = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof linkEmployeeUnit>>, TError, { orgId: number; empId: number; unitId: number }, TContext>;
+}): UseMutationResult<Awaited<ReturnType<typeof linkEmployeeUnit>>, TError, { orgId: number; empId: number; unitId: number }, TContext> => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof linkEmployeeUnit>>, { orgId: number; empId: number; unitId: number }> = (props) => linkEmployeeUnit(props.orgId, props.empId, props.unitId);
+  return useMutation({ mutationFn, mutationKey: ["linkEmployeeUnit"], ...mutationOptions });
+};
+
+export const unlinkEmployeeUnit = async (
+  orgId: number, empId: number, unitId: number, options?: RequestInit,
+): Promise<void> => {
+  const res = await fetchWithAuth(`${BASE_URL}/organizations/${orgId}/employees/${empId}/units/${unitId}`, {
+    method: "DELETE",
+    ...options,
+  });
+  if (!res.ok) throw new Error(`Failed to unlink unit: ${res.status}`);
+};
+
+export const useUnlinkEmployeeUnit = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof unlinkEmployeeUnit>>, TError, { orgId: number; empId: number; unitId: number }, TContext>;
+}): UseMutationResult<Awaited<ReturnType<typeof unlinkEmployeeUnit>>, TError, { orgId: number; empId: number; unitId: number }, TContext> => {
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof unlinkEmployeeUnit>>, { orgId: number; empId: number; unitId: number }> = (props) => unlinkEmployeeUnit(props.orgId, props.empId, props.unitId);
+  return useMutation({ mutationFn, mutationKey: ["unlinkEmployeeUnit"], ...mutationOptions });
+};

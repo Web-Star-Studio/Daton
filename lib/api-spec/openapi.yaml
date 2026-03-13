@@ -1983,7 +1983,7 @@ components:
           nullable: true
         type:
           type: string
-          enum: [technical, behavioral]
+          enum: [formacao, experiencia, habilidade]
         requiredLevel:
           type: integer
           minimum: 0
@@ -2035,7 +2035,7 @@ components:
           nullable: true
         status:
           type: string
-          enum: [planned, in_progress, completed, expired]
+          enum: [pendente, concluido, vencido]
         createdAt:
           type: string
           format: date-time
@@ -2107,11 +2107,24 @@ components:
         - data
         - pagination
 
+    LinkedUnit:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+      required: [id, name]
+
     EmployeeDetail:
       allOf:
         - $ref: "#/components/schemas/Employee"
         - type: object
           properties:
+            units:
+              type: array
+              items:
+                $ref: "#/components/schemas/LinkedUnit"
             competencies:
               type: array
               items:
@@ -2197,7 +2210,7 @@ components:
           type: string
         type:
           type: string
-          enum: [technical, behavioral]
+          enum: [formacao, experiencia, habilidade]
         requiredLevel:
           type: integer
           minimum: 0
@@ -2228,7 +2241,7 @@ components:
           type: string
         status:
           type: string
-          enum: [planned, in_progress, completed, expired]
+          enum: [pendente, concluido, vencido]
       required:
         - title
 
@@ -2258,7 +2271,7 @@ components:
           type: string
         type:
           type: string
-          enum: [technical, behavioral]
+          enum: [formacao, experiencia, habilidade]
         requiredLevel:
           type: integer
           minimum: 0
@@ -2287,7 +2300,7 @@ components:
           type: string
         status:
           type: string
-          enum: [planned, in_progress, completed, expired]
+          enum: [pendente, concluido, vencido]
 
     UpdateAwarenessBody:
       type: object

@@ -16,6 +16,8 @@ import {
   useUpdateAwareness,
   useDeleteAwareness,
   useListUnits,
+  useLinkEmployeeUnit,
+  useUnlinkEmployeeUnit,
   getGetEmployeeQueryKey,
   getListEmployeesQueryKey,
 } from "@workspace/api-client-react";
@@ -23,6 +25,7 @@ import type {
   EmployeeCompetency,
   EmployeeTraining,
   EmployeeAwareness,
+  LinkedUnit,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -60,17 +63,21 @@ const CONTRACT_LABELS: Record<string, string> = {
 };
 
 const TRAINING_STATUS: Record<string, string> = {
-  planned: "Planejado",
-  in_progress: "Em Andamento",
-  completed: "Concluído",
-  expired: "Vencido",
+  pendente: "Pendente",
+  concluido: "Concluído",
+  vencido: "Vencido",
 };
 
 const TRAINING_STATUS_COLORS: Record<string, string> = {
-  planned: "bg-blue-50 text-blue-700 border-blue-200",
-  in_progress: "bg-amber-50 text-amber-700 border-amber-200",
-  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  expired: "bg-red-50 text-red-700 border-red-200",
+  pendente: "bg-blue-50 text-blue-700 border-blue-200",
+  concluido: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  vencido: "bg-red-50 text-red-700 border-red-200",
+};
+
+const COMPETENCY_TYPE_LABELS: Record<string, string> = {
+  formacao: "Formação",
+  experiencia: "Experiência",
+  habilidade: "Habilidade",
 };
 
 function InlineField({
@@ -181,6 +188,84 @@ function LevelBar({ level, max = 5 }: { level: number; max?: number }) {
   );
 }
 
+function LinkedUnitsSection({
+  linkedUnits,
+  allUnits,
+  orgId,
+  empId,
+}: {
+  linkedUnits: LinkedUnit[];
+  allUnits: { id: number; name: string }[];
+  orgId: number;
+  empId: number;
+}) {
+  const queryClient = useQueryClient();
+  const linkMutation = useLinkEmployeeUnit();
+  const unlinkMutation = useUnlinkEmployeeUnit();
+  const [showAdd, setShowAdd] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState("");
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId, empId) });
+
+  const availableUnits = allUnits.filter((u) => !linkedUnits.some((lu) => lu.id === u.id));
+
+  const handleLink = async () => {
+    if (!selectedUnit) return;
+    await linkMutation.mutateAsync({ orgId, empId, unitId: Number(selectedUnit) });
+    invalidate();
+    setSelectedUnit("");
+    setShowAdd(false);
+  };
+
+  const handleUnlink = async (unitId: number) => {
+    await unlinkMutation.mutateAsync({ orgId, empId, unitId });
+    invalidate();
+  };
+
+  return (
+    <div className="py-2.5 border-b border-border/40">
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-xs font-semibold text-muted-foreground">Unidades</p>
+        {availableUnits.length > 0 && (
+          <button onClick={() => setShowAdd(!showAdd)} className="text-[11px] text-primary hover:underline cursor-pointer">
+            + Vincular
+          </button>
+        )}
+      </div>
+      {linkedUnits.length === 0 && !showAdd && (
+        <p className="text-[13px] text-muted-foreground/50">Nenhuma unidade vinculada</p>
+      )}
+      <div className="flex flex-wrap gap-1.5 mt-1">
+        {linkedUnits.map((u) => (
+          <span key={u.id} className="inline-flex items-center gap-1 text-[12px] px-2 py-0.5 rounded-full bg-secondary text-foreground border border-border/60">
+            {u.name}
+            <button onClick={() => handleUnlink(u.id)} className="text-muted-foreground/40 hover:text-red-500 cursor-pointer">
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+      </div>
+      {showAdd && (
+        <div className="flex items-center gap-2 mt-2">
+          <select
+            value={selectedUnit}
+            onChange={(e) => setSelectedUnit(e.target.value)}
+            className="flex h-8 flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs"
+          >
+            <option value="">Selecionar unidade...</option>
+            {availableUnits.map((u) => (
+              <option key={u.id} value={String(u.id)}>{u.name}</option>
+            ))}
+          </select>
+          <Button size="sm" variant="outline" onClick={handleLink} disabled={!selectedUnit || linkMutation.isPending}>
+            Vincular
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type CompetencyForm = { name: string; description: string; type: string; requiredLevel: number; acquiredLevel: number; evidence: string };
 
 function CompetencyFormFields({ form, setForm }: { form: CompetencyForm; setForm: (f: CompetencyForm) => void }) {
@@ -198,8 +283,9 @@ function CompetencyFormFields({ form, setForm }: { form: CompetencyForm; setForm
         <div>
           <Label className="text-xs font-semibold text-muted-foreground">Tipo</Label>
           <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-            <option value="technical">Técnica</option>
-            <option value="behavioral">Comportamental</option>
+            <option value="formacao">Formação</option>
+            <option value="experiencia">Experiência</option>
+            <option value="habilidade">Habilidade</option>
           </select>
         </div>
         <div>
@@ -235,7 +321,7 @@ function CompetenciasTab({
   const updateMutation = useUpdateCompetency();
   const deleteMutation = useDeleteCompetency();
 
-  const emptyForm: CompetencyForm = { name: "", description: "", type: "technical", requiredLevel: 3, acquiredLevel: 0, evidence: "" };
+  const emptyForm: CompetencyForm = { name: "", description: "", type: "formacao", requiredLevel: 3, acquiredLevel: 0, evidence: "" };
   const [form, setForm] = useState<CompetencyForm>(emptyForm);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId, empId) });
@@ -308,7 +394,7 @@ function CompetenciasTab({
                   <div className="flex items-center gap-2">
                     <p className="text-[13px] font-medium text-foreground">{comp.name}</p>
                     <span className="text-[11px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
-                      {comp.type === "technical" ? "Técnica" : comp.type === "behavioral" ? "Comportamental" : comp.type}
+                      {COMPETENCY_TYPE_LABELS[comp.type] || comp.type}
                     </span>
                   </div>
                   {comp.description && (
@@ -328,7 +414,7 @@ function CompetenciasTab({
                         <LevelBar level={comp.acquiredLevel} />
                         <span className="text-xs text-muted-foreground">{comp.acquiredLevel}/5</span>
                         {comp.acquiredLevel < comp.requiredLevel && (
-                          <span className="text-[10px] text-amber-600 font-medium">Gap</span>
+                          <span className="text-[10px] text-red-600 font-medium">Gap</span>
                         )}
                       </div>
                     </div>
@@ -404,9 +490,9 @@ function TrainingFormFields({ form, setForm }: { form: TrainingForm; setForm: (f
         <div>
           <Label className="text-xs font-semibold text-muted-foreground">Status</Label>
           <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-            <option value="planned">Planejado</option>
-            <option value="in_progress">Em Andamento</option>
-            <option value="completed">Concluído</option>
+            <option value="pendente">Pendente</option>
+            <option value="concluido">Concluído</option>
+            <option value="vencido">Vencido</option>
           </select>
         </div>
         <div>
@@ -438,7 +524,7 @@ function TreinamentosTab({
   const deleteMutation = useDeleteTraining();
   const updateMutation = useUpdateTraining();
 
-  const emptyForm = { title: "", description: "", institution: "", workloadHours: 0, completionDate: "", expirationDate: "", status: "planned" };
+  const emptyForm = { title: "", description: "", institution: "", workloadHours: 0, completionDate: "", expirationDate: "", status: "pendente" };
   const [form, setForm] = useState(emptyForm);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId, empId) });
@@ -865,13 +951,11 @@ export default function ColaboradorDetailPage() {
               </h3>
               <InlineField label="Cargo" value={employee.position} fieldKey="position" onSave={handleFieldSave} />
               <InlineField label="Departamento" value={employee.department} fieldKey="department" onSave={handleFieldSave} />
-              <InlineField
-                label="Unidade"
-                value={employee.unitId ? String(employee.unitId) : ""}
-                fieldKey="unitId"
-                type="select"
-                options={[{ value: "", label: "Nenhuma" }, ...units.map((u) => ({ value: String(u.id), label: u.name }))]}
-                onSave={handleFieldSave}
+              <LinkedUnitsSection
+                linkedUnits={employee.units || []}
+                allUnits={units}
+                orgId={orgId}
+                empId={empId}
               />
               <InlineField
                 label="Tipo de Contrato"

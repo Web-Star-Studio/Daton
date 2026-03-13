@@ -27,7 +27,7 @@ export const employeeCompetenciesTable = pgTable("employee_competencies", {
   employeeId: integer("employee_id").notNull().references(() => employeesTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description"),
-  type: text("type").notNull().default("technical"),
+  type: text("type").notNull().default("formacao"),
   requiredLevel: integer("required_level").notNull().default(1),
   acquiredLevel: integer("acquired_level").notNull().default(0),
   evidence: text("evidence"),
@@ -44,7 +44,7 @@ export const employeeTrainingsTable = pgTable("employee_trainings", {
   workloadHours: integer("workload_hours"),
   completionDate: date("completion_date"),
   expirationDate: date("expiration_date"),
-  status: text("status").notNull().default("planned"),
+  status: text("status").notNull().default("pendente"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
@@ -59,6 +59,13 @@ export const employeeAwarenessTable = pgTable("employee_awareness_records", {
   result: text("result"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const employeeUnitsTable = pgTable("employee_units", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull().references(() => employeesTable.id, { onDelete: "cascade" }),
+  unitId: integer("unit_id").notNull().references(() => unitsTable.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const insertEmployeeSchema = createInsertSchema(employeesTable).omit({ id: true, createdAt: true, updatedAt: true });

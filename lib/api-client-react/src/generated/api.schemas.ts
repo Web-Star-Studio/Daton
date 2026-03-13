@@ -539,7 +539,13 @@ export interface EmployeeAwareness {
   updatedAt: string;
 }
 
+export interface LinkedUnit {
+  id: number;
+  name: string;
+}
+
 export interface EmployeeDetail extends EmployeeListItem {
+  units: LinkedUnit[];
   competencies: EmployeeCompetency[];
   trainings: EmployeeTraining[];
   awareness: EmployeeAwareness[];
