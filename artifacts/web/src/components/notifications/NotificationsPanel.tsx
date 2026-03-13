@@ -54,12 +54,12 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
         className="fixed inset-0 bg-black/20 backdrop-blur-[2px] animate-[overlayIn_200ms_ease-out]"
         onClick={onClose}
       />
-      <div className="relative z-[201] w-full max-w-lg bg-card shadow-xl sm:rounded-2xl border border-border animate-[modalIn_250ms_cubic-bezier(0.16,1,0.3,1)] mx-4 overflow-hidden">
-        <div className="flex items-center justify-between px-6 pt-5 pb-3">
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-xl font-semibold leading-none tracking-tight">Notificações</h2>
+      <div className="relative z-[201] w-full max-w-lg bg-card shadow-xl sm:rounded-2xl border border-border/60 animate-[modalIn_250ms_cubic-bezier(0.16,1,0.3,1)] mx-4 overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border/60">
+          <div className="flex items-center gap-2">
+            <h2 className="text-[15px] font-semibold leading-none tracking-tight">Notificações</h2>
             {unreadCount > 0 && (
-              <span className="flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-[#007AFF] text-white text-[11px] font-semibold">
+              <span className="flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-muted text-foreground text-[11px] font-semibold">
                 {unreadCount}
               </span>
             )}
@@ -68,21 +68,21 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
             {notifications.length > 0 && (
               <button
                 onClick={handleClear}
-                className="px-3 py-1.5 rounded-lg bg-[#007AFF] text-white text-[12px] font-medium hover:bg-[#0066DD] transition-colors cursor-pointer"
+                className="px-3 py-1 rounded-lg text-muted-foreground text-[12px] font-medium hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
               >
                 Limpar
               </button>
             )}
             <button
               onClick={onClose}
-              className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+              className="p-1 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-secondary/60 transition-colors cursor-pointer"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        <div className="max-h-[400px] overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-[480px]">
           {notifications.length === 0 ? (
             <div className="px-6 py-10 text-center text-sm text-muted-foreground">
               Nenhuma notificação
@@ -91,7 +91,7 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
             notifications.map((notification) => (
               <div
                 key={notification.id}
-                className="px-6 py-4 border-t border-border/60"
+                className="px-6 py-4 border-b border-border/40 hover:bg-muted/50 transition-colors cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-3 mb-1.5">
                   <h4 className="text-[13px] font-semibold text-foreground leading-snug">
@@ -101,12 +101,9 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
                     {notification.date}
                   </span>
                 </div>
-                <p className="text-[13px] text-muted-foreground leading-relaxed mb-3">
+                <p className="text-[13px] text-muted-foreground leading-relaxed">
                   {notification.description}
                 </p>
-                <button className="px-3 py-1.5 rounded-lg bg-[#007AFF] text-white text-[12px] font-medium hover:bg-[#0066DD] transition-colors cursor-pointer">
-                  Ver mais
-                </button>
               </div>
             ))
           )}
