@@ -15,8 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Users, ChevronRight } from "lucide-react";
+import { Plus, Search, Users, ChevronRight, ChevronLeft, Archive } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -47,33 +46,43 @@ export default function ColaboradoresPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [unitFilter, setUnitFilter] = useState("");
   const [positionFilter, setPositionFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [isCreateOpen, setCreateOpen] = useState(false);
 
-  const { data: employees = [], isLoading } = useListEmployees(orgId!, {
+  const { data: result, isLoading } = useListEmployees(orgId!, {
     search: search || undefined,
     status: statusFilter || undefined,
     unitId: unitFilter ? Number(unitFilter) : undefined,
     position: positionFilter || undefined,
+    page,
+    pageSize: 25,
   });
+
+  const employees = (result as any)?.data ?? (Array.isArray(result) ? result : []);
+  const pagination = (result as any)?.pagination;
 
   const { data: units = [] } = useListUnits(orgId!);
 
   const createMutation = useCreateEmployee();
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateEmployeeBody>();
+  const { register, handleSubmit, reset } = useForm<CreateEmployeeBody>();
 
   const stats = useMemo(() => {
-    const total = employees.length;
-    const active = employees.filter(e => e.status === "active").length;
-    const inactive = employees.filter(e => e.status === "inactive").length;
-    const onLeave = employees.filter(e => e.status === "on_leave").length;
+    const total = pagination?.total ?? employees.length;
+    const active = employees.filter((e: any) => e.status === "active").length;
+    const inactive = employees.filter((e: any) => e.status === "inactive").length;
+    const onLeave = employees.filter((e: any) => e.status === "on_leave").length;
     return { total, active, inactive, onLeave };
-  }, [employees]);
+  }, [employees, pagination]);
 
   const onCreateSubmit = async (data: CreateEmployeeBody) => {
     await createMutation.mutateAsync({ orgId: orgId!, data });
     queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey(orgId!) });
     setCreateOpen(false);
     reset();
+  };
+
+  const handleFilterChange = () => {
+    setPage(1);
   };
 
   if (!orgId) return null;
@@ -119,13 +128,13 @@ export default function ColaboradoresPage() {
             <Input
               placeholder="Buscar por nome ou CPF..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); handleFilterChange(); }}
               className="pl-9 h-9 text-[13px]"
             />
           </div>
           <Select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); handleFilterChange(); }}
             className="h-9 text-[13px] w-36"
           >
             <option value="">Todos os status</option>
@@ -135,7 +144,7 @@ export default function ColaboradoresPage() {
           </Select>
           <Select
             value={unitFilter}
-            onChange={(e) => setUnitFilter(e.target.value)}
+            onChange={(e) => { setUnitFilter(e.target.value); handleFilterChange(); }}
             className="h-9 text-[13px] w-44"
           >
             <option value="">Todas as unidades</option>
@@ -144,7 +153,7 @@ export default function ColaboradoresPage() {
           <Input
             placeholder="Filtrar por cargo..."
             value={positionFilter}
-            onChange={(e) => setPositionFilter(e.target.value)}
+            onChange={(e) => { setPositionFilter(e.target.value); handleFilterChange(); }}
             className="h-9 text-[13px] w-44"
           />
         </div>
@@ -161,45 +170,78 @@ export default function ColaboradoresPage() {
             </Button>
           </div>
         ) : (
-          <div className="bg-white border border-border/60 rounded-xl overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border/60">
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Nome</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Cargo</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Unidade</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Vínculo</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Status</th>
-                  <th className="w-8"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {employees.map((emp) => (
-                  <tr key={emp.id} className="border-b border-border/40 last:border-0 hover:bg-secondary/30 transition-colors">
-                    <td className="px-4 py-3">
-                      <Link href={`/app/qualidade/colaboradores/${emp.id}`} className="cursor-pointer">
-                        <p className="text-[13px] font-medium text-foreground hover:text-primary transition-colors">{emp.name}</p>
-                        {emp.email && <p className="text-xs text-muted-foreground mt-0.5">{emp.email}</p>}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-muted-foreground">{emp.position || "—"}</td>
-                    <td className="px-4 py-3 text-[13px] text-muted-foreground">{emp.unitName || "—"}</td>
-                    <td className="px-4 py-3 text-[13px] text-muted-foreground">{CONTRACT_LABELS[emp.contractType] || emp.contractType}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[emp.status] || "bg-gray-50 text-gray-500 border-gray-200"}`}>
-                        {STATUS_LABELS[emp.status] || emp.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link href={`/app/qualidade/colaboradores/${emp.id}`}>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground/40 cursor-pointer" />
-                      </Link>
-                    </td>
+          <>
+            <div className="bg-white border border-border/60 rounded-xl overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border/60">
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Nome</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Cargo</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Unidade</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Vínculo</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Status</th>
+                    <th className="w-8"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {employees.map((emp: any) => (
+                    <tr key={emp.id} className="border-b border-border/40 last:border-0 hover:bg-secondary/30 transition-colors">
+                      <td className="px-4 py-3">
+                        <Link href={`/app/qualidade/colaboradores/${emp.id}`} className="cursor-pointer">
+                          <p className="text-[13px] font-medium text-foreground hover:text-primary transition-colors">{emp.name}</p>
+                          {emp.email && <p className="text-xs text-muted-foreground mt-0.5">{emp.email}</p>}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-[13px] text-muted-foreground">{emp.position || "—"}</td>
+                      <td className="px-4 py-3 text-[13px] text-muted-foreground">{emp.unitName || "—"}</td>
+                      <td className="px-4 py-3 text-[13px] text-muted-foreground">{CONTRACT_LABELS[emp.contractType] || emp.contractType}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[emp.status] || "bg-gray-50 text-gray-500 border-gray-200"}`}>
+                          {STATUS_LABELS[emp.status] || emp.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link href={`/app/qualidade/colaboradores/${emp.id}`}>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground/40 cursor-pointer" />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-xs text-muted-foreground">
+                  Mostrando {((pagination.page - 1) * pagination.pageSize) + 1}–{Math.min(pagination.page * pagination.pageSize, pagination.total)} de {pagination.total}
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={pagination.page <= 1}
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    className="h-8 px-2"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground px-2">
+                    {pagination.page} / {pagination.totalPages}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={pagination.page >= pagination.totalPages}
+                    onClick={() => setPage(p => p + 1)}
+                    className="h-8 px-2"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 

@@ -633,4 +633,18 @@ export type ListEmployeesParams = {
   unitId?: number;
   position?: string;
   status?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export type PaginationInfo = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export type PaginatedEmployees = {
+  data: EmployeeListItem[];
+  pagination: PaginationInfo;
 };

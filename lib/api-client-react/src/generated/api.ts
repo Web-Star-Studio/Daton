@@ -60,6 +60,8 @@ import type {
   CreateAwarenessBody,
   UpdateAwarenessBody,
   ListEmployeesParams as ListEmployeesQueryParams,
+  PaginatedEmployees as PaginatedEmployeesResponse,
+  PaginationInfo,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -2716,14 +2718,16 @@ export const listEmployees = async (
   orgId: number,
   params?: ListEmployeesQueryParams,
   options?: RequestInit,
-): Promise<EmployeeListItem[]> => {
+): Promise<PaginatedEmployeesResponse> => {
   const query = new URLSearchParams();
   if (params?.search) query.set("search", params.search);
   if (params?.unitId) query.set("unitId", String(params.unitId));
   if (params?.position) query.set("position", params.position);
   if (params?.status) query.set("status", params.status);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.pageSize) query.set("pageSize", String(params.pageSize));
   const qs = query.toString();
-  return customFetch<EmployeeListItem[]>(`${getListEmployeesUrl(orgId)}${qs ? `?${qs}` : ""}`, {
+  return customFetch<PaginatedEmployeesResponse>(`${getListEmployeesUrl(orgId)}${qs ? `?${qs}` : ""}`, {
     ...options,
     method: "GET",
   });

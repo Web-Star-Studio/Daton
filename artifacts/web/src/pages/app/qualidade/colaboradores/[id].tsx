@@ -42,6 +42,7 @@ import {
   Award,
   Lightbulb,
   User,
+  Archive,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -370,6 +371,49 @@ function CompetenciasTab({
   );
 }
 
+function TrainingFormFields({ form, setForm }: { form: { title: string; description: string; institution: string; workloadHours: number; completionDate: string; expirationDate: string; status: string }; setForm: (f: any) => void }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground">Título *</Label>
+        <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-1" placeholder="Ex: NR-12 Segurança" />
+      </div>
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
+        <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" rows={2} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Instituição</Label>
+          <Input value={form.institution} onChange={(e) => setForm({ ...form, institution: e.target.value })} className="mt-1" />
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Carga Horária (h)</Label>
+          <Input type="number" value={form.workloadHours} onChange={(e) => setForm({ ...form, workloadHours: Number(e.target.value) })} className="mt-1" />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Status</Label>
+          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <option value="planned">Planejado</option>
+            <option value="in_progress">Em Andamento</option>
+            <option value="completed">Concluído</option>
+          </select>
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Data Conclusão</Label>
+          <Input type="date" value={form.completionDate} onChange={(e) => setForm({ ...form, completionDate: e.target.value })} className="mt-1" />
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Validade</Label>
+          <Input type="date" value={form.expirationDate} onChange={(e) => setForm({ ...form, expirationDate: e.target.value })} className="mt-1" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TreinamentosTab({
   trainings,
   orgId,
@@ -381,19 +425,13 @@ function TreinamentosTab({
 }) {
   const queryClient = useQueryClient();
   const [isCreateOpen, setCreateOpen] = useState(false);
+  const [editingTraining, setEditingTraining] = useState<EmployeeTraining | null>(null);
   const createMutation = useCreateTraining();
   const deleteMutation = useDeleteTraining();
   const updateMutation = useUpdateTraining();
 
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    institution: "",
-    workloadHours: 0,
-    completionDate: "",
-    expirationDate: "",
-    status: "planned",
-  });
+  const emptyForm = { title: "", description: "", institution: "", workloadHours: 0, completionDate: "", expirationDate: "", status: "planned" };
+  const [form, setForm] = useState(emptyForm);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId, empId) });
 
@@ -410,12 +448,41 @@ function TreinamentosTab({
     });
     invalidate();
     setCreateOpen(false);
-    setForm({ title: "", description: "", institution: "", workloadHours: 0, completionDate: "", expirationDate: "", status: "planned" });
+    setForm(emptyForm);
   };
 
-  const handleStatusChange = async (t: EmployeeTraining, newStatus: string) => {
-    await updateMutation.mutateAsync({ orgId, empId, trainId: t.id, data: { status: newStatus } });
+  const openEdit = (t: EmployeeTraining) => {
+    setEditingTraining(t);
+    setForm({
+      title: t.title,
+      description: t.description || "",
+      institution: t.institution || "",
+      workloadHours: t.workloadHours || 0,
+      completionDate: t.completionDate || "",
+      expirationDate: t.expirationDate || "",
+      status: t.status,
+    });
+  };
+
+  const handleUpdate = async () => {
+    if (!editingTraining) return;
+    await updateMutation.mutateAsync({
+      orgId,
+      empId,
+      trainId: editingTraining.id,
+      data: {
+        title: form.title,
+        description: form.description || undefined,
+        institution: form.institution || undefined,
+        workloadHours: form.workloadHours || undefined,
+        completionDate: form.completionDate || undefined,
+        expirationDate: form.expirationDate || undefined,
+        status: form.status,
+      },
+    });
     invalidate();
+    setEditingTraining(null);
+    setForm(emptyForm);
   };
 
   const handleDelete = async (trainId: number) => {
@@ -445,7 +512,7 @@ function TreinamentosTab({
           {trainings.map((t) => (
             <div key={t.id} className="bg-white border border-border/60 rounded-xl px-4 py-3">
               <div className="flex items-start justify-between">
-                <div className="flex-1">
+                <div className="flex-1 cursor-pointer" onClick={() => openEdit(t)}>
                   <div className="flex items-center gap-2">
                     <p className="text-[13px] font-medium text-foreground">{t.title}</p>
                     <span className={cn("text-[11px] px-1.5 py-0.5 rounded-full border font-medium", TRAINING_STATUS_COLORS[t.status] || "bg-gray-50 text-gray-500 border-gray-200")}>
@@ -461,16 +528,9 @@ function TreinamentosTab({
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <select
-                    value={t.status}
-                    onChange={(e) => handleStatusChange(t, e.target.value)}
-                    className="h-7 text-[11px] rounded border border-input bg-background px-1.5"
-                  >
-                    <option value="planned">Planejado</option>
-                    <option value="in_progress">Em Andamento</option>
-                    <option value="completed">Concluído</option>
-                    <option value="expired">Vencido</option>
-                  </select>
+                  <button onClick={() => openEdit(t)} className="p-1.5 text-muted-foreground/40 hover:text-primary transition-colors cursor-pointer">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
                   <button onClick={() => handleDelete(t.id)} className="p-1.5 text-muted-foreground/40 hover:text-red-500 transition-colors cursor-pointer">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -482,51 +542,53 @@ function TreinamentosTab({
       )}
 
       <Dialog open={isCreateOpen} onOpenChange={setCreateOpen} title="Novo Treinamento">
-        <div className="space-y-4">
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Título *</Label>
-            <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-1" placeholder="Ex: NR-12 Segurança" />
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-            <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" rows={2} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Instituição</Label>
-              <Input value={form.institution} onChange={(e) => setForm({ ...form, institution: e.target.value })} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Carga Horária (h)</Label>
-              <Input type="number" value={form.workloadHours} onChange={(e) => setForm({ ...form, workloadHours: Number(e.target.value) })} className="mt-1" />
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Status</Label>
-              <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                <option value="planned">Planejado</option>
-                <option value="in_progress">Em Andamento</option>
-                <option value="completed">Concluído</option>
-              </select>
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Data Conclusão</Label>
-              <Input type="date" value={form.completionDate} onChange={(e) => setForm({ ...form, completionDate: e.target.value })} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Validade</Label>
-              <Input type="date" value={form.expirationDate} onChange={(e) => setForm({ ...form, expirationDate: e.target.value })} className="mt-1" />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-            <Button size="sm" onClick={handleCreate} disabled={!form.title || createMutation.isPending}>
-              {createMutation.isPending ? "Salvando..." : "Salvar"}
-            </Button>
-          </div>
+        <TrainingFormFields form={form} setForm={setForm} />
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+          <Button size="sm" onClick={handleCreate} disabled={!form.title || createMutation.isPending}>
+            {createMutation.isPending ? "Salvando..." : "Salvar"}
+          </Button>
         </div>
       </Dialog>
+
+      <Dialog open={!!editingTraining} onOpenChange={(open) => { if (!open) { setEditingTraining(null); setForm(emptyForm); } }} title="Editar Treinamento">
+        <TrainingFormFields form={form} setForm={setForm} />
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="outline" size="sm" onClick={() => { setEditingTraining(null); setForm(emptyForm); }}>Cancelar</Button>
+          <Button size="sm" onClick={handleUpdate} disabled={!form.title || updateMutation.isPending}>
+            {updateMutation.isPending ? "Salvando..." : "Atualizar"}
+          </Button>
+        </div>
+      </Dialog>
+    </div>
+  );
+}
+
+function AwarenessFormFields({ form, setForm }: { form: { topic: string; description: string; date: string; verificationMethod: string; result: string }; setForm: (f: any) => void }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground">Tema *</Label>
+        <Input value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} className="mt-1" placeholder="Ex: Política da Qualidade" />
+      </div>
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
+        <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" rows={2} />
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Data *</Label>
+          <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="mt-1" />
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Método de Verificação</Label>
+          <Input value={form.verificationMethod} onChange={(e) => setForm({ ...form, verificationMethod: e.target.value })} className="mt-1" placeholder="Ex: Questionário" />
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Resultado</Label>
+          <Input value={form.result} onChange={(e) => setForm({ ...form, result: e.target.value })} className="mt-1" placeholder="Ex: Aprovado" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -542,16 +604,13 @@ function ConscientizacaoTab({
 }) {
   const queryClient = useQueryClient();
   const [isCreateOpen, setCreateOpen] = useState(false);
+  const [editingAwareness, setEditingAwareness] = useState<EmployeeAwareness | null>(null);
   const createMutation = useCreateAwareness();
   const deleteMutation = useDeleteAwareness();
+  const updateMutation = useUpdateAwareness();
 
-  const [form, setForm] = useState({
-    topic: "",
-    description: "",
-    date: new Date().toISOString().split("T")[0],
-    verificationMethod: "",
-    result: "",
-  });
+  const emptyForm = { topic: "", description: "", date: new Date().toISOString().split("T")[0], verificationMethod: "", result: "" };
+  const [form, setForm] = useState(emptyForm);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId, empId) });
 
@@ -559,7 +618,37 @@ function ConscientizacaoTab({
     await createMutation.mutateAsync({ orgId, empId, data: form });
     invalidate();
     setCreateOpen(false);
-    setForm({ topic: "", description: "", date: new Date().toISOString().split("T")[0], verificationMethod: "", result: "" });
+    setForm(emptyForm);
+  };
+
+  const openEdit = (a: EmployeeAwareness) => {
+    setEditingAwareness(a);
+    setForm({
+      topic: a.topic,
+      description: a.description || "",
+      date: a.date,
+      verificationMethod: a.verificationMethod || "",
+      result: a.result || "",
+    });
+  };
+
+  const handleUpdate = async () => {
+    if (!editingAwareness) return;
+    await updateMutation.mutateAsync({
+      orgId,
+      empId,
+      awaId: editingAwareness.id,
+      data: {
+        topic: form.topic,
+        description: form.description || undefined,
+        date: form.date,
+        verificationMethod: form.verificationMethod || undefined,
+        result: form.result || undefined,
+      },
+    });
+    invalidate();
+    setEditingAwareness(null);
+    setForm(emptyForm);
   };
 
   const handleDelete = async (awaId: number) => {
@@ -589,7 +678,7 @@ function ConscientizacaoTab({
           {awareness.map((a) => (
             <div key={a.id} className="bg-white border border-border/60 rounded-xl px-4 py-3">
               <div className="flex items-start justify-between">
-                <div className="flex-1">
+                <div className="flex-1 cursor-pointer" onClick={() => openEdit(a)}>
                   <p className="text-[13px] font-medium text-foreground">{a.topic}</p>
                   {a.description && <p className="text-xs text-muted-foreground mt-1">{a.description}</p>}
                   <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
@@ -598,9 +687,14 @@ function ConscientizacaoTab({
                     {a.result && <span>Resultado: {a.result}</span>}
                   </div>
                 </div>
-                <button onClick={() => handleDelete(a.id)} className="p-1.5 text-muted-foreground/40 hover:text-red-500 transition-colors cursor-pointer">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => openEdit(a)} className="p-1.5 text-muted-foreground/40 hover:text-primary transition-colors cursor-pointer">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={() => handleDelete(a.id)} className="p-1.5 text-muted-foreground/40 hover:text-red-500 transition-colors cursor-pointer">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -608,35 +702,22 @@ function ConscientizacaoTab({
       )}
 
       <Dialog open={isCreateOpen} onOpenChange={setCreateOpen} title="Novo Registro de Conscientização">
-        <div className="space-y-4">
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Tema *</Label>
-            <Input value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} className="mt-1" placeholder="Ex: Política da Qualidade" />
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-            <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" rows={2} />
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Data *</Label>
-              <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Método de Verificação</Label>
-              <Input value={form.verificationMethod} onChange={(e) => setForm({ ...form, verificationMethod: e.target.value })} className="mt-1" placeholder="Ex: Questionário" />
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Resultado</Label>
-              <Input value={form.result} onChange={(e) => setForm({ ...form, result: e.target.value })} className="mt-1" placeholder="Ex: Aprovado" />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-            <Button size="sm" onClick={handleCreate} disabled={!form.topic || !form.date || createMutation.isPending}>
-              {createMutation.isPending ? "Salvando..." : "Salvar"}
-            </Button>
-          </div>
+        <AwarenessFormFields form={form} setForm={setForm} />
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+          <Button size="sm" onClick={handleCreate} disabled={!form.topic || !form.date || createMutation.isPending}>
+            {createMutation.isPending ? "Salvando..." : "Salvar"}
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog open={!!editingAwareness} onOpenChange={(open) => { if (!open) { setEditingAwareness(null); setForm(emptyForm); } }} title="Editar Registro de Conscientização">
+        <AwarenessFormFields form={form} setForm={setForm} />
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="outline" size="sm" onClick={() => { setEditingAwareness(null); setForm(emptyForm); }}>Cancelar</Button>
+          <Button size="sm" onClick={handleUpdate} disabled={!form.topic || !form.date || updateMutation.isPending}>
+            {updateMutation.isPending ? "Salvando..." : "Atualizar"}
+          </Button>
         </div>
       </Dialog>
     </div>
@@ -672,8 +753,8 @@ export default function ColaboradorDetailPage() {
     queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey(orgId!) });
   };
 
-  const handleDelete = async () => {
-    if (!confirm("Tem certeza que deseja excluir este colaborador?")) return;
+  const handleArchive = async () => {
+    if (!confirm("Tem certeza que deseja arquivar este colaborador? O status será alterado para Inativo.")) return;
     await deleteMutation.mutateAsync({ orgId: orgId!, empId });
     queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey(orgId!) });
     navigate("/app/qualidade/colaboradores");
@@ -728,9 +809,9 @@ export default function ColaboradorDetailPage() {
               </p>
             </div>
           </div>
-          <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={handleDelete}>
-            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-            Excluir
+          <Button variant="outline" size="sm" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={handleArchive}>
+            <Archive className="h-3.5 w-3.5 mr-1.5" />
+            Arquivar
           </Button>
         </div>
 

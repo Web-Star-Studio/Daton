@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike, or } from "drizzle-orm";
+import { eq, and, ilike, or, count, sql } from "drizzle-orm";
 import {
   db,
   employeesTable,
@@ -108,6 +108,17 @@ router.get("/organizations/:orgId/employees", requireAuth, async (req, res): Pro
     conditions.push(eq(employeesTable.status, query.data.status));
   }
 
+  const page = (query.success && query.data.page) || 1;
+  const pageSize = (query.success && query.data.pageSize) || 25;
+  const offset = (page - 1) * pageSize;
+
+  const whereClause = and(...conditions);
+
+  const [totalResult] = await db
+    .select({ total: count() })
+    .from(employeesTable)
+    .where(whereClause);
+
   const rows = await db
     .select({
       id: employeesTable.id,
@@ -129,10 +140,20 @@ router.get("/organizations/:orgId/employees", requireAuth, async (req, res): Pro
     })
     .from(employeesTable)
     .leftJoin(unitsTable, eq(employeesTable.unitId, unitsTable.id))
-    .where(and(...conditions))
-    .orderBy(employeesTable.name);
+    .where(whereClause)
+    .orderBy(employeesTable.name)
+    .limit(pageSize)
+    .offset(offset);
 
-  res.json(rows.map(formatEmployee));
+  res.json({
+    data: rows.map(formatEmployee),
+    pagination: {
+      page,
+      pageSize,
+      total: totalResult.total,
+      totalPages: Math.ceil(totalResult.total / pageSize),
+    },
+  });
 });
 
 router.post("/organizations/:orgId/employees", requireAuth, async (req, res): Promise<void> => {
@@ -198,11 +219,21 @@ router.get("/organizations/:orgId/employees/:empId", requireAuth, async (req, re
       createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
       updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
     })),
-    trainings: trainings.map(t => ({
-      ...t,
-      createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
-      updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
-    })),
+    trainings: trainings.map(t => {
+      let effectiveStatus = t.status;
+      if (t.expirationDate && t.status === "completed") {
+        const expDate = new Date(t.expirationDate);
+        if (expDate < new Date()) {
+          effectiveStatus = "expired";
+        }
+      }
+      return {
+        ...t,
+        status: effectiveStatus,
+        createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
+        updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
+      };
+    }),
     awareness: awareness.map(a => ({
       ...a,
       createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt,
@@ -239,7 +270,8 @@ router.delete("/organizations/:orgId/employees/:empId", requireAuth, async (req,
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
-  const [emp] = await db.delete(employeesTable)
+  const [emp] = await db.update(employeesTable)
+    .set({ status: "inactive", terminationDate: new Date().toISOString().split("T")[0] })
     .where(and(eq(employeesTable.id, params.data.empId), eq(employeesTable.organizationId, params.data.orgId)))
     .returning();
 

@@ -746,15 +746,24 @@ paths:
           in: query
           schema:
             type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
       responses:
         "200":
-          description: List of employees
+          description: Paginated list of employees
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Employee"
+                $ref: "#/components/schemas/PaginatedEmployees"
     post:
       operationId: createEmployee
       tags: [employees]
@@ -2070,6 +2079,33 @@ components:
         - employeeId
         - topic
         - date
+
+    PaginatedEmployees:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Employee"
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            pageSize:
+              type: integer
+            total:
+              type: integer
+            totalPages:
+              type: integer
+          required:
+            - page
+            - pageSize
+            - total
+            - totalPages
+      required:
+        - data
+        - pagination
 
     EmployeeDetail:
       allOf:
