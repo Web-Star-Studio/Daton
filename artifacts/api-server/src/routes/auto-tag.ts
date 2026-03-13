@@ -144,7 +144,7 @@ router.post("/organizations/:orgId/legislations/auto-tag/batch", requireAuth, as
   }
   if (!force) {
     conditions.push(
-      sql`(${legislationsTable.tags} IS NULL OR ${legislationsTable.tags} = '[]'::jsonb)`
+      sql`(${legislationsTable.tags} IS NULL OR array_length(${legislationsTable.tags}, 1) IS NULL)`
     );
   }
 
