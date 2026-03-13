@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useListLegislations, useCreateLegislation, useImportLegislations, getListLegislationsQueryKey, useListUnits, getListUnitsQueryKey, useGetUnitComplianceTags, type CreateLegislationBody } from "@workspace/api-client-react";
@@ -203,6 +203,7 @@ export default function LegislacoesPage() {
   const { organization } = useAuth();
   const orgId = organization?.id;
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
 
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState("");
@@ -437,22 +438,21 @@ export default function LegislacoesPage() {
                 <th className="px-6 py-4">Tipo</th>
                 <th className="px-6 py-4">Esfera</th>
                 <th className="px-6 py-4">Publicação</th>
-                <th className="px-6 py-4 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {isLoading ? (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">Carregando...</td></tr>
+                <tr><td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">Carregando...</td></tr>
               ) : unitHasNoTags ? (
-                <tr><td colSpan={5} className="px-6 py-12 text-center">
+                <tr><td colSpan={4} className="px-6 py-12 text-center">
                   <div className="text-muted-foreground mb-2">Esta unidade ainda não possui tags de conformidade.</div>
                   <div className="text-sm text-muted-foreground">Preencha o questionário da unidade para gerar as tags e filtrar as legislações aplicáveis.</div>
                 </td></tr>
               ) : legislations?.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">Nenhuma legislação encontrada.</td></tr>
+                <tr><td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">Nenhuma legislação encontrada.</td></tr>
               ) : (
                 legislations?.map((leg) => (
-                  <tr key={leg.id} className="hover:bg-muted/50 transition-colors">
+                  <tr key={leg.id} className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => navigate(`/app/qualidade/legislacoes/${leg.id}`)}>
                     <td className="px-6 py-4">
                       <div className="font-medium text-foreground">{leg.title}</div>
                       {leg.number && <div className="text-muted-foreground mt-0.5">{leg.number}</div>}
@@ -465,11 +465,6 @@ export default function LegislacoesPage() {
                     </td>
                     <td className="px-6 py-4 text-muted-foreground">
                       {formatDate(leg.publicationDate)}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <Link href={`/app/qualidade/legislacoes/${leg.id}`} className="text-primary hover:underline font-medium inline-flex items-center cursor-pointer">
-                        Detalhes
-                      </Link>
                     </td>
                   </tr>
                 ))

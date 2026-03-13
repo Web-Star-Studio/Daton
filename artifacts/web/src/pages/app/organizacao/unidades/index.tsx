@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { useListUnits, useCreateUnit, useDeleteUnit, getListUnitsQueryKey, type CreateUnitBody, type CreateUnitBodyType } from "@workspace/api-client-react";
+import { useListUnits, useCreateUnit, getListUnitsQueryKey, type CreateUnitBody, type CreateUnitBodyType } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 type UnitFormData = {
@@ -36,7 +36,7 @@ export default function UnidadesPage() {
 
   const { data: units, isLoading } = useListUnits(orgId!, { query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId } });
   const createUnitMut = useCreateUnit();
-  const deleteUnitMut = useDeleteUnit();
+
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const form = useForm<UnitFormData>({
@@ -70,13 +70,6 @@ export default function UnidadesPage() {
     form.reset();
   };
 
-  const handleDelete = async (e: React.MouseEvent, unitId: number) => {
-    e.stopPropagation();
-    if (!orgId || !confirm("Tem certeza que deseja remover esta unidade?")) return;
-    await deleteUnitMut.mutateAsync({ orgId, unitId });
-    queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey(orgId) });
-  };
-
   if (!orgId) return null;
 
   const headerActions = (
@@ -105,7 +98,6 @@ export default function UnidadesPage() {
                 <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Localização</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Identificação</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -133,14 +125,6 @@ export default function UnidadesPage() {
                     <span className="text-[13px] text-foreground">
                       {unit.status === 'ativa' ? 'Ativa' : 'Inativa'}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={(e) => handleDelete(e, unit.id)}
-                      className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
                   </td>
                 </tr>
               ))}

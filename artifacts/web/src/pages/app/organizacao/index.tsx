@@ -418,56 +418,24 @@ export default function OrganizacaoPage() {
                   <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Título</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Escolaridade</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Experiência</th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {positions?.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
+                    <td colSpan={3} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
                       Nenhum cargo cadastrado.
                     </td>
                   </tr>
                 )}
                 {positions?.map((pos) => (
-                  <tr key={pos.id} className="hover:bg-muted/50 transition-colors group">
+                  <tr key={pos.id} className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => { setEditingPosId(pos.id); posForm.reset({ name: pos.name, description: pos.description || "", education: pos.education || "", experience: pos.experience || "", requirements: pos.requirements || "", responsibilities: pos.responsibilities || "" }); setPosDialogOpen(true); }}>
                     <td className="px-6 py-4">
                       <div className="text-[13px] font-medium text-foreground">{pos.name}</div>
                       {pos.description && <div className="text-xs text-muted-foreground mt-0.5">{pos.description}</div>}
                     </td>
                     <td className="px-6 py-4 text-[13px] text-muted-foreground">{pos.education || "—"}</td>
                     <td className="px-6 py-4 text-[13px] text-muted-foreground">{pos.experience || "—"}</td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => {
-                            setEditingPosId(pos.id);
-                            posForm.reset({
-                              name: pos.name,
-                              description: pos.description || "",
-                              education: pos.education || "",
-                              experience: pos.experience || "",
-                              requirements: pos.requirements || "",
-                              responsibilities: pos.responsibilities || "",
-                            });
-                            setPosDialogOpen(true);
-                          }}
-                          className="text-muted-foreground hover:text-foreground cursor-pointer"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (!confirm("Tem certeza que deseja remover?")) return;
-                            await deletePosMut.mutateAsync({ orgId, posId: pos.id });
-                            queryClient.invalidateQueries({ queryKey: getListPositionsQueryKey(orgId) });
-                          }}
-                          className="text-muted-foreground hover:text-destructive cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -626,37 +594,20 @@ function SimpleTable({
           <tr className="border-b border-border bg-muted/30">
             <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome</th>
             <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Descrição</th>
-            <th className="px-6 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ações</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
           {items?.length === 0 && (
             <tr>
-              <td colSpan={3} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
+              <td colSpan={2} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
                 Nenhum {entityName} cadastrado.
               </td>
             </tr>
           )}
           {items?.map((item) => (
-            <tr key={item.id} className="hover:bg-muted/50 transition-colors group">
+            <tr key={item.id} className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => onEdit(item)}>
               <td className="px-6 py-4 text-[13px] font-medium text-foreground">{item.name}</td>
               <td className="px-6 py-4 text-[13px] text-muted-foreground">{item.description || "—"}</td>
-              <td className="px-6 py-4 text-right">
-                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => onEdit(item)}
-                    className="text-muted-foreground hover:text-foreground cursor-pointer"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => onDelete(item.id)}
-                    className="text-muted-foreground hover:text-destructive cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </td>
             </tr>
           ))}
         </tbody>
