@@ -2213,3 +2213,65 @@ export const ListOrgUsersResponseItem = zod.object({
   email: zod.string(),
 });
 export const ListOrgUsersResponse = zod.array(ListOrgUsersResponseItem);
+
+/**
+ * @summary Send an invitation email to a user
+ */
+export const CreateInvitationBody = zod.object({
+  email: zod.string().email(),
+});
+
+/**
+ * @summary List invitations for current organization
+ */
+export const ListInvitationsResponse = zod.object({
+  invitations: zod.array(
+    zod.object({
+      id: zod.number(),
+      email: zod.string(),
+      status: zod.string(),
+      invitedByName: zod.string(),
+      organizationName: zod.string(),
+      expiresAt: zod.string(),
+      createdAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Revoke an invitation
+ */
+export const RevokeInvitationParams = zod.object({
+  invitationId: zod.coerce.number(),
+});
+
+export const RevokeInvitationResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Validate an invitation token
+ */
+export const ValidateInviteTokenParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const ValidateInviteTokenResponse = zod.object({
+  email: zod.string(),
+  organizationName: zod.string(),
+  invitedByName: zod.string(),
+});
+
+/**
+ * @summary Accept an invitation and create user account
+ */
+export const AcceptInvitationParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const acceptInvitationBodyPasswordMin = 6;
+
+export const AcceptInvitationBody = zod.object({
+  name: zod.string(),
+  password: zod.string().min(acceptInvitationBodyPasswordMin),
+});

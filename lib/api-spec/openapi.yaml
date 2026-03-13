@@ -1881,6 +1881,128 @@ paths:
                 items:
                   $ref: "#/components/schemas/OrgUser"
 
+  /invitations:
+    post:
+      operationId: createInvitation
+      tags: [invitations]
+      summary: Send an invitation email to a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvitationBody"
+      responses:
+        "201":
+          description: Invitation sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitationResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      operationId: listInvitations
+      tags: [invitations]
+      summary: List invitations for current organization
+      responses:
+        "200":
+          description: List of invitations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invitations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/InvitationResponse"
+                required:
+                  - invitations
+
+  /invitations/{invitationId}:
+    delete:
+      operationId: revokeInvitation
+      tags: [invitations]
+      summary: Revoke an invitation
+      parameters:
+        - name: invitationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invitation revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: Invitation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /invitations/accept/{token}:
+    get:
+      operationId: validateInviteToken
+      tags: [invitations]
+      summary: Validate an invitation token
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Token is valid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteTokenInfo"
+        "400":
+          description: Token invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: acceptInvitation
+      tags: [invitations]
+      summary: Accept an invitation and create user account
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptInvitationBody"
+      responses:
+        "201":
+          description: User created and invitation accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -3443,3 +3565,64 @@ components:
         - description
         - read
         - createdAt
+
+    CreateInvitationBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+      required:
+        - email
+
+    InvitationResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        status:
+          type: string
+        invitedByName:
+          type: string
+        organizationName:
+          type: string
+        expiresAt:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - email
+        - status
+        - invitedByName
+        - organizationName
+        - expiresAt
+        - createdAt
+
+    InviteTokenInfo:
+      type: object
+      properties:
+        email:
+          type: string
+        organizationName:
+          type: string
+        invitedByName:
+          type: string
+      required:
+        - email
+        - organizationName
+        - invitedByName
+
+    AcceptInvitationBody:
+      type: object
+      properties:
+        name:
+          type: string
+        password:
+          type: string
+          minLength: 6
+      required:
+        - name
+        - password

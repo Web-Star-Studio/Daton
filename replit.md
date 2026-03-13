@@ -20,11 +20,14 @@ Key architectural decisions include:
 - **Document Control Workflow:** A robust document management system with versioning, approval workflows (draft -> in_review -> approved/rejected -> distributed -> acknowledged), and role-based access for elaborators, approvers, and recipients.
 - **Compliance Tagging:** A system where questionnaire responses generate compliance tags for units, enabling dynamic filtering of relevant legislations based on a unit's profile.
 
+- **User Invitations:** Email-based invitation system using Resend. Admins can invite users to their organization via email. Invitations use a 32-byte random token with 7-day expiry. The accept flow creates a new user account and logs them in automatically. Backend uses DB transactions for atomic invite acceptance. Expired invites allow re-invitation.
+
 ## External Dependencies
 
 - **PostgreSQL:** Primary relational database for all application data.
 - **OpenAI (via Replit AI Integrations):** Used for the Daton AI assistant, specifically gpt-4o-mini for natural language processing and database querying.
 - **Google Cloud Storage (GCS):** Utilized for secure storage of file evidence and document attachments, with presigned URLs for direct uploads.
 - **Orval:** API client code generation tool, based on OpenAPI specifications.
+- **Resend (via Replit Integrations):** Email delivery service for sending invitation emails.
 - **Tailwind CSS:** Utility-first CSS framework for rapid UI development.
 - **React Query:** Library for data fetching, caching, and state management in the frontend.

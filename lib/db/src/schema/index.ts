@@ -11,3 +11,4 @@ export * from "./employees";
 export * from "./departments";
 export * from "./documents";
 export * from "./notifications";
+export * from "./invitations";

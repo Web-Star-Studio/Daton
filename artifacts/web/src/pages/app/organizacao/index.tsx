@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, Mail, X, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -18,10 +18,11 @@ import {
   useListDepartments, useCreateDepartment, useDeleteDepartment, useUpdateDepartment, getListDepartmentsQueryKey,
   useListPositions, useCreatePosition, useDeletePosition, useUpdatePosition, getListPositionsQueryKey,
   useGetOrganization, useUpdateOrganization, getGetOrganizationQueryKey,
+  useListInvitations, useCreateInvitation, useRevokeInvitation, getListInvitationsQueryKey,
   type CreateUnitBody, type CreateUnitBodyType,
 } from "@workspace/api-client-react";
 
-type Tab = "visao-geral" | "unidades" | "departamentos" | "cargos";
+type Tab = "visao-geral" | "unidades" | "departamentos" | "cargos" | "convites";
 
 type UnitFormData = {
   name: string;
@@ -95,6 +96,12 @@ export default function OrganizacaoPage() {
   const [orgForm, setOrgForm] = useState({
     name: "", nomeFantasia: "", cnpj: "", inscricaoEstadual: "", dataFundacao: "", statusOperacional: "ativa",
   });
+
+  const { data: invitationsData, isLoading: invitationsLoading } = useListInvitations({ query: { queryKey: getListInvitationsQueryKey(), enabled: activeTab === "convites" } });
+  const createInviteMut = useCreateInvitation();
+  const revokeInviteMut = useRevokeInvitation();
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteError, setInviteError] = useState("");
 
   React.useEffect(() => {
     if (orgData) {
@@ -230,6 +237,7 @@ export default function OrganizacaoPage() {
     { key: "unidades", label: "Unidades" },
     { key: "departamentos", label: "Departamentos" },
     { key: "cargos", label: "Cargos" },
+    { key: "convites", label: "Convites" },
   ];
 
   return (
@@ -442,6 +450,119 @@ export default function OrganizacaoPage() {
             </table>
           </div>
         )
+      )}
+
+      {activeTab === "convites" && (
+        <div className="space-y-6">
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setInviteError("");
+              if (!inviteEmail.trim()) return;
+              try {
+                await createInviteMut.mutateAsync({ data: { email: inviteEmail.trim() } });
+                setInviteEmail("");
+                queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
+              } catch (err: any) {
+                setInviteError(err?.response?.data?.error || err?.data?.error || "Erro ao enviar convite");
+              }
+            }}
+            className="flex items-end gap-3"
+          >
+            <div className="flex-1 max-w-md">
+              <Label>Email do convidado</Label>
+              <Input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => { setInviteEmail(e.target.value); setInviteError(""); }}
+                placeholder="colaborador@empresa.com"
+              />
+            </div>
+            <Button type="submit" size="sm" isLoading={createInviteMut.isPending}>
+              <Mail className="h-4 w-4 mr-1.5" />
+              Enviar convite
+            </Button>
+          </form>
+          {inviteError && (
+            <p className="text-sm text-destructive">{inviteError}</p>
+          )}
+
+          {invitationsLoading ? (
+            <div className="text-center py-12 text-muted-foreground">Carregando...</div>
+          ) : (
+            <div className="overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Convidado por</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Enviado em</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {(!invitationsData?.invitations || invitationsData.invitations.length === 0) && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
+                        Nenhum convite enviado.
+                      </td>
+                    </tr>
+                  )}
+                  {invitationsData?.invitations?.map((inv) => (
+                    <tr key={inv.id} className="hover:bg-muted/50 transition-colors">
+                      <td className="px-6 py-4 text-[13px] font-medium text-foreground">{inv.email}</td>
+                      <td className="px-6 py-4">
+                        {inv.status === "pending" && (
+                          <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
+                            <Clock className="h-3 w-3 mr-1" />Pendente
+                          </Badge>
+                        )}
+                        {inv.status === "accepted" && (
+                          <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />Aceito
+                          </Badge>
+                        )}
+                        {inv.status === "revoked" && (
+                          <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+                            <XCircle className="h-3 w-3 mr-1" />Revogado
+                          </Badge>
+                        )}
+                        {inv.status === "expired" && (
+                          <Badge variant="outline" className="text-muted-foreground border-border">
+                            <Clock className="h-3 w-3 mr-1" />Expirado
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-[13px] text-muted-foreground">{inv.invitedByName}</td>
+                      <td className="px-6 py-4 text-[13px] text-muted-foreground">
+                        {new Date(inv.createdAt).toLocaleDateString("pt-BR")}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {inv.status === "pending" && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await revokeInviteMut.mutateAsync({ invitationId: inv.id });
+                                queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
+                              } catch {
+                                setInviteError("Erro ao revogar convite");
+                              }
+                            }}
+                            className="text-muted-foreground hover:text-destructive transition-colors p-1 cursor-pointer"
+                            title="Revogar convite"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
 
       <Dialog open={unitDialogOpen} onOpenChange={setUnitDialogOpen} title="Nova Unidade" description="Cadastre uma nova unidade organizacional." size="lg">

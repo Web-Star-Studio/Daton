@@ -17,6 +17,7 @@ import ColaboradorDetailPage from "@/pages/app/qualidade/colaboradores/[id]";
 import DocumentacaoPage from "@/pages/app/qualidade/documentacao";
 import NovoDocumentoPage from "@/pages/app/qualidade/documentacao/novo";
 import DocumentDetailPage from "@/pages/app/qualidade/documentacao/[id]";
+import AcceptInvitePage from "@/pages/accept-invite";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -65,6 +66,7 @@ function Router() {
     <Switch>
       <Route path="/" component={AuthPage} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/convite/:token" component={AcceptInvitePage} />
       <Route component={NotFound} />
     </Switch>
   );

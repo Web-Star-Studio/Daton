@@ -966,6 +966,32 @@ export interface NotificationItem {
   createdAt: string;
 }
 
+export interface CreateInvitationBody {
+  email: string;
+}
+
+export interface InvitationResponse {
+  id: number;
+  email: string;
+  status: string;
+  invitedByName: string;
+  organizationName: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface InviteTokenInfo {
+  email: string;
+  organizationName: string;
+  invitedByName: string;
+}
+
+export interface AcceptInvitationBody {
+  name: string;
+  /** @minLength 6 */
+  password: string;
+}
+
 export type ListLegislationsParams = {
   search?: string;
   level?: ListLegislationsLevel;
@@ -1023,4 +1049,8 @@ export type ListDocumentsParams = {
 export type ListNotifications200 = {
   notifications?: NotificationItem[];
   unreadCount?: number;
+};
+
+export type ListInvitations200 = {
+  invitations: InvitationResponse[];
 };

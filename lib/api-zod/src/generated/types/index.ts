@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./acceptInvitationBody";
 export * from "./addDocumentAttachmentBody";
 export * from "./approveDocumentBody";
 export * from "./assignLegislationBody";
@@ -22,6 +23,7 @@ export * from "./createDocumentBodyType";
 export * from "./createEmployeeBody";
 export * from "./createEmployeeBodyContractType";
 export * from "./createEmployeeBodyStatus";
+export * from "./createInvitationBody";
 export * from "./createLegislationBody";
 export * from "./createPositionBody";
 export * from "./createTrainingBody";
@@ -54,6 +56,8 @@ export * from "./importLegislationsBody";
 export * from "./importLegislationsBodyConflictStrategy";
 export * from "./importResult";
 export * from "./importResultErrorDetailsItem";
+export * from "./invitationResponse";
+export * from "./inviteTokenInfo";
 export * from "./legislation";
 export * from "./legislationDetail";
 export * from "./linkedUnit";
@@ -61,6 +65,7 @@ export * from "./linkEmployeeUnit201";
 export * from "./linkEmployeeUnitBody";
 export * from "./listDocumentsParams";
 export * from "./listEmployeesParams";
+export * from "./listInvitations200";
 export * from "./listLegislationsLevel";
 export * from "./listLegislationsParams";
 export * from "./listNotifications200";

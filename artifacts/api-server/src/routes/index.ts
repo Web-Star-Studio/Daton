@@ -13,6 +13,7 @@ import employeesRouter from "./employees";
 import departmentsRouter from "./departments";
 import documentsRouter from "./documents";
 import notificationsRouter from "./notifications";
+import invitationsRouter from "./invitations";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(employeesRouter);
 router.use(departmentsRouter);
 router.use(documentsRouter);
 router.use(notificationsRouter);
+router.use(invitationsRouter);
 
 export default router;
