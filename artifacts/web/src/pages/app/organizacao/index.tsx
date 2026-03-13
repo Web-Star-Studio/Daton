@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +43,15 @@ type SimpleFormData = {
   description: string;
 };
 
+type PositionFormData = {
+  name: string;
+  description: string;
+  education: string;
+  experience: string;
+  requirements: string;
+  responsibilities: string;
+};
+
 export default function OrganizacaoPage() {
   const { organization } = useAuth();
   const orgId = organization?.id;
@@ -75,7 +85,8 @@ export default function OrganizacaoPage() {
   const deletePosMut = useDeletePosition();
   const [posDialogOpen, setPosDialogOpen] = useState(false);
   const [editingPosId, setEditingPosId] = useState<number | null>(null);
-  const posForm = useForm<SimpleFormData>({ defaultValues: { name: "", description: "" } });
+  const emptyPosForm: PositionFormData = { name: "", description: "", education: "", experience: "", requirements: "", responsibilities: "" };
+  const posForm = useForm<PositionFormData>({ defaultValues: emptyPosForm });
 
   if (!orgId) return null;
 
@@ -120,11 +131,19 @@ export default function OrganizacaoPage() {
     deptForm.reset();
   };
 
-  const onPosSubmit = async (data: SimpleFormData) => {
+  const onPosSubmit = async (data: PositionFormData) => {
+    const payload = {
+      name: data.name,
+      description: data.description || undefined,
+      education: data.education || undefined,
+      experience: data.experience || undefined,
+      requirements: data.requirements || undefined,
+      responsibilities: data.responsibilities || undefined,
+    };
     if (editingPosId) {
-      await updatePosMut.mutateAsync({ orgId, posId: editingPosId, data: { name: data.name, description: data.description || undefined } });
+      await updatePosMut.mutateAsync({ orgId, posId: editingPosId, data: payload });
     } else {
-      await createPosMut.mutateAsync({ orgId, data: { name: data.name, description: data.description || undefined } });
+      await createPosMut.mutateAsync({ orgId, data: payload });
     }
     queryClient.invalidateQueries({ queryKey: getListPositionsQueryKey(orgId) });
     setPosDialogOpen(false);
@@ -150,7 +169,7 @@ export default function OrganizacaoPage() {
         );
       case "cargos":
         return (
-          <Button size="sm" onClick={() => { setEditingPosId(null); posForm.reset({ name: "", description: "" }); setPosDialogOpen(true); }}>
+          <Button size="sm" onClick={() => { setEditingPosId(null); posForm.reset(emptyPosForm); setPosDialogOpen(true); }}>
             <Plus className="h-3.5 w-3.5 mr-1.5" />
             Novo Cargo
           </Button>
@@ -241,17 +260,72 @@ export default function OrganizacaoPage() {
       )}
 
       {activeTab === "cargos" && (
-        <SimpleTable
-          items={positions}
-          isLoading={posLoading}
-          entityName="cargo"
-          onEdit={(item) => { setEditingPosId(item.id); posForm.reset({ name: item.name, description: item.description || "" }); setPosDialogOpen(true); }}
-          onDelete={async (id) => {
-            if (!confirm("Tem certeza que deseja remover?")) return;
-            await deletePosMut.mutateAsync({ orgId, posId: id });
-            queryClient.invalidateQueries({ queryKey: getListPositionsQueryKey(orgId) });
-          }}
-        />
+        posLoading ? (
+          <div className="text-center py-12 text-muted-foreground">Carregando...</div>
+        ) : (
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Título</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Escolaridade</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Experiência</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {positions?.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
+                      Nenhum cargo cadastrado.
+                    </td>
+                  </tr>
+                )}
+                {positions?.map((pos) => (
+                  <tr key={pos.id} className="hover:bg-muted/50 transition-colors group">
+                    <td className="px-6 py-4">
+                      <div className="text-[13px] font-medium text-foreground">{pos.name}</div>
+                      {pos.description && <div className="text-xs text-muted-foreground mt-0.5">{pos.description}</div>}
+                    </td>
+                    <td className="px-6 py-4 text-[13px] text-muted-foreground">{pos.education || "—"}</td>
+                    <td className="px-6 py-4 text-[13px] text-muted-foreground">{pos.experience || "—"}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => {
+                            setEditingPosId(pos.id);
+                            posForm.reset({
+                              name: pos.name,
+                              description: pos.description || "",
+                              education: pos.education || "",
+                              experience: pos.experience || "",
+                              requirements: pos.requirements || "",
+                              responsibilities: pos.responsibilities || "",
+                            });
+                            setPosDialogOpen(true);
+                          }}
+                          className="text-muted-foreground hover:text-foreground cursor-pointer"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!confirm("Tem certeza que deseja remover?")) return;
+                            await deletePosMut.mutateAsync({ orgId, posId: pos.id });
+                            queryClient.invalidateQueries({ queryKey: getListPositionsQueryKey(orgId) });
+                          }}
+                          className="text-muted-foreground hover:text-destructive cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
 
       <Dialog open={unitDialogOpen} onOpenChange={setUnitDialogOpen} title="Nova Unidade">
@@ -351,12 +425,28 @@ export default function OrganizacaoPage() {
       <Dialog open={posDialogOpen} onOpenChange={setPosDialogOpen} title={editingPosId ? "Editar Cargo" : "Novo Cargo"}>
         <form onSubmit={posForm.handleSubmit(onPosSubmit)} className="space-y-5 mt-4">
           <div>
-            <Label>Nome</Label>
-            <Input {...posForm.register("name", { required: true })} placeholder="Nome do cargo" />
+            <Label>Título</Label>
+            <Input {...posForm.register("name", { required: true })} placeholder="Título do cargo" />
           </div>
           <div>
             <Label>Descrição</Label>
-            <Input {...posForm.register("description")} placeholder="Descrição (opcional)" />
+            <Textarea {...posForm.register("description")} placeholder="Descrição do cargo" rows={2} />
+          </div>
+          <div>
+            <Label>Escolaridade</Label>
+            <Input {...posForm.register("education")} placeholder="Ex: Ensino Superior em Engenharia" />
+          </div>
+          <div>
+            <Label>Tempo de Experiência</Label>
+            <Input {...posForm.register("experience")} placeholder="Ex: 2 anos na área" />
+          </div>
+          <div>
+            <Label>Requisitos</Label>
+            <Textarea {...posForm.register("requirements")} placeholder="Requisitos do cargo" rows={3} />
+          </div>
+          <div>
+            <Label>Responsabilidades</Label>
+            <Textarea {...posForm.register("responsibilities")} placeholder="Responsabilidades do cargo" rows={3} />
           </div>
           <div className="pt-4 flex justify-end gap-3">
             <Button type="button" variant="ghost" onClick={() => setPosDialogOpen(false)}>Cancelar</Button>

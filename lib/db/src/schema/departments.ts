@@ -17,6 +17,10 @@ export const positionsTable = pgTable("positions", {
   organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
   name: text("name").notNull(),
   description: text("description"),
+  education: text("education"),
+  experience: text("experience"),
+  requirements: text("requirements"),
+  responsibilities: text("responsibilities"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

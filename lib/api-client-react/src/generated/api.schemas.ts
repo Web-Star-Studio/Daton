@@ -678,6 +678,10 @@ export interface Position {
   organizationId: number;
   name: string;
   description: string | null;
+  education: string | null;
+  experience: string | null;
+  requirements: string | null;
+  responsibilities: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -685,9 +689,17 @@ export interface Position {
 export interface CreatePositionBody {
   name: string;
   description?: string;
+  education?: string;
+  experience?: string;
+  requirements?: string;
+  responsibilities?: string;
 }
 
 export interface UpdatePositionBody {
   name?: string;
   description?: string;
+  education?: string;
+  experience?: string;
+  requirements?: string;
+  responsibilities?: string;
 }

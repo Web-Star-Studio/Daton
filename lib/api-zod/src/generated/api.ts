@@ -1044,6 +1044,10 @@ export const CreatePositionParams = zod.object({
 export const CreatePositionBody = zod.object({
   name: zod.string(),
   description: zod.string().optional(),
+  education: zod.string().optional(),
+  experience: zod.string().optional(),
+  requirements: zod.string().optional(),
+  responsibilities: zod.string().optional(),
 });
 
 export const UpdatePositionParams = zod.object({
@@ -1054,6 +1058,10 @@ export const UpdatePositionParams = zod.object({
 export const UpdatePositionBody = zod.object({
   name: zod.string().optional(),
   description: zod.string().optional(),
+  education: zod.string().optional(),
+  experience: zod.string().optional(),
+  requirements: zod.string().optional(),
+  responsibilities: zod.string().optional(),
 });
 
 export const DeletePositionParams = zod.object({
