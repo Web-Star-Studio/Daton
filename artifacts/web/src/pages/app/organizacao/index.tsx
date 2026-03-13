@@ -103,6 +103,7 @@ export default function OrganizacaoPage() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteError, setInviteError] = useState("");
+  const [selectedInviteIds, setSelectedInviteIds] = useState<Set<number>>(new Set());
 
   React.useEffect(() => {
     if (orgData) {
@@ -167,6 +168,33 @@ export default function OrganizacaoPage() {
           </Button>
         );
       case "usuarios":
+        if (selectedInviteIds.size > 0) {
+          const selectedInvites = invitationsData?.invitations?.filter(inv => selectedInviteIds.has(inv.id)) || [];
+          const hasPending = selectedInvites.some(inv => inv.status === "pending");
+          return (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground mr-1">
+                {selectedInviteIds.size} selecionado{selectedInviteIds.size > 1 ? "s" : ""}
+              </span>
+              {hasPending && (
+                <Button size="sm" variant="destructive" onClick={async () => {
+                  const pendingIds = selectedInvites.filter(inv => inv.status === "pending").map(inv => inv.id);
+                  for (const id of pendingIds) {
+                    try { await revokeInviteMut.mutateAsync({ invitationId: id }); } catch {}
+                  }
+                  queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
+                  setSelectedInviteIds(new Set());
+                }} isLoading={revokeInviteMut.isPending}>
+                  <X className="h-3.5 w-3.5 mr-1.5" />
+                  Revogar
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => setSelectedInviteIds(new Set())}>
+                Cancelar
+              </Button>
+            </div>
+          );
+        }
         return (
           <Button size="sm" onClick={() => { setInviteEmail(""); setInviteError(""); setInviteDialogOpen(true); }}>
             <Mail className="h-3.5 w-3.5 mr-1.5" />
@@ -174,7 +202,7 @@ export default function OrganizacaoPage() {
           </Button>
         );
     }
-  }, [activeTab, isEditingOrg]);
+  }, [activeTab, isEditingOrg, selectedInviteIds, invitationsData]);
   useHeaderActions(headerActions);
 
   if (!orgId) return null;
@@ -255,7 +283,7 @@ export default function OrganizacaoPage() {
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => { setActiveTab(tab.key); setSelectedInviteIds(new Set()); }}
               className={cn(
                 "relative pb-2.5 text-[13px] font-medium transition-colors duration-200 cursor-pointer hover:text-foreground",
                 activeTab === tab.key
@@ -473,66 +501,64 @@ export default function OrganizacaoPage() {
                     <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Convidado por</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Enviado em</th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {(!invitationsData?.invitations || invitationsData.invitations.length === 0) && (
                     <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
+                      <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
                         Nenhum convite enviado.
                       </td>
                     </tr>
                   )}
-                  {invitationsData?.invitations?.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-muted/50 transition-colors">
-                      <td className="px-6 py-4 text-[13px] font-medium text-foreground">{inv.email}</td>
-                      <td className="px-6 py-4">
-                        {inv.status === "pending" && (
-                          <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
-                            <Clock className="h-3 w-3 mr-1" />Pendente
-                          </Badge>
+                  {invitationsData?.invitations?.map((inv) => {
+                    const isSelected = selectedInviteIds.has(inv.id);
+                    return (
+                      <tr
+                        key={inv.id}
+                        onClick={() => {
+                          setSelectedInviteIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(inv.id)) next.delete(inv.id);
+                            else next.add(inv.id);
+                            return next;
+                          });
+                        }}
+                        className={cn(
+                          "transition-colors cursor-pointer",
+                          isSelected ? "bg-primary/5" : "hover:bg-muted/50"
                         )}
-                        {inv.status === "accepted" && (
-                          <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
-                            <CheckCircle2 className="h-3 w-3 mr-1" />Aceito
-                          </Badge>
-                        )}
-                        {inv.status === "revoked" && (
-                          <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
-                            <XCircle className="h-3 w-3 mr-1" />Revogado
-                          </Badge>
-                        )}
-                        {inv.status === "expired" && (
-                          <Badge variant="outline" className="text-muted-foreground border-border">
-                            <Clock className="h-3 w-3 mr-1" />Expirado
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-[13px] text-muted-foreground">{inv.invitedByName}</td>
-                      <td className="px-6 py-4 text-[13px] text-muted-foreground">
-                        {new Date(inv.createdAt).toLocaleDateString("pt-BR")}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        {inv.status === "pending" && (
-                          <button
-                            onClick={async () => {
-                              try {
-                                await revokeInviteMut.mutateAsync({ invitationId: inv.id });
-                                queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
-                              } catch {
-                                setInviteError("Erro ao revogar convite");
-                              }
-                            }}
-                            className="text-muted-foreground hover:text-destructive transition-colors p-1 cursor-pointer"
-                            title="Revogar convite"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                      >
+                        <td className="px-6 py-4 text-[13px] font-medium text-foreground">{inv.email}</td>
+                        <td className="px-6 py-4">
+                          {inv.status === "pending" && (
+                            <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
+                              <Clock className="h-3 w-3 mr-1" />Pendente
+                            </Badge>
+                          )}
+                          {inv.status === "accepted" && (
+                            <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />Aceito
+                            </Badge>
+                          )}
+                          {inv.status === "revoked" && (
+                            <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+                              <XCircle className="h-3 w-3 mr-1" />Revogado
+                            </Badge>
+                          )}
+                          {inv.status === "expired" && (
+                            <Badge variant="outline" className="text-muted-foreground border-border">
+                              <Clock className="h-3 w-3 mr-1" />Expirado
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-[13px] text-muted-foreground">{inv.invitedByName}</td>
+                        <td className="px-6 py-4 text-[13px] text-muted-foreground">
+                          {new Date(inv.createdAt).toLocaleDateString("pt-BR")}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
