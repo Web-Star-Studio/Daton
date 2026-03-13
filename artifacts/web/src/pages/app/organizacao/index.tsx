@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useHeaderActions, usePageSubtitle } from "@/contexts/LayoutContext";
+import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -114,7 +114,6 @@ export default function OrganizacaoPage() {
     }
   }, [activeTab]);
   useHeaderActions(headerActions);
-  usePageSubtitle("Gerencie unidades, departamentos e cargos");
 
   if (!orgId) return null;
 
@@ -187,23 +186,23 @@ export default function OrganizacaoPage() {
 
   return (
     <>
-      <div className="mb-6">
-        <div className="inline-flex items-center rounded-lg border border-border bg-white p-0.5">
+      <div className="border-b border-border mb-6">
+        <nav className="flex gap-6">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                "px-4 py-1.5 text-[13px] font-medium rounded-md transition-all cursor-pointer",
+                "pb-2.5 text-[13px] font-medium border-b-2 transition-colors cursor-pointer",
                 activeTab === tab.key
-                  ? "bg-foreground text-white shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "border-[#007AFF] text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               )}
             >
               {tab.label}
             </button>
           ))}
-        </div>
+        </nav>
       </div>
 
       {activeTab === "unidades" && (

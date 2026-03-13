@@ -389,15 +389,15 @@ export default function LegislationDetailPage() {
 
   return (
     <>
-      <div className="mb-8">
-        <div className="inline-flex items-center rounded-lg border border-border bg-white p-0.5">
+      <div className="border-b border-border mb-8">
+        <nav className="flex gap-8">
           <button
             onClick={() => setActiveTab("geral")}
             className={cn(
-              "px-4 py-1.5 text-[13px] font-medium rounded-md transition-all cursor-pointer",
+              "pb-3 text-sm font-medium border-b-2 transition-colors cursor-pointer",
               activeTab === "geral"
-                ? "bg-foreground text-white shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
             Informações Gerais
@@ -405,25 +405,20 @@ export default function LegislationDetailPage() {
           <button
             onClick={() => setActiveTab("unidades")}
             className={cn(
-              "px-4 py-1.5 text-[13px] font-medium rounded-md transition-all cursor-pointer flex items-center gap-1.5",
+              "pb-3 text-sm font-medium border-b-2 transition-colors cursor-pointer",
               activeTab === "unidades"
-                ? "bg-foreground text-white shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
             Aplicabilidade nas Unidades
             {leg.unitLegislations.length > 0 && (
-              <span className={cn(
-                "text-[10px] rounded-full px-1.5 py-0.5 font-medium",
-                activeTab === "unidades"
-                  ? "bg-white/20 text-white"
-                  : "bg-secondary text-muted-foreground"
-              )}>
+              <span className="ml-2 text-xs bg-secondary text-muted-foreground rounded-full px-2 py-0.5">
                 {leg.unitLegislations.length}
               </span>
             )}
           </button>
-        </div>
+        </nav>
       </div>
 
       {activeTab === "geral" && (

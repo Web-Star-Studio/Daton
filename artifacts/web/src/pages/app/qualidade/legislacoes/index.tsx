@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "wouter";
-import { useHeaderActions, usePageSubtitle } from "@/contexts/LayoutContext";
+import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useListLegislations, useCreateLegislation, useImportLegislations, getListLegislationsQueryKey, useListUnits, getListUnitsQueryKey, useGetUnitComplianceTags, type CreateLegislationBody } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -379,8 +379,6 @@ export default function LegislacoesPage() {
     setImportStep(1);
     setIsImportOpen(false);
   };
-
-  usePageSubtitle("Gerencie normas e requisitos legais aplicáveis");
 
   useHeaderActions(
     <>
