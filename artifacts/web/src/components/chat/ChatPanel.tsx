@@ -158,10 +158,10 @@ export function ChatPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
   return (
       <div
         className={cn(
-          "w-[360px] flex-shrink-0 bg-white rounded-2xl border border-border/60 shadow-sm flex flex-col h-full overflow-hidden transition-all duration-250 ease-out origin-right",
+          "w-[360px] flex-shrink-0 bg-white rounded-2xl border border-border/60 shadow-sm flex flex-col h-full overflow-hidden origin-center",
           isOpen
-            ? "animate-[chatSlideIn_250ms_ease-out_forwards]"
-            : "animate-[chatSlideOut_200ms_ease-in_forwards]"
+            ? "animate-[chatSlideIn_200ms_cubic-bezier(0.16,1,0.3,1)_forwards]"
+            : "animate-[chatSlideOut_150ms_cubic-bezier(0.4,0,1,1)_forwards]"
         )}
         onAnimationEnd={handleAnimationEnd}
       >
