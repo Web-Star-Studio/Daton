@@ -212,6 +212,7 @@ export default function LegislacoesPage() {
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importStep, setImportStep] = useState<1 | 2>(1);
   const [importLevel, setImportLevel] = useState("federal");
   const [importResult, setImportResult] = useState<ImportResultType | null>(null);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
@@ -278,6 +279,7 @@ export default function LegislacoesPage() {
     setImportPreview(null);
     setPendingFile(null);
     setConflictStrategy("skip");
+    setImportStep(1);
     setIsImportOpen(false);
   };
 
@@ -456,7 +458,7 @@ export default function LegislacoesPage() {
                 <Button onClick={resetImport} className="mt-1">Fechar</Button>
               </div>
             </div>
-          ) : (
+          ) : importStep === 1 ? (
             <>
               <div>
                 <Label>Nível / Esfera das legislações</Label>
@@ -482,83 +484,99 @@ export default function LegislacoesPage() {
                 />
               </div>
 
-              {importPreview && (
-                <div className="space-y-3">
-                  <div className="bg-secondary/50 border border-border rounded-xl p-4">
-                    <p className="font-medium text-foreground mb-3">Análise da planilha</p>
-                    <div className="grid grid-cols-3 gap-3 text-center text-[13px]">
-                      <div>
-                        <p className="text-xl font-bold text-emerald-600">{importPreview.newCount}</p>
-                        <p className="text-muted-foreground">novas</p>
-                      </div>
-                      <div>
-                        <p className="text-xl font-bold text-amber-600">{importPreview.existingCount}</p>
-                        <p className="text-muted-foreground">já cadastradas</p>
-                      </div>
-                      <div>
-                        <p className="text-xl font-bold text-gray-500">{importPreview.noKeyCount}</p>
-                        <p className="text-muted-foreground">sem tipo/número</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {importPreview.existingCount > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-[13px] font-medium text-foreground">
-                        {importPreview.existingCount} legislações já existem (identificadas por Tipo + Número). O que fazer com elas?
-                      </p>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setConflictStrategy("skip")}
-                          className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer ${
-                            conflictStrategy === "skip"
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-muted-foreground/30"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 mb-1">
-                            <SkipForward className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium text-[13px]">Ignorar</span>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">Manter os dados atuais sem alteração</p>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConflictStrategy("update")}
-                          className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer ${
-                            conflictStrategy === "update"
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-muted-foreground/30"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 mb-1">
-                            <RefreshCw className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium text-[13px]">Atualizar</span>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">Sobrescrever com os dados da planilha</p>
-                        </button>
-                      </div>
-
-                      {importPreview.existingItems.length > 0 && (
-                        <details className="text-[12px] text-muted-foreground">
-                          <summary className="cursor-pointer hover:text-foreground">
-                            Ver exemplos de legislações já cadastradas ({importPreview.existingCount > 10 ? `mostrando 10 de ${importPreview.existingCount}` : importPreview.existingCount})
-                          </summary>
-                          <ul className="mt-1 space-y-0.5 pl-4 list-disc">
-                            {importPreview.existingItems.map((item, i) => (
-                              <li key={i}>{item.tipoNorma} {item.number}</li>
-                            ))}
-                          </ul>
-                        </details>
-                      )}
-                    </div>
-                  )}
-                </div>
+              {pendingFile && (
+                <p className="text-[13px] text-muted-foreground text-center">
+                  Arquivo selecionado: <strong>{pendingFile.name}</strong>
+                </p>
               )}
 
               <div className="pt-2 flex justify-end gap-3">
                 <Button type="button" variant="ghost" onClick={resetImport}>Cancelar</Button>
+                <Button 
+                  onClick={() => setImportStep(2)} 
+                  disabled={!pendingFile || !importPreview}
+                >
+                  Continuar
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-3">
+                <div className="bg-secondary/50 border border-border rounded-xl p-4">
+                  <p className="font-medium text-foreground mb-3">Análise da planilha</p>
+                  <div className="grid grid-cols-3 gap-3 text-center text-[13px]">
+                    <div>
+                      <p className="text-xl font-bold text-emerald-600">{importPreview?.newCount ?? 0}</p>
+                      <p className="text-muted-foreground">novas</p>
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-amber-600">{importPreview?.existingCount ?? 0}</p>
+                      <p className="text-muted-foreground">já cadastradas</p>
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-gray-500">{importPreview?.noKeyCount ?? 0}</p>
+                      <p className="text-muted-foreground">sem tipo/número</p>
+                    </div>
+                  </div>
+                </div>
+
+                {importPreview && importPreview.existingCount > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[13px] font-medium text-foreground">
+                      {importPreview.existingCount} legislações já existem (identificadas por Tipo + Número). O que fazer com elas?
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setConflictStrategy("skip")}
+                        className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer ${
+                          conflictStrategy === "skip"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-muted-foreground/30"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <SkipForward className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-medium text-[13px]">Ignorar</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">Manter os dados atuais sem alteração</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConflictStrategy("update")}
+                        className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer ${
+                          conflictStrategy === "update"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-muted-foreground/30"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <RefreshCw className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-medium text-[13px]">Atualizar</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">Sobrescrever com os dados da planilha</p>
+                      </button>
+                    </div>
+
+                    {importPreview.existingItems.length > 0 && (
+                      <details className="text-[12px] text-muted-foreground">
+                        <summary className="cursor-pointer hover:text-foreground">
+                          Ver exemplos de legislações já cadastradas ({importPreview.existingCount > 10 ? `mostrando 10 de ${importPreview.existingCount}` : importPreview.existingCount})
+                        </summary>
+                        <ul className="mt-1 space-y-0.5 pl-4 list-disc">
+                          {importPreview.existingItems.map((item, i) => (
+                            <li key={i}>{item.tipoNorma} {item.number}</li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 flex justify-end gap-3">
+                <Button type="button" variant="ghost" onClick={() => setImportStep(1)}>Voltar</Button>
                 <Button 
                   onClick={onConfirmImport} 
                   disabled={!pendingFile || !importPreview || importPreview.total === 0 || importMut.isPending}
