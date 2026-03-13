@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import ReactDOM from "react-dom";
 import { X } from "lucide-react";
 
 interface Notification {
@@ -47,13 +48,16 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
     setNotifications([]);
   };
 
-  return (
-    <>
-      <div className="fixed inset-0 z-[90]" onClick={onClose} />
-      <div className="absolute right-0 top-full mt-2 z-[100] w-[420px] bg-white rounded-2xl shadow-xl border border-border/60 animate-[modalIn_250ms_cubic-bezier(0.16,1,0.3,1)] overflow-hidden">
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[200] flex items-center justify-center">
+      <div
+        className="fixed inset-0 bg-black/20 backdrop-blur-[2px] animate-[overlayIn_200ms_ease-out]"
+        onClick={onClose}
+      />
+      <div className="relative z-[201] w-full max-w-lg bg-card shadow-xl sm:rounded-2xl border border-border animate-[modalIn_250ms_cubic-bezier(0.16,1,0.3,1)] mx-4 overflow-hidden">
+        <div className="flex items-center justify-between px-6 pt-5 pb-3">
           <div className="flex items-center gap-2.5">
-            <h3 className="text-base font-semibold text-foreground">Notificações</h3>
+            <h2 className="text-xl font-semibold leading-none tracking-tight">Notificações</h2>
             {unreadCount > 0 && (
               <span className="flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-[#007AFF] text-white text-[11px] font-semibold">
                 {unreadCount}
@@ -71,23 +75,23 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
             )}
             <button
               onClick={onClose}
-              className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors cursor-pointer"
+              className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
         <div className="max-h-[400px] overflow-y-auto">
           {notifications.length === 0 ? (
-            <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+            <div className="px-6 py-10 text-center text-sm text-muted-foreground">
               Nenhuma notificação
             </div>
           ) : (
             notifications.map((notification) => (
               <div
                 key={notification.id}
-                className="px-5 py-4 border-t border-border/60"
+                className="px-6 py-4 border-t border-border/60"
               >
                 <div className="flex items-start justify-between gap-3 mb-1.5">
                   <h4 className="text-[13px] font-semibold text-foreground leading-snug">
@@ -109,7 +113,7 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
         </div>
 
         {notifications.length > 0 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-border/60">
+          <div className="flex items-center justify-between px-6 py-3 border-t border-border/60">
             <span className="text-[11px] text-muted-foreground">
               Último evento em {lastEvent}
             </span>
@@ -119,6 +123,7 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
           </div>
         )}
       </div>
-    </>
+    </div>,
+    document.body
   );
 }

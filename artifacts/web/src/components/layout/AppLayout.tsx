@@ -208,24 +208,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-3">
             {headerActions}
-            <div className="relative">
-              <button
-                onClick={() => setNotificationsOpen(!isNotificationsOpen)}
-                className={cn(
-                  "p-2 rounded-lg transition-colors cursor-pointer relative",
-                  isNotificationsOpen
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground/60 hover:text-foreground hover:bg-secondary/60"
-                )}
-                title="Notificações"
-              >
-                <Bell className="h-4 w-4" />
-                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-[#007AFF]" />
-              </button>
-              {isNotificationsOpen && (
-                <NotificationsPanel onClose={() => setNotificationsOpen(false)} />
-              )}
-            </div>
+            <button
+              onClick={() => setNotificationsOpen(!isNotificationsOpen)}
+              className="p-2 rounded-lg transition-colors cursor-pointer relative text-muted-foreground/60 hover:text-foreground hover:bg-secondary/60"
+              title="Notificações"
+            >
+              <Bell className="h-4 w-4" />
+              <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold leading-none">
+                3
+              </span>
+            </button>
+            {isNotificationsOpen && (
+              <NotificationsPanel onClose={() => setNotificationsOpen(false)} />
+            )}
             {!isChatOpen && (
               <button
                 onClick={() => setChatOpen(true)}
