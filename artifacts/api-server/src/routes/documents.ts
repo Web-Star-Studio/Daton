@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike, or, desc, inArray } from "drizzle-orm";
+import { eq, and, ilike, or, desc, inArray, sql, max } from "drizzle-orm";
 import {
   db,
   documentsTable,
@@ -80,6 +80,11 @@ async function getDocumentDetail(docId: number, orgId: number) {
     .innerJoin(usersTable, eq(documentElaboratorsTable.userId, usersTable.id))
     .where(eq(documentElaboratorsTable.documentId, docId));
 
+  const maxCycleResult = await db.select({ maxCycle: sql<number>`COALESCE(MAX(${documentApproversTable.approvalCycle}), 1)` })
+    .from(documentApproversTable)
+    .where(eq(documentApproversTable.documentId, docId));
+  const currentCycle = maxCycleResult[0]?.maxCycle ?? 1;
+
   const approverRows = await db.select({
     id: documentApproversTable.id,
     userId: documentApproversTable.userId,
@@ -90,7 +95,7 @@ async function getDocumentDetail(docId: number, orgId: number) {
   })
     .from(documentApproversTable)
     .innerJoin(usersTable, eq(documentApproversTable.userId, usersTable.id))
-    .where(eq(documentApproversTable.documentId, docId));
+    .where(and(eq(documentApproversTable.documentId, docId), eq(documentApproversTable.approvalCycle, currentCycle)));
 
   const recipientRows = await db.select({
     id: documentRecipientsTable.id,
@@ -523,15 +528,37 @@ router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, async 
     return;
   }
 
+  const maxCycleResult = await db.select({ maxCycle: sql<number>`COALESCE(MAX(${documentApproversTable.approvalCycle}), 0)` })
+    .from(documentApproversTable)
+    .where(eq(documentApproversTable.documentId, docId));
+  const newCycle = (maxCycleResult[0]?.maxCycle ?? 0) + 1;
+
+  const distinctApprovers = await db.selectDistinct({ userId: documentApproversTable.userId })
+    .from(documentApproversTable)
+    .where(eq(documentApproversTable.documentId, docId));
+
+  for (const a of distinctApprovers) {
+    await db.insert(documentApproversTable).values({
+      documentId: docId,
+      userId: a.userId,
+      status: "pending",
+      approvalCycle: newCycle,
+    });
+  }
+
   await db.update(documentsTable).set({ status: "in_review" }).where(eq(documentsTable.id, docId));
-  await db.update(documentApproversTable).set({ status: "pending", approvedAt: null, comment: null }).where(eq(documentApproversTable.documentId, docId));
 
-  const approvers = await db.select({ userId: documentApproversTable.userId })
-    .from(documentApproversTable).where(eq(documentApproversTable.documentId, docId));
+  await db.insert(documentVersionsTable).values({
+    documentId: docId,
+    versionNumber: doc.currentVersion,
+    changeDescription: doc.status === "rejected" ? "Documento reenviado para revisão" : "Documento enviado para revisão",
+    changedById: req.auth!.userId,
+    changedFields: "status:in_review",
+  });
 
-  for (const approver of approvers) {
+  for (const a of distinctApprovers) {
     await createNotification(
-      orgId, approver.userId, "document_review",
+      orgId, a.userId, "document_review",
       "Documento aguardando aprovação",
       `O documento "${doc.title}" foi enviado para sua aprovação.`,
       "document", docId
@@ -557,19 +584,49 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, async
   if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
   if (doc.status !== "in_review") { res.status(400).json({ error: "Documento não está em revisão" }); return; }
 
+  const maxCycleResult = await db.select({ maxCycle: sql<number>`COALESCE(MAX(${documentApproversTable.approvalCycle}), 1)` })
+    .from(documentApproversTable)
+    .where(eq(documentApproversTable.documentId, docId));
+  const currentCycle = maxCycleResult[0]?.maxCycle ?? 1;
+
   const [approver] = await db.select().from(documentApproversTable)
-    .where(and(eq(documentApproversTable.documentId, docId), eq(documentApproversTable.userId, userId)));
-  if (!approver) { res.status(403).json({ error: "Você não é um aprovador deste documento" }); return; }
+    .where(and(
+      eq(documentApproversTable.documentId, docId),
+      eq(documentApproversTable.userId, userId),
+      eq(documentApproversTable.approvalCycle, currentCycle),
+      eq(documentApproversTable.status, "pending")
+    ));
+  if (!approver) { res.status(403).json({ error: "Você não é um aprovador pendente deste documento" }); return; }
 
   await db.update(documentApproversTable)
     .set({ status: "approved", approvedAt: new Date(), comment: body.success ? body.data.comment || null : null })
     .where(eq(documentApproversTable.id, approver.id));
 
+  await db.insert(documentVersionsTable).values({
+    documentId: docId,
+    versionNumber: doc.currentVersion,
+    changeDescription: `Aprovado por usuário`,
+    changedById: userId,
+    changedFields: "approval:approved",
+  });
+
   const pending = await db.select().from(documentApproversTable)
-    .where(and(eq(documentApproversTable.documentId, docId), eq(documentApproversTable.status, "pending")));
+    .where(and(
+      eq(documentApproversTable.documentId, docId),
+      eq(documentApproversTable.approvalCycle, currentCycle),
+      eq(documentApproversTable.status, "pending")
+    ));
 
   if (pending.length === 0) {
     await db.update(documentsTable).set({ status: "approved" }).where(eq(documentsTable.id, docId));
+
+    await db.insert(documentVersionsTable).values({
+      documentId: docId,
+      versionNumber: doc.currentVersion,
+      changeDescription: "Documento aprovado por todos os aprovadores",
+      changedById: userId,
+      changedFields: "status:approved",
+    });
 
     await createNotification(
       orgId, doc.createdById, "document_approved",
@@ -583,6 +640,14 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, async
 
     if (recipients.length > 0) {
       await db.update(documentsTable).set({ status: "distributed" }).where(eq(documentsTable.id, docId));
+
+      await db.insert(documentVersionsTable).values({
+        documentId: docId,
+        versionNumber: doc.currentVersion,
+        changeDescription: "Documento distribuído automaticamente aos destinatários",
+        changedById: userId,
+        changedFields: "status:distributed",
+      });
 
       for (const r of recipients) {
         await createNotification(
@@ -616,17 +681,35 @@ router.post("/organizations/:orgId/documents/:docId/reject", requireAuth, async 
   if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
   if (doc.status !== "in_review") { res.status(400).json({ error: "Documento não está em revisão" }); return; }
 
+  const maxCycleResult = await db.select({ maxCycle: sql<number>`COALESCE(MAX(${documentApproversTable.approvalCycle}), 1)` })
+    .from(documentApproversTable)
+    .where(eq(documentApproversTable.documentId, docId));
+  const currentCycle = maxCycleResult[0]?.maxCycle ?? 1;
+
   const [approver] = await db.select().from(documentApproversTable)
-    .where(and(eq(documentApproversTable.documentId, docId), eq(documentApproversTable.userId, userId)));
-  if (!approver) { res.status(403).json({ error: "Você não é um aprovador deste documento" }); return; }
+    .where(and(
+      eq(documentApproversTable.documentId, docId),
+      eq(documentApproversTable.userId, userId),
+      eq(documentApproversTable.approvalCycle, currentCycle),
+      eq(documentApproversTable.status, "pending")
+    ));
+  if (!approver) { res.status(403).json({ error: "Você não é um aprovador pendente deste documento" }); return; }
 
   await db.update(documentApproversTable)
-    .set({ status: "rejected", comment: body.data.comment })
+    .set({ status: "rejected", approvedAt: new Date(), comment: body.data.comment })
     .where(eq(documentApproversTable.id, approver.id));
 
   await db.update(documentsTable).set({ status: "rejected" }).where(eq(documentsTable.id, docId));
 
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
+
+  await db.insert(documentVersionsTable).values({
+    documentId: docId,
+    versionNumber: doc.currentVersion,
+    changeDescription: `Rejeitado por ${userName?.name || "aprovador"}: ${body.data.comment}`,
+    changedById: userId,
+    changedFields: "status:rejected",
+  });
 
   await createNotification(
     orgId, doc.createdById, "document_rejected",
@@ -694,6 +777,14 @@ router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, a
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
   if (doc) {
+    await db.insert(documentVersionsTable).values({
+      documentId: docId,
+      versionNumber: doc.currentVersion,
+      changeDescription: `Recebimento confirmado por ${userName?.name || "destinatário"}`,
+      changedById: userId,
+      changedFields: "acknowledgment",
+    });
+
     await createNotification(
       orgId, doc.createdById, "document_acknowledged",
       "Documento recebido",

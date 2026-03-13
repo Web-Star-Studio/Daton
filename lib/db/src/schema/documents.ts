@@ -38,6 +38,7 @@ export const documentApproversTable = pgTable("document_approvers", {
   status: text("status").notNull().default("pending"),
   approvedAt: timestamp("approved_at", { withTimezone: true }),
   comment: text("comment"),
+  approvalCycle: integer("approval_cycle").notNull().default(1),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
