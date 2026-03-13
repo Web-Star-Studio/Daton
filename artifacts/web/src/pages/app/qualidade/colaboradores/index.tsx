@@ -8,7 +8,7 @@ import {
   useListUnits,
   getListEmployeesQueryKey,
 } from "@workspace/api-client-react";
-import type { CreateEmployeeBody } from "@workspace/api-client-react";
+import type { CreateEmployeeBody, EmployeeListItem, PaginatedEmployees, PaginationInfo } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,8 +58,9 @@ export default function ColaboradoresPage() {
     pageSize: 25,
   });
 
-  const employees = (result as any)?.data ?? (Array.isArray(result) ? result : []);
-  const pagination = (result as any)?.pagination;
+  const paginatedResult = result as PaginatedEmployees | undefined;
+  const employees: EmployeeListItem[] = paginatedResult?.data ?? [];
+  const pagination: PaginationInfo | undefined = paginatedResult?.pagination;
 
   const { data: units = [] } = useListUnits(orgId!);
 
@@ -68,9 +69,9 @@ export default function ColaboradoresPage() {
 
   const stats = useMemo(() => {
     const total = pagination?.total ?? employees.length;
-    const active = employees.filter((e: any) => e.status === "active").length;
-    const inactive = employees.filter((e: any) => e.status === "inactive").length;
-    const onLeave = employees.filter((e: any) => e.status === "on_leave").length;
+    const active = employees.filter((e) => e.status === "active").length;
+    const inactive = employees.filter((e) => e.status === "inactive").length;
+    const onLeave = employees.filter((e) => e.status === "on_leave").length;
     return { total, active, inactive, onLeave };
   }, [employees, pagination]);
 
@@ -184,7 +185,7 @@ export default function ColaboradoresPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.map((emp: any) => (
+                  {employees.map((emp) => (
                     <tr key={emp.id} className="border-b border-border/40 last:border-0 hover:bg-secondary/30 transition-colors">
                       <td className="px-4 py-3">
                         <Link href={`/app/qualidade/colaboradores/${emp.id}`} className="cursor-pointer">

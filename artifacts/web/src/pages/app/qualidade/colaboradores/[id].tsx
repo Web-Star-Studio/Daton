@@ -181,6 +181,44 @@ function LevelBar({ level, max = 5 }: { level: number; max?: number }) {
   );
 }
 
+type CompetencyForm = { name: string; description: string; type: string; requiredLevel: number; acquiredLevel: number; evidence: string };
+
+function CompetencyFormFields({ form, setForm }: { form: CompetencyForm; setForm: (f: CompetencyForm) => void }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground">Nome *</Label>
+        <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1" placeholder="Ex: Gestão de Resíduos" />
+      </div>
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
+        <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" rows={2} />
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Tipo</Label>
+          <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <option value="technical">Técnica</option>
+            <option value="behavioral">Comportamental</option>
+          </select>
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Nível Requerido</Label>
+          <Input type="number" min={0} max={5} value={form.requiredLevel} onChange={(e) => setForm({ ...form, requiredLevel: Number(e.target.value) })} className="mt-1" />
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Nível Adquirido</Label>
+          <Input type="number" min={0} max={5} value={form.acquiredLevel} onChange={(e) => setForm({ ...form, acquiredLevel: Number(e.target.value) })} className="mt-1" />
+        </div>
+      </div>
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground">Evidência</Label>
+        <Input value={form.evidence} onChange={(e) => setForm({ ...form, evidence: e.target.value })} className="mt-1" placeholder="Ex: Certificado XYZ" />
+      </div>
+    </div>
+  );
+}
+
 function CompetenciasTab({
   competencies,
   orgId,
@@ -192,18 +230,13 @@ function CompetenciasTab({
 }) {
   const queryClient = useQueryClient();
   const [isCreateOpen, setCreateOpen] = useState(false);
+  const [editingComp, setEditingComp] = useState<EmployeeCompetency | null>(null);
   const createMutation = useCreateCompetency();
   const updateMutation = useUpdateCompetency();
   const deleteMutation = useDeleteCompetency();
 
-  const [form, setForm] = useState({
-    name: "",
-    description: "",
-    type: "technical",
-    requiredLevel: 3,
-    acquiredLevel: 0,
-    evidence: "",
-  });
+  const emptyForm: CompetencyForm = { name: "", description: "", type: "technical", requiredLevel: 3, acquiredLevel: 0, evidence: "" };
+  const [form, setForm] = useState<CompetencyForm>(emptyForm);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId, empId) });
 
@@ -211,12 +244,37 @@ function CompetenciasTab({
     await createMutation.mutateAsync({ orgId, empId, data: form });
     invalidate();
     setCreateOpen(false);
-    setForm({ name: "", description: "", type: "technical", requiredLevel: 3, acquiredLevel: 0, evidence: "" });
+    setForm(emptyForm);
   };
 
-  const handleUpdateLevel = async (comp: EmployeeCompetency, field: "requiredLevel" | "acquiredLevel", val: number) => {
-    await updateMutation.mutateAsync({ orgId, empId, compId: comp.id, data: { [field]: val } });
+  const openEdit = (comp: EmployeeCompetency) => {
+    setEditingComp(comp);
+    setForm({
+      name: comp.name,
+      description: comp.description || "",
+      type: comp.type,
+      requiredLevel: comp.requiredLevel,
+      acquiredLevel: comp.acquiredLevel,
+      evidence: comp.evidence || "",
+    });
+  };
+
+  const handleUpdate = async () => {
+    if (!editingComp) return;
+    await updateMutation.mutateAsync({
+      orgId, empId, compId: editingComp.id,
+      data: {
+        name: form.name,
+        description: form.description || undefined,
+        type: form.type,
+        requiredLevel: form.requiredLevel,
+        acquiredLevel: form.acquiredLevel,
+        evidence: form.evidence || undefined,
+      },
+    });
     invalidate();
+    setEditingComp(null);
+    setForm(emptyForm);
   };
 
   const handleDelete = async (compId: number) => {
@@ -246,7 +304,7 @@ function CompetenciasTab({
           {competencies.map((comp) => (
             <div key={comp.id} className="bg-white border border-border/60 rounded-xl px-4 py-3">
               <div className="flex items-start justify-between">
-                <div className="flex-1">
+                <div className="flex-1 cursor-pointer" onClick={() => openEdit(comp)}>
                   <div className="flex items-center gap-2">
                     <p className="text-[13px] font-medium text-foreground">{comp.name}</p>
                     <span className="text-[11px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
@@ -281,12 +339,14 @@ function CompetenciasTab({
                     </p>
                   )}
                 </div>
-                <button
-                  onClick={() => handleDelete(comp.id)}
-                  className="p-1.5 text-muted-foreground/40 hover:text-red-500 transition-colors cursor-pointer"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button onClick={(e) => { e.stopPropagation(); openEdit(comp); }} className="p-1.5 text-muted-foreground/40 hover:text-primary transition-colors cursor-pointer">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); handleDelete(comp.id); }} className="p-1.5 text-muted-foreground/40 hover:text-red-500 transition-colors cursor-pointer">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -294,84 +354,32 @@ function CompetenciasTab({
       )}
 
       <Dialog open={isCreateOpen} onOpenChange={setCreateOpen} title="Nova Competência">
-        <div className="space-y-4">
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Nome *</Label>
-            <Input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="mt-1"
-              placeholder="Ex: Gestão de Resíduos"
-            />
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-            <Textarea
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="mt-1"
-              rows={2}
-            />
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Tipo</Label>
-              <select
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
-                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="technical">Técnica</option>
-                <option value="behavioral">Comportamental</option>
-              </select>
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Nível Requerido</Label>
-              <Input
-                type="number"
-                min={0}
-                max={5}
-                value={form.requiredLevel}
-                onChange={(e) => setForm({ ...form, requiredLevel: Number(e.target.value) })}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Nível Adquirido</Label>
-              <Input
-                type="number"
-                min={0}
-                max={5}
-                value={form.acquiredLevel}
-                onChange={(e) => setForm({ ...form, acquiredLevel: Number(e.target.value) })}
-                className="mt-1"
-              />
-            </div>
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Evidência</Label>
-            <Input
-              value={form.evidence}
-              onChange={(e) => setForm({ ...form, evidence: e.target.value })}
-              className="mt-1"
-              placeholder="Ex: Certificado XYZ"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>
-              Cancelar
-            </Button>
-            <Button size="sm" onClick={handleCreate} disabled={!form.name || createMutation.isPending}>
-              {createMutation.isPending ? "Salvando..." : "Salvar"}
-            </Button>
-          </div>
+        <CompetencyFormFields form={form} setForm={setForm} />
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+          <Button size="sm" onClick={handleCreate} disabled={!form.name || createMutation.isPending}>
+            {createMutation.isPending ? "Salvando..." : "Salvar"}
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog open={!!editingComp} onOpenChange={(open) => { if (!open) { setEditingComp(null); setForm(emptyForm); } }} title="Editar Competência">
+        <CompetencyFormFields form={form} setForm={setForm} />
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="outline" size="sm" onClick={() => { setEditingComp(null); setForm(emptyForm); }}>Cancelar</Button>
+          <Button size="sm" onClick={handleUpdate} disabled={!form.name || updateMutation.isPending}>
+            {updateMutation.isPending ? "Salvando..." : "Atualizar"}
+          </Button>
         </div>
       </Dialog>
     </div>
   );
 }
 
-function TrainingFormFields({ form, setForm }: { form: { title: string; description: string; institution: string; workloadHours: number; completionDate: string; expirationDate: string; status: string }; setForm: (f: any) => void }) {
+type TrainingForm = { title: string; description: string; institution: string; workloadHours: number; completionDate: string; expirationDate: string; status: string };
+type AwarenessForm = { topic: string; description: string; date: string; verificationMethod: string; result: string };
+
+function TrainingFormFields({ form, setForm }: { form: TrainingForm; setForm: (f: TrainingForm) => void }) {
   return (
     <div className="space-y-4">
       <div>
@@ -564,7 +572,7 @@ function TreinamentosTab({
   );
 }
 
-function AwarenessFormFields({ form, setForm }: { form: { topic: string; description: string; date: string; verificationMethod: string; result: string }; setForm: (f: any) => void }) {
+function AwarenessFormFields({ form, setForm }: { form: AwarenessForm; setForm: (f: AwarenessForm) => void }) {
   return (
     <div className="space-y-4">
       <div>

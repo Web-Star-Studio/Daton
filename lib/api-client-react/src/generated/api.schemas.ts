@@ -592,7 +592,6 @@ export interface UpdateCompetencyBody {
 }
 
 export interface CreateTrainingBody {
-  name?: string;
   title: string;
   description?: string;
   institution?: string;

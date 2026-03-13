@@ -124,6 +124,7 @@ export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
+                <Users className="h-3.5 w-3.5 mr-2 shrink-0" />
                 Colaboradores
               </Link>
             </>
