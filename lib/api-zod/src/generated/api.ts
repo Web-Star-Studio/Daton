@@ -989,3 +989,18 @@ export const DeleteAwarenessParams = zod.object({
   empId: zod.coerce.number(),
   awaId: zod.coerce.number(),
 });
+
+export const LinkEmployeeUnitParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+});
+
+export const LinkEmployeeUnitBody = zod.object({
+  unitId: zod.coerce.number(),
+});
+
+export const UnlinkEmployeeUnitParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+  unitId: zod.coerce.number(),
+});

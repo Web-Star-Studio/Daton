@@ -36,6 +36,9 @@ import {
   UpdateAwarenessParams,
   UpdateAwarenessBody,
   DeleteAwarenessParams,
+  LinkEmployeeUnitParams,
+  LinkEmployeeUnitBody,
+  UnlinkEmployeeUnitParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 
@@ -475,35 +478,34 @@ router.delete("/organizations/:orgId/employees/:empId/awareness/:awaId", require
 });
 
 router.post("/organizations/:orgId/employees/:empId/units", requireAuth, async (req, res): Promise<void> => {
-  const orgId = Number(req.params.orgId);
-  const empId = Number(req.params.empId);
-  if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
-  if (!(await verifyEmployeeOwnership(empId, orgId))) { res.status(404).json({ error: "Colaborador não encontrado" }); return; }
+  const params = LinkEmployeeUnitParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+  if (!(await verifyEmployeeOwnership(params.data.empId, params.data.orgId))) { res.status(404).json({ error: "Colaborador não encontrado" }); return; }
 
-  const { unitId } = req.body;
-  if (!unitId) { res.status(400).json({ error: "unitId é obrigatório" }); return; }
+  const body = LinkEmployeeUnitBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
   const [unit] = await db.select({ id: unitsTable.id }).from(unitsTable)
-    .where(and(eq(unitsTable.id, Number(unitId)), eq(unitsTable.organizationId, orgId)));
+    .where(and(eq(unitsTable.id, body.data.unitId), eq(unitsTable.organizationId, params.data.orgId)));
   if (!unit) { res.status(400).json({ error: "Unidade não pertence à organização" }); return; }
 
   const existing = await db.select({ id: employeeUnitsTable.id }).from(employeeUnitsTable)
-    .where(and(eq(employeeUnitsTable.employeeId, empId), eq(employeeUnitsTable.unitId, Number(unitId))));
+    .where(and(eq(employeeUnitsTable.employeeId, params.data.empId), eq(employeeUnitsTable.unitId, body.data.unitId)));
   if (existing.length > 0) { res.status(409).json({ error: "Unidade já vinculada" }); return; }
 
-  const [link] = await db.insert(employeeUnitsTable).values({ employeeId: empId, unitId: Number(unitId) }).returning();
+  const [link] = await db.insert(employeeUnitsTable).values({ employeeId: params.data.empId, unitId: body.data.unitId }).returning();
   res.status(201).json(link);
 });
 
 router.delete("/organizations/:orgId/employees/:empId/units/:unitId", requireAuth, async (req, res): Promise<void> => {
-  const orgId = Number(req.params.orgId);
-  const empId = Number(req.params.empId);
-  const unitId = Number(req.params.unitId);
-  if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
-  if (!(await verifyEmployeeOwnership(empId, orgId))) { res.status(404).json({ error: "Colaborador não encontrado" }); return; }
+  const params = UnlinkEmployeeUnitParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+  if (!(await verifyEmployeeOwnership(params.data.empId, params.data.orgId))) { res.status(404).json({ error: "Colaborador não encontrado" }); return; }
 
   const [deleted] = await db.delete(employeeUnitsTable)
-    .where(and(eq(employeeUnitsTable.employeeId, empId), eq(employeeUnitsTable.unitId, unitId)))
+    .where(and(eq(employeeUnitsTable.employeeId, params.data.empId), eq(employeeUnitsTable.unitId, params.data.unitId)))
     .returning();
 
   if (!deleted) { res.status(404).json({ error: "Vínculo não encontrado" }); return; }
