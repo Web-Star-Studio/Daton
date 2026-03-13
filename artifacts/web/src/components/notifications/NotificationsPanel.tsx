@@ -1,7 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import { X } from "lucide-react";
+import { X, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "wouter";
 import {
   useListNotifications,
   useMarkNotificationRead,
@@ -24,10 +25,23 @@ function formatDate(d: string | null | undefined) {
   }
 }
 
+function getNotificationLink(notification: NotificationItem): string | null {
+  if (!notification.relatedEntityType || !notification.relatedEntityId) return null;
+  switch (notification.relatedEntityType) {
+    case "document":
+      return `/app/qualidade/documentacao/${notification.relatedEntityId}`;
+    case "legislation":
+      return `/app/qualidade/legislacoes/${notification.relatedEntityId}`;
+    default:
+      return null;
+  }
+}
+
 export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
   const { organization } = useAuth();
   const orgId = organization?.id;
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
 
   const { data } = useListNotifications(orgId!, {
     query: { enabled: !!orgId },
@@ -51,6 +65,17 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
     if (!orgId) return;
     await markReadMut.mutateAsync({ orgId, notifId });
     queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey(orgId) });
+  };
+
+  const handleNotificationClick = async (notification: NotificationItem) => {
+    if (!notification.read) {
+      handleMarkRead(notification.id);
+    }
+    const link = getNotificationLink(notification);
+    if (link) {
+      onClose();
+      navigate(link);
+    }
   };
 
   return ReactDOM.createPortal(
@@ -93,32 +118,40 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
               Nenhuma notificação
             </div>
           ) : (
-            notifications.map((notification: NotificationItem) => (
-              <div
-                key={notification.id}
-                onClick={() => !notification.read && handleMarkRead(notification.id)}
-                className={`px-6 py-4 border-b border-border/40 hover:bg-muted/50 transition-colors cursor-pointer ${
-                  !notification.read ? "bg-blue-50/30" : ""
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3 mb-1.5">
-                  <div className="flex items-center gap-2">
-                    {!notification.read && (
-                      <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-                    )}
-                    <h4 className="text-[13px] font-semibold text-foreground leading-snug">
-                      {notification.title}
-                    </h4>
+            notifications.map((notification: NotificationItem) => {
+              const link = getNotificationLink(notification);
+              return (
+                <div
+                  key={notification.id}
+                  onClick={() => handleNotificationClick(notification)}
+                  className={`px-6 py-4 border-b border-border/40 hover:bg-muted/50 transition-colors cursor-pointer ${
+                    !notification.read ? "bg-blue-50/30" : ""
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-1.5">
+                    <div className="flex items-center gap-2">
+                      {!notification.read && (
+                        <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                      )}
+                      <h4 className="text-[13px] font-semibold text-foreground leading-snug">
+                        {notification.title}
+                      </h4>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="px-2 py-0.5 rounded-md bg-muted text-[11px] text-muted-foreground whitespace-nowrap">
+                        {formatDate(notification.createdAt)}
+                      </span>
+                      {link && (
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60" />
+                      )}
+                    </div>
                   </div>
-                  <span className="shrink-0 px-2 py-0.5 rounded-md bg-muted text-[11px] text-muted-foreground whitespace-nowrap">
-                    {formatDate(notification.createdAt)}
-                  </span>
+                  <p className="text-[13px] text-muted-foreground leading-relaxed">
+                    {notification.description}
+                  </p>
                 </div>
-                <p className="text-[13px] text-muted-foreground leading-relaxed">
-                  {notification.description}
-                </p>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
