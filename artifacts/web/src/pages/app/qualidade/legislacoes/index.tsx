@@ -209,7 +209,7 @@ export default function LegislacoesPage() {
   const { data: legislations, isLoading } = useListLegislations(
     orgId!, 
     { search, level: levelFilter || undefined, unitId: unitFilter ? parseInt(unitFilter) : undefined }, 
-    { query: { queryKey: [...getListLegislationsQueryKey(orgId!), unitFilter], enabled: !!orgId } }
+    { query: { queryKey: [...getListLegislationsQueryKey(orgId!), search, levelFilter, unitFilter], enabled: !!orgId } }
   );
 
   const createMut = useCreateLegislation();
