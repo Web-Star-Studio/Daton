@@ -480,3 +480,157 @@ export const ListLegislationsLevel = {
 } as const;
 
 export type GetUnitQuestionnaireResponses200 = { [key: string]: unknown };
+
+export interface EmployeeListItem {
+  id: number;
+  organizationId: number;
+  unitId?: number | null;
+  name: string;
+  cpf?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  position?: string | null;
+  department?: string | null;
+  contractType: string;
+  admissionDate?: string | null;
+  terminationDate?: string | null;
+  status: string;
+  unitName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeCompetency {
+  id: number;
+  employeeId: number;
+  name: string;
+  description?: string | null;
+  type: string;
+  requiredLevel: number;
+  acquiredLevel: number;
+  evidence?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeTraining {
+  id: number;
+  employeeId: number;
+  title: string;
+  description?: string | null;
+  institution?: string | null;
+  workloadHours?: number | null;
+  completionDate?: string | null;
+  expirationDate?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeAwareness {
+  id: number;
+  employeeId: number;
+  topic: string;
+  description?: string | null;
+  date: string;
+  verificationMethod?: string | null;
+  result?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeDetail extends EmployeeListItem {
+  competencies: EmployeeCompetency[];
+  trainings: EmployeeTraining[];
+  awareness: EmployeeAwareness[];
+}
+
+export interface CreateEmployeeBody {
+  name: string;
+  cpf?: string;
+  email?: string;
+  phone?: string;
+  position?: string;
+  department?: string;
+  unitId?: number;
+  contractType?: string;
+  admissionDate?: string;
+  terminationDate?: string;
+  status?: string;
+}
+
+export interface UpdateEmployeeBody {
+  name?: string;
+  cpf?: string;
+  email?: string;
+  phone?: string;
+  position?: string;
+  department?: string;
+  unitId?: number | null;
+  contractType?: string;
+  admissionDate?: string | null;
+  terminationDate?: string | null;
+  status?: string;
+}
+
+export interface CreateCompetencyBody {
+  name: string;
+  description?: string;
+  type?: string;
+  requiredLevel?: number;
+  acquiredLevel?: number;
+  evidence?: string;
+}
+
+export interface UpdateCompetencyBody {
+  name?: string;
+  description?: string;
+  type?: string;
+  requiredLevel?: number;
+  acquiredLevel?: number;
+  evidence?: string;
+}
+
+export interface CreateTrainingBody {
+  name?: string;
+  title: string;
+  description?: string;
+  institution?: string;
+  workloadHours?: number;
+  completionDate?: string;
+  expirationDate?: string;
+  status?: string;
+}
+
+export interface UpdateTrainingBody {
+  title?: string;
+  description?: string;
+  institution?: string;
+  workloadHours?: number;
+  completionDate?: string | null;
+  expirationDate?: string | null;
+  status?: string;
+}
+
+export interface CreateAwarenessBody {
+  topic: string;
+  description?: string;
+  date: string;
+  verificationMethod?: string;
+  result?: string;
+}
+
+export interface UpdateAwarenessBody {
+  topic?: string;
+  description?: string;
+  date?: string;
+  verificationMethod?: string;
+  result?: string;
+}
+
+export type ListEmployeesParams = {
+  search?: string;
+  unitId?: number;
+  position?: string;
+  status?: string;
+};

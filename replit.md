@@ -2,7 +2,7 @@
 
 ## Overview
 
-Multi-tenant SaaS platform for ESG, quality, compliance, and operations management. Built in Portuguese (pt-BR). Current focus: SGQ (Sistema de Gestão de Qualidade) module with "Legislações" submodule, ISO 14001 compliant. Apple HIG-inspired minimal design.
+Multi-tenant SaaS platform for ESG, quality, compliance, and operations management. Built in Portuguese (pt-BR). Current focus: SGQ (Sistema de Gestão de Qualidade) module with "Legislações" (ISO 14001) and "Colaboradores" (ISO 9001:2015) submodules. Apple HIG-inspired minimal design.
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
 
@@ -43,6 +43,10 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **questionnaire_questions**: id, themeId, code, questionNumber, text, type (single_select/multi_select/text), options (jsonb), tags (jsonb mapping answer→tag[]), conditionalOn, conditionalValue, sortOrder — questions within themes
 - **unit_questionnaire_responses**: id, unitId, questionId, answer (jsonb), respondedAt — unit-specific questionnaire answers
 - **unit_compliance_tags**: id, unitId, tag, sourceQuestionId, createdAt — compliance tags generated from questionnaire answers, used to filter legislation lists
+- **employees**: id, organizationId, unitId (nullable FK to units), name, cpf, email, phone, position, department, contractType (clt/pj/intern/temporary), admissionDate, terminationDate, status (active/inactive/on_leave), timestamps
+- **employee_competencies**: id, employeeId (FK), name, description, type (technical/behavioral), requiredLevel (0-5), acquiredLevel (0-5), evidence, timestamps — ISO 9001:2015 §7.2 competency tracking
+- **employee_trainings**: id, employeeId (FK), title, description, institution, workloadHours, completionDate, expirationDate, status (planned/in_progress/completed/expired), timestamps — ISO 9001:2015 §7.2 training records
+- **employee_awareness_records**: id, employeeId (FK), topic, description, date, verificationMethod, result, timestamps — ISO 9001:2015 §7.3 awareness verification
 
 ## Structure
 
@@ -92,6 +96,14 @@ artifacts-monorepo/
 - POST /api/ai/conversations — Create new conversation
 - GET /api/ai/conversations/:convId/messages — Get conversation messages
 - POST /api/ai/conversations/:convId/messages — Send message (SSE streaming response, AI with DB query tool)
+- GET/POST /api/organizations/:orgId/employees — List/create employees (supports search, unitId, position, status query params)
+- GET/PATCH/DELETE /api/organizations/:orgId/employees/:empId — Employee CRUD
+- GET/POST /api/organizations/:orgId/employees/:empId/competencies — List/create competencies
+- PATCH/DELETE /api/organizations/:orgId/employees/:empId/competencies/:compId — Competency CRUD
+- GET/POST /api/organizations/:orgId/employees/:empId/trainings — List/create trainings
+- PATCH/DELETE /api/organizations/:orgId/employees/:empId/trainings/:trainId — Training CRUD
+- GET/POST /api/organizations/:orgId/employees/:empId/awareness — List/create awareness records
+- PATCH/DELETE /api/organizations/:orgId/employees/:empId/awareness/:awaId — Awareness CRUD
 
 ## Frontend Routes
 
@@ -100,6 +112,8 @@ artifacts-monorepo/
 - /app/qualidade/legislacoes/:id — Legislation detail with unit compliance tracking
 - /app/organizacao/unidades — Units management (minimalist cards, clickable)
 - /app/organizacao/unidades/:id — Unit detail with inline editing + compliance questionnaire modal
+- /app/qualidade/colaboradores — Employee list with search, filters, stats cards, create dialog
+- /app/qualidade/colaboradores/:id — Employee detail with tabs: Dados (inline editing), Competências, Treinamentos, Conscientização
 
 ## TypeScript & Composite Projects
 

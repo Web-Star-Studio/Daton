@@ -9,7 +9,8 @@ import {
   PanelLeftOpen,
   ChevronDown,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import datonLogo from "@assets/daton-logo-header-DC_evyPp_1773347395767.png";
@@ -38,6 +39,11 @@ export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps
       if (location.startsWith("/app/qualidade/legislacoes")) {
         crumbs.push({ label: "Legislações", href: "/app/qualidade/legislacoes" });
         if (pageTitle && location !== "/app/qualidade/legislacoes") {
+          crumbs.push({ label: pageTitle });
+        }
+      } else if (location.startsWith("/app/qualidade/colaboradores")) {
+        crumbs.push({ label: "Colaboradores", href: "/app/qualidade/colaboradores" });
+        if (pageTitle && location !== "/app/qualidade/colaboradores") {
           crumbs.push({ label: pageTitle });
         }
       }
@@ -97,17 +103,30 @@ export function AppLayout({ children, pageTitle, headerActions }: AppLayoutProps
           </button>
           
           {isSidebarOpen && isQualidadeOpen && (
-            <Link 
-              href="/app/qualidade/legislacoes"
-              className={cn(
-                "flex items-center pl-[38px] pr-2.5 py-1.5 rounded-lg transition-colors text-[13px] cursor-pointer",
-                isActive("/app/qualidade/legislacoes")
-                  ? "text-foreground font-medium" 
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Legislações
-            </Link>
+            <>
+              <Link 
+                href="/app/qualidade/legislacoes"
+                className={cn(
+                  "flex items-center pl-[38px] pr-2.5 py-1.5 rounded-lg transition-colors text-[13px] cursor-pointer",
+                  isActive("/app/qualidade/legislacoes")
+                    ? "text-foreground font-medium" 
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Legislações
+              </Link>
+              <Link 
+                href="/app/qualidade/colaboradores"
+                className={cn(
+                  "flex items-center pl-[38px] pr-2.5 py-1.5 rounded-lg transition-colors text-[13px] cursor-pointer",
+                  isActive("/app/qualidade/colaboradores")
+                    ? "text-foreground font-medium" 
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Colaboradores
+              </Link>
+            </>
           )}
         </div>
 

@@ -758,3 +758,232 @@ export const GetUnitComplianceTagsResponseItem = zod.object({
 export const GetUnitComplianceTagsResponse = zod.array(
   GetUnitComplianceTagsResponseItem,
 );
+
+/**
+ * @summary List employees
+ */
+export const ListEmployeesParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListEmployeesQueryParams = zod.object({
+  search: zod.string().optional(),
+  unitId: zod.coerce.number().optional(),
+  position: zod.string().optional(),
+  status: zod.string().optional(),
+});
+
+/**
+ * @summary Create employee
+ */
+export const CreateEmployeeParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateEmployeeBody = zod.object({
+  name: zod.string().min(1),
+  cpf: zod.string().optional(),
+  email: zod.string().email().optional(),
+  phone: zod.string().optional(),
+  position: zod.string().optional(),
+  department: zod.string().optional(),
+  unitId: zod.coerce.number().optional(),
+  contractType: zod.string().optional(),
+  admissionDate: zod.string().optional(),
+  terminationDate: zod.string().optional(),
+  status: zod.string().optional(),
+});
+
+/**
+ * @summary Get employee
+ */
+export const GetEmployeeParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+});
+
+/**
+ * @summary Update employee
+ */
+export const UpdateEmployeeParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+});
+
+export const UpdateEmployeeBody = zod.object({
+  name: zod.string().min(1).optional(),
+  cpf: zod.string().optional(),
+  email: zod.string().email().optional(),
+  phone: zod.string().optional(),
+  position: zod.string().optional(),
+  department: zod.string().optional(),
+  unitId: zod.coerce.number().nullable().optional(),
+  contractType: zod.string().optional(),
+  admissionDate: zod.string().nullable().optional(),
+  terminationDate: zod.string().nullable().optional(),
+  status: zod.string().optional(),
+});
+
+/**
+ * @summary Delete employee
+ */
+export const DeleteEmployeeParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+});
+
+/**
+ * @summary List employee competencies
+ */
+export const ListCompetenciesParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+});
+
+/**
+ * @summary Create competency
+ */
+export const CreateCompetencyParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+});
+
+export const CreateCompetencyBody = zod.object({
+  name: zod.string().min(1),
+  description: zod.string().optional(),
+  type: zod.string().optional(),
+  requiredLevel: zod.coerce.number().min(0).max(5).optional(),
+  acquiredLevel: zod.coerce.number().min(0).max(5).optional(),
+  evidence: zod.string().optional(),
+});
+
+/**
+ * @summary Update competency
+ */
+export const UpdateCompetencyParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+  compId: zod.coerce.number(),
+});
+
+export const UpdateCompetencyBody = zod.object({
+  name: zod.string().min(1).optional(),
+  description: zod.string().optional(),
+  type: zod.string().optional(),
+  requiredLevel: zod.coerce.number().min(0).max(5).optional(),
+  acquiredLevel: zod.coerce.number().min(0).max(5).optional(),
+  evidence: zod.string().optional(),
+});
+
+/**
+ * @summary Delete competency
+ */
+export const DeleteCompetencyParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+  compId: zod.coerce.number(),
+});
+
+/**
+ * @summary List employee trainings
+ */
+export const ListTrainingsParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+});
+
+/**
+ * @summary Create training
+ */
+export const CreateTrainingParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+});
+
+export const CreateTrainingBody = zod.object({
+  title: zod.string().min(1),
+  description: zod.string().optional(),
+  institution: zod.string().optional(),
+  workloadHours: zod.coerce.number().optional(),
+  completionDate: zod.string().optional(),
+  expirationDate: zod.string().optional(),
+  status: zod.string().optional(),
+});
+
+/**
+ * @summary Update training
+ */
+export const UpdateTrainingParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+  trainId: zod.coerce.number(),
+});
+
+export const UpdateTrainingBody = zod.object({
+  title: zod.string().min(1).optional(),
+  description: zod.string().optional(),
+  institution: zod.string().optional(),
+  workloadHours: zod.coerce.number().optional(),
+  completionDate: zod.string().nullable().optional(),
+  expirationDate: zod.string().nullable().optional(),
+  status: zod.string().optional(),
+});
+
+/**
+ * @summary Delete training
+ */
+export const DeleteTrainingParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+  trainId: zod.coerce.number(),
+});
+
+/**
+ * @summary List employee awareness records
+ */
+export const ListAwarenessParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+});
+
+/**
+ * @summary Create awareness record
+ */
+export const CreateAwarenessParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+});
+
+export const CreateAwarenessBody = zod.object({
+  topic: zod.string().min(1),
+  description: zod.string().optional(),
+  date: zod.string(),
+  verificationMethod: zod.string().optional(),
+  result: zod.string().optional(),
+});
+
+/**
+ * @summary Update awareness record
+ */
+export const UpdateAwarenessParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+  awaId: zod.coerce.number(),
+});
+
+export const UpdateAwarenessBody = zod.object({
+  topic: zod.string().min(1).optional(),
+  description: zod.string().optional(),
+  date: zod.string().optional(),
+  verificationMethod: zod.string().optional(),
+  result: zod.string().optional(),
+});
+
+/**
+ * @summary Delete awareness record
+ */
+export const DeleteAwarenessParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+  awaId: zod.coerce.number(),
+});

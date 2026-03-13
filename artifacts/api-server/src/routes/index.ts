@@ -9,6 +9,7 @@ import storageRouter from "./storage";
 import aiRouter from "./ai";
 import questionnaireRouter from "./questionnaire";
 import autoTagRouter from "./auto-tag";
+import employeesRouter from "./employees";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(storageRouter);
 router.use(aiRouter);
 router.use(questionnaireRouter);
 router.use(autoTagRouter);
+router.use(employeesRouter);
 
 export default router;

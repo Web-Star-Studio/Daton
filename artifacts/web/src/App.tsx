@@ -12,6 +12,8 @@ import UnidadesPage from "@/pages/app/organizacao/unidades";
 import UnitDetailPage from "@/pages/app/organizacao/unidades/[id]";
 import LegislacoesPage from "@/pages/app/qualidade/legislacoes";
 import LegislationDetailPage from "@/pages/app/qualidade/legislacoes/[id]";
+import ColaboradoresPage from "@/pages/app/qualidade/colaboradores";
+import ColaboradorDetailPage from "@/pages/app/qualidade/colaboradores/[id]";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -35,6 +37,8 @@ function Router() {
       <Route path="/app/organizacao/unidades/:id" component={UnitDetailPage} />
       <Route path="/app/qualidade/legislacoes" component={LegislacoesPage} />
       <Route path="/app/qualidade/legislacoes/:id" component={LegislationDetailPage} />
+      <Route path="/app/qualidade/colaboradores" component={ColaboradoresPage} />
+      <Route path="/app/qualidade/colaboradores/:id" component={ColaboradorDetailPage} />
       
       <Route component={NotFound} />
     </Switch>
