@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useLayoutState } from "@/contexts/LayoutContext";
 import { 
   Building2, 
@@ -20,6 +20,7 @@ import { useListNotifications } from "@workspace/api-client-react";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, organization } = useAuth();
+  const { hasModuleAccess } = usePermissions();
   const [location] = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isChatOpen, setChatOpen] = useState(false);
@@ -68,6 +69,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const breadcrumbs = getBreadcrumbs();
 
+  const qualidadeLinks = [
+    { href: "/app/qualidade/legislacoes", label: "Legislações", module: "legislations" as const },
+    { href: "/app/qualidade/colaboradores", label: "Colaboradores", module: "employees" as const },
+    { href: "/app/qualidade/documentacao", label: "Documentação", module: "documents" as const },
+  ].filter(l => hasModuleAccess(l.module));
+
+  const showQualidade = qualidadeLinks.length > 0;
+
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden p-2.5 gap-2.5">
       <aside 
@@ -94,38 +103,40 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {isSidebarOpen && <span>Organização</span>}
           </Link>
 
-          <div
-            ref={qualidadeRef}
-            onMouseEnter={() => {
-              if (popoverTimeoutRef.current) clearTimeout(popoverTimeoutRef.current);
-              if (qualidadeRef.current) {
-                const rect = qualidadeRef.current.getBoundingClientRect();
-                setPopoverPos({ top: rect.top, left: rect.right + 6 });
-              }
-              setQualidadePopover(true);
-            }}
-            onMouseLeave={() => {
-              popoverTimeoutRef.current = setTimeout(() => setQualidadePopover(false), 150);
-            }}
-          >
-            <Link
-              href="/app/qualidade/legislacoes"
-              className={cn(
-                "w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
-                isActive("/app/qualidade")
-                  ? "text-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
+          {showQualidade && (
+            <div
+              ref={qualidadeRef}
+              onMouseEnter={() => {
+                if (popoverTimeoutRef.current) clearTimeout(popoverTimeoutRef.current);
+                if (qualidadeRef.current) {
+                  const rect = qualidadeRef.current.getBoundingClientRect();
+                  setPopoverPos({ top: rect.top, left: rect.right + 6 });
+                }
+                setQualidadePopover(true);
+              }}
+              onMouseLeave={() => {
+                popoverTimeoutRef.current = setTimeout(() => setQualidadePopover(false), 150);
+              }}
             >
-              <div className="flex items-center">
-                <Scale className={cn("h-[18px] w-[18px] shrink-0", isSidebarOpen && "mr-2.5")} />
-                {isSidebarOpen && <span>Qualidade</span>}
-              </div>
-              {isSidebarOpen && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />}
-            </Link>
-          </div>
+              <Link
+                href={qualidadeLinks[0].href}
+                className={cn(
+                  "w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
+                  isActive("/app/qualidade")
+                    ? "text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <div className="flex items-center">
+                  <Scale className={cn("h-[18px] w-[18px] shrink-0", isSidebarOpen && "mr-2.5")} />
+                  {isSidebarOpen && <span>Qualidade</span>}
+                </div>
+                {isSidebarOpen && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />}
+              </Link>
+            </div>
+          )}
 
-          {qualidadePopover && (
+          {qualidadePopover && showQualidade && (
             <div
               className="fixed z-[100] min-w-[180px] bg-white border border-border/60 rounded-xl shadow-lg py-2 px-1.5 animate-[popoverIn_150ms_cubic-bezier(0.16,1,0.3,1)]"
               style={{ top: popoverPos.top, left: popoverPos.left }}
@@ -137,42 +148,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               }}
             >
               <p className="px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Qualidade</p>
-              <Link
-                href="/app/qualidade/legislacoes"
-                onClick={() => setQualidadePopover(false)}
-                className={cn(
-                  "flex items-center px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
-                  isActive("/app/qualidade/legislacoes")
-                    ? "text-foreground font-medium bg-muted/50"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                )}
-              >
-                Legislações
-              </Link>
-              <Link
-                href="/app/qualidade/colaboradores"
-                onClick={() => setQualidadePopover(false)}
-                className={cn(
-                  "flex items-center px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
-                  isActive("/app/qualidade/colaboradores")
-                    ? "text-foreground font-medium bg-muted/50"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                )}
-              >
-                Colaboradores
-              </Link>
-              <Link
-                href="/app/qualidade/documentacao"
-                onClick={() => setQualidadePopover(false)}
-                className={cn(
-                  "flex items-center px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
-                  isActive("/app/qualidade/documentacao")
-                    ? "text-foreground font-medium bg-muted/50"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                )}
-              >
-                Documentação
-              </Link>
+              {qualidadeLinks.map(link => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setQualidadePopover(false)}
+                  className={cn(
+                    "flex items-center px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
+                    isActive(link.href)
+                      ? "text-foreground font-medium bg-muted/50"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  )}
+                >
+                  {link.label}
+                </Link>
+              ))}
             </div>
           )}
         </div>

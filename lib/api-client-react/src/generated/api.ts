@@ -59,10 +59,10 @@ import type {
   ListInvitations200,
   ListLegislationsParams,
   ListNotifications200,
+  ListOrgUsers200,
   LoginBody,
   MeResponse,
   MessageResponse,
-  OrgUser,
   Organization,
   PaginatedEmployees,
   Position,
@@ -86,6 +86,9 @@ import type {
   UpdateTrainingBody,
   UpdateUnitBody,
   UpdateUnitLegislationBody,
+  UpdateUserModules200,
+  UpdateUserModulesBody,
+  UpdateUserRoleBody,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -6693,7 +6696,7 @@ export const useMarkAllNotificationsRead = <
 };
 
 /**
- * @summary List users in organization
+ * @summary List users in organization with roles and module permissions
  */
 export const getListOrgUsersUrl = (orgId: number) => {
   return `/api/organizations/${orgId}/users`;
@@ -6702,8 +6705,8 @@ export const getListOrgUsersUrl = (orgId: number) => {
 export const listOrgUsers = async (
   orgId: number,
   options?: RequestInit,
-): Promise<OrgUser[]> => {
-  return customFetch<OrgUser[]>(getListOrgUsersUrl(orgId), {
+): Promise<ListOrgUsers200> => {
+  return customFetch<ListOrgUsers200>(getListOrgUsersUrl(orgId), {
     ...options,
     method: "GET",
   });
@@ -6753,7 +6756,7 @@ export type ListOrgUsersQueryResult = NonNullable<
 export type ListOrgUsersQueryError = ErrorType<unknown>;
 
 /**
- * @summary List users in organization
+ * @summary List users in organization with roles and module permissions
  */
 
 export function useListOrgUsers<
@@ -6778,6 +6781,185 @@ export function useListOrgUsers<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Update a user's role
+ */
+export const getUpdateUserRoleUrl = (orgId: number, userId: number) => {
+  return `/api/organizations/${orgId}/users/${userId}/role`;
+};
+
+export const updateUserRole = async (
+  orgId: number,
+  userId: number,
+  updateUserRoleBody: UpdateUserRoleBody,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getUpdateUserRoleUrl(orgId, userId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateUserRoleBody),
+  });
+};
+
+export const getUpdateUserRoleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateUserRole>>,
+    TError,
+    { orgId: number; userId: number; data: BodyType<UpdateUserRoleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateUserRole>>,
+  TError,
+  { orgId: number; userId: number; data: BodyType<UpdateUserRoleBody> },
+  TContext
+> => {
+  const mutationKey = ["updateUserRole"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateUserRole>>,
+    { orgId: number; userId: number; data: BodyType<UpdateUserRoleBody> }
+  > = (props) => {
+    const { orgId, userId, data } = props ?? {};
+
+    return updateUserRole(orgId, userId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateUserRoleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateUserRole>>
+>;
+export type UpdateUserRoleMutationBody = BodyType<UpdateUserRoleBody>;
+export type UpdateUserRoleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a user's role
+ */
+export const useUpdateUserRole = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateUserRole>>,
+    TError,
+    { orgId: number; userId: number; data: BodyType<UpdateUserRoleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateUserRole>>,
+  TError,
+  { orgId: number; userId: number; data: BodyType<UpdateUserRoleBody> },
+  TContext
+> => {
+  return useMutation(getUpdateUserRoleMutationOptions(options));
+};
+
+/**
+ * @summary Set a user's module permissions
+ */
+export const getUpdateUserModulesUrl = (orgId: number, userId: number) => {
+  return `/api/organizations/${orgId}/users/${userId}/modules`;
+};
+
+export const updateUserModules = async (
+  orgId: number,
+  userId: number,
+  updateUserModulesBody: UpdateUserModulesBody,
+  options?: RequestInit,
+): Promise<UpdateUserModules200> => {
+  return customFetch<UpdateUserModules200>(
+    getUpdateUserModulesUrl(orgId, userId),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateUserModulesBody),
+    },
+  );
+};
+
+export const getUpdateUserModulesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateUserModules>>,
+    TError,
+    { orgId: number; userId: number; data: BodyType<UpdateUserModulesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateUserModules>>,
+  TError,
+  { orgId: number; userId: number; data: BodyType<UpdateUserModulesBody> },
+  TContext
+> => {
+  const mutationKey = ["updateUserModules"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateUserModules>>,
+    { orgId: number; userId: number; data: BodyType<UpdateUserModulesBody> }
+  > = (props) => {
+    const { orgId, userId, data } = props ?? {};
+
+    return updateUserModules(orgId, userId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateUserModulesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateUserModules>>
+>;
+export type UpdateUserModulesMutationBody = BodyType<UpdateUserModulesBody>;
+export type UpdateUserModulesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Set a user's module permissions
+ */
+export const useUpdateUserModules = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateUserModules>>,
+    TError,
+    { orgId: number; userId: number; data: BodyType<UpdateUserModulesBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateUserModules>>,
+  TError,
+  { orgId: number; userId: number; data: BodyType<UpdateUserModulesBody> },
+  TContext
+> => {
+  return useMutation(getUpdateUserModulesMutationOptions(options));
+};
 
 /**
  * @summary Send an invitation email to a user

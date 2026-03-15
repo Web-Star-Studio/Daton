@@ -43,6 +43,7 @@ export const LoginResponse = zod.object({
     name: zod.string(),
     email: zod.string(),
     organizationId: zod.number(),
+    role: zod.string().optional(),
     createdAt: zod.date(),
   }),
   token: zod.string(),
@@ -64,6 +65,7 @@ export const GetMeResponse = zod.object({
     name: zod.string(),
     email: zod.string(),
     organizationId: zod.number(),
+    role: zod.string().optional(),
     createdAt: zod.date(),
   }),
   organization: zod.object({
@@ -72,6 +74,7 @@ export const GetMeResponse = zod.object({
     createdAt: zod.date(),
     updatedAt: zod.date(),
   }),
+  modules: zod.array(zod.string()),
 });
 
 /**
@@ -1520,6 +1523,9 @@ export const GetDocumentResponse = zod.object({
         id: zod.number(),
         name: zod.string(),
         email: zod.string(),
+        role: zod.string(),
+        createdAt: zod.date(),
+        modules: zod.array(zod.string()),
       }),
     )
     .optional(),
@@ -1629,6 +1635,9 @@ export const UpdateDocumentResponse = zod.object({
         id: zod.number(),
         name: zod.string(),
         email: zod.string(),
+        role: zod.string(),
+        createdAt: zod.date(),
+        modules: zod.array(zod.string()),
       }),
     )
     .optional(),
@@ -1778,6 +1787,9 @@ export const SubmitDocumentForReviewResponse = zod.object({
         id: zod.number(),
         name: zod.string(),
         email: zod.string(),
+        role: zod.string(),
+        createdAt: zod.date(),
+        modules: zod.array(zod.string()),
       }),
     )
     .optional(),
@@ -1879,6 +1891,9 @@ export const ApproveDocumentResponse = zod.object({
         id: zod.number(),
         name: zod.string(),
         email: zod.string(),
+        role: zod.string(),
+        createdAt: zod.date(),
+        modules: zod.array(zod.string()),
       }),
     )
     .optional(),
@@ -1980,6 +1995,9 @@ export const RejectDocumentResponse = zod.object({
         id: zod.number(),
         name: zod.string(),
         email: zod.string(),
+        role: zod.string(),
+        createdAt: zod.date(),
+        modules: zod.array(zod.string()),
       }),
     )
     .optional(),
@@ -2077,6 +2095,9 @@ export const DistributeDocumentResponse = zod.object({
         id: zod.number(),
         name: zod.string(),
         email: zod.string(),
+        role: zod.string(),
+        createdAt: zod.date(),
+        modules: zod.array(zod.string()),
       }),
     )
     .optional(),
@@ -2202,18 +2223,57 @@ export const MarkAllNotificationsReadResponse = zod.object({
 });
 
 /**
- * @summary List users in organization
+ * @summary List users in organization with roles and module permissions
  */
 export const ListOrgUsersParams = zod.object({
   orgId: zod.coerce.number(),
 });
 
-export const ListOrgUsersResponseItem = zod.object({
-  id: zod.number(),
-  name: zod.string(),
-  email: zod.string(),
+export const ListOrgUsersResponse = zod.object({
+  users: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      role: zod.string(),
+      createdAt: zod.date(),
+      modules: zod.array(zod.string()),
+    }),
+  ),
 });
-export const ListOrgUsersResponse = zod.array(ListOrgUsersResponseItem);
+
+/**
+ * @summary Update a user's role
+ */
+export const UpdateUserRoleParams = zod.object({
+  orgId: zod.coerce.number(),
+  userId: zod.coerce.number(),
+});
+
+export const UpdateUserRoleBody = zod.object({
+  role: zod.enum(["operator", "analyst"]),
+});
+
+export const UpdateUserRoleResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Set a user's module permissions
+ */
+export const UpdateUserModulesParams = zod.object({
+  orgId: zod.coerce.number(),
+  userId: zod.coerce.number(),
+});
+
+export const UpdateUserModulesBody = zod.object({
+  modules: zod.array(zod.string()),
+});
+
+export const UpdateUserModulesResponse = zod.object({
+  message: zod.string().optional(),
+  modules: zod.array(zod.string()).optional(),
+});
 
 /**
  * @summary Send an invitation email to a user

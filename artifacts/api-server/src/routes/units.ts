@@ -10,7 +10,7 @@ import {
   UpdateUnitBody,
   DeleteUnitParams,
 } from "@workspace/api-zod";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireModuleAccess, requireWriteAccess } from "../middlewares/auth";
 
 const router: IRouter = Router();
 

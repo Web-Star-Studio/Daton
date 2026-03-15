@@ -337,7 +337,7 @@ router.post("/invitations/accept/:token", async (req, res): Promise<void> => {
         .set({ status: "accepted" })
         .where(eq(invitationsTable.id, invitation.id));
 
-      const authToken = signToken({ userId: user.id, organizationId: user.organizationId });
+      const authToken = signToken({ userId: user.id, organizationId: user.organizationId, role: user.role as any });
 
       return {
         user: {
@@ -345,6 +345,7 @@ router.post("/invitations/accept/:token", async (req, res): Promise<void> => {
           name: user.name,
           email: user.email,
           organizationId: user.organizationId,
+          role: user.role,
           createdAt: user.createdAt.toISOString(),
         },
         token: authToken,

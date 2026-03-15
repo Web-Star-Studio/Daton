@@ -6,11 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface OrgUser {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  createdAt: Date;
+export type UpdateUserModulesBody = {
   modules: string[];
-}
+};

@@ -1,10 +1,15 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetMe, getGetMeQueryKey, type User, type Organization } from "@workspace/api-client-react";
+
+type UserRole = "platform_admin" | "org_admin" | "operator" | "analyst";
+type AppModule = "documents" | "legislations" | "employees" | "units" | "departments" | "positions";
 
 interface AuthContextType {
   user: User | null;
   organization: Organization | null;
+  role: UserRole | null;
+  modules: string[];
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (token: string) => void;
@@ -46,11 +51,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [error]);
 
+  const role = (data?.user?.role as UserRole) || null;
+  const modules = data?.modules || [];
+
   return (
     <AuthContext.Provider
       value={{
         user: data?.user || null,
         organization: data?.organization || null,
+        role,
+        modules,
         isLoading: isLoading && !!token,
         isAuthenticated: !!data?.user,
         login,
@@ -68,4 +78,38 @@ export function useAuth() {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
+}
+
+export function usePermissions() {
+  const { role, modules } = useAuth();
+
+  return useMemo(() => {
+    const isAdmin = role === "platform_admin" || role === "org_admin";
+    const isOrgAdmin = role === "org_admin";
+    const isPlatformAdmin = role === "platform_admin";
+    const isAnalyst = role === "analyst";
+
+    const canWrite = !isAnalyst;
+
+    const hasModuleAccess = (mod: AppModule): boolean => {
+      if (isAdmin) return true;
+      return modules.includes(mod);
+    };
+
+    const canWriteModule = (mod: AppModule): boolean => {
+      return canWrite && hasModuleAccess(mod);
+    };
+
+    return {
+      role,
+      isAdmin,
+      isOrgAdmin,
+      isPlatformAdmin,
+      isAnalyst,
+      canWrite,
+      hasModuleAccess,
+      canWriteModule,
+      modules,
+    };
+  }, [role, modules]);
 }

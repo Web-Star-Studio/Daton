@@ -11,4 +11,5 @@ import type { User } from "./user";
 export interface MeResponse {
   user: User;
   organization: Organization;
+  modules: string[];
 }

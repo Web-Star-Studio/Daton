@@ -1864,7 +1864,7 @@ paths:
     get:
       operationId: listOrgUsers
       tags: [organizations]
-      summary: List users in organization
+      summary: List users in organization with roles and module permissions
       parameters:
         - name: orgId
           in: path
@@ -1877,9 +1877,94 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/OrgUser"
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OrgUser"
+                required:
+                  - users
+
+  /organizations/{orgId}/users/{userId}/role:
+    patch:
+      operationId: updateUserRole
+      tags: [organizations]
+      summary: Update a user's role
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum: [operator, analyst]
+              required:
+                - role
+      responses:
+        "200":
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /organizations/{orgId}/users/{userId}/modules:
+    put:
+      operationId: updateUserModules
+      tags: [organizations]
+      summary: Set a user's module permissions
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                modules:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - modules
+      responses:
+        "200":
+          description: Modules updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  modules:
+                    type: array
+                    items:
+                      type: string
 
   /invitations:
     post:
@@ -2113,6 +2198,8 @@ components:
           type: string
         organizationId:
           type: integer
+        role:
+          type: string
         createdAt:
           type: string
           format: date-time
@@ -2130,9 +2217,14 @@ components:
           $ref: "#/components/schemas/User"
         organization:
           $ref: "#/components/schemas/Organization"
+        modules:
+          type: array
+          items:
+            type: string
       required:
         - user
         - organization
+        - modules
 
     Organization:
       type: object
@@ -3265,10 +3357,22 @@ components:
           type: string
         email:
           type: string
+        role:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        modules:
+          type: array
+          items:
+            type: string
       required:
         - id
         - name
         - email
+        - role
+        - createdAt
+        - modules
 
     DocumentSummary:
       type: object

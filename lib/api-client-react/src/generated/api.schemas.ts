@@ -37,6 +37,7 @@ export interface User {
   name: string;
   email: string;
   organizationId: number;
+  role?: string;
   createdAt: string;
 }
 
@@ -55,6 +56,7 @@ export interface Organization {
 export interface MeResponse {
   user: User;
   organization: Organization;
+  modules: string[];
 }
 
 export interface UpdateOrganizationBody {
@@ -813,6 +815,9 @@ export interface OrgUser {
   id: number;
   name: string;
   email: string;
+  role: string;
+  createdAt: string;
+  modules: string[];
 }
 
 export interface DocumentSummary {
@@ -1050,6 +1055,31 @@ export type ListDocumentsParams = {
 export type ListNotifications200 = {
   notifications?: NotificationItem[];
   unreadCount?: number;
+};
+
+export type ListOrgUsers200 = {
+  users: OrgUser[];
+};
+
+export type UpdateUserRoleBodyRole =
+  (typeof UpdateUserRoleBodyRole)[keyof typeof UpdateUserRoleBodyRole];
+
+export const UpdateUserRoleBodyRole = {
+  operator: "operator",
+  analyst: "analyst",
+} as const;
+
+export type UpdateUserRoleBody = {
+  role: UpdateUserRoleBodyRole;
+};
+
+export type UpdateUserModulesBody = {
+  modules: string[];
+};
+
+export type UpdateUserModules200 = {
+  message?: string;
+  modules?: string[];
 };
 
 export type ListInvitations200 = {

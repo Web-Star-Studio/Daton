@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
-import { db, usersTable, organizationsTable } from "@workspace/db";
+import { db, usersTable, organizationsTable, userModulePermissionsTable } from "@workspace/db";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { signToken, requireAuth } from "../middlewares/auth";
 
@@ -35,9 +35,10 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     email,
     passwordHash,
     organizationId: org.id,
+    role: "org_admin",
   }).returning();
 
-  const token = signToken({ userId: user.id, organizationId: org.id });
+  const token = signToken({ userId: user.id, organizationId: org.id, role: "org_admin" });
 
   res.status(201).json({
     user: {
@@ -45,6 +46,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       name: user.name,
       email: user.email,
       organizationId: user.organizationId,
+      role: user.role,
       createdAt: user.createdAt.toISOString(),
     },
     token,
@@ -72,7 +74,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  const token = signToken({ userId: user.id, organizationId: user.organizationId });
+  const token = signToken({ userId: user.id, organizationId: user.organizationId, role: user.role as any });
 
   res.status(200).json({
     user: {
@@ -80,6 +82,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       name: user.name,
       email: user.email,
       organizationId: user.organizationId,
+      role: user.role,
       createdAt: user.createdAt.toISOString(),
     },
     token,
@@ -100,11 +103,13 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   }
 
   const [org] = await db.select().from(organizationsTable).where(eq(organizationsTable.id, organizationId));
-
   if (!org) {
     res.status(500).json({ error: "Organização não encontrada" });
     return;
   }
+
+  const modulePerms = await db.select().from(userModulePermissionsTable)
+    .where(eq(userModulePermissionsTable.userId, userId));
 
   res.json({
     user: {
@@ -112,6 +117,7 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
       name: user.name,
       email: user.email,
       organizationId: user.organizationId,
+      role: user.role,
       createdAt: user.createdAt.toISOString(),
     },
     organization: {
@@ -120,6 +126,7 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
       createdAt: org.createdAt.toISOString(),
       updatedAt: org.updatedAt.toISOString(),
     },
+    modules: modulePerms.map(p => p.module),
   });
 });
 

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useHeaderActions } from "@/contexts/LayoutContext";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Pencil, Mail, X, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Plus, Trash2, Pencil, Mail, X, Clock, CheckCircle2, XCircle, Shield, ShieldCheck, Eye, Settings2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -19,6 +19,7 @@ import {
   useListPositions, useCreatePosition, useDeletePosition, useUpdatePosition, getListPositionsQueryKey,
   useGetOrganization, useUpdateOrganization, getGetOrganizationQueryKey,
   useListInvitations, useCreateInvitation, useRevokeInvitation, useDeleteInvitation, getListInvitationsQueryKey,
+  useListOrgUsers, useUpdateUserRole, useUpdateUserModules, getListOrgUsersQueryKey,
   type CreateUnitBody, type CreateUnitBodyType,
 } from "@workspace/api-client-react";
 
@@ -54,8 +55,27 @@ type PositionFormData = {
   responsibilities: string;
 };
 
+const ROLE_LABELS: Record<string, string> = {
+  platform_admin: "Admin Plataforma",
+  org_admin: "Admin Organização",
+  operator: "Operador",
+  analyst: "Analista",
+};
+
+const MODULE_LABELS: Record<string, string> = {
+  documents: "Documentos",
+  legislations: "Legislações",
+  employees: "Colaboradores",
+  units: "Unidades",
+  departments: "Departamentos",
+  positions: "Cargos",
+};
+
+const ALL_MODULES = ["documents", "legislations", "employees", "units", "departments", "positions"];
+
 export default function OrganizacaoPage() {
-  const { organization } = useAuth();
+  const { organization, user: currentUser } = useAuth();
+  const { isOrgAdmin, canWrite, hasModuleAccess } = usePermissions();
   const orgId = organization?.id;
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
@@ -106,6 +126,14 @@ export default function OrganizacaoPage() {
   const [inviteError, setInviteError] = useState("");
   const [selectedInviteIds, setSelectedInviteIds] = useState<Set<number>>(new Set());
 
+  const { data: orgUsersData, isLoading: orgUsersLoading } = useListOrgUsers(orgId!, { query: { queryKey: getListOrgUsersQueryKey(orgId!), enabled: !!orgId && activeTab === "usuarios" } });
+  const updateRoleMut = useUpdateUserRole();
+  const updateModulesMut = useUpdateUserModules();
+  const [permDialogOpen, setPermDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<{ id: number; name: string; email: string; role: string; modules: string[] } | null>(null);
+  const [editRole, setEditRole] = useState("");
+  const [editModules, setEditModules] = useState<string[]>([]);
+
   React.useEffect(() => {
     if (orgData) {
       setOrgForm({
@@ -141,6 +169,7 @@ export default function OrganizacaoPage() {
   const headerActions = useMemo(() => {
     switch (activeTab) {
       case "visao-geral":
+        if (!canWrite) return null;
         return isEditingOrg ? null : (
           <Button size="sm" variant="outline" onClick={() => setIsEditingOrg(true)}>
             <Pencil className="h-3.5 w-3.5 mr-1.5" />
@@ -148,6 +177,7 @@ export default function OrganizacaoPage() {
           </Button>
         );
       case "unidades":
+        if (!canWrite) return null;
         return (
           <Button size="sm" onClick={() => setUnitDialogOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1.5" />
@@ -155,6 +185,7 @@ export default function OrganizacaoPage() {
           </Button>
         );
       case "departamentos":
+        if (!canWrite) return null;
         return (
           <Button size="sm" onClick={() => { setEditingDeptId(null); deptForm.reset({ name: "", description: "" }); setDeptDialogOpen(true); }}>
             <Plus className="h-3.5 w-3.5 mr-1.5" />
@@ -162,6 +193,7 @@ export default function OrganizacaoPage() {
           </Button>
         );
       case "cargos":
+        if (!canWrite) return null;
         return (
           <Button size="sm" onClick={() => { setEditingPosId(null); posForm.reset(emptyPosForm); setPosDialogOpen(true); }}>
             <Plus className="h-3.5 w-3.5 mr-1.5" />
@@ -169,6 +201,7 @@ export default function OrganizacaoPage() {
           </Button>
         );
       case "usuarios":
+        if (!isOrgAdmin) return null;
         if (selectedInviteIds.size > 0) {
           const selectedInvites = invitationsData?.invitations?.filter(inv => selectedInviteIds.has(inv.id)) || [];
           const pendingIds = selectedInvites.filter(inv => inv.status === "pending").map(inv => inv.id);
@@ -215,7 +248,7 @@ export default function OrganizacaoPage() {
           </Button>
         );
     }
-  }, [activeTab, isEditingOrg, selectedInviteIds, invitationsData]);
+  }, [activeTab, isEditingOrg, selectedInviteIds, invitationsData, canWrite, isOrgAdmin]);
   useHeaderActions(headerActions);
 
   if (!orgId) return null;
@@ -281,13 +314,14 @@ export default function OrganizacaoPage() {
     posForm.reset();
   };
 
-  const tabs: { key: Tab; label: string }[] = [
+  const allTabs: { key: Tab; label: string; module?: string }[] = [
     { key: "visao-geral", label: "Visão Geral" },
-    { key: "unidades", label: "Unidades" },
-    { key: "departamentos", label: "Departamentos" },
-    { key: "cargos", label: "Cargos" },
+    { key: "unidades", label: "Unidades", module: "units" },
+    { key: "departamentos", label: "Departamentos", module: "departments" },
+    { key: "cargos", label: "Cargos", module: "positions" },
     { key: "usuarios", label: "Usuários" },
   ];
+  const tabs = allTabs.filter(t => !t.module || hasModuleAccess(t.module as any));
 
   return (
     <>
@@ -427,12 +461,14 @@ export default function OrganizacaoPage() {
                       <Badge variant={unit.type === 'sede' ? 'default' : 'secondary'} className="uppercase text-[10px]">
                         {unit.type}
                       </Badge>
-                      <button
-                        onClick={(e) => handleDeleteUnit(e, unit.id)}
-                        className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {canWrite && (
+                        <button
+                          onClick={(e) => handleDeleteUnit(e, unit.id)}
+                          className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                   <p className="text-[13px] text-muted-foreground">
@@ -502,104 +538,198 @@ export default function OrganizacaoPage() {
       )}
 
       {activeTab === "usuarios" && (
-        <div className="space-y-6">
-          {invitationsLoading ? (
-            <div className="text-center py-12 text-muted-foreground">Carregando...</div>
-          ) : (
-            <div className="overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30">
-                    <th className="px-3 py-3 w-10">
-                      <input
-                        type="checkbox"
-                        checked={
-                          !!invitationsData?.invitations?.length &&
-                          invitationsData.invitations.every((inv) => selectedInviteIds.has(inv.id))
-                        }
-                        onChange={() => {
-                          const all = invitationsData?.invitations ?? [];
-                          if (all.length > 0 && all.every((inv) => selectedInviteIds.has(inv.id))) {
-                            setSelectedInviteIds(new Set());
-                          } else {
-                            setSelectedInviteIds(new Set(all.map((inv) => inv.id)));
-                          }
-                        }}
-                        className="rounded border-border text-primary cursor-pointer"
-                        disabled={!invitationsData?.invitations?.length}
-                      />
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Convidado por</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Enviado em</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {(!invitationsData?.invitations || invitationsData.invitations.length === 0) && (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
-                        Nenhum convite enviado.
-                      </td>
+        <div className="space-y-8">
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Membros da Organização</h3>
+            {orgUsersLoading ? (
+              <div className="text-center py-12 text-muted-foreground">Carregando...</div>
+            ) : (
+              <div className="overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cargo</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Módulos</th>
+                      {isOrgAdmin && <th className="px-6 py-3 w-16" />}
                     </tr>
-                  )}
-                  {invitationsData?.invitations?.map((inv) => {
-                    const isSelected = selectedInviteIds.has(inv.id);
-                    return (
-                      <tr
-                        key={inv.id}
-                        className={cn(
-                          "transition-colors",
-                          isSelected ? "bg-primary/5" : "hover:bg-muted/50"
-                        )}
-                      >
-                        <td className="px-3 py-4 w-10">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => {
-                              setSelectedInviteIds(prev => {
-                                const next = new Set(prev);
-                                if (next.has(inv.id)) next.delete(inv.id);
-                                else next.add(inv.id);
-                                return next;
-                              });
-                            }}
-                            className="rounded border-border text-primary cursor-pointer"
-                          />
-                        </td>
-                        <td className="px-6 py-4 text-[13px] font-medium text-foreground">{inv.email}</td>
-                        <td className="px-6 py-4">
-                          {inv.status === "pending" && (
-                            <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
-                              <Clock className="h-3 w-3 mr-1" />Pendente
-                            </Badge>
-                          )}
-                          {inv.status === "accepted" && (
-                            <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />Aceito
-                            </Badge>
-                          )}
-                          {inv.status === "revoked" && (
-                            <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
-                              <XCircle className="h-3 w-3 mr-1" />Revogado
-                            </Badge>
-                          )}
-                          {inv.status === "expired" && (
-                            <Badge variant="outline" className="text-muted-foreground border-border">
-                              <Clock className="h-3 w-3 mr-1" />Expirado
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-[13px] text-muted-foreground">{inv.invitedByName}</td>
-                        <td className="px-6 py-4 text-[13px] text-muted-foreground">
-                          {new Date(inv.createdAt).toLocaleDateString("pt-BR")}
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {(!orgUsersData?.users || orgUsersData.users.length === 0) && (
+                      <tr>
+                        <td colSpan={isOrgAdmin ? 5 : 4} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
+                          Nenhum usuário encontrado.
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    )}
+                    {orgUsersData?.users?.map((u) => {
+                      const isSelf = u.id === currentUser?.id;
+                      const isProtected = u.role === "org_admin" || u.role === "platform_admin";
+                      return (
+                        <tr key={u.id} className="hover:bg-muted/50 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="h-7 w-7 rounded-full bg-foreground/5 text-foreground/60 flex items-center justify-center text-xs font-medium shrink-0">
+                                {u.name.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="text-[13px] font-medium text-foreground">{u.name}</span>
+                              {isSelf && <Badge variant="secondary" className="text-[10px]">Você</Badge>}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-[13px] text-muted-foreground">{u.email}</td>
+                          <td className="px-6 py-4">
+                            <Badge variant={isProtected ? "default" : "outline"} className="text-[11px]">
+                              {u.role === "org_admin" && <ShieldCheck className="h-3 w-3 mr-1" />}
+                              {u.role === "operator" && <Shield className="h-3 w-3 mr-1" />}
+                              {u.role === "analyst" && <Eye className="h-3 w-3 mr-1" />}
+                              {ROLE_LABELS[u.role] || u.role}
+                            </Badge>
+                          </td>
+                          <td className="px-6 py-4">
+                            {isProtected ? (
+                              <span className="text-[12px] text-muted-foreground">Acesso total</span>
+                            ) : u.modules.length === 0 ? (
+                              <span className="text-[12px] text-muted-foreground">Nenhum</span>
+                            ) : (
+                              <div className="flex flex-wrap gap-1">
+                                {u.modules.map(m => (
+                                  <Badge key={m} variant="secondary" className="text-[10px]">
+                                    {MODULE_LABELS[m] || m}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          {isOrgAdmin && (
+                            <td className="px-6 py-4">
+                              {!isProtected && !isSelf && (
+                                <button
+                                  onClick={() => {
+                                    setEditingUser({ id: u.id, name: u.name, email: u.email, role: u.role, modules: u.modules });
+                                    setEditRole(u.role);
+                                    setEditModules([...u.modules]);
+                                    setPermDialogOpen(true);
+                                  }}
+                                  className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                  title="Configurar permissões"
+                                >
+                                  <Settings2 className="h-4 w-4" />
+                                </button>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {isOrgAdmin && (
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Convites</h3>
+              {invitationsLoading ? (
+                <div className="text-center py-12 text-muted-foreground">Carregando...</div>
+              ) : (
+                <div className="overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30">
+                        <th className="px-3 py-3 w-10">
+                          <input
+                            type="checkbox"
+                            checked={
+                              !!invitationsData?.invitations?.length &&
+                              invitationsData.invitations.every((inv) => selectedInviteIds.has(inv.id))
+                            }
+                            onChange={() => {
+                              const all = invitationsData?.invitations ?? [];
+                              if (all.length > 0 && all.every((inv) => selectedInviteIds.has(inv.id))) {
+                                setSelectedInviteIds(new Set());
+                              } else {
+                                setSelectedInviteIds(new Set(all.map((inv) => inv.id)));
+                              }
+                            }}
+                            className="rounded border-border text-primary cursor-pointer"
+                            disabled={!invitationsData?.invitations?.length}
+                          />
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Convidado por</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Enviado em</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {(!invitationsData?.invitations || invitationsData.invitations.length === 0) && (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
+                            Nenhum convite enviado.
+                          </td>
+                        </tr>
+                      )}
+                      {invitationsData?.invitations?.map((inv) => {
+                        const isSelected = selectedInviteIds.has(inv.id);
+                        return (
+                          <tr
+                            key={inv.id}
+                            className={cn(
+                              "transition-colors",
+                              isSelected ? "bg-primary/5" : "hover:bg-muted/50"
+                            )}
+                          >
+                            <td className="px-3 py-4 w-10">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  setSelectedInviteIds(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(inv.id)) next.delete(inv.id);
+                                    else next.add(inv.id);
+                                    return next;
+                                  });
+                                }}
+                                className="rounded border-border text-primary cursor-pointer"
+                              />
+                            </td>
+                            <td className="px-6 py-4 text-[13px] font-medium text-foreground">{inv.email}</td>
+                            <td className="px-6 py-4">
+                              {inv.status === "pending" && (
+                                <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
+                                  <Clock className="h-3 w-3 mr-1" />Pendente
+                                </Badge>
+                              )}
+                              {inv.status === "accepted" && (
+                                <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                                  <CheckCircle2 className="h-3 w-3 mr-1" />Aceito
+                                </Badge>
+                              )}
+                              {inv.status === "revoked" && (
+                                <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+                                  <XCircle className="h-3 w-3 mr-1" />Revogado
+                                </Badge>
+                              )}
+                              {inv.status === "expired" && (
+                                <Badge variant="outline" className="text-muted-foreground border-border">
+                                  <Clock className="h-3 w-3 mr-1" />Expirado
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-[13px] text-muted-foreground">{inv.invitedByName}</td>
+                            <td className="px-6 py-4 text-[13px] text-muted-foreground">
+                              {new Date(inv.createdAt).toLocaleDateString("pt-BR")}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -770,6 +900,64 @@ export default function OrganizacaoPage() {
             </Button>
           </DialogFooter>
         </form>
+      </Dialog>
+
+      <Dialog open={permDialogOpen} onOpenChange={setPermDialogOpen} title="Configurar Permissões" description={editingUser ? `Defina o cargo e módulos de ${editingUser.name}.` : ""}>
+        {editingUser && (
+          <div className="space-y-5">
+            <div>
+              <Label>Cargo</Label>
+              <Select value={editRole} onChange={(e) => setEditRole(e.target.value)}>
+                <option value="operator">Operador</option>
+                <option value="analyst">Analista</option>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {editRole === "operator" ? "Pode visualizar e editar dados dos módulos atribuídos." : "Somente visualização dos módulos atribuídos."}
+              </p>
+            </div>
+            <div>
+              <Label>Módulos</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {ALL_MODULES.map(mod => (
+                  <label key={mod} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={editModules.includes(mod)}
+                      onChange={() => {
+                        setEditModules(prev =>
+                          prev.includes(mod) ? prev.filter(m => m !== mod) : [...prev, mod]
+                        );
+                      }}
+                      className="rounded border-border text-primary"
+                    />
+                    <span className="text-[13px]">{MODULE_LABELS[mod] || mod}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" size="sm" onClick={() => setPermDialogOpen(false)}>Cancelar</Button>
+              <Button
+                size="sm"
+                isLoading={updateRoleMut.isPending || updateModulesMut.isPending}
+                onClick={async () => {
+                  if (!orgId || !editingUser) return;
+                  if (editRole !== editingUser.role) {
+                    await updateRoleMut.mutateAsync({ orgId, userId: editingUser.id, data: { role: editRole as any } });
+                  }
+                  const modulesChanged = editModules.sort().join(",") !== [...editingUser.modules].sort().join(",");
+                  if (modulesChanged) {
+                    await updateModulesMut.mutateAsync({ orgId, userId: editingUser.id, data: { modules: editModules } });
+                  }
+                  queryClient.invalidateQueries({ queryKey: getListOrgUsersQueryKey(orgId) });
+                  setPermDialogOpen(false);
+                }}
+              >
+                Salvar
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
       </Dialog>
     </>
   );
