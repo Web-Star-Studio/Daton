@@ -294,10 +294,10 @@ export default function DocumentacaoPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {isLoading ? (
-                <tr><td colSpan={9} className="px-6 py-8 text-center text-muted-foreground">Carregando...</td></tr>
+                <tr><td colSpan={10} className="px-6 py-8 text-center text-muted-foreground">Carregando...</td></tr>
               ) : documents?.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center">
+                  <td colSpan={10} className="px-6 py-12 text-center">
                     <FileText className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
                     <p className="text-muted-foreground">Nenhum documento encontrado.</p>
                     <p className="text-sm text-muted-foreground/70 mt-1">Crie um novo documento para começar.</p>

@@ -511,14 +511,15 @@ export default function LegislacoesPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {isLoading ? (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">Carregando...</td></tr>
+                <tr><td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">Carregando...</td></tr>
               ) : unitHasNoTags ? (
-                <tr><td colSpan={5} className="px-6 py-12 text-center">
+                <tr><td colSpan={6} className="px-6 py-12 text-center">
                   <div className="text-muted-foreground mb-2">Esta unidade ainda não possui tags de conformidade.</div>
                   <div className="text-sm text-muted-foreground">Preencha o questionário da unidade para gerar as tags e filtrar as legislações aplicáveis.</div>
                 </td></tr>
               ) : legislations?.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">Nenhuma legislação encontrada.</td></tr>
+                <tr><td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">Nenhuma legislação encontrada.</td></tr>
+
               ) : (
                 legislations?.map((leg) => {
                   const isSelected = selectedIds.has(leg.id);
