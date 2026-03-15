@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Link } from "wouter";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useListEmployees,
   useCreateEmployee,
+  useDeleteEmployee,
   useListUnits,
   getListEmployeesQueryKey,
 } from "@workspace/api-client-react";
@@ -15,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Search, Users, ChevronRight, ChevronLeft, Archive } from "lucide-react";
+import { Plus, Search, Users, ChevronRight, ChevronLeft, Archive, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -65,7 +66,48 @@ export default function ColaboradoresPage() {
   const { data: units = [] } = useListUnits(orgId!);
 
   const createMutation = useCreateEmployee();
+  const deleteEmpMut = useDeleteEmployee();
   const { register, handleSubmit, reset } = useForm<CreateEmployeeBody>();
+
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [search, statusFilter]);
+
+  const allSelectableIds = useMemo(() => employees.map((e) => e.id), [employees]);
+  const allSelected = allSelectableIds.length > 0 && allSelectableIds.every((id) => selectedIds.has(id));
+
+  const toggleAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(allSelectableIds));
+  };
+
+  const toggleOne = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (!confirm(`Tem certeza que deseja desativar ${count} colaborador${count > 1 ? "es" : ""}? Os registros serão marcados como inativos.`)) return;
+    setIsDeleting(true);
+    try {
+      for (const id of selectedIds) {
+        try { await deleteEmpMut.mutateAsync({ orgId: orgId!, empId: id }); } catch {}
+      }
+      queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey(orgId!) });
+      setSelectedIds(new Set());
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const stats = useMemo(() => {
     const total = pagination?.total ?? employees.length;
@@ -86,14 +128,33 @@ export default function ColaboradoresPage() {
     setPage(1);
   };
 
-  useHeaderActions(
-    orgId ? (
+  const headerActions = useMemo(() => {
+    if (!orgId) return null;
+    if (selectedIds.size > 0) {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground mr-1">
+            {selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}
+          </span>
+          <Button size="sm" variant="destructive" onClick={handleBulkDelete} isLoading={isDeleting}>
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            Desativar ({selectedIds.size})
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>
+            Cancelar
+          </Button>
+        </div>
+      );
+    }
+    return (
       <Button size="sm" onClick={() => setCreateOpen(true)}>
         <Plus className="h-3.5 w-3.5 mr-1.5" />
         Novo Colaborador
       </Button>
-    ) : null
-  );
+    );
+  }, [orgId, selectedIds, isDeleting]);
+
+  useHeaderActions(headerActions);
 
   if (!orgId) return null;
 
@@ -172,6 +233,15 @@ export default function ColaboradoresPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border/60">
+                    <th className="px-3 py-2.5 w-10">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={toggleAll}
+                        className="rounded border-border text-primary cursor-pointer"
+                        disabled={employees.length === 0}
+                      />
+                    </th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Nome</th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Cargo</th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Unidade</th>
@@ -181,29 +251,40 @@ export default function ColaboradoresPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.map((emp) => (
-                    <tr key={emp.id} className="border-b border-border/40 last:border-0 hover:bg-secondary/30 transition-colors">
-                      <td className="px-4 py-3">
-                        <Link href={`/app/qualidade/colaboradores/${emp.id}`} className="cursor-pointer">
-                          <p className="text-[13px] font-medium text-foreground hover:text-primary transition-colors">{emp.name}</p>
-                          {emp.email && <p className="text-xs text-muted-foreground mt-0.5">{emp.email}</p>}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-[13px] text-muted-foreground">{emp.position || "—"}</td>
-                      <td className="px-4 py-3 text-[13px] text-muted-foreground">{emp.unitName || "—"}</td>
-                      <td className="px-4 py-3 text-[13px] text-muted-foreground">{CONTRACT_LABELS[emp.contractType] || emp.contractType}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[emp.status] || "bg-gray-50 text-gray-500 border-gray-200"}`}>
-                          {STATUS_LABELS[emp.status] || emp.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Link href={`/app/qualidade/colaboradores/${emp.id}`}>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground/40 cursor-pointer" />
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
+                  {employees.map((emp) => {
+                    const isSelected = selectedIds.has(emp.id);
+                    return (
+                      <tr key={emp.id} className={`border-b border-border/40 last:border-0 transition-colors ${isSelected ? "bg-primary/5" : "hover:bg-secondary/30"}`}>
+                        <td className="px-3 py-3 w-10">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleOne(emp.id)}
+                            className="rounded border-border text-primary cursor-pointer"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <Link href={`/app/qualidade/colaboradores/${emp.id}`} className="cursor-pointer">
+                            <p className="text-[13px] font-medium text-foreground hover:text-primary transition-colors">{emp.name}</p>
+                            {emp.email && <p className="text-xs text-muted-foreground mt-0.5">{emp.email}</p>}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{emp.position || "—"}</td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{emp.unitName || "—"}</td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{CONTRACT_LABELS[emp.contractType] || emp.contractType}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[emp.status] || "bg-gray-50 text-gray-500 border-gray-200"}`}>
+                            {STATUS_LABELS[emp.status] || emp.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Link href={`/app/qualidade/colaboradores/${emp.id}`}>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground/40 cursor-pointer" />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

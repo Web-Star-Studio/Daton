@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useListLegislations, useCreateLegislation, useImportLegislations, getListLegislationsQueryKey, useListUnits, getListUnitsQueryKey, useGetUnitComplianceTags, type CreateLegislationBody } from "@workspace/api-client-react";
+import { useListLegislations, useCreateLegislation, useDeleteLegislation, useImportLegislations, getListLegislationsQueryKey, useListUnits, getListUnitsQueryKey, useGetUnitComplianceTags, type CreateLegislationBody } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Upload, FileText, CheckCircle, AlertCircle, RefreshCw, SkipForward, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Upload, FileText, CheckCircle, AlertCircle, RefreshCw, SkipForward, Sparkles, Loader2, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import * as XLSX from "xlsx";
 
@@ -230,7 +230,48 @@ export default function LegislacoesPage() {
   const unitHasNoTags = !!unitIdNum && unitComplianceTags !== undefined && unitComplianceTags.length === 0;
 
   const createMut = useCreateLegislation();
+  const deleteLegMut = useDeleteLegislation();
   const importMut = useImportLegislations();
+
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [search, levelFilter, unitFilter]);
+
+  const allSelectableIds = useMemo(() => legislations?.map((l) => l.id) ?? [], [legislations]);
+  const allSelected = allSelectableIds.length > 0 && allSelectableIds.every((id) => selectedIds.has(id));
+
+  const toggleAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(allSelectableIds));
+  };
+
+  const toggleOne = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (!confirm(`Tem certeza que deseja excluir ${count} legislaç${count > 1 ? "ões" : "ão"}?`)) return;
+    setIsDeleting(true);
+    try {
+      for (const id of selectedIds) {
+        try { await deleteLegMut.mutateAsync({ orgId: orgId!, legId: id }); } catch {}
+      }
+      queryClient.invalidateQueries({ queryKey: getListLegislationsQueryKey(orgId!) });
+      setSelectedIds(new Set());
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -381,20 +422,40 @@ export default function LegislacoesPage() {
     setIsImportOpen(false);
   };
 
-  useHeaderActions(
-    <>
-      <Button variant="secondary" size="sm" onClick={onBatchAutoTag} disabled={isAutoTagging}>
-        {isAutoTagging ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
-        {isAutoTagging ? "Classificando..." : "Classificar Tags"}
-      </Button>
-      <Button variant="secondary" size="sm" onClick={() => setIsImportOpen(true)}>
-        <Upload className="h-3.5 w-3.5 mr-1.5" /> Importar
-      </Button>
-      <Button size="sm" onClick={() => setIsCreateOpen(true)}>
-        <Plus className="h-3.5 w-3.5 mr-1.5" /> Nova Legislação
-      </Button>
-    </>
-  );
+  const headerActions = useMemo(() => {
+    if (selectedIds.size > 0) {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground mr-1">
+            {selectedIds.size} selecionad{selectedIds.size > 1 ? "as" : "a"}
+          </span>
+          <Button size="sm" variant="destructive" onClick={handleBulkDelete} isLoading={isDeleting}>
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            Excluir ({selectedIds.size})
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>
+            Cancelar
+          </Button>
+        </div>
+      );
+    }
+    return (
+      <>
+        <Button variant="secondary" size="sm" onClick={onBatchAutoTag} disabled={isAutoTagging}>
+          {isAutoTagging ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
+          {isAutoTagging ? "Classificando..." : "Classificar Tags"}
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => setIsImportOpen(true)}>
+          <Upload className="h-3.5 w-3.5 mr-1.5" /> Importar
+        </Button>
+        <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+          <Plus className="h-3.5 w-3.5 mr-1.5" /> Nova Legislação
+        </Button>
+      </>
+    );
+  }, [selectedIds, isDeleting, isAutoTagging]);
+
+  useHeaderActions(headerActions);
 
   return (
     <>
@@ -434,6 +495,15 @@ export default function LegislacoesPage() {
           <table className="w-full text-sm text-left">
             <thead className="bg-secondary/50 text-muted-foreground text-xs uppercase font-semibold">
               <tr>
+                <th className="px-3 py-4 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    className="rounded border-border text-primary cursor-pointer"
+                    disabled={!legislations || legislations.length === 0}
+                  />
+                </th>
                 <th className="px-6 py-4">Título / Número</th>
                 <th className="px-6 py-4">Tipo</th>
                 <th className="px-6 py-4">Esfera</th>
@@ -442,32 +512,43 @@ export default function LegislacoesPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {isLoading ? (
-                <tr><td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">Carregando...</td></tr>
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">Carregando...</td></tr>
               ) : unitHasNoTags ? (
-                <tr><td colSpan={4} className="px-6 py-12 text-center">
+                <tr><td colSpan={5} className="px-6 py-12 text-center">
                   <div className="text-muted-foreground mb-2">Esta unidade ainda não possui tags de conformidade.</div>
                   <div className="text-sm text-muted-foreground">Preencha o questionário da unidade para gerar as tags e filtrar as legislações aplicáveis.</div>
                 </td></tr>
               ) : legislations?.length === 0 ? (
-                <tr><td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">Nenhuma legislação encontrada.</td></tr>
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">Nenhuma legislação encontrada.</td></tr>
               ) : (
-                legislations?.map((leg) => (
-                  <tr key={leg.id} className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => navigate(`/app/qualidade/legislacoes/${leg.id}`)}>
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-foreground">{leg.title}</div>
-                      {leg.number && <div className="text-muted-foreground mt-0.5">{leg.number}</div>}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-muted-foreground text-xs">{leg.tipoNorma || '—'}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="capitalize text-muted-foreground">{leg.level}</span>
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      {formatDate(leg.publicationDate)}
-                    </td>
-                  </tr>
-                ))
+                legislations?.map((leg) => {
+                  const isSelected = selectedIds.has(leg.id);
+                  return (
+                    <tr key={leg.id} className={`transition-colors cursor-pointer ${isSelected ? "bg-primary/5" : "hover:bg-muted/50"}`} onClick={() => navigate(`/app/qualidade/legislacoes/${leg.id}`)}>
+                      <td className="px-3 py-4 w-10" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleOne(leg.id)}
+                          className="rounded border-border text-primary cursor-pointer"
+                        />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-foreground">{leg.title}</div>
+                        {leg.number && <div className="text-muted-foreground mt-0.5">{leg.number}</div>}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-muted-foreground text-xs">{leg.tipoNorma || '—'}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="capitalize text-muted-foreground">{leg.level}</span>
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        {formatDate(leg.publicationDate)}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

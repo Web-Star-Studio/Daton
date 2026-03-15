@@ -480,11 +480,15 @@ router.delete("/organizations/:orgId/documents/:docId", requireAuth, async (req,
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
-  const [doc] = await db.delete(documentsTable)
-    .where(and(eq(documentsTable.id, params.data.docId), eq(documentsTable.organizationId, params.data.orgId)))
-    .returning();
+  const [existing] = await db.select({ id: documentsTable.id, status: documentsTable.status }).from(documentsTable)
+    .where(and(eq(documentsTable.id, params.data.docId), eq(documentsTable.organizationId, params.data.orgId)));
+  if (!existing) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+  if (existing.status !== "draft" && existing.status !== "rejected") {
+    res.status(400).json({ error: "Apenas documentos em rascunho ou rejeitados podem ser excluídos" });
+    return;
+  }
 
-  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+  await db.delete(documentsTable).where(eq(documentsTable.id, params.data.docId));
   res.sendStatus(204);
 });
 

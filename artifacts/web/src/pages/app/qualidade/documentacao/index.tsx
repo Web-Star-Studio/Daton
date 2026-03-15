@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +11,7 @@ import {
   useListUnits,
   getListUnitsQueryKey,
   useCreateDocument,
+  useDeleteDocument,
   useListOrgUsers,
 } from "@workspace/api-client-react";
 import type { OrgUser } from "@workspace/api-client-react";
@@ -20,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
-import { Plus, FileText, Upload, X } from "lucide-react";
+import { Plus, FileText, Upload, X, Trash2 } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Rascunho",
@@ -116,6 +117,8 @@ export default function DocumentacaoPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [unitFilter, setUnitFilter] = useState<number | undefined>(undefined);
   const [createOpen, setCreateOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: units } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
@@ -137,11 +140,89 @@ export default function DocumentacaoPage() {
     }
   );
 
-  useHeaderActions(
-    <Button size="sm" onClick={() => setCreateOpen(true)}>
-      <Plus className="h-3.5 w-3.5 mr-1.5" /> Novo Documento
-    </Button>
-  );
+  const deleteDocMut = useDeleteDocument();
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [search, typeFilter, statusFilter, unitFilter]);
+
+  const deletableIds = useMemo(() => {
+    if (!documents) return new Set<number>();
+    return new Set(
+      documents.filter((d) => d.status === "draft" || d.status === "rejected").map((d) => d.id)
+    );
+  }, [documents]);
+
+  const selectedDeletable = useMemo(() => {
+    return [...selectedIds].filter((id) => deletableIds.has(id));
+  }, [selectedIds, deletableIds]);
+
+  const allSelectableIds = useMemo(() => {
+    return documents?.map((d) => d.id) ?? [];
+  }, [documents]);
+
+  const allSelected = allSelectableIds.length > 0 && allSelectableIds.every((id) => selectedIds.has(id));
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(allSelectableIds));
+    }
+  };
+
+  const toggleOne = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedDeletable.length === 0) return;
+    const count = selectedDeletable.length;
+    if (!confirm(`Tem certeza que deseja excluir ${count} documento${count > 1 ? "s" : ""}? Apenas documentos em rascunho ou rejeitados serão removidos.`)) return;
+    setIsDeleting(true);
+    try {
+      for (const id of selectedDeletable) {
+        try { await deleteDocMut.mutateAsync({ orgId: orgId!, docId: id }); } catch {}
+      }
+      queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey(orgId!) });
+      setSelectedIds(new Set());
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const headerActions = useMemo(() => {
+    if (selectedIds.size > 0) {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground mr-1">
+            {selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}
+          </span>
+          {selectedDeletable.length > 0 && (
+            <Button size="sm" variant="destructive" onClick={handleBulkDelete} isLoading={isDeleting}>
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+              Excluir ({selectedDeletable.length})
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>
+            Cancelar
+          </Button>
+        </div>
+      );
+    }
+    return (
+      <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Plus className="h-3.5 w-3.5 mr-1.5" /> Novo Documento
+      </Button>
+    );
+  }, [selectedIds, selectedDeletable, isDeleting]);
+
+  useHeaderActions(headerActions);
 
   return (
     <>
@@ -193,6 +274,15 @@ export default function DocumentacaoPage() {
           <table className="w-full text-sm text-left">
             <thead className="bg-secondary/50 text-muted-foreground text-xs uppercase font-semibold">
               <tr>
+                <th className="px-3 py-4 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    className="rounded border-border text-primary cursor-pointer"
+                    disabled={!documents || documents.length === 0}
+                  />
+                </th>
                 <th className="px-6 py-4">Título</th>
                 <th className="px-6 py-4">Tipo</th>
                 <th className="px-6 py-4">Status</th>
@@ -205,50 +295,61 @@ export default function DocumentacaoPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {isLoading ? (
-                <tr><td colSpan={8} className="px-6 py-8 text-center text-muted-foreground">Carregando...</td></tr>
+                <tr><td colSpan={9} className="px-6 py-8 text-center text-muted-foreground">Carregando...</td></tr>
               ) : documents?.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center">
+                  <td colSpan={9} className="px-6 py-12 text-center">
                     <FileText className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
                     <p className="text-muted-foreground">Nenhum documento encontrado.</p>
                     <p className="text-sm text-muted-foreground/70 mt-1">Crie um novo documento para começar.</p>
                   </td>
                 </tr>
               ) : (
-                documents?.map((doc) => (
-                  <tr
-                    key={doc.id}
-                    className="hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/app/qualidade/documentacao/${doc.id}`)}
-                  >
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-foreground">{doc.title}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-muted-foreground text-xs">{TYPE_LABELS[doc.type] || doc.type}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${STATUS_COLORS[doc.status] || "bg-gray-100 text-gray-700"}`}>
-                        {STATUS_LABELS[doc.status] || doc.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      v{doc.currentVersion}
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      {formatDate(doc.validityDate)}
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      {formatDate(doc.updatedAt)}
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      {doc.approvedByName || "—"}
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      {doc.createdByName || "—"}
-                    </td>
-                  </tr>
-                ))
+                documents?.map((doc) => {
+                  const isSelected = selectedIds.has(doc.id);
+                  return (
+                    <tr
+                      key={doc.id}
+                      className={`transition-colors cursor-pointer ${isSelected ? "bg-primary/5" : "hover:bg-muted/50"}`}
+                      onClick={() => navigate(`/app/qualidade/documentacao/${doc.id}`)}
+                    >
+                      <td className="px-3 py-4 w-10" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleOne(doc.id)}
+                          className="rounded border-border text-primary cursor-pointer"
+                        />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-foreground">{doc.title}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-muted-foreground text-xs">{TYPE_LABELS[doc.type] || doc.type}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${STATUS_COLORS[doc.status] || "bg-gray-100 text-gray-700"}`}>
+                          {STATUS_LABELS[doc.status] || doc.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        v{doc.currentVersion}
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        {formatDate(doc.validityDate)}
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        {formatDate(doc.updatedAt)}
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        {doc.approvedByName || "—"}
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        {doc.createdByName || "—"}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

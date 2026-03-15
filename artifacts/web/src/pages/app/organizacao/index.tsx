@@ -497,6 +497,25 @@ export default function OrganizacaoPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
+                    <th className="px-3 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={
+                          !!invitationsData?.invitations?.length &&
+                          invitationsData.invitations.every((inv) => selectedInviteIds.has(inv.id))
+                        }
+                        onChange={() => {
+                          const all = invitationsData?.invitations ?? [];
+                          if (all.length > 0 && all.every((inv) => selectedInviteIds.has(inv.id))) {
+                            setSelectedInviteIds(new Set());
+                          } else {
+                            setSelectedInviteIds(new Set(all.map((inv) => inv.id)));
+                          }
+                        }}
+                        className="rounded border-border text-primary cursor-pointer"
+                        disabled={!invitationsData?.invitations?.length}
+                      />
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Convidado por</th>
@@ -506,7 +525,7 @@ export default function OrganizacaoPage() {
                 <tbody className="divide-y divide-border">
                   {(!invitationsData?.invitations || invitationsData.invitations.length === 0) && (
                     <tr>
-                      <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
+                      <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
                         Nenhum convite enviado.
                       </td>
                     </tr>
@@ -516,19 +535,26 @@ export default function OrganizacaoPage() {
                     return (
                       <tr
                         key={inv.id}
-                        onClick={() => {
-                          setSelectedInviteIds(prev => {
-                            const next = new Set(prev);
-                            if (next.has(inv.id)) next.delete(inv.id);
-                            else next.add(inv.id);
-                            return next;
-                          });
-                        }}
                         className={cn(
-                          "transition-colors cursor-pointer",
+                          "transition-colors",
                           isSelected ? "bg-primary/5" : "hover:bg-muted/50"
                         )}
                       >
+                        <td className="px-3 py-4 w-10">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              setSelectedInviteIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(inv.id)) next.delete(inv.id);
+                                else next.add(inv.id);
+                                return next;
+                              });
+                            }}
+                            className="rounded border-border text-primary cursor-pointer"
+                          />
+                        </td>
                         <td className="px-6 py-4 text-[13px] font-medium text-foreground">{inv.email}</td>
                         <td className="px-6 py-4">
                           {inv.status === "pending" && (
