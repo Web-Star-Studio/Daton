@@ -15,7 +15,6 @@ import LegislationDetailPage from "@/pages/app/qualidade/legislacoes/[id]";
 import ColaboradoresPage from "@/pages/app/qualidade/colaboradores";
 import ColaboradorDetailPage from "@/pages/app/qualidade/colaboradores/[id]";
 import DocumentacaoPage from "@/pages/app/qualidade/documentacao";
-import NovoDocumentoPage from "@/pages/app/qualidade/documentacao/novo";
 import DocumentDetailPage from "@/pages/app/qualidade/documentacao/[id]";
 import AcceptInvitePage from "@/pages/accept-invite";
 import NotFound from "@/pages/not-found";
@@ -41,7 +40,6 @@ function AppPages() {
       <Route path="/app/qualidade/colaboradores" component={ColaboradoresPage} />
       <Route path="/app/qualidade/colaboradores/:id" component={ColaboradorDetailPage} />
       <Route path="/app/qualidade/documentacao" component={DocumentacaoPage} />
-      <Route path="/app/qualidade/documentacao/novo" component={NovoDocumentoPage} />
       <Route path="/app/qualidade/documentacao/:id" component={DocumentDetailPage} />
       <Route component={NotFound} />
     </Switch>
