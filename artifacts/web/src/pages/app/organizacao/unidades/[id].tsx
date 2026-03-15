@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useRoute, Link } from "wouter";
 import { useHeaderActions, usePageTitle } from "@/contexts/LayoutContext";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import {
   useGetUnit,
   useUpdateUnit,
@@ -24,7 +24,9 @@ export default function UnitDetailPage() {
   const unitId = parseInt(params?.id || "0");
 
   const { organization } = useAuth();
+  const { canWriteModule } = usePermissions();
   const orgId = organization?.id;
+  const canWriteUnits = canWriteModule("units");
   const queryClient = useQueryClient();
 
   const { data: unit, isLoading } = useGetUnit(orgId!, unitId, {
@@ -113,9 +115,9 @@ export default function UnitDetailPage() {
             <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
           </Button>
         </Link>
-        <Button variant="secondary" size="sm" onClick={() => setQuestionnaireOpen(true)}>
+        {canWriteUnits && <Button variant="secondary" size="sm" onClick={() => setQuestionnaireOpen(true)}>
           <ClipboardList className="w-4 h-4 mr-1" /> Questionário de Compliance
-        </Button>
+        </Button>}
         {editing ? (
           <>
             <Button variant="ghost" size="sm" onClick={handleCancel}>
@@ -126,7 +128,7 @@ export default function UnitDetailPage() {
             </Button>
           </>
         ) : (
-          <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+          canWriteUnits && <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
             <Pencil className="w-4 h-4 mr-1" /> Editar
           </Button>
         )}
@@ -202,7 +204,7 @@ export default function UnitDetailPage() {
       </div>
 
       <QuestionnaireModal
-        isOpen={questionnaireOpen}
+        isOpen={canWriteUnits && questionnaireOpen}
         onClose={() => setQuestionnaireOpen(false)}
         orgId={orgId!}
         unitId={unitId}

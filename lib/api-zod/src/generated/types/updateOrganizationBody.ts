@@ -8,4 +8,14 @@
 
 export interface UpdateOrganizationBody {
   name?: string;
+  /** @nullable */
+  nomeFantasia?: string | null;
+  /** @nullable */
+  cnpj?: string | null;
+  /** @nullable */
+  inscricaoEstadual?: string | null;
+  /** @nullable */
+  dataFundacao?: string | null;
+  /** @nullable */
+  statusOperacional?: string | null;
 }

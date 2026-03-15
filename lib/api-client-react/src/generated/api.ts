@@ -30,6 +30,8 @@ import type {
   CreateEmployeeBody,
   CreateInvitationBody,
   CreateLegislationBody,
+  CreateOrgUserBody,
+  CreateOrgUserResponse,
   CreatePositionBody,
   CreateTrainingBody,
   CreateUnitBody,
@@ -89,6 +91,7 @@ import type {
   UpdateUserModules200,
   UpdateUserModulesBody,
   UpdateUserRoleBody,
+  UserOption,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -6774,6 +6777,180 @@ export function useListOrgUsers<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListOrgUsersQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a user directly in the organization
+ */
+export const getCreateOrgUserUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/users`;
+};
+
+export const createOrgUser = async (
+  orgId: number,
+  createOrgUserBody: CreateOrgUserBody,
+  options?: RequestInit,
+): Promise<CreateOrgUserResponse> => {
+  return customFetch<CreateOrgUserResponse>(getCreateOrgUserUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createOrgUserBody),
+  });
+};
+
+export const getCreateOrgUserMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrgUser>>,
+    TError,
+    { orgId: number; data: BodyType<CreateOrgUserBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createOrgUser>>,
+  TError,
+  { orgId: number; data: BodyType<CreateOrgUserBody> },
+  TContext
+> => {
+  const mutationKey = ["createOrgUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createOrgUser>>,
+    { orgId: number; data: BodyType<CreateOrgUserBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createOrgUser(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateOrgUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createOrgUser>>
+>;
+export type CreateOrgUserMutationBody = BodyType<CreateOrgUserBody>;
+export type CreateOrgUserMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a user directly in the organization
+ */
+export const useCreateOrgUser = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrgUser>>,
+    TError,
+    { orgId: number; data: BodyType<CreateOrgUserBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createOrgUser>>,
+  TError,
+  { orgId: number; data: BodyType<CreateOrgUserBody> },
+  TContext
+> => {
+  return useMutation(getCreateOrgUserMutationOptions(options));
+};
+
+/**
+ * @summary List basic user options for document workflows
+ */
+export const getListUserOptionsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/user-options`;
+};
+
+export const listUserOptions = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<UserOption[]> => {
+  return customFetch<UserOption[]>(getListUserOptionsUrl(orgId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListUserOptionsQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/user-options`] as const;
+};
+
+export const getListUserOptionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listUserOptions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listUserOptions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListUserOptionsQueryKey(orgId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listUserOptions>>> = ({
+    signal,
+  }) => listUserOptions(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listUserOptions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListUserOptionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listUserOptions>>
+>;
+export type ListUserOptionsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List basic user options for document workflows
+ */
+
+export function useListUserOptions<
+  TData = Awaited<ReturnType<typeof listUserOptions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listUserOptions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListUserOptionsQueryOptions(orgId, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

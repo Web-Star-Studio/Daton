@@ -55,7 +55,7 @@ router.get("/organizations/:orgId/units", requireAuth, async (req, res): Promise
   res.json(units.map(serializeUnit));
 });
 
-router.post("/organizations/:orgId/units", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/units", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = CreateUnitParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -104,7 +104,7 @@ router.get("/organizations/:orgId/units/:unitId", requireAuth, async (req, res):
   res.json(serializeUnit(unit));
 });
 
-router.patch("/organizations/:orgId/units/:unitId", requireAuth, async (req, res): Promise<void> => {
+router.patch("/organizations/:orgId/units/:unitId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = UpdateUnitParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -135,7 +135,7 @@ router.patch("/organizations/:orgId/units/:unitId", requireAuth, async (req, res
   res.json(serializeUnit(unit));
 });
 
-router.delete("/organizations/:orgId/units/:unitId", requireAuth, async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/units/:unitId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteUnitParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

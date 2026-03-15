@@ -43,7 +43,7 @@ export const LoginResponse = zod.object({
     name: zod.string(),
     email: zod.string(),
     organizationId: zod.number(),
-    role: zod.string().optional(),
+    role: zod.string(),
     createdAt: zod.date(),
   }),
   token: zod.string(),
@@ -65,12 +65,17 @@ export const GetMeResponse = zod.object({
     name: zod.string(),
     email: zod.string(),
     organizationId: zod.number(),
-    role: zod.string().optional(),
+    role: zod.string(),
     createdAt: zod.date(),
   }),
   organization: zod.object({
     id: zod.number(),
     name: zod.string(),
+    nomeFantasia: zod.string().nullish(),
+    cnpj: zod.string().nullish(),
+    inscricaoEstadual: zod.string().nullish(),
+    dataFundacao: zod.string().nullish(),
+    statusOperacional: zod.string().nullish(),
     createdAt: zod.date(),
     updatedAt: zod.date(),
   }),
@@ -87,6 +92,11 @@ export const GetOrganizationParams = zod.object({
 export const GetOrganizationResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
+  nomeFantasia: zod.string().nullish(),
+  cnpj: zod.string().nullish(),
+  inscricaoEstadual: zod.string().nullish(),
+  dataFundacao: zod.string().nullish(),
+  statusOperacional: zod.string().nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -100,11 +110,21 @@ export const UpdateOrganizationParams = zod.object({
 
 export const UpdateOrganizationBody = zod.object({
   name: zod.string().optional(),
+  nomeFantasia: zod.string().nullish(),
+  cnpj: zod.string().nullish(),
+  inscricaoEstadual: zod.string().nullish(),
+  dataFundacao: zod.string().nullish(),
+  statusOperacional: zod.string().nullish(),
 });
 
 export const UpdateOrganizationResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
+  nomeFantasia: zod.string().nullish(),
+  cnpj: zod.string().nullish(),
+  inscricaoEstadual: zod.string().nullish(),
+  dataFundacao: zod.string().nullish(),
+  statusOperacional: zod.string().nullish(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
 });
@@ -2243,6 +2263,46 @@ export const ListOrgUsersResponse = zod.object({
 });
 
 /**
+ * @summary Create a user directly in the organization
+ */
+export const CreateOrgUserParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const createOrgUserBodyPasswordMin = 6;
+
+export const CreateOrgUserBody = zod.object({
+  name: zod.string(),
+  email: zod.string().email(),
+  password: zod.string().min(createOrgUserBodyPasswordMin),
+  role: zod.enum(["org_admin", "operator", "analyst"]),
+  modules: zod.array(
+    zod.enum([
+      "documents",
+      "legislations",
+      "employees",
+      "units",
+      "departments",
+      "positions",
+    ]),
+  ),
+});
+
+/**
+ * @summary List basic user options for document workflows
+ */
+export const ListUserOptionsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListUserOptionsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+});
+export const ListUserOptionsResponse = zod.array(ListUserOptionsResponseItem);
+
+/**
  * @summary Update a user's role
  */
 export const UpdateUserRoleParams = zod.object({
@@ -2280,6 +2340,19 @@ export const UpdateUserModulesResponse = zod.object({
  */
 export const CreateInvitationBody = zod.object({
   email: zod.string().email(),
+  role: zod.enum(["org_admin", "operator", "analyst"]).optional(),
+  modules: zod
+    .array(
+      zod.enum([
+        "documents",
+        "legislations",
+        "employees",
+        "units",
+        "departments",
+        "positions",
+      ]),
+    )
+    .optional(),
 });
 
 /**
@@ -2293,6 +2366,8 @@ export const ListInvitationsResponse = zod.object({
       status: zod.string(),
       invitedByName: zod.string(),
       organizationName: zod.string(),
+      role: zod.string(),
+      modules: zod.array(zod.string()),
       expiresAt: zod.string(),
       createdAt: zod.string(),
     }),

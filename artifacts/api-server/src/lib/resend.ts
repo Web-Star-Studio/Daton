@@ -1,6 +1,13 @@
 import { Resend } from "resend";
 
-let connectionSettings: any;
+type ReplitConnectorSettings = {
+  settings?: {
+    api_key?: string;
+    from_email?: string;
+  };
+};
+
+let connectionSettings: ReplitConnectorSettings | undefined;
 
 async function getCredentials() {
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
@@ -14,7 +21,7 @@ async function getCredentials() {
     throw new Error("X-Replit-Token not found for repl/depl");
   }
 
-  connectionSettings = await fetch(
+  const data = await fetch(
     "https://" + hostname + "/api/v2/connection?include_secrets=true&connector_names=resend",
     {
       headers: {
@@ -22,15 +29,23 @@ async function getCredentials() {
         "X-Replit-Token": xReplitToken,
       },
     },
-  ).then((res) => res.json()).then((data) => data.items?.[0]);
+  ).then((res) => res.json()) as { items?: ReplitConnectorSettings[] };
 
-  if (!connectionSettings || !connectionSettings.settings.api_key) {
-    throw new Error("Resend not connected");
+  connectionSettings = data.items?.[0];
+
+  const settings = connectionSettings?.settings;
+
+  if (!settings?.api_key) {
+    throw new Error("Resend not connected: missing api_key");
+  }
+
+  if (!settings.from_email) {
+    throw new Error("Resend not connected: missing from_email");
   }
 
   return {
-    apiKey: connectionSettings.settings.api_key,
-    fromEmail: connectionSettings.settings.from_email,
+    apiKey: settings.api_key,
+    fromEmail: settings.from_email,
   };
 }
 

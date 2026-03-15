@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Link } from "wouter";
 import { useHeaderActions } from "@/contexts/LayoutContext";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import {
   useListEmployees,
   useCreateEmployee,
@@ -9,7 +9,7 @@ import {
   useListUnits,
   getListEmployeesQueryKey,
 } from "@workspace/api-client-react";
-import type { CreateEmployeeBody, EmployeeListItem, PaginatedEmployees, PaginationInfo } from "@workspace/api-client-react";
+import type { CreateEmployeeBody, Employee, PaginatedEmployeesPagination } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,7 @@ const CONTRACT_LABELS: Record<string, string> = {
 
 export default function ColaboradoresPage() {
   const { user } = useAuth();
+  const { canWriteModule } = usePermissions();
   const orgId = user?.organizationId;
   const queryClient = useQueryClient();
 
@@ -59,9 +60,8 @@ export default function ColaboradoresPage() {
     pageSize: 25,
   });
 
-  const paginatedResult = result as PaginatedEmployees | undefined;
-  const employees: EmployeeListItem[] = paginatedResult?.data ?? [];
-  const pagination: PaginationInfo | undefined = paginatedResult?.pagination;
+  const employees: Employee[] = result?.data ?? [];
+  const pagination: PaginatedEmployeesPagination | undefined = result?.pagination;
 
   const { data: units = [] } = useListUnits(orgId!);
 
@@ -128,6 +128,7 @@ export default function ColaboradoresPage() {
   };
 
   const headerActions = useMemo(() => {
+    const canWriteEmployees = canWriteModule("employees");
     if (!orgId) return null;
     if (selectedIds.size > 0) {
       return (
@@ -135,10 +136,12 @@ export default function ColaboradoresPage() {
           <span className="text-xs text-muted-foreground mr-1">
             {selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}
           </span>
-          <Button size="sm" variant="destructive" onClick={() => setConfirmDeleteOpen(true)} isLoading={isDeleting}>
-            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-            Desativar ({selectedIds.size})
-          </Button>
+          {canWriteEmployees && (
+            <Button size="sm" variant="destructive" onClick={() => setConfirmDeleteOpen(true)} isLoading={isDeleting}>
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+              Desativar ({selectedIds.size})
+            </Button>
+          )}
           <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>
             Cancelar
           </Button>
@@ -146,12 +149,14 @@ export default function ColaboradoresPage() {
       );
     }
     return (
-      <Button size="sm" onClick={() => setCreateOpen(true)}>
-        <Plus className="h-3.5 w-3.5 mr-1.5" />
-        Novo Colaborador
-      </Button>
+      canWriteEmployees ? (
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <Plus className="h-3.5 w-3.5 mr-1.5" />
+          Novo Colaborador
+        </Button>
+      ) : null
     );
-  }, [orgId, selectedIds, isDeleting]);
+  }, [canWriteModule, isDeleting, orgId, selectedIds]);
 
   useHeaderActions(headerActions);
 
@@ -221,10 +226,12 @@ export default function ColaboradoresPage() {
           <div className="text-center py-16">
             <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-[13px] text-muted-foreground">Nenhum colaborador encontrado</p>
-            <Button size="sm" variant="outline" className="mt-4" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
-              Adicionar Colaborador
-            </Button>
+            {canWriteModule("employees") && (
+              <Button size="sm" variant="outline" className="mt-4" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Adicionar Colaborador
+              </Button>
+            )}
           </div>
         ) : (
           <>
@@ -238,7 +245,7 @@ export default function ColaboradoresPage() {
                         checked={allSelected}
                         onChange={toggleAll}
                         className="rounded border-border text-primary cursor-pointer"
-                        disabled={employees.length === 0}
+                        disabled={!canWriteModule("employees") || employees.length === 0}
                       />
                     </th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Nome</th>
@@ -260,6 +267,7 @@ export default function ColaboradoresPage() {
                             checked={isSelected}
                             onChange={() => toggleOne(emp.id)}
                             className="rounded border-border text-primary cursor-pointer"
+                            disabled={!canWriteModule("employees")}
                           />
                         </td>
                         <td className="px-4 py-3">

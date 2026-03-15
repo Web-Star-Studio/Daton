@@ -1,4 +1,5 @@
 import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
@@ -9,6 +10,8 @@ export const invitationsTable = pgTable("invitations", {
   email: text("email").notNull(),
   organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
   invitedBy: integer("invited_by").notNull().references(() => usersTable.id),
+  role: text("role").notNull().default("analyst"),
+  modules: text("modules").array().notNull().default(sql`'{}'::text[]`),
   token: text("token").notNull().unique(),
   status: text("status").notNull().default("pending"),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),

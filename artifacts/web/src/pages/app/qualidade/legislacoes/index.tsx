@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useHeaderActions } from "@/contexts/LayoutContext";
-import { useAuth } from "@/contexts/AuthContext";
-import { useListLegislations, useCreateLegislation, useDeleteLegislation, useImportLegislations, getListLegislationsQueryKey, useListUnits, getListUnitsQueryKey, useGetUnitComplianceTags, type CreateLegislationBody } from "@workspace/api-client-react";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
+import { useListLegislations, useCreateLegislation, useDeleteLegislation, useImportLegislations, getListLegislationsQueryKey, useListUnits, getListUnitsQueryKey, useGetUnitComplianceTags, getGetUnitComplianceTagsQueryKey, type CreateLegislationBody, type ListLegislationsLevel } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -201,6 +201,7 @@ type ImportResultType = {
 
 export default function LegislacoesPage() {
   const { organization } = useAuth();
+  const { canWriteModule } = usePermissions();
   const orgId = organization?.id;
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
@@ -217,14 +218,19 @@ export default function LegislacoesPage() {
 
   const { data: legislations, isLoading } = useListLegislations(
     orgId!, 
-    { search, level: levelFilter || undefined, unitId: unitIdNum }, 
+    { search, level: (levelFilter || undefined) as ListLegislationsLevel | undefined, unitId: unitIdNum }, 
     { query: { queryKey: [...getListLegislationsQueryKey(orgId!), search, levelFilter, unitFilter], enabled: !!orgId } }
   );
 
   const { data: unitComplianceTags } = useGetUnitComplianceTags(
     orgId!,
     unitIdNum!,
-    { query: { enabled: !!orgId && !!unitIdNum } }
+    {
+      query: {
+        queryKey: getGetUnitComplianceTagsQueryKey(orgId!, unitIdNum!),
+        enabled: !!orgId && !!unitIdNum,
+      },
+    }
   );
 
   const unitHasNoTags = !!unitIdNum && unitComplianceTags !== undefined && unitComplianceTags.length === 0;
@@ -422,16 +428,19 @@ export default function LegislacoesPage() {
   };
 
   const headerActions = useMemo(() => {
+    const canWriteLegislations = canWriteModule("legislations");
     if (selectedIds.size > 0) {
       return (
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground mr-1">
             {selectedIds.size} selecionad{selectedIds.size > 1 ? "as" : "a"}
           </span>
-          <Button size="sm" variant="destructive" onClick={() => setConfirmDeleteOpen(true)} isLoading={isDeleting}>
-            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-            Excluir ({selectedIds.size})
-          </Button>
+          {canWriteLegislations && (
+            <Button size="sm" variant="destructive" onClick={() => setConfirmDeleteOpen(true)} isLoading={isDeleting}>
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+              Excluir ({selectedIds.size})
+            </Button>
+          )}
           <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>
             Cancelar
           </Button>
@@ -439,6 +448,7 @@ export default function LegislacoesPage() {
       );
     }
     return (
+      canWriteLegislations ? (
       <>
         <Button variant="secondary" size="sm" onClick={onBatchAutoTag} disabled={isAutoTagging}>
           {isAutoTagging ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
@@ -451,8 +461,9 @@ export default function LegislacoesPage() {
           <Plus className="h-3.5 w-3.5 mr-1.5" /> Nova Legislação
         </Button>
       </>
+      ) : null
     );
-  }, [selectedIds, isDeleting, isAutoTagging]);
+  }, [canWriteModule, isAutoTagging, isDeleting, selectedIds]);
 
   useHeaderActions(headerActions);
 
@@ -500,7 +511,7 @@ export default function LegislacoesPage() {
                     checked={allSelected}
                     onChange={toggleAll}
                     className="rounded border-border text-primary cursor-pointer"
-                    disabled={!legislations || legislations.length === 0}
+                    disabled={!canWriteModule("legislations") || !legislations || legislations.length === 0}
                   />
                 </th>
                 <th className="px-6 py-4">Título / Número</th>
@@ -531,6 +542,7 @@ export default function LegislacoesPage() {
                           checked={isSelected}
                           onChange={() => toggleOne(leg.id)}
                           className="rounded border-border text-primary cursor-pointer"
+                          disabled={!canWriteModule("legislations")}
                         />
                       </td>
                       <td className="px-6 py-4">

@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireWriteAccess } from "../middlewares/auth";
 import { db, legislationsTable, type Legislation } from "@workspace/db";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server";
@@ -128,7 +128,7 @@ async function autoTagLegislation(leg: Legislation): Promise<string[]> {
   }
 }
 
-router.post("/organizations/:orgId/legislations/auto-tag/batch", requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.post("/organizations/:orgId/legislations/auto-tag/batch", requireAuth, requireWriteAccess(), async (req: Request, res: Response): Promise<void> => {
   const orgId = parseInt(String(req.params.orgId), 10);
 
   if (orgId !== req.auth!.organizationId) {
@@ -185,7 +185,7 @@ router.post("/organizations/:orgId/legislations/auto-tag/batch", requireAuth, as
   res.end();
 });
 
-router.post("/organizations/:orgId/legislations/:legId/auto-tag", requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.post("/organizations/:orgId/legislations/:legId/auto-tag", requireAuth, requireWriteAccess(), async (req: Request, res: Response): Promise<void> => {
   const orgId = parseInt(String(req.params.orgId), 10);
   const legId = parseInt(String(req.params.legId), 10);
 

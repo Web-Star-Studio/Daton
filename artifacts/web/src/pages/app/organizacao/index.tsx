@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,7 @@ import {
   useListPositions, useCreatePosition, useDeletePosition, useUpdatePosition, getListPositionsQueryKey,
   useGetOrganization, useUpdateOrganization, getGetOrganizationQueryKey,
   useListInvitations, useCreateInvitation, useRevokeInvitation, useDeleteInvitation, getListInvitationsQueryKey,
-  useListOrgUsers, useUpdateUserRole, useUpdateUserModules, getListOrgUsersQueryKey,
+  useListOrgUsers, useCreateOrgUser, useUpdateUserRole, useUpdateUserModules, getListOrgUsersQueryKey,
   type CreateUnitBody, type CreateUnitBodyType,
 } from "@workspace/api-client-react";
 
@@ -55,6 +55,22 @@ type PositionFormData = {
   responsibilities: string;
 };
 
+type OrgUserModule = "documents" | "legislations" | "employees" | "units" | "departments" | "positions";
+
+type CreateUserFormData = {
+  name: string;
+  email: string;
+  password: string;
+  role: "org_admin" | "operator" | "analyst";
+  modules: OrgUserModule[];
+};
+
+type InviteFormData = {
+  email: string;
+  role: "org_admin" | "operator" | "analyst";
+  modules: OrgUserModule[];
+};
+
 const ROLE_LABELS: Record<string, string> = {
   platform_admin: "Admin Plataforma",
   org_admin: "Admin Organização",
@@ -71,11 +87,23 @@ const MODULE_LABELS: Record<string, string> = {
   positions: "Cargos",
 };
 
-const ALL_MODULES = ["documents", "legislations", "employees", "units", "departments", "positions"];
+const ALL_MODULES: OrgUserModule[] = ["documents", "legislations", "employees", "units", "departments", "positions"];
+const emptyCreateUserForm: CreateUserFormData = {
+  name: "",
+  email: "",
+  password: "",
+  role: "analyst",
+  modules: [],
+};
+const emptyInviteForm: InviteFormData = {
+  email: "",
+  role: "analyst",
+  modules: [],
+};
 
 export default function OrganizacaoPage() {
   const { organization, user: currentUser } = useAuth();
-  const { isOrgAdmin, canWrite, hasModuleAccess } = usePermissions();
+  const { isOrgAdmin, canWriteModule, hasModuleAccess } = usePermissions();
   const orgId = organization?.id;
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
@@ -117,22 +145,28 @@ export default function OrganizacaoPage() {
     name: "", nomeFantasia: "", cnpj: "", inscricaoEstadual: "", dataFundacao: "", statusOperacional: "ativa",
   });
 
-  const { data: invitationsData, isLoading: invitationsLoading } = useListInvitations({ query: { queryKey: getListInvitationsQueryKey(), enabled: activeTab === "usuarios" } });
+  const { data: invitationsData, isLoading: invitationsLoading } = useListInvitations({ query: { queryKey: getListInvitationsQueryKey(), enabled: activeTab === "usuarios" && isOrgAdmin } });
   const createInviteMut = useCreateInvitation();
   const revokeInviteMut = useRevokeInvitation();
   const deleteInviteMut = useDeleteInvitation();
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [selectedInviteIds, setSelectedInviteIds] = useState<Set<number>>(new Set());
+  const [inviteForm, setInviteForm] = useState<InviteFormData>(emptyInviteForm);
 
-  const { data: orgUsersData, isLoading: orgUsersLoading } = useListOrgUsers(orgId!, { query: { queryKey: getListOrgUsersQueryKey(orgId!), enabled: !!orgId && activeTab === "usuarios" } });
+  const { data: orgUsersData, isLoading: orgUsersLoading } = useListOrgUsers(orgId!, { query: { queryKey: getListOrgUsersQueryKey(orgId!), enabled: !!orgId && activeTab === "usuarios" && isOrgAdmin } });
+  const createOrgUserMut = useCreateOrgUser();
   const updateRoleMut = useUpdateUserRole();
   const updateModulesMut = useUpdateUserModules();
+  const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
+  const [createUserError, setCreateUserError] = useState("");
+  const createUserForm = useForm<CreateUserFormData>({ defaultValues: emptyCreateUserForm });
   const [permDialogOpen, setPermDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<{ id: number; name: string; email: string; role: string; modules: string[] } | null>(null);
   const [editRole, setEditRole] = useState("");
   const [editModules, setEditModules] = useState<string[]>([]);
+  const createUserRole = createUserForm.watch("role");
+  const createUserModules = createUserForm.watch("modules") || [];
 
   React.useEffect(() => {
     if (orgData) {
@@ -146,6 +180,19 @@ export default function OrganizacaoPage() {
       });
     }
   }, [orgData]);
+
+  React.useEffect(() => {
+    if (createUserRole === "org_admin") {
+      createUserForm.setValue("modules", [], { shouldValidate: true });
+      createUserForm.clearErrors("modules");
+    }
+  }, [createUserForm, createUserRole]);
+
+  useEffect(() => {
+    if (inviteForm.role === "org_admin" && inviteForm.modules.length > 0) {
+      setInviteForm((prev) => ({ ...prev, modules: [] }));
+    }
+  }, [inviteForm.modules.length, inviteForm.role]);
 
   const handleSaveOrg = async () => {
     if (!orgId) return;
@@ -166,10 +213,16 @@ export default function OrganizacaoPage() {
 
   const sede = units?.find((u) => u.type === "sede");
 
+  const resetCreateUserDialog = () => {
+    createUserForm.reset(emptyCreateUserForm);
+    createUserForm.clearErrors();
+    setCreateUserError("");
+  };
+
   const headerActions = useMemo(() => {
     switch (activeTab) {
       case "visao-geral":
-        if (!canWrite) return null;
+        if (!isOrgAdmin) return null;
         return isEditingOrg ? null : (
           <Button size="sm" variant="outline" onClick={() => setIsEditingOrg(true)}>
             <Pencil className="h-3.5 w-3.5 mr-1.5" />
@@ -177,7 +230,7 @@ export default function OrganizacaoPage() {
           </Button>
         );
       case "unidades":
-        if (!canWrite) return null;
+        if (!canWriteModule("units")) return null;
         return (
           <Button size="sm" onClick={() => setUnitDialogOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1.5" />
@@ -185,7 +238,7 @@ export default function OrganizacaoPage() {
           </Button>
         );
       case "departamentos":
-        if (!canWrite) return null;
+        if (!canWriteModule("departments")) return null;
         return (
           <Button size="sm" onClick={() => { setEditingDeptId(null); deptForm.reset({ name: "", description: "" }); setDeptDialogOpen(true); }}>
             <Plus className="h-3.5 w-3.5 mr-1.5" />
@@ -193,7 +246,7 @@ export default function OrganizacaoPage() {
           </Button>
         );
       case "cargos":
-        if (!canWrite) return null;
+        if (!canWriteModule("positions")) return null;
         return (
           <Button size="sm" onClick={() => { setEditingPosId(null); posForm.reset(emptyPosForm); setPosDialogOpen(true); }}>
             <Plus className="h-3.5 w-3.5 mr-1.5" />
@@ -242,13 +295,19 @@ export default function OrganizacaoPage() {
           );
         }
         return (
-          <Button size="sm" onClick={() => { setInviteEmail(""); setInviteError(""); setInviteDialogOpen(true); }}>
-            <Mail className="h-3.5 w-3.5 mr-1.5" />
-            Convidar Usuário
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => { setInviteForm(emptyInviteForm); setInviteError(""); setInviteDialogOpen(true); }}>
+              <Mail className="h-3.5 w-3.5 mr-1.5" />
+              Convidar Usuário
+            </Button>
+            <Button size="sm" onClick={() => { resetCreateUserDialog(); setCreateUserDialogOpen(true); }}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Criar Usuário
+            </Button>
+          </div>
         );
     }
-  }, [activeTab, isEditingOrg, selectedInviteIds, invitationsData, canWrite, isOrgAdmin]);
+  }, [activeTab, canWriteModule, deleteInviteMut.isPending, invitationsData, isEditingOrg, isOrgAdmin, queryClient, resetCreateUserDialog, revokeInviteMut.isPending, selectedInviteIds]);
   useHeaderActions(headerActions);
 
   if (!orgId) return null;
@@ -319,9 +378,15 @@ export default function OrganizacaoPage() {
     { key: "unidades", label: "Unidades", module: "units" },
     { key: "departamentos", label: "Departamentos", module: "departments" },
     { key: "cargos", label: "Cargos", module: "positions" },
-    { key: "usuarios", label: "Usuários" },
+    ...(isOrgAdmin ? [{ key: "usuarios" as const, label: "Usuários" }] : []),
   ];
   const tabs = allTabs.filter(t => !t.module || hasModuleAccess(t.module as any));
+
+  useEffect(() => {
+    if (!tabs.some((tab) => tab.key === activeTab)) {
+      setActiveTab("visao-geral");
+    }
+  }, [activeTab, tabs]);
 
   return (
     <>
@@ -461,7 +526,7 @@ export default function OrganizacaoPage() {
                       <Badge variant={unit.type === 'sede' ? 'default' : 'secondary'} className="uppercase text-[10px]">
                         {unit.type}
                       </Badge>
-                      {canWrite && (
+                      {canWriteModule("units") && (
                         <button
                           onClick={(e) => handleDeleteUnit(e, unit.id)}
                           className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
@@ -491,6 +556,7 @@ export default function OrganizacaoPage() {
           items={departments}
           isLoading={deptsLoading}
           entityName="departamento"
+          canWrite={canWriteModule("departments")}
           onEdit={(item) => { setEditingDeptId(item.id); deptForm.reset({ name: item.name, description: item.description || "" }); setDeptDialogOpen(true); }}
           onDelete={async (id) => {
             if (!confirm("Tem certeza que deseja remover?")) return;
@@ -522,7 +588,12 @@ export default function OrganizacaoPage() {
                   </tr>
                 )}
                 {positions?.map((pos) => (
-                  <tr key={pos.id} className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => { setEditingPosId(pos.id); posForm.reset({ name: pos.name, description: pos.description || "", education: pos.education || "", experience: pos.experience || "", requirements: pos.requirements || "", responsibilities: pos.responsibilities || "" }); setPosDialogOpen(true); }}>
+                  <tr key={pos.id} className={cn("transition-colors", canWriteModule("positions") ? "hover:bg-muted/50 cursor-pointer" : "")} onClick={() => {
+                    if (!canWriteModule("positions")) return;
+                    setEditingPosId(pos.id);
+                    posForm.reset({ name: pos.name, description: pos.description || "", education: pos.education || "", experience: pos.experience || "", requirements: pos.requirements || "", responsibilities: pos.responsibilities || "" });
+                    setPosDialogOpen(true);
+                  }}>
                     <td className="px-6 py-4">
                       <div className="text-[13px] font-medium text-foreground">{pos.name}</div>
                       {pos.description && <div className="text-xs text-muted-foreground mt-0.5">{pos.description}</div>}
@@ -659,6 +730,8 @@ export default function OrganizacaoPage() {
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cargo</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Módulos</th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Convidado por</th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Enviado em</th>
                       </tr>
@@ -666,7 +739,7 @@ export default function OrganizacaoPage() {
                     <tbody className="divide-y divide-border">
                       {(!invitationsData?.invitations || invitationsData.invitations.length === 0) && (
                         <tr>
-                          <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
+                          <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
                             Nenhum convite enviado.
                           </td>
                         </tr>
@@ -717,6 +790,26 @@ export default function OrganizacaoPage() {
                                 <Badge variant="outline" className="text-muted-foreground border-border">
                                   <Clock className="h-3 w-3 mr-1" />Expirado
                                 </Badge>
+                              )}
+                            </td>
+                            <td className="px-6 py-4">
+                              <Badge variant="outline" className="text-[11px]">
+                                {ROLE_LABELS[inv.role] || inv.role}
+                              </Badge>
+                            </td>
+                            <td className="px-6 py-4">
+                              {inv.role === "org_admin" ? (
+                                <span className="text-[12px] text-muted-foreground">Acesso total</span>
+                              ) : inv.modules.length === 0 ? (
+                                <span className="text-[12px] text-muted-foreground">Nenhum</span>
+                              ) : (
+                                <div className="flex flex-wrap gap-1">
+                                  {inv.modules.map((module) => (
+                                    <Badge key={module} variant="secondary" className="text-[10px]">
+                                      {MODULE_LABELS[module] || module}
+                                    </Badge>
+                                  ))}
+                                </div>
                               )}
                             </td>
                             <td className="px-6 py-4 text-[13px] text-muted-foreground">{inv.invitedByName}</td>
@@ -863,10 +956,20 @@ export default function OrganizacaoPage() {
           onSubmit={async (e) => {
             e.preventDefault();
             setInviteError("");
-            if (!inviteEmail.trim()) return;
+            if (!inviteForm.email.trim()) return;
+            if (inviteForm.role !== "org_admin" && inviteForm.modules.length === 0) {
+              setInviteError("Selecione ao menos um módulo para este convite");
+              return;
+            }
             try {
-              await createInviteMut.mutateAsync({ data: { email: inviteEmail.trim() } });
-              setInviteEmail("");
+              await createInviteMut.mutateAsync({
+                data: {
+                  email: inviteForm.email.trim(),
+                  role: inviteForm.role,
+                  modules: inviteForm.role === "org_admin" ? [] : inviteForm.modules,
+                },
+              });
+              setInviteForm(emptyInviteForm);
               setInviteDialogOpen(false);
               queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
             } catch (err: unknown) {
@@ -879,15 +982,62 @@ export default function OrganizacaoPage() {
             }
           }}
         >
-          <div>
-            <Label>Email do convidado</Label>
-            <Input
-              type="email"
-              value={inviteEmail}
-              onChange={(e) => { setInviteEmail(e.target.value); setInviteError(""); }}
-              placeholder="colaborador@empresa.com"
-              autoFocus
-            />
+          <div className="space-y-5">
+            <div>
+              <Label>Email do convidado</Label>
+              <Input
+                type="email"
+                value={inviteForm.email}
+                onChange={(e) => { setInviteForm((prev) => ({ ...prev, email: e.target.value })); setInviteError(""); }}
+                placeholder="colaborador@empresa.com"
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label>Cargo</Label>
+              <Select value={inviteForm.role} onChange={(e) => { setInviteForm((prev) => ({ ...prev, role: e.target.value as InviteFormData["role"] })); setInviteError(""); }}>
+                <option value="org_admin">Admin Organização</option>
+                <option value="operator">Operador</option>
+                <option value="analyst">Analista</option>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {inviteForm.role === "org_admin"
+                  ? "Administradores da organização recebem acesso total."
+                  : inviteForm.role === "operator"
+                    ? "Operadores podem editar os módulos atribuídos."
+                    : "Analistas possuem acesso de visualização aos módulos atribuídos."}
+              </p>
+            </div>
+            <div>
+              <Label>Módulos</Label>
+              {inviteForm.role === "org_admin" ? (
+                <div className="mt-2 rounded-lg border border-border bg-muted/20 px-3 py-3 text-[13px] text-muted-foreground">
+                  Admins da organização recebem acesso total. Nenhum módulo precisa ser selecionado.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {ALL_MODULES.map((mod) => (
+                    <label key={mod} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={inviteForm.modules.includes(mod)}
+                        onChange={() => {
+                          setInviteForm((prev) => ({
+                            ...prev,
+                            modules: prev.modules.includes(mod)
+                              ? prev.modules.filter((currentModule) => currentModule !== mod)
+                              : [...prev.modules, mod],
+                          }));
+                          setInviteError("");
+                        }}
+                        className="rounded border-border text-primary"
+                      />
+                      <span className="text-[13px]">{MODULE_LABELS[mod] || mod}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           {inviteError && (
             <p className="text-sm text-destructive mt-3">{inviteError}</p>
@@ -897,6 +1047,157 @@ export default function OrganizacaoPage() {
             <Button type="submit" size="sm" isLoading={createInviteMut.isPending}>
               <Mail className="h-4 w-4 mr-1.5" />
               Enviar Convite
+            </Button>
+          </DialogFooter>
+        </form>
+      </Dialog>
+
+      <Dialog
+        open={createUserDialogOpen}
+        onOpenChange={(open) => {
+          setCreateUserDialogOpen(open);
+          if (!open) resetCreateUserDialog();
+        }}
+        title="Criar Usuário"
+        description="Crie uma conta diretamente na organização e defina o acesso inicial."
+      >
+        <form
+          onSubmit={createUserForm.handleSubmit(async (data) => {
+            setCreateUserError("");
+
+            if (data.role !== "org_admin" && data.modules.length === 0) {
+              createUserForm.setError("modules", {
+                type: "manual",
+                message: "Selecione ao menos um módulo",
+              });
+              return;
+            }
+
+            try {
+              await createOrgUserMut.mutateAsync({
+                orgId,
+                data: {
+                  name: data.name.trim(),
+                  email: data.email.trim(),
+                  password: data.password,
+                  role: data.role,
+                  modules: data.role === "org_admin" ? [] : data.modules,
+                },
+              });
+              queryClient.invalidateQueries({ queryKey: getListOrgUsersQueryKey(orgId) });
+              setCreateUserDialogOpen(false);
+              resetCreateUserDialog();
+            } catch (err: unknown) {
+              const message =
+                typeof err === "object" && err !== null && "data" in err
+                  ? (err as { data?: { error?: string } }).data?.error
+                  : err instanceof Error ? err.message
+                  : undefined;
+              setCreateUserError(message || "Erro ao criar usuário");
+            }
+          })}
+        >
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+              <div>
+                <Label>Nome</Label>
+                <Input
+                  {...createUserForm.register("name", { required: "Nome é obrigatório" })}
+                  placeholder="Nome completo"
+                />
+                {createUserForm.formState.errors.name && (
+                  <p className="text-xs text-destructive mt-1.5">{createUserForm.formState.errors.name.message}</p>
+                )}
+              </div>
+              <div>
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  {...createUserForm.register("email", { required: "Email é obrigatório" })}
+                  placeholder="colaborador@empresa.com"
+                />
+                {createUserForm.formState.errors.email && (
+                  <p className="text-xs text-destructive mt-1.5">{createUserForm.formState.errors.email.message}</p>
+                )}
+              </div>
+              <div>
+                <Label>Senha</Label>
+                <Input
+                  type="password"
+                  {...createUserForm.register("password", {
+                    required: "Senha é obrigatória",
+                    minLength: {
+                      value: 6,
+                      message: "A senha deve ter no mínimo 6 caracteres",
+                    },
+                  })}
+                  placeholder="Mínimo de 6 caracteres"
+                />
+                {createUserForm.formState.errors.password && (
+                  <p className="text-xs text-destructive mt-1.5">{createUserForm.formState.errors.password.message}</p>
+                )}
+              </div>
+              <div>
+                <Label>Cargo</Label>
+                <Select {...createUserForm.register("role")}>
+                  <option value="org_admin">Admin Organização</option>
+                  <option value="operator">Operador</option>
+                  <option value="analyst">Analista</option>
+                </Select>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {createUserRole === "org_admin"
+                    ? "Administradores da organização recebem acesso total."
+                    : createUserRole === "operator"
+                      ? "Operadores podem editar os módulos atribuídos."
+                      : "Analistas possuem acesso de visualização aos módulos atribuídos."}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <Label>Módulos</Label>
+              {createUserRole === "org_admin" ? (
+                <div className="mt-2 rounded-lg border border-border bg-muted/20 px-3 py-3 text-[13px] text-muted-foreground">
+                  Admins da organização recebem acesso total. Nenhum módulo precisa ser selecionado.
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {ALL_MODULES.map((mod) => (
+                      <label key={mod} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={createUserModules.includes(mod)}
+                          onChange={() => {
+                            const nextModules = createUserModules.includes(mod)
+                              ? createUserModules.filter((currentModule) => currentModule !== mod)
+                              : [...createUserModules, mod];
+                            createUserForm.setValue("modules", nextModules, { shouldValidate: true });
+                            createUserForm.clearErrors("modules");
+                          }}
+                          className="rounded border-border text-primary"
+                        />
+                        <span className="text-[13px]">{MODULE_LABELS[mod] || mod}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {createUserForm.formState.errors.modules && (
+                    <p className="text-xs text-destructive mt-1.5">{createUserForm.formState.errors.modules.message as string}</p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+          {createUserError && (
+            <p className="text-sm text-destructive mt-4">{createUserError}</p>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" size="sm" onClick={() => { setCreateUserDialogOpen(false); resetCreateUserDialog(); }}>
+              Cancelar
+            </Button>
+            <Button type="submit" size="sm" isLoading={createOrgUserMut.isPending}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              Criar Usuário
             </Button>
           </DialogFooter>
         </form>
@@ -967,13 +1268,15 @@ function SimpleTable({
   items,
   isLoading,
   entityName,
+  canWrite,
   onEdit,
   onDelete,
 }: {
-  items: Array<{ id: number; name: string; description: string | null }> | undefined;
+  items: Array<{ id: number; name: string; description?: string | null }> | undefined;
   isLoading: boolean;
   entityName: string;
-  onEdit: (item: { id: number; name: string; description: string | null }) => void;
+  canWrite: boolean;
+  onEdit: (item: { id: number; name: string; description?: string | null }) => void;
   onDelete: (id: number) => void;
 }) {
   if (isLoading) {
@@ -998,7 +1301,7 @@ function SimpleTable({
             </tr>
           )}
           {items?.map((item) => (
-            <tr key={item.id} className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => onEdit(item)}>
+            <tr key={item.id} className={cn("transition-colors", canWrite ? "hover:bg-muted/50 cursor-pointer" : "")} onClick={() => canWrite && onEdit(item)}>
               <td className="px-6 py-4 text-[13px] font-medium text-foreground">{item.name}</td>
               <td className="px-6 py-4 text-[13px] text-muted-foreground">{item.description || "—"}</td>
             </tr>

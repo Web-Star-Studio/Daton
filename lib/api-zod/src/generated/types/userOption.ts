@@ -6,11 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface User {
+export interface UserOption {
   id: number;
   name: string;
   email: string;
-  organizationId: number;
-  role: string;
-  createdAt: Date;
 }

@@ -13,7 +13,7 @@ import {
   EvidenceAttachmentParams,
   DeleteEvidenceAttachmentParams,
 } from "@workspace/api-zod";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireWriteAccess } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -68,7 +68,7 @@ router.get("/organizations/:orgId/legislations/:legId/units", requireAuth, async
   })));
 });
 
-router.post("/organizations/:orgId/legislations/:legId/units", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/legislations/:legId/units", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = AssignLegislationToUnitParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -141,7 +141,7 @@ router.post("/organizations/:orgId/legislations/:legId/units", requireAuth, asyn
   });
 });
 
-router.patch("/organizations/:orgId/legislations/:legId/units/:unitId", requireAuth, async (req, res): Promise<void> => {
+router.patch("/organizations/:orgId/legislations/:legId/units/:unitId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = UpdateUnitLegislationParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -219,7 +219,7 @@ router.patch("/organizations/:orgId/legislations/:legId/units/:unitId", requireA
   });
 });
 
-router.delete("/organizations/:orgId/legislations/:legId/units/:unitId", requireAuth, async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/legislations/:legId/units/:unitId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = RemoveUnitLegislationParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -349,7 +349,7 @@ router.get("/organizations/:orgId/legislations/:legId/units/:unitId/attachments"
   })));
 });
 
-router.post("/organizations/:orgId/legislations/:legId/units/:unitId/attachments", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/legislations/:legId/units/:unitId/attachments", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = EvidenceAttachmentParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -394,7 +394,7 @@ router.post("/organizations/:orgId/legislations/:legId/units/:unitId/attachments
   });
 });
 
-router.delete("/organizations/:orgId/legislations/:legId/units/:unitId/attachments/:attachmentId", requireAuth, async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/legislations/:legId/units/:unitId/attachments/:attachmentId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteEvidenceAttachmentParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

@@ -17,6 +17,19 @@ import { requireAuth, requireModuleAccess, requireWriteAccess } from "../middlew
 
 const router: IRouter = Router();
 
+function normalizePublicationDate(value: Date | null | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime()) || date.getFullYear() < 1900 || date.getFullYear() > 2100) {
+    return undefined;
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
 function formatLeg(l: Legislation, matchedTags?: string[]) {
   return {
     id: l.id,
@@ -106,7 +119,7 @@ router.get("/organizations/:orgId/legislations", requireAuth, async (req, res): 
   }));
 });
 
-router.post("/organizations/:orgId/legislations", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/legislations", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = CreateLegislationParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -126,6 +139,7 @@ router.post("/organizations/:orgId/legislations", requireAuth, async (req, res):
 
   const insertData = {
     ...body.data,
+    publicationDate: normalizePublicationDate(body.data.publicationDate),
     organizationId: params.data.orgId,
   };
 
@@ -134,7 +148,7 @@ router.post("/organizations/:orgId/legislations", requireAuth, async (req, res):
   res.status(201).json(formatLeg(leg));
 });
 
-router.post("/organizations/:orgId/legislations/import", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/legislations/import", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = ImportLegislationsParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -175,13 +189,7 @@ router.post("/organizations/:orgId/legislations/import", requireAuth, async (req
   for (let i = 0; i < body.data.legislations.length; i++) {
     const item = body.data.legislations[i];
     try {
-      let pubDate = item.publicationDate;
-      if (pubDate) {
-        const d = new Date(pubDate);
-        if (isNaN(d.getTime()) || d.getFullYear() < 1900 || d.getFullYear() > 2100) {
-          pubDate = undefined;
-        }
-      }
+      const pubDate = normalizePublicationDate(item.publicationDate);
 
       const tipoNorma = item.tipoNorma?.trim() || null;
       const number = item.number?.trim() || null;
@@ -311,7 +319,7 @@ router.get("/organizations/:orgId/legislations/:legId", requireAuth, async (req,
   });
 });
 
-router.patch("/organizations/:orgId/legislations/:legId", requireAuth, async (req, res): Promise<void> => {
+router.patch("/organizations/:orgId/legislations/:legId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = UpdateLegislationParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -330,6 +338,15 @@ router.patch("/organizations/:orgId/legislations/:legId", requireAuth, async (re
   }
 
   const updateData = { ...body.data };
+  const { publicationDate, ...restUpdateData } = updateData;
+  const normalizedPublicationDate = normalizePublicationDate(publicationDate);
+  const normalizedUpdateData = {
+    ...restUpdateData,
+    ...(Object.prototype.hasOwnProperty.call(updateData, "publicationDate") &&
+    normalizedPublicationDate !== undefined
+      ? { publicationDate: normalizedPublicationDate }
+      : {}),
+  };
 
   if (Object.keys(updateData).length === 0) {
     const [existing] = await db.select().from(legislationsTable)
@@ -343,7 +360,7 @@ router.patch("/organizations/:orgId/legislations/:legId", requireAuth, async (re
   }
 
   const [leg] = await db.update(legislationsTable)
-    .set(updateData)
+    .set(normalizedUpdateData)
     .where(and(eq(legislationsTable.id, params.data.legId), eq(legislationsTable.organizationId, params.data.orgId)))
     .returning();
 
@@ -355,7 +372,7 @@ router.patch("/organizations/:orgId/legislations/:legId", requireAuth, async (re
   res.json(formatLeg(leg));
 });
 
-router.delete("/organizations/:orgId/legislations/:legId", requireAuth, async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/legislations/:legId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteLegislationParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

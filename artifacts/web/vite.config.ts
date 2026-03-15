@@ -19,6 +19,7 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 const basePath = process.env.BASE_PATH;
+const apiProxyTarget = process.env.API_PROXY_TARGET || "http://localhost:3001";
 
 if (!basePath) {
   throw new Error(
@@ -62,6 +63,16 @@ export default defineConfig({
     port,
     host: "0.0.0.0",
     allowedHosts: true,
+    ...(process.env.REPL_ID === undefined
+      ? {
+          proxy: {
+            "/api": {
+              target: apiProxyTarget,
+              changeOrigin: true,
+            },
+          },
+        }
+      : {}),
     fs: {
       strict: true,
       deny: ["**/.*"],

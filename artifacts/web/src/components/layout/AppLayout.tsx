@@ -16,12 +16,12 @@ import { cn } from "@/lib/utils";
 import datonLogo from "@assets/daton-logo-header-DC_evyPp_1773347395767.png";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
-import { useListNotifications } from "@workspace/api-client-react";
+import { getListNotificationsQueryKey, useListNotifications } from "@workspace/api-client-react";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, organization } = useAuth();
   const { hasModuleAccess } = usePermissions();
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isChatOpen, setChatOpen] = useState(false);
   const [isNotificationsOpen, setNotificationsOpen] = useState(false);
@@ -31,8 +31,28 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const popoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { headerActions, pageTitle } = useLayoutState();
   const orgId = organization?.id;
-  const { data: notifData } = useListNotifications(orgId!, { query: { enabled: !!orgId, refetchInterval: 30000 } });
+  const { data: notifData } = useListNotifications(orgId!, {
+    query: {
+      queryKey: getListNotificationsQueryKey(orgId!),
+      enabled: !!orgId,
+      refetchInterval: 30000,
+    },
+  });
   const unreadNotifCount = notifData?.unreadCount ?? 0;
+
+  useEffect(() => {
+    const moduleByPath: Array<{ prefix: string; module: "documents" | "legislations" | "employees" | "units" | "departments" | "positions" }> = [
+      { prefix: "/app/qualidade/documentacao", module: "documents" },
+      { prefix: "/app/qualidade/legislacoes", module: "legislations" },
+      { prefix: "/app/qualidade/colaboradores", module: "employees" },
+      { prefix: "/app/organizacao/unidades", module: "units" },
+    ];
+
+    const deniedRoute = moduleByPath.find((entry) => location.startsWith(entry.prefix) && !hasModuleAccess(entry.module));
+    if (deniedRoute) {
+      navigate("/app");
+    }
+  }, [hasModuleAccess, location, navigate]);
 
   const isActive = (path: string) => location.startsWith(path);
 

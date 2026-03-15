@@ -183,7 +183,7 @@ router.get("/organizations/:orgId/employees", requireAuth, async (req, res): Pro
   });
 });
 
-router.post("/organizations/:orgId/employees", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/employees", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = CreateEmployeeParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -265,7 +265,7 @@ router.get("/organizations/:orgId/employees/:empId", requireAuth, async (req, re
   });
 });
 
-router.patch("/organizations/:orgId/employees/:empId", requireAuth, async (req, res): Promise<void> => {
+router.patch("/organizations/:orgId/employees/:empId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = UpdateEmployeeParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -288,7 +288,7 @@ router.patch("/organizations/:orgId/employees/:empId", requireAuth, async (req, 
   res.json(formatEmployee(emp));
 });
 
-router.delete("/organizations/:orgId/employees/:empId", requireAuth, async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/employees/:empId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteEmployeeParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -314,7 +314,7 @@ router.get("/organizations/:orgId/employees/:empId/competencies", requireAuth, a
   res.json(rows);
 });
 
-router.post("/organizations/:orgId/employees/:empId/competencies", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/employees/:empId/competencies", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = CreateCompetencyParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -333,7 +333,7 @@ router.post("/organizations/:orgId/employees/:empId/competencies", requireAuth, 
   res.status(201).json(comp);
 });
 
-router.patch("/organizations/:orgId/employees/:empId/competencies/:compId", requireAuth, async (req, res): Promise<void> => {
+router.patch("/organizations/:orgId/employees/:empId/competencies/:compId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = UpdateCompetencyParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -351,7 +351,7 @@ router.patch("/organizations/:orgId/employees/:empId/competencies/:compId", requ
   res.json(comp);
 });
 
-router.delete("/organizations/:orgId/employees/:empId/competencies/:compId", requireAuth, async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/employees/:empId/competencies/:compId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteCompetencyParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -382,7 +382,7 @@ router.get("/organizations/:orgId/employees/:empId/trainings", requireAuth, asyn
   })));
 });
 
-router.post("/organizations/:orgId/employees/:empId/trainings", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/employees/:empId/trainings", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = CreateTrainingParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -401,7 +401,7 @@ router.post("/organizations/:orgId/employees/:empId/trainings", requireAuth, asy
   res.status(201).json(training);
 });
 
-router.patch("/organizations/:orgId/employees/:empId/trainings/:trainId", requireAuth, async (req, res): Promise<void> => {
+router.patch("/organizations/:orgId/employees/:empId/trainings/:trainId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = UpdateTrainingParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -419,7 +419,7 @@ router.patch("/organizations/:orgId/employees/:empId/trainings/:trainId", requir
   res.json(training);
 });
 
-router.delete("/organizations/:orgId/employees/:empId/trainings/:trainId", requireAuth, async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/employees/:empId/trainings/:trainId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteTrainingParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -445,7 +445,7 @@ router.get("/organizations/:orgId/employees/:empId/awareness", requireAuth, asyn
   res.json(rows);
 });
 
-router.post("/organizations/:orgId/employees/:empId/awareness", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/employees/:empId/awareness", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = CreateAwarenessParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -464,7 +464,7 @@ router.post("/organizations/:orgId/employees/:empId/awareness", requireAuth, asy
   res.status(201).json(record);
 });
 
-router.patch("/organizations/:orgId/employees/:empId/awareness/:awaId", requireAuth, async (req, res): Promise<void> => {
+router.patch("/organizations/:orgId/employees/:empId/awareness/:awaId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = UpdateAwarenessParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -482,7 +482,7 @@ router.patch("/organizations/:orgId/employees/:empId/awareness/:awaId", requireA
   res.json(record);
 });
 
-router.delete("/organizations/:orgId/employees/:empId/awareness/:awaId", requireAuth, async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/employees/:empId/awareness/:awaId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteAwarenessParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -496,7 +496,7 @@ router.delete("/organizations/:orgId/employees/:empId/awareness/:awaId", require
   res.sendStatus(204);
 });
 
-router.post("/organizations/:orgId/employees/:empId/units", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/employees/:empId/units", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = LinkEmployeeUnitParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -517,7 +517,7 @@ router.post("/organizations/:orgId/employees/:empId/units", requireAuth, async (
   res.status(201).json(link);
 });
 
-router.delete("/organizations/:orgId/employees/:empId/units/:unitId", requireAuth, async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/employees/:empId/units/:unitId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = UnlinkEmployeeUnitParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }

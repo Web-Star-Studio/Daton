@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useRoute, Link } from "wouter";
 import { usePageTitle } from "@/contexts/LayoutContext";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import {
   useGetEmployee,
   useUpdateEmployee,
@@ -20,8 +20,14 @@ import {
   useUnlinkEmployeeUnit,
   getGetEmployeeQueryKey,
   getListEmployeesQueryKey,
+  CreateCompetencyBodyType as CreateCompetencyBodyTypeValues,
+  CreateTrainingBodyStatus as CreateTrainingBodyStatusValues,
 } from "@workspace/api-client-react";
 import type {
+  CreateCompetencyBodyType,
+  UpdateCompetencyBodyType,
+  CreateTrainingBodyStatus,
+  UpdateTrainingBodyStatus,
   EmployeeCompetency,
   EmployeeTraining,
   EmployeeAwareness,
@@ -86,6 +92,7 @@ function InlineField({
   fieldKey,
   type = "text",
   options,
+  editable = true,
   onSave,
 }: {
   label: string;
@@ -93,6 +100,7 @@ function InlineField({
   fieldKey: string;
   type?: "text" | "date" | "select" | "textarea";
   options?: { value: string; label: string }[];
+  editable?: boolean;
   onSave: (key: string, val: string | number | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -154,8 +162,9 @@ function InlineField({
         </div>
       ) : (
         <div
-          className="flex items-center gap-1 mt-1 cursor-pointer group/field"
+          className={cn("flex items-center gap-1 mt-1 group/field", editable ? "cursor-pointer" : "")}
           onClick={() => {
+            if (!editable) return;
             setDraft(String(value ?? ""));
             setEditing(true);
           }}
@@ -165,7 +174,7 @@ function InlineField({
               ? options.find((o) => o.value === String(value))?.label || String(value ?? "—")
               : value || "—"}
           </span>
-          <Pencil className="h-3 w-3 text-muted-foreground/0 group-hover/field:text-muted-foreground/50 transition-colors" />
+          {editable && <Pencil className="h-3 w-3 text-muted-foreground/0 group-hover/field:text-muted-foreground/50 transition-colors" />}
         </div>
       )}
     </div>
@@ -193,11 +202,13 @@ function LinkedUnitsSection({
   allUnits,
   orgId,
   empId,
+  editable = true,
 }: {
   linkedUnits: LinkedUnit[];
   allUnits: { id: number; name: string }[];
   orgId: number;
   empId: number;
+  editable?: boolean;
 }) {
   const queryClient = useQueryClient();
   const linkMutation = useLinkEmployeeUnit();
@@ -211,7 +222,7 @@ function LinkedUnitsSection({
 
   const handleLink = async () => {
     if (!selectedUnit) return;
-    await linkMutation.mutateAsync({ orgId, empId, unitId: Number(selectedUnit) });
+    await linkMutation.mutateAsync({ orgId, empId, data: { unitId: Number(selectedUnit) } });
     invalidate();
     setSelectedUnit("");
     setShowAdd(false);
@@ -226,7 +237,7 @@ function LinkedUnitsSection({
     <div className="py-2.5 border-b border-border/40">
       <div className="flex items-center justify-between mb-1">
         <p className="text-xs font-semibold text-muted-foreground">Unidades</p>
-        {availableUnits.length > 0 && (
+        {editable && availableUnits.length > 0 && (
           <button onClick={() => setShowAdd(!showAdd)} className="text-[11px] text-primary hover:underline cursor-pointer">
             + Vincular
           </button>
@@ -239,13 +250,13 @@ function LinkedUnitsSection({
         {linkedUnits.map((u) => (
           <span key={u.id} className="inline-flex items-center gap-1 text-[12px] px-2 py-0.5 rounded-full bg-secondary text-foreground border border-border/60">
             {u.name}
-            <button onClick={() => handleUnlink(u.id)} className="text-muted-foreground/40 hover:text-red-500 cursor-pointer">
+            {editable && <button onClick={() => handleUnlink(u.id)} className="text-muted-foreground/40 hover:text-red-500 cursor-pointer">
               <X className="h-3 w-3" />
-            </button>
+            </button>}
           </span>
         ))}
       </div>
-      {showAdd && (
+      {editable && showAdd && (
         <div className="flex items-center gap-2 mt-2">
           <select
             value={selectedUnit}
@@ -266,7 +277,14 @@ function LinkedUnitsSection({
   );
 }
 
-type CompetencyForm = { name: string; description: string; type: string; requiredLevel: number; acquiredLevel: number; evidence: string };
+type CompetencyForm = {
+  name: string;
+  description: string;
+  type: CreateCompetencyBodyType;
+  requiredLevel: number;
+  acquiredLevel: number;
+  evidence: string;
+};
 
 function CompetencyFormFields({ form, setForm }: { form: CompetencyForm; setForm: (f: CompetencyForm) => void }) {
   return (
@@ -282,10 +300,10 @@ function CompetencyFormFields({ form, setForm }: { form: CompetencyForm; setForm
       <div className="grid grid-cols-3 gap-3">
         <div>
           <Label className="text-xs font-semibold text-muted-foreground">Tipo</Label>
-          <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-            <option value="formacao">Formação</option>
-            <option value="experiencia">Experiência</option>
-            <option value="habilidade">Habilidade</option>
+          <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as CreateCompetencyBodyType })} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <option value={CreateCompetencyBodyTypeValues.formacao}>Formação</option>
+            <option value={CreateCompetencyBodyTypeValues.experiencia}>Experiência</option>
+            <option value={CreateCompetencyBodyTypeValues.habilidade}>Habilidade</option>
           </select>
         </div>
         <div>
@@ -309,10 +327,12 @@ function CompetenciasTab({
   competencies,
   orgId,
   empId,
+  editable = true,
 }: {
   competencies: EmployeeCompetency[];
   orgId: number;
   empId: number;
+  editable?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [isCreateOpen, setCreateOpen] = useState(false);
@@ -352,7 +372,7 @@ function CompetenciasTab({
       data: {
         name: form.name,
         description: form.description || undefined,
-        type: form.type,
+        type: form.type as UpdateCompetencyBodyType,
         requiredLevel: form.requiredLevel,
         acquiredLevel: form.acquiredLevel,
         evidence: form.evidence || undefined,
@@ -374,10 +394,10 @@ function CompetenciasTab({
         <p className="text-xs text-muted-foreground">
           Competências necessárias e adquiridas conforme ISO 9001:2015 §7.2
         </p>
-        <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
+        {editable && <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
           <Plus className="h-3.5 w-3.5 mr-1.5" />
           Competência
-        </Button>
+        </Button>}
       </div>
 
       {competencies.length === 0 ? (
@@ -390,7 +410,7 @@ function CompetenciasTab({
           {competencies.map((comp) => (
             <div key={comp.id} className="bg-white border border-border/60 rounded-xl px-4 py-3">
               <div className="flex items-start justify-between">
-                <div className="flex-1 cursor-pointer" onClick={() => openEdit(comp)}>
+                <div className={cn("flex-1", editable ? "cursor-pointer" : "")} onClick={() => editable && openEdit(comp)}>
                   <div className="flex items-center gap-2">
                     <p className="text-[13px] font-medium text-foreground">{comp.name}</p>
                     <span className="text-[11px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
@@ -425,21 +445,21 @@ function CompetenciasTab({
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-1">
+                {editable && <div className="flex items-center gap-1">
                   <button onClick={(e) => { e.stopPropagation(); openEdit(comp); }} className="p-1.5 text-muted-foreground/40 hover:text-primary transition-colors cursor-pointer">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button onClick={(e) => { e.stopPropagation(); handleDelete(comp.id); }} className="p-1.5 text-muted-foreground/40 hover:text-red-500 transition-colors cursor-pointer">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
-                </div>
+                </div>}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <Dialog open={isCreateOpen} onOpenChange={setCreateOpen} title="Nova Competência">
+      <Dialog open={editable && isCreateOpen} onOpenChange={setCreateOpen} title="Nova Competência">
         <CompetencyFormFields form={form} setForm={setForm} />
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
@@ -449,7 +469,7 @@ function CompetenciasTab({
         </DialogFooter>
       </Dialog>
 
-      <Dialog open={!!editingComp} onOpenChange={(open) => { if (!open) { setEditingComp(null); setForm(emptyForm); } }} title="Editar Competência">
+      <Dialog open={editable && !!editingComp} onOpenChange={(open) => { if (!open) { setEditingComp(null); setForm(emptyForm); } }} title="Editar Competência">
         <CompetencyFormFields form={form} setForm={setForm} />
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => { setEditingComp(null); setForm(emptyForm); }}>Cancelar</Button>
@@ -462,7 +482,15 @@ function CompetenciasTab({
   );
 }
 
-type TrainingForm = { title: string; description: string; institution: string; workloadHours: number; completionDate: string; expirationDate: string; status: string };
+type TrainingForm = {
+  title: string;
+  description: string;
+  institution: string;
+  workloadHours: number;
+  completionDate: string;
+  expirationDate: string;
+  status: CreateTrainingBodyStatus;
+};
 type AwarenessForm = { topic: string; description: string; date: string; verificationMethod: string; result: string };
 
 function TrainingFormFields({ form, setForm }: { form: TrainingForm; setForm: (f: TrainingForm) => void }) {
@@ -489,10 +517,10 @@ function TrainingFormFields({ form, setForm }: { form: TrainingForm; setForm: (f
       <div className="grid grid-cols-3 gap-3">
         <div>
           <Label className="text-xs font-semibold text-muted-foreground">Status</Label>
-          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-            <option value="pendente">Pendente</option>
-            <option value="concluido">Concluído</option>
-            <option value="vencido">Vencido</option>
+          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as CreateTrainingBodyStatus })} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <option value={CreateTrainingBodyStatusValues.pendente}>Pendente</option>
+            <option value={CreateTrainingBodyStatusValues.concluido}>Concluído</option>
+            <option value={CreateTrainingBodyStatusValues.vencido}>Vencido</option>
           </select>
         </div>
         <div>
@@ -512,10 +540,12 @@ function TreinamentosTab({
   trainings,
   orgId,
   empId,
+  editable = true,
 }: {
   trainings: EmployeeTraining[];
   orgId: number;
   empId: number;
+  editable?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [isCreateOpen, setCreateOpen] = useState(false);
@@ -524,7 +554,15 @@ function TreinamentosTab({
   const deleteMutation = useDeleteTraining();
   const updateMutation = useUpdateTraining();
 
-  const emptyForm = { title: "", description: "", institution: "", workloadHours: 0, completionDate: "", expirationDate: "", status: "pendente" };
+  const emptyForm: TrainingForm = {
+    title: "",
+    description: "",
+    institution: "",
+    workloadHours: 0,
+    completionDate: "",
+    expirationDate: "",
+    status: CreateTrainingBodyStatusValues.pendente,
+  };
   const [form, setForm] = useState(emptyForm);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId, empId) });
@@ -571,7 +609,7 @@ function TreinamentosTab({
         workloadHours: form.workloadHours || undefined,
         completionDate: form.completionDate || undefined,
         expirationDate: form.expirationDate || undefined,
-        status: form.status,
+        status: form.status as UpdateTrainingBodyStatus,
       },
     });
     invalidate();
@@ -590,10 +628,10 @@ function TreinamentosTab({
         <p className="text-xs text-muted-foreground">
           Registro de treinamentos conforme ISO 9001:2015 §7.2
         </p>
-        <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
+        {editable && <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
           <Plus className="h-3.5 w-3.5 mr-1.5" />
           Treinamento
-        </Button>
+        </Button>}
       </div>
 
       {trainings.length === 0 ? (
@@ -606,7 +644,7 @@ function TreinamentosTab({
           {trainings.map((t) => (
             <div key={t.id} className="bg-white border border-border/60 rounded-xl px-4 py-3">
               <div className="flex items-start justify-between">
-                <div className="flex-1 cursor-pointer" onClick={() => openEdit(t)}>
+                <div className={cn("flex-1", editable ? "cursor-pointer" : "")} onClick={() => editable && openEdit(t)}>
                   <div className="flex items-center gap-2">
                     <p className="text-[13px] font-medium text-foreground">{t.title}</p>
                     <span className={cn("text-[11px] px-1.5 py-0.5 rounded-full border font-medium", TRAINING_STATUS_COLORS[t.status] || "bg-gray-50 text-gray-500 border-gray-200")}>
@@ -621,21 +659,21 @@ function TreinamentosTab({
                     {t.expirationDate && <span>Validade: {t.expirationDate}</span>}
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                {editable && <div className="flex items-center gap-1">
                   <button onClick={() => openEdit(t)} className="p-1.5 text-muted-foreground/40 hover:text-primary transition-colors cursor-pointer">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button onClick={() => handleDelete(t.id)} className="p-1.5 text-muted-foreground/40 hover:text-red-500 transition-colors cursor-pointer">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
-                </div>
+                </div>}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <Dialog open={isCreateOpen} onOpenChange={setCreateOpen} title="Novo Treinamento">
+      <Dialog open={editable && isCreateOpen} onOpenChange={setCreateOpen} title="Novo Treinamento">
         <TrainingFormFields form={form} setForm={setForm} />
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
@@ -645,7 +683,7 @@ function TreinamentosTab({
         </DialogFooter>
       </Dialog>
 
-      <Dialog open={!!editingTraining} onOpenChange={(open) => { if (!open) { setEditingTraining(null); setForm(emptyForm); } }} title="Editar Treinamento">
+      <Dialog open={editable && !!editingTraining} onOpenChange={(open) => { if (!open) { setEditingTraining(null); setForm(emptyForm); } }} title="Editar Treinamento">
         <TrainingFormFields form={form} setForm={setForm} />
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => { setEditingTraining(null); setForm(emptyForm); }}>Cancelar</Button>
@@ -691,10 +729,12 @@ function ConscientizacaoTab({
   awareness,
   orgId,
   empId,
+  editable = true,
 }: {
   awareness: EmployeeAwareness[];
   orgId: number;
   empId: number;
+  editable?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [isCreateOpen, setCreateOpen] = useState(false);
@@ -756,10 +796,10 @@ function ConscientizacaoTab({
         <p className="text-xs text-muted-foreground">
           Registros de conscientização conforme ISO 9001:2015 §7.3
         </p>
-        <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
+        {editable && <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
           <Plus className="h-3.5 w-3.5 mr-1.5" />
           Registro
-        </Button>
+        </Button>}
       </div>
 
       {awareness.length === 0 ? (
@@ -772,7 +812,7 @@ function ConscientizacaoTab({
           {awareness.map((a) => (
             <div key={a.id} className="bg-white border border-border/60 rounded-xl px-4 py-3">
               <div className="flex items-start justify-between">
-                <div className="flex-1 cursor-pointer" onClick={() => openEdit(a)}>
+                <div className={cn("flex-1", editable ? "cursor-pointer" : "")} onClick={() => editable && openEdit(a)}>
                   <p className="text-[13px] font-medium text-foreground">{a.topic}</p>
                   {a.description && <p className="text-xs text-muted-foreground mt-1">{a.description}</p>}
                   <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
@@ -781,21 +821,21 @@ function ConscientizacaoTab({
                     {a.result && <span>Resultado: {a.result}</span>}
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                {editable && <div className="flex items-center gap-1">
                   <button onClick={() => openEdit(a)} className="p-1.5 text-muted-foreground/40 hover:text-primary transition-colors cursor-pointer">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button onClick={() => handleDelete(a.id)} className="p-1.5 text-muted-foreground/40 hover:text-red-500 transition-colors cursor-pointer">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
-                </div>
+                </div>}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <Dialog open={isCreateOpen} onOpenChange={setCreateOpen} title="Novo Registro de Conscientização">
+      <Dialog open={editable && isCreateOpen} onOpenChange={setCreateOpen} title="Novo Registro de Conscientização">
         <AwarenessFormFields form={form} setForm={setForm} />
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
@@ -805,7 +845,7 @@ function ConscientizacaoTab({
         </DialogFooter>
       </Dialog>
 
-      <Dialog open={!!editingAwareness} onOpenChange={(open) => { if (!open) { setEditingAwareness(null); setForm(emptyForm); } }} title="Editar Registro de Conscientização">
+      <Dialog open={editable && !!editingAwareness} onOpenChange={(open) => { if (!open) { setEditingAwareness(null); setForm(emptyForm); } }} title="Editar Registro de Conscientização">
         <AwarenessFormFields form={form} setForm={setForm} />
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => { setEditingAwareness(null); setForm(emptyForm); }}>Cancelar</Button>
@@ -820,7 +860,9 @@ function ConscientizacaoTab({
 
 export default function ColaboradorDetailPage() {
   const { user } = useAuth();
+  const { canWriteModule } = usePermissions();
   const orgId = user?.organizationId;
+  const canWriteEmployees = canWriteModule("employees");
   const [, params] = useRoute("/app/qualidade/colaboradores/:id");
   const empId = Number(params?.id);
   const [, navigate] = useLocation();
@@ -899,10 +941,10 @@ export default function ColaboradorDetailPage() {
               </p>
             </div>
           </div>
-          <Button variant="outline" size="sm" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={handleArchive}>
+          {canWriteEmployees && <Button variant="outline" size="sm" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={handleArchive}>
             <Archive className="h-3.5 w-3.5 mr-1.5" />
             Arquivar
-          </Button>
+          </Button>}
         </div>
 
         <div className="mb-1">
@@ -936,22 +978,23 @@ export default function ColaboradorDetailPage() {
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                 Informações Pessoais
               </h3>
-              <InlineField label="Nome" value={employee.name} fieldKey="name" onSave={handleFieldSave} />
-              <InlineField label="CPF" value={employee.cpf} fieldKey="cpf" onSave={handleFieldSave} />
-              <InlineField label="E-mail" value={employee.email} fieldKey="email" onSave={handleFieldSave} />
-              <InlineField label="Telefone" value={employee.phone} fieldKey="phone" onSave={handleFieldSave} />
+              <InlineField label="Nome" value={employee.name} fieldKey="name" editable={canWriteEmployees} onSave={handleFieldSave} />
+              <InlineField label="CPF" value={employee.cpf} fieldKey="cpf" editable={canWriteEmployees} onSave={handleFieldSave} />
+              <InlineField label="E-mail" value={employee.email} fieldKey="email" editable={canWriteEmployees} onSave={handleFieldSave} />
+              <InlineField label="Telefone" value={employee.phone} fieldKey="phone" editable={canWriteEmployees} onSave={handleFieldSave} />
             </div>
             <div className="bg-white border border-border/60 rounded-xl p-5">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                 Informações Profissionais
               </h3>
-              <InlineField label="Cargo" value={employee.position} fieldKey="position" onSave={handleFieldSave} />
-              <InlineField label="Departamento" value={employee.department} fieldKey="department" onSave={handleFieldSave} />
+              <InlineField label="Cargo" value={employee.position} fieldKey="position" editable={canWriteEmployees} onSave={handleFieldSave} />
+              <InlineField label="Departamento" value={employee.department} fieldKey="department" editable={canWriteEmployees} onSave={handleFieldSave} />
               <LinkedUnitsSection
                 linkedUnits={employee.units || []}
                 allUnits={units}
                 orgId={orgId}
                 empId={empId}
+                editable={canWriteEmployees}
               />
               <InlineField
                 label="Tipo de Contrato"
@@ -964,6 +1007,7 @@ export default function ColaboradorDetailPage() {
                   { value: "intern", label: "Estagiário" },
                   { value: "temporary", label: "Temporário" },
                 ]}
+                editable={canWriteEmployees}
                 onSave={handleFieldSave}
               />
               <InlineField
@@ -976,24 +1020,25 @@ export default function ColaboradorDetailPage() {
                   { value: "inactive", label: "Inativo" },
                   { value: "on_leave", label: "Afastado" },
                 ]}
+                editable={canWriteEmployees}
                 onSave={handleFieldSave}
               />
-              <InlineField label="Data de Admissão" value={employee.admissionDate} fieldKey="admissionDate" type="date" onSave={handleFieldSave} />
-              <InlineField label="Data de Desligamento" value={employee.terminationDate} fieldKey="terminationDate" type="date" onSave={handleFieldSave} />
+              <InlineField label="Data de Admissão" value={employee.admissionDate} fieldKey="admissionDate" type="date" editable={canWriteEmployees} onSave={handleFieldSave} />
+              <InlineField label="Data de Desligamento" value={employee.terminationDate} fieldKey="terminationDate" type="date" editable={canWriteEmployees} onSave={handleFieldSave} />
             </div>
           </div>
         )}
 
         {activeTab === "competencias" && (
-          <CompetenciasTab competencies={employee.competencies || []} orgId={orgId} empId={empId} />
+          <CompetenciasTab competencies={employee.competencies || []} orgId={orgId} empId={empId} editable={canWriteEmployees} />
         )}
 
         {activeTab === "treinamentos" && (
-          <TreinamentosTab trainings={employee.trainings || []} orgId={orgId} empId={empId} />
+          <TreinamentosTab trainings={employee.trainings || []} orgId={orgId} empId={empId} editable={canWriteEmployees} />
         )}
 
         {activeTab === "conscientizacao" && (
-          <ConscientizacaoTab awareness={employee.awareness || []} orgId={orgId} empId={empId} />
+          <ConscientizacaoTab awareness={employee.awareness || []} orgId={orgId} empId={empId} editable={canWriteEmployees} />
         )}
       </div>
     </>

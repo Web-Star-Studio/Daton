@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRoute, Link } from "wouter";
 import { useHeaderActions, usePageTitle } from "@/contexts/LayoutContext";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { 
   useGetLegislation, 
   useUpdateLegislation,
@@ -48,11 +48,12 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function InlineField({ label, value, fieldKey, type = "text", onSave }: {
+function InlineField({ label, value, fieldKey, type = "text", editable = true, onSave }: {
   label: string;
   value: string | number | null | undefined;
   fieldKey: string;
   type?: "text" | "date" | "number" | "textarea";
+  editable?: boolean;
   onSave: (key: string, val: string | number | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -86,18 +87,19 @@ function InlineField({ label, value, fieldKey, type = "text", onSave }: {
           <Button variant="ghost" size="sm" onClick={cancel} className="shrink-0 h-8 w-8 p-0"><X className="w-4 h-4 text-muted-foreground" /></Button>
         </div>
       ) : (
-        <div className="flex items-center gap-1 cursor-pointer" onClick={() => setEditing(true)}>
+        <div className={cn("flex items-center gap-1", editable ? "cursor-pointer" : "")} onClick={() => editable && setEditing(true)}>
           <p className="text-[13px] font-medium text-foreground min-h-[20px]">{value != null && value !== "" ? String(value) : "—"}</p>
-          <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          {editable && <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />}
         </div>
       )}
     </div>
   );
 }
 
-function TagEditor({ tags, vocabulary, onSave }: {
+function TagEditor({ tags, vocabulary, editable = true, onSave }: {
   tags: string[];
   vocabulary: string[];
+  editable?: boolean;
   onSave: (tags: string[]) => void;
 }) {
   const [inputVal, setInputVal] = useState("");
@@ -139,13 +141,15 @@ function TagEditor({ tags, vocabulary, onSave }: {
         {tags.map(tag => (
           <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#007AFF]/10 text-[#007AFF]">
             {tag}
-            <button type="button" onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors cursor-pointer">
-              <X className="w-3 h-3" />
-            </button>
+            {editable && (
+              <button type="button" onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors cursor-pointer">
+                <X className="w-3 h-3" />
+              </button>
+            )}
           </span>
         ))}
       </div>
-      <div className="relative">
+      {editable && <div className="relative">
         <Input
           ref={inputRef}
           value={inputVal}
@@ -178,7 +182,7 @@ function TagEditor({ tags, vocabulary, onSave }: {
             ))}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -190,7 +194,9 @@ export default function LegislationDetailPage() {
   const legId = parseInt(params?.id || "0");
   
   const { organization } = useAuth();
+  const { canWriteModule } = usePermissions();
   const orgId = organization?.id;
+  const canWriteLegislations = canWriteModule("legislations");
   const queryClient = useQueryClient();
 
   const { data: leg, isLoading } = useGetLegislation(orgId!, legId, { query: { queryKey: getGetLegislationQueryKey(orgId!, legId), enabled: !!orgId && !!legId } });
@@ -370,11 +376,11 @@ export default function LegislationDetailPage() {
             <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
           </Button>
         </Link>
-        <Button variant="secondary" size="sm" onClick={onAutoTag} disabled={isAutoTagging}>
+        {canWriteLegislations && <Button variant="secondary" size="sm" onClick={onAutoTag} disabled={isAutoTagging}>
           {isAutoTagging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
           {isAutoTagging ? "Classificando..." : "Auto-classificar tags"}
-        </Button>
-        {activeTab === "unidades" && (
+        </Button>}
+        {canWriteLegislations && activeTab === "unidades" && (
           <Button variant="secondary" size="sm" onClick={() => setIsAssignOpen(true)}>
             <Link2 className="w-4 h-4 mr-2" />
             Vincular Unidade
@@ -425,18 +431,18 @@ export default function LegislationDetailPage() {
       {activeTab === "geral" && (
         <div className="bg-card border border-border p-8 rounded-3xl shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
-            <InlineField label="Tipo de Norma" value={leg.tipoNorma} fieldKey="tipoNorma" onSave={onFieldSave} />
-            <InlineField label="Número" value={leg.number} fieldKey="number" onSave={onFieldSave} />
-            <InlineField label="Órgão Emissor" value={leg.emissor} fieldKey="emissor" onSave={onFieldSave} />
-            <InlineField label="Data de Publicação" value={leg.publicationDate ? leg.publicationDate.split("T")[0] : null} fieldKey="publicationDate" type="date" onSave={onFieldSave} />
-            <InlineField label="Esfera / Nível" value={leg.level} fieldKey="level" onSave={onFieldSave} />
-            <InlineField label="UF" value={leg.uf} fieldKey="uf" onSave={onFieldSave} />
-            <InlineField label="Município" value={leg.municipality} fieldKey="municipality" onSave={onFieldSave} />
-            <InlineField label="Macrotema" value={leg.macrotema} fieldKey="macrotema" onSave={onFieldSave} />
-            <InlineField label="Subtema" value={leg.subtema} fieldKey="subtema" onSave={onFieldSave} />
-            <InlineField label="Aplicabilidade" value={leg.applicability} fieldKey="applicability" onSave={onFieldSave} />
-            <InlineField label="Frequência de Revisão (dias)" value={leg.reviewFrequencyDays} fieldKey="reviewFrequencyDays" type="number" onSave={onFieldSave} />
-            <InlineField label="Artigos Aplicáveis" value={leg.applicableArticles} fieldKey="applicableArticles" onSave={onFieldSave} />
+            <InlineField label="Tipo de Norma" value={leg.tipoNorma} fieldKey="tipoNorma" editable={canWriteLegislations} onSave={onFieldSave} />
+            <InlineField label="Número" value={leg.number} fieldKey="number" editable={canWriteLegislations} onSave={onFieldSave} />
+            <InlineField label="Órgão Emissor" value={leg.emissor} fieldKey="emissor" editable={canWriteLegislations} onSave={onFieldSave} />
+            <InlineField label="Data de Publicação" value={leg.publicationDate ? leg.publicationDate.split("T")[0] : null} fieldKey="publicationDate" type="date" editable={canWriteLegislations} onSave={onFieldSave} />
+            <InlineField label="Esfera / Nível" value={leg.level} fieldKey="level" editable={canWriteLegislations} onSave={onFieldSave} />
+            <InlineField label="UF" value={leg.uf} fieldKey="uf" editable={canWriteLegislations} onSave={onFieldSave} />
+            <InlineField label="Município" value={leg.municipality} fieldKey="municipality" editable={canWriteLegislations} onSave={onFieldSave} />
+            <InlineField label="Macrotema" value={leg.macrotema} fieldKey="macrotema" editable={canWriteLegislations} onSave={onFieldSave} />
+            <InlineField label="Subtema" value={leg.subtema} fieldKey="subtema" editable={canWriteLegislations} onSave={onFieldSave} />
+            <InlineField label="Aplicabilidade" value={leg.applicability} fieldKey="applicability" editable={canWriteLegislations} onSave={onFieldSave} />
+            <InlineField label="Frequência de Revisão (dias)" value={leg.reviewFrequencyDays} fieldKey="reviewFrequencyDays" type="number" editable={canWriteLegislations} onSave={onFieldSave} />
+            <InlineField label="Artigos Aplicáveis" value={leg.applicableArticles} fieldKey="applicableArticles" editable={canWriteLegislations} onSave={onFieldSave} />
             <div>
               <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Fonte</p>
               {leg.sourceUrl ? (
@@ -455,16 +461,16 @@ export default function LegislationDetailPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs text-muted-foreground uppercase font-semibold">Tags de Compliance</p>
-                <Button variant="ghost" size="sm" onClick={onAutoTag} disabled={isAutoTagging} className="h-7 text-xs">
+                {canWriteLegislations && <Button variant="ghost" size="sm" onClick={onAutoTag} disabled={isAutoTagging} className="h-7 text-xs">
                   {isAutoTagging ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
                   {isAutoTagging ? "Classificando..." : "Reclassificar"}
-                </Button>
+                </Button>}
               </div>
-              <TagEditor tags={leg.tags ?? []} vocabulary={tagVocabulary ?? []} onSave={onTagsSave} />
+              <TagEditor tags={leg.tags ?? []} vocabulary={tagVocabulary ?? []} editable={canWriteLegislations} onSave={onTagsSave} />
             </div>
-            <InlineField label="Descrição / Ementa" value={leg.description} fieldKey="description" type="textarea" onSave={onFieldSave} />
-            <InlineField label="Observações (como é atendido)" value={leg.observations} fieldKey="observations" type="textarea" onSave={onFieldSave} />
-            <InlineField label="Observações Gerais" value={leg.generalObservations} fieldKey="generalObservations" type="textarea" onSave={onFieldSave} />
+            <InlineField label="Descrição / Ementa" value={leg.description} fieldKey="description" type="textarea" editable={canWriteLegislations} onSave={onFieldSave} />
+            <InlineField label="Observações (como é atendido)" value={leg.observations} fieldKey="observations" type="textarea" editable={canWriteLegislations} onSave={onFieldSave} />
+            <InlineField label="Observações Gerais" value={leg.generalObservations} fieldKey="generalObservations" type="textarea" editable={canWriteLegislations} onSave={onFieldSave} />
           </div>
         </div>
       )}
@@ -476,9 +482,9 @@ export default function LegislationDetailPage() {
               <div className="bg-card border border-dashed border-border rounded-2xl p-8 text-center">
                 <AlertCircle className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
                 <p className="text-muted-foreground">Esta legislação ainda não foi vinculada a nenhuma unidade.</p>
-                <Button variant="secondary" size="sm" className="mt-4" onClick={() => setIsAssignOpen(true)}>
+                {canWriteLegislations && <Button variant="secondary" size="sm" className="mt-4" onClick={() => setIsAssignOpen(true)}>
                   <Link2 className="w-4 h-4 mr-2" /> Vincular Unidade
-                </Button>
+                </Button>}
               </div>
             ) : (
               leg.unitLegislations.map((ul) => (
@@ -499,21 +505,21 @@ export default function LegislationDetailPage() {
                         {getStatusBadge(ul.complianceStatus)}
                         {ul.evaluatedAt && <p className="text-[10px] text-muted-foreground mt-1">Atualizado em {formatDate(ul.evaluatedAt)}</p>}
                       </div>
-                      <Button 
+                      {canWriteLegislations && <Button 
                         variant="ghost" 
                         size="sm"
                         onClick={() => openComplianceDialog(ul)}
                       >
                         Avaliar
-                      </Button>
-                      <Button
+                      </Button>}
+                      {canWriteLegislations && <Button
                         variant="ghost"
                         size="sm"
                         className="text-destructive hover:text-destructive"
                         onClick={() => onUnassign(ul.unitId)}
                       >
                         Desvincular
-                      </Button>
+                      </Button>}
                     </div>
                   </div>
                   {ul.notes && (
@@ -566,7 +572,7 @@ export default function LegislationDetailPage() {
         </div>
       )}
 
-      <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen} title="Vincular Unidade">
+      <Dialog open={canWriteLegislations && isAssignOpen} onOpenChange={setIsAssignOpen} title="Vincular Unidade">
         <div className="space-y-4 mt-4">
           <Label>Selecione a Unidade aplicável</Label>
           <Select value={selectedUnitId} onChange={e => setSelectedUnitId(e.target.value)}>
@@ -585,7 +591,7 @@ export default function LegislationDetailPage() {
         </div>
       </Dialog>
 
-      <Dialog open={!!editingCompliance} onOpenChange={(v) => !v && setEditingCompliance(null)} title="Avaliar Conformidade">
+      <Dialog open={canWriteLegislations && !!editingCompliance} onOpenChange={(v) => !v && setEditingCompliance(null)} title="Avaliar Conformidade">
         {editingCompliance && (
           <div className="space-y-4 mt-4">
             <p className="text-sm font-medium">Unidade: {editingCompliance.unit.name}</p>

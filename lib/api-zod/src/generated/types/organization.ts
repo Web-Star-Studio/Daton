@@ -9,6 +9,16 @@
 export interface Organization {
   id: number;
   name: string;
+  /** @nullable */
+  nomeFantasia?: string | null;
+  /** @nullable */
+  cnpj?: string | null;
+  /** @nullable */
+  inscricaoEstadual?: string | null;
+  /** @nullable */
+  dataFundacao?: string | null;
+  /** @nullable */
+  statusOperacional?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

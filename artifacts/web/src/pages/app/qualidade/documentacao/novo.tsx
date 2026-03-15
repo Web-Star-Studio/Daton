@@ -7,12 +7,13 @@ import { z } from "zod";
 import {
   useCreateDocument,
   useListUnits,
-  useListOrgUsers,
+  useListUserOptions,
   useListDocuments,
   getListDocumentsQueryKey,
   getListUnitsQueryKey,
+  getListUserOptionsQueryKey,
 } from "@workspace/api-client-react";
-import type { OrgUser } from "@workspace/api-client-react";
+import type { UserOption } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,9 +104,13 @@ export default function NovoDocumentoPage() {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
   });
 
-  const { data: orgUsers } = useListOrgUsers(orgId!, {
-    query: { enabled: !!orgId },
+  const { data: orgUsers } = useListUserOptions(orgId!, {
+    query: {
+      queryKey: getListUserOptionsQueryKey(orgId!),
+      enabled: !!orgId,
+    },
   });
+  const availableUsers = orgUsers ?? [];
 
   const { data: existingDocs } = useListDocuments(orgId!, {}, {
     query: { queryKey: getListDocumentsQueryKey(orgId!), enabled: !!orgId },
@@ -243,7 +248,7 @@ export default function NovoDocumentoPage() {
             <Label>Elaborado por *</Label>
             <MultiSelectDropdown
               placeholder="Selecione"
-              options={(orgUsers || []).map((u: OrgUser) => ({ value: u.id!, label: u.name ?? "" }))}
+              options={availableUsers.map((u: UserOption) => ({ value: u.id, label: u.name }))}
               selected={elaboratorIds}
               onToggle={(id) => toggleMultiSelect("elaboratorIds", elaboratorIds, id)}
             />
@@ -253,7 +258,7 @@ export default function NovoDocumentoPage() {
             <Label>Aprovado por *</Label>
             <MultiSelectDropdown
               placeholder="Selecione"
-              options={(orgUsers || []).map((u: OrgUser) => ({ value: u.id!, label: u.name ?? "" }))}
+              options={availableUsers.map((u: UserOption) => ({ value: u.id, label: u.name }))}
               selected={approverIds}
               onToggle={(id) => toggleMultiSelect("approverIds", approverIds, id)}
             />
@@ -314,7 +319,7 @@ export default function NovoDocumentoPage() {
           <Label>Destinatários (protocolo de recebimento) *</Label>
           <MultiSelectDropdown
             placeholder="Selecionar destinatários"
-            options={(orgUsers || []).map((u: OrgUser) => ({ value: u.id!, label: u.name ?? "" }))}
+            options={availableUsers.map((u: UserOption) => ({ value: u.id, label: u.name }))}
             selected={recipientIds}
             onToggle={(id) => toggleMultiSelect("recipientIds", recipientIds, id)}
           />

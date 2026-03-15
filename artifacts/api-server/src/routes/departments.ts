@@ -53,7 +53,7 @@ router.get("/organizations/:orgId/departments", requireAuth, async (req, res): P
   })));
 });
 
-router.post("/organizations/:orgId/departments", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/departments", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = CreateDepartmentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -77,7 +77,7 @@ router.post("/organizations/:orgId/departments", requireAuth, async (req, res): 
   });
 });
 
-router.patch("/organizations/:orgId/departments/:deptId", requireAuth, async (req, res): Promise<void> => {
+router.patch("/organizations/:orgId/departments/:deptId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = UpdateDepartmentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -102,7 +102,7 @@ router.patch("/organizations/:orgId/departments/:deptId", requireAuth, async (re
   });
 });
 
-router.delete("/organizations/:orgId/departments/:deptId", requireAuth, async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/departments/:deptId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteDepartmentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -127,7 +127,7 @@ router.get("/organizations/:orgId/positions", requireAuth, async (req, res): Pro
   res.json(rows.map((r) => serializePosition(r)));
 });
 
-router.post("/organizations/:orgId/positions", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/positions", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = CreatePositionParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -148,7 +148,7 @@ router.post("/organizations/:orgId/positions", requireAuth, async (req, res): Pr
   res.status(201).json(serializePosition(row));
 });
 
-router.patch("/organizations/:orgId/positions/:posId", requireAuth, async (req, res): Promise<void> => {
+router.patch("/organizations/:orgId/positions/:posId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = UpdatePositionParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -166,7 +166,7 @@ router.patch("/organizations/:orgId/positions/:posId", requireAuth, async (req, 
   res.json(serializePosition(row));
 });
 
-router.delete("/organizations/:orgId/positions/:posId", requireAuth, async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/positions/:posId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeletePositionParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }

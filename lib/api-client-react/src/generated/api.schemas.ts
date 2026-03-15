@@ -37,7 +37,7 @@ export interface User {
   name: string;
   email: string;
   organizationId: number;
-  role?: string;
+  role: string;
   createdAt: string;
 }
 
@@ -49,6 +49,16 @@ export interface AuthResponse {
 export interface Organization {
   id: number;
   name: string;
+  /** @nullable */
+  nomeFantasia?: string | null;
+  /** @nullable */
+  cnpj?: string | null;
+  /** @nullable */
+  inscricaoEstadual?: string | null;
+  /** @nullable */
+  dataFundacao?: string | null;
+  /** @nullable */
+  statusOperacional?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -61,6 +71,16 @@ export interface MeResponse {
 
 export interface UpdateOrganizationBody {
   name?: string;
+  /** @nullable */
+  nomeFantasia?: string | null;
+  /** @nullable */
+  cnpj?: string | null;
+  /** @nullable */
+  inscricaoEstadual?: string | null;
+  /** @nullable */
+  dataFundacao?: string | null;
+  /** @nullable */
+  statusOperacional?: string | null;
 }
 
 export type UnitType = (typeof UnitType)[keyof typeof UnitType];
@@ -820,6 +840,44 @@ export interface OrgUser {
   modules: string[];
 }
 
+export interface UserOption {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export type CreateOrgUserBodyRole =
+  (typeof CreateOrgUserBodyRole)[keyof typeof CreateOrgUserBodyRole];
+
+export const CreateOrgUserBodyRole = {
+  org_admin: "org_admin",
+  operator: "operator",
+  analyst: "analyst",
+} as const;
+
+export type CreateOrgUserBodyModulesItem =
+  (typeof CreateOrgUserBodyModulesItem)[keyof typeof CreateOrgUserBodyModulesItem];
+
+export const CreateOrgUserBodyModulesItem = {
+  documents: "documents",
+  legislations: "legislations",
+  employees: "employees",
+  units: "units",
+  departments: "departments",
+  positions: "positions",
+} as const;
+
+export interface CreateOrgUserBody {
+  name: string;
+  email: string;
+  /** @minLength 6 */
+  password: string;
+  role: CreateOrgUserBodyRole;
+  modules: CreateOrgUserBodyModulesItem[];
+}
+
+export type CreateOrgUserResponse = OrgUser;
+
 export interface DocumentSummary {
   id: number;
   title: string;
@@ -972,8 +1030,31 @@ export interface NotificationItem {
   createdAt: string;
 }
 
+export type CreateInvitationBodyRole =
+  (typeof CreateInvitationBodyRole)[keyof typeof CreateInvitationBodyRole];
+
+export const CreateInvitationBodyRole = {
+  org_admin: "org_admin",
+  operator: "operator",
+  analyst: "analyst",
+} as const;
+
+export type CreateInvitationBodyModulesItem =
+  (typeof CreateInvitationBodyModulesItem)[keyof typeof CreateInvitationBodyModulesItem];
+
+export const CreateInvitationBodyModulesItem = {
+  documents: "documents",
+  legislations: "legislations",
+  employees: "employees",
+  units: "units",
+  departments: "departments",
+  positions: "positions",
+} as const;
+
 export interface CreateInvitationBody {
   email: string;
+  role?: CreateInvitationBodyRole;
+  modules?: CreateInvitationBodyModulesItem[];
 }
 
 export interface InvitationResponse {
@@ -982,6 +1063,8 @@ export interface InvitationResponse {
   status: string;
   invitedByName: string;
   organizationName: string;
+  role: string;
+  modules: string[];
   expiresAt: string;
   createdAt: string;
 }

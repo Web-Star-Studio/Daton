@@ -1885,6 +1885,68 @@ paths:
                       $ref: "#/components/schemas/OrgUser"
                 required:
                   - users
+    post:
+      operationId: createOrgUser
+      tags: [organizations]
+      summary: Create a user directly in the organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrgUserBody"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateOrgUserResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/user-options:
+    get:
+      operationId: listUserOptions
+      tags: [documents]
+      summary: List basic user options for document workflows
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of basic users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserOption"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /organizations/{orgId}/users/{userId}/role:
     patch:
@@ -2208,6 +2270,7 @@ components:
         - name
         - email
         - organizationId
+        - role
         - createdAt
 
     MeResponse:
@@ -2233,6 +2296,16 @@ components:
           type: integer
         name:
           type: string
+        nomeFantasia:
+          type: ["string", "null"]
+        cnpj:
+          type: ["string", "null"]
+        inscricaoEstadual:
+          type: ["string", "null"]
+        dataFundacao:
+          type: ["string", "null"]
+        statusOperacional:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -2250,6 +2323,16 @@ components:
       properties:
         name:
           type: string
+        nomeFantasia:
+          type: ["string", "null"]
+        cnpj:
+          type: ["string", "null"]
+        inscricaoEstadual:
+          type: ["string", "null"]
+        dataFundacao:
+          type: ["string", "null"]
+        statusOperacional:
+          type: ["string", "null"]
 
     Unit:
       type: object
@@ -3374,6 +3457,50 @@ components:
         - createdAt
         - modules
 
+    UserOption:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+      required:
+        - id
+        - name
+        - email
+
+    CreateOrgUserBody:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        role:
+          type: string
+          enum: [org_admin, operator, analyst]
+        modules:
+          type: array
+          items:
+            type: string
+            enum: [documents, legislations, employees, units, departments, positions]
+      required:
+        - name
+        - email
+        - password
+        - role
+        - modules
+
+    CreateOrgUserResponse:
+      allOf:
+        - $ref: "#/components/schemas/OrgUser"
+
     DocumentSummary:
       type: object
       properties:
@@ -3706,6 +3833,14 @@ components:
         email:
           type: string
           format: email
+        role:
+          type: string
+          enum: [org_admin, operator, analyst]
+        modules:
+          type: array
+          items:
+            type: string
+            enum: [documents, legislations, employees, units, departments, positions]
       required:
         - email
 
@@ -3722,6 +3857,12 @@ components:
           type: string
         organizationName:
           type: string
+        role:
+          type: string
+        modules:
+          type: array
+          items:
+            type: string
         expiresAt:
           type: string
         createdAt:
@@ -3732,6 +3873,8 @@ components:
         - status
         - invitedByName
         - organizationName
+        - role
+        - modules
         - expiresAt
         - createdAt
 

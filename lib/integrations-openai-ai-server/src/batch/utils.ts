@@ -1,5 +1,7 @@
 import pLimit from "p-limit";
-import pRetry from "p-retry";
+import pRetry, { AbortError } from "p-retry";
+
+class NonRetryableError extends Error {}
 
 /**
  * Batch Processing Utilities
@@ -36,6 +38,7 @@ export interface BatchOptions {
 }
 
 export function isRateLimitError(error: unknown): boolean {
+  if (error instanceof NonRetryableError) return false;
   const errorMsg = error instanceof Error ? error.message : String(error);
   return (
     errorMsg.includes("429") ||
@@ -74,9 +77,9 @@ export async function batchProcess<T, R>(
             if (isRateLimitError(error)) {
               throw error;
             }
-            throw new pRetry.AbortError(
-              error instanceof Error ? error : new Error(String(error))
-            );
+            throw error instanceof Error
+              ? new NonRetryableError(error.message)
+              : new NonRetryableError(String(error));
           }
         },
         { retries, minTimeout, maxTimeout, factor: 2 }
@@ -114,8 +117,8 @@ export async function batchProcessWithSSE<T, R>(
           factor: 2,
           onFailedAttempt: (error) => {
             if (!isRateLimitError(error)) {
-              throw new pRetry.AbortError(
-                error instanceof Error ? error : new Error(String(error))
+              throw new AbortError(
+                error instanceof Error ? error.message : String(error),
               );
             }
           },

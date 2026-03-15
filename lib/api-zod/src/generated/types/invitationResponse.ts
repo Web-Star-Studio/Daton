@@ -12,6 +12,8 @@ export interface InvitationResponse {
   status: string;
   invitedByName: string;
   organizationName: string;
+  role: string;
+  modules: string[];
   expiresAt: string;
   createdAt: string;
 }

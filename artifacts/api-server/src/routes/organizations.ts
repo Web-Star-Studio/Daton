@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, organizationsTable } from "@workspace/db";
 import { GetOrganizationParams, UpdateOrganizationParams, UpdateOrganizationBody } from "@workspace/api-zod";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -37,7 +37,7 @@ router.get("/organizations/:orgId", requireAuth, async (req, res): Promise<void>
   });
 });
 
-router.patch("/organizations/:orgId", requireAuth, async (req, res): Promise<void> => {
+router.patch("/organizations/:orgId", requireAuth, requireRole("org_admin"), async (req, res): Promise<void> => {
   const params = UpdateOrganizationParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

@@ -8,6 +8,19 @@ import { pool } from "@workspace/db";
 
 const router = Router();
 
+function firstParam(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
+function parseConversationId(value: string | string[] | undefined): number | null {
+  const convId = parseInt(firstParam(value), 10);
+  if (!Number.isFinite(convId) || convId <= 0) {
+    return null;
+  }
+
+  return convId;
+}
+
 const SYSTEM_PROMPT = `Você é o Daton AI, assistente inteligente da plataforma Daton — um sistema SaaS de gestão de qualidade, meio ambiente e compliance (SGQ) baseado na ISO 14001.
 
 Seu papel é ajudar os usuários a entender seus dados de conformidade, legislações aplicáveis, unidades e status geral da organização. Você responde sempre em português brasileiro (pt-BR), de forma clara e objetiva.
@@ -110,7 +123,12 @@ router.post("/ai/conversations", requireAuth, async (req: Request, res: Response
 
 router.get("/ai/conversations/:convId/messages", requireAuth, async (req: Request, res: Response) => {
   const { userId, organizationId } = req.auth!;
-  const convId = parseInt(req.params.convId, 10);
+  const convId = parseConversationId(req.params.convId);
+
+  if (convId === null) {
+    res.status(400).json({ error: "ID de conversa inválido" });
+    return;
+  }
 
   const [conv] = await db
     .select()
@@ -137,8 +155,13 @@ router.get("/ai/conversations/:convId/messages", requireAuth, async (req: Reques
 
 router.post("/ai/conversations/:convId/messages", requireAuth, async (req: Request, res: Response) => {
   const { userId, organizationId } = req.auth!;
-  const convId = parseInt(req.params.convId, 10);
+  const convId = parseConversationId(req.params.convId);
   const userMessage = req.body?.content;
+
+  if (convId === null) {
+    res.status(400).json({ error: "ID de conversa inválido" });
+    return;
+  }
 
   if (!userMessage || typeof userMessage !== "string") {
     res.status(400).json({ error: "Conteúdo da mensagem é obrigatório" });

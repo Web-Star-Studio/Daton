@@ -256,7 +256,7 @@ router.get("/organizations/:orgId/documents", requireAuth, async (req, res): Pro
   })));
 });
 
-router.post("/organizations/:orgId/documents", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/documents", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = CreateDocumentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -362,7 +362,7 @@ router.get("/organizations/:orgId/documents/:docId", requireAuth, async (req, re
   res.json(detail);
 });
 
-router.patch("/organizations/:orgId/documents/:docId", requireAuth, async (req, res): Promise<void> => {
+router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = UpdateDocumentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -475,7 +475,7 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, async (req, 
   res.json(detail);
 });
 
-router.delete("/organizations/:orgId/documents/:docId", requireAuth, async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/documents/:docId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteDocumentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -520,7 +520,7 @@ router.get("/organizations/:orgId/documents/:docId/versions", requireAuth, async
   })));
 });
 
-router.post("/organizations/:orgId/documents/:docId/attachments", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/documents/:docId/attachments", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = AddDocumentAttachmentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -569,7 +569,7 @@ router.post("/organizations/:orgId/documents/:docId/attachments", requireAuth, a
   });
 });
 
-router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", requireAuth, async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteDocumentAttachmentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -591,7 +591,7 @@ router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", re
   res.sendStatus(204);
 });
 
-router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = SubmitDocumentForReviewParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -654,7 +654,7 @@ router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, async 
   res.json(detail);
 });
 
-router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = ApproveDocumentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -749,7 +749,7 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, async
   res.json(detail);
 });
 
-router.post("/organizations/:orgId/documents/:docId/reject", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/documents/:docId/reject", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = RejectDocumentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -807,7 +807,7 @@ router.post("/organizations/:orgId/documents/:docId/reject", requireAuth, async 
   res.json(detail);
 });
 
-router.post("/organizations/:orgId/documents/:docId/distribute", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/documents/:docId/distribute", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DistributeDocumentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -838,7 +838,7 @@ router.post("/organizations/:orgId/documents/:docId/distribute", requireAuth, as
   res.json(detail);
 });
 
-router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
   const params = AcknowledgeDocumentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -886,8 +886,8 @@ router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, a
   res.json({ message: "Recebimento confirmado" });
 });
 
-router.get("/organizations/:orgId/users", requireAuth, async (req, res): Promise<void> => {
-  const orgId = parseInt(req.params.orgId);
+router.get("/organizations/:orgId/user-options", requireAuth, requireModuleAccess("documents"), async (req, res): Promise<void> => {
+  const orgId = parseInt(Array.isArray(req.params.orgId) ? req.params.orgId[0] ?? "" : req.params.orgId ?? "", 10);
   if (isNaN(orgId)) { res.status(400).json({ error: "orgId inválido" }); return; }
   if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 

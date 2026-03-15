@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, useParams } from "wouter";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import {
   useGetDocument,
@@ -13,8 +13,11 @@ import {
   useAddDocumentAttachment,
   useDeleteDocument,
   useListUnits,
-  useListOrgUsers,
+  useListUserOptions,
   useListDocuments,
+  getListUnitsQueryKey,
+  getListUserOptionsQueryKey,
+  getListDocumentsQueryKey,
 } from "@workspace/api-client-react";
 import type {
   DocumentDetailUnitsItem,
@@ -24,6 +27,7 @@ import type {
   DocumentAttachment,
   DocumentVersion,
   OrgUser,
+  UserOption,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -127,6 +131,7 @@ export default function DocumentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const docId = parseInt(id || "0", 10);
   const { organization, user } = useAuth();
+  const { canWriteModule } = usePermissions();
   const orgId = organization?.id;
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
@@ -146,9 +151,25 @@ export default function DocumentDetailPage() {
     },
   });
 
-  const { data: allUnits } = useListUnits(orgId!, { query: { enabled: !!orgId && isEditing } });
-  const { data: allUsers } = useListOrgUsers(orgId!, { query: { enabled: !!orgId && isEditing } });
-  const { data: allDocs } = useListDocuments(orgId!, {}, { query: { enabled: !!orgId && isEditing } });
+  const { data: allUnits } = useListUnits(orgId!, {
+    query: {
+      queryKey: getListUnitsQueryKey(orgId!),
+      enabled: !!orgId && isEditing,
+    },
+  });
+  const { data: allUsers } = useListUserOptions(orgId!, {
+    query: {
+      queryKey: getListUserOptionsQueryKey(orgId!),
+      enabled: !!orgId && isEditing,
+    },
+  });
+  const { data: allDocs } = useListDocuments(orgId!, {}, {
+    query: {
+      queryKey: getListDocumentsQueryKey(orgId!, {}),
+      enabled: !!orgId && isEditing,
+    },
+  });
+  const orgUsers = allUsers ?? [];
 
   usePageTitle(doc?.title);
 
@@ -166,7 +187,8 @@ export default function DocumentDetailPage() {
   const isRecipient = doc?.recipients?.some((r: DocumentDetailRecipientsItem) => r.userId === user?.id);
   const myApproval = doc?.approvers?.find((a: DocumentDetailApproversItem) => a.userId === user?.id);
   const myReceipt = doc?.recipients?.find((r: DocumentDetailRecipientsItem) => r.userId === user?.id);
-  const canEdit = doc?.status === "draft" || doc?.status === "rejected";
+  const canWriteDocuments = canWriteModule("documents");
+  const canEdit = canWriteDocuments && (doc?.status === "draft" || doc?.status === "rejected");
 
   const handleSubmitForReview = async () => {
     if (!orgId) return;
@@ -246,7 +268,7 @@ export default function DocumentDetailPage() {
                 <Send className="h-3.5 w-3.5 mr-1.5" /> Reenviar para Revisão
               </Button>
             )}
-            {doc.status === "in_review" && isApprover && myApproval?.status === "pending" && (
+            {canWriteDocuments && doc.status === "in_review" && isApprover && myApproval?.status === "pending" && (
               <>
                 <Button size="sm" variant="outline" onClick={() => setRejectDialog(true)}>
                   <XCircle className="h-3.5 w-3.5 mr-1.5" /> Rejeitar
@@ -255,11 +277,6 @@ export default function DocumentDetailPage() {
                   <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Aprovar
                 </Button>
               </>
-            )}
-            {doc.status === "distributed" && isRecipient && !myReceipt?.readAt && (
-              <Button size="sm" onClick={handleAcknowledge} isLoading={acknowledgeMut.isPending}>
-                <Eye className="h-3.5 w-3.5 mr-1.5" /> Confirmar Recebimento
-              </Button>
             )}
             {doc.status === "draft" && (
               <Button size="sm" variant="outline" onClick={() => setDeleteDialog(true)} className="text-red-600 hover:text-red-700">
@@ -554,13 +571,13 @@ export default function DocumentDetailPage() {
           <div>
             <Label>Elaboradores</Label>
             <div className="flex flex-wrap gap-2 mt-2">
-              {allUsers?.map((u: OrgUser) => (
+              {orgUsers.map((u: UserOption) => (
                 <button
                   key={u.id}
                   type="button"
-                  onClick={() => setEditForm({ ...editForm, elaboratorIds: toggleMultiSelect(editForm.elaboratorIds, u.id!) })}
+                  onClick={() => setEditForm({ ...editForm, elaboratorIds: toggleMultiSelect(editForm.elaboratorIds, u.id) })}
                   className={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
-                    editForm.elaboratorIds.includes(u.id!)
+                    editForm.elaboratorIds.includes(u.id)
                       ? "bg-foreground text-background"
                       : "bg-muted/50 text-muted-foreground hover:bg-muted"
                   }`}
@@ -574,13 +591,13 @@ export default function DocumentDetailPage() {
           <div>
             <Label>Aprovadores</Label>
             <div className="flex flex-wrap gap-2 mt-2">
-              {allUsers?.map((u: OrgUser) => (
+              {orgUsers.map((u: UserOption) => (
                 <button
                   key={u.id}
                   type="button"
-                  onClick={() => setEditForm({ ...editForm, approverIds: toggleMultiSelect(editForm.approverIds, u.id!) })}
+                  onClick={() => setEditForm({ ...editForm, approverIds: toggleMultiSelect(editForm.approverIds, u.id) })}
                   className={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
-                    editForm.approverIds.includes(u.id!)
+                    editForm.approverIds.includes(u.id)
                       ? "bg-foreground text-background"
                       : "bg-muted/50 text-muted-foreground hover:bg-muted"
                   }`}
@@ -594,13 +611,13 @@ export default function DocumentDetailPage() {
           <div>
             <Label>Destinatários</Label>
             <div className="flex flex-wrap gap-2 mt-2">
-              {allUsers?.map((u: OrgUser) => (
+              {orgUsers.map((u: UserOption) => (
                 <button
                   key={u.id}
                   type="button"
-                  onClick={() => setEditForm({ ...editForm, recipientIds: toggleMultiSelect(editForm.recipientIds, u.id!) })}
+                  onClick={() => setEditForm({ ...editForm, recipientIds: toggleMultiSelect(editForm.recipientIds, u.id) })}
                   className={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
-                    editForm.recipientIds.includes(u.id!)
+                    editForm.recipientIds.includes(u.id)
                       ? "bg-foreground text-background"
                       : "bg-muted/50 text-muted-foreground hover:bg-muted"
                   }`}

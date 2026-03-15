@@ -2,9 +2,10 @@ import { Router, type IRouter } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { eq, and, gt } from "drizzle-orm";
-import { db, usersTable, organizationsTable, invitationsTable } from "@workspace/db";
+import { db, usersTable, organizationsTable, invitationsTable, userModulePermissionsTable } from "@workspace/db";
 import { CreateInvitationBody, AcceptInvitationBody } from "@workspace/api-zod";
-import { requireAuth, signToken } from "../middlewares/auth";
+import { requireAuth, requireRole, signToken, APP_MODULES } from "../middlewares/auth";
+import type { AppModule, UserRole } from "../middlewares/auth";
 import { getResendClient } from "../lib/resend";
 
 const router: IRouter = Router();
@@ -98,15 +99,32 @@ function buildInviteEmailHtml(inviterName: string, orgName: string, acceptUrl: s
 </html>`;
 }
 
-router.post("/invitations", requireAuth, async (req, res): Promise<void> => {
+router.post("/invitations", requireAuth, requireRole("org_admin"), async (req, res): Promise<void> => {
   const parsed = CreateInvitationBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
 
-  const { email } = parsed.data;
+  const {
+    email,
+    role = "analyst",
+    modules = [],
+  } = parsed.data;
   const { userId, organizationId } = req.auth!;
+
+  const validRoles: UserRole[] = ["org_admin", "operator", "analyst"];
+  if (!validRoles.includes(role as UserRole)) {
+    res.status(400).json({ error: "Cargo inválido" });
+    return;
+  }
+
+  if (!Array.isArray(modules) || modules.some((module) => !APP_MODULES.includes(module as AppModule))) {
+    res.status(400).json({ error: "Módulos inválidos" });
+    return;
+  }
+
+  const normalizedModules = role === "org_admin" ? [] : modules;
 
   const [existingUser] = await db.select().from(usersTable).where(eq(usersTable.email, email));
   if (existingUser) {
@@ -154,6 +172,8 @@ router.post("/invitations", requireAuth, async (req, res): Promise<void> => {
     email,
     organizationId,
     invitedBy: userId,
+    role,
+    modules: normalizedModules,
     token,
     status: "pending",
     expiresAt,
@@ -165,18 +185,22 @@ router.post("/invitations", requireAuth, async (req, res): Promise<void> => {
     status: invitation.status,
     invitedByName: inviter.name,
     organizationName: org.name,
+    role: invitation.role,
+    modules: invitation.modules ?? [],
     expiresAt: invitation.expiresAt.toISOString(),
     createdAt: invitation.createdAt.toISOString(),
   });
 });
 
-router.get("/invitations", requireAuth, async (req, res): Promise<void> => {
+router.get("/invitations", requireAuth, requireRole("org_admin"), async (req, res): Promise<void> => {
   const { organizationId } = req.auth!;
 
   const invitations = await db.select({
     id: invitationsTable.id,
     email: invitationsTable.email,
     status: invitationsTable.status,
+    role: invitationsTable.role,
+    modules: invitationsTable.modules,
     invitedByName: usersTable.name,
     expiresAt: invitationsTable.expiresAt,
     createdAt: invitationsTable.createdAt,
@@ -200,6 +224,8 @@ router.get("/invitations", requireAuth, async (req, res): Promise<void> => {
       status,
       invitedByName: inv.invitedByName,
       organizationName: org.name,
+      role: inv.role,
+      modules: inv.modules ?? [],
       expiresAt: inv.expiresAt.toISOString(),
       createdAt: inv.createdAt.toISOString(),
     };
@@ -208,7 +234,7 @@ router.get("/invitations", requireAuth, async (req, res): Promise<void> => {
   res.json({ invitations: mapped });
 });
 
-router.delete("/invitations/:invitationId", requireAuth, async (req, res): Promise<void> => {
+router.delete("/invitations/:invitationId", requireAuth, requireRole("org_admin"), async (req, res): Promise<void> => {
   const { organizationId } = req.auth!;
   const invitationId = Number(req.params.invitationId);
 
@@ -236,7 +262,7 @@ router.delete("/invitations/:invitationId", requireAuth, async (req, res): Promi
   res.json({ message: "Convite revogado com sucesso" });
 });
 
-router.delete("/invitations/:invitationId/permanent", requireAuth, async (req, res): Promise<void> => {
+router.delete("/invitations/:invitationId/permanent", requireAuth, requireRole("org_admin"), async (req, res): Promise<void> => {
   const { organizationId } = req.auth!;
   const invitationId = Number(req.params.invitationId);
 
@@ -303,7 +329,20 @@ router.post("/invitations/accept/:token", async (req, res): Promise<void> => {
   const { name, password } = parsed.data;
 
   try {
-    const result = await db.transaction(async (tx) => {
+    type AcceptInvitationError = { error: string; status: number };
+    type AcceptInvitationSuccess = {
+      user: {
+        id: number;
+        name: string;
+        email: string;
+        organizationId: number;
+        role: string;
+        createdAt: string;
+      };
+      token: string;
+    };
+
+    const result = await db.transaction<AcceptInvitationError | AcceptInvitationSuccess>(async (tx) => {
       const [invitation] = await tx.select().from(invitationsTable).where(
         and(
           eq(invitationsTable.token, token),
@@ -331,7 +370,15 @@ router.post("/invitations/accept/:token", async (req, res): Promise<void> => {
         email: invitation.email,
         passwordHash,
         organizationId: invitation.organizationId,
+        role: invitation.role ?? "analyst",
       }).returning();
+
+      const invitedModules = invitation.role === "org_admin" ? [] : (invitation.modules ?? []);
+      if (invitedModules.length > 0) {
+        await tx.insert(userModulePermissionsTable).values(
+          invitedModules.map((module) => ({ userId: user.id, module })),
+        );
+      }
 
       await tx.update(invitationsTable)
         .set({ status: "accepted" })

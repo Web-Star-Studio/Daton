@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { useValidateInviteToken, useAcceptInvitation } from "@workspace/api-client-react";
+import { getValidateInviteTokenQueryKey, useValidateInviteToken, useAcceptInvitation } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,11 @@ export default function AcceptInvitePage() {
   const { login } = useAuth();
 
   const { data, isLoading, error } = useValidateInviteToken(token, {
-    query: { enabled: !!token, retry: false },
+    query: {
+      queryKey: getValidateInviteTokenQueryKey(token),
+      enabled: !!token,
+      retry: false,
+    },
   });
 
   const acceptMut = useAcceptInvitation();

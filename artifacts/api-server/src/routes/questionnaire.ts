@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Response } from "express";
 import { eq, and, inArray } from "drizzle-orm";
 import {
   db,
@@ -8,9 +8,22 @@ import {
   unitComplianceTagsTable,
   unitsTable,
 } from "@workspace/db";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireWriteAccess } from "../middlewares/auth";
 
 const router: IRouter = Router();
+
+function parseRouteInt(value: string | string[] | undefined): number {
+  return parseInt(Array.isArray(value) ? value[0] ?? "" : value ?? "", 10);
+}
+
+function validateRouteInt(value: number, res: Response, paramName: string): boolean {
+  if (!Number.isFinite(value) || value <= 0) {
+    res.status(400).json({ error: `${paramName} inválido` });
+    return false;
+  }
+
+  return true;
+}
 
 router.get("/compliance-tag-vocabulary", requireAuth, async (_req, res): Promise<void> => {
   const questions = await db.select({ tags: questionnaireQuestionsTable.tags }).from(questionnaireQuestionsTable);
@@ -31,7 +44,11 @@ router.get("/compliance-tag-vocabulary", requireAuth, async (_req, res): Promise
 });
 
 router.get("/organizations/:orgId/questionnaire/themes", requireAuth, async (req, res): Promise<void> => {
-  const orgId = parseInt(req.params.orgId);
+  const orgId = parseRouteInt(req.params.orgId);
+  if (!validateRouteInt(orgId, res, "orgId")) {
+    return;
+  }
+
   if (orgId !== req.auth!.organizationId) {
     res.status(403).json({ error: "Acesso negado" });
     return;
@@ -65,8 +82,11 @@ router.get("/organizations/:orgId/questionnaire/themes", requireAuth, async (req
 });
 
 router.get("/organizations/:orgId/units/:unitId/questionnaire/responses", requireAuth, async (req, res): Promise<void> => {
-  const orgId = parseInt(req.params.orgId);
-  const unitId = parseInt(req.params.unitId);
+  const orgId = parseRouteInt(req.params.orgId);
+  const unitId = parseRouteInt(req.params.unitId);
+  if (!validateRouteInt(orgId, res, "orgId") || !validateRouteInt(unitId, res, "unitId")) {
+    return;
+  }
 
   if (orgId !== req.auth!.organizationId) {
     res.status(403).json({ error: "Acesso negado" });
@@ -94,9 +114,12 @@ router.get("/organizations/:orgId/units/:unitId/questionnaire/responses", requir
   res.json(result);
 });
 
-router.put("/organizations/:orgId/units/:unitId/questionnaire/responses", requireAuth, async (req, res): Promise<void> => {
-  const orgId = parseInt(req.params.orgId);
-  const unitId = parseInt(req.params.unitId);
+router.put("/organizations/:orgId/units/:unitId/questionnaire/responses", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+  const orgId = parseRouteInt(req.params.orgId);
+  const unitId = parseRouteInt(req.params.unitId);
+  if (!validateRouteInt(orgId, res, "orgId") || !validateRouteInt(unitId, res, "unitId")) {
+    return;
+  }
 
   if (orgId !== req.auth!.organizationId) {
     res.status(403).json({ error: "Acesso negado" });
@@ -150,9 +173,12 @@ router.put("/organizations/:orgId/units/:unitId/questionnaire/responses", requir
   res.json({ success: true });
 });
 
-router.post("/organizations/:orgId/units/:unitId/questionnaire/submit", requireAuth, async (req, res): Promise<void> => {
-  const orgId = parseInt(req.params.orgId);
-  const unitId = parseInt(req.params.unitId);
+router.post("/organizations/:orgId/units/:unitId/questionnaire/submit", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+  const orgId = parseRouteInt(req.params.orgId);
+  const unitId = parseRouteInt(req.params.unitId);
+  if (!validateRouteInt(orgId, res, "orgId") || !validateRouteInt(unitId, res, "unitId")) {
+    return;
+  }
 
   if (orgId !== req.auth!.organizationId) {
     res.status(403).json({ error: "Acesso negado" });
@@ -203,8 +229,11 @@ router.post("/organizations/:orgId/units/:unitId/questionnaire/submit", requireA
 });
 
 router.get("/organizations/:orgId/units/:unitId/questionnaire/tags", requireAuth, async (req, res): Promise<void> => {
-  const orgId = parseInt(req.params.orgId);
-  const unitId = parseInt(req.params.unitId);
+  const orgId = parseRouteInt(req.params.orgId);
+  const unitId = parseRouteInt(req.params.unitId);
+  if (!validateRouteInt(orgId, res, "orgId") || !validateRouteInt(unitId, res, "unitId")) {
+    return;
+  }
 
   if (orgId !== req.auth!.organizationId) {
     res.status(403).json({ error: "Acesso negado" });

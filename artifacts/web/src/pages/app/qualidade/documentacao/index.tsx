@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useHeaderActions } from "@/contexts/LayoutContext";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,9 +12,10 @@ import {
   getListUnitsQueryKey,
   useCreateDocument,
   useDeleteDocument,
-  useListOrgUsers,
+  useListUserOptions,
+  getListUserOptionsQueryKey,
 } from "@workspace/api-client-react";
-import type { OrgUser } from "@workspace/api-client-react";
+import type { UserOption } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,6 +109,7 @@ function formatFileSize(bytes: number) {
 
 export default function DocumentacaoPage() {
   const { organization } = useAuth();
+  const { canWriteModule } = usePermissions();
   const orgId = organization?.id;
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
@@ -196,13 +198,14 @@ export default function DocumentacaoPage() {
   };
 
   const headerActions = useMemo(() => {
+    const canWriteDocuments = canWriteModule("documents");
     if (selectedIds.size > 0) {
       return (
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground mr-1">
             {selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}
           </span>
-          {selectedDeletable.length > 0 && (
+          {canWriteDocuments && selectedDeletable.length > 0 && (
             <Button size="sm" variant="destructive" onClick={() => setConfirmDeleteOpen(true)} isLoading={isDeleting}>
               <Trash2 className="h-3.5 w-3.5 mr-1.5" />
               Excluir ({selectedDeletable.length})
@@ -215,11 +218,13 @@ export default function DocumentacaoPage() {
       );
     }
     return (
-      <Button size="sm" onClick={() => setCreateOpen(true)}>
-        <Plus className="h-3.5 w-3.5 mr-1.5" /> Novo Documento
-      </Button>
+      canWriteDocuments ? (
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <Plus className="h-3.5 w-3.5 mr-1.5" /> Novo Documento
+        </Button>
+      ) : null
     );
-  }, [selectedIds, selectedDeletable, isDeleting]);
+  }, [canWriteModule, isDeleting, selectedDeletable, selectedIds]);
 
   useHeaderActions(headerActions);
 
@@ -279,7 +284,7 @@ export default function DocumentacaoPage() {
                     checked={allSelected}
                     onChange={toggleAll}
                     className="rounded border-border text-primary cursor-pointer"
-                    disabled={!documents || documents.length === 0}
+                    disabled={!canWriteModule("documents") || !documents || documents.length === 0}
                   />
                 </th>
                 <th className="px-6 py-4">Título</th>
@@ -318,6 +323,7 @@ export default function DocumentacaoPage() {
                           checked={isSelected}
                           onChange={() => toggleOne(doc.id)}
                           className="rounded border-border text-primary cursor-pointer"
+                          disabled={!canWriteModule("documents")}
                         />
                       </td>
                       <td className="px-6 py-4">
@@ -355,16 +361,18 @@ export default function DocumentacaoPage() {
         </div>
       </div>
 
-      <CreateDocumentModal
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        orgId={orgId}
-        onCreated={(docId) => {
-          queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey(orgId!) });
-          setCreateOpen(false);
-          navigate(`/app/qualidade/documentacao/${docId}`);
-        }}
-      />
+      {canWriteModule("documents") && (
+        <CreateDocumentModal
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          orgId={orgId}
+          onCreated={(docId) => {
+            queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey(orgId!) });
+            setCreateOpen(false);
+            navigate(`/app/qualidade/documentacao/${docId}`);
+          }}
+        />
+      )}
 
       <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen} title="Confirmar Exclusão">
         <p className="text-sm text-muted-foreground mt-2">
@@ -424,9 +432,13 @@ function CreateDocumentModal({
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId && open },
   });
 
-  const { data: orgUsers } = useListOrgUsers(orgId!, {
-    query: { enabled: !!orgId && open },
+  const { data: orgUsers } = useListUserOptions(orgId!, {
+    query: {
+      queryKey: getListUserOptionsQueryKey(orgId!),
+      enabled: !!orgId && open,
+    },
   });
+  const availableUsers = orgUsers ?? [];
 
   const { data: existingDocs } = useListDocuments(orgId!, {}, {
     query: { queryKey: getListDocumentsQueryKey(orgId!), enabled: !!orgId && open },
@@ -551,7 +563,7 @@ function CreateDocumentModal({
             <Label>Elaborado por *</Label>
             <MultiSelectDropdown
               placeholder="Selecione"
-              options={(orgUsers || []).map((u: OrgUser) => ({ value: u.id!, label: u.name ?? "" }))}
+              options={availableUsers.map((u: UserOption) => ({ value: u.id, label: u.name }))}
               selected={elaboratorIds}
               onToggle={(id) => toggleMultiSelect("elaboratorIds", elaboratorIds, id)}
             />
@@ -561,7 +573,7 @@ function CreateDocumentModal({
             <Label>Aprovado por *</Label>
             <MultiSelectDropdown
               placeholder="Selecione"
-              options={(orgUsers || []).map((u: OrgUser) => ({ value: u.id!, label: u.name ?? "" }))}
+              options={availableUsers.map((u: UserOption) => ({ value: u.id, label: u.name }))}
               selected={approverIds}
               onToggle={(id) => toggleMultiSelect("approverIds", approverIds, id)}
             />
@@ -618,7 +630,7 @@ function CreateDocumentModal({
           <Label>Destinatários (protocolo de recebimento) *</Label>
           <MultiSelectDropdown
             placeholder="Selecionar destinatários"
-            options={(orgUsers || []).map((u: OrgUser) => ({ value: u.id!, label: u.name ?? "" }))}
+            options={availableUsers.map((u: UserOption) => ({ value: u.id, label: u.name }))}
             selected={recipientIds}
             onToggle={(id) => toggleMultiSelect("recipientIds", recipientIds, id)}
           />

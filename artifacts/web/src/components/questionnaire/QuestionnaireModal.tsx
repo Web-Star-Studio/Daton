@@ -12,6 +12,7 @@ import {
   getGetUnitQuestionnaireResponsesQueryKey,
   getGetUnitComplianceTagsQueryKey,
   getListQuestionnaireThemesQueryKey,
+  type GetUnitQuestionnaireResponses200,
   type QuestionnaireTheme,
   type QuestionnaireQuestion,
 } from "@workspace/api-client-react";
@@ -23,6 +24,20 @@ interface QuestionnaireModalProps {
   orgId: number;
   unitId: number;
   unitName: string;
+}
+
+function normalizeSavedResponses(
+  responses: GetUnitQuestionnaireResponses200,
+): Record<string, string | string[]> {
+  return Object.entries(responses).reduce<Record<string, string | string[]>>((acc, [key, value]) => {
+    if (typeof value === "string") {
+      acc[key] = value;
+    } else if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
+      acc[key] = value;
+    }
+
+    return acc;
+  }, {});
 }
 
 export function QuestionnaireModal({ isOpen, onClose, orgId, unitId, unitName }: QuestionnaireModalProps) {
@@ -52,7 +67,8 @@ export function QuestionnaireModal({ isOpen, onClose, orgId, unitId, unitName }:
 
   useEffect(() => {
     if (savedResponses) {
-      setAnswers(Object.keys(savedResponses).length > 0 ? savedResponses : {});
+      const normalizedResponses = normalizeSavedResponses(savedResponses);
+      setAnswers(Object.keys(normalizedResponses).length > 0 ? normalizedResponses : {});
     }
   }, [savedResponses]);
 
@@ -291,7 +307,8 @@ export function QuestionnaireModal({ isOpen, onClose, orgId, unitId, unitName }:
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -336,6 +353,7 @@ function QuestionRenderer({
             return (
               <button
                 key={option}
+                type="button"
                 onClick={() => onToggleMulti(question.code, option)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg border transition-all text-left cursor-pointer ${
                   isChecked
@@ -372,6 +390,7 @@ function QuestionRenderer({
           return (
             <button
               key={option}
+              type="button"
               onClick={() => onAnswer(question.code, option)}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg border transition-all text-left cursor-pointer ${
                 isSelected
@@ -389,7 +408,6 @@ function QuestionRenderer({
           );
         })}
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }

@@ -44,7 +44,10 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
   const [, navigate] = useLocation();
 
   const { data } = useListNotifications(orgId!, {
-    query: { enabled: !!orgId },
+    query: {
+      queryKey: getListNotificationsQueryKey(orgId!),
+      enabled: !!orgId,
+    },
   });
 
   const notifications = data?.notifications ?? [];
