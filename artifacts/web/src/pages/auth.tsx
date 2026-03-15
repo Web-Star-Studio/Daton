@@ -104,7 +104,7 @@ export default function AuthPage() {
               </div>
 
               <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-8">
-                <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-6">
                   <div>
                     <Label>E-mail de trabalho</Label>
                     <Input {...loginForm.register("email")} className="mt-2" />
