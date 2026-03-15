@@ -2251,6 +2251,13 @@ export const RevokeInvitationResponse = zod.object({
 });
 
 /**
+ * @summary Permanently delete a non-pending invitation
+ */
+export const DeleteInvitationParams = zod.object({
+  invitationId: zod.coerce.number(),
+});
+
+/**
  * @summary Validate an invitation token
  */
 export const ValidateInviteTokenParams = zod.object({

@@ -7025,6 +7025,90 @@ export const useRevokeInvitation = <
 };
 
 /**
+ * @summary Permanently delete a non-pending invitation
+ */
+export const getDeleteInvitationUrl = (invitationId: number) => {
+  return `/api/invitations/${invitationId}/permanent`;
+};
+
+export const deleteInvitation = async (
+  invitationId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteInvitationUrl(invitationId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteInvitationMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteInvitation>>,
+    TError,
+    { invitationId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteInvitation>>,
+  TError,
+  { invitationId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteInvitation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteInvitation>>,
+    { invitationId: number }
+  > = (props) => {
+    const { invitationId } = props ?? {};
+
+    return deleteInvitation(invitationId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteInvitationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteInvitation>>
+>;
+
+export type DeleteInvitationMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Permanently delete a non-pending invitation
+ */
+export const useDeleteInvitation = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteInvitation>>,
+    TError,
+    { invitationId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteInvitation>>,
+  TError,
+  { invitationId: number },
+  TContext
+> => {
+  return useMutation(getDeleteInvitationMutationOptions(options));
+};
+
+/**
  * @summary Validate an invitation token
  */
 export const getValidateInviteTokenUrl = (token: string) => {

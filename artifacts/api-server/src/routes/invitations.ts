@@ -236,6 +236,31 @@ router.delete("/invitations/:invitationId", requireAuth, async (req, res): Promi
   res.json({ message: "Convite revogado com sucesso" });
 });
 
+router.delete("/invitations/:invitationId/permanent", requireAuth, async (req, res): Promise<void> => {
+  const { organizationId } = req.auth!;
+  const invitationId = Number(req.params.invitationId);
+
+  const [invitation] = await db.select().from(invitationsTable).where(
+    and(
+      eq(invitationsTable.id, invitationId),
+      eq(invitationsTable.organizationId, organizationId),
+    ),
+  );
+
+  if (!invitation) {
+    res.status(404).json({ error: "Convite não encontrado" });
+    return;
+  }
+
+  if (invitation.status === "pending") {
+    res.status(400).json({ error: "Convites pendentes devem ser revogados primeiro" });
+    return;
+  }
+
+  await db.delete(invitationsTable).where(eq(invitationsTable.id, invitationId));
+  res.sendStatus(204);
+});
+
 router.get("/invitations/accept/:token", async (req, res): Promise<void> => {
   const { token } = req.params;
 

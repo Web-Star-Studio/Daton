@@ -1949,6 +1949,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /invitations/{invitationId}/permanent:
+    delete:
+      operationId: deleteInvitation
+      tags: [invitations]
+      summary: Permanently delete a non-pending invitation
+      parameters:
+        - name: invitationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Invitation permanently deleted
+        "400":
+          description: Only non-pending invitations can be deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Invitation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /invitations/accept/{token}:
     get:
       operationId: validateInviteToken

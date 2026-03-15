@@ -18,7 +18,7 @@ import {
   useListDepartments, useCreateDepartment, useDeleteDepartment, useUpdateDepartment, getListDepartmentsQueryKey,
   useListPositions, useCreatePosition, useDeletePosition, useUpdatePosition, getListPositionsQueryKey,
   useGetOrganization, useUpdateOrganization, getGetOrganizationQueryKey,
-  useListInvitations, useCreateInvitation, useRevokeInvitation, getListInvitationsQueryKey,
+  useListInvitations, useCreateInvitation, useRevokeInvitation, useDeleteInvitation, getListInvitationsQueryKey,
   type CreateUnitBody, type CreateUnitBodyType,
 } from "@workspace/api-client-react";
 
@@ -100,6 +100,7 @@ export default function OrganizacaoPage() {
   const { data: invitationsData, isLoading: invitationsLoading } = useListInvitations({ query: { queryKey: getListInvitationsQueryKey(), enabled: activeTab === "usuarios" } });
   const createInviteMut = useCreateInvitation();
   const revokeInviteMut = useRevokeInvitation();
+  const deleteInviteMut = useDeleteInvitation();
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteError, setInviteError] = useState("");
@@ -170,15 +171,15 @@ export default function OrganizacaoPage() {
       case "usuarios":
         if (selectedInviteIds.size > 0) {
           const selectedInvites = invitationsData?.invitations?.filter(inv => selectedInviteIds.has(inv.id)) || [];
-          const hasPending = selectedInvites.some(inv => inv.status === "pending");
+          const pendingIds = selectedInvites.filter(inv => inv.status === "pending").map(inv => inv.id);
+          const deletableIds = selectedInvites.filter(inv => inv.status !== "pending").map(inv => inv.id);
           return (
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground mr-1">
                 {selectedInviteIds.size} selecionado{selectedInviteIds.size > 1 ? "s" : ""}
               </span>
-              {hasPending && (
+              {pendingIds.length > 0 && (
                 <Button size="sm" variant="destructive" onClick={async () => {
-                  const pendingIds = selectedInvites.filter(inv => inv.status === "pending").map(inv => inv.id);
                   for (const id of pendingIds) {
                     try { await revokeInviteMut.mutateAsync({ invitationId: id }); } catch {}
                   }
@@ -186,7 +187,19 @@ export default function OrganizacaoPage() {
                   setSelectedInviteIds(new Set());
                 }} isLoading={revokeInviteMut.isPending}>
                   <X className="h-3.5 w-3.5 mr-1.5" />
-                  Revogar
+                  Revogar ({pendingIds.length})
+                </Button>
+              )}
+              {deletableIds.length > 0 && (
+                <Button size="sm" variant="destructive" onClick={async () => {
+                  for (const id of deletableIds) {
+                    try { await deleteInviteMut.mutateAsync({ invitationId: id }); } catch {}
+                  }
+                  queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
+                  setSelectedInviteIds(new Set());
+                }} isLoading={deleteInviteMut.isPending}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  Excluir ({deletableIds.length})
                 </Button>
               )}
               <Button size="sm" variant="outline" onClick={() => setSelectedInviteIds(new Set())}>
