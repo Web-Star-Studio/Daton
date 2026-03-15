@@ -71,10 +71,11 @@ export default function ColaboradoresPage() {
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [search, statusFilter]);
+  }, [search, statusFilter, unitFilter, positionFilter, page]);
 
   const allSelectableIds = useMemo(() => employees.map((e) => e.id), [employees]);
   const allSelected = allSelectableIds.length > 0 && allSelectableIds.every((id) => selectedIds.has(id));
@@ -93,10 +94,7 @@ export default function ColaboradoresPage() {
     });
   };
 
-  const handleBulkDelete = async () => {
-    if (selectedIds.size === 0) return;
-    const count = selectedIds.size;
-    if (!confirm(`Tem certeza que deseja desativar ${count} colaborador${count > 1 ? "es" : ""}? Os registros serão marcados como inativos.`)) return;
+  const executeBulkDelete = async () => {
     setIsDeleting(true);
     try {
       for (const id of selectedIds) {
@@ -106,6 +104,7 @@ export default function ColaboradoresPage() {
       setSelectedIds(new Set());
     } finally {
       setIsDeleting(false);
+      setConfirmDeleteOpen(false);
     }
   };
 
@@ -136,7 +135,7 @@ export default function ColaboradoresPage() {
           <span className="text-xs text-muted-foreground mr-1">
             {selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}
           </span>
-          <Button size="sm" variant="destructive" onClick={handleBulkDelete} isLoading={isDeleting}>
+          <Button size="sm" variant="destructive" onClick={() => setConfirmDeleteOpen(true)} isLoading={isDeleting}>
             <Trash2 className="h-3.5 w-3.5 mr-1.5" />
             Desativar ({selectedIds.size})
           </Button>
@@ -386,6 +385,16 @@ export default function ColaboradoresPage() {
             </Button>
           </DialogFooter>
         </form>
+      </Dialog>
+
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen} title="Confirmar Desativação">
+        <p className="text-sm text-muted-foreground mt-2">
+          Tem certeza que deseja desativar {selectedIds.size} colaborador{selectedIds.size > 1 ? "es" : ""}? Os registros serão marcados como inativos.
+        </p>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setConfirmDeleteOpen(false)}>Cancelar</Button>
+          <Button type="button" variant="destructive" size="sm" onClick={executeBulkDelete} isLoading={isDeleting}>Desativar</Button>
+        </DialogFooter>
       </Dialog>
     </>
   );

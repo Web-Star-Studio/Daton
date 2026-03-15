@@ -1,7 +1,7 @@
-import React, { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
+import React, { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useListUnits, useCreateUnit, getListUnitsQueryKey, type CreateUnitBody, type CreateUnitBodyType } from "@workspace/api-client-react";
+import { useHeaderActions } from "@/contexts/LayoutContext";
+import { useListUnits, useCreateUnit, useDeleteUnit, getListUnitsQueryKey, type CreateUnitBody, type CreateUnitBodyType } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 type UnitFormData = {
@@ -36,9 +36,42 @@ export default function UnidadesPage() {
 
   const { data: units, isLoading } = useListUnits(orgId!, { query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId } });
   const createUnitMut = useCreateUnit();
-
+  const deleteUnitMut = useDeleteUnit();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+
+  const allSelectableIds = useMemo(() => units?.map((u) => u.id) ?? [], [units]);
+  const allSelected = allSelectableIds.length > 0 && allSelectableIds.every((id) => selectedIds.has(id));
+
+  const toggleAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(allSelectableIds));
+  };
+  const toggleOne = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const executeBulkDelete = async () => {
+    setIsDeleting(true);
+    try {
+      for (const id of selectedIds) {
+        try { await deleteUnitMut.mutateAsync({ orgId: orgId!, unitId: id }); } catch {}
+      }
+      queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey(orgId!) });
+      setSelectedIds(new Set());
+    } finally {
+      setIsDeleting(false);
+      setConfirmDeleteOpen(false);
+    }
+  };
   const form = useForm<UnitFormData>({
     defaultValues: {
       name: "", code: "", type: "filial", cnpj: "", status: "ativa",
@@ -70,17 +103,37 @@ export default function UnidadesPage() {
     form.reset();
   };
 
+  const headerActions = useMemo(() => {
+    if (selectedIds.size > 0) {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground mr-1">
+            {selectedIds.size} selecionad{selectedIds.size > 1 ? "as" : "a"}
+          </span>
+          <Button size="sm" variant="destructive" onClick={() => setConfirmDeleteOpen(true)} isLoading={isDeleting}>
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            Excluir ({selectedIds.size})
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>
+            Cancelar
+          </Button>
+        </div>
+      );
+    }
+    return (
+      <Button size="sm" onClick={() => setIsDialogOpen(true)}>
+        <Plus className="w-4 h-4 mr-2" />
+        Nova Unidade
+      </Button>
+    );
+  }, [selectedIds.size, isDeleting]);
+
+  useHeaderActions(headerActions);
+
   if (!orgId) return null;
 
-  const headerActions = (
-    <Button onClick={() => setIsDialogOpen(true)}>
-      <Plus className="w-4 h-4 mr-2" />
-      Nova Unidade
-    </Button>
-  );
-
   return (
-    <AppLayout headerActions={headerActions}>
+    <>
       <p className="text-[13px] text-muted-foreground mb-8">Gerencie as sedes e filiais da sua empresa.</p>
 
       {isLoading ? (
@@ -94,6 +147,14 @@ export default function UnidadesPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/30">
+                <th className="px-3 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    className="accent-primary h-4 w-4 cursor-pointer"
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Unidade</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Localização</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Identificação</th>
@@ -107,6 +168,14 @@ export default function UnidadesPage() {
                   onClick={() => navigate(`/app/organizacao/unidades/${unit.id}`)}
                   className="border-b border-border/60 hover:bg-muted/20 transition-colors cursor-pointer group"
                 >
+                  <td className="px-3 py-4 w-10" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(unit.id)}
+                      onChange={() => toggleOne(unit.id)}
+                      className="accent-primary h-4 w-4 cursor-pointer"
+                    />
+                  </td>
                   <td className="px-6 py-4">
                     <span className="text-[13px] font-medium text-foreground">{unit.name}</span>
                   </td>
@@ -214,6 +283,16 @@ export default function UnidadesPage() {
           </DialogFooter>
         </form>
       </Dialog>
-    </AppLayout>
+
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen} title="Confirmar Exclusão">
+        <p className="text-sm text-muted-foreground mt-2">
+          Tem certeza que deseja excluir {selectedIds.size} unidade{selectedIds.size > 1 ? "s" : ""}?
+        </p>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setConfirmDeleteOpen(false)}>Cancelar</Button>
+          <Button type="button" variant="destructive" size="sm" onClick={executeBulkDelete} isLoading={isDeleting}>Excluir</Button>
+        </DialogFooter>
+      </Dialog>
+    </>
   );
 }

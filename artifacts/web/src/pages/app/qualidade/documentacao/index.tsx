@@ -119,6 +119,7 @@ export default function DocumentacaoPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const { data: units } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
@@ -180,10 +181,7 @@ export default function DocumentacaoPage() {
     });
   };
 
-  const handleBulkDelete = async () => {
-    if (selectedDeletable.length === 0) return;
-    const count = selectedDeletable.length;
-    if (!confirm(`Tem certeza que deseja excluir ${count} documento${count > 1 ? "s" : ""}? Apenas documentos em rascunho ou rejeitados serão removidos.`)) return;
+  const executeBulkDelete = async () => {
     setIsDeleting(true);
     try {
       for (const id of selectedDeletable) {
@@ -193,6 +191,7 @@ export default function DocumentacaoPage() {
       setSelectedIds(new Set());
     } finally {
       setIsDeleting(false);
+      setConfirmDeleteOpen(false);
     }
   };
 
@@ -204,7 +203,7 @@ export default function DocumentacaoPage() {
             {selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}
           </span>
           {selectedDeletable.length > 0 && (
-            <Button size="sm" variant="destructive" onClick={handleBulkDelete} isLoading={isDeleting}>
+            <Button size="sm" variant="destructive" onClick={() => setConfirmDeleteOpen(true)} isLoading={isDeleting}>
               <Trash2 className="h-3.5 w-3.5 mr-1.5" />
               Excluir ({selectedDeletable.length})
             </Button>
@@ -366,6 +365,16 @@ export default function DocumentacaoPage() {
           navigate(`/app/qualidade/documentacao/${docId}`);
         }}
       />
+
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen} title="Confirmar Exclusão">
+        <p className="text-sm text-muted-foreground mt-2">
+          Tem certeza que deseja excluir {selectedDeletable.length} documento{selectedDeletable.length > 1 ? "s" : ""}? Apenas documentos em rascunho ou rejeitados serão removidos.
+        </p>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setConfirmDeleteOpen(false)}>Cancelar</Button>
+          <Button type="button" variant="destructive" size="sm" onClick={executeBulkDelete} isLoading={isDeleting}>Excluir</Button>
+        </DialogFooter>
+      </Dialog>
     </>
   );
 }

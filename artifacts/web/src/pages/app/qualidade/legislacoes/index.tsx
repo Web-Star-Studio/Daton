@@ -235,6 +235,7 @@ export default function LegislacoesPage() {
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -257,10 +258,7 @@ export default function LegislacoesPage() {
     });
   };
 
-  const handleBulkDelete = async () => {
-    if (selectedIds.size === 0) return;
-    const count = selectedIds.size;
-    if (!confirm(`Tem certeza que deseja excluir ${count} legislaç${count > 1 ? "ões" : "ão"}?`)) return;
+  const executeBulkDelete = async () => {
     setIsDeleting(true);
     try {
       for (const id of selectedIds) {
@@ -270,6 +268,7 @@ export default function LegislacoesPage() {
       setSelectedIds(new Set());
     } finally {
       setIsDeleting(false);
+      setConfirmDeleteOpen(false);
     }
   };
 
@@ -429,7 +428,7 @@ export default function LegislacoesPage() {
           <span className="text-xs text-muted-foreground mr-1">
             {selectedIds.size} selecionad{selectedIds.size > 1 ? "as" : "a"}
           </span>
-          <Button size="sm" variant="destructive" onClick={handleBulkDelete} isLoading={isDeleting}>
+          <Button size="sm" variant="destructive" onClick={() => setConfirmDeleteOpen(true)} isLoading={isDeleting}>
             <Trash2 className="h-3.5 w-3.5 mr-1.5" />
             Excluir ({selectedIds.size})
           </Button>
@@ -815,6 +814,16 @@ export default function LegislacoesPage() {
             </>
           )}
         </div>
+      </Dialog>
+
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen} title="Confirmar Exclusão">
+        <p className="text-sm text-muted-foreground mt-2">
+          Tem certeza que deseja excluir {selectedIds.size} legislaç{selectedIds.size > 1 ? "ões" : "ão"}?
+        </p>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setConfirmDeleteOpen(false)}>Cancelar</Button>
+          <Button type="button" variant="destructive" size="sm" onClick={executeBulkDelete} isLoading={isDeleting}>Excluir</Button>
+        </DialogFooter>
       </Dialog>
     </>
   );
