@@ -5,11 +5,12 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { AppModule } from "./appModule";
 import type { Organization } from "./organization";
 import type { User } from "./user";
 
 export interface MeResponse {
   user: User;
   organization: Organization;
-  modules: string[];
+  modules: AppModule[];
 }

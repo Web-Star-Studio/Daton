@@ -5,8 +5,8 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { AppModule } from "./appModule";
 
-export type UpdateUserModulesBody = {
-  modules: AppModule[];
-};
+export interface StrategicPlanReviewBody {
+  reviewReason?: string | null;
+  changeSummary?: string | null;
+}

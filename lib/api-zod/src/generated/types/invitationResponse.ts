@@ -5,6 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { AppModule } from "./appModule";
 
 export interface InvitationResponse {
   id: number;
@@ -13,7 +14,7 @@ export interface InvitationResponse {
   invitedByName: string;
   organizationName: string;
   role: string;
-  modules: string[];
+  modules: AppModule[];
   expiresAt: string;
   createdAt: string;
 }

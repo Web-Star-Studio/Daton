@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import type { GovernanceImportPayload } from "@/lib/governance-api";
+import type { GovernanceImportPayload } from "@/lib/governance-client";
 
 export interface GovernanceImportPreview {
   workbookName: string;

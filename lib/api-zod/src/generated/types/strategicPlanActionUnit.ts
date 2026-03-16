@@ -5,13 +5,8 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { AppModule } from "./appModule";
 
-export interface OrgUser {
+export interface StrategicPlanActionUnit {
   id: number;
   name: string;
-  email: string;
-  role: string;
-  createdAt: string;
-  modules: AppModule[];
 }

@@ -5,7 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { CreateOrgUserBodyModulesItem } from "./createOrgUserBodyModulesItem";
+import type { AppModule } from "./appModule";
 import type { CreateOrgUserBodyRole } from "./createOrgUserBodyRole";
 
 export interface CreateOrgUserBody {
@@ -14,5 +14,5 @@ export interface CreateOrgUserBody {
   /** @minLength 6 */
   password: string;
   role: CreateOrgUserBodyRole;
-  modules: CreateOrgUserBodyModulesItem[];
+  modules: AppModule[];
 }

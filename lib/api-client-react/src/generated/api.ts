@@ -36,6 +36,11 @@ import type {
   CreateOrgUserBody,
   CreateOrgUserResponse,
   CreatePositionBody,
+  CreateStrategicPlanActionBody,
+  CreateStrategicPlanBody,
+  CreateStrategicPlanInterestedPartyBody,
+  CreateStrategicPlanObjectiveBody,
+  CreateStrategicPlanSwotItemBody,
   CreateTrainingBody,
   CreateUnitBody,
   Department,
@@ -55,6 +60,7 @@ import type {
   HealthStatus,
   ImportLegislationsBody,
   ImportResult,
+  ImportStrategicPlanBody,
   InvitationResponse,
   InviteTokenInfo,
   Legislation,
@@ -78,6 +84,14 @@ import type {
   RegisterBody,
   RejectDocumentBody,
   SaveQuestionnaireResponsesBody,
+  StrategicPlanAction,
+  StrategicPlanDetail,
+  StrategicPlanExportResponse,
+  StrategicPlanInterestedParty,
+  StrategicPlanListItem,
+  StrategicPlanObjective,
+  StrategicPlanReviewBody,
+  StrategicPlanSwotItem,
   SubmitQuestionnaireResponse,
   SuccessResponse,
   Unit,
@@ -92,6 +106,11 @@ import type {
   UpdateLegislationBody,
   UpdateOrganizationBody,
   UpdatePositionBody,
+  UpdateStrategicPlanActionBody,
+  UpdateStrategicPlanBody,
+  UpdateStrategicPlanInterestedPartyBody,
+  UpdateStrategicPlanObjectiveBody,
+  UpdateStrategicPlanSwotItemBody,
   UpdateTrainingBody,
   UpdateUnitBody,
   UpdateUnitLegislationBody,
@@ -8400,4 +8419,2723 @@ export const useAcceptInvitation = <
   TContext
 > => {
   return useMutation(getAcceptInvitationMutationOptions(options));
+};
+
+/**
+ * @summary List strategic plans for the organization
+ */
+export const getListStrategicPlansUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans`;
+};
+
+export const listStrategicPlans = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<StrategicPlanListItem[]> => {
+  return customFetch<StrategicPlanListItem[]>(getListStrategicPlansUrl(orgId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListStrategicPlansQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/governance/strategic-plans`] as const;
+};
+
+export const getListStrategicPlansQueryOptions = <
+  TData = Awaited<ReturnType<typeof listStrategicPlans>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listStrategicPlans>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListStrategicPlansQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listStrategicPlans>>
+  > = ({ signal }) => listStrategicPlans(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listStrategicPlans>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListStrategicPlansQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listStrategicPlans>>
+>;
+export type ListStrategicPlansQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List strategic plans for the organization
+ */
+
+export function useListStrategicPlans<
+  TData = Awaited<ReturnType<typeof listStrategicPlans>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listStrategicPlans>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListStrategicPlansQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a strategic plan
+ */
+export const getCreateStrategicPlanUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans`;
+};
+
+export const createStrategicPlan = async (
+  orgId: number,
+  createStrategicPlanBody: CreateStrategicPlanBody,
+  options?: RequestInit,
+): Promise<StrategicPlanDetail> => {
+  return customFetch<StrategicPlanDetail>(getCreateStrategicPlanUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createStrategicPlanBody),
+  });
+};
+
+export const getCreateStrategicPlanMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStrategicPlan>>,
+    TError,
+    { orgId: number; data: BodyType<CreateStrategicPlanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createStrategicPlan>>,
+  TError,
+  { orgId: number; data: BodyType<CreateStrategicPlanBody> },
+  TContext
+> => {
+  const mutationKey = ["createStrategicPlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createStrategicPlan>>,
+    { orgId: number; data: BodyType<CreateStrategicPlanBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createStrategicPlan(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateStrategicPlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createStrategicPlan>>
+>;
+export type CreateStrategicPlanMutationBody = BodyType<CreateStrategicPlanBody>;
+export type CreateStrategicPlanMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a strategic plan
+ */
+export const useCreateStrategicPlan = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStrategicPlan>>,
+    TError,
+    { orgId: number; data: BodyType<CreateStrategicPlanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createStrategicPlan>>,
+  TError,
+  { orgId: number; data: BodyType<CreateStrategicPlanBody> },
+  TContext
+> => {
+  return useMutation(getCreateStrategicPlanMutationOptions(options));
+};
+
+/**
+ * @summary Get a strategic plan
+ */
+export const getGetStrategicPlanUrl = (orgId: number, planId: number) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}`;
+};
+
+export const getStrategicPlan = async (
+  orgId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<StrategicPlanDetail> => {
+  return customFetch<StrategicPlanDetail>(
+    getGetStrategicPlanUrl(orgId, planId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetStrategicPlanQueryKey = (orgId: number, planId: number) => {
+  return [
+    `/api/organizations/${orgId}/governance/strategic-plans/${planId}`,
+  ] as const;
+};
+
+export const getGetStrategicPlanQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStrategicPlan>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStrategicPlan>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStrategicPlanQueryKey(orgId, planId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStrategicPlan>>
+  > = ({ signal }) =>
+    getStrategicPlan(orgId, planId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && planId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStrategicPlan>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStrategicPlanQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStrategicPlan>>
+>;
+export type GetStrategicPlanQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get a strategic plan
+ */
+
+export function useGetStrategicPlan<
+  TData = Awaited<ReturnType<typeof getStrategicPlan>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStrategicPlan>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStrategicPlanQueryOptions(orgId, planId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update an editable strategic plan
+ */
+export const getUpdateStrategicPlanUrl = (orgId: number, planId: number) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}`;
+};
+
+export const updateStrategicPlan = async (
+  orgId: number,
+  planId: number,
+  updateStrategicPlanBody: UpdateStrategicPlanBody,
+  options?: RequestInit,
+): Promise<StrategicPlanDetail> => {
+  return customFetch<StrategicPlanDetail>(
+    getUpdateStrategicPlanUrl(orgId, planId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateStrategicPlanBody),
+    },
+  );
+};
+
+export const getUpdateStrategicPlanMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStrategicPlan>>,
+    TError,
+    { orgId: number; planId: number; data: BodyType<UpdateStrategicPlanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateStrategicPlan>>,
+  TError,
+  { orgId: number; planId: number; data: BodyType<UpdateStrategicPlanBody> },
+  TContext
+> => {
+  const mutationKey = ["updateStrategicPlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateStrategicPlan>>,
+    { orgId: number; planId: number; data: BodyType<UpdateStrategicPlanBody> }
+  > = (props) => {
+    const { orgId, planId, data } = props ?? {};
+
+    return updateStrategicPlan(orgId, planId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateStrategicPlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateStrategicPlan>>
+>;
+export type UpdateStrategicPlanMutationBody = BodyType<UpdateStrategicPlanBody>;
+export type UpdateStrategicPlanMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update an editable strategic plan
+ */
+export const useUpdateStrategicPlan = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStrategicPlan>>,
+    TError,
+    { orgId: number; planId: number; data: BodyType<UpdateStrategicPlanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateStrategicPlan>>,
+  TError,
+  { orgId: number; planId: number; data: BodyType<UpdateStrategicPlanBody> },
+  TContext
+> => {
+  return useMutation(getUpdateStrategicPlanMutationOptions(options));
+};
+
+/**
+ * @summary Import workbook data into an editable strategic plan
+ */
+export const getImportStrategicPlanUrl = (orgId: number, planId: number) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/import`;
+};
+
+export const importStrategicPlan = async (
+  orgId: number,
+  planId: number,
+  importStrategicPlanBody: ImportStrategicPlanBody,
+  options?: RequestInit,
+): Promise<StrategicPlanDetail> => {
+  return customFetch<StrategicPlanDetail>(
+    getImportStrategicPlanUrl(orgId, planId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(importStrategicPlanBody),
+    },
+  );
+};
+
+export const getImportStrategicPlanMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importStrategicPlan>>,
+    TError,
+    { orgId: number; planId: number; data: BodyType<ImportStrategicPlanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importStrategicPlan>>,
+  TError,
+  { orgId: number; planId: number; data: BodyType<ImportStrategicPlanBody> },
+  TContext
+> => {
+  const mutationKey = ["importStrategicPlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importStrategicPlan>>,
+    { orgId: number; planId: number; data: BodyType<ImportStrategicPlanBody> }
+  > = (props) => {
+    const { orgId, planId, data } = props ?? {};
+
+    return importStrategicPlan(orgId, planId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportStrategicPlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importStrategicPlan>>
+>;
+export type ImportStrategicPlanMutationBody = BodyType<ImportStrategicPlanBody>;
+export type ImportStrategicPlanMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Import workbook data into an editable strategic plan
+ */
+export const useImportStrategicPlan = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importStrategicPlan>>,
+    TError,
+    { orgId: number; planId: number; data: BodyType<ImportStrategicPlanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importStrategicPlan>>,
+  TError,
+  { orgId: number; planId: number; data: BodyType<ImportStrategicPlanBody> },
+  TContext
+> => {
+  return useMutation(getImportStrategicPlanMutationOptions(options));
+};
+
+/**
+ * @summary Submit a strategic plan for review
+ */
+export const getSubmitStrategicPlanUrl = (orgId: number, planId: number) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/submit`;
+};
+
+export const submitStrategicPlan = async (
+  orgId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<StrategicPlanDetail> => {
+  return customFetch<StrategicPlanDetail>(
+    getSubmitStrategicPlanUrl(orgId, planId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getSubmitStrategicPlanMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitStrategicPlan>>,
+    TError,
+    { orgId: number; planId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitStrategicPlan>>,
+  TError,
+  { orgId: number; planId: number },
+  TContext
+> => {
+  const mutationKey = ["submitStrategicPlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitStrategicPlan>>,
+    { orgId: number; planId: number }
+  > = (props) => {
+    const { orgId, planId } = props ?? {};
+
+    return submitStrategicPlan(orgId, planId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitStrategicPlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitStrategicPlan>>
+>;
+
+export type SubmitStrategicPlanMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Submit a strategic plan for review
+ */
+export const useSubmitStrategicPlan = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitStrategicPlan>>,
+    TError,
+    { orgId: number; planId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitStrategicPlan>>,
+  TError,
+  { orgId: number; planId: number },
+  TContext
+> => {
+  return useMutation(getSubmitStrategicPlanMutationOptions(options));
+};
+
+/**
+ * @summary Approve a strategic plan
+ */
+export const getApproveStrategicPlanUrl = (orgId: number, planId: number) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/approve`;
+};
+
+export const approveStrategicPlan = async (
+  orgId: number,
+  planId: number,
+  strategicPlanReviewBody?: StrategicPlanReviewBody,
+  options?: RequestInit,
+): Promise<StrategicPlanDetail> => {
+  return customFetch<StrategicPlanDetail>(
+    getApproveStrategicPlanUrl(orgId, planId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(strategicPlanReviewBody),
+    },
+  );
+};
+
+export const getApproveStrategicPlanMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveStrategicPlan>>,
+    TError,
+    { orgId: number; planId: number; data: BodyType<StrategicPlanReviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof approveStrategicPlan>>,
+  TError,
+  { orgId: number; planId: number; data: BodyType<StrategicPlanReviewBody> },
+  TContext
+> => {
+  const mutationKey = ["approveStrategicPlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof approveStrategicPlan>>,
+    { orgId: number; planId: number; data: BodyType<StrategicPlanReviewBody> }
+  > = (props) => {
+    const { orgId, planId, data } = props ?? {};
+
+    return approveStrategicPlan(orgId, planId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApproveStrategicPlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof approveStrategicPlan>>
+>;
+export type ApproveStrategicPlanMutationBody =
+  BodyType<StrategicPlanReviewBody>;
+export type ApproveStrategicPlanMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Approve a strategic plan
+ */
+export const useApproveStrategicPlan = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveStrategicPlan>>,
+    TError,
+    { orgId: number; planId: number; data: BodyType<StrategicPlanReviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof approveStrategicPlan>>,
+  TError,
+  { orgId: number; planId: number; data: BodyType<StrategicPlanReviewBody> },
+  TContext
+> => {
+  return useMutation(getApproveStrategicPlanMutationOptions(options));
+};
+
+/**
+ * @summary Reject a strategic plan
+ */
+export const getRejectStrategicPlanUrl = (orgId: number, planId: number) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/reject`;
+};
+
+export const rejectStrategicPlan = async (
+  orgId: number,
+  planId: number,
+  strategicPlanReviewBody?: StrategicPlanReviewBody,
+  options?: RequestInit,
+): Promise<StrategicPlanDetail> => {
+  return customFetch<StrategicPlanDetail>(
+    getRejectStrategicPlanUrl(orgId, planId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(strategicPlanReviewBody),
+    },
+  );
+};
+
+export const getRejectStrategicPlanMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectStrategicPlan>>,
+    TError,
+    { orgId: number; planId: number; data: BodyType<StrategicPlanReviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rejectStrategicPlan>>,
+  TError,
+  { orgId: number; planId: number; data: BodyType<StrategicPlanReviewBody> },
+  TContext
+> => {
+  const mutationKey = ["rejectStrategicPlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rejectStrategicPlan>>,
+    { orgId: number; planId: number; data: BodyType<StrategicPlanReviewBody> }
+  > = (props) => {
+    const { orgId, planId, data } = props ?? {};
+
+    return rejectStrategicPlan(orgId, planId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RejectStrategicPlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rejectStrategicPlan>>
+>;
+export type RejectStrategicPlanMutationBody = BodyType<StrategicPlanReviewBody>;
+export type RejectStrategicPlanMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Reject a strategic plan
+ */
+export const useRejectStrategicPlan = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rejectStrategicPlan>>,
+    TError,
+    { orgId: number; planId: number; data: BodyType<StrategicPlanReviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rejectStrategicPlan>>,
+  TError,
+  { orgId: number; planId: number; data: BodyType<StrategicPlanReviewBody> },
+  TContext
+> => {
+  return useMutation(getRejectStrategicPlanMutationOptions(options));
+};
+
+/**
+ * @summary Reopen a strategic plan as draft
+ */
+export const getReopenStrategicPlanUrl = (orgId: number, planId: number) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/reopen`;
+};
+
+export const reopenStrategicPlan = async (
+  orgId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<StrategicPlanDetail> => {
+  return customFetch<StrategicPlanDetail>(
+    getReopenStrategicPlanUrl(orgId, planId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getReopenStrategicPlanMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reopenStrategicPlan>>,
+    TError,
+    { orgId: number; planId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reopenStrategicPlan>>,
+  TError,
+  { orgId: number; planId: number },
+  TContext
+> => {
+  const mutationKey = ["reopenStrategicPlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reopenStrategicPlan>>,
+    { orgId: number; planId: number }
+  > = (props) => {
+    const { orgId, planId } = props ?? {};
+
+    return reopenStrategicPlan(orgId, planId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReopenStrategicPlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reopenStrategicPlan>>
+>;
+
+export type ReopenStrategicPlanMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Reopen a strategic plan as draft
+ */
+export const useReopenStrategicPlan = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reopenStrategicPlan>>,
+    TError,
+    { orgId: number; planId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reopenStrategicPlan>>,
+  TError,
+  { orgId: number; planId: number },
+  TContext
+> => {
+  return useMutation(getReopenStrategicPlanMutationOptions(options));
+};
+
+/**
+ * @summary Get the latest approved evidence metadata for a strategic plan
+ */
+export const getGetStrategicPlanExportUrl = (orgId: number, planId: number) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/export`;
+};
+
+export const getStrategicPlanExport = async (
+  orgId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<StrategicPlanExportResponse> => {
+  return customFetch<StrategicPlanExportResponse>(
+    getGetStrategicPlanExportUrl(orgId, planId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetStrategicPlanExportQueryKey = (
+  orgId: number,
+  planId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/strategic-plans/${planId}/export`,
+  ] as const;
+};
+
+export const getGetStrategicPlanExportQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStrategicPlanExport>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStrategicPlanExport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStrategicPlanExportQueryKey(orgId, planId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStrategicPlanExport>>
+  > = ({ signal }) =>
+    getStrategicPlanExport(orgId, planId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && planId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStrategicPlanExport>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStrategicPlanExportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStrategicPlanExport>>
+>;
+export type GetStrategicPlanExportQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get the latest approved evidence metadata for a strategic plan
+ */
+
+export function useGetStrategicPlanExport<
+  TData = Awaited<ReturnType<typeof getStrategicPlanExport>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStrategicPlanExport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStrategicPlanExportQueryOptions(
+    orgId,
+    planId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List SWOT items for a strategic plan
+ */
+export const getListStrategicPlanSwotItemsUrl = (
+  orgId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/swot-items`;
+};
+
+export const listStrategicPlanSwotItems = async (
+  orgId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<StrategicPlanSwotItem[]> => {
+  return customFetch<StrategicPlanSwotItem[]>(
+    getListStrategicPlanSwotItemsUrl(orgId, planId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListStrategicPlanSwotItemsQueryKey = (
+  orgId: number,
+  planId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/strategic-plans/${planId}/swot-items`,
+  ] as const;
+};
+
+export const getListStrategicPlanSwotItemsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listStrategicPlanSwotItems>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listStrategicPlanSwotItems>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListStrategicPlanSwotItemsQueryKey(orgId, planId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listStrategicPlanSwotItems>>
+  > = ({ signal }) =>
+    listStrategicPlanSwotItems(orgId, planId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && planId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listStrategicPlanSwotItems>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListStrategicPlanSwotItemsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listStrategicPlanSwotItems>>
+>;
+export type ListStrategicPlanSwotItemsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List SWOT items for a strategic plan
+ */
+
+export function useListStrategicPlanSwotItems<
+  TData = Awaited<ReturnType<typeof listStrategicPlanSwotItems>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listStrategicPlanSwotItems>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListStrategicPlanSwotItemsQueryOptions(
+    orgId,
+    planId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a SWOT item
+ */
+export const getCreateStrategicPlanSwotItemUrl = (
+  orgId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/swot-items`;
+};
+
+export const createStrategicPlanSwotItem = async (
+  orgId: number,
+  planId: number,
+  createStrategicPlanSwotItemBody: CreateStrategicPlanSwotItemBody,
+  options?: RequestInit,
+): Promise<StrategicPlanSwotItem> => {
+  return customFetch<StrategicPlanSwotItem>(
+    getCreateStrategicPlanSwotItemUrl(orgId, planId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createStrategicPlanSwotItemBody),
+    },
+  );
+};
+
+export const getCreateStrategicPlanSwotItemMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStrategicPlanSwotItem>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateStrategicPlanSwotItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createStrategicPlanSwotItem>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    data: BodyType<CreateStrategicPlanSwotItemBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createStrategicPlanSwotItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createStrategicPlanSwotItem>>,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateStrategicPlanSwotItemBody>;
+    }
+  > = (props) => {
+    const { orgId, planId, data } = props ?? {};
+
+    return createStrategicPlanSwotItem(orgId, planId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateStrategicPlanSwotItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createStrategicPlanSwotItem>>
+>;
+export type CreateStrategicPlanSwotItemMutationBody =
+  BodyType<CreateStrategicPlanSwotItemBody>;
+export type CreateStrategicPlanSwotItemMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a SWOT item
+ */
+export const useCreateStrategicPlanSwotItem = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStrategicPlanSwotItem>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateStrategicPlanSwotItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createStrategicPlanSwotItem>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    data: BodyType<CreateStrategicPlanSwotItemBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateStrategicPlanSwotItemMutationOptions(options));
+};
+
+/**
+ * @summary Update a SWOT item
+ */
+export const getUpdateStrategicPlanSwotItemUrl = (
+  orgId: number,
+  planId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/swot-items/${itemId}`;
+};
+
+export const updateStrategicPlanSwotItem = async (
+  orgId: number,
+  planId: number,
+  itemId: number,
+  updateStrategicPlanSwotItemBody: UpdateStrategicPlanSwotItemBody,
+  options?: RequestInit,
+): Promise<StrategicPlanSwotItem> => {
+  return customFetch<StrategicPlanSwotItem>(
+    getUpdateStrategicPlanSwotItemUrl(orgId, planId, itemId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateStrategicPlanSwotItemBody),
+    },
+  );
+};
+
+export const getUpdateStrategicPlanSwotItemMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStrategicPlanSwotItem>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<UpdateStrategicPlanSwotItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateStrategicPlanSwotItem>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    itemId: number;
+    data: BodyType<UpdateStrategicPlanSwotItemBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateStrategicPlanSwotItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateStrategicPlanSwotItem>>,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<UpdateStrategicPlanSwotItemBody>;
+    }
+  > = (props) => {
+    const { orgId, planId, itemId, data } = props ?? {};
+
+    return updateStrategicPlanSwotItem(
+      orgId,
+      planId,
+      itemId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateStrategicPlanSwotItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateStrategicPlanSwotItem>>
+>;
+export type UpdateStrategicPlanSwotItemMutationBody =
+  BodyType<UpdateStrategicPlanSwotItemBody>;
+export type UpdateStrategicPlanSwotItemMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update a SWOT item
+ */
+export const useUpdateStrategicPlanSwotItem = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStrategicPlanSwotItem>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<UpdateStrategicPlanSwotItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateStrategicPlanSwotItem>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    itemId: number;
+    data: BodyType<UpdateStrategicPlanSwotItemBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateStrategicPlanSwotItemMutationOptions(options));
+};
+
+/**
+ * @summary Delete a SWOT item
+ */
+export const getDeleteStrategicPlanSwotItemUrl = (
+  orgId: number,
+  planId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/swot-items/${itemId}`;
+};
+
+export const deleteStrategicPlanSwotItem = async (
+  orgId: number,
+  planId: number,
+  itemId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteStrategicPlanSwotItemUrl(orgId, planId, itemId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteStrategicPlanSwotItemMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteStrategicPlanSwotItem>>,
+    TError,
+    { orgId: number; planId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteStrategicPlanSwotItem>>,
+  TError,
+  { orgId: number; planId: number; itemId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteStrategicPlanSwotItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteStrategicPlanSwotItem>>,
+    { orgId: number; planId: number; itemId: number }
+  > = (props) => {
+    const { orgId, planId, itemId } = props ?? {};
+
+    return deleteStrategicPlanSwotItem(orgId, planId, itemId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteStrategicPlanSwotItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteStrategicPlanSwotItem>>
+>;
+
+export type DeleteStrategicPlanSwotItemMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete a SWOT item
+ */
+export const useDeleteStrategicPlanSwotItem = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteStrategicPlanSwotItem>>,
+    TError,
+    { orgId: number; planId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteStrategicPlanSwotItem>>,
+  TError,
+  { orgId: number; planId: number; itemId: number },
+  TContext
+> => {
+  return useMutation(getDeleteStrategicPlanSwotItemMutationOptions(options));
+};
+
+/**
+ * @summary List interested parties for a strategic plan
+ */
+export const getListStrategicPlanInterestedPartiesUrl = (
+  orgId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/interested-parties`;
+};
+
+export const listStrategicPlanInterestedParties = async (
+  orgId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<StrategicPlanInterestedParty[]> => {
+  return customFetch<StrategicPlanInterestedParty[]>(
+    getListStrategicPlanInterestedPartiesUrl(orgId, planId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListStrategicPlanInterestedPartiesQueryKey = (
+  orgId: number,
+  planId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/strategic-plans/${planId}/interested-parties`,
+  ] as const;
+};
+
+export const getListStrategicPlanInterestedPartiesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listStrategicPlanInterestedParties>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listStrategicPlanInterestedParties>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListStrategicPlanInterestedPartiesQueryKey(orgId, planId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listStrategicPlanInterestedParties>>
+  > = ({ signal }) =>
+    listStrategicPlanInterestedParties(orgId, planId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && planId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listStrategicPlanInterestedParties>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListStrategicPlanInterestedPartiesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listStrategicPlanInterestedParties>>
+>;
+export type ListStrategicPlanInterestedPartiesQueryError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary List interested parties for a strategic plan
+ */
+
+export function useListStrategicPlanInterestedParties<
+  TData = Awaited<ReturnType<typeof listStrategicPlanInterestedParties>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listStrategicPlanInterestedParties>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListStrategicPlanInterestedPartiesQueryOptions(
+    orgId,
+    planId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an interested party
+ */
+export const getCreateStrategicPlanInterestedPartyUrl = (
+  orgId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/interested-parties`;
+};
+
+export const createStrategicPlanInterestedParty = async (
+  orgId: number,
+  planId: number,
+  createStrategicPlanInterestedPartyBody: CreateStrategicPlanInterestedPartyBody,
+  options?: RequestInit,
+): Promise<StrategicPlanInterestedParty> => {
+  return customFetch<StrategicPlanInterestedParty>(
+    getCreateStrategicPlanInterestedPartyUrl(orgId, planId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createStrategicPlanInterestedPartyBody),
+    },
+  );
+};
+
+export const getCreateStrategicPlanInterestedPartyMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStrategicPlanInterestedParty>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateStrategicPlanInterestedPartyBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createStrategicPlanInterestedParty>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    data: BodyType<CreateStrategicPlanInterestedPartyBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createStrategicPlanInterestedParty"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createStrategicPlanInterestedParty>>,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateStrategicPlanInterestedPartyBody>;
+    }
+  > = (props) => {
+    const { orgId, planId, data } = props ?? {};
+
+    return createStrategicPlanInterestedParty(
+      orgId,
+      planId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateStrategicPlanInterestedPartyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createStrategicPlanInterestedParty>>
+>;
+export type CreateStrategicPlanInterestedPartyMutationBody =
+  BodyType<CreateStrategicPlanInterestedPartyBody>;
+export type CreateStrategicPlanInterestedPartyMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create an interested party
+ */
+export const useCreateStrategicPlanInterestedParty = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStrategicPlanInterestedParty>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateStrategicPlanInterestedPartyBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createStrategicPlanInterestedParty>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    data: BodyType<CreateStrategicPlanInterestedPartyBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateStrategicPlanInterestedPartyMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Update an interested party
+ */
+export const getUpdateStrategicPlanInterestedPartyUrl = (
+  orgId: number,
+  planId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/interested-parties/${itemId}`;
+};
+
+export const updateStrategicPlanInterestedParty = async (
+  orgId: number,
+  planId: number,
+  itemId: number,
+  updateStrategicPlanInterestedPartyBody: UpdateStrategicPlanInterestedPartyBody,
+  options?: RequestInit,
+): Promise<StrategicPlanInterestedParty> => {
+  return customFetch<StrategicPlanInterestedParty>(
+    getUpdateStrategicPlanInterestedPartyUrl(orgId, planId, itemId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateStrategicPlanInterestedPartyBody),
+    },
+  );
+};
+
+export const getUpdateStrategicPlanInterestedPartyMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStrategicPlanInterestedParty>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<UpdateStrategicPlanInterestedPartyBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateStrategicPlanInterestedParty>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    itemId: number;
+    data: BodyType<UpdateStrategicPlanInterestedPartyBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateStrategicPlanInterestedParty"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateStrategicPlanInterestedParty>>,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<UpdateStrategicPlanInterestedPartyBody>;
+    }
+  > = (props) => {
+    const { orgId, planId, itemId, data } = props ?? {};
+
+    return updateStrategicPlanInterestedParty(
+      orgId,
+      planId,
+      itemId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateStrategicPlanInterestedPartyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateStrategicPlanInterestedParty>>
+>;
+export type UpdateStrategicPlanInterestedPartyMutationBody =
+  BodyType<UpdateStrategicPlanInterestedPartyBody>;
+export type UpdateStrategicPlanInterestedPartyMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update an interested party
+ */
+export const useUpdateStrategicPlanInterestedParty = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStrategicPlanInterestedParty>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<UpdateStrategicPlanInterestedPartyBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateStrategicPlanInterestedParty>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    itemId: number;
+    data: BodyType<UpdateStrategicPlanInterestedPartyBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getUpdateStrategicPlanInterestedPartyMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Delete an interested party
+ */
+export const getDeleteStrategicPlanInterestedPartyUrl = (
+  orgId: number,
+  planId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/interested-parties/${itemId}`;
+};
+
+export const deleteStrategicPlanInterestedParty = async (
+  orgId: number,
+  planId: number,
+  itemId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteStrategicPlanInterestedPartyUrl(orgId, planId, itemId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteStrategicPlanInterestedPartyMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteStrategicPlanInterestedParty>>,
+    TError,
+    { orgId: number; planId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteStrategicPlanInterestedParty>>,
+  TError,
+  { orgId: number; planId: number; itemId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteStrategicPlanInterestedParty"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteStrategicPlanInterestedParty>>,
+    { orgId: number; planId: number; itemId: number }
+  > = (props) => {
+    const { orgId, planId, itemId } = props ?? {};
+
+    return deleteStrategicPlanInterestedParty(
+      orgId,
+      planId,
+      itemId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteStrategicPlanInterestedPartyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteStrategicPlanInterestedParty>>
+>;
+
+export type DeleteStrategicPlanInterestedPartyMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete an interested party
+ */
+export const useDeleteStrategicPlanInterestedParty = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteStrategicPlanInterestedParty>>,
+    TError,
+    { orgId: number; planId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteStrategicPlanInterestedParty>>,
+  TError,
+  { orgId: number; planId: number; itemId: number },
+  TContext
+> => {
+  return useMutation(
+    getDeleteStrategicPlanInterestedPartyMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List objectives for a strategic plan
+ */
+export const getListStrategicPlanObjectivesUrl = (
+  orgId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/objectives`;
+};
+
+export const listStrategicPlanObjectives = async (
+  orgId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<StrategicPlanObjective[]> => {
+  return customFetch<StrategicPlanObjective[]>(
+    getListStrategicPlanObjectivesUrl(orgId, planId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListStrategicPlanObjectivesQueryKey = (
+  orgId: number,
+  planId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/strategic-plans/${planId}/objectives`,
+  ] as const;
+};
+
+export const getListStrategicPlanObjectivesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listStrategicPlanObjectives>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listStrategicPlanObjectives>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListStrategicPlanObjectivesQueryKey(orgId, planId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listStrategicPlanObjectives>>
+  > = ({ signal }) =>
+    listStrategicPlanObjectives(orgId, planId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && planId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listStrategicPlanObjectives>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListStrategicPlanObjectivesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listStrategicPlanObjectives>>
+>;
+export type ListStrategicPlanObjectivesQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List objectives for a strategic plan
+ */
+
+export function useListStrategicPlanObjectives<
+  TData = Awaited<ReturnType<typeof listStrategicPlanObjectives>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listStrategicPlanObjectives>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListStrategicPlanObjectivesQueryOptions(
+    orgId,
+    planId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a strategic objective
+ */
+export const getCreateStrategicPlanObjectiveUrl = (
+  orgId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/objectives`;
+};
+
+export const createStrategicPlanObjective = async (
+  orgId: number,
+  planId: number,
+  createStrategicPlanObjectiveBody: CreateStrategicPlanObjectiveBody,
+  options?: RequestInit,
+): Promise<StrategicPlanObjective> => {
+  return customFetch<StrategicPlanObjective>(
+    getCreateStrategicPlanObjectiveUrl(orgId, planId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createStrategicPlanObjectiveBody),
+    },
+  );
+};
+
+export const getCreateStrategicPlanObjectiveMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStrategicPlanObjective>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateStrategicPlanObjectiveBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createStrategicPlanObjective>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    data: BodyType<CreateStrategicPlanObjectiveBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createStrategicPlanObjective"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createStrategicPlanObjective>>,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateStrategicPlanObjectiveBody>;
+    }
+  > = (props) => {
+    const { orgId, planId, data } = props ?? {};
+
+    return createStrategicPlanObjective(orgId, planId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateStrategicPlanObjectiveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createStrategicPlanObjective>>
+>;
+export type CreateStrategicPlanObjectiveMutationBody =
+  BodyType<CreateStrategicPlanObjectiveBody>;
+export type CreateStrategicPlanObjectiveMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a strategic objective
+ */
+export const useCreateStrategicPlanObjective = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStrategicPlanObjective>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateStrategicPlanObjectiveBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createStrategicPlanObjective>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    data: BodyType<CreateStrategicPlanObjectiveBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateStrategicPlanObjectiveMutationOptions(options));
+};
+
+/**
+ * @summary Update a strategic objective
+ */
+export const getUpdateStrategicPlanObjectiveUrl = (
+  orgId: number,
+  planId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/objectives/${itemId}`;
+};
+
+export const updateStrategicPlanObjective = async (
+  orgId: number,
+  planId: number,
+  itemId: number,
+  updateStrategicPlanObjectiveBody: UpdateStrategicPlanObjectiveBody,
+  options?: RequestInit,
+): Promise<StrategicPlanObjective> => {
+  return customFetch<StrategicPlanObjective>(
+    getUpdateStrategicPlanObjectiveUrl(orgId, planId, itemId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateStrategicPlanObjectiveBody),
+    },
+  );
+};
+
+export const getUpdateStrategicPlanObjectiveMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStrategicPlanObjective>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<UpdateStrategicPlanObjectiveBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateStrategicPlanObjective>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    itemId: number;
+    data: BodyType<UpdateStrategicPlanObjectiveBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateStrategicPlanObjective"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateStrategicPlanObjective>>,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<UpdateStrategicPlanObjectiveBody>;
+    }
+  > = (props) => {
+    const { orgId, planId, itemId, data } = props ?? {};
+
+    return updateStrategicPlanObjective(
+      orgId,
+      planId,
+      itemId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateStrategicPlanObjectiveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateStrategicPlanObjective>>
+>;
+export type UpdateStrategicPlanObjectiveMutationBody =
+  BodyType<UpdateStrategicPlanObjectiveBody>;
+export type UpdateStrategicPlanObjectiveMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update a strategic objective
+ */
+export const useUpdateStrategicPlanObjective = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStrategicPlanObjective>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<UpdateStrategicPlanObjectiveBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateStrategicPlanObjective>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    itemId: number;
+    data: BodyType<UpdateStrategicPlanObjectiveBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateStrategicPlanObjectiveMutationOptions(options));
+};
+
+/**
+ * @summary Delete a strategic objective
+ */
+export const getDeleteStrategicPlanObjectiveUrl = (
+  orgId: number,
+  planId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/objectives/${itemId}`;
+};
+
+export const deleteStrategicPlanObjective = async (
+  orgId: number,
+  planId: number,
+  itemId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteStrategicPlanObjectiveUrl(orgId, planId, itemId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteStrategicPlanObjectiveMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteStrategicPlanObjective>>,
+    TError,
+    { orgId: number; planId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteStrategicPlanObjective>>,
+  TError,
+  { orgId: number; planId: number; itemId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteStrategicPlanObjective"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteStrategicPlanObjective>>,
+    { orgId: number; planId: number; itemId: number }
+  > = (props) => {
+    const { orgId, planId, itemId } = props ?? {};
+
+    return deleteStrategicPlanObjective(orgId, planId, itemId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteStrategicPlanObjectiveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteStrategicPlanObjective>>
+>;
+
+export type DeleteStrategicPlanObjectiveMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete a strategic objective
+ */
+export const useDeleteStrategicPlanObjective = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteStrategicPlanObjective>>,
+    TError,
+    { orgId: number; planId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteStrategicPlanObjective>>,
+  TError,
+  { orgId: number; planId: number; itemId: number },
+  TContext
+> => {
+  return useMutation(getDeleteStrategicPlanObjectiveMutationOptions(options));
+};
+
+/**
+ * @summary List actions for a strategic plan
+ */
+export const getListStrategicPlanActionsUrl = (
+  orgId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/actions`;
+};
+
+export const listStrategicPlanActions = async (
+  orgId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<StrategicPlanAction[]> => {
+  return customFetch<StrategicPlanAction[]>(
+    getListStrategicPlanActionsUrl(orgId, planId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListStrategicPlanActionsQueryKey = (
+  orgId: number,
+  planId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/strategic-plans/${planId}/actions`,
+  ] as const;
+};
+
+export const getListStrategicPlanActionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listStrategicPlanActions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listStrategicPlanActions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListStrategicPlanActionsQueryKey(orgId, planId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listStrategicPlanActions>>
+  > = ({ signal }) =>
+    listStrategicPlanActions(orgId, planId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && planId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listStrategicPlanActions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListStrategicPlanActionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listStrategicPlanActions>>
+>;
+export type ListStrategicPlanActionsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List actions for a strategic plan
+ */
+
+export function useListStrategicPlanActions<
+  TData = Awaited<ReturnType<typeof listStrategicPlanActions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listStrategicPlanActions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListStrategicPlanActionsQueryOptions(
+    orgId,
+    planId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an action for a strategic plan
+ */
+export const getCreateStrategicPlanActionUrl = (
+  orgId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/actions`;
+};
+
+export const createStrategicPlanAction = async (
+  orgId: number,
+  planId: number,
+  createStrategicPlanActionBody: CreateStrategicPlanActionBody,
+  options?: RequestInit,
+): Promise<StrategicPlanAction> => {
+  return customFetch<StrategicPlanAction>(
+    getCreateStrategicPlanActionUrl(orgId, planId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createStrategicPlanActionBody),
+    },
+  );
+};
+
+export const getCreateStrategicPlanActionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStrategicPlanAction>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateStrategicPlanActionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createStrategicPlanAction>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    data: BodyType<CreateStrategicPlanActionBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createStrategicPlanAction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createStrategicPlanAction>>,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateStrategicPlanActionBody>;
+    }
+  > = (props) => {
+    const { orgId, planId, data } = props ?? {};
+
+    return createStrategicPlanAction(orgId, planId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateStrategicPlanActionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createStrategicPlanAction>>
+>;
+export type CreateStrategicPlanActionMutationBody =
+  BodyType<CreateStrategicPlanActionBody>;
+export type CreateStrategicPlanActionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create an action for a strategic plan
+ */
+export const useCreateStrategicPlanAction = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStrategicPlanAction>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateStrategicPlanActionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createStrategicPlanAction>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    data: BodyType<CreateStrategicPlanActionBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateStrategicPlanActionMutationOptions(options));
+};
+
+/**
+ * @summary Update an action for a strategic plan
+ */
+export const getUpdateStrategicPlanActionUrl = (
+  orgId: number,
+  planId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/actions/${itemId}`;
+};
+
+export const updateStrategicPlanAction = async (
+  orgId: number,
+  planId: number,
+  itemId: number,
+  updateStrategicPlanActionBody: UpdateStrategicPlanActionBody,
+  options?: RequestInit,
+): Promise<StrategicPlanAction> => {
+  return customFetch<StrategicPlanAction>(
+    getUpdateStrategicPlanActionUrl(orgId, planId, itemId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateStrategicPlanActionBody),
+    },
+  );
+};
+
+export const getUpdateStrategicPlanActionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStrategicPlanAction>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<UpdateStrategicPlanActionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateStrategicPlanAction>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    itemId: number;
+    data: BodyType<UpdateStrategicPlanActionBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateStrategicPlanAction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateStrategicPlanAction>>,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<UpdateStrategicPlanActionBody>;
+    }
+  > = (props) => {
+    const { orgId, planId, itemId, data } = props ?? {};
+
+    return updateStrategicPlanAction(
+      orgId,
+      planId,
+      itemId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateStrategicPlanActionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateStrategicPlanAction>>
+>;
+export type UpdateStrategicPlanActionMutationBody =
+  BodyType<UpdateStrategicPlanActionBody>;
+export type UpdateStrategicPlanActionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update an action for a strategic plan
+ */
+export const useUpdateStrategicPlanAction = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStrategicPlanAction>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<UpdateStrategicPlanActionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateStrategicPlanAction>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    itemId: number;
+    data: BodyType<UpdateStrategicPlanActionBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateStrategicPlanActionMutationOptions(options));
+};
+
+/**
+ * @summary Delete an action for a strategic plan
+ */
+export const getDeleteStrategicPlanActionUrl = (
+  orgId: number,
+  planId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/actions/${itemId}`;
+};
+
+export const deleteStrategicPlanAction = async (
+  orgId: number,
+  planId: number,
+  itemId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteStrategicPlanActionUrl(orgId, planId, itemId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteStrategicPlanActionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteStrategicPlanAction>>,
+    TError,
+    { orgId: number; planId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteStrategicPlanAction>>,
+  TError,
+  { orgId: number; planId: number; itemId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteStrategicPlanAction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteStrategicPlanAction>>,
+    { orgId: number; planId: number; itemId: number }
+  > = (props) => {
+    const { orgId, planId, itemId } = props ?? {};
+
+    return deleteStrategicPlanAction(orgId, planId, itemId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteStrategicPlanActionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteStrategicPlanAction>>
+>;
+
+export type DeleteStrategicPlanActionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete an action for a strategic plan
+ */
+export const useDeleteStrategicPlanAction = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteStrategicPlanAction>>,
+    TError,
+    { orgId: number; planId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteStrategicPlanAction>>,
+  TError,
+  { orgId: number; planId: number; itemId: number },
+  TContext
+> => {
+  return useMutation(getDeleteStrategicPlanActionMutationOptions(options));
 };

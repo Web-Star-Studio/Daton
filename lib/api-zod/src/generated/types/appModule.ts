@@ -6,14 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type CreateOrgUserBodyModulesItem =
-  (typeof CreateOrgUserBodyModulesItem)[keyof typeof CreateOrgUserBodyModulesItem];
+export type AppModule = (typeof AppModule)[keyof typeof AppModule];
 
-export const CreateOrgUserBodyModulesItem = {
+export const AppModule = {
   documents: "documents",
   legislations: "legislations",
   employees: "employees",
   units: "units",
   departments: "departments",
   positions: "positions",
+  governance: "governance",
 } as const;

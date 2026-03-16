@@ -14,7 +14,7 @@ import employeesRouter from "./employees";
 import departmentsRouter from "./departments";
 import positionsRouter from "./positions";
 import documentsRouter from "./documents";
-import governanceRouter from "./governance";
+import governanceRouter from "./governance/index";
 import notificationsRouter from "./notifications";
 import invitationsRouter from "./invitations";
 import orgUsersRouter from "./org-users";

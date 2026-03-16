@@ -143,7 +143,17 @@ export const GetMeResponse = zod.object({
     createdAt: zod.string().datetime({}),
     updatedAt: zod.string().datetime({}),
   }),
-  modules: zod.array(zod.string()),
+  modules: zod.array(
+    zod.enum([
+      "documents",
+      "legislations",
+      "employees",
+      "units",
+      "departments",
+      "positions",
+      "governance",
+    ]),
+  ),
 });
 
 /**
@@ -2210,7 +2220,17 @@ export const GetDocumentResponse = zod.object({
         email: zod.string(),
         role: zod.string(),
         createdAt: zod.string().datetime({}),
-        modules: zod.array(zod.string()),
+        modules: zod.array(
+          zod.enum([
+            "documents",
+            "legislations",
+            "employees",
+            "units",
+            "departments",
+            "positions",
+            "governance",
+          ]),
+        ),
       }),
     )
     .optional(),
@@ -2322,7 +2342,17 @@ export const UpdateDocumentResponse = zod.object({
         email: zod.string(),
         role: zod.string(),
         createdAt: zod.string().datetime({}),
-        modules: zod.array(zod.string()),
+        modules: zod.array(
+          zod.enum([
+            "documents",
+            "legislations",
+            "employees",
+            "units",
+            "departments",
+            "positions",
+            "governance",
+          ]),
+        ),
       }),
     )
     .optional(),
@@ -2474,7 +2504,17 @@ export const SubmitDocumentForReviewResponse = zod.object({
         email: zod.string(),
         role: zod.string(),
         createdAt: zod.string().datetime({}),
-        modules: zod.array(zod.string()),
+        modules: zod.array(
+          zod.enum([
+            "documents",
+            "legislations",
+            "employees",
+            "units",
+            "departments",
+            "positions",
+            "governance",
+          ]),
+        ),
       }),
     )
     .optional(),
@@ -2578,7 +2618,17 @@ export const ApproveDocumentResponse = zod.object({
         email: zod.string(),
         role: zod.string(),
         createdAt: zod.string().datetime({}),
-        modules: zod.array(zod.string()),
+        modules: zod.array(
+          zod.enum([
+            "documents",
+            "legislations",
+            "employees",
+            "units",
+            "departments",
+            "positions",
+            "governance",
+          ]),
+        ),
       }),
     )
     .optional(),
@@ -2682,7 +2732,17 @@ export const RejectDocumentResponse = zod.object({
         email: zod.string(),
         role: zod.string(),
         createdAt: zod.string().datetime({}),
-        modules: zod.array(zod.string()),
+        modules: zod.array(
+          zod.enum([
+            "documents",
+            "legislations",
+            "employees",
+            "units",
+            "departments",
+            "positions",
+            "governance",
+          ]),
+        ),
       }),
     )
     .optional(),
@@ -2782,7 +2842,17 @@ export const DistributeDocumentResponse = zod.object({
         email: zod.string(),
         role: zod.string(),
         createdAt: zod.string().datetime({}),
-        modules: zod.array(zod.string()),
+        modules: zod.array(
+          zod.enum([
+            "documents",
+            "legislations",
+            "employees",
+            "units",
+            "departments",
+            "positions",
+            "governance",
+          ]),
+        ),
       }),
     )
     .optional(),
@@ -2922,7 +2992,17 @@ export const ListOrgUsersResponse = zod.object({
       email: zod.string(),
       role: zod.string(),
       createdAt: zod.string().datetime({}),
-      modules: zod.array(zod.string()),
+      modules: zod.array(
+        zod.enum([
+          "documents",
+          "legislations",
+          "employees",
+          "units",
+          "departments",
+          "positions",
+          "governance",
+        ]),
+      ),
     }),
   ),
 });
@@ -2949,6 +3029,7 @@ export const CreateOrgUserBody = zod.object({
       "units",
       "departments",
       "positions",
+      "governance",
     ]),
   ),
 });
@@ -2992,12 +3073,34 @@ export const UpdateUserModulesParams = zod.object({
 });
 
 export const UpdateUserModulesBody = zod.object({
-  modules: zod.array(zod.string()),
+  modules: zod.array(
+    zod.enum([
+      "documents",
+      "legislations",
+      "employees",
+      "units",
+      "departments",
+      "positions",
+      "governance",
+    ]),
+  ),
 });
 
 export const UpdateUserModulesResponse = zod.object({
   message: zod.string().optional(),
-  modules: zod.array(zod.string()).optional(),
+  modules: zod
+    .array(
+      zod.enum([
+        "documents",
+        "legislations",
+        "employees",
+        "units",
+        "departments",
+        "positions",
+        "governance",
+      ]),
+    )
+    .optional(),
 });
 
 /**
@@ -3015,6 +3118,7 @@ export const CreateInvitationBody = zod.object({
         "units",
         "departments",
         "positions",
+        "governance",
       ]),
     )
     .optional(),
@@ -3032,7 +3136,17 @@ export const ListInvitationsResponse = zod.object({
       invitedByName: zod.string(),
       organizationName: zod.string(),
       role: zod.string(),
-      modules: zod.array(zod.string()),
+      modules: zod.array(
+        zod.enum([
+          "documents",
+          "legislations",
+          "employees",
+          "units",
+          "departments",
+          "positions",
+          "governance",
+        ]),
+      ),
       expiresAt: zod.string(),
       createdAt: zod.string(),
     }),
@@ -3082,4 +3196,1915 @@ export const acceptInvitationBodyPasswordMin = 6;
 export const AcceptInvitationBody = zod.object({
   name: zod.string(),
   password: zod.string().min(acceptInvitationBodyPasswordMin),
+});
+
+/**
+ * @summary List strategic plans for the organization
+ */
+export const ListStrategicPlansParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListStrategicPlansResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  title: zod.string(),
+  status: zod.enum([
+    "draft",
+    "in_review",
+    "approved",
+    "rejected",
+    "overdue",
+    "archived",
+  ]),
+  reviewFrequencyMonths: zod.number(),
+  nextReviewAt: zod.string().nullish(),
+  executiveSummary: zod.string().nullish(),
+  activeRevisionNumber: zod.number(),
+  updatedAt: zod.string().nullish(),
+  createdAt: zod.string().nullish(),
+  complianceIssues: zod.array(zod.string()),
+  firstComplianceIssue: zod.string().nullish(),
+  openActionsByUnit: zod.array(
+    zod.object({
+      unitId: zod.number(),
+      unitName: zod.string(),
+      openActionCount: zod.number(),
+    }),
+  ),
+  metrics: zod.object({
+    swotCount: zod.number(),
+    actionCount: zod.number(),
+    interestedPartyCount: zod.number(),
+    objectiveCount: zod.number(),
+    openActionCount: zod.number(),
+    overdueActionCount: zod.number(),
+    actionsByStatus: zod.record(zod.string(), zod.number()),
+  }),
+});
+export const ListStrategicPlansResponse = zod.array(
+  ListStrategicPlansResponseItem,
+);
+
+/**
+ * @summary Create a strategic plan
+ */
+export const CreateStrategicPlanParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const createStrategicPlanBodyReviewFrequencyMonthsMax = 36;
+
+export const CreateStrategicPlanBody = zod.object({
+  title: zod.string().min(1),
+  standards: zod.array(zod.string()).optional(),
+  executiveSummary: zod.string().nullish(),
+  reviewFrequencyMonths: zod
+    .number()
+    .min(1)
+    .max(createStrategicPlanBodyReviewFrequencyMonthsMax)
+    .optional(),
+  nextReviewAt: zod.string().datetime({}).nullish(),
+  reviewReason: zod.string().nullish(),
+  climateChangeRelevant: zod.boolean().nullish(),
+  climateChangeJustification: zod.string().nullish(),
+  technicalScope: zod.string().nullish(),
+  geographicScope: zod.string().nullish(),
+  policy: zod.string().nullish(),
+  mission: zod.string().nullish(),
+  vision: zod.string().nullish(),
+  values: zod.string().nullish(),
+  strategicConclusion: zod.string().nullish(),
+  methodologyNotes: zod.string().nullish(),
+  legacyMethodology: zod.string().nullish(),
+  legacyIndicatorsNotes: zod.string().nullish(),
+  legacyRevisionHistory: zod
+    .array(
+      zod.object({
+        date: zod.string().nullish(),
+        reason: zod.string().nullish(),
+        changedItem: zod.string().nullish(),
+        revision: zod.string().nullish(),
+        changedBy: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  importedWorkbookName: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a strategic plan
+ */
+export const GetStrategicPlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const GetStrategicPlanResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  title: zod.string(),
+  status: zod.enum([
+    "draft",
+    "in_review",
+    "approved",
+    "rejected",
+    "overdue",
+    "archived",
+  ]),
+  standards: zod.array(zod.string()),
+  executiveSummary: zod.string().nullish(),
+  reviewFrequencyMonths: zod.number(),
+  nextReviewAt: zod.string().nullish(),
+  reviewReason: zod.string().nullish(),
+  climateChangeRelevant: zod.boolean().nullish(),
+  climateChangeJustification: zod.string().nullish(),
+  technicalScope: zod.string().nullish(),
+  geographicScope: zod.string().nullish(),
+  policy: zod.string().nullish(),
+  mission: zod.string().nullish(),
+  vision: zod.string().nullish(),
+  values: zod.string().nullish(),
+  strategicConclusion: zod.string().nullish(),
+  methodologyNotes: zod.string().nullish(),
+  legacyMethodology: zod.string().nullish(),
+  legacyIndicatorsNotes: zod.string().nullish(),
+  legacyRevisionHistory: zod
+    .array(
+      zod.object({
+        date: zod.string().nullish(),
+        reason: zod.string().nullish(),
+        changedItem: zod.string().nullish(),
+        revision: zod.string().nullish(),
+        changedBy: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  importedWorkbookName: zod.string().nullish(),
+  activeRevisionNumber: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+  submittedAt: zod.string().nullish(),
+  approvedAt: zod.string().nullish(),
+  rejectedAt: zod.string().nullish(),
+  archivedAt: zod.string().nullish(),
+  swotItems: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      domain: zod.enum(["sgq", "sga", "sgsv", "esg", "governance"]),
+      matrixLabel: zod.string().nullish(),
+      swotType: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+      environment: zod.enum(["internal", "external"]),
+      perspective: zod.string().nullish(),
+      description: zod.string(),
+      performance: zod.number().nullish(),
+      relevance: zod.number().nullish(),
+      result: zod.number().nullish(),
+      treatmentDecision: zod.string().nullish(),
+      linkedObjectiveCode: zod.string().nullish(),
+      linkedObjectiveLabel: zod.string().nullish(),
+      importedActionReference: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  interestedParties: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      name: zod.string(),
+      expectedRequirements: zod.string().nullish(),
+      roleInCompany: zod.string().nullish(),
+      roleSummary: zod.string().nullish(),
+      relevantToManagementSystem: zod.boolean().nullish(),
+      legalRequirementApplicable: zod.boolean().nullish(),
+      monitoringMethod: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  objectives: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      code: zod.string(),
+      systemDomain: zod.string().nullish(),
+      description: zod.string(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  actions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      swotItemId: zod.number().nullish(),
+      objectiveId: zod.number().nullish(),
+      responsibleUserId: zod.number().nullish(),
+      responsibleUserName: zod.string().nullish(),
+      dueDate: zod.string().nullish(),
+      status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+      units: zod.array(
+        zod.object({
+          id: zod.number(),
+          name: zod.string(),
+        }),
+      ),
+    }),
+  ),
+  revisions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      revisionNumber: zod.number(),
+      revisionDate: zod.string().nullish(),
+      reason: zod.string().nullish(),
+      changeSummary: zod.string().nullish(),
+      approvedById: zod.number().nullish(),
+      approvedByName: zod.string().nullish(),
+      evidenceDocumentId: zod.number().nullish(),
+      snapshot: zod.record(zod.string(), zod.unknown()).nullish(),
+      createdAt: zod.string().nullish(),
+    }),
+  ),
+  metrics: zod.object({
+    swotCount: zod.number(),
+    actionCount: zod.number(),
+    interestedPartyCount: zod.number(),
+    objectiveCount: zod.number(),
+    openActionCount: zod.number(),
+    overdueActionCount: zod.number(),
+    actionsByStatus: zod.record(zod.string(), zod.number()),
+  }),
+  complianceIssues: zod.array(zod.string()),
+});
+
+/**
+ * @summary Update an editable strategic plan
+ */
+export const UpdateStrategicPlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const updateStrategicPlanBodyReviewFrequencyMonthsMax = 36;
+
+export const UpdateStrategicPlanBody = zod.object({
+  title: zod.string().min(1).optional(),
+  standards: zod.array(zod.string()).optional(),
+  executiveSummary: zod.string().nullish(),
+  reviewFrequencyMonths: zod
+    .number()
+    .min(1)
+    .max(updateStrategicPlanBodyReviewFrequencyMonthsMax)
+    .optional(),
+  nextReviewAt: zod.string().datetime({}).nullish(),
+  reviewReason: zod.string().nullish(),
+  climateChangeRelevant: zod.boolean().nullish(),
+  climateChangeJustification: zod.string().nullish(),
+  technicalScope: zod.string().nullish(),
+  geographicScope: zod.string().nullish(),
+  policy: zod.string().nullish(),
+  mission: zod.string().nullish(),
+  vision: zod.string().nullish(),
+  values: zod.string().nullish(),
+  strategicConclusion: zod.string().nullish(),
+  methodologyNotes: zod.string().nullish(),
+  legacyMethodology: zod.string().nullish(),
+  legacyIndicatorsNotes: zod.string().nullish(),
+  legacyRevisionHistory: zod
+    .array(
+      zod.object({
+        date: zod.string().nullish(),
+        reason: zod.string().nullish(),
+        changedItem: zod.string().nullish(),
+        revision: zod.string().nullish(),
+        changedBy: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  importedWorkbookName: zod.string().nullish(),
+});
+
+export const UpdateStrategicPlanResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  title: zod.string(),
+  status: zod.enum([
+    "draft",
+    "in_review",
+    "approved",
+    "rejected",
+    "overdue",
+    "archived",
+  ]),
+  standards: zod.array(zod.string()),
+  executiveSummary: zod.string().nullish(),
+  reviewFrequencyMonths: zod.number(),
+  nextReviewAt: zod.string().nullish(),
+  reviewReason: zod.string().nullish(),
+  climateChangeRelevant: zod.boolean().nullish(),
+  climateChangeJustification: zod.string().nullish(),
+  technicalScope: zod.string().nullish(),
+  geographicScope: zod.string().nullish(),
+  policy: zod.string().nullish(),
+  mission: zod.string().nullish(),
+  vision: zod.string().nullish(),
+  values: zod.string().nullish(),
+  strategicConclusion: zod.string().nullish(),
+  methodologyNotes: zod.string().nullish(),
+  legacyMethodology: zod.string().nullish(),
+  legacyIndicatorsNotes: zod.string().nullish(),
+  legacyRevisionHistory: zod
+    .array(
+      zod.object({
+        date: zod.string().nullish(),
+        reason: zod.string().nullish(),
+        changedItem: zod.string().nullish(),
+        revision: zod.string().nullish(),
+        changedBy: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  importedWorkbookName: zod.string().nullish(),
+  activeRevisionNumber: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+  submittedAt: zod.string().nullish(),
+  approvedAt: zod.string().nullish(),
+  rejectedAt: zod.string().nullish(),
+  archivedAt: zod.string().nullish(),
+  swotItems: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      domain: zod.enum(["sgq", "sga", "sgsv", "esg", "governance"]),
+      matrixLabel: zod.string().nullish(),
+      swotType: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+      environment: zod.enum(["internal", "external"]),
+      perspective: zod.string().nullish(),
+      description: zod.string(),
+      performance: zod.number().nullish(),
+      relevance: zod.number().nullish(),
+      result: zod.number().nullish(),
+      treatmentDecision: zod.string().nullish(),
+      linkedObjectiveCode: zod.string().nullish(),
+      linkedObjectiveLabel: zod.string().nullish(),
+      importedActionReference: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  interestedParties: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      name: zod.string(),
+      expectedRequirements: zod.string().nullish(),
+      roleInCompany: zod.string().nullish(),
+      roleSummary: zod.string().nullish(),
+      relevantToManagementSystem: zod.boolean().nullish(),
+      legalRequirementApplicable: zod.boolean().nullish(),
+      monitoringMethod: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  objectives: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      code: zod.string(),
+      systemDomain: zod.string().nullish(),
+      description: zod.string(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  actions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      swotItemId: zod.number().nullish(),
+      objectiveId: zod.number().nullish(),
+      responsibleUserId: zod.number().nullish(),
+      responsibleUserName: zod.string().nullish(),
+      dueDate: zod.string().nullish(),
+      status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+      units: zod.array(
+        zod.object({
+          id: zod.number(),
+          name: zod.string(),
+        }),
+      ),
+    }),
+  ),
+  revisions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      revisionNumber: zod.number(),
+      revisionDate: zod.string().nullish(),
+      reason: zod.string().nullish(),
+      changeSummary: zod.string().nullish(),
+      approvedById: zod.number().nullish(),
+      approvedByName: zod.string().nullish(),
+      evidenceDocumentId: zod.number().nullish(),
+      snapshot: zod.record(zod.string(), zod.unknown()).nullish(),
+      createdAt: zod.string().nullish(),
+    }),
+  ),
+  metrics: zod.object({
+    swotCount: zod.number(),
+    actionCount: zod.number(),
+    interestedPartyCount: zod.number(),
+    objectiveCount: zod.number(),
+    openActionCount: zod.number(),
+    overdueActionCount: zod.number(),
+    actionsByStatus: zod.record(zod.string(), zod.number()),
+  }),
+  complianceIssues: zod.array(zod.string()),
+});
+
+/**
+ * @summary Import workbook data into an editable strategic plan
+ */
+export const ImportStrategicPlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const importStrategicPlanBodyPlanReviewFrequencyMonthsMax = 36;
+
+export const importStrategicPlanBodySwotItemsItemOnePerformanceMin = 0;
+export const importStrategicPlanBodySwotItemsItemOnePerformanceMax = 20;
+
+export const importStrategicPlanBodySwotItemsItemOneRelevanceMin = 0;
+export const importStrategicPlanBodySwotItemsItemOneRelevanceMax = 20;
+
+export const importStrategicPlanBodySwotItemsItemOneResultMin = 0;
+export const importStrategicPlanBodySwotItemsItemOneResultMax = 100;
+
+export const importStrategicPlanBodySwotItemsItemOneSortOrderMin = 0;
+
+export const importStrategicPlanBodyInterestedPartiesItemSortOrderMin = 0;
+
+export const importStrategicPlanBodyObjectivesItemOneSortOrderMin = 0;
+
+export const importStrategicPlanBodyActionsItemSortOrderMin = 0;
+
+export const ImportStrategicPlanBody = zod.object({
+  workbookName: zod.string().nullish(),
+  plan: zod.object({
+    title: zod.string().min(1),
+    standards: zod.array(zod.string()).optional(),
+    executiveSummary: zod.string().nullish(),
+    reviewFrequencyMonths: zod
+      .number()
+      .min(1)
+      .max(importStrategicPlanBodyPlanReviewFrequencyMonthsMax)
+      .optional(),
+    nextReviewAt: zod.string().datetime({}).nullish(),
+    reviewReason: zod.string().nullish(),
+    climateChangeRelevant: zod.boolean().nullish(),
+    climateChangeJustification: zod.string().nullish(),
+    technicalScope: zod.string().nullish(),
+    geographicScope: zod.string().nullish(),
+    policy: zod.string().nullish(),
+    mission: zod.string().nullish(),
+    vision: zod.string().nullish(),
+    values: zod.string().nullish(),
+    strategicConclusion: zod.string().nullish(),
+    methodologyNotes: zod.string().nullish(),
+    legacyMethodology: zod.string().nullish(),
+    legacyIndicatorsNotes: zod.string().nullish(),
+    legacyRevisionHistory: zod
+      .array(
+        zod.object({
+          date: zod.string().nullish(),
+          reason: zod.string().nullish(),
+          changedItem: zod.string().nullish(),
+          revision: zod.string().nullish(),
+          changedBy: zod.string().nullish(),
+        }),
+      )
+      .nullish(),
+    importedWorkbookName: zod.string().nullish(),
+  }),
+  swotItems: zod.array(
+    zod
+      .object({
+        domain: zod.enum(["sgq", "sga", "sgsv", "esg", "governance"]),
+        matrixLabel: zod.string().nullish(),
+        swotType: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+        environment: zod.enum(["internal", "external"]),
+        perspective: zod.string().nullish(),
+        description: zod.string().min(1),
+        performance: zod
+          .number()
+          .min(importStrategicPlanBodySwotItemsItemOnePerformanceMin)
+          .max(importStrategicPlanBodySwotItemsItemOnePerformanceMax)
+          .nullish(),
+        relevance: zod
+          .number()
+          .min(importStrategicPlanBodySwotItemsItemOneRelevanceMin)
+          .max(importStrategicPlanBodySwotItemsItemOneRelevanceMax)
+          .nullish(),
+        result: zod
+          .number()
+          .min(importStrategicPlanBodySwotItemsItemOneResultMin)
+          .max(importStrategicPlanBodySwotItemsItemOneResultMax)
+          .nullish(),
+        treatmentDecision: zod.string().nullish(),
+        linkedObjectiveCode: zod.string().nullish(),
+        linkedObjectiveLabel: zod.string().nullish(),
+        importedActionReference: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        sortOrder: zod
+          .number()
+          .min(importStrategicPlanBodySwotItemsItemOneSortOrderMin)
+          .optional(),
+      })
+      .and(
+        zod.object({
+          importKey: zod.string().nullish(),
+        }),
+      ),
+  ),
+  interestedParties: zod.array(
+    zod.object({
+      name: zod.string().min(1),
+      expectedRequirements: zod.string().nullish(),
+      roleInCompany: zod.string().nullish(),
+      roleSummary: zod.string().nullish(),
+      relevantToManagementSystem: zod.boolean().nullish(),
+      legalRequirementApplicable: zod.boolean().nullish(),
+      monitoringMethod: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod
+        .number()
+        .min(importStrategicPlanBodyInterestedPartiesItemSortOrderMin)
+        .optional(),
+    }),
+  ),
+  objectives: zod.array(
+    zod
+      .object({
+        code: zod.string().min(1),
+        systemDomain: zod.string().nullish(),
+        description: zod.string().min(1),
+        notes: zod.string().nullish(),
+        sortOrder: zod
+          .number()
+          .min(importStrategicPlanBodyObjectivesItemOneSortOrderMin)
+          .optional(),
+      })
+      .and(
+        zod.object({
+          importKey: zod.string().nullish(),
+        }),
+      ),
+  ),
+  actions: zod.array(
+    zod.object({
+      title: zod.string().min(1),
+      description: zod.string().nullish(),
+      swotImportKey: zod.string().nullish(),
+      objectiveCode: zod.string().nullish(),
+      responsibleUserId: zod.number().nullish(),
+      dueDate: zod.string().datetime({}).nullish(),
+      status: zod
+        .enum(["pending", "in_progress", "done", "canceled"])
+        .optional(),
+      notes: zod.string().nullish(),
+      unitIds: zod.array(zod.number()).optional(),
+      sortOrder: zod
+        .number()
+        .min(importStrategicPlanBodyActionsItemSortOrderMin)
+        .optional(),
+    }),
+  ),
+});
+
+export const ImportStrategicPlanResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  title: zod.string(),
+  status: zod.enum([
+    "draft",
+    "in_review",
+    "approved",
+    "rejected",
+    "overdue",
+    "archived",
+  ]),
+  standards: zod.array(zod.string()),
+  executiveSummary: zod.string().nullish(),
+  reviewFrequencyMonths: zod.number(),
+  nextReviewAt: zod.string().nullish(),
+  reviewReason: zod.string().nullish(),
+  climateChangeRelevant: zod.boolean().nullish(),
+  climateChangeJustification: zod.string().nullish(),
+  technicalScope: zod.string().nullish(),
+  geographicScope: zod.string().nullish(),
+  policy: zod.string().nullish(),
+  mission: zod.string().nullish(),
+  vision: zod.string().nullish(),
+  values: zod.string().nullish(),
+  strategicConclusion: zod.string().nullish(),
+  methodologyNotes: zod.string().nullish(),
+  legacyMethodology: zod.string().nullish(),
+  legacyIndicatorsNotes: zod.string().nullish(),
+  legacyRevisionHistory: zod
+    .array(
+      zod.object({
+        date: zod.string().nullish(),
+        reason: zod.string().nullish(),
+        changedItem: zod.string().nullish(),
+        revision: zod.string().nullish(),
+        changedBy: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  importedWorkbookName: zod.string().nullish(),
+  activeRevisionNumber: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+  submittedAt: zod.string().nullish(),
+  approvedAt: zod.string().nullish(),
+  rejectedAt: zod.string().nullish(),
+  archivedAt: zod.string().nullish(),
+  swotItems: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      domain: zod.enum(["sgq", "sga", "sgsv", "esg", "governance"]),
+      matrixLabel: zod.string().nullish(),
+      swotType: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+      environment: zod.enum(["internal", "external"]),
+      perspective: zod.string().nullish(),
+      description: zod.string(),
+      performance: zod.number().nullish(),
+      relevance: zod.number().nullish(),
+      result: zod.number().nullish(),
+      treatmentDecision: zod.string().nullish(),
+      linkedObjectiveCode: zod.string().nullish(),
+      linkedObjectiveLabel: zod.string().nullish(),
+      importedActionReference: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  interestedParties: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      name: zod.string(),
+      expectedRequirements: zod.string().nullish(),
+      roleInCompany: zod.string().nullish(),
+      roleSummary: zod.string().nullish(),
+      relevantToManagementSystem: zod.boolean().nullish(),
+      legalRequirementApplicable: zod.boolean().nullish(),
+      monitoringMethod: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  objectives: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      code: zod.string(),
+      systemDomain: zod.string().nullish(),
+      description: zod.string(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  actions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      swotItemId: zod.number().nullish(),
+      objectiveId: zod.number().nullish(),
+      responsibleUserId: zod.number().nullish(),
+      responsibleUserName: zod.string().nullish(),
+      dueDate: zod.string().nullish(),
+      status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+      units: zod.array(
+        zod.object({
+          id: zod.number(),
+          name: zod.string(),
+        }),
+      ),
+    }),
+  ),
+  revisions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      revisionNumber: zod.number(),
+      revisionDate: zod.string().nullish(),
+      reason: zod.string().nullish(),
+      changeSummary: zod.string().nullish(),
+      approvedById: zod.number().nullish(),
+      approvedByName: zod.string().nullish(),
+      evidenceDocumentId: zod.number().nullish(),
+      snapshot: zod.record(zod.string(), zod.unknown()).nullish(),
+      createdAt: zod.string().nullish(),
+    }),
+  ),
+  metrics: zod.object({
+    swotCount: zod.number(),
+    actionCount: zod.number(),
+    interestedPartyCount: zod.number(),
+    objectiveCount: zod.number(),
+    openActionCount: zod.number(),
+    overdueActionCount: zod.number(),
+    actionsByStatus: zod.record(zod.string(), zod.number()),
+  }),
+  complianceIssues: zod.array(zod.string()),
+});
+
+/**
+ * @summary Submit a strategic plan for review
+ */
+export const SubmitStrategicPlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const SubmitStrategicPlanResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  title: zod.string(),
+  status: zod.enum([
+    "draft",
+    "in_review",
+    "approved",
+    "rejected",
+    "overdue",
+    "archived",
+  ]),
+  standards: zod.array(zod.string()),
+  executiveSummary: zod.string().nullish(),
+  reviewFrequencyMonths: zod.number(),
+  nextReviewAt: zod.string().nullish(),
+  reviewReason: zod.string().nullish(),
+  climateChangeRelevant: zod.boolean().nullish(),
+  climateChangeJustification: zod.string().nullish(),
+  technicalScope: zod.string().nullish(),
+  geographicScope: zod.string().nullish(),
+  policy: zod.string().nullish(),
+  mission: zod.string().nullish(),
+  vision: zod.string().nullish(),
+  values: zod.string().nullish(),
+  strategicConclusion: zod.string().nullish(),
+  methodologyNotes: zod.string().nullish(),
+  legacyMethodology: zod.string().nullish(),
+  legacyIndicatorsNotes: zod.string().nullish(),
+  legacyRevisionHistory: zod
+    .array(
+      zod.object({
+        date: zod.string().nullish(),
+        reason: zod.string().nullish(),
+        changedItem: zod.string().nullish(),
+        revision: zod.string().nullish(),
+        changedBy: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  importedWorkbookName: zod.string().nullish(),
+  activeRevisionNumber: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+  submittedAt: zod.string().nullish(),
+  approvedAt: zod.string().nullish(),
+  rejectedAt: zod.string().nullish(),
+  archivedAt: zod.string().nullish(),
+  swotItems: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      domain: zod.enum(["sgq", "sga", "sgsv", "esg", "governance"]),
+      matrixLabel: zod.string().nullish(),
+      swotType: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+      environment: zod.enum(["internal", "external"]),
+      perspective: zod.string().nullish(),
+      description: zod.string(),
+      performance: zod.number().nullish(),
+      relevance: zod.number().nullish(),
+      result: zod.number().nullish(),
+      treatmentDecision: zod.string().nullish(),
+      linkedObjectiveCode: zod.string().nullish(),
+      linkedObjectiveLabel: zod.string().nullish(),
+      importedActionReference: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  interestedParties: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      name: zod.string(),
+      expectedRequirements: zod.string().nullish(),
+      roleInCompany: zod.string().nullish(),
+      roleSummary: zod.string().nullish(),
+      relevantToManagementSystem: zod.boolean().nullish(),
+      legalRequirementApplicable: zod.boolean().nullish(),
+      monitoringMethod: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  objectives: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      code: zod.string(),
+      systemDomain: zod.string().nullish(),
+      description: zod.string(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  actions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      swotItemId: zod.number().nullish(),
+      objectiveId: zod.number().nullish(),
+      responsibleUserId: zod.number().nullish(),
+      responsibleUserName: zod.string().nullish(),
+      dueDate: zod.string().nullish(),
+      status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+      units: zod.array(
+        zod.object({
+          id: zod.number(),
+          name: zod.string(),
+        }),
+      ),
+    }),
+  ),
+  revisions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      revisionNumber: zod.number(),
+      revisionDate: zod.string().nullish(),
+      reason: zod.string().nullish(),
+      changeSummary: zod.string().nullish(),
+      approvedById: zod.number().nullish(),
+      approvedByName: zod.string().nullish(),
+      evidenceDocumentId: zod.number().nullish(),
+      snapshot: zod.record(zod.string(), zod.unknown()).nullish(),
+      createdAt: zod.string().nullish(),
+    }),
+  ),
+  metrics: zod.object({
+    swotCount: zod.number(),
+    actionCount: zod.number(),
+    interestedPartyCount: zod.number(),
+    objectiveCount: zod.number(),
+    openActionCount: zod.number(),
+    overdueActionCount: zod.number(),
+    actionsByStatus: zod.record(zod.string(), zod.number()),
+  }),
+  complianceIssues: zod.array(zod.string()),
+});
+
+/**
+ * @summary Approve a strategic plan
+ */
+export const ApproveStrategicPlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const ApproveStrategicPlanBody = zod.object({
+  reviewReason: zod.string().nullish(),
+  changeSummary: zod.string().nullish(),
+});
+
+export const ApproveStrategicPlanResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  title: zod.string(),
+  status: zod.enum([
+    "draft",
+    "in_review",
+    "approved",
+    "rejected",
+    "overdue",
+    "archived",
+  ]),
+  standards: zod.array(zod.string()),
+  executiveSummary: zod.string().nullish(),
+  reviewFrequencyMonths: zod.number(),
+  nextReviewAt: zod.string().nullish(),
+  reviewReason: zod.string().nullish(),
+  climateChangeRelevant: zod.boolean().nullish(),
+  climateChangeJustification: zod.string().nullish(),
+  technicalScope: zod.string().nullish(),
+  geographicScope: zod.string().nullish(),
+  policy: zod.string().nullish(),
+  mission: zod.string().nullish(),
+  vision: zod.string().nullish(),
+  values: zod.string().nullish(),
+  strategicConclusion: zod.string().nullish(),
+  methodologyNotes: zod.string().nullish(),
+  legacyMethodology: zod.string().nullish(),
+  legacyIndicatorsNotes: zod.string().nullish(),
+  legacyRevisionHistory: zod
+    .array(
+      zod.object({
+        date: zod.string().nullish(),
+        reason: zod.string().nullish(),
+        changedItem: zod.string().nullish(),
+        revision: zod.string().nullish(),
+        changedBy: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  importedWorkbookName: zod.string().nullish(),
+  activeRevisionNumber: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+  submittedAt: zod.string().nullish(),
+  approvedAt: zod.string().nullish(),
+  rejectedAt: zod.string().nullish(),
+  archivedAt: zod.string().nullish(),
+  swotItems: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      domain: zod.enum(["sgq", "sga", "sgsv", "esg", "governance"]),
+      matrixLabel: zod.string().nullish(),
+      swotType: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+      environment: zod.enum(["internal", "external"]),
+      perspective: zod.string().nullish(),
+      description: zod.string(),
+      performance: zod.number().nullish(),
+      relevance: zod.number().nullish(),
+      result: zod.number().nullish(),
+      treatmentDecision: zod.string().nullish(),
+      linkedObjectiveCode: zod.string().nullish(),
+      linkedObjectiveLabel: zod.string().nullish(),
+      importedActionReference: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  interestedParties: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      name: zod.string(),
+      expectedRequirements: zod.string().nullish(),
+      roleInCompany: zod.string().nullish(),
+      roleSummary: zod.string().nullish(),
+      relevantToManagementSystem: zod.boolean().nullish(),
+      legalRequirementApplicable: zod.boolean().nullish(),
+      monitoringMethod: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  objectives: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      code: zod.string(),
+      systemDomain: zod.string().nullish(),
+      description: zod.string(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  actions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      swotItemId: zod.number().nullish(),
+      objectiveId: zod.number().nullish(),
+      responsibleUserId: zod.number().nullish(),
+      responsibleUserName: zod.string().nullish(),
+      dueDate: zod.string().nullish(),
+      status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+      units: zod.array(
+        zod.object({
+          id: zod.number(),
+          name: zod.string(),
+        }),
+      ),
+    }),
+  ),
+  revisions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      revisionNumber: zod.number(),
+      revisionDate: zod.string().nullish(),
+      reason: zod.string().nullish(),
+      changeSummary: zod.string().nullish(),
+      approvedById: zod.number().nullish(),
+      approvedByName: zod.string().nullish(),
+      evidenceDocumentId: zod.number().nullish(),
+      snapshot: zod.record(zod.string(), zod.unknown()).nullish(),
+      createdAt: zod.string().nullish(),
+    }),
+  ),
+  metrics: zod.object({
+    swotCount: zod.number(),
+    actionCount: zod.number(),
+    interestedPartyCount: zod.number(),
+    objectiveCount: zod.number(),
+    openActionCount: zod.number(),
+    overdueActionCount: zod.number(),
+    actionsByStatus: zod.record(zod.string(), zod.number()),
+  }),
+  complianceIssues: zod.array(zod.string()),
+});
+
+/**
+ * @summary Reject a strategic plan
+ */
+export const RejectStrategicPlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const RejectStrategicPlanBody = zod.object({
+  reviewReason: zod.string().nullish(),
+  changeSummary: zod.string().nullish(),
+});
+
+export const RejectStrategicPlanResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  title: zod.string(),
+  status: zod.enum([
+    "draft",
+    "in_review",
+    "approved",
+    "rejected",
+    "overdue",
+    "archived",
+  ]),
+  standards: zod.array(zod.string()),
+  executiveSummary: zod.string().nullish(),
+  reviewFrequencyMonths: zod.number(),
+  nextReviewAt: zod.string().nullish(),
+  reviewReason: zod.string().nullish(),
+  climateChangeRelevant: zod.boolean().nullish(),
+  climateChangeJustification: zod.string().nullish(),
+  technicalScope: zod.string().nullish(),
+  geographicScope: zod.string().nullish(),
+  policy: zod.string().nullish(),
+  mission: zod.string().nullish(),
+  vision: zod.string().nullish(),
+  values: zod.string().nullish(),
+  strategicConclusion: zod.string().nullish(),
+  methodologyNotes: zod.string().nullish(),
+  legacyMethodology: zod.string().nullish(),
+  legacyIndicatorsNotes: zod.string().nullish(),
+  legacyRevisionHistory: zod
+    .array(
+      zod.object({
+        date: zod.string().nullish(),
+        reason: zod.string().nullish(),
+        changedItem: zod.string().nullish(),
+        revision: zod.string().nullish(),
+        changedBy: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  importedWorkbookName: zod.string().nullish(),
+  activeRevisionNumber: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+  submittedAt: zod.string().nullish(),
+  approvedAt: zod.string().nullish(),
+  rejectedAt: zod.string().nullish(),
+  archivedAt: zod.string().nullish(),
+  swotItems: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      domain: zod.enum(["sgq", "sga", "sgsv", "esg", "governance"]),
+      matrixLabel: zod.string().nullish(),
+      swotType: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+      environment: zod.enum(["internal", "external"]),
+      perspective: zod.string().nullish(),
+      description: zod.string(),
+      performance: zod.number().nullish(),
+      relevance: zod.number().nullish(),
+      result: zod.number().nullish(),
+      treatmentDecision: zod.string().nullish(),
+      linkedObjectiveCode: zod.string().nullish(),
+      linkedObjectiveLabel: zod.string().nullish(),
+      importedActionReference: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  interestedParties: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      name: zod.string(),
+      expectedRequirements: zod.string().nullish(),
+      roleInCompany: zod.string().nullish(),
+      roleSummary: zod.string().nullish(),
+      relevantToManagementSystem: zod.boolean().nullish(),
+      legalRequirementApplicable: zod.boolean().nullish(),
+      monitoringMethod: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  objectives: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      code: zod.string(),
+      systemDomain: zod.string().nullish(),
+      description: zod.string(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  actions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      swotItemId: zod.number().nullish(),
+      objectiveId: zod.number().nullish(),
+      responsibleUserId: zod.number().nullish(),
+      responsibleUserName: zod.string().nullish(),
+      dueDate: zod.string().nullish(),
+      status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+      units: zod.array(
+        zod.object({
+          id: zod.number(),
+          name: zod.string(),
+        }),
+      ),
+    }),
+  ),
+  revisions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      revisionNumber: zod.number(),
+      revisionDate: zod.string().nullish(),
+      reason: zod.string().nullish(),
+      changeSummary: zod.string().nullish(),
+      approvedById: zod.number().nullish(),
+      approvedByName: zod.string().nullish(),
+      evidenceDocumentId: zod.number().nullish(),
+      snapshot: zod.record(zod.string(), zod.unknown()).nullish(),
+      createdAt: zod.string().nullish(),
+    }),
+  ),
+  metrics: zod.object({
+    swotCount: zod.number(),
+    actionCount: zod.number(),
+    interestedPartyCount: zod.number(),
+    objectiveCount: zod.number(),
+    openActionCount: zod.number(),
+    overdueActionCount: zod.number(),
+    actionsByStatus: zod.record(zod.string(), zod.number()),
+  }),
+  complianceIssues: zod.array(zod.string()),
+});
+
+/**
+ * @summary Reopen a strategic plan as draft
+ */
+export const ReopenStrategicPlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const ReopenStrategicPlanResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  title: zod.string(),
+  status: zod.enum([
+    "draft",
+    "in_review",
+    "approved",
+    "rejected",
+    "overdue",
+    "archived",
+  ]),
+  standards: zod.array(zod.string()),
+  executiveSummary: zod.string().nullish(),
+  reviewFrequencyMonths: zod.number(),
+  nextReviewAt: zod.string().nullish(),
+  reviewReason: zod.string().nullish(),
+  climateChangeRelevant: zod.boolean().nullish(),
+  climateChangeJustification: zod.string().nullish(),
+  technicalScope: zod.string().nullish(),
+  geographicScope: zod.string().nullish(),
+  policy: zod.string().nullish(),
+  mission: zod.string().nullish(),
+  vision: zod.string().nullish(),
+  values: zod.string().nullish(),
+  strategicConclusion: zod.string().nullish(),
+  methodologyNotes: zod.string().nullish(),
+  legacyMethodology: zod.string().nullish(),
+  legacyIndicatorsNotes: zod.string().nullish(),
+  legacyRevisionHistory: zod
+    .array(
+      zod.object({
+        date: zod.string().nullish(),
+        reason: zod.string().nullish(),
+        changedItem: zod.string().nullish(),
+        revision: zod.string().nullish(),
+        changedBy: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  importedWorkbookName: zod.string().nullish(),
+  activeRevisionNumber: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+  submittedAt: zod.string().nullish(),
+  approvedAt: zod.string().nullish(),
+  rejectedAt: zod.string().nullish(),
+  archivedAt: zod.string().nullish(),
+  swotItems: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      domain: zod.enum(["sgq", "sga", "sgsv", "esg", "governance"]),
+      matrixLabel: zod.string().nullish(),
+      swotType: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+      environment: zod.enum(["internal", "external"]),
+      perspective: zod.string().nullish(),
+      description: zod.string(),
+      performance: zod.number().nullish(),
+      relevance: zod.number().nullish(),
+      result: zod.number().nullish(),
+      treatmentDecision: zod.string().nullish(),
+      linkedObjectiveCode: zod.string().nullish(),
+      linkedObjectiveLabel: zod.string().nullish(),
+      importedActionReference: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  interestedParties: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      name: zod.string(),
+      expectedRequirements: zod.string().nullish(),
+      roleInCompany: zod.string().nullish(),
+      roleSummary: zod.string().nullish(),
+      relevantToManagementSystem: zod.boolean().nullish(),
+      legalRequirementApplicable: zod.boolean().nullish(),
+      monitoringMethod: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  objectives: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      code: zod.string(),
+      systemDomain: zod.string().nullish(),
+      description: zod.string(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  actions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      swotItemId: zod.number().nullish(),
+      objectiveId: zod.number().nullish(),
+      responsibleUserId: zod.number().nullish(),
+      responsibleUserName: zod.string().nullish(),
+      dueDate: zod.string().nullish(),
+      status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+      units: zod.array(
+        zod.object({
+          id: zod.number(),
+          name: zod.string(),
+        }),
+      ),
+    }),
+  ),
+  revisions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      revisionNumber: zod.number(),
+      revisionDate: zod.string().nullish(),
+      reason: zod.string().nullish(),
+      changeSummary: zod.string().nullish(),
+      approvedById: zod.number().nullish(),
+      approvedByName: zod.string().nullish(),
+      evidenceDocumentId: zod.number().nullish(),
+      snapshot: zod.record(zod.string(), zod.unknown()).nullish(),
+      createdAt: zod.string().nullish(),
+    }),
+  ),
+  metrics: zod.object({
+    swotCount: zod.number(),
+    actionCount: zod.number(),
+    interestedPartyCount: zod.number(),
+    objectiveCount: zod.number(),
+    openActionCount: zod.number(),
+    overdueActionCount: zod.number(),
+    actionsByStatus: zod.record(zod.string(), zod.number()),
+  }),
+  complianceIssues: zod.array(zod.string()),
+});
+
+/**
+ * @summary Get the latest approved evidence metadata for a strategic plan
+ */
+export const GetStrategicPlanExportParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const GetStrategicPlanExportResponse = zod.object({
+  revisionId: zod.number(),
+  revisionNumber: zod.number(),
+  evidenceDocumentId: zod.number(),
+  fileName: zod.string(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+  uploadedAt: zod.string(),
+});
+
+/**
+ * @summary List SWOT items for a strategic plan
+ */
+export const ListStrategicPlanSwotItemsParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const ListStrategicPlanSwotItemsResponseItem = zod.object({
+  id: zod.number(),
+  planId: zod.number(),
+  domain: zod.enum(["sgq", "sga", "sgsv", "esg", "governance"]),
+  matrixLabel: zod.string().nullish(),
+  swotType: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+  environment: zod.enum(["internal", "external"]),
+  perspective: zod.string().nullish(),
+  description: zod.string(),
+  performance: zod.number().nullish(),
+  relevance: zod.number().nullish(),
+  result: zod.number().nullish(),
+  treatmentDecision: zod.string().nullish(),
+  linkedObjectiveCode: zod.string().nullish(),
+  linkedObjectiveLabel: zod.string().nullish(),
+  importedActionReference: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  sortOrder: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+export const ListStrategicPlanSwotItemsResponse = zod.array(
+  ListStrategicPlanSwotItemsResponseItem,
+);
+
+/**
+ * @summary Create a SWOT item
+ */
+export const CreateStrategicPlanSwotItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const createStrategicPlanSwotItemBodyPerformanceMin = 0;
+export const createStrategicPlanSwotItemBodyPerformanceMax = 20;
+
+export const createStrategicPlanSwotItemBodyRelevanceMin = 0;
+export const createStrategicPlanSwotItemBodyRelevanceMax = 20;
+
+export const createStrategicPlanSwotItemBodyResultMin = 0;
+export const createStrategicPlanSwotItemBodyResultMax = 100;
+
+export const createStrategicPlanSwotItemBodySortOrderMin = 0;
+
+export const CreateStrategicPlanSwotItemBody = zod.object({
+  domain: zod.enum(["sgq", "sga", "sgsv", "esg", "governance"]),
+  matrixLabel: zod.string().nullish(),
+  swotType: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+  environment: zod.enum(["internal", "external"]),
+  perspective: zod.string().nullish(),
+  description: zod.string().min(1),
+  performance: zod
+    .number()
+    .min(createStrategicPlanSwotItemBodyPerformanceMin)
+    .max(createStrategicPlanSwotItemBodyPerformanceMax)
+    .nullish(),
+  relevance: zod
+    .number()
+    .min(createStrategicPlanSwotItemBodyRelevanceMin)
+    .max(createStrategicPlanSwotItemBodyRelevanceMax)
+    .nullish(),
+  result: zod
+    .number()
+    .min(createStrategicPlanSwotItemBodyResultMin)
+    .max(createStrategicPlanSwotItemBodyResultMax)
+    .nullish(),
+  treatmentDecision: zod.string().nullish(),
+  linkedObjectiveCode: zod.string().nullish(),
+  linkedObjectiveLabel: zod.string().nullish(),
+  importedActionReference: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  sortOrder: zod
+    .number()
+    .min(createStrategicPlanSwotItemBodySortOrderMin)
+    .optional(),
+});
+
+/**
+ * @summary Update a SWOT item
+ */
+export const UpdateStrategicPlanSwotItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+export const updateStrategicPlanSwotItemBodyOnePerformanceMin = 0;
+export const updateStrategicPlanSwotItemBodyOnePerformanceMax = 20;
+
+export const updateStrategicPlanSwotItemBodyOneRelevanceMin = 0;
+export const updateStrategicPlanSwotItemBodyOneRelevanceMax = 20;
+
+export const updateStrategicPlanSwotItemBodyOneResultMin = 0;
+export const updateStrategicPlanSwotItemBodyOneResultMax = 100;
+
+export const updateStrategicPlanSwotItemBodyOneSortOrderMin = 0;
+
+export const UpdateStrategicPlanSwotItemBody = zod.object({
+  domain: zod.enum(["sgq", "sga", "sgsv", "esg", "governance"]),
+  matrixLabel: zod.string().nullish(),
+  swotType: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+  environment: zod.enum(["internal", "external"]),
+  perspective: zod.string().nullish(),
+  description: zod.string().min(1),
+  performance: zod
+    .number()
+    .min(updateStrategicPlanSwotItemBodyOnePerformanceMin)
+    .max(updateStrategicPlanSwotItemBodyOnePerformanceMax)
+    .nullish(),
+  relevance: zod
+    .number()
+    .min(updateStrategicPlanSwotItemBodyOneRelevanceMin)
+    .max(updateStrategicPlanSwotItemBodyOneRelevanceMax)
+    .nullish(),
+  result: zod
+    .number()
+    .min(updateStrategicPlanSwotItemBodyOneResultMin)
+    .max(updateStrategicPlanSwotItemBodyOneResultMax)
+    .nullish(),
+  treatmentDecision: zod.string().nullish(),
+  linkedObjectiveCode: zod.string().nullish(),
+  linkedObjectiveLabel: zod.string().nullish(),
+  importedActionReference: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  sortOrder: zod
+    .number()
+    .min(updateStrategicPlanSwotItemBodyOneSortOrderMin)
+    .optional(),
+});
+
+export const UpdateStrategicPlanSwotItemResponse = zod.object({
+  id: zod.number(),
+  planId: zod.number(),
+  domain: zod.enum(["sgq", "sga", "sgsv", "esg", "governance"]),
+  matrixLabel: zod.string().nullish(),
+  swotType: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+  environment: zod.enum(["internal", "external"]),
+  perspective: zod.string().nullish(),
+  description: zod.string(),
+  performance: zod.number().nullish(),
+  relevance: zod.number().nullish(),
+  result: zod.number().nullish(),
+  treatmentDecision: zod.string().nullish(),
+  linkedObjectiveCode: zod.string().nullish(),
+  linkedObjectiveLabel: zod.string().nullish(),
+  importedActionReference: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  sortOrder: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
+ * @summary Delete a SWOT item
+ */
+export const DeleteStrategicPlanSwotItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+/**
+ * @summary List interested parties for a strategic plan
+ */
+export const ListStrategicPlanInterestedPartiesParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const ListStrategicPlanInterestedPartiesResponseItem = zod.object({
+  id: zod.number(),
+  planId: zod.number(),
+  name: zod.string(),
+  expectedRequirements: zod.string().nullish(),
+  roleInCompany: zod.string().nullish(),
+  roleSummary: zod.string().nullish(),
+  relevantToManagementSystem: zod.boolean().nullish(),
+  legalRequirementApplicable: zod.boolean().nullish(),
+  monitoringMethod: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  sortOrder: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+export const ListStrategicPlanInterestedPartiesResponse = zod.array(
+  ListStrategicPlanInterestedPartiesResponseItem,
+);
+
+/**
+ * @summary Create an interested party
+ */
+export const CreateStrategicPlanInterestedPartyParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const createStrategicPlanInterestedPartyBodySortOrderMin = 0;
+
+export const CreateStrategicPlanInterestedPartyBody = zod.object({
+  name: zod.string().min(1),
+  expectedRequirements: zod.string().nullish(),
+  roleInCompany: zod.string().nullish(),
+  roleSummary: zod.string().nullish(),
+  relevantToManagementSystem: zod.boolean().nullish(),
+  legalRequirementApplicable: zod.boolean().nullish(),
+  monitoringMethod: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  sortOrder: zod
+    .number()
+    .min(createStrategicPlanInterestedPartyBodySortOrderMin)
+    .optional(),
+});
+
+/**
+ * @summary Update an interested party
+ */
+export const UpdateStrategicPlanInterestedPartyParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+export const updateStrategicPlanInterestedPartyBodyOneSortOrderMin = 0;
+
+export const UpdateStrategicPlanInterestedPartyBody = zod.object({
+  name: zod.string().min(1),
+  expectedRequirements: zod.string().nullish(),
+  roleInCompany: zod.string().nullish(),
+  roleSummary: zod.string().nullish(),
+  relevantToManagementSystem: zod.boolean().nullish(),
+  legalRequirementApplicable: zod.boolean().nullish(),
+  monitoringMethod: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  sortOrder: zod
+    .number()
+    .min(updateStrategicPlanInterestedPartyBodyOneSortOrderMin)
+    .optional(),
+});
+
+export const UpdateStrategicPlanInterestedPartyResponse = zod.object({
+  id: zod.number(),
+  planId: zod.number(),
+  name: zod.string(),
+  expectedRequirements: zod.string().nullish(),
+  roleInCompany: zod.string().nullish(),
+  roleSummary: zod.string().nullish(),
+  relevantToManagementSystem: zod.boolean().nullish(),
+  legalRequirementApplicable: zod.boolean().nullish(),
+  monitoringMethod: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  sortOrder: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
+ * @summary Delete an interested party
+ */
+export const DeleteStrategicPlanInterestedPartyParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+/**
+ * @summary List objectives for a strategic plan
+ */
+export const ListStrategicPlanObjectivesParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const ListStrategicPlanObjectivesResponseItem = zod.object({
+  id: zod.number(),
+  planId: zod.number(),
+  code: zod.string(),
+  systemDomain: zod.string().nullish(),
+  description: zod.string(),
+  notes: zod.string().nullish(),
+  sortOrder: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+export const ListStrategicPlanObjectivesResponse = zod.array(
+  ListStrategicPlanObjectivesResponseItem,
+);
+
+/**
+ * @summary Create a strategic objective
+ */
+export const CreateStrategicPlanObjectiveParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const createStrategicPlanObjectiveBodySortOrderMin = 0;
+
+export const CreateStrategicPlanObjectiveBody = zod.object({
+  code: zod.string().min(1),
+  systemDomain: zod.string().nullish(),
+  description: zod.string().min(1),
+  notes: zod.string().nullish(),
+  sortOrder: zod
+    .number()
+    .min(createStrategicPlanObjectiveBodySortOrderMin)
+    .optional(),
+});
+
+/**
+ * @summary Update a strategic objective
+ */
+export const UpdateStrategicPlanObjectiveParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+export const updateStrategicPlanObjectiveBodyOneSortOrderMin = 0;
+
+export const UpdateStrategicPlanObjectiveBody = zod.object({
+  code: zod.string().min(1),
+  systemDomain: zod.string().nullish(),
+  description: zod.string().min(1),
+  notes: zod.string().nullish(),
+  sortOrder: zod
+    .number()
+    .min(updateStrategicPlanObjectiveBodyOneSortOrderMin)
+    .optional(),
+});
+
+export const UpdateStrategicPlanObjectiveResponse = zod.object({
+  id: zod.number(),
+  planId: zod.number(),
+  code: zod.string(),
+  systemDomain: zod.string().nullish(),
+  description: zod.string(),
+  notes: zod.string().nullish(),
+  sortOrder: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
+ * @summary Delete a strategic objective
+ */
+export const DeleteStrategicPlanObjectiveParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+/**
+ * @summary List actions for a strategic plan
+ */
+export const ListStrategicPlanActionsParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const ListStrategicPlanActionsResponseItem = zod.object({
+  id: zod.number(),
+  planId: zod.number(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  swotItemId: zod.number().nullish(),
+  objectiveId: zod.number().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  dueDate: zod.string().nullish(),
+  status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+  notes: zod.string().nullish(),
+  sortOrder: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+  units: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+    }),
+  ),
+});
+export const ListStrategicPlanActionsResponse = zod.array(
+  ListStrategicPlanActionsResponseItem,
+);
+
+/**
+ * @summary Create an action for a strategic plan
+ */
+export const CreateStrategicPlanActionParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const createStrategicPlanActionBodySortOrderMin = 0;
+
+export const CreateStrategicPlanActionBody = zod.object({
+  title: zod.string().min(1),
+  description: zod.string().nullish(),
+  swotItemId: zod.number().nullish(),
+  objectiveId: zod.number().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  dueDate: zod.string().datetime({}).nullish(),
+  status: zod.enum(["pending", "in_progress", "done", "canceled"]).optional(),
+  notes: zod.string().nullish(),
+  unitIds: zod.array(zod.number()).optional(),
+  sortOrder: zod
+    .number()
+    .min(createStrategicPlanActionBodySortOrderMin)
+    .optional(),
+});
+
+/**
+ * @summary Update an action for a strategic plan
+ */
+export const UpdateStrategicPlanActionParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+export const updateStrategicPlanActionBodyOneSortOrderMin = 0;
+
+export const UpdateStrategicPlanActionBody = zod.object({
+  title: zod.string().min(1),
+  description: zod.string().nullish(),
+  swotItemId: zod.number().nullish(),
+  objectiveId: zod.number().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  dueDate: zod.string().datetime({}).nullish(),
+  status: zod.enum(["pending", "in_progress", "done", "canceled"]).optional(),
+  notes: zod.string().nullish(),
+  unitIds: zod.array(zod.number()).optional(),
+  sortOrder: zod
+    .number()
+    .min(updateStrategicPlanActionBodyOneSortOrderMin)
+    .optional(),
+});
+
+export const UpdateStrategicPlanActionResponse = zod.object({
+  id: zod.number(),
+  planId: zod.number(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  swotItemId: zod.number().nullish(),
+  objectiveId: zod.number().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  dueDate: zod.string().nullish(),
+  status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+  notes: zod.string().nullish(),
+  sortOrder: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+  units: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Delete an action for a strategic plan
+ */
+export const DeleteStrategicPlanActionParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
 });

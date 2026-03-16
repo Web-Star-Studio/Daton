@@ -1,35 +1,24 @@
 import React, { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
-import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { importGovernancePlan, useCreateGovernancePlan, useGovernancePlans, type GovernanceImportPayload } from "@/lib/governance-api";
+import {
+  governanceKeys,
+  importGovernancePlan,
+  useCreateGovernancePlan,
+  useGovernancePlans,
+  type GovernanceImportPayload,
+} from "@/lib/governance-client";
 import { parseGovernanceWorkbook, type GovernanceImportPreview } from "@/lib/governance-import";
+import { formatGovernanceDate, GOVERNANCE_STATUS_LABELS } from "@/lib/governance-ui";
 import { toast } from "@/hooks/use-toast";
 import { FileSpreadsheet, Plus, ShieldCheck, Sparkles } from "lucide-react";
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Rascunho",
-  in_review: "Em revisão",
-  approved: "Aprovado",
-  rejected: "Rejeitado",
-  overdue: "Vencido",
-  archived: "Arquivado",
-};
-
-function formatDate(value?: string | null) {
-  if (!value) return "—";
-  try {
-    return new Date(value).toLocaleDateString("pt-BR");
-  } catch {
-    return value;
-  }
-}
 
 export default function GovernancePage() {
   const { organization } = useAuth();
@@ -50,13 +39,7 @@ export default function GovernancePage() {
   const currentPlan = plans.find((plan) => plan.status !== "archived") || plans[0];
 
   const actionBreakdown = useMemo(() => {
-    const counts = new Map<string, number>();
-    (currentPlan?.actions || []).forEach((action) => {
-      action.units.forEach((unit) => {
-        counts.set(unit.name, (counts.get(unit.name) || 0) + (action.status !== "done" ? 1 : 0));
-      });
-    });
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+    return currentPlan?.openActionsByUnit || [];
   }, [currentPlan]);
 
   useHeaderActions(
@@ -136,7 +119,7 @@ export default function GovernancePage() {
       };
 
       const result = await importGovernancePlan(orgId, planId, payload);
-      await queryClient.invalidateQueries({ queryKey: ["governance", "plans", orgId] });
+      await queryClient.invalidateQueries({ queryKey: governanceKeys.list(orgId) });
       setImportOpen(false);
       setImportPreview(null);
       navigate(`/governanca/planejamento/${result.id}`);
@@ -157,12 +140,12 @@ export default function GovernancePage() {
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Plano vigente</p>
               <h3 className="mt-2 text-lg font-semibold">{currentPlan.title}</h3>
               <div className="mt-3">
-                <Badge variant="secondary">{STATUS_LABELS[currentPlan.status] || currentPlan.status}</Badge>
+                <Badge variant="secondary">{GOVERNANCE_STATUS_LABELS[currentPlan.status] || currentPlan.status}</Badge>
               </div>
             </div>
             <div className="rounded-2xl border border-border/60 bg-card p-5">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Próxima revisão</p>
-              <h3 className="mt-2 text-lg font-semibold">{formatDate(currentPlan.nextReviewAt)}</h3>
+              <h3 className="mt-2 text-lg font-semibold">{formatGovernanceDate(currentPlan.nextReviewAt)}</h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 Frequência: {currentPlan.reviewFrequencyMonths} meses
               </p>
@@ -214,10 +197,10 @@ export default function GovernancePage() {
                 {actionBreakdown.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nenhuma ação com desdobramento por unidade.</p>
                 ) : (
-                  actionBreakdown.map(([unit, count]) => (
-                    <div key={unit} className="flex items-center justify-between rounded-xl bg-muted/40 px-4 py-3">
-                      <span className="text-sm font-medium">{unit}</span>
-                      <Badge variant="secondary">{count}</Badge>
+                  actionBreakdown.map((item) => (
+                    <div key={item.unitId} className="flex items-center justify-between rounded-xl bg-muted/40 px-4 py-3">
+                      <span className="text-sm font-medium">{item.unitName}</span>
+                      <Badge variant="secondary">{item.openActionCount}</Badge>
                     </div>
                   ))
                 )}
@@ -251,9 +234,9 @@ export default function GovernancePage() {
                       onClick={() => navigate(`/governanca/planejamento/${plan.id}`)}
                     >
                       <td className="px-2 py-3 font-medium">{plan.title}</td>
-                      <td className="px-2 py-3">{STATUS_LABELS[plan.status] || plan.status}</td>
+                      <td className="px-2 py-3">{GOVERNANCE_STATUS_LABELS[plan.status] || plan.status}</td>
                       <td className="px-2 py-3">R{plan.activeRevisionNumber || 0}</td>
-                      <td className="px-2 py-3">{formatDate(plan.nextReviewAt)}</td>
+                      <td className="px-2 py-3">{formatGovernanceDate(plan.nextReviewAt)}</td>
                       <td className="px-2 py-3">{plan.complianceIssues.length}</td>
                     </tr>
                   ))}

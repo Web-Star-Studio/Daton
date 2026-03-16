@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useListUnits, useListUserOptions, getListUnitsQueryKey, getListUserOptionsQueryKey, type UserOption } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   fetchGovernanceExport,
   useGovernanceCrudMutation,
@@ -20,44 +19,28 @@ import {
   type GovernanceAction,
   type GovernanceImportPayload,
   type GovernanceInterestedParty,
+  type GovernanceInterestedPartyBody,
   type GovernanceObjective,
+  type GovernanceObjectiveBody,
   type GovernancePlanBody,
   type GovernanceSwotItem,
-} from "@/lib/governance-api";
+  type GovernanceSwotBody,
+  type GovernanceActionBody,
+} from "@/lib/governance-client";
 import { parseGovernanceWorkbook, type GovernanceImportPreview } from "@/lib/governance-import";
 import { resolveApiUrl } from "@/lib/api";
+import {
+  dateToIso,
+  formatGovernanceDate,
+  GOVERNANCE_STATUS_LABELS,
+  isoToDateInput,
+} from "@/lib/governance-ui";
 import { toast } from "@/hooks/use-toast";
 import { ArrowLeft, CheckCircle2, FileSpreadsheet, FileText, Pencil, Plus, RotateCcw, Send, ShieldAlert, Trash2, XCircle } from "lucide-react";
 
 type Tab = "overview" | "swot" | "interested" | "scope" | "objectives" | "actions" | "revisions";
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Rascunho",
-  in_review: "Em revisão",
-  approved: "Aprovado",
-  rejected: "Rejeitado",
-  overdue: "Vencido",
-  archived: "Arquivado",
-};
-
-function formatDate(value?: string | null, withTime = false) {
-  if (!value) return "—";
-  try {
-    return new Date(value).toLocaleString("pt-BR", withTime ? { dateStyle: "short", timeStyle: "short" } : { dateStyle: "short" });
-  } catch {
-    return value;
-  }
-}
-
-function dateToIso(date: string) {
-  return date ? new Date(`${date}T00:00:00`).toISOString() : null;
-}
-
-function isoToDateInput(value?: string | null) {
-  return value ? value.slice(0, 10) : "";
-}
-
-function blankSwotForm(): Omit<GovernanceSwotItem, "id"> {
+function blankSwotForm(): GovernanceSwotBody {
   return {
     domain: "sgq",
     matrixLabel: "SWOT SGI",
@@ -77,7 +60,7 @@ function blankSwotForm(): Omit<GovernanceSwotItem, "id"> {
   };
 }
 
-function blankInterestedForm(): Omit<GovernanceInterestedParty, "id"> {
+function blankInterestedForm(): GovernanceInterestedPartyBody {
   return {
     name: "",
     expectedRequirements: "",
@@ -91,7 +74,7 @@ function blankInterestedForm(): Omit<GovernanceInterestedParty, "id"> {
   };
 }
 
-function blankObjectiveForm(): Omit<GovernanceObjective, "id"> {
+function blankObjectiveForm(): GovernanceObjectiveBody {
   return {
     code: "",
     systemDomain: "",
@@ -101,18 +84,7 @@ function blankObjectiveForm(): Omit<GovernanceObjective, "id"> {
   };
 }
 
-function blankActionForm(): {
-  title: string;
-  description?: string | null;
-  swotItemId?: number | null;
-  objectiveId?: number | null;
-  responsibleUserId?: number | null;
-  dueDate?: string | null;
-  status: GovernanceAction["status"];
-  notes?: string | null;
-  sortOrder?: number;
-  unitIds: number[];
-} {
+function blankActionForm(): GovernanceActionBody & { unitIds: number[] } {
   return {
     title: "",
     description: "",
@@ -133,7 +105,6 @@ export default function GovernanceDetailPage() {
   const { organization } = useAuth();
   const { canWriteModule, isOrgAdmin } = usePermissions();
   const orgId = organization?.id;
-  const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const { data: plan, isLoading } = useGovernancePlan(orgId, planId);
   const updatePlanMutation = useUpdateGovernancePlan(orgId, planId);
@@ -142,9 +113,9 @@ export default function GovernanceDetailPage() {
   const approveMutation = useGovernanceWorkflowAction(orgId, planId, "approve");
   const rejectMutation = useGovernanceWorkflowAction(orgId, planId, "reject");
   const reopenMutation = useGovernanceWorkflowAction(orgId, planId, "reopen");
-  const swotCrud = useGovernanceCrudMutation<Omit<GovernanceSwotItem, "id">>(orgId, planId, "swot-items");
-  const interestedCrud = useGovernanceCrudMutation<Omit<GovernanceInterestedParty, "id">>(orgId, planId, "interested-parties");
-  const objectiveCrud = useGovernanceCrudMutation<Omit<GovernanceObjective, "id">>(orgId, planId, "objectives");
+  const swotCrud = useGovernanceCrudMutation<GovernanceSwotBody>(orgId, planId, "swot-items");
+  const interestedCrud = useGovernanceCrudMutation<GovernanceInterestedPartyBody>(orgId, planId, "interested-parties");
+  const objectiveCrud = useGovernanceCrudMutation<GovernanceObjectiveBody>(orgId, planId, "objectives");
   const actionCrud = useGovernanceCrudMutation<ReturnType<typeof blankActionForm>>(orgId, planId, "actions");
   const { data: units = [] } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
@@ -172,7 +143,7 @@ export default function GovernanceDetailPage() {
   const canEdit = canWriteModule("governance") && !!plan && ["draft", "rejected"].includes(plan.status);
 
   usePageTitle(plan?.title || "Planejamento Estratégico");
-  usePageSubtitle(plan ? `Status ${STATUS_LABELS[plan.status] || plan.status} • revisão ativa R${plan.activeRevisionNumber}` : undefined);
+  usePageSubtitle(plan ? `Status ${GOVERNANCE_STATUS_LABELS[plan.status] || plan.status} • revisão ativa R${plan.activeRevisionNumber}` : undefined);
 
   useEffect(() => {
     if (plan) {
@@ -468,7 +439,7 @@ export default function GovernanceDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           Voltar para Governança
         </Link>
-        <Badge variant="secondary">{STATUS_LABELS[plan.status] || plan.status}</Badge>
+        <Badge variant="secondary">{GOVERNANCE_STATUS_LABELS[plan.status] || plan.status}</Badge>
       </div>
 
       {plan.complianceIssues.length > 0 && (
@@ -774,7 +745,7 @@ export default function GovernanceDetailPage() {
                   <div>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">{item.status}</Badge>
-                      <span className="text-sm text-muted-foreground">Prazo: {formatDate(item.dueDate)}</span>
+                      <span className="text-sm text-muted-foreground">Prazo: {formatGovernanceDate(item.dueDate)}</span>
                     </div>
                     <h4 className="mt-2 font-medium">{item.title}</h4>
                     <p className="mt-1 text-sm text-muted-foreground">{item.description || "Sem descrição."}</p>
@@ -814,7 +785,7 @@ export default function GovernanceDetailPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary">R{revision.revisionNumber}</Badge>
-                        <span className="text-sm text-muted-foreground">{formatDate(revision.revisionDate, true)}</span>
+                        <span className="text-sm text-muted-foreground">{formatGovernanceDate(revision.revisionDate, true)}</span>
                       </div>
                       <p className="mt-2 text-sm text-muted-foreground">
                         Motivo: {revision.reason || "—"} • Aprovado por: {revision.approvedByName || "—"}

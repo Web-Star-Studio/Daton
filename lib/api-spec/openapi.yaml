@@ -36,6 +36,8 @@ tags:
     description: Document management (ISO 9001:2015 §7.5)
   - name: notifications
     description: In-app notifications
+  - name: governance
+    description: Strategic planning governance (ISO 9001:2015 §4.1)
 
 paths:
   /healthz:
@@ -2209,7 +2211,7 @@ paths:
                 modules:
                   type: array
                   items:
-                    type: string
+                    $ref: "#/components/schemas/AppModule"
               required:
                 - modules
       responses:
@@ -2225,7 +2227,7 @@ paths:
                   modules:
                     type: array
                     items:
-                      type: string
+                      $ref: "#/components/schemas/AppModule"
 
   /invitations:
     post:
@@ -2376,6 +2378,1126 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /organizations/{orgId}/governance/strategic-plans:
+    get:
+      operationId: listStrategicPlans
+      tags: [governance]
+      summary: List strategic plans for the organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Strategic plan summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StrategicPlanListItem"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createStrategicPlan
+      tags: [governance]
+      summary: Create a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStrategicPlanBody"
+      responses:
+        "201":
+          description: Strategic plan created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanDetail"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}:
+    get:
+      operationId: getStrategicPlan
+      tags: [governance]
+      summary: Get a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Strategic plan detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanDetail"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateStrategicPlan
+      tags: [governance]
+      summary: Update an editable strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStrategicPlanBody"
+      responses:
+        "200":
+          description: Strategic plan updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanDetail"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/import:
+    post:
+      operationId: importStrategicPlan
+      tags: [governance]
+      summary: Import workbook data into an editable strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportStrategicPlanBody"
+      responses:
+        "200":
+          description: Strategic plan imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanDetail"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/submit:
+    post:
+      operationId: submitStrategicPlan
+      tags: [governance]
+      summary: Submit a strategic plan for review
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Strategic plan submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanDetail"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/approve:
+    post:
+      operationId: approveStrategicPlan
+      tags: [governance]
+      summary: Approve a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StrategicPlanReviewBody"
+      responses:
+        "200":
+          description: Strategic plan approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanDetail"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/reject:
+    post:
+      operationId: rejectStrategicPlan
+      tags: [governance]
+      summary: Reject a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StrategicPlanReviewBody"
+      responses:
+        "200":
+          description: Strategic plan rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanDetail"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/reopen:
+    post:
+      operationId: reopenStrategicPlan
+      tags: [governance]
+      summary: Reopen a strategic plan as draft
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Strategic plan reopened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanDetail"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/export:
+    get:
+      operationId: getStrategicPlanExport
+      tags: [governance]
+      summary: Get the latest approved evidence metadata for a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Export metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanExportResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/swot-items:
+    get:
+      operationId: listStrategicPlanSwotItems
+      tags: [governance]
+      summary: List SWOT items for a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: SWOT items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StrategicPlanSwotItem"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createStrategicPlanSwotItem
+      tags: [governance]
+      summary: Create a SWOT item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStrategicPlanSwotItemBody"
+      responses:
+        "201":
+          description: SWOT item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanSwotItem"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/swot-items/{itemId}:
+    patch:
+      operationId: updateStrategicPlanSwotItem
+      tags: [governance]
+      summary: Update a SWOT item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStrategicPlanSwotItemBody"
+      responses:
+        "200":
+          description: SWOT item updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanSwotItem"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteStrategicPlanSwotItem
+      tags: [governance]
+      summary: Delete a SWOT item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: SWOT item deleted
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/interested-parties:
+    get:
+      operationId: listStrategicPlanInterestedParties
+      tags: [governance]
+      summary: List interested parties for a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Interested parties
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StrategicPlanInterestedParty"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createStrategicPlanInterestedParty
+      tags: [governance]
+      summary: Create an interested party
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStrategicPlanInterestedPartyBody"
+      responses:
+        "201":
+          description: Interested party created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanInterestedParty"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/interested-parties/{itemId}:
+    patch:
+      operationId: updateStrategicPlanInterestedParty
+      tags: [governance]
+      summary: Update an interested party
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStrategicPlanInterestedPartyBody"
+      responses:
+        "200":
+          description: Interested party updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanInterestedParty"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteStrategicPlanInterestedParty
+      tags: [governance]
+      summary: Delete an interested party
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Interested party deleted
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/objectives:
+    get:
+      operationId: listStrategicPlanObjectives
+      tags: [governance]
+      summary: List objectives for a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Objectives
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StrategicPlanObjective"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createStrategicPlanObjective
+      tags: [governance]
+      summary: Create a strategic objective
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStrategicPlanObjectiveBody"
+      responses:
+        "201":
+          description: Objective created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanObjective"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/objectives/{itemId}:
+    patch:
+      operationId: updateStrategicPlanObjective
+      tags: [governance]
+      summary: Update a strategic objective
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStrategicPlanObjectiveBody"
+      responses:
+        "200":
+          description: Objective updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanObjective"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteStrategicPlanObjective
+      tags: [governance]
+      summary: Delete a strategic objective
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Objective deleted
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/actions:
+    get:
+      operationId: listStrategicPlanActions
+      tags: [governance]
+      summary: List actions for a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Actions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StrategicPlanAction"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createStrategicPlanAction
+      tags: [governance]
+      summary: Create an action for a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStrategicPlanActionBody"
+      responses:
+        "201":
+          description: Action created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanAction"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/actions/{itemId}:
+    patch:
+      operationId: updateStrategicPlanAction
+      tags: [governance]
+      summary: Update an action for a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStrategicPlanActionBody"
+      responses:
+        "200":
+          description: Action updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanAction"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteStrategicPlanAction
+      tags: [governance]
+      summary: Delete an action for a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Action deleted
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -2486,7 +3608,7 @@ components:
         modules:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/AppModule"
       required:
         - user
         - organization
@@ -3944,6 +5066,10 @@ components:
         responsibilities:
           type: string
 
+    AppModule:
+      type: string
+      enum: [documents, legislations, employees, units, departments, positions, governance]
+
     OrgUser:
       type: object
       properties:
@@ -3961,7 +5087,7 @@ components:
         modules:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/AppModule"
       required:
         - id
         - name
@@ -4001,8 +5127,7 @@ components:
         modules:
           type: array
           items:
-            type: string
-            enum: [documents, legislations, employees, units, departments, positions]
+            $ref: "#/components/schemas/AppModule"
       required:
         - name
         - email
@@ -4013,6 +5138,937 @@ components:
     CreateOrgUserResponse:
       allOf:
         - $ref: "#/components/schemas/OrgUser"
+
+    StrategicPlanStatus:
+      type: string
+      enum: [draft, in_review, approved, rejected, overdue, archived]
+
+    StrategicPlanDomain:
+      type: string
+      enum: [sgq, sga, sgsv, esg, governance]
+
+    StrategicPlanSwotType:
+      type: string
+      enum: [strength, weakness, opportunity, threat]
+
+    StrategicPlanSwotEnvironment:
+      type: string
+      enum: [internal, external]
+
+    StrategicPlanActionStatus:
+      type: string
+      enum: [pending, in_progress, done, canceled]
+
+    StrategicPlanLegacyRevisionEntry:
+      type: object
+      properties:
+        date:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        changedItem:
+          type: string
+          nullable: true
+        revision:
+          type: string
+          nullable: true
+        changedBy:
+          type: string
+          nullable: true
+
+    StrategicPlanSummaryMetrics:
+      type: object
+      properties:
+        swotCount:
+          type: integer
+        actionCount:
+          type: integer
+        interestedPartyCount:
+          type: integer
+        objectiveCount:
+          type: integer
+        openActionCount:
+          type: integer
+        overdueActionCount:
+          type: integer
+        actionsByStatus:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+        - swotCount
+        - actionCount
+        - interestedPartyCount
+        - objectiveCount
+        - openActionCount
+        - overdueActionCount
+        - actionsByStatus
+
+    StrategicPlanOpenActionByUnit:
+      type: object
+      properties:
+        unitId:
+          type: integer
+        unitName:
+          type: string
+        openActionCount:
+          type: integer
+      required:
+        - unitId
+        - unitName
+        - openActionCount
+
+    StrategicPlanSwotItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        planId:
+          type: integer
+        domain:
+          $ref: "#/components/schemas/StrategicPlanDomain"
+        matrixLabel:
+          type: string
+          nullable: true
+        swotType:
+          $ref: "#/components/schemas/StrategicPlanSwotType"
+        environment:
+          $ref: "#/components/schemas/StrategicPlanSwotEnvironment"
+        perspective:
+          type: string
+          nullable: true
+        description:
+          type: string
+        performance:
+          type: integer
+          nullable: true
+        relevance:
+          type: integer
+          nullable: true
+        result:
+          type: integer
+          nullable: true
+        treatmentDecision:
+          type: string
+          nullable: true
+        linkedObjectiveCode:
+          type: string
+          nullable: true
+        linkedObjectiveLabel:
+          type: string
+          nullable: true
+        importedActionReference:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - planId
+        - domain
+        - swotType
+        - environment
+        - description
+        - sortOrder
+
+    StrategicPlanInterestedParty:
+      type: object
+      properties:
+        id:
+          type: integer
+        planId:
+          type: integer
+        name:
+          type: string
+        expectedRequirements:
+          type: string
+          nullable: true
+        roleInCompany:
+          type: string
+          nullable: true
+        roleSummary:
+          type: string
+          nullable: true
+        relevantToManagementSystem:
+          type: boolean
+          nullable: true
+        legalRequirementApplicable:
+          type: boolean
+          nullable: true
+        monitoringMethod:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - planId
+        - name
+        - sortOrder
+
+    StrategicPlanObjective:
+      type: object
+      properties:
+        id:
+          type: integer
+        planId:
+          type: integer
+        code:
+          type: string
+        systemDomain:
+          type: string
+          nullable: true
+        description:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - planId
+        - code
+        - description
+        - sortOrder
+
+    StrategicPlanActionUnit:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+      required:
+        - id
+        - name
+
+    StrategicPlanAction:
+      type: object
+      properties:
+        id:
+          type: integer
+        planId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        swotItemId:
+          type: integer
+          nullable: true
+        objectiveId:
+          type: integer
+          nullable: true
+        responsibleUserId:
+          type: integer
+          nullable: true
+        responsibleUserName:
+          type: string
+          nullable: true
+        dueDate:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/StrategicPlanActionStatus"
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+        units:
+          type: array
+          items:
+            $ref: "#/components/schemas/StrategicPlanActionUnit"
+      required:
+        - id
+        - planId
+        - title
+        - status
+        - sortOrder
+        - units
+
+    StrategicPlanRevision:
+      type: object
+      properties:
+        id:
+          type: integer
+        planId:
+          type: integer
+        revisionNumber:
+          type: integer
+        revisionDate:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        changeSummary:
+          type: string
+          nullable: true
+        approvedById:
+          type: integer
+          nullable: true
+        approvedByName:
+          type: string
+          nullable: true
+        evidenceDocumentId:
+          type: integer
+          nullable: true
+        snapshot:
+          type: object
+          nullable: true
+          additionalProperties: true
+        createdAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - planId
+        - revisionNumber
+
+    StrategicPlanListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/StrategicPlanStatus"
+        reviewFrequencyMonths:
+          type: integer
+        nextReviewAt:
+          type: string
+          nullable: true
+        executiveSummary:
+          type: string
+          nullable: true
+        activeRevisionNumber:
+          type: integer
+        updatedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+        complianceIssues:
+          type: array
+          items:
+            type: string
+        firstComplianceIssue:
+          type: string
+          nullable: true
+        openActionsByUnit:
+          type: array
+          items:
+            $ref: "#/components/schemas/StrategicPlanOpenActionByUnit"
+        metrics:
+          $ref: "#/components/schemas/StrategicPlanSummaryMetrics"
+      required:
+        - id
+        - organizationId
+        - title
+        - status
+        - reviewFrequencyMonths
+        - activeRevisionNumber
+        - complianceIssues
+        - openActionsByUnit
+        - metrics
+
+    StrategicPlanDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/StrategicPlanStatus"
+        standards:
+          type: array
+          items:
+            type: string
+        executiveSummary:
+          type: string
+          nullable: true
+        reviewFrequencyMonths:
+          type: integer
+        nextReviewAt:
+          type: string
+          nullable: true
+        reviewReason:
+          type: string
+          nullable: true
+        climateChangeRelevant:
+          type: boolean
+          nullable: true
+        climateChangeJustification:
+          type: string
+          nullable: true
+        technicalScope:
+          type: string
+          nullable: true
+        geographicScope:
+          type: string
+          nullable: true
+        policy:
+          type: string
+          nullable: true
+        mission:
+          type: string
+          nullable: true
+        vision:
+          type: string
+          nullable: true
+        values:
+          type: string
+          nullable: true
+        strategicConclusion:
+          type: string
+          nullable: true
+        methodologyNotes:
+          type: string
+          nullable: true
+        legacyMethodology:
+          type: string
+          nullable: true
+        legacyIndicatorsNotes:
+          type: string
+          nullable: true
+        legacyRevisionHistory:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/StrategicPlanLegacyRevisionEntry"
+        importedWorkbookName:
+          type: string
+          nullable: true
+        activeRevisionNumber:
+          type: integer
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+        submittedAt:
+          type: string
+          nullable: true
+        approvedAt:
+          type: string
+          nullable: true
+        rejectedAt:
+          type: string
+          nullable: true
+        archivedAt:
+          type: string
+          nullable: true
+        swotItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/StrategicPlanSwotItem"
+        interestedParties:
+          type: array
+          items:
+            $ref: "#/components/schemas/StrategicPlanInterestedParty"
+        objectives:
+          type: array
+          items:
+            $ref: "#/components/schemas/StrategicPlanObjective"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/StrategicPlanAction"
+        revisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/StrategicPlanRevision"
+        metrics:
+          $ref: "#/components/schemas/StrategicPlanSummaryMetrics"
+        complianceIssues:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - organizationId
+        - title
+        - status
+        - standards
+        - reviewFrequencyMonths
+        - activeRevisionNumber
+        - swotItems
+        - interestedParties
+        - objectives
+        - actions
+        - revisions
+        - metrics
+        - complianceIssues
+
+    CreateStrategicPlanBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        standards:
+          type: array
+          items:
+            type: string
+        executiveSummary:
+          type: string
+          nullable: true
+        reviewFrequencyMonths:
+          type: integer
+          minimum: 1
+          maximum: 36
+        nextReviewAt:
+          type: string
+          format: date-time
+          nullable: true
+        reviewReason:
+          type: string
+          nullable: true
+        climateChangeRelevant:
+          type: boolean
+          nullable: true
+        climateChangeJustification:
+          type: string
+          nullable: true
+        technicalScope:
+          type: string
+          nullable: true
+        geographicScope:
+          type: string
+          nullable: true
+        policy:
+          type: string
+          nullable: true
+        mission:
+          type: string
+          nullable: true
+        vision:
+          type: string
+          nullable: true
+        values:
+          type: string
+          nullable: true
+        strategicConclusion:
+          type: string
+          nullable: true
+        methodologyNotes:
+          type: string
+          nullable: true
+        legacyMethodology:
+          type: string
+          nullable: true
+        legacyIndicatorsNotes:
+          type: string
+          nullable: true
+        legacyRevisionHistory:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/StrategicPlanLegacyRevisionEntry"
+        importedWorkbookName:
+          type: string
+          nullable: true
+      required:
+        - title
+
+    UpdateStrategicPlanBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        standards:
+          type: array
+          items:
+            type: string
+        executiveSummary:
+          type: string
+          nullable: true
+        reviewFrequencyMonths:
+          type: integer
+          minimum: 1
+          maximum: 36
+        nextReviewAt:
+          type: string
+          format: date-time
+          nullable: true
+        reviewReason:
+          type: string
+          nullable: true
+        climateChangeRelevant:
+          type: boolean
+          nullable: true
+        climateChangeJustification:
+          type: string
+          nullable: true
+        technicalScope:
+          type: string
+          nullable: true
+        geographicScope:
+          type: string
+          nullable: true
+        policy:
+          type: string
+          nullable: true
+        mission:
+          type: string
+          nullable: true
+        vision:
+          type: string
+          nullable: true
+        values:
+          type: string
+          nullable: true
+        strategicConclusion:
+          type: string
+          nullable: true
+        methodologyNotes:
+          type: string
+          nullable: true
+        legacyMethodology:
+          type: string
+          nullable: true
+        legacyIndicatorsNotes:
+          type: string
+          nullable: true
+        legacyRevisionHistory:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/StrategicPlanLegacyRevisionEntry"
+        importedWorkbookName:
+          type: string
+          nullable: true
+
+    StrategicPlanReviewBody:
+      type: object
+      properties:
+        reviewReason:
+          type: string
+          nullable: true
+        changeSummary:
+          type: string
+          nullable: true
+
+    CreateStrategicPlanSwotItemBody:
+      type: object
+      properties:
+        domain:
+          $ref: "#/components/schemas/StrategicPlanDomain"
+        matrixLabel:
+          type: string
+          nullable: true
+        swotType:
+          $ref: "#/components/schemas/StrategicPlanSwotType"
+        environment:
+          $ref: "#/components/schemas/StrategicPlanSwotEnvironment"
+        perspective:
+          type: string
+          nullable: true
+        description:
+          type: string
+          minLength: 1
+        performance:
+          type: integer
+          minimum: 0
+          maximum: 20
+          nullable: true
+        relevance:
+          type: integer
+          minimum: 0
+          maximum: 20
+          nullable: true
+        result:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+        treatmentDecision:
+          type: string
+          nullable: true
+        linkedObjectiveCode:
+          type: string
+          nullable: true
+        linkedObjectiveLabel:
+          type: string
+          nullable: true
+        importedActionReference:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          minimum: 0
+      required:
+        - domain
+        - swotType
+        - environment
+        - description
+
+    UpdateStrategicPlanSwotItemBody:
+      allOf:
+        - $ref: "#/components/schemas/CreateStrategicPlanSwotItemBody"
+
+    CreateStrategicPlanInterestedPartyBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        expectedRequirements:
+          type: string
+          nullable: true
+        roleInCompany:
+          type: string
+          nullable: true
+        roleSummary:
+          type: string
+          nullable: true
+        relevantToManagementSystem:
+          type: boolean
+          nullable: true
+        legalRequirementApplicable:
+          type: boolean
+          nullable: true
+        monitoringMethod:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          minimum: 0
+      required:
+        - name
+
+    UpdateStrategicPlanInterestedPartyBody:
+      allOf:
+        - $ref: "#/components/schemas/CreateStrategicPlanInterestedPartyBody"
+
+    CreateStrategicPlanObjectiveBody:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+        systemDomain:
+          type: string
+          nullable: true
+        description:
+          type: string
+          minLength: 1
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          minimum: 0
+      required:
+        - code
+        - description
+
+    UpdateStrategicPlanObjectiveBody:
+      allOf:
+        - $ref: "#/components/schemas/CreateStrategicPlanObjectiveBody"
+
+    CreateStrategicPlanActionBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        swotItemId:
+          type: integer
+          nullable: true
+        objectiveId:
+          type: integer
+          nullable: true
+        responsibleUserId:
+          type: integer
+          nullable: true
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: "#/components/schemas/StrategicPlanActionStatus"
+        notes:
+          type: string
+          nullable: true
+        unitIds:
+          type: array
+          items:
+            type: integer
+        sortOrder:
+          type: integer
+          minimum: 0
+      required:
+        - title
+
+    UpdateStrategicPlanActionBody:
+      allOf:
+        - $ref: "#/components/schemas/CreateStrategicPlanActionBody"
+
+    ImportStrategicPlanSwotItem:
+      allOf:
+        - $ref: "#/components/schemas/CreateStrategicPlanSwotItemBody"
+        - type: object
+          properties:
+            importKey:
+              type: string
+              nullable: true
+
+    ImportStrategicPlanObjective:
+      allOf:
+        - $ref: "#/components/schemas/CreateStrategicPlanObjectiveBody"
+        - type: object
+          properties:
+            importKey:
+              type: string
+              nullable: true
+
+    ImportStrategicPlanAction:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        swotImportKey:
+          type: string
+          nullable: true
+        objectiveCode:
+          type: string
+          nullable: true
+        responsibleUserId:
+          type: integer
+          nullable: true
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: "#/components/schemas/StrategicPlanActionStatus"
+        notes:
+          type: string
+          nullable: true
+        unitIds:
+          type: array
+          items:
+            type: integer
+        sortOrder:
+          type: integer
+          minimum: 0
+      required:
+        - title
+
+    ImportStrategicPlanBody:
+      type: object
+      properties:
+        workbookName:
+          type: string
+          nullable: true
+        plan:
+          $ref: "#/components/schemas/CreateStrategicPlanBody"
+        swotItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportStrategicPlanSwotItem"
+        interestedParties:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateStrategicPlanInterestedPartyBody"
+        objectives:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportStrategicPlanObjective"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportStrategicPlanAction"
+      required:
+        - plan
+        - swotItems
+        - interestedParties
+        - objectives
+        - actions
+
+    StrategicPlanExportResponse:
+      type: object
+      properties:
+        revisionId:
+          type: integer
+        revisionNumber:
+          type: integer
+        evidenceDocumentId:
+          type: integer
+        fileName:
+          type: string
+        contentType:
+          type: string
+        objectPath:
+          type: string
+        uploadedAt:
+          type: string
+      required:
+        - revisionId
+        - revisionNumber
+        - evidenceDocumentId
+        - fileName
+        - contentType
+        - objectPath
+        - uploadedAt
 
     DocumentSummary:
       type: object
@@ -4352,8 +6408,7 @@ components:
         modules:
           type: array
           items:
-            type: string
-            enum: [documents, legislations, employees, units, departments, positions]
+            $ref: "#/components/schemas/AppModule"
       required:
         - email
 
@@ -4375,7 +6430,7 @@ components:
         modules:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/AppModule"
         expiresAt:
           type: string
         createdAt:
