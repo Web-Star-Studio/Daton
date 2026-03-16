@@ -106,6 +106,16 @@ export default function UnitDetailPage() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const typeLabel =
+    formData.type === "sede" ? "Sede" : formData.type === "filial" ? "Filial" : "—";
+  const statusLabel =
+    formData.status === "ativa" ? "Ativa" : formData.status === "inativa" ? "Inativa" : "—";
+  const locationLine = [formData.city, formData.state, formData.country]
+    .filter(Boolean)
+    .join(", ");
+  const addressLine = [formData.address, formData.streetNumber].filter(Boolean).join(", ");
+  const neighborhoodLine = formData.neighborhood || "";
+
   usePageTitle(unit?.name);
   useHeaderActions(
     unit ? (
@@ -138,24 +148,43 @@ export default function UnitDetailPage() {
 
   if (isLoading || !unit) return <div className="p-8 text-center text-muted-foreground">Carregando...</div>;
 
-  const Field = ({ label, field, placeholder, disabled }: { label: string; field: string; placeholder?: string; disabled?: boolean }) => (
+  const Field = ({
+    label,
+    field,
+    placeholder,
+    disabled,
+    className,
+  }: {
+    label: string;
+    field: string;
+    placeholder?: string;
+    disabled?: boolean;
+    className?: string;
+  }) => (
     <div>
-      <Label>{label}</Label>
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+        {label}
+      </p>
       {editing && !disabled ? (
         <Input
           value={formData[field] || ""}
           onChange={e => updateField(field, e.target.value)}
           placeholder={placeholder}
+          className={className}
         />
       ) : (
-        <p className="text-[13px] text-foreground mt-1 min-h-[20px]">{formData[field] || <span className="text-muted-foreground">—</span>}</p>
+        <p className="text-[14px] font-medium text-foreground min-h-[20px]">
+          {formData[field] || <span className="text-muted-foreground">—</span>}
+        </p>
       )}
     </div>
   );
 
   const SelectField = ({ label, field, options }: { label: string; field: string; options: { value: string; label: string }[] }) => (
     <div>
-      <Label>{label}</Label>
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+        {label}
+      </p>
       {editing ? (
         <Select value={formData[field] || ""} onChange={e => updateField(field, e.target.value)}>
           {options.map(o => (
@@ -163,42 +192,78 @@ export default function UnitDetailPage() {
           ))}
         </Select>
       ) : (
-        <p className="text-[13px] text-foreground mt-1 capitalize">{options.find(o => o.value === formData[field])?.label || formData[field]}</p>
+        <p className="text-[14px] font-medium text-foreground">
+          {options.find(o => o.value === formData[field])?.label || formData[field]}
+        </p>
       )}
     </div>
   );
 
   return (
     <>
-      <div className="max-w-3xl space-y-8">
-        <section className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <h2 className="text-base font-semibold text-foreground">Informações Gerais</h2>
-            <Badge variant={unit.type === 'sede' ? 'default' : 'secondary'} className="uppercase text-[10px]">{unit.type}</Badge>
-            <Badge variant={unit.status === 'ativa' ? 'success' : 'secondary'} className="text-[10px]">{unit.status}</Badge>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-5">
-            <Field label="Nome" field="name" placeholder="Nome da unidade" />
-            <Field label="Código" field="code" placeholder="FIL-001" />
-            <SelectField label="Tipo" field="type" options={[{ value: "sede", label: "Sede" }, { value: "filial", label: "Filial" }]} />
-            <Field label="CNPJ" field="cnpj" placeholder="00.000.000/0000-00" />
-            <SelectField label="Status" field="status" options={[{ value: "ativa", label: "Ativa" }, { value: "inativa", label: "Inativa" }]} />
-            <Field label="Telefone" field="phone" placeholder="(00) 0000-0000" />
-          </div>
-        </section>
-
-        <section className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-base font-semibold text-foreground mb-6">Endereço</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-5">
-            <Field label="CEP" field="cep" placeholder="00000-000" />
-            <div className="col-span-2">
-              <Field label="Endereço" field="address" placeholder="Rua, Avenida..." />
+      <div className="max-w-6xl space-y-10 pb-8">
+        <section className="space-y-5">
+          <div>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+              Visão Geral da Unidade
+            </h2>
+            <div className="bg-muted/30 rounded-2xl overflow-hidden border border-border/50">
+              <div className="relative h-44 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-300">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.75),transparent_45%)]" />
+                <div className="absolute bottom-5 left-5 bg-white/95 backdrop-blur rounded-2xl shadow-sm border border-white/70 p-5 max-w-md">
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <p className="text-[18px] font-semibold text-foreground">
+                      {formData.name || "Unidade sem nome"}
+                    </p>
+                    <Badge variant={formData.type === "sede" ? "default" : "secondary"} className="uppercase text-[10px]">
+                      {typeLabel}
+                    </Badge>
+                  </div>
+                  <p className="text-[13px] text-muted-foreground">
+                    {locationLine || "Localização não informada"}
+                  </p>
+                  <p className="text-[13px] text-muted-foreground mt-1">
+                    {addressLine || "Endereço não informado"}
+                    {neighborhoodLine ? ` • ${neighborhoodLine}` : ""}
+                  </p>
+                  <div className="flex items-center gap-2 mt-4">
+                    <span className={`inline-block h-2 w-2 rounded-full ${formData.status === "ativa" ? "bg-emerald-500" : "bg-slate-400"}`} />
+                    <span className="text-[13px] font-medium text-foreground">{statusLabel}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <Field label="Número" field="streetNumber" placeholder="100" />
-            <Field label="Bairro" field="neighborhood" placeholder="Centro" />
-            <Field label="Cidade" field="city" placeholder="São Paulo" />
-            <Field label="Estado (UF)" field="state" placeholder="SP" />
-            <Field label="País" field="country" placeholder="Brasil" />
+          </div>
+
+          <div className="border-t border-border/70 pt-6">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-5">
+              Dados Cadastrais
+            </h3>
+            <div className="grid grid-cols-1 gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
+              <Field label="Nome" field="name" placeholder="Nome da unidade" />
+              <Field label="Código" field="code" placeholder="FIL-001" />
+              <SelectField label="Tipo" field="type" options={[{ value: "sede", label: "Sede" }, { value: "filial", label: "Filial" }]} />
+              <Field label="CNPJ" field="cnpj" placeholder="00.000.000/0000-00" />
+              <SelectField label="Status Operacional" field="status" options={[{ value: "ativa", label: "Ativa" }, { value: "inativa", label: "Inativa" }]} />
+              <Field label="Telefone" field="phone" placeholder="(00) 0000-0000" />
+            </div>
+          </div>
+
+          <div className="border-t border-border/70 pt-6">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-5">
+              Endereço
+            </h3>
+            <div className="grid grid-cols-1 gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
+              <Field label="CEP" field="cep" placeholder="00000-000" />
+              <div className="md:col-span-2">
+                <Field label="Endereço" field="address" placeholder="Rua, Avenida..." />
+              </div>
+              <Field label="Número" field="streetNumber" placeholder="100" />
+              <Field label="Bairro" field="neighborhood" placeholder="Centro" />
+              <Field label="Cidade" field="city" placeholder="São Paulo" />
+              <Field label="Estado (UF)" field="state" placeholder="SP" />
+              <Field label="País" field="country" placeholder="Brasil" />
+            </div>
           </div>
         </section>
       </div>
