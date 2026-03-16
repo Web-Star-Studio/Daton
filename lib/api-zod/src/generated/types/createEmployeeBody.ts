@@ -7,6 +7,7 @@
  */
 import type { CreateEmployeeBodyContractType } from "./createEmployeeBodyContractType";
 import type { CreateEmployeeBodyStatus } from "./createEmployeeBodyStatus";
+import type { EmployeeProfileItemInput } from "./employeeProfileItemInput";
 
 export interface CreateEmployeeBody {
   /** @minLength 1 */
@@ -17,8 +18,8 @@ export interface CreateEmployeeBody {
   phone?: string;
   position?: string;
   department?: string;
-  professionalExperience?: string;
-  educationCertifications?: string;
+  professionalExperiences?: EmployeeProfileItemInput[];
+  educationCertifications?: EmployeeProfileItemInput[];
   unitId?: number;
   contractType?: CreateEmployeeBodyContractType;
   admissionDate: string;

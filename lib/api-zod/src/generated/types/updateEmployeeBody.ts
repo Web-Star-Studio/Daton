@@ -17,8 +17,6 @@ export interface UpdateEmployeeBody {
   phone?: string;
   position?: string;
   department?: string;
-  professionalExperience?: string;
-  educationCertifications?: string;
   unitId?: number | null;
   contractType?: UpdateEmployeeBodyContractType;
   admissionDate?: string | null;

@@ -815,8 +815,6 @@ export const ListEmployeesResponse = zod.object({
       phone: zod.string().nullish(),
       position: zod.string().nullish(),
       department: zod.string().nullish(),
-      professionalExperience: zod.string().nullish(),
-      educationCertifications: zod.string().nullish(),
       contractType: zod.enum(["clt", "pj", "intern", "temporary"]),
       admissionDate: zod.string().nullish(),
       terminationDate: zod.string().nullish(),
@@ -848,8 +846,42 @@ export const CreateEmployeeBody = zod.object({
   phone: zod.string().optional(),
   position: zod.string().optional(),
   department: zod.string().optional(),
-  professionalExperience: zod.string().optional(),
-  educationCertifications: zod.string().optional(),
+  professionalExperiences: zod
+    .array(
+      zod.object({
+        title: zod.string().min(1),
+        description: zod.string().optional(),
+        attachments: zod
+          .array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod.number(),
+              contentType: zod.string(),
+              objectPath: zod.string(),
+            }),
+          )
+          .optional(),
+      }),
+    )
+    .optional(),
+  educationCertifications: zod
+    .array(
+      zod.object({
+        title: zod.string().min(1),
+        description: zod.string().optional(),
+        attachments: zod
+          .array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod.number(),
+              contentType: zod.string(),
+              objectPath: zod.string(),
+            }),
+          )
+          .optional(),
+      }),
+    )
+    .optional(),
   unitId: zod.number().optional(),
   contractType: zod.enum(["clt", "pj", "intern", "temporary"]).optional(),
   admissionDate: zod.string(),
@@ -882,8 +914,6 @@ export const GetEmployeeResponse = zod
     phone: zod.string().nullish(),
     position: zod.string().nullish(),
     department: zod.string().nullish(),
-    professionalExperience: zod.string().nullish(),
-    educationCertifications: zod.string().nullish(),
     contractType: zod.enum(["clt", "pj", "intern", "temporary"]),
     admissionDate: zod.string().nullish(),
     terminationDate: zod.string().nullish(),
@@ -956,6 +986,60 @@ export const GetEmployeeResponse = zod
           }),
         )
         .optional(),
+      professionalExperiences: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            employeeId: zod.number(),
+            category: zod.enum([
+              "professional_experience",
+              "education_certification",
+            ]),
+            title: zod.string(),
+            description: zod.string().nullish(),
+            attachments: zod.array(
+              zod.object({
+                id: zod.number(),
+                itemId: zod.number(),
+                fileName: zod.string(),
+                fileSize: zod.number(),
+                contentType: zod.string(),
+                objectPath: zod.string(),
+                uploadedAt: zod.string(),
+              }),
+            ),
+            createdAt: zod.string().datetime({}),
+            updatedAt: zod.string().datetime({}),
+          }),
+        )
+        .optional(),
+      educationCertifications: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            employeeId: zod.number(),
+            category: zod.enum([
+              "professional_experience",
+              "education_certification",
+            ]),
+            title: zod.string(),
+            description: zod.string().nullish(),
+            attachments: zod.array(
+              zod.object({
+                id: zod.number(),
+                itemId: zod.number(),
+                fileName: zod.string(),
+                fileSize: zod.number(),
+                contentType: zod.string(),
+                objectPath: zod.string(),
+                uploadedAt: zod.string(),
+              }),
+            ),
+            createdAt: zod.string().datetime({}),
+            updatedAt: zod.string().datetime({}),
+          }),
+        )
+        .optional(),
     }),
   );
 
@@ -974,8 +1058,6 @@ export const UpdateEmployeeBody = zod.object({
   phone: zod.string().optional(),
   position: zod.string().optional(),
   department: zod.string().optional(),
-  professionalExperience: zod.string().optional(),
-  educationCertifications: zod.string().optional(),
   unitId: zod.number().nullish(),
   contractType: zod.enum(["clt", "pj", "intern", "temporary"]).optional(),
   admissionDate: zod.string().nullish(),
@@ -993,8 +1075,6 @@ export const UpdateEmployeeResponse = zod.object({
   phone: zod.string().nullish(),
   position: zod.string().nullish(),
   department: zod.string().nullish(),
-  professionalExperience: zod.string().nullish(),
-  educationCertifications: zod.string().nullish(),
   contractType: zod.enum(["clt", "pj", "intern", "temporary"]),
   admissionDate: zod.string().nullish(),
   terminationDate: zod.string().nullish(),
@@ -1299,6 +1379,100 @@ export const DeleteAwarenessParams = zod.object({
   orgId: zod.coerce.number(),
   empId: zod.coerce.number(),
   awaId: zod.coerce.number(),
+});
+
+/**
+ * @summary Create employee profile item
+ */
+export const CreateEmployeeProfileItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+});
+
+export const CreateEmployeeProfileItemBody = zod.object({
+  category: zod.enum(["professional_experience", "education_certification"]),
+  title: zod.string().min(1),
+  description: zod.string().optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod.number(),
+        contentType: zod.string(),
+        objectPath: zod.string(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Update employee profile item
+ */
+export const UpdateEmployeeProfileItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+export const UpdateEmployeeProfileItemBody = zod.object({
+  title: zod.string().min(1).optional(),
+  description: zod.string().optional(),
+});
+
+export const UpdateEmployeeProfileItemResponse = zod.object({
+  id: zod.number(),
+  employeeId: zod.number(),
+  category: zod.enum(["professional_experience", "education_certification"]),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  attachments: zod.array(
+    zod.object({
+      id: zod.number(),
+      itemId: zod.number(),
+      fileName: zod.string(),
+      fileSize: zod.number(),
+      contentType: zod.string(),
+      objectPath: zod.string(),
+      uploadedAt: zod.string(),
+    }),
+  ),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * @summary Delete employee profile item
+ */
+export const DeleteEmployeeProfileItemParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+/**
+ * @summary Add attachment to employee profile item
+ */
+export const AddEmployeeProfileItemAttachmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+export const AddEmployeeProfileItemAttachmentBody = zod.object({
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Delete attachment from employee profile item
+ */
+export const DeleteEmployeeProfileItemAttachmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+  attachmentId: zod.coerce.number(),
 });
 
 /**

@@ -8,6 +8,7 @@
 import type { Employee } from "./employee";
 import type { EmployeeAwareness } from "./employeeAwareness";
 import type { EmployeeCompetency } from "./employeeCompetency";
+import type { EmployeeProfileItem } from "./employeeProfileItem";
 import type { EmployeeTraining } from "./employeeTraining";
 import type { LinkedUnit } from "./linkedUnit";
 
@@ -16,4 +17,6 @@ export type EmployeeDetail = Employee & {
   competencies?: EmployeeCompetency[];
   trainings?: EmployeeTraining[];
   awareness?: EmployeeAwareness[];
+  professionalExperiences?: EmployeeProfileItem[];
+  educationCertifications?: EmployeeProfileItem[];
 };

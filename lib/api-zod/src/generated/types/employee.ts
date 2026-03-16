@@ -18,8 +18,6 @@ export interface Employee {
   phone?: string | null;
   position?: string | null;
   department?: string | null;
-  professionalExperience?: string | null;
-  educationCertifications?: string | null;
   contractType: EmployeeContractType;
   admissionDate?: string | null;
   terminationDate?: string | null;

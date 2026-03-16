@@ -19,6 +19,7 @@ import type {
 import type {
   AcceptInvitationBody,
   AddDocumentAttachmentBody,
+  AddEmployeeProfileItemAttachmentBody,
   ApproveDocumentBody,
   AssignLegislationBody,
   AuthResponse,
@@ -28,6 +29,7 @@ import type {
   CreateDepartmentBody,
   CreateDocumentBody,
   CreateEmployeeBody,
+  CreateEmployeeProfileItemBody,
   CreateInvitationBody,
   CreateLegislationBody,
   CreateOrgUserBody,
@@ -44,6 +46,8 @@ import type {
   EmployeeAwareness,
   EmployeeCompetency,
   EmployeeDetail,
+  EmployeeProfileItem,
+  EmployeeProfileItemAttachment,
   EmployeeTraining,
   ErrorResponse,
   GetUnitQuestionnaireResponses200,
@@ -82,6 +86,7 @@ import type {
   UpdateDepartmentBody,
   UpdateDocumentBody,
   UpdateEmployeeBody,
+  UpdateEmployeeProfileItemBody,
   UpdateLegislationBody,
   UpdateOrganizationBody,
   UpdatePositionBody,
@@ -4377,6 +4382,581 @@ export const useDeleteAwareness = <
   TContext
 > => {
   return useMutation(getDeleteAwarenessMutationOptions(options));
+};
+
+/**
+ * @summary Create employee profile item
+ */
+export const getCreateEmployeeProfileItemUrl = (
+  orgId: number,
+  empId: number,
+) => {
+  return `/api/organizations/${orgId}/employees/${empId}/profile-items`;
+};
+
+export const createEmployeeProfileItem = async (
+  orgId: number,
+  empId: number,
+  createEmployeeProfileItemBody: CreateEmployeeProfileItemBody,
+  options?: RequestInit,
+): Promise<EmployeeProfileItem> => {
+  return customFetch<EmployeeProfileItem>(
+    getCreateEmployeeProfileItemUrl(orgId, empId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createEmployeeProfileItemBody),
+    },
+  );
+};
+
+export const getCreateEmployeeProfileItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEmployeeProfileItem>>,
+    TError,
+    {
+      orgId: number;
+      empId: number;
+      data: BodyType<CreateEmployeeProfileItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createEmployeeProfileItem>>,
+  TError,
+  {
+    orgId: number;
+    empId: number;
+    data: BodyType<CreateEmployeeProfileItemBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createEmployeeProfileItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createEmployeeProfileItem>>,
+    {
+      orgId: number;
+      empId: number;
+      data: BodyType<CreateEmployeeProfileItemBody>;
+    }
+  > = (props) => {
+    const { orgId, empId, data } = props ?? {};
+
+    return createEmployeeProfileItem(orgId, empId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateEmployeeProfileItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createEmployeeProfileItem>>
+>;
+export type CreateEmployeeProfileItemMutationBody =
+  BodyType<CreateEmployeeProfileItemBody>;
+export type CreateEmployeeProfileItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create employee profile item
+ */
+export const useCreateEmployeeProfileItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEmployeeProfileItem>>,
+    TError,
+    {
+      orgId: number;
+      empId: number;
+      data: BodyType<CreateEmployeeProfileItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createEmployeeProfileItem>>,
+  TError,
+  {
+    orgId: number;
+    empId: number;
+    data: BodyType<CreateEmployeeProfileItemBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateEmployeeProfileItemMutationOptions(options));
+};
+
+/**
+ * @summary Update employee profile item
+ */
+export const getUpdateEmployeeProfileItemUrl = (
+  orgId: number,
+  empId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/employees/${empId}/profile-items/${itemId}`;
+};
+
+export const updateEmployeeProfileItem = async (
+  orgId: number,
+  empId: number,
+  itemId: number,
+  updateEmployeeProfileItemBody: UpdateEmployeeProfileItemBody,
+  options?: RequestInit,
+): Promise<EmployeeProfileItem> => {
+  return customFetch<EmployeeProfileItem>(
+    getUpdateEmployeeProfileItemUrl(orgId, empId, itemId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateEmployeeProfileItemBody),
+    },
+  );
+};
+
+export const getUpdateEmployeeProfileItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEmployeeProfileItem>>,
+    TError,
+    {
+      orgId: number;
+      empId: number;
+      itemId: number;
+      data: BodyType<UpdateEmployeeProfileItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateEmployeeProfileItem>>,
+  TError,
+  {
+    orgId: number;
+    empId: number;
+    itemId: number;
+    data: BodyType<UpdateEmployeeProfileItemBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateEmployeeProfileItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateEmployeeProfileItem>>,
+    {
+      orgId: number;
+      empId: number;
+      itemId: number;
+      data: BodyType<UpdateEmployeeProfileItemBody>;
+    }
+  > = (props) => {
+    const { orgId, empId, itemId, data } = props ?? {};
+
+    return updateEmployeeProfileItem(
+      orgId,
+      empId,
+      itemId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateEmployeeProfileItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateEmployeeProfileItem>>
+>;
+export type UpdateEmployeeProfileItemMutationBody =
+  BodyType<UpdateEmployeeProfileItemBody>;
+export type UpdateEmployeeProfileItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update employee profile item
+ */
+export const useUpdateEmployeeProfileItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEmployeeProfileItem>>,
+    TError,
+    {
+      orgId: number;
+      empId: number;
+      itemId: number;
+      data: BodyType<UpdateEmployeeProfileItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateEmployeeProfileItem>>,
+  TError,
+  {
+    orgId: number;
+    empId: number;
+    itemId: number;
+    data: BodyType<UpdateEmployeeProfileItemBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateEmployeeProfileItemMutationOptions(options));
+};
+
+/**
+ * @summary Delete employee profile item
+ */
+export const getDeleteEmployeeProfileItemUrl = (
+  orgId: number,
+  empId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/employees/${empId}/profile-items/${itemId}`;
+};
+
+export const deleteEmployeeProfileItem = async (
+  orgId: number,
+  empId: number,
+  itemId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteEmployeeProfileItemUrl(orgId, empId, itemId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteEmployeeProfileItemMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteEmployeeProfileItem>>,
+    TError,
+    { orgId: number; empId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteEmployeeProfileItem>>,
+  TError,
+  { orgId: number; empId: number; itemId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteEmployeeProfileItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteEmployeeProfileItem>>,
+    { orgId: number; empId: number; itemId: number }
+  > = (props) => {
+    const { orgId, empId, itemId } = props ?? {};
+
+    return deleteEmployeeProfileItem(orgId, empId, itemId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteEmployeeProfileItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteEmployeeProfileItem>>
+>;
+
+export type DeleteEmployeeProfileItemMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete employee profile item
+ */
+export const useDeleteEmployeeProfileItem = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteEmployeeProfileItem>>,
+    TError,
+    { orgId: number; empId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteEmployeeProfileItem>>,
+  TError,
+  { orgId: number; empId: number; itemId: number },
+  TContext
+> => {
+  return useMutation(getDeleteEmployeeProfileItemMutationOptions(options));
+};
+
+/**
+ * @summary Add attachment to employee profile item
+ */
+export const getAddEmployeeProfileItemAttachmentUrl = (
+  orgId: number,
+  empId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/employees/${empId}/profile-items/${itemId}/attachments`;
+};
+
+export const addEmployeeProfileItemAttachment = async (
+  orgId: number,
+  empId: number,
+  itemId: number,
+  addEmployeeProfileItemAttachmentBody: AddEmployeeProfileItemAttachmentBody,
+  options?: RequestInit,
+): Promise<EmployeeProfileItemAttachment> => {
+  return customFetch<EmployeeProfileItemAttachment>(
+    getAddEmployeeProfileItemAttachmentUrl(orgId, empId, itemId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(addEmployeeProfileItemAttachmentBody),
+    },
+  );
+};
+
+export const getAddEmployeeProfileItemAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addEmployeeProfileItemAttachment>>,
+    TError,
+    {
+      orgId: number;
+      empId: number;
+      itemId: number;
+      data: BodyType<AddEmployeeProfileItemAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addEmployeeProfileItemAttachment>>,
+  TError,
+  {
+    orgId: number;
+    empId: number;
+    itemId: number;
+    data: BodyType<AddEmployeeProfileItemAttachmentBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["addEmployeeProfileItemAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addEmployeeProfileItemAttachment>>,
+    {
+      orgId: number;
+      empId: number;
+      itemId: number;
+      data: BodyType<AddEmployeeProfileItemAttachmentBody>;
+    }
+  > = (props) => {
+    const { orgId, empId, itemId, data } = props ?? {};
+
+    return addEmployeeProfileItemAttachment(
+      orgId,
+      empId,
+      itemId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddEmployeeProfileItemAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addEmployeeProfileItemAttachment>>
+>;
+export type AddEmployeeProfileItemAttachmentMutationBody =
+  BodyType<AddEmployeeProfileItemAttachmentBody>;
+export type AddEmployeeProfileItemAttachmentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add attachment to employee profile item
+ */
+export const useAddEmployeeProfileItemAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addEmployeeProfileItemAttachment>>,
+    TError,
+    {
+      orgId: number;
+      empId: number;
+      itemId: number;
+      data: BodyType<AddEmployeeProfileItemAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addEmployeeProfileItemAttachment>>,
+  TError,
+  {
+    orgId: number;
+    empId: number;
+    itemId: number;
+    data: BodyType<AddEmployeeProfileItemAttachmentBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getAddEmployeeProfileItemAttachmentMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Delete attachment from employee profile item
+ */
+export const getDeleteEmployeeProfileItemAttachmentUrl = (
+  orgId: number,
+  empId: number,
+  itemId: number,
+  attachmentId: number,
+) => {
+  return `/api/organizations/${orgId}/employees/${empId}/profile-items/${itemId}/attachments/${attachmentId}`;
+};
+
+export const deleteEmployeeProfileItemAttachment = async (
+  orgId: number,
+  empId: number,
+  itemId: number,
+  attachmentId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteEmployeeProfileItemAttachmentUrl(
+      orgId,
+      empId,
+      itemId,
+      attachmentId,
+    ),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteEmployeeProfileItemAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteEmployeeProfileItemAttachment>>,
+    TError,
+    { orgId: number; empId: number; itemId: number; attachmentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteEmployeeProfileItemAttachment>>,
+  TError,
+  { orgId: number; empId: number; itemId: number; attachmentId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteEmployeeProfileItemAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteEmployeeProfileItemAttachment>>,
+    { orgId: number; empId: number; itemId: number; attachmentId: number }
+  > = (props) => {
+    const { orgId, empId, itemId, attachmentId } = props ?? {};
+
+    return deleteEmployeeProfileItemAttachment(
+      orgId,
+      empId,
+      itemId,
+      attachmentId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteEmployeeProfileItemAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteEmployeeProfileItemAttachment>>
+>;
+
+export type DeleteEmployeeProfileItemAttachmentMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Delete attachment from employee profile item
+ */
+export const useDeleteEmployeeProfileItemAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteEmployeeProfileItemAttachment>>,
+    TError,
+    { orgId: number; empId: number; itemId: number; attachmentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteEmployeeProfileItemAttachment>>,
+  TError,
+  { orgId: number; empId: number; itemId: number; attachmentId: number },
+  TContext
+> => {
+  return useMutation(
+    getDeleteEmployeeProfileItemAttachmentMutationOptions(options),
+  );
 };
 
 /**

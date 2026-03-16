@@ -7,7 +7,11 @@ import {
   useCreateEmployee,
   useDeleteEmployee,
   useListUnits,
+  useListDepartments,
+  useListPositions,
   getListEmployeesQueryKey,
+  getListDepartmentsQueryKey,
+  getListPositionsQueryKey,
 } from "@workspace/api-client-react";
 import type { CreateEmployeeBody, Employee, PaginatedEmployeesPagination } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,8 +19,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Search, Users, ChevronRight, ChevronLeft, Archive, Trash2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { formatFileSize, uploadFileToStorage, type UploadedFileRef } from "@/lib/uploads";
+import { resolveApiUrl } from "@/lib/api";
+import { Plus, Search, Users, ChevronRight, ChevronLeft, Trash2, Upload, FileText, X, Paperclip } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -57,6 +65,168 @@ function formatCpfInput(value: string): string {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 }
 
+type ProfileDraftItem = {
+  tempId: string;
+  title: string;
+  description: string;
+  attachments: UploadedFileRef[];
+};
+
+function createEmptyProfileDraftItem(): ProfileDraftItem {
+  return {
+    tempId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: "",
+    description: "",
+    attachments: [],
+  };
+}
+
+function ProfileDraftListSection({
+  label,
+  emptyText,
+  items,
+  onChange,
+}: {
+  label: string;
+  emptyText: string;
+  items: ProfileDraftItem[];
+  onChange: (items: ProfileDraftItem[]) => void;
+}) {
+  const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
+
+  const updateItem = (tempId: string, patch: Partial<ProfileDraftItem>) => {
+    onChange(items.map((item) => (item.tempId === tempId ? { ...item, ...patch } : item)));
+  };
+
+  const removeItem = (tempId: string) => {
+    onChange(items.filter((item) => item.tempId !== tempId));
+  };
+
+  const handleUpload = async (tempId: string, files: FileList | null) => {
+    if (!files?.length) return;
+
+    setUploadingItemId(tempId);
+    try {
+      const uploadedFiles: UploadedFileRef[] = [];
+      for (const file of Array.from(files)) {
+        uploadedFiles.push(await uploadFileToStorage(file));
+      }
+
+      onChange(items.map((item) => (
+        item.tempId === tempId
+          ? { ...item, attachments: [...item.attachments, ...uploadedFiles] }
+          : item
+      )));
+    } catch (error) {
+      toast({
+        title: "Falha ao enviar anexo",
+        description: error instanceof Error ? error.message : "Não foi possível enviar o arquivo.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingItemId(null);
+    }
+  };
+
+  return (
+    <div className="col-span-2 rounded-xl border border-border/60 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-foreground">{label}</p>
+          <p className="text-xs text-muted-foreground">{emptyText}</p>
+        </div>
+        <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, createEmptyProfileDraftItem()])}>
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Adicionar item
+        </Button>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+          Nenhum item adicionado.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {items.map((item, index) => (
+            <div key={item.tempId} className="rounded-lg border border-border/60 bg-secondary/20 p-3">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm font-medium text-foreground">Item {index + 1}</p>
+                <button type="button" onClick={() => removeItem(item.tempId)} className="text-muted-foreground hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground">Título *</Label>
+                  <Input
+                    value={item.title}
+                    onChange={(event) => updateItem(item.tempId, { title: event.target.value })}
+                    className="mt-1"
+                    placeholder="Ex: Analista de SGI na Empresa X"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
+                  <Textarea
+                    value={item.description}
+                    onChange={(event) => updateItem(item.tempId, { description: event.target.value })}
+                    className="mt-1 min-h-24"
+                    placeholder="Detalhes relevantes do item, escopo, período, curso, certificado, etc."
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground">Anexos</Label>
+                  <div className="mt-2 space-y-2">
+                    {item.attachments.map((attachment, attachmentIndex) => (
+                      <div key={`${attachment.objectPath}-${attachmentIndex}`} className="flex items-center gap-2 rounded-md bg-background px-3 py-2 text-[13px]">
+                        <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                        <a
+                          href={resolveApiUrl(`/api/storage${attachment.objectPath}`)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 truncate text-primary hover:underline"
+                        >
+                          {attachment.fileName}
+                        </a>
+                        <span className="text-xs text-muted-foreground">{formatFileSize(attachment.fileSize)}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateItem(item.tempId, {
+                            attachments: item.attachments.filter((_, indexValue) => indexValue !== attachmentIndex),
+                          })}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted/30">
+                      <Upload className="h-4 w-4" />
+                      <span>{uploadingItemId === item.tempId ? "Enviando..." : "Adicionar anexo"}</span>
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.txt,.csv"
+                        onChange={(event) => {
+                          void handleUpload(item.tempId, event.target.files);
+                          event.target.value = "";
+                        }}
+                        disabled={uploadingItemId === item.tempId}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ColaboradoresPage() {
   const { user } = useAuth();
   const { canWriteModule } = usePermissions();
@@ -69,6 +239,8 @@ export default function ColaboradoresPage() {
   const [positionFilter, setPositionFilter] = useState("");
   const [page, setPage] = useState(1);
   const [isCreateOpen, setCreateOpen] = useState(false);
+  const [professionalExperiences, setProfessionalExperiences] = useState<ProfileDraftItem[]>([]);
+  const [educationCertifications, setEducationCertifications] = useState<ProfileDraftItem[]>([]);
 
   const { data: result, isLoading } = useListEmployees(orgId!, {
     search: search || undefined,
@@ -83,6 +255,12 @@ export default function ColaboradoresPage() {
   const pagination: PaginatedEmployeesPagination | undefined = result?.pagination;
 
   const { data: units = [] } = useListUnits(orgId!);
+  const { data: departments = [] } = useListDepartments(orgId!, {
+    query: { queryKey: getListDepartmentsQueryKey(orgId!), enabled: !!orgId },
+  });
+  const { data: positions = [] } = useListPositions(orgId!, {
+    query: { queryKey: getListPositionsQueryKey(orgId!), enabled: !!orgId },
+  });
 
   const createMutation = useCreateEmployee();
   const deleteEmpMut = useDeleteEmployee();
@@ -144,7 +322,24 @@ export default function ColaboradoresPage() {
     return { total, active, inactive, onLeave };
   }, [employees, pagination]);
 
+  const resetCreateForm = () => {
+    reset();
+    setProfessionalExperiences([]);
+    setEducationCertifications([]);
+  };
+
   const onCreateSubmit = async (data: CreateEmployeeBody) => {
+    const invalidExperience = professionalExperiences.find((item) => item.title.trim().length === 0);
+    const invalidEducation = educationCertifications.find((item) => item.title.trim().length === 0);
+    if (invalidExperience || invalidEducation) {
+      toast({
+        title: "Itens incompletos",
+        description: "Todos os itens de experiências e educação/certificações precisam ter título.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const payload: CreateEmployeeBody = {
       name: data.name.trim(),
       cpf: data.cpf.trim(),
@@ -154,15 +349,27 @@ export default function ColaboradoresPage() {
       ...(data.phone ? { phone: data.phone } : {}),
       ...(data.department ? { department: data.department } : {}),
       ...(data.position ? { position: data.position } : {}),
-      ...(data.professionalExperience ? { professionalExperience: data.professionalExperience } : {}),
-      ...(data.educationCertifications ? { educationCertifications: data.educationCertifications } : {}),
+      ...(professionalExperiences.length > 0 ? {
+        professionalExperiences: professionalExperiences.map((item) => ({
+          title: item.title.trim(),
+          description: item.description.trim() || undefined,
+          attachments: item.attachments.length > 0 ? item.attachments : undefined,
+        })),
+      } : {}),
+      ...(educationCertifications.length > 0 ? {
+        educationCertifications: educationCertifications.map((item) => ({
+          title: item.title.trim(),
+          description: item.description.trim() || undefined,
+          attachments: item.attachments.length > 0 ? item.attachments : undefined,
+        })),
+      } : {}),
       ...(typeof data.unitId === "number" ? { unitId: data.unitId } : {}),
     };
 
     await createMutation.mutateAsync({ orgId: orgId!, data: payload });
     queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey(orgId!) });
     setCreateOpen(false);
-    reset();
+    resetCreateForm();
   };
 
   const handleFilterChange = () => {
@@ -433,44 +640,48 @@ export default function ColaboradoresPage() {
             </div>
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">Departamento</Label>
-              <Input
+              <select
                 {...register("department", {
-                  setValueAs: toOptionalString,
+                  setValueAs: (value) => value || undefined,
                 })}
-                className="mt-1"
-                placeholder="Ex: SGQ"
-              />
+                className="mt-1 flex h-10 w-full border-b border-input bg-transparent px-0 py-2 text-[13px] focus:outline-none focus:border-foreground transition-colors cursor-pointer appearance-none"
+              >
+                <option value="">Selecionar departamento</option>
+                {departments.map((department) => (
+                  <option key={department.id} value={department.name}>
+                    {department.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">Cargo</Label>
-              <Input
+              <select
                 {...register("position", {
-                  setValueAs: toOptionalString,
+                  setValueAs: (value) => value || undefined,
                 })}
-                className="mt-1"
-                placeholder="Ex: Analista Ambiental"
-              />
+                className="mt-1 flex h-10 w-full border-b border-input bg-transparent px-0 py-2 text-[13px] focus:outline-none focus:border-foreground transition-colors cursor-pointer appearance-none"
+              >
+                <option value="">Selecionar cargo</option>
+                {positions.map((position) => (
+                  <option key={position.id} value={position.name}>
+                    {position.name}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="col-span-2">
-              <Label className="text-xs font-semibold text-muted-foreground">Experiências profissionais</Label>
-              <textarea
-                {...register("professionalExperience", {
-                  setValueAs: toOptionalString,
-                })}
-                className="mt-1 flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="Resumo de experiências anteriores, áreas de atuação e histórico profissional"
-              />
-            </div>
-            <div className="col-span-2">
-              <Label className="text-xs font-semibold text-muted-foreground">Educação e certificações</Label>
-              <textarea
-                {...register("educationCertifications", {
-                  setValueAs: toOptionalString,
-                })}
-                className="mt-1 flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="Formação acadêmica, cursos, certificados e qualificações"
-              />
-            </div>
+            <ProfileDraftListSection
+              label="Experiências profissionais"
+              emptyText="Adicione uma lista de experiências com anexos opcionais."
+              items={professionalExperiences}
+              onChange={setProfessionalExperiences}
+            />
+            <ProfileDraftListSection
+              label="Educação e certificações"
+              emptyText="Adicione formação, cursos e certificados com anexos opcionais."
+              items={educationCertifications}
+              onChange={setEducationCertifications}
+            />
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">Unidade</Label>
               <select {...register("unitId", { setValueAs: (v) => v ? Number(v) : undefined })} className="mt-1 flex h-10 w-full border-b border-input bg-transparent px-0 py-2 text-[13px] focus:outline-none focus:border-foreground transition-colors cursor-pointer appearance-none">
@@ -501,7 +712,7 @@ export default function ColaboradoresPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" size="sm" onClick={() => { setCreateOpen(false); reset(); }}>
+            <Button type="button" variant="outline" size="sm" onClick={() => { setCreateOpen(false); resetCreateForm(); }}>
               Cancelar
             </Button>
             <Button type="submit" size="sm" disabled={createMutation.isPending}>
