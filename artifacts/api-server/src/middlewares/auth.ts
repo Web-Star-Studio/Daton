@@ -13,6 +13,7 @@ function getJwtSecret(): string {
 
 const JWT_SECRET: string = getJwtSecret();
 const ORGANIZATION_AUTH_STATE_TTL_MS = 30_000;
+const ORGANIZATION_AUTH_STATE_CLEANUP_INTERVAL_MS = 60_000;
 
 export type UserRole = "platform_admin" | "org_admin" | "operator" | "analyst";
 
@@ -33,6 +34,7 @@ interface OrganizationAuthState {
 }
 
 const organizationAuthStateCache = new Map<number, OrganizationAuthState & { expiresAt: number }>();
+let lastOrganizationAuthStateCleanupAt = 0;
 
 declare global {
   namespace Express {
@@ -46,10 +48,25 @@ function signToken(payload: AuthPayload): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 }
 
+function cleanupExpiredOrganizationAuthState(now = Date.now()): void {
+  if (now - lastOrganizationAuthStateCleanupAt < ORGANIZATION_AUTH_STATE_CLEANUP_INTERVAL_MS) {
+    return;
+  }
+
+  lastOrganizationAuthStateCleanupAt = now;
+
+  for (const [organizationId, cachedState] of organizationAuthStateCache.entries()) {
+    if (cachedState.expiresAt <= now) {
+      organizationAuthStateCache.delete(organizationId);
+    }
+  }
+}
+
 function cacheOrganizationAuthState(
   organizationId: number,
   state: OrganizationAuthState,
 ): OrganizationAuthState {
+  cleanupExpiredOrganizationAuthState();
   organizationAuthStateCache.set(organizationId, {
     ...state,
     expiresAt: Date.now() + ORGANIZATION_AUTH_STATE_TTL_MS,
@@ -61,13 +78,16 @@ async function loadOrganizationAuthState(
   organizationId: number,
   forceRefresh = false,
 ): Promise<OrganizationAuthState | null> {
+  const now = Date.now();
   const cached = organizationAuthStateCache.get(organizationId);
-  if (!forceRefresh && cached && cached.expiresAt > Date.now()) {
+  if (!forceRefresh && cached && cached.expiresAt > now) {
     return {
       authVersion: cached.authVersion,
       onboardingStatus: cached.onboardingStatus,
     };
   }
+
+  cleanupExpiredOrganizationAuthState(now);
 
   const [organization] = await db
     .select({
