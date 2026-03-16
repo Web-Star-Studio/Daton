@@ -21,10 +21,14 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { ProfileItemAttachmentsField } from "@/components/employees/profile-item-form-fields";
 import { toast } from "@/hooks/use-toast";
-import { formatFileSize, uploadFileToStorage, type UploadedFileRef } from "@/lib/uploads";
-import { resolveApiUrl } from "@/lib/api";
-import { Plus, Search, Users, ChevronRight, ChevronLeft, Trash2, Upload, FileText, X, Paperclip } from "lucide-react";
+import {
+  uploadFilesToStorage,
+  validateProfileItemUploadSelection,
+  type UploadedFileRef,
+} from "@/lib/uploads";
+import { Plus, Search, Users, ChevronRight, ChevronLeft, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -105,12 +109,21 @@ function ProfileDraftListSection({
   const handleUpload = async (tempId: string, files: FileList | null) => {
     if (!files?.length) return;
 
+    const selectedFiles = Array.from(files);
+    const targetItem = items.find((item) => item.tempId === tempId);
+    const validationError = validateProfileItemUploadSelection(selectedFiles, targetItem?.attachments.length || 0);
+    if (validationError) {
+      toast({
+        title: "Limite de anexos excedido",
+        description: validationError,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setUploadingItemId(tempId);
     try {
-      const uploadedFiles: UploadedFileRef[] = [];
-      for (const file of Array.from(files)) {
-        uploadedFiles.push(await uploadFileToStorage(file));
-      }
+      const uploadedFiles = await uploadFilesToStorage(selectedFiles);
 
       onChange(items.map((item) => (
         item.tempId === tempId
@@ -176,47 +189,21 @@ function ProfileDraftListSection({
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-muted-foreground">Anexos</Label>
-                  <div className="mt-2 space-y-2">
-                    {item.attachments.map((attachment, attachmentIndex) => (
-                      <div key={`${attachment.objectPath}-${attachmentIndex}`} className="flex items-center gap-2 rounded-md bg-background px-3 py-2 text-[13px]">
-                        <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-                        <a
-                          href={resolveApiUrl(`/api/storage${attachment.objectPath}`)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 truncate text-primary hover:underline"
-                        >
-                          {attachment.fileName}
-                        </a>
-                        <span className="text-xs text-muted-foreground">{formatFileSize(attachment.fileSize)}</span>
-                        <button
-                          type="button"
-                          onClick={() => updateItem(item.tempId, {
-                            attachments: item.attachments.filter((_, indexValue) => indexValue !== attachmentIndex),
-                          })}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted/30">
-                      <Upload className="h-4 w-4" />
-                      <span>{uploadingItemId === item.tempId ? "Enviando..." : "Adicionar anexo"}</span>
-                      <input
-                        type="file"
-                        multiple
-                        className="hidden"
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.txt,.csv"
-                        onChange={(event) => {
-                          void handleUpload(item.tempId, event.target.files);
-                          event.target.value = "";
-                        }}
-                        disabled={uploadingItemId === item.tempId}
-                      />
-                    </label>
-                  </div>
+                  <ProfileItemAttachmentsField
+                    attachments={item.attachments.map((attachment, attachmentIndex) => ({
+                      id: `${attachment.objectPath}-${attachmentIndex}`,
+                      fileName: attachment.fileName,
+                      fileSize: attachment.fileSize,
+                      objectPath: attachment.objectPath,
+                      onRemove: () => updateItem(item.tempId, {
+                        attachments: item.attachments.filter((_, indexValue) => indexValue !== attachmentIndex),
+                      }),
+                    }))}
+                    onUpload={(selectedFiles) => {
+                      void handleUpload(item.tempId, selectedFiles);
+                    }}
+                    uploading={uploadingItemId === item.tempId}
+                  />
                 </div>
               </div>
             </div>
@@ -640,11 +627,11 @@ export default function ColaboradoresPage() {
             </div>
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">Departamento</Label>
-              <select
+              <Select
                 {...register("department", {
                   setValueAs: (value) => value || undefined,
                 })}
-                className="mt-1 flex h-10 w-full border-b border-input bg-transparent px-0 py-2 text-[13px] focus:outline-none focus:border-foreground transition-colors cursor-pointer appearance-none"
+                className="mt-1 h-10 text-[13px]"
               >
                 <option value="">Selecionar departamento</option>
                 {departments.map((department) => (
@@ -652,15 +639,15 @@ export default function ColaboradoresPage() {
                     {department.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">Cargo</Label>
-              <select
+              <Select
                 {...register("position", {
                   setValueAs: (value) => value || undefined,
                 })}
-                className="mt-1 flex h-10 w-full border-b border-input bg-transparent px-0 py-2 text-[13px] focus:outline-none focus:border-foreground transition-colors cursor-pointer appearance-none"
+                className="mt-1 h-10 text-[13px]"
               >
                 <option value="">Selecionar cargo</option>
                 {positions.map((position) => (
@@ -668,7 +655,7 @@ export default function ColaboradoresPage() {
                     {position.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <ProfileDraftListSection
               label="Experiências profissionais"

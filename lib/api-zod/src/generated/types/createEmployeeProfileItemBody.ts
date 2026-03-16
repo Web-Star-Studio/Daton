@@ -13,5 +13,6 @@ export interface CreateEmployeeProfileItemBody {
   /** @minLength 1 */
   title: string;
   description?: string;
+  /** @maxItems 10 */
   attachments?: EmployeeProfileItemAttachmentInput[];
 }

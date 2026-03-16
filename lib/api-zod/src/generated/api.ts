@@ -839,6 +839,18 @@ export const CreateEmployeeParams = zod.object({
   orgId: zod.coerce.number(),
 });
 
+export const createEmployeeBodyProfessionalExperiencesItemAttachmentsItemFileSizeMax = 20971520;
+
+export const createEmployeeBodyProfessionalExperiencesItemAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const createEmployeeBodyProfessionalExperiencesItemAttachmentsMax = 10;
+
+export const createEmployeeBodyEducationCertificationsItemAttachmentsItemFileSizeMax = 20971520;
+
+export const createEmployeeBodyEducationCertificationsItemAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const createEmployeeBodyEducationCertificationsItemAttachmentsMax = 10;
+
 export const CreateEmployeeBody = zod.object({
   name: zod.string().min(1),
   cpf: zod.string().min(1),
@@ -855,11 +867,20 @@ export const CreateEmployeeBody = zod.object({
           .array(
             zod.object({
               fileName: zod.string(),
-              fileSize: zod.number(),
+              fileSize: zod
+                .number()
+                .max(
+                  createEmployeeBodyProfessionalExperiencesItemAttachmentsItemFileSizeMax,
+                ),
               contentType: zod.string(),
-              objectPath: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  createEmployeeBodyProfessionalExperiencesItemAttachmentsItemObjectPathRegExp,
+                ),
             }),
           )
+          .max(createEmployeeBodyProfessionalExperiencesItemAttachmentsMax)
           .optional(),
       }),
     )
@@ -873,11 +894,20 @@ export const CreateEmployeeBody = zod.object({
           .array(
             zod.object({
               fileName: zod.string(),
-              fileSize: zod.number(),
+              fileSize: zod
+                .number()
+                .max(
+                  createEmployeeBodyEducationCertificationsItemAttachmentsItemFileSizeMax,
+                ),
               contentType: zod.string(),
-              objectPath: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  createEmployeeBodyEducationCertificationsItemAttachmentsItemObjectPathRegExp,
+                ),
             }),
           )
+          .max(createEmployeeBodyEducationCertificationsItemAttachmentsMax)
           .optional(),
       }),
     )
@@ -1389,6 +1419,12 @@ export const CreateEmployeeProfileItemParams = zod.object({
   empId: zod.coerce.number(),
 });
 
+export const createEmployeeProfileItemBodyAttachmentsItemFileSizeMax = 20971520;
+
+export const createEmployeeProfileItemBodyAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const createEmployeeProfileItemBodyAttachmentsMax = 10;
+
 export const CreateEmployeeProfileItemBody = zod.object({
   category: zod.enum(["professional_experience", "education_certification"]),
   title: zod.string().min(1),
@@ -1397,11 +1433,16 @@ export const CreateEmployeeProfileItemBody = zod.object({
     .array(
       zod.object({
         fileName: zod.string(),
-        fileSize: zod.number(),
+        fileSize: zod
+          .number()
+          .max(createEmployeeProfileItemBodyAttachmentsItemFileSizeMax),
         contentType: zod.string(),
-        objectPath: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(createEmployeeProfileItemBodyAttachmentsItemObjectPathRegExp),
       }),
     )
+    .max(createEmployeeProfileItemBodyAttachmentsMax)
     .optional(),
 });
 
@@ -1458,11 +1499,19 @@ export const AddEmployeeProfileItemAttachmentParams = zod.object({
   itemId: zod.coerce.number(),
 });
 
+export const addEmployeeProfileItemAttachmentBodyFileSizeMax = 20971520;
+
+export const addEmployeeProfileItemAttachmentBodyObjectPathRegExp = new RegExp(
+  "^\/objects\/uploads\/.+",
+);
+
 export const AddEmployeeProfileItemAttachmentBody = zod.object({
   fileName: zod.string(),
-  fileSize: zod.number(),
+  fileSize: zod.number().max(addEmployeeProfileItemAttachmentBodyFileSizeMax),
   contentType: zod.string(),
-  objectPath: zod.string(),
+  objectPath: zod
+    .string()
+    .regex(addEmployeeProfileItemAttachmentBodyObjectPathRegExp),
 });
 
 /**

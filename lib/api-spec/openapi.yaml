@@ -3456,10 +3456,12 @@ components:
           type: string
         fileSize:
           type: integer
+          maximum: 20971520
         contentType:
           type: string
         objectPath:
           type: string
+          pattern: "^/objects/uploads/.+"
       required:
         - fileName
         - fileSize
@@ -3476,6 +3478,7 @@ components:
           type: string
         attachments:
           type: array
+          maxItems: 10
           items:
             $ref: "#/components/schemas/EmployeeProfileItemAttachmentInput"
       required:
@@ -3494,6 +3497,7 @@ components:
           type: string
         attachments:
           type: array
+          maxItems: 10
           items:
             $ref: "#/components/schemas/EmployeeProfileItemAttachmentInput"
       required:
@@ -3516,10 +3520,12 @@ components:
           type: string
         fileSize:
           type: integer
+          maximum: 20971520
         contentType:
           type: string
         objectPath:
           type: string
+          pattern: "^/objects/uploads/.+"
       required:
         - fileName
         - fileSize

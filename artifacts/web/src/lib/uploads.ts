@@ -1,5 +1,9 @@
 import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
 
+export const MAX_DIRECT_UPLOAD_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+export const MAX_PROFILE_ITEM_ATTACHMENTS = 10;
+export const PROFILE_ITEM_ATTACHMENT_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.txt,.csv";
+
 export type UploadedFileRef = {
   fileName: string;
   fileSize: number;
@@ -7,7 +11,27 @@ export type UploadedFileRef = {
   objectPath: string;
 };
 
+export function validateProfileItemUploadSelection(
+  files: File[],
+  existingCount: number,
+): string | null {
+  if (existingCount + files.length > MAX_PROFILE_ITEM_ATTACHMENTS) {
+    return `Cada item permite no máximo ${MAX_PROFILE_ITEM_ATTACHMENTS} anexos.`;
+  }
+
+  const oversizedFile = files.find((file) => file.size > MAX_DIRECT_UPLOAD_FILE_SIZE_BYTES);
+  if (oversizedFile) {
+    return `O arquivo "${oversizedFile.name}" excede o limite de 20MB.`;
+  }
+
+  return null;
+}
+
 export async function uploadFileToStorage(file: File): Promise<UploadedFileRef> {
+  if (file.size > MAX_DIRECT_UPLOAD_FILE_SIZE_BYTES) {
+    throw new Error(`O arquivo "${file.name}" excede o limite de 20MB.`);
+  }
+
   const contentType = file.type || "application/octet-stream";
   const arrayBuffer = await file.arrayBuffer();
 
@@ -34,6 +58,16 @@ export async function uploadFileToStorage(file: File): Promise<UploadedFileRef> 
     contentType,
     objectPath,
   };
+}
+
+export async function uploadFilesToStorage(files: File[]): Promise<UploadedFileRef[]> {
+  const uploads: UploadedFileRef[] = [];
+
+  for (const file of files) {
+    uploads.push(await uploadFileToStorage(file));
+  }
+
+  return uploads;
 }
 
 export function formatFileSize(bytes: number): string {

@@ -661,8 +661,10 @@ export const CreateEmployeeBodyStatus = {
 
 export interface EmployeeProfileItemAttachmentInput {
   fileName: string;
+  /** @maximum 20971520 */
   fileSize: number;
   contentType: string;
+  /** @pattern ^/objects/uploads/.+ */
   objectPath: string;
 }
 
@@ -670,6 +672,7 @@ export interface EmployeeProfileItemInput {
   /** @minLength 1 */
   title: string;
   description?: string;
+  /** @maxItems 10 */
   attachments?: EmployeeProfileItemAttachmentInput[];
 }
 
@@ -739,6 +742,7 @@ export interface CreateEmployeeProfileItemBody {
   /** @minLength 1 */
   title: string;
   description?: string;
+  /** @maxItems 10 */
   attachments?: EmployeeProfileItemAttachmentInput[];
 }
 
@@ -750,8 +754,10 @@ export interface UpdateEmployeeProfileItemBody {
 
 export interface AddEmployeeProfileItemAttachmentBody {
   fileName: string;
+  /** @maximum 20971520 */
   fileSize: number;
   contentType: string;
+  /** @pattern ^/objects/uploads/.+ */
   objectPath: string;
 }
 

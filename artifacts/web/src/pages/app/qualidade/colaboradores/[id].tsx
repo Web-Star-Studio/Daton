@@ -18,6 +18,11 @@ import {
   useListUnits,
   useListDepartments,
   useListPositions,
+  useCreateEmployeeProfileItem,
+  useUpdateEmployeeProfileItem,
+  useDeleteEmployeeProfileItem,
+  useAddEmployeeProfileItemAttachment,
+  useDeleteEmployeeProfileItemAttachment,
   useLinkEmployeeUnit,
   useUnlinkEmployeeUnit,
   getGetEmployeeQueryKey,
@@ -39,13 +44,18 @@ import type {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { EmployeeProfileItemDialog } from "@/components/employees/employee-profile-item-dialog";
+import { ProfileItemAttachmentsField } from "@/components/employees/profile-item-form-fields";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
-import { formatFileSize, uploadFileToStorage, type UploadedFileRef } from "@/lib/uploads";
+import {
+  uploadFilesToStorage,
+  validateProfileItemUploadSelection,
+  type UploadedFileRef,
+} from "@/lib/uploads";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -59,9 +69,6 @@ import {
   Lightbulb,
   User,
   Archive,
-  FileText,
-  Paperclip,
-  Upload,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -126,7 +133,6 @@ type EmployeeProfileItemRecord = {
 type EmployeeProfileItemForm = {
   title: string;
   description: string;
-  draftAttachments: UploadedFileRef[];
 };
 
 function InlineField({
@@ -244,18 +250,50 @@ function EmployeeProfileItemsSection({
   const queryClient = useQueryClient();
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<EmployeeProfileItemRecord | null>(null);
+  const [createAttachments, setCreateAttachments] = useState<UploadedFileRef[]>([]);
   const [editingAttachments, setEditingAttachments] = useState<EmployeeProfileItemAttachment[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
   const [uploadingItemId, setUploadingItemId] = useState<number | "create" | null>(null);
-  const emptyForm: EmployeeProfileItemForm = { title: "", description: "", draftAttachments: [] };
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<EmployeeProfileItemRecord | null>(null);
+  const [pendingDeleteAttachment, setPendingDeleteAttachment] = useState<{
+    itemId: number;
+    attachment: EmployeeProfileItemAttachment;
+  } | null>(null);
+  const emptyForm: EmployeeProfileItemForm = { title: "", description: "" };
   const [form, setForm] = useState<EmployeeProfileItemForm>(emptyForm);
+  const createItemMutation = useCreateEmployeeProfileItem();
+  const updateItemMutation = useUpdateEmployeeProfileItem();
+  const deleteItemMutation = useDeleteEmployeeProfileItem();
+  const addAttachmentMutation = useAddEmployeeProfileItemAttachment();
+  const deleteAttachmentMutation = useDeleteEmployeeProfileItemAttachment();
 
   const invalidate = async () => {
-    await queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId, empId) });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId, empId) }),
+      queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey(orgId) }),
+    ]);
+  };
+
+  const resetCreateState = () => {
+    setCreateOpen(false);
+    setCreateAttachments([]);
+    setForm(emptyForm);
+    setUploadingItemId(null);
+  };
+
+  const resetEditState = () => {
+    setEditingItem(null);
+    setEditingAttachments([]);
+    setForm(emptyForm);
+    setUploadingItemId(null);
+  };
+
+  const getErrorMessage = (error: unknown, fallback: string) => {
+    return error instanceof Error ? error.message : fallback;
   };
 
   const openCreate = () => {
     setForm(emptyForm);
+    setCreateAttachments([]);
     setCreateOpen(true);
   };
 
@@ -265,8 +303,41 @@ function EmployeeProfileItemsSection({
     setForm({
       title: item.title,
       description: item.description || "",
-      draftAttachments: [],
     });
+  };
+
+  const uploadDraftFiles = async (
+    files: FileList | null,
+    existingCount: number,
+    onSuccess: (uploads: UploadedFileRef[]) => Promise<void> | void,
+    target: number | "create",
+  ) => {
+    if (!files?.length) return;
+
+    const selectedFiles = Array.from(files);
+    const validationError = validateProfileItemUploadSelection(selectedFiles, existingCount);
+    if (validationError) {
+      toast({
+        title: "Limite de anexos excedido",
+        description: validationError,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadingItemId(target);
+    try {
+      const uploadedFiles = await uploadFilesToStorage(selectedFiles);
+      await onSuccess(uploadedFiles);
+    } catch (error) {
+      toast({
+        title: "Falha ao enviar anexo",
+        description: getErrorMessage(error, "Não foi possível enviar o arquivo."),
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingItemId(null);
+    }
   };
 
   const createItem = async () => {
@@ -279,34 +350,25 @@ function EmployeeProfileItemsSection({
       return;
     }
 
-    setIsSaving(true);
     try {
-      const response = await fetch(resolveApiUrl(`/api/organizations/${orgId}/employees/${empId}/profile-items`), {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({
+      await createItemMutation.mutateAsync({
+        orgId,
+        empId,
+        data: {
           category,
           title: form.title.trim(),
           description: form.description.trim() || undefined,
-          attachments: form.draftAttachments.length > 0 ? form.draftAttachments : undefined,
-        }),
+          attachments: createAttachments.length > 0 ? createAttachments : undefined,
+        },
       });
-
-      if (!response.ok) {
-        throw new Error("Falha ao criar item");
-      }
-
       await invalidate();
-      setCreateOpen(false);
-      setForm(emptyForm);
+      resetCreateState();
     } catch (error) {
       toast({
         title: "Falha ao salvar item",
-        description: error instanceof Error ? error.message : "Não foi possível salvar o item.",
+        description: getErrorMessage(error, "Não foi possível salvar o item."),
         variant: "destructive",
       });
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -321,127 +383,86 @@ function EmployeeProfileItemsSection({
       return;
     }
 
-    setIsSaving(true);
     try {
-      const response = await fetch(resolveApiUrl(`/api/organizations/${orgId}/employees/${empId}/profile-items/${editingItem.id}`), {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({
+      await updateItemMutation.mutateAsync({
+        orgId,
+        empId,
+        itemId: editingItem.id,
+        data: {
           title: form.title.trim(),
           description: form.description.trim() || undefined,
-        }),
+        },
       });
-
-      if (!response.ok) {
-        throw new Error("Falha ao atualizar item");
-      }
-
       await invalidate();
-      setEditingItem(null);
-      setEditingAttachments([]);
-      setForm(emptyForm);
+      resetEditState();
     } catch (error) {
       toast({
         title: "Falha ao atualizar item",
-        description: error instanceof Error ? error.message : "Não foi possível atualizar o item.",
+        description: getErrorMessage(error, "Não foi possível atualizar o item."),
         variant: "destructive",
       });
-    } finally {
-      setIsSaving(false);
     }
   };
 
-  const deleteItem = async (itemId: number) => {
+  const deleteItem = async () => {
+    if (!pendingDeleteItem) return;
+
     try {
-      const response = await fetch(resolveApiUrl(`/api/organizations/${orgId}/employees/${empId}/profile-items/${itemId}`), {
-        method: "DELETE",
-        headers: getAuthHeaders(),
+      await deleteItemMutation.mutateAsync({
+        orgId,
+        empId,
+        itemId: pendingDeleteItem.id,
       });
-
-      if (!response.ok) {
-        throw new Error("Falha ao remover item");
-      }
-
       await invalidate();
+      setPendingDeleteItem(null);
     } catch (error) {
       toast({
         title: "Falha ao remover item",
-        description: error instanceof Error ? error.message : "Não foi possível remover o item.",
+        description: getErrorMessage(error, "Não foi possível remover o item."),
         variant: "destructive",
       });
     }
   };
 
   const uploadAttachmentForCreate = async (files: FileList | null) => {
-    if (!files?.length) return;
-    setUploadingItemId("create");
-    try {
-      const uploadedFiles: UploadedFileRef[] = [];
-      for (const file of Array.from(files)) {
-        uploadedFiles.push(await uploadFileToStorage(file));
-      }
-      setForm((current) => ({ ...current, draftAttachments: [...current.draftAttachments, ...uploadedFiles] }));
-    } catch (error) {
-      toast({
-        title: "Falha ao enviar anexo",
-        description: error instanceof Error ? error.message : "Não foi possível enviar o arquivo.",
-        variant: "destructive",
-      });
-    } finally {
-      setUploadingItemId(null);
-    }
+    await uploadDraftFiles(files, createAttachments.length, async (uploadedFiles) => {
+      setCreateAttachments((current) => [...current, ...uploadedFiles]);
+    }, "create");
   };
 
   const uploadAttachmentForEdit = async (itemId: number, files: FileList | null) => {
-    if (!files?.length) return;
-    setUploadingItemId(itemId);
-    try {
-      const uploadedAttachments: EmployeeProfileItemAttachment[] = [];
-      for (const file of Array.from(files)) {
-        const upload = await uploadFileToStorage(file);
-        const response = await fetch(resolveApiUrl(`/api/organizations/${orgId}/employees/${empId}/profile-items/${itemId}/attachments`), {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-          body: JSON.stringify(upload),
-        });
-
-        if (!response.ok) {
-          throw new Error("Falha ao registrar anexo");
-        }
-
-        uploadedAttachments.push(await response.json());
-      }
+    await uploadDraftFiles(files, editingAttachments.length, async (uploadedFiles) => {
+      const uploadedAttachments = await Promise.all(uploadedFiles.map((upload) => (
+        addAttachmentMutation.mutateAsync({
+          orgId,
+          empId,
+          itemId,
+          data: upload,
+        })
+      )));
 
       setEditingAttachments((current) => [...current, ...uploadedAttachments]);
       await invalidate();
-    } catch (error) {
-      toast({
-        title: "Falha ao enviar anexo",
-        description: error instanceof Error ? error.message : "Não foi possível enviar o arquivo.",
-        variant: "destructive",
-      });
-    } finally {
-      setUploadingItemId(null);
-    }
+    }, itemId);
   };
 
-  const deleteAttachment = async (itemId: number, attachmentId: number) => {
+  const deleteAttachment = async () => {
+    if (!pendingDeleteAttachment) return;
+
     try {
-      const response = await fetch(resolveApiUrl(`/api/organizations/${orgId}/employees/${empId}/profile-items/${itemId}/attachments/${attachmentId}`), {
-        method: "DELETE",
-        headers: getAuthHeaders(),
+      await deleteAttachmentMutation.mutateAsync({
+        orgId,
+        empId,
+        itemId: pendingDeleteAttachment.itemId,
+        attachmentId: pendingDeleteAttachment.attachment.id,
       });
-
-      if (!response.ok) {
-        throw new Error("Falha ao remover anexo");
-      }
-
-      setEditingAttachments((current) => current.filter((attachment) => attachment.id !== attachmentId));
+      setEditingAttachments((current) => current.filter((attachment) => attachment.id !== pendingDeleteAttachment.attachment.id));
       await invalidate();
+      setPendingDeleteAttachment(null);
     } catch (error) {
       toast({
         title: "Falha ao remover anexo",
-        description: error instanceof Error ? error.message : "Não foi possível remover o anexo.",
+        description: getErrorMessage(error, "Não foi possível remover o anexo."),
         variant: "destructive",
       });
     }
@@ -452,7 +473,7 @@ function EmployeeProfileItemsSection({
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{emptyText}</p>
+          {items.length === 0 && <p className="mt-1 text-xs text-muted-foreground">{emptyText}</p>}
         </div>
         {editable && (
           <Button size="sm" variant="outline" onClick={openCreate}>
@@ -477,21 +498,15 @@ function EmployeeProfileItemsSection({
                     <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{item.description}</p>
                   )}
                   {item.attachments.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {item.attachments.map((attachment) => (
-                        <div key={attachment.id} className="flex items-center gap-2 rounded-md bg-background px-3 py-2 text-[13px]">
-                          <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-                          <a
-                            href={resolveApiUrl(`/api/storage${attachment.objectPath}`)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-1 truncate text-primary hover:underline"
-                          >
-                            {attachment.fileName}
-                          </a>
-                          <span className="text-xs text-muted-foreground">{formatFileSize(attachment.fileSize)}</span>
-                        </div>
-                      ))}
+                    <div className="mt-3">
+                      <ProfileItemAttachmentsField
+                        attachments={item.attachments.map((attachment) => ({
+                          id: attachment.id,
+                          fileName: attachment.fileName,
+                          fileSize: attachment.fileSize,
+                          objectPath: attachment.objectPath,
+                        }))}
+                      />
                     </div>
                   )}
                 </div>
@@ -500,7 +515,7 @@ function EmployeeProfileItemsSection({
                     <button type="button" onClick={() => openEdit(item)} className="p-1.5 text-muted-foreground/40 hover:text-primary">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
-                    <button type="button" onClick={() => deleteItem(item.id)} className="p-1.5 text-muted-foreground/40 hover:text-red-500">
+                    <button type="button" onClick={() => setPendingDeleteItem(item)} className="p-1.5 text-muted-foreground/40 hover:text-red-500">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -511,106 +526,88 @@ function EmployeeProfileItemsSection({
         </div>
       )}
 
-      <Dialog open={editable && isCreateOpen} onOpenChange={setCreateOpen} title={`Novo item de ${title.toLowerCase()}`}>
-        <div className="space-y-4">
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Título *</Label>
-            <Input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} className="mt-1" />
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-            <Textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="mt-1 min-h-24" />
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Anexos</Label>
-            <div className="mt-2 space-y-2">
-              {form.draftAttachments.map((attachment, index) => (
-                <div key={`${attachment.objectPath}-${index}`} className="flex items-center gap-2 rounded-md bg-secondary/30 px-3 py-2 text-[13px]">
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                  <a href={resolveApiUrl(`/api/storage${attachment.objectPath}`)} target="_blank" rel="noopener noreferrer" className="flex-1 truncate text-primary hover:underline">
-                    {attachment.fileName}
-                  </a>
-                  <span className="text-xs text-muted-foreground">{formatFileSize(attachment.fileSize)}</span>
-                  <button type="button" onClick={() => setForm((current) => ({
-                    ...current,
-                    draftAttachments: current.draftAttachments.filter((_, attachmentIndex) => attachmentIndex !== index),
-                  }))} className="text-muted-foreground hover:text-destructive">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-              <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted/30">
-                <Upload className="h-4 w-4" />
-                <span>{uploadingItemId === "create" ? "Enviando..." : "Adicionar anexo"}</span>
-                <input
-                  type="file"
-                  multiple
-                  className="hidden"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.txt,.csv"
-                  onChange={(event) => {
-                    void uploadAttachmentForCreate(event.target.files);
-                    event.target.value = "";
-                  }}
-                  disabled={uploadingItemId === "create"}
-                />
-              </label>
-            </div>
-          </div>
-        </div>
+      <EmployeeProfileItemDialog
+        open={editable && isCreateOpen}
+        onOpenChange={(open) => {
+          if (!open) resetCreateState();
+          else setCreateOpen(true);
+        }}
+        title={`Novo item de ${title.toLowerCase()}`}
+        submitLabel="Salvar"
+        isSubmitting={createItemMutation.isPending}
+        form={form}
+        onFormChange={setForm}
+        attachments={createAttachments.map((attachment, index) => ({
+          id: `${attachment.objectPath}-${index}`,
+          fileName: attachment.fileName,
+          fileSize: attachment.fileSize,
+          objectPath: attachment.objectPath,
+          onRemove: () => setCreateAttachments((current) => current.filter((_, attachmentIndex) => attachmentIndex !== index)),
+        }))}
+        onUpload={(files) => {
+          void uploadAttachmentForCreate(files);
+        }}
+        uploading={uploadingItemId === "create"}
+        onSubmit={() => { void createItem(); }}
+        onCancel={resetCreateState}
+      />
+
+      <EmployeeProfileItemDialog
+        open={editable && !!editingItem}
+        onOpenChange={(open) => {
+          if (!open) resetEditState();
+        }}
+        title="Editar item"
+        submitLabel="Atualizar"
+        isSubmitting={updateItemMutation.isPending}
+        form={form}
+        onFormChange={setForm}
+        attachments={editingAttachments.map((attachment) => ({
+          id: attachment.id,
+          fileName: attachment.fileName,
+          fileSize: attachment.fileSize,
+          objectPath: attachment.objectPath,
+          onRemove: () => {
+            if (editingItem) {
+              setPendingDeleteAttachment({ itemId: editingItem.id, attachment });
+            }
+          },
+        }))}
+        onUpload={(files) => {
+          if (editingItem) {
+            void uploadAttachmentForEdit(editingItem.id, files);
+          }
+        }}
+        uploading={uploadingItemId === editingItem?.id}
+        onSubmit={() => { void updateItem(); }}
+        onCancel={resetEditState}
+      />
+
+      <Dialog open={!!pendingDeleteItem} onOpenChange={(open) => { if (!open) setPendingDeleteItem(null); }} title="Confirmar exclusão do item">
+        <p className="text-sm text-muted-foreground mt-2">
+          Este item será removido permanentemente, incluindo seus anexos.
+        </p>
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => { setCreateOpen(false); setForm(emptyForm); }}>Cancelar</Button>
-          <Button size="sm" onClick={createItem} disabled={isSaving}>{isSaving ? "Salvando..." : "Salvar"}</Button>
+          <Button variant="outline" size="sm" onClick={() => setPendingDeleteItem(null)}>
+            Cancelar
+          </Button>
+          <Button variant="destructive" size="sm" onClick={() => { void deleteItem(); }} disabled={deleteItemMutation.isPending}>
+            {deleteItemMutation.isPending ? "Removendo..." : "Remover"}
+          </Button>
         </DialogFooter>
       </Dialog>
 
-      <Dialog open={editable && !!editingItem} onOpenChange={(open) => { if (!open) { setEditingItem(null); setEditingAttachments([]); setForm(emptyForm); } }} title="Editar item">
-        <div className="space-y-4">
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Título *</Label>
-            <Input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} className="mt-1" />
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-            <Textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="mt-1 min-h-24" />
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Anexos</Label>
-            <div className="mt-2 space-y-2">
-              {editingAttachments.map((attachment) => (
-                <div key={attachment.id} className="flex items-center gap-2 rounded-md bg-secondary/30 px-3 py-2 text-[13px]">
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                  <a href={resolveApiUrl(`/api/storage${attachment.objectPath}`)} target="_blank" rel="noopener noreferrer" className="flex-1 truncate text-primary hover:underline">
-                    {attachment.fileName}
-                  </a>
-                  <span className="text-xs text-muted-foreground">{formatFileSize(attachment.fileSize)}</span>
-                  <button type="button" onClick={() => { if (editingItem) void deleteAttachment(editingItem.id, attachment.id); }} className="text-muted-foreground hover:text-destructive">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-              {editingItem && (
-                <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted/30">
-                  <Upload className="h-4 w-4" />
-                  <span>{uploadingItemId === editingItem.id ? "Enviando..." : "Adicionar anexo"}</span>
-                  <input
-                    type="file"
-                    multiple
-                    className="hidden"
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.txt,.csv"
-                    onChange={(event) => {
-                      void uploadAttachmentForEdit(editingItem.id, event.target.files);
-                      event.target.value = "";
-                    }}
-                    disabled={uploadingItemId === editingItem.id}
-                  />
-                </label>
-              )}
-            </div>
-          </div>
-        </div>
+      <Dialog open={!!pendingDeleteAttachment} onOpenChange={(open) => { if (!open) setPendingDeleteAttachment(null); }} title="Confirmar exclusão do anexo">
+        <p className="text-sm text-muted-foreground mt-2">
+          O anexo {pendingDeleteAttachment?.attachment.fileName ? `"${pendingDeleteAttachment.attachment.fileName}"` : ""} será removido deste item.
+        </p>
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => { setEditingItem(null); setEditingAttachments([]); setForm(emptyForm); }}>Cancelar</Button>
-          <Button size="sm" onClick={updateItem} disabled={isSaving}>{isSaving ? "Salvando..." : "Atualizar"}</Button>
+          <Button variant="outline" size="sm" onClick={() => setPendingDeleteAttachment(null)}>
+            Cancelar
+          </Button>
+          <Button variant="destructive" size="sm" onClick={() => { void deleteAttachment(); }} disabled={deleteAttachmentMutation.isPending}>
+            {deleteAttachmentMutation.isPending ? "Removendo..." : "Remover"}
+          </Button>
         </DialogFooter>
       </Dialog>
     </div>

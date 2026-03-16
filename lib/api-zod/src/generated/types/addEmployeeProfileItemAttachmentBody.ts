@@ -8,7 +8,9 @@
 
 export interface AddEmployeeProfileItemAttachmentBody {
   fileName: string;
+  /** @maximum 20971520 */
   fileSize: number;
   contentType: string;
+  /** @pattern ^/objects/uploads/.+ */
   objectPath: string;
 }
