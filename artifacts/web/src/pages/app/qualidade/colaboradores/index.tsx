@@ -146,7 +146,7 @@ function ProfileDraftListSection({
       <div className="mb-3 flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-foreground">{label}</p>
-          <p className="text-xs text-muted-foreground">{emptyText}</p>
+          {items.length === 0 && <p className="text-xs text-muted-foreground">{emptyText}</p>}
         </div>
         <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, createEmptyProfileDraftItem()])}>
           <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -353,10 +353,18 @@ export default function ColaboradoresPage() {
       ...(typeof data.unitId === "number" ? { unitId: data.unitId } : {}),
     };
 
-    await createMutation.mutateAsync({ orgId: orgId!, data: payload });
-    queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey(orgId!) });
-    setCreateOpen(false);
-    resetCreateForm();
+    try {
+      await createMutation.mutateAsync({ orgId: orgId!, data: payload });
+      queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey(orgId!) });
+      setCreateOpen(false);
+      resetCreateForm();
+    } catch (error) {
+      toast({
+        title: "Falha ao criar colaborador",
+        description: error instanceof Error ? error.message : "Não foi possível criar o colaborador.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleFilterChange = () => {
@@ -671,10 +679,10 @@ export default function ColaboradoresPage() {
             />
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">Unidade</Label>
-              <select {...register("unitId", { setValueAs: (v) => v ? Number(v) : undefined })} className="mt-1 flex h-10 w-full border-b border-input bg-transparent px-0 py-2 text-[13px] focus:outline-none focus:border-foreground transition-colors cursor-pointer appearance-none">
+              <Select {...register("unitId", { setValueAs: (v) => v ? Number(v) : undefined })} className="mt-1 h-10 text-[13px]">
                 <option value="">Selecionar unidade</option>
                 {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
+              </Select>
             </div>
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">Tipo de contrato</Label>

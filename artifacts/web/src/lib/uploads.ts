@@ -61,13 +61,7 @@ export async function uploadFileToStorage(file: File): Promise<UploadedFileRef> 
 }
 
 export async function uploadFilesToStorage(files: File[]): Promise<UploadedFileRef[]> {
-  const uploads: UploadedFileRef[] = [];
-
-  for (const file of files) {
-    uploads.push(await uploadFileToStorage(file));
-  }
-
-  return uploads;
+  return Promise.all(files.map((file) => uploadFileToStorage(file)));
 }
 
 export function formatFileSize(bytes: number): string {

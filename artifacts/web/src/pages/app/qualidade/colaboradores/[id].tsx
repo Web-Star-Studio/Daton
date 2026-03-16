@@ -38,6 +38,8 @@ import type {
   CreateTrainingBodyStatus,
   UpdateTrainingBodyStatus,
   EmployeeCompetency,
+  EmployeeProfileItem,
+  EmployeeProfileItemAttachment,
   EmployeeTraining,
   EmployeeAwareness,
   LinkedUnit,
@@ -109,26 +111,7 @@ const REQUIRED_EMPLOYEE_FIELDS: Record<string, string> = {
   admissionDate: "Data de admissão",
 };
 
-type EmployeeProfileItemAttachment = {
-  id: number;
-  itemId: number;
-  fileName: string;
-  fileSize: number;
-  contentType: string;
-  objectPath: string;
-  uploadedAt: string;
-};
-
-type EmployeeProfileItemRecord = {
-  id: number;
-  employeeId: number;
-  category: "professional_experience" | "education_certification";
-  title: string;
-  description?: string | null;
-  attachments: EmployeeProfileItemAttachment[];
-  createdAt: string;
-  updatedAt: string;
-};
+type EmployeeProfileItemRecord = EmployeeProfileItem;
 
 type EmployeeProfileItemForm = {
   title: string;
