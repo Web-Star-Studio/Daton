@@ -11,6 +11,7 @@ export interface HealthStatus {
 
 export interface ErrorResponse {
   error: string;
+  code?: string;
 }
 
 export interface MessageResponse {
@@ -18,11 +19,11 @@ export interface MessageResponse {
 }
 
 export interface RegisterBody {
-  razaoSocial: string;
-  nomeFantasia?: string;
-  cnpj?: string;
-  adminName: string;
-  email: string;
+  legalName: string;
+  tradeName?: string | null;
+  legalIdentifier: string;
+  adminFullName: string;
+  adminEmail: string;
   /** @minLength 6 */
   password: string;
 }
@@ -46,19 +47,121 @@ export interface AuthResponse {
   token: string;
 }
 
+export type OnboardingStatus =
+  (typeof OnboardingStatus)[keyof typeof OnboardingStatus];
+
+export const OnboardingStatus = {
+  pending: "pending",
+  completed: "completed",
+  skipped: "skipped",
+} as const;
+
+export type OrganizationSector =
+  (typeof OrganizationSector)[keyof typeof OrganizationSector];
+
+export const OrganizationSector = {
+  manufacturing: "manufacturing",
+  agro: "agro",
+  food_beverage: "food_beverage",
+  mining: "mining",
+  oil_gas: "oil_gas",
+  energy: "energy",
+  chemical: "chemical",
+  pulp_paper: "pulp_paper",
+  steel: "steel",
+  logistics: "logistics",
+  financial: "financial",
+  telecom: "telecom",
+  public: "public",
+  pharma_cosmetics: "pharma_cosmetics",
+  automotive: "automotive",
+  technology: "technology",
+  consumer_goods: "consumer_goods",
+  utilities: "utilities",
+  healthcare: "healthcare",
+  education: "education",
+  retail: "retail",
+  construction: "construction",
+  services: "services",
+  other: "other",
+} as const;
+
+export type OrganizationSize =
+  (typeof OrganizationSize)[keyof typeof OrganizationSize];
+
+export const OrganizationSize = {
+  micro: "micro",
+  small: "small",
+  medium: "medium",
+  large: "large",
+  xlarge: "xlarge",
+  enterprise: "enterprise",
+} as const;
+
+export type OrganizationGoal =
+  (typeof OrganizationGoal)[keyof typeof OrganizationGoal];
+
+export const OrganizationGoal = {
+  emissions_reduction: "emissions_reduction",
+  environmental_compliance: "environmental_compliance",
+  health_safety: "health_safety",
+  energy_efficiency: "energy_efficiency",
+  water_management: "water_management",
+  waste_reduction: "waste_reduction",
+  sustainability: "sustainability",
+  quality: "quality",
+  compliance: "compliance",
+  performance: "performance",
+  innovation: "innovation",
+  cost_reduction: "cost_reduction",
+} as const;
+
+export type OrganizationMaturityLevel =
+  (typeof OrganizationMaturityLevel)[keyof typeof OrganizationMaturityLevel];
+
+export const OrganizationMaturityLevel = {
+  beginner: "beginner",
+  intermediate: "intermediate",
+  advanced: "advanced",
+} as const;
+
+export interface OrganizationCompanyProfile {
+  sector: OrganizationSector;
+  /** @nullable */
+  customSector?: string | null;
+  size: OrganizationSize;
+  goals: OrganizationGoal[];
+  maturityLevel: OrganizationMaturityLevel;
+  currentChallenges: string[];
+}
+
+export interface OrganizationOnboardingData {
+  companyProfile: OrganizationCompanyProfile;
+}
+
 export interface Organization {
   id: number;
   name: string;
   /** @nullable */
-  nomeFantasia?: string | null;
+  tradeName?: string | null;
   /** @nullable */
-  cnpj?: string | null;
+  legalIdentifier?: string | null;
   /** @nullable */
-  inscricaoEstadual?: string | null;
+  openingDate?: string | null;
   /** @nullable */
-  dataFundacao?: string | null;
+  taxRegime?: string | null;
+  /** @nullable */
+  primaryCnae?: string | null;
+  /** @nullable */
+  stateRegistration?: string | null;
+  /** @nullable */
+  municipalRegistration?: string | null;
   /** @nullable */
   statusOperacional?: string | null;
+  onboardingStatus?: OnboardingStatus;
+  onboardingData?: OrganizationOnboardingData;
+  /** @nullable */
+  onboardingCompletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -72,15 +175,44 @@ export interface MeResponse {
 export interface UpdateOrganizationBody {
   name?: string;
   /** @nullable */
-  nomeFantasia?: string | null;
+  tradeName?: string | null;
   /** @nullable */
-  cnpj?: string | null;
+  legalIdentifier?: string | null;
   /** @nullable */
-  inscricaoEstadual?: string | null;
+  openingDate?: string | null;
   /** @nullable */
-  dataFundacao?: string | null;
+  taxRegime?: string | null;
+  /** @nullable */
+  primaryCnae?: string | null;
+  /** @nullable */
+  stateRegistration?: string | null;
+  /** @nullable */
+  municipalRegistration?: string | null;
   /** @nullable */
   statusOperacional?: string | null;
+}
+
+export interface OrganizationOnboardingAuthResponse {
+  token: string;
+  organization: Organization;
+}
+
+export interface CompleteOrganizationOnboardingFiscalRegistration {
+  /** @nullable */
+  openingDate?: string | null;
+  /** @nullable */
+  taxRegime?: string | null;
+  /** @nullable */
+  primaryCnae?: string | null;
+  /** @nullable */
+  stateRegistration?: string | null;
+  /** @nullable */
+  municipalRegistration?: string | null;
+}
+
+export interface CompleteOrganizationOnboardingBody {
+  companyProfile: OrganizationCompanyProfile;
+  fiscalRegistration: CompleteOrganizationOnboardingFiscalRegistration;
 }
 
 export type UnitType = (typeof UnitType)[keyof typeof UnitType];

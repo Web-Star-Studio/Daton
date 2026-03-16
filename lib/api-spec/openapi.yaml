@@ -182,6 +182,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/Organization"
 
+  /organizations/{orgId}/onboarding/complete:
+    post:
+      operationId: completeOrganizationOnboarding
+      tags: [organizations]
+      summary: Complete organization onboarding
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteOrganizationOnboardingBody"
+      responses:
+        "200":
+          description: Onboarding completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationOnboardingAuthResponse"
+
+  /organizations/{orgId}/onboarding/reset:
+    post:
+      operationId: resetOrganizationOnboarding
+      tags: [organizations]
+      summary: Reset organization onboarding
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Onboarding reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationOnboardingAuthResponse"
+
   /organizations/{orgId}/units:
     get:
       operationId: listUnits
@@ -2347,6 +2391,8 @@ components:
       properties:
         error:
           type: string
+        code:
+          type: string
       required:
         - error
 
@@ -2361,24 +2407,26 @@ components:
     RegisterBody:
       type: object
       properties:
-        razaoSocial:
+        legalName:
           type: string
-        nomeFantasia:
+        tradeName:
           type: string
-        cnpj:
+          nullable: true
+        legalIdentifier:
           type: string
-        adminName:
+        adminFullName:
           type: string
-        email:
+        adminEmail:
           type: string
           format: email
         password:
           type: string
           minLength: 6
       required:
-        - razaoSocial
-        - adminName
-        - email
+        - legalName
+        - legalIdentifier
+        - adminFullName
+        - adminEmail
         - password
 
     LoginBody:
@@ -2451,16 +2499,29 @@ components:
           type: integer
         name:
           type: string
-        nomeFantasia:
+        tradeName:
           type: ["string", "null"]
-        cnpj:
+        legalIdentifier:
           type: ["string", "null"]
-        inscricaoEstadual:
+        openingDate:
           type: ["string", "null"]
-        dataFundacao:
+        taxRegime:
+          type: ["string", "null"]
+        primaryCnae:
+          type: ["string", "null"]
+        stateRegistration:
+          type: ["string", "null"]
+        municipalRegistration:
           type: ["string", "null"]
         statusOperacional:
           type: ["string", "null"]
+        onboardingStatus:
+          $ref: "#/components/schemas/OnboardingStatus"
+        onboardingData:
+          $ref: "#/components/schemas/OrganizationOnboardingData"
+        onboardingCompletedAt:
+          type: ["string", "null"]
+          format: date-time
         createdAt:
           type: string
           format: date-time
@@ -2478,16 +2539,148 @@ components:
       properties:
         name:
           type: string
-        nomeFantasia:
+        tradeName:
           type: ["string", "null"]
-        cnpj:
+        legalIdentifier:
           type: ["string", "null"]
-        inscricaoEstadual:
+        openingDate:
           type: ["string", "null"]
-        dataFundacao:
+        taxRegime:
+          type: ["string", "null"]
+        primaryCnae:
+          type: ["string", "null"]
+        stateRegistration:
+          type: ["string", "null"]
+        municipalRegistration:
           type: ["string", "null"]
         statusOperacional:
           type: ["string", "null"]
+
+    OrganizationOnboardingAuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        organization:
+          $ref: "#/components/schemas/Organization"
+      required:
+        - token
+        - organization
+
+    OnboardingStatus:
+      type: string
+      enum: [pending, completed, skipped]
+
+    OrganizationSector:
+      type: string
+      enum:
+        - manufacturing
+        - agro
+        - food_beverage
+        - mining
+        - oil_gas
+        - energy
+        - chemical
+        - pulp_paper
+        - steel
+        - logistics
+        - financial
+        - telecom
+        - public
+        - pharma_cosmetics
+        - automotive
+        - technology
+        - consumer_goods
+        - utilities
+        - healthcare
+        - education
+        - retail
+        - construction
+        - services
+        - other
+
+    OrganizationSize:
+      type: string
+      enum: [micro, small, medium, large, xlarge, enterprise]
+
+    OrganizationGoal:
+      type: string
+      enum:
+        - emissions_reduction
+        - environmental_compliance
+        - health_safety
+        - energy_efficiency
+        - water_management
+        - waste_reduction
+        - sustainability
+        - quality
+        - compliance
+        - performance
+        - innovation
+        - cost_reduction
+
+    OrganizationMaturityLevel:
+      type: string
+      enum: [beginner, intermediate, advanced]
+
+    OrganizationCompanyProfile:
+      type: object
+      properties:
+        sector:
+          $ref: "#/components/schemas/OrganizationSector"
+        customSector:
+          type: ["string", "null"]
+        size:
+          $ref: "#/components/schemas/OrganizationSize"
+        goals:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrganizationGoal"
+        maturityLevel:
+          $ref: "#/components/schemas/OrganizationMaturityLevel"
+        currentChallenges:
+          type: array
+          items:
+            type: string
+      required:
+        - sector
+        - size
+        - goals
+        - maturityLevel
+        - currentChallenges
+
+    OrganizationOnboardingData:
+      type: object
+      properties:
+        companyProfile:
+          $ref: "#/components/schemas/OrganizationCompanyProfile"
+      required:
+        - companyProfile
+
+    CompleteOrganizationOnboardingFiscalRegistration:
+      type: object
+      properties:
+        openingDate:
+          type: ["string", "null"]
+        taxRegime:
+          type: ["string", "null"]
+        primaryCnae:
+          type: ["string", "null"]
+        stateRegistration:
+          type: ["string", "null"]
+        municipalRegistration:
+          type: ["string", "null"]
+
+    CompleteOrganizationOnboardingBody:
+      type: object
+      properties:
+        companyProfile:
+          $ref: "#/components/schemas/OrganizationCompanyProfile"
+        fiscalRegistration:
+          $ref: "#/components/schemas/CompleteOrganizationOnboardingFiscalRegistration"
+      required:
+        - companyProfile
+        - fiscalRegistration
 
     Unit:
       type: object

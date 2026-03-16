@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { eq, and, gt } from "drizzle-orm";
 import { db, usersTable, organizationsTable, invitationsTable, userModulePermissionsTable } from "@workspace/db";
 import { CreateInvitationBody, AcceptInvitationBody } from "@workspace/api-zod";
-import { requireAuth, requireRole, signToken, APP_MODULES } from "../middlewares/auth";
+import { requireAuth, requireCompletedOnboarding, requireRole, issueAuthToken, APP_MODULES } from "../middlewares/auth";
 import type { AppModule, UserRole } from "../middlewares/auth";
 import { getResendClient } from "../lib/resend";
 
@@ -99,7 +99,7 @@ function buildInviteEmailHtml(inviterName: string, orgName: string, acceptUrl: s
 </html>`;
 }
 
-router.post("/invitations", requireAuth, requireRole("org_admin"), async (req, res): Promise<void> => {
+router.post("/invitations", requireAuth, requireCompletedOnboarding, requireRole("org_admin"), async (req, res): Promise<void> => {
   const parsed = CreateInvitationBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -192,7 +192,7 @@ router.post("/invitations", requireAuth, requireRole("org_admin"), async (req, r
   });
 });
 
-router.get("/invitations", requireAuth, requireRole("org_admin"), async (req, res): Promise<void> => {
+router.get("/invitations", requireAuth, requireCompletedOnboarding, requireRole("org_admin"), async (req, res): Promise<void> => {
   const { organizationId } = req.auth!;
 
   const invitations = await db.select({
@@ -234,7 +234,7 @@ router.get("/invitations", requireAuth, requireRole("org_admin"), async (req, re
   res.json({ invitations: mapped });
 });
 
-router.delete("/invitations/:invitationId", requireAuth, requireRole("org_admin"), async (req, res): Promise<void> => {
+router.delete("/invitations/:invitationId", requireAuth, requireCompletedOnboarding, requireRole("org_admin"), async (req, res): Promise<void> => {
   const { organizationId } = req.auth!;
   const invitationId = Number(req.params.invitationId);
 
@@ -262,7 +262,7 @@ router.delete("/invitations/:invitationId", requireAuth, requireRole("org_admin"
   res.json({ message: "Convite revogado com sucesso" });
 });
 
-router.delete("/invitations/:invitationId/permanent", requireAuth, requireRole("org_admin"), async (req, res): Promise<void> => {
+router.delete("/invitations/:invitationId/permanent", requireAuth, requireCompletedOnboarding, requireRole("org_admin"), async (req, res): Promise<void> => {
   const { organizationId } = req.auth!;
   const invitationId = Number(req.params.invitationId);
 
@@ -384,7 +384,7 @@ router.post("/invitations/accept/:token", async (req, res): Promise<void> => {
         .set({ status: "accepted" })
         .where(eq(invitationsTable.id, invitation.id));
 
-      const authToken = signToken({ userId: user.id, organizationId: user.organizationId, role: user.role as any });
+      const authToken = await issueAuthToken({ userId: user.id, organizationId: user.organizationId, role: user.role as any });
 
       return {
         user: {

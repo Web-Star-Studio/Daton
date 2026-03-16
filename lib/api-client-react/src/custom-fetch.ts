@@ -8,6 +8,7 @@ export type BodyType<T> = T;
 
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
+let staleOrganizationRedirectInFlight = false;
 const API_BASE_URL =
   typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL
     ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/$/, "")
@@ -165,6 +166,23 @@ function buildErrorMessage(response: Response, data: unknown): string {
   if (title) return `${prefix}: ${title}`;
 
   return prefix;
+}
+
+function handleOrganizationStateStale(data: unknown): void {
+  if (typeof window === "undefined") return;
+  if (getStringField(data, "code") !== "ORG_STATE_STALE") return;
+  if (staleOrganizationRedirectInFlight) return;
+
+  localStorage.removeItem("daton_token");
+  sessionStorage.setItem(
+    "daton_auth_notice",
+    "Sua sessão foi invalidada após uma mudança no onboarding da organização. Entre novamente para continuar.",
+  );
+
+  const authUrl = new URL("auth", document.baseURI);
+  if (window.location.pathname === authUrl.pathname) return;
+  staleOrganizationRedirectInFlight = true;
+  window.location.replace(authUrl.toString());
 }
 
 export class ApiError<T = unknown> extends Error {
@@ -369,6 +387,9 @@ export async function customFetch<T = unknown>(
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
+    if (response.status === 401) {
+      handleOrganizationStateStale(errorData);
+    }
     throw new ApiError(response, errorData, requestInfo);
   }
 

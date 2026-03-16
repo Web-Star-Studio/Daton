@@ -9,15 +9,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Pencil, Mail, X, Clock, CheckCircle2, XCircle, Shield, ShieldCheck, Eye, Settings2 } from "lucide-react";
+import { Plus, Trash2, Pencil, Mail, X, Clock, CheckCircle2, XCircle, Shield, ShieldCheck, Eye, Settings2, RotateCcw } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { toast } from "@/hooks/use-toast";
+import { GOAL_LABELS, MATURITY_LABELS, SECTOR_LABELS, SIZE_LABELS } from "@/lib/organization-onboarding";
 import {
   useListUnits, useCreateUnit, useDeleteUnit, getListUnitsQueryKey,
   useListDepartments, useCreateDepartment, useDeleteDepartment, useUpdateDepartment, getListDepartmentsQueryKey,
   useListPositions, useCreatePosition, useDeletePosition, useUpdatePosition, getListPositionsQueryKey,
-  useGetOrganization, useUpdateOrganization, getGetOrganizationQueryKey,
+  useGetOrganization, useUpdateOrganization, useResetOrganizationOnboarding, getGetOrganizationQueryKey,
   useListInvitations, useCreateInvitation, useRevokeInvitation, useDeleteInvitation, getListInvitationsQueryKey,
   useListOrgUsers, useCreateOrgUser, useUpdateUserRole, useUpdateUserModules, getListOrgUsersQueryKey,
   type CreateUnitBody, type CreateUnitBodyType,
@@ -102,7 +104,7 @@ const emptyInviteForm: InviteFormData = {
 };
 
 export default function OrganizacaoPage() {
-  const { organization, user: currentUser } = useAuth();
+  const { organization, user: currentUser, login } = useAuth();
   const { isOrgAdmin, canWriteModule, hasModuleAccess } = usePermissions();
   const orgId = organization?.id;
   const queryClient = useQueryClient();
@@ -140,9 +142,10 @@ export default function OrganizacaoPage() {
 
   const { data: orgData } = useGetOrganization(orgId!, { query: { queryKey: getGetOrganizationQueryKey(orgId!), enabled: !!orgId } });
   const updateOrgMut = useUpdateOrganization();
+  const resetOnboardingMut = useResetOrganizationOnboarding();
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [orgForm, setOrgForm] = useState({
-    name: "", nomeFantasia: "", cnpj: "", inscricaoEstadual: "", dataFundacao: "", statusOperacional: "ativa",
+    name: "", tradeName: "", legalIdentifier: "", stateRegistration: "", openingDate: "", statusOperacional: "ativa",
   });
 
   const { data: invitationsData, isLoading: invitationsLoading } = useListInvitations({ query: { queryKey: getListInvitationsQueryKey(), enabled: activeTab === "usuarios" && isOrgAdmin } });
@@ -172,10 +175,10 @@ export default function OrganizacaoPage() {
     if (orgData) {
       setOrgForm({
         name: orgData.name || "",
-        nomeFantasia: orgData.nomeFantasia || "",
-        cnpj: orgData.cnpj || "",
-        inscricaoEstadual: orgData.inscricaoEstadual || "",
-        dataFundacao: orgData.dataFundacao || "",
+        tradeName: orgData.tradeName || "",
+        legalIdentifier: orgData.legalIdentifier || "",
+        stateRegistration: orgData.stateRegistration || "",
+        openingDate: orgData.openingDate || "",
         statusOperacional: orgData.statusOperacional || "ativa",
       });
     }
@@ -200,10 +203,10 @@ export default function OrganizacaoPage() {
       orgId,
       data: {
         name: orgForm.name,
-        nomeFantasia: orgForm.nomeFantasia || null,
-        cnpj: orgForm.cnpj || null,
-        inscricaoEstadual: orgForm.inscricaoEstadual || null,
-        dataFundacao: orgForm.dataFundacao || null,
+        tradeName: orgForm.tradeName || null,
+        legalIdentifier: orgForm.legalIdentifier || null,
+        stateRegistration: orgForm.stateRegistration || null,
+        openingDate: orgForm.openingDate || null,
         statusOperacional: orgForm.statusOperacional || null,
       },
     });
@@ -223,11 +226,35 @@ export default function OrganizacaoPage() {
     switch (activeTab) {
       case "visao-geral":
         if (!isOrgAdmin) return null;
-        return isEditingOrg ? null : (
-          <Button size="sm" variant="outline" onClick={() => setIsEditingOrg(true)}>
-            <Pencil className="h-3.5 w-3.5 mr-1.5" />
-            Editar
-          </Button>
+        if (isEditingOrg) return null;
+        return (
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={async () => {
+              if (!orgId) return;
+              if (!confirm("Tem certeza que deseja refazer o onboarding? Você será redirecionado para o fluxo inicial.")) return;
+              try {
+                const response = await resetOnboardingMut.mutateAsync({ orgId });
+                login(response.token);
+                navigate("/onboarding/organizacao");
+              } catch (error: unknown) {
+                const message =
+                  (error as { data?: { error?: string } })?.data?.error ||
+                  "Não foi possível reiniciar o onboarding.";
+                toast({
+                  title: "Falha ao reiniciar onboarding",
+                  description: message,
+                  variant: "destructive",
+                });
+              }
+            }} isLoading={resetOnboardingMut.isPending}>
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+              Refazer onboarding
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setIsEditingOrg(true)}>
+              <Pencil className="h-3.5 w-3.5 mr-1.5" />
+              Editar
+            </Button>
+          </div>
         );
       case "unidades":
         if (!canWriteModule("units")) return null;
@@ -307,7 +334,22 @@ export default function OrganizacaoPage() {
           </div>
         );
     }
-  }, [activeTab, canWriteModule, deleteInviteMut.isPending, invitationsData, isEditingOrg, isOrgAdmin, queryClient, resetCreateUserDialog, revokeInviteMut.isPending, selectedInviteIds]);
+  }, [
+    activeTab,
+    canWriteModule,
+    deleteInviteMut.isPending,
+    invitationsData,
+    isEditingOrg,
+    isOrgAdmin,
+    login,
+    navigate,
+    orgId,
+    queryClient,
+    resetCreateUserDialog,
+    resetOnboardingMut,
+    revokeInviteMut.isPending,
+    selectedInviteIds,
+  ]);
   useHeaderActions(headerActions);
 
   const allTabs: { key: Tab; label: string; module?: string }[] = [
@@ -410,9 +452,10 @@ export default function OrganizacaoPage() {
       </div>
 
       {activeTab === "visao-geral" && (
-        <div className="space-y-8">
+        <div className="space-y-10">
+          {/* Dados Cadastrais */}
           <div>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Dados Cadastrais</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Dados Cadastrais</h3>
             {isEditingOrg ? (
               <div className="grid grid-cols-3 gap-4">
                 <div>
@@ -421,19 +464,19 @@ export default function OrganizacaoPage() {
                 </div>
                 <div>
                   <Label>CNPJ</Label>
-                  <Input value={orgForm.cnpj} onChange={(e) => setOrgForm((f) => ({ ...f, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" />
+                  <Input value={orgForm.legalIdentifier} onChange={(e) => setOrgForm((f) => ({ ...f, legalIdentifier: e.target.value }))} placeholder="00.000.000/0000-00" />
                 </div>
                 <div>
                   <Label>Nome Fantasia</Label>
-                  <Input value={orgForm.nomeFantasia} onChange={(e) => setOrgForm((f) => ({ ...f, nomeFantasia: e.target.value }))} />
+                  <Input value={orgForm.tradeName} onChange={(e) => setOrgForm((f) => ({ ...f, tradeName: e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Data de Fundação</Label>
-                  <Input value={orgForm.dataFundacao} onChange={(e) => setOrgForm((f) => ({ ...f, dataFundacao: e.target.value }))} placeholder="DD/MM/AAAA" />
+                  <Label>Data de Abertura</Label>
+                  <Input value={orgForm.openingDate} onChange={(e) => setOrgForm((f) => ({ ...f, openingDate: e.target.value }))} placeholder="AAAA-MM-DD" />
                 </div>
                 <div>
                   <Label>Inscrição Estadual</Label>
-                  <Input value={orgForm.inscricaoEstadual} onChange={(e) => setOrgForm((f) => ({ ...f, inscricaoEstadual: e.target.value }))} />
+                  <Input value={orgForm.stateRegistration} onChange={(e) => setOrgForm((f) => ({ ...f, stateRegistration: e.target.value }))} />
                 </div>
                 <div>
                   <Label>Status Operacional</Label>
@@ -443,7 +486,7 @@ export default function OrganizacaoPage() {
                   </Select>
                 </div>
                 <div className="col-span-3 flex justify-end gap-3 pt-2">
-                  <Button variant="outline" size="sm" onClick={() => { setIsEditingOrg(false); if (orgData) setOrgForm({ name: orgData.name || "", nomeFantasia: orgData.nomeFantasia || "", cnpj: orgData.cnpj || "", inscricaoEstadual: orgData.inscricaoEstadual || "", dataFundacao: orgData.dataFundacao || "", statusOperacional: orgData.statusOperacional || "ativa" }); }}>
+                  <Button variant="outline" size="sm" onClick={() => { setIsEditingOrg(false); if (orgData) setOrgForm({ name: orgData.name || "", tradeName: orgData.tradeName || "", legalIdentifier: orgData.legalIdentifier || "", stateRegistration: orgData.stateRegistration || "", openingDate: orgData.openingDate || "", statusOperacional: orgData.statusOperacional || "ativa" }); }}>
                     Cancelar
                   </Button>
                   <Button size="sm" onClick={handleSaveOrg} isLoading={updateOrgMut.isPending} disabled={!orgForm.name}>
@@ -452,30 +495,30 @@ export default function OrganizacaoPage() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-x-8 gap-y-5">
+              <div className="grid grid-cols-3 gap-x-8 gap-y-6">
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Razão Social</p>
-                  <p className="text-[14px] font-medium text-foreground">{orgData?.name || "—"}</p>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Razão Social</p>
+                  <p className="text-[14px] text-foreground">{orgData?.name || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">CNPJ</p>
-                  <p className="text-[14px] font-medium text-foreground">{orgData?.cnpj || "—"}</p>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">CNPJ</p>
+                  <p className="text-[14px] text-foreground">{orgData?.legalIdentifier || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Nome Fantasia</p>
-                  <p className="text-[14px] font-medium text-foreground">{orgData?.nomeFantasia || "—"}</p>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Nome Fantasia</p>
+                  <p className="text-[14px] text-foreground">{orgData?.tradeName || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Data de Fundação</p>
-                  <p className="text-[14px] font-medium text-foreground">{orgData?.dataFundacao || "—"}</p>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Data de Abertura</p>
+                  <p className="text-[14px] text-foreground">{orgData?.openingDate || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Inscrição Estadual</p>
-                  <p className="text-[14px] font-medium text-foreground">{orgData?.inscricaoEstadual || "—"}</p>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Inscrição Estadual</p>
+                  <p className="text-[14px] text-foreground">{orgData?.stateRegistration || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Status Operacional</p>
-                  <p className="text-[14px] font-medium text-foreground">
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Status Operacional</p>
+                  <p className="text-[14px] text-foreground">
                     {orgData?.statusOperacional === "ativa" ? "Ativa" : orgData?.statusOperacional === "inativa" ? "Inativa" : "—"}
                     {orgData?.statusOperacional === "ativa" && <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 ml-2" />}
                   </p>
@@ -484,9 +527,91 @@ export default function OrganizacaoPage() {
             )}
           </div>
 
+          {/* Perfil da Empresa (onboarding data) */}
+          {orgData?.onboardingData?.companyProfile && (() => {
+            const profile = orgData.onboardingData.companyProfile;
+            return (
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Perfil da Empresa</h3>
+                <div className="grid grid-cols-3 gap-x-8 gap-y-6">
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Setor</p>
+                    <p className="text-[14px] text-foreground">
+                      {profile.sector === "other" && profile.customSector
+                        ? profile.customSector
+                        : SECTOR_LABELS[profile.sector] ?? profile.sector}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Porte</p>
+                    <p className="text-[14px] text-foreground">{SIZE_LABELS[profile.size] ?? profile.size}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Maturidade</p>
+                    <p className="text-[14px] text-foreground">{MATURITY_LABELS[profile.maturityLevel] ?? profile.maturityLevel}</p>
+                  </div>
+                  <div className="col-span-3">
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-2.5">Objetivos</p>
+                    {profile.goals.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {profile.goals.map((goal) => (
+                          <span key={goal} className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-3 py-1 text-[12px] text-foreground">
+                            {GOAL_LABELS[goal] ?? goal}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[14px] text-muted-foreground">—</p>
+                    )}
+                  </div>
+                  {profile.currentChallenges.length > 0 && (
+                    <div className="col-span-3">
+                      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-2.5">Desafios Atuais</p>
+                      <div className="flex flex-wrap gap-2">
+                        {profile.currentChallenges.map((challenge) => (
+                          <span key={challenge} className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-3 py-1 text-[12px] text-foreground">
+                            {challenge}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Dados Fiscais e Cadastrais */}
+          {orgData && (orgData.taxRegime || orgData.primaryCnae || orgData.municipalRegistration) && (
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Dados Fiscais</h3>
+              <div className="grid grid-cols-3 gap-x-8 gap-y-6">
+                {orgData.taxRegime && (
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Regime Tributário</p>
+                    <p className="text-[14px] text-foreground">{orgData.taxRegime}</p>
+                  </div>
+                )}
+                {orgData.primaryCnae && (
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">CNAE Principal</p>
+                    <p className="text-[14px] text-foreground">{orgData.primaryCnae}</p>
+                  </div>
+                )}
+                {orgData.municipalRegistration && (
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Inscrição Municipal</p>
+                    <p className="text-[14px] text-foreground">{orgData.municipalRegistration}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Sede Principal */}
           {sede && (
             <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Sede Principal</h3>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Sede Principal</h3>
               <div className="bg-muted/30 rounded-xl overflow-hidden">
                 <div className="bg-gradient-to-br from-slate-200 to-slate-300 h-40 relative">
                   <div className="absolute bottom-4 left-4 bg-white rounded-xl shadow-sm p-4 max-w-xs">

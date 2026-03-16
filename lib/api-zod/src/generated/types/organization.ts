@@ -5,20 +5,32 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { OnboardingStatus } from "./onboardingStatus";
+import type { OrganizationOnboardingData } from "./organizationOnboardingData";
 
 export interface Organization {
   id: number;
   name: string;
   /** @nullable */
-  nomeFantasia?: string | null;
+  tradeName?: string | null;
   /** @nullable */
-  cnpj?: string | null;
+  legalIdentifier?: string | null;
   /** @nullable */
-  inscricaoEstadual?: string | null;
+  openingDate?: string | null;
   /** @nullable */
-  dataFundacao?: string | null;
+  taxRegime?: string | null;
+  /** @nullable */
+  primaryCnae?: string | null;
+  /** @nullable */
+  stateRegistration?: string | null;
+  /** @nullable */
+  municipalRegistration?: string | null;
   /** @nullable */
   statusOperacional?: string | null;
+  onboardingStatus?: OnboardingStatus;
+  onboardingData?: OrganizationOnboardingData;
+  /** @nullable */
+  onboardingCompletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

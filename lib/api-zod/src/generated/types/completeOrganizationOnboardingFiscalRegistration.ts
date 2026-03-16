@@ -6,12 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UpdateOrganizationBody {
-  name?: string;
-  /** @nullable */
-  tradeName?: string | null;
-  /** @nullable */
-  legalIdentifier?: string | null;
+export interface CompleteOrganizationOnboardingFiscalRegistration {
   /** @nullable */
   openingDate?: string | null;
   /** @nullable */
@@ -22,6 +17,4 @@ export interface UpdateOrganizationBody {
   stateRegistration?: string | null;
   /** @nullable */
   municipalRegistration?: string | null;
-  /** @nullable */
-  statusOperacional?: string | null;
 }

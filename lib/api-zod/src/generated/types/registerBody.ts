@@ -7,11 +7,11 @@
  */
 
 export interface RegisterBody {
-  razaoSocial: string;
-  nomeFantasia?: string;
-  cnpj?: string;
-  adminName: string;
-  email: string;
+  legalName: string;
+  tradeName?: string | null;
+  legalIdentifier: string;
+  adminFullName: string;
+  adminEmail: string;
   /** @minLength 6 */
   password: string;
 }
