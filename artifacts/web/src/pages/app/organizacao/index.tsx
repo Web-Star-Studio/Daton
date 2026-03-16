@@ -57,7 +57,14 @@ type PositionFormData = {
   responsibilities: string;
 };
 
-type OrgUserModule = "documents" | "legislations" | "employees" | "units" | "departments" | "positions";
+type OrgUserModule =
+  | "documents"
+  | "legislations"
+  | "employees"
+  | "units"
+  | "departments"
+  | "positions"
+  | "governance";
 
 type CreateUserFormData = {
   name: string;
@@ -87,9 +94,10 @@ const MODULE_LABELS: Record<string, string> = {
   units: "Unidades",
   departments: "Departamentos",
   positions: "Cargos",
+  governance: "Governança",
 };
 
-const ALL_MODULES: OrgUserModule[] = ["documents", "legislations", "employees", "units", "departments", "positions"];
+const ALL_MODULES: OrgUserModule[] = ["documents", "legislations", "employees", "units", "departments", "positions", "governance"];
 const emptyCreateUserForm: CreateUserFormData = {
   name: "",
   email: "",
@@ -1091,7 +1099,7 @@ export default function OrganizacaoPage() {
                 data: {
                   email: inviteForm.email.trim(),
                   role: inviteForm.role,
-                  modules: inviteForm.role === "org_admin" ? [] : inviteForm.modules,
+                  modules: (inviteForm.role === "org_admin" ? [] : inviteForm.modules) as any,
                 },
               });
               setInviteForm(emptyInviteForm);
@@ -1206,7 +1214,7 @@ export default function OrganizacaoPage() {
                   email: data.email.trim(),
                   password: data.password,
                   role: data.role,
-                  modules: data.role === "org_admin" ? [] : data.modules,
+                  modules: (data.role === "org_admin" ? [] : data.modules) as any,
                 },
               });
               queryClient.invalidateQueries({ queryKey: getListOrgUsersQueryKey(orgId) });

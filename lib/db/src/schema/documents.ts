@@ -7,6 +7,8 @@ export const documentsTable = pgTable("documents", {
   organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
   title: text("title").notNull(),
   type: text("type").notNull().default("manual"),
+  sourceEntityType: text("source_entity_type"),
+  sourceEntityId: integer("source_entity_id"),
   status: text("status").notNull().default("draft"),
   currentVersion: integer("current_version").notNull().default(1),
   validityDate: date("validity_date"),

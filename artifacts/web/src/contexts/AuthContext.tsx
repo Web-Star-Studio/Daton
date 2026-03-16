@@ -3,7 +3,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useGetMe, getGetMeQueryKey, type User, type Organization } from "@workspace/api-client-react";
 
 type UserRole = "platform_admin" | "org_admin" | "operator" | "analyst";
-type AppModule = "documents" | "legislations" | "employees" | "units" | "departments" | "positions";
+type AppModule =
+  | "documents"
+  | "legislations"
+  | "employees"
+  | "units"
+  | "departments"
+  | "positions"
+  | "governance";
 
 interface AuthContextType {
   user: User | null;

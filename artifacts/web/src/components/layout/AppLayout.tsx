@@ -44,11 +44,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     location === "/app" ? "/organizacao" : location.replace(/^\/app(?=\/|$)/, "");
 
   useEffect(() => {
-    const moduleByPath: Array<{ prefix: string; module: "documents" | "legislations" | "employees" | "units" | "departments" | "positions" }> = [
+    const moduleByPath: Array<{ prefix: string; module: "documents" | "legislations" | "employees" | "units" | "departments" | "positions" | "governance" }> = [
       { prefix: "/qualidade/documentacao", module: "documents" },
       { prefix: "/qualidade/legislacoes", module: "legislations" },
       { prefix: "/qualidade/colaboradores", module: "employees" },
       { prefix: "/organizacao/unidades", module: "units" },
+      { prefix: "/governanca", module: "governance" },
     ];
 
     const deniedRoute = moduleByPath.find((entry) => normalizedLocation.startsWith(entry.prefix) && !hasModuleAccess(entry.module));
@@ -83,6 +84,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     } else if (normalizedLocation.startsWith("/organizacao")) {
       crumbs.push({ label: "Organização", href: "/organizacao" });
       if (normalizedLocation.startsWith("/organizacao/unidades/") && pageTitle) {
+        crumbs.push({ label: pageTitle });
+      }
+    } else if (normalizedLocation.startsWith("/governanca")) {
+      crumbs.push({ label: "Governança", href: "/governanca/planejamento" });
+      if (normalizedLocation.startsWith("/governanca/planejamento") && pageTitle && normalizedLocation !== "/governanca/planejamento") {
         crumbs.push({ label: pageTitle });
       }
     }
@@ -125,6 +131,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Building2 className={cn("h-[18px] w-[18px] shrink-0", isSidebarOpen && "mr-2.5")} />
             {isSidebarOpen && <span>Organização</span>}
           </Link>
+
+          {hasModuleAccess("governance") && (
+            <Link
+              href="/governanca/planejamento"
+              className={cn(
+                "flex items-center px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
+                isActive("/governanca")
+                  ? "text-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Sparkles className={cn("h-[18px] w-[18px] shrink-0", isSidebarOpen && "mr-2.5")} />
+              {isSidebarOpen && <span>Governança</span>}
+            </Link>
+          )}
 
           {showQualidade && (
             <div
