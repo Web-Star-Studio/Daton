@@ -511,13 +511,40 @@ export interface Employee {
   phone?: string | null;
   position?: string | null;
   department?: string | null;
-  professionalExperience?: string | null;
-  educationCertifications?: string | null;
   contractType: EmployeeContractType;
   admissionDate?: string | null;
   terminationDate?: string | null;
   status: EmployeeStatus;
   unitName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeProfileItemAttachment {
+  id: number;
+  itemId: number;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+  uploadedAt: string;
+}
+
+export type EmployeeProfileItemCategory =
+  (typeof EmployeeProfileItemCategory)[keyof typeof EmployeeProfileItemCategory];
+
+export const EmployeeProfileItemCategory = {
+  professional_experience: "professional_experience",
+  education_certification: "education_certification",
+} as const;
+
+export interface EmployeeProfileItem {
+  id: number;
+  employeeId: number;
+  category: EmployeeProfileItemCategory;
+  title: string;
+  description?: string | null;
+  attachments: EmployeeProfileItemAttachment[];
   createdAt: string;
   updatedAt: string;
 }
@@ -609,6 +636,8 @@ export type EmployeeDetail = Employee & {
   competencies?: EmployeeCompetency[];
   trainings?: EmployeeTraining[];
   awareness?: EmployeeAwareness[];
+  professionalExperiences?: EmployeeProfileItem[];
+  educationCertifications?: EmployeeProfileItem[];
 };
 
 export type CreateEmployeeBodyContractType =
@@ -630,6 +659,23 @@ export const CreateEmployeeBodyStatus = {
   on_leave: "on_leave",
 } as const;
 
+export interface EmployeeProfileItemAttachmentInput {
+  fileName: string;
+  /** @maximum 20971520 */
+  fileSize: number;
+  contentType: string;
+  /** @pattern ^/objects/uploads/.+ */
+  objectPath: string;
+}
+
+export interface EmployeeProfileItemInput {
+  /** @minLength 1 */
+  title: string;
+  description?: string;
+  /** @maxItems 10 */
+  attachments?: EmployeeProfileItemAttachmentInput[];
+}
+
 export interface CreateEmployeeBody {
   /** @minLength 1 */
   name: string;
@@ -639,8 +685,8 @@ export interface CreateEmployeeBody {
   phone?: string;
   position?: string;
   department?: string;
-  professionalExperience?: string;
-  educationCertifications?: string;
+  professionalExperiences?: EmployeeProfileItemInput[];
+  educationCertifications?: EmployeeProfileItemInput[];
   unitId?: number;
   contractType?: CreateEmployeeBodyContractType;
   admissionDate: string;
@@ -676,13 +722,43 @@ export interface UpdateEmployeeBody {
   phone?: string;
   position?: string;
   department?: string;
-  professionalExperience?: string;
-  educationCertifications?: string;
   unitId?: number | null;
   contractType?: UpdateEmployeeBodyContractType;
   admissionDate?: string | null;
   terminationDate?: string | null;
   status?: UpdateEmployeeBodyStatus;
+}
+
+export type CreateEmployeeProfileItemBodyCategory =
+  (typeof CreateEmployeeProfileItemBodyCategory)[keyof typeof CreateEmployeeProfileItemBodyCategory];
+
+export const CreateEmployeeProfileItemBodyCategory = {
+  professional_experience: "professional_experience",
+  education_certification: "education_certification",
+} as const;
+
+export interface CreateEmployeeProfileItemBody {
+  category: CreateEmployeeProfileItemBodyCategory;
+  /** @minLength 1 */
+  title: string;
+  description?: string;
+  /** @maxItems 10 */
+  attachments?: EmployeeProfileItemAttachmentInput[];
+}
+
+export interface UpdateEmployeeProfileItemBody {
+  /** @minLength 1 */
+  title?: string;
+  description?: string;
+}
+
+export interface AddEmployeeProfileItemAttachmentBody {
+  fileName: string;
+  /** @maximum 20971520 */
+  fileSize: number;
+  contentType: string;
+  /** @pattern ^/objects/uploads/.+ */
+  objectPath: string;
 }
 
 export type CreateCompetencyBodyType =

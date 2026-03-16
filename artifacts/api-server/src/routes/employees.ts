@@ -1,12 +1,16 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike, or, count, sql, exists } from "drizzle-orm";
+import { eq, and, ilike, or, count, sql, exists, inArray } from "drizzle-orm";
 import {
   db,
+  departmentsTable,
   employeesTable,
+  employeeProfileItemsTable,
+  employeeProfileItemAttachmentsTable,
   employeeCompetenciesTable,
   employeeTrainingsTable,
   employeeAwarenessTable,
   employeeUnitsTable,
+  positionsTable,
   unitsTable,
 } from "@workspace/db";
 import {
@@ -18,6 +22,14 @@ import {
   UpdateEmployeeParams,
   UpdateEmployeeBody,
   DeleteEmployeeParams,
+  CreateEmployeeProfileItemParams,
+  CreateEmployeeProfileItemBody,
+  UpdateEmployeeProfileItemParams,
+  UpdateEmployeeProfileItemBody,
+  DeleteEmployeeProfileItemParams,
+  AddEmployeeProfileItemAttachmentParams,
+  AddEmployeeProfileItemAttachmentBody,
+  DeleteEmployeeProfileItemAttachmentParams,
   ListCompetenciesParams,
   CreateCompetencyParams,
   CreateCompetencyBody,
@@ -41,8 +53,13 @@ import {
   UnlinkEmployeeUnitParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireModuleAccess, requireWriteAccess } from "../middlewares/auth";
+import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage";
 
 const router: IRouter = Router();
+const objectStorageService = new ObjectStorageService();
+const MAX_PROFILE_ITEM_ATTACHMENTS = 10;
+const MAX_PROFILE_ITEM_ATTACHMENT_FILE_SIZE = 20 * 1024 * 1024;
+const PROFILE_ITEM_ATTACHMENT_PREFIX = "/objects/uploads/";
 
 async function verifyEmployeeOwnership(empId: number, orgId: number): Promise<boolean> {
   const [emp] = await db.select({ id: employeesTable.id }).from(employeesTable)
@@ -60,8 +77,6 @@ interface EmployeeRow {
   phone: string | null;
   position: string | null;
   department: string | null;
-  professionalExperience: string | null;
-  educationCertifications: string | null;
   contractType: string;
   admissionDate: string | null;
   terminationDate: string | null;
@@ -92,8 +107,6 @@ function formatEmployee(e: EmployeeRow) {
     phone: e.phone,
     position: e.position,
     department: e.department,
-    professionalExperience: e.professionalExperience,
-    educationCertifications: e.educationCertifications,
     contractType: e.contractType,
     admissionDate: e.admissionDate,
     terminationDate: e.terminationDate,
@@ -117,11 +130,44 @@ const EMPLOYEE_TEXT_FIELDS = [
   "phone",
   "position",
   "department",
-  "professionalExperience",
-  "educationCertifications",
   "admissionDate",
   "terminationDate",
 ] as const;
+
+type ProfileItemCategory = "professional_experience" | "education_certification";
+
+type ProfileItemAttachmentInput = {
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+};
+
+type ProfileItemInput = {
+  title: string;
+  description?: string | null;
+  attachments?: ProfileItemAttachmentInput[];
+};
+
+type ProfileItemRow = {
+  id: number;
+  employeeId: number;
+  category: string;
+  title: string;
+  description: string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+};
+
+type ProfileItemAttachmentRow = {
+  id: number;
+  itemId: number;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+  uploadedAt: Date | string;
+};
 
 function sanitizeEmployeePayload(payload: Record<string, unknown>) {
   const sanitized: Record<string, unknown> = { ...payload };
@@ -160,6 +206,249 @@ function getInvalidRequiredEmployeeFields(
       return false;
     })
     .map(([, label]) => label);
+}
+
+type ProfileItemInsertExecutor = Pick<typeof db, "insert">;
+
+async function verifyProfileItemOwnership(itemId: number, empId: number, orgId: number): Promise<boolean> {
+  const [item] = await db
+    .select({ id: employeeProfileItemsTable.id })
+    .from(employeeProfileItemsTable)
+    .innerJoin(employeesTable, eq(employeeProfileItemsTable.employeeId, employeesTable.id))
+    .where(and(
+      eq(employeeProfileItemsTable.id, itemId),
+      eq(employeeProfileItemsTable.employeeId, empId),
+      eq(employeesTable.organizationId, orgId),
+    ));
+
+  return !!item;
+}
+
+async function validateEmployeeReferenceValues(
+  orgId: number,
+  payload: {
+    department?: string | null;
+    position?: string | null;
+  },
+): Promise<string | null> {
+  if (payload.department) {
+    const [department] = await db
+      .select({ id: departmentsTable.id })
+      .from(departmentsTable)
+      .where(and(eq(departmentsTable.organizationId, orgId), eq(departmentsTable.name, payload.department)));
+
+    if (!department) {
+      return "Departamento não pertence a esta organização";
+    }
+  }
+
+  if (payload.position) {
+    const [position] = await db
+      .select({ id: positionsTable.id })
+      .from(positionsTable)
+      .where(and(eq(positionsTable.organizationId, orgId), eq(positionsTable.name, payload.position)));
+
+    if (!position) {
+      return "Cargo não pertence a esta organização";
+    }
+  }
+
+  return null;
+}
+
+function sanitizeProfileItemInput<T extends ProfileItemInput>(item: T): T {
+  return {
+    ...item,
+    title: item.title.trim(),
+    description: item.description?.trim() || undefined,
+    attachments: item.attachments?.map((attachment) => ({
+      ...attachment,
+      fileName: attachment.fileName.trim(),
+      contentType: attachment.contentType.trim(),
+      objectPath: attachment.objectPath.trim(),
+    })),
+  };
+}
+
+async function validateProfileItemAttachment(attachment: ProfileItemAttachmentInput): Promise<string | null> {
+  if (!attachment.objectPath.startsWith(PROFILE_ITEM_ATTACHMENT_PREFIX)) {
+    return "Anexo inválido: objectPath deve apontar para /objects/uploads/";
+  }
+
+  if (attachment.fileSize > MAX_PROFILE_ITEM_ATTACHMENT_FILE_SIZE) {
+    return "Anexo inválido: tamanho máximo por arquivo é 20MB";
+  }
+
+  try {
+    await objectStorageService.getObjectEntityFile(attachment.objectPath);
+  } catch (error) {
+    if (error instanceof ObjectNotFoundError) {
+      return "Anexo inválido: arquivo não encontrado no storage";
+    }
+    throw error;
+  }
+
+  return null;
+}
+
+async function validateProfileItemAttachments(
+  attachments: ProfileItemAttachmentInput[] | undefined,
+): Promise<string | null> {
+  if (!attachments?.length) return null;
+
+  if (attachments.length > MAX_PROFILE_ITEM_ATTACHMENTS) {
+    return `Cada item permite no máximo ${MAX_PROFILE_ITEM_ATTACHMENTS} anexos`;
+  }
+
+  for (const attachment of attachments) {
+    const validationError = await validateProfileItemAttachment(attachment);
+    if (validationError) return validationError;
+  }
+
+  return null;
+}
+
+async function validateProfileItemInputs(items: ProfileItemInput[] | undefined): Promise<string | null> {
+  if (!items?.length) return null;
+
+  for (const item of items.map(sanitizeProfileItemInput)) {
+    if (!item.title.trim()) {
+      return "Item inválido: título é obrigatório";
+    }
+
+    const attachmentValidationError = await validateProfileItemAttachments(item.attachments);
+    if (attachmentValidationError) return attachmentValidationError;
+  }
+
+  return null;
+}
+
+function formatProfileItemAttachment(attachment: ProfileItemAttachmentRow) {
+  return {
+    id: attachment.id,
+    itemId: attachment.itemId,
+    fileName: attachment.fileName,
+    fileSize: attachment.fileSize,
+    contentType: attachment.contentType,
+    objectPath: attachment.objectPath,
+    uploadedAt: attachment.uploadedAt instanceof Date ? attachment.uploadedAt.toISOString() : attachment.uploadedAt,
+  };
+}
+
+function formatProfileItem(
+  item: ProfileItemRow,
+  attachmentsByItemId: Map<number, ProfileItemAttachmentRow[]>,
+) {
+  return {
+    id: item.id,
+    employeeId: item.employeeId,
+    category: item.category,
+    title: item.title,
+    description: item.description,
+    attachments: (attachmentsByItemId.get(item.id) || []).map(formatProfileItemAttachment),
+    createdAt: item.createdAt instanceof Date ? item.createdAt.toISOString() : item.createdAt,
+    updatedAt: item.updatedAt instanceof Date ? item.updatedAt.toISOString() : item.updatedAt,
+  };
+}
+
+async function loadEmployeeProfileItems(empId: number) {
+  const itemRows = await db
+    .select({
+      id: employeeProfileItemsTable.id,
+      employeeId: employeeProfileItemsTable.employeeId,
+      category: employeeProfileItemsTable.category,
+      title: employeeProfileItemsTable.title,
+      description: employeeProfileItemsTable.description,
+      createdAt: employeeProfileItemsTable.createdAt,
+      updatedAt: employeeProfileItemsTable.updatedAt,
+    })
+    .from(employeeProfileItemsTable)
+    .where(eq(employeeProfileItemsTable.employeeId, empId))
+    .orderBy(employeeProfileItemsTable.createdAt);
+
+  const itemIds = itemRows.map((item) => item.id);
+  const attachmentRows = itemIds.length === 0
+    ? []
+    : await db
+      .select({
+        id: employeeProfileItemAttachmentsTable.id,
+        itemId: employeeProfileItemAttachmentsTable.itemId,
+        fileName: employeeProfileItemAttachmentsTable.fileName,
+        fileSize: employeeProfileItemAttachmentsTable.fileSize,
+        contentType: employeeProfileItemAttachmentsTable.contentType,
+        objectPath: employeeProfileItemAttachmentsTable.objectPath,
+        uploadedAt: employeeProfileItemAttachmentsTable.uploadedAt,
+      })
+      .from(employeeProfileItemAttachmentsTable)
+      .where(inArray(employeeProfileItemAttachmentsTable.itemId, itemIds))
+      .orderBy(employeeProfileItemAttachmentsTable.uploadedAt);
+
+  const attachmentsByItemId = new Map<number, ProfileItemAttachmentRow[]>();
+  for (const attachment of attachmentRows) {
+    const entries = attachmentsByItemId.get(attachment.itemId) || [];
+    entries.push(attachment);
+    attachmentsByItemId.set(attachment.itemId, entries);
+  }
+
+  const formattedItems = itemRows.map((item) => formatProfileItem(item, attachmentsByItemId));
+
+  return {
+    professionalExperiences: formattedItems.filter((item) => item.category === "professional_experience"),
+    educationCertifications: formattedItems.filter((item) => item.category === "education_certification"),
+  };
+}
+
+async function loadProfileItemAttachmentRows(itemId: number): Promise<ProfileItemAttachmentRow[]> {
+  return db
+    .select({
+      id: employeeProfileItemAttachmentsTable.id,
+      itemId: employeeProfileItemAttachmentsTable.itemId,
+      fileName: employeeProfileItemAttachmentsTable.fileName,
+      fileSize: employeeProfileItemAttachmentsTable.fileSize,
+      contentType: employeeProfileItemAttachmentsTable.contentType,
+      objectPath: employeeProfileItemAttachmentsTable.objectPath,
+      uploadedAt: employeeProfileItemAttachmentsTable.uploadedAt,
+    })
+    .from(employeeProfileItemAttachmentsTable)
+    .where(eq(employeeProfileItemAttachmentsTable.itemId, itemId))
+    .orderBy(employeeProfileItemAttachmentsTable.uploadedAt);
+}
+
+async function createEmployeeProfileItems(
+  executor: ProfileItemInsertExecutor,
+  employeeId: number,
+  items: ProfileItemInput[] | undefined,
+  category: ProfileItemCategory,
+) {
+  if (!items?.length) return;
+
+  const sanitizedItems = items.map(sanitizeProfileItemInput);
+  const createdItems = await executor
+    .insert(employeeProfileItemsTable)
+    .values(
+      sanitizedItems.map((item) => ({
+        employeeId,
+        category,
+        title: item.title,
+        description: item.description || null,
+      })),
+    )
+    .returning();
+
+  const attachmentValues = createdItems.flatMap((createdItem, index) => {
+    const itemAttachments = sanitizedItems[index]?.attachments || [];
+    return itemAttachments.map((attachment) => ({
+      itemId: createdItem.id,
+      fileName: attachment.fileName,
+      fileSize: attachment.fileSize,
+      contentType: attachment.contentType,
+      objectPath: attachment.objectPath,
+    }));
+  });
+
+  if (attachmentValues.length > 0) {
+    await executor.insert(employeeProfileItemAttachmentsTable).values(attachmentValues);
+  }
 }
 
 router.get("/organizations/:orgId/employees", requireAuth, async (req, res): Promise<void> => {
@@ -219,8 +508,6 @@ router.get("/organizations/:orgId/employees", requireAuth, async (req, res): Pro
       phone: employeesTable.phone,
       position: employeesTable.position,
       department: employeesTable.department,
-      professionalExperience: employeesTable.professionalExperience,
-      educationCertifications: employeesTable.educationCertifications,
       contractType: employeesTable.contractType,
       admissionDate: employeesTable.admissionDate,
       terminationDate: employeesTable.terminationDate,
@@ -262,16 +549,37 @@ router.post("/organizations/:orgId/employees", requireAuth, requireWriteAccess()
     return;
   }
 
-  if (payload.unitId) {
+  const {
+    professionalExperiences,
+    educationCertifications,
+    ...employeePayload
+  } = payload;
+
+  const profileItemValidationError =
+    await validateProfileItemInputs(professionalExperiences) ||
+    await validateProfileItemInputs(educationCertifications);
+  if (profileItemValidationError) { res.status(400).json({ error: profileItemValidationError }); return; }
+
+  if (employeePayload.unitId) {
     const [unit] = await db.select({ id: unitsTable.id }).from(unitsTable)
-      .where(and(eq(unitsTable.id, payload.unitId), eq(unitsTable.organizationId, params.data.orgId)));
+      .where(and(eq(unitsTable.id, employeePayload.unitId), eq(unitsTable.organizationId, params.data.orgId)));
     if (!unit) { res.status(400).json({ error: "Unidade não pertence a esta organização" }); return; }
   }
 
-  const [emp] = await db.insert(employeesTable).values({
-    ...payload,
-    organizationId: params.data.orgId,
-  }).returning();
+  const referenceValueError = await validateEmployeeReferenceValues(params.data.orgId, employeePayload);
+  if (referenceValueError) { res.status(400).json({ error: referenceValueError }); return; }
+
+  const emp = await db.transaction(async (tx) => {
+    const [createdEmployee] = await tx.insert(employeesTable).values({
+      ...employeePayload,
+      organizationId: params.data.orgId,
+    }).returning();
+
+    await createEmployeeProfileItems(tx, createdEmployee.id, professionalExperiences, "professional_experience");
+    await createEmployeeProfileItems(tx, createdEmployee.id, educationCertifications, "education_certification");
+
+    return createdEmployee;
+  });
 
   res.status(201).json(formatEmployee(emp));
 });
@@ -292,8 +600,6 @@ router.get("/organizations/:orgId/employees/:empId", requireAuth, async (req, re
       phone: employeesTable.phone,
       position: employeesTable.position,
       department: employeesTable.department,
-      professionalExperience: employeesTable.professionalExperience,
-      educationCertifications: employeesTable.educationCertifications,
       contractType: employeesTable.contractType,
       admissionDate: employeesTable.admissionDate,
       terminationDate: employeesTable.terminationDate,
@@ -311,6 +617,7 @@ router.get("/organizations/:orgId/employees/:empId", requireAuth, async (req, re
   const competencies = await db.select().from(employeeCompetenciesTable).where(eq(employeeCompetenciesTable.employeeId, params.data.empId)).orderBy(employeeCompetenciesTable.name);
   const trainings = await db.select().from(employeeTrainingsTable).where(eq(employeeTrainingsTable.employeeId, params.data.empId)).orderBy(employeeTrainingsTable.createdAt);
   const awareness = await db.select().from(employeeAwarenessTable).where(eq(employeeAwarenessTable.employeeId, params.data.empId)).orderBy(employeeAwarenessTable.date);
+  const profileItems = await loadEmployeeProfileItems(params.data.empId);
   const linkedUnits = await db.select({ id: unitsTable.id, name: unitsTable.name })
     .from(employeeUnitsTable)
     .innerJoin(unitsTable, eq(employeeUnitsTable.unitId, unitsTable.id))
@@ -335,6 +642,8 @@ router.get("/organizations/:orgId/employees/:empId", requireAuth, async (req, re
       createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt,
       updatedAt: a.updatedAt instanceof Date ? a.updatedAt.toISOString() : a.updatedAt,
     })),
+    professionalExperiences: profileItems.professionalExperiences,
+    educationCertifications: profileItems.educationCertifications,
   });
 });
 
@@ -358,6 +667,9 @@ router.patch("/organizations/:orgId/employees/:empId", requireAuth, requireWrite
       .where(and(eq(unitsTable.id, payload.unitId), eq(unitsTable.organizationId, params.data.orgId)));
     if (!unit) { res.status(400).json({ error: "Unidade não pertence a esta organização" }); return; }
   }
+
+  const referenceValueError = await validateEmployeeReferenceValues(params.data.orgId, payload);
+  if (referenceValueError) { res.status(400).json({ error: referenceValueError }); return; }
 
   const [emp] = await db.update(employeesTable)
     .set(payload)
@@ -573,6 +885,148 @@ router.delete("/organizations/:orgId/employees/:empId/awareness/:awaId", require
     .returning();
 
   if (!record) { res.status(404).json({ error: "Registro não encontrado" }); return; }
+  res.sendStatus(204);
+});
+
+router.post("/organizations/:orgId/employees/:empId/profile-items", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = CreateEmployeeProfileItemParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+  if (!(await verifyEmployeeOwnership(params.data.empId, params.data.orgId))) { res.status(404).json({ error: "Colaborador não encontrado" }); return; }
+
+  const body = CreateEmployeeProfileItemBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const item = sanitizeProfileItemInput(body.data);
+  if (!item.title.trim()) { res.status(400).json({ error: "Item inválido: título é obrigatório" }); return; }
+  const attachmentValidationError = await validateProfileItemAttachments(item.attachments);
+  if (attachmentValidationError) { res.status(400).json({ error: attachmentValidationError }); return; }
+
+  const createdProfileItem = await db.transaction(async (tx) => {
+    const [createdItem] = await tx.insert(employeeProfileItemsTable).values({
+      employeeId: params.data.empId,
+      category: item.category,
+      title: item.title,
+      description: item.description || null,
+    }).returning();
+
+    const createdAttachments = item.attachments?.length
+      ? await tx.insert(employeeProfileItemAttachmentsTable).values(
+        item.attachments.map((attachment) => ({
+          itemId: createdItem.id,
+          fileName: attachment.fileName,
+          fileSize: attachment.fileSize,
+          contentType: attachment.contentType,
+          objectPath: attachment.objectPath,
+        })),
+      ).returning()
+      : [];
+
+    const attachmentsByItemId = new Map<number, ProfileItemAttachmentRow[]>();
+    attachmentsByItemId.set(createdItem.id, createdAttachments);
+
+    return formatProfileItem(createdItem, attachmentsByItemId);
+  });
+
+  res.status(201).json(createdProfileItem);
+});
+
+router.patch("/organizations/:orgId/employees/:empId/profile-items/:itemId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = UpdateEmployeeProfileItemParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+  if (!(await verifyProfileItemOwnership(params.data.itemId, params.data.empId, params.data.orgId))) { res.status(404).json({ error: "Item não encontrado" }); return; }
+
+  const body = UpdateEmployeeProfileItemBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+  if (body.data.title !== undefined && body.data.title.trim().length === 0) {
+    res.status(400).json({ error: "Item inválido: título é obrigatório" });
+    return;
+  }
+
+  const [updatedItem] = await db.update(employeeProfileItemsTable)
+    .set({
+      ...(body.data.title !== undefined ? { title: body.data.title.trim() } : {}),
+      ...(body.data.description !== undefined ? { description: body.data.description?.trim() || null } : {}),
+    })
+    .where(and(eq(employeeProfileItemsTable.id, params.data.itemId), eq(employeeProfileItemsTable.employeeId, params.data.empId)))
+    .returning();
+
+  if (!updatedItem) { res.status(404).json({ error: "Item não encontrado" }); return; }
+
+  const attachmentRows = await loadProfileItemAttachmentRows(updatedItem.id);
+  const attachmentsByItemId = new Map<number, ProfileItemAttachmentRow[]>();
+  attachmentsByItemId.set(updatedItem.id, attachmentRows);
+
+  res.json(formatProfileItem(updatedItem, attachmentsByItemId));
+});
+
+router.delete("/organizations/:orgId/employees/:empId/profile-items/:itemId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = DeleteEmployeeProfileItemParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+  if (!(await verifyProfileItemOwnership(params.data.itemId, params.data.empId, params.data.orgId))) { res.status(404).json({ error: "Item não encontrado" }); return; }
+
+  const [deletedItem] = await db.delete(employeeProfileItemsTable)
+    .where(and(eq(employeeProfileItemsTable.id, params.data.itemId), eq(employeeProfileItemsTable.employeeId, params.data.empId)))
+    .returning();
+
+  if (!deletedItem) { res.status(404).json({ error: "Item não encontrado" }); return; }
+  res.sendStatus(204);
+});
+
+router.post("/organizations/:orgId/employees/:empId/profile-items/:itemId/attachments", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = AddEmployeeProfileItemAttachmentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+  if (!(await verifyProfileItemOwnership(params.data.itemId, params.data.empId, params.data.orgId))) { res.status(404).json({ error: "Item não encontrado" }); return; }
+
+  const body = AddEmployeeProfileItemAttachmentBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const [existingAttachmentsCount] = await db
+    .select({ total: count() })
+    .from(employeeProfileItemAttachmentsTable)
+    .where(eq(employeeProfileItemAttachmentsTable.itemId, params.data.itemId));
+
+  if ((existingAttachmentsCount?.total ?? 0) >= MAX_PROFILE_ITEM_ATTACHMENTS) {
+    res.status(400).json({ error: `Cada item permite no máximo ${MAX_PROFILE_ITEM_ATTACHMENTS} anexos` });
+    return;
+  }
+
+  const attachmentValidationError = await validateProfileItemAttachment({
+    fileName: body.data.fileName.trim(),
+    fileSize: body.data.fileSize,
+    contentType: body.data.contentType.trim(),
+    objectPath: body.data.objectPath.trim(),
+  });
+  if (attachmentValidationError) { res.status(400).json({ error: attachmentValidationError }); return; }
+
+  const [attachment] = await db.insert(employeeProfileItemAttachmentsTable).values({
+    itemId: params.data.itemId,
+    fileName: body.data.fileName.trim(),
+    fileSize: body.data.fileSize,
+    contentType: body.data.contentType.trim(),
+    objectPath: body.data.objectPath.trim(),
+  }).returning();
+
+  res.status(201).json(formatProfileItemAttachment(attachment));
+});
+
+router.delete("/organizations/:orgId/employees/:empId/profile-items/:itemId/attachments/:attachmentId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = DeleteEmployeeProfileItemAttachmentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+  if (!(await verifyProfileItemOwnership(params.data.itemId, params.data.empId, params.data.orgId))) { res.status(404).json({ error: "Item não encontrado" }); return; }
+
+  const [attachment] = await db.delete(employeeProfileItemAttachmentsTable)
+    .where(and(
+      eq(employeeProfileItemAttachmentsTable.id, params.data.attachmentId),
+      eq(employeeProfileItemAttachmentsTable.itemId, params.data.itemId),
+    ))
+    .returning();
+
+  if (!attachment) { res.status(404).json({ error: "Anexo não encontrado" }); return; }
   res.sendStatus(204);
 });
 

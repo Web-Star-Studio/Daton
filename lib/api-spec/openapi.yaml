@@ -28,6 +28,8 @@ tags:
     description: Employee training records (ISO 9001:2015 §7.2)
   - name: awareness
     description: Employee awareness records (ISO 9001:2015 §7.3)
+  - name: employee-profile-items
+    description: Employee professional experiences and education/certification items
   - name: employee-units
     description: Employee-unit linkage (many-to-many)
   - name: documents
@@ -1199,6 +1201,159 @@ paths:
       responses:
         "204":
           description: Awareness record deleted
+
+  /organizations/{orgId}/employees/{empId}/profile-items:
+    post:
+      operationId: createEmployeeProfileItem
+      tags: [employee-profile-items]
+      summary: Create employee profile item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmployeeProfileItemBody"
+      responses:
+        "201":
+          description: Created employee profile item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeProfileItem"
+
+  /organizations/{orgId}/employees/{empId}/profile-items/{itemId}:
+    patch:
+      operationId: updateEmployeeProfileItem
+      tags: [employee-profile-items]
+      summary: Update employee profile item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmployeeProfileItemBody"
+      responses:
+        "200":
+          description: Updated employee profile item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeProfileItem"
+    delete:
+      operationId: deleteEmployeeProfileItem
+      tags: [employee-profile-items]
+      summary: Delete employee profile item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Employee profile item deleted
+
+  /organizations/{orgId}/employees/{empId}/profile-items/{itemId}/attachments:
+    post:
+      operationId: addEmployeeProfileItemAttachment
+      tags: [employee-profile-items]
+      summary: Add attachment to employee profile item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddEmployeeProfileItemAttachmentBody"
+      responses:
+        "201":
+          description: Created attachment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeProfileItemAttachment"
+
+  /organizations/{orgId}/employees/{empId}/profile-items/{itemId}/attachments/{attachmentId}:
+    delete:
+      operationId: deleteEmployeeProfileItemAttachment
+      tags: [employee-profile-items]
+      summary: Delete attachment from employee profile item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Attachment deleted
 
   /organizations/{orgId}/employees/{empId}/units:
     post:
@@ -2950,12 +3105,6 @@ components:
         department:
           type: string
           nullable: true
-        professionalExperience:
-          type: string
-          nullable: true
-        educationCertifications:
-          type: string
-          nullable: true
         contractType:
           type: string
           enum: [clt, pj, intern, temporary]
@@ -2983,6 +3132,66 @@ components:
         - name
         - contractType
         - status
+        - createdAt
+        - updatedAt
+
+    EmployeeProfileItemAttachment:
+      type: object
+      properties:
+        id:
+          type: integer
+        itemId:
+          type: integer
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        contentType:
+          type: string
+        objectPath:
+          type: string
+        uploadedAt:
+          type: string
+      required:
+        - id
+        - itemId
+        - fileName
+        - fileSize
+        - contentType
+        - objectPath
+        - uploadedAt
+
+    EmployeeProfileItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        employeeId:
+          type: integer
+        category:
+          type: string
+          enum: [professional_experience, education_certification]
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeProfileItemAttachment"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - employeeId
+        - category
+        - title
+        - attachments
         - createdAt
         - updatedAt
 
@@ -3154,6 +3363,14 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/EmployeeAwareness"
+            professionalExperiences:
+              type: array
+              items:
+                $ref: "#/components/schemas/EmployeeProfileItem"
+            educationCertifications:
+              type: array
+              items:
+                $ref: "#/components/schemas/EmployeeProfileItem"
 
     CreateEmployeeBody:
       type: object
@@ -3173,10 +3390,14 @@ components:
           type: string
         department:
           type: string
-        professionalExperience:
-          type: string
+        professionalExperiences:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeProfileItemInput"
         educationCertifications:
-          type: string
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeProfileItemInput"
         unitId:
           type: integer
         contractType:
@@ -3212,10 +3433,6 @@ components:
           type: string
         department:
           type: string
-        professionalExperience:
-          type: string
-        educationCertifications:
-          type: string
         unitId:
           type: integer
           nullable: true
@@ -3231,6 +3448,89 @@ components:
         status:
           type: string
           enum: [active, inactive, on_leave]
+
+    EmployeeProfileItemAttachmentInput:
+      type: object
+      properties:
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+          maximum: 20971520
+        contentType:
+          type: string
+        objectPath:
+          type: string
+          pattern: "^/objects/uploads/.+"
+      required:
+        - fileName
+        - fileSize
+        - contentType
+        - objectPath
+
+    EmployeeProfileItemInput:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        attachments:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/EmployeeProfileItemAttachmentInput"
+      required:
+        - title
+
+    CreateEmployeeProfileItemBody:
+      type: object
+      properties:
+        category:
+          type: string
+          enum: [professional_experience, education_certification]
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        attachments:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/EmployeeProfileItemAttachmentInput"
+      required:
+        - category
+        - title
+
+    UpdateEmployeeProfileItemBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+
+    AddEmployeeProfileItemAttachmentBody:
+      type: object
+      properties:
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+          maximum: 20971520
+        contentType:
+          type: string
+        objectPath:
+          type: string
+          pattern: "^/objects/uploads/.+"
+      required:
+        - fileName
+        - fileSize
+        - contentType
+        - objectPath
 
     CreateCompetencyBody:
       type: object

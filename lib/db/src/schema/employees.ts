@@ -14,14 +14,32 @@ export const employeesTable = pgTable("employees", {
   phone: text("phone"),
   position: text("position"),
   department: text("department"),
-  professionalExperience: text("professional_experience"),
-  educationCertifications: text("education_certifications"),
   contractType: text("contract_type").notNull().default("clt"),
   admissionDate: date("admission_date"),
   terminationDate: date("termination_date"),
   status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const employeeProfileItemsTable = pgTable("employee_profile_items", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull().references(() => employeesTable.id, { onDelete: "cascade" }),
+  category: text("category").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const employeeProfileItemAttachmentsTable = pgTable("employee_profile_item_attachments", {
+  id: serial("id").primaryKey(),
+  itemId: integer("item_id").notNull().references(() => employeeProfileItemsTable.id, { onDelete: "cascade" }),
+  fileName: text("file_name").notNull(),
+  fileSize: integer("file_size").notNull(),
+  contentType: text("content_type").notNull(),
+  objectPath: text("object_path").notNull(),
+  uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const employeeCompetenciesTable = pgTable("employee_competencies", {
@@ -73,6 +91,8 @@ export const employeeUnitsTable = pgTable("employee_units", {
 export const insertEmployeeSchema = createInsertSchema(employeesTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
 export type Employee = typeof employeesTable.$inferSelect;
+export type EmployeeProfileItem = typeof employeeProfileItemsTable.$inferSelect;
+export type EmployeeProfileItemAttachment = typeof employeeProfileItemAttachmentsTable.$inferSelect;
 
 export const insertCompetencySchema = createInsertSchema(employeeCompetenciesTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertCompetency = z.infer<typeof insertCompetencySchema>;
