@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Upload, X, FileText, ArrowLeft } from "lucide-react";
 import { usePageTitle } from "@/contexts/LayoutContext";
+import { resolveApiUrl } from "@/lib/api";
 
 const TYPE_OPTIONS = [
   { value: "manual", label: "Manual" },
@@ -46,12 +47,22 @@ const ALLOWED_TYPES = [
 
 const createDocumentSchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),
-  type: z.enum(["manual", "procedimento", "instrucao", "formulario", "registro", "politica", "outro"]),
+  type: z.enum([
+    "manual",
+    "procedimento",
+    "instrucao",
+    "formulario",
+    "registro",
+    "politica",
+    "outro",
+  ]),
   validityDate: z.string().min(1, "Data de validade é obrigatória"),
   unitIds: z.array(z.number()),
   elaboratorIds: z.array(z.number()).min(1, "Selecione ao menos um elaborador"),
   approverIds: z.array(z.number()).min(1, "Selecione ao menos um aprovador"),
-  recipientIds: z.array(z.number()).min(1, "Selecione ao menos um destinatário"),
+  recipientIds: z
+    .array(z.number())
+    .min(1, "Selecione ao menos um destinatário"),
   referenceIds: z.array(z.number()),
 });
 
@@ -112,9 +123,13 @@ export default function NovoDocumentoPage() {
   });
   const availableUsers = orgUsers ?? [];
 
-  const { data: existingDocs } = useListDocuments(orgId!, {}, {
-    query: { queryKey: getListDocumentsQueryKey(orgId!), enabled: !!orgId },
-  });
+  const { data: existingDocs } = useListDocuments(
+    orgId!,
+    {},
+    {
+      query: { queryKey: getListDocumentsQueryKey(orgId!), enabled: !!orgId },
+    },
+  );
 
   const createMut = useCreateDocument();
 
@@ -124,7 +139,6 @@ export default function NovoDocumentoPage() {
 
     setIsUploading(true);
     const token = localStorage.getItem("daton_token");
-    const baseUrl = import.meta.env.BASE_URL || "/";
 
     for (const file of Array.from(files)) {
       if (!ALLOWED_TYPES.includes(file.type)) {
@@ -133,22 +147,30 @@ export default function NovoDocumentoPage() {
 
       try {
         const arrayBuffer = await file.arrayBuffer();
-        const uploadRes = await fetch(`${baseUrl}api/storage/uploads/direct`, {
-          method: "POST",
-          headers: {
-            "X-File-Content-Type": file.type,
-            "X-File-Name": encodeURIComponent(file.name),
-            "Content-Type": "application/octet-stream",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        const uploadRes = await fetch(
+          resolveApiUrl("/api/storage/uploads/direct"),
+          {
+            method: "POST",
+            headers: {
+              "X-File-Content-Type": file.type,
+              "X-File-Name": encodeURIComponent(file.name),
+              "Content-Type": "application/octet-stream",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: arrayBuffer,
           },
-          body: arrayBuffer,
-        });
+        );
 
         if (uploadRes.ok) {
           const { objectPath } = await uploadRes.json();
           setUploadedFiles((prev) => [
             ...prev,
-            { fileName: file.name, fileSize: file.size, contentType: file.type, objectPath },
+            {
+              fileName: file.name,
+              fileSize: file.size,
+              contentType: file.type,
+              objectPath,
+            },
           ]);
         } else {
           console.error("Upload failed:", await uploadRes.text());
@@ -166,8 +188,14 @@ export default function NovoDocumentoPage() {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const toggleMultiSelect = (field: keyof CreateDocumentFormData, current: number[], id: number) => {
-    const next = current.includes(id) ? current.filter((v) => v !== id) : [...current, id];
+  const toggleMultiSelect = (
+    field: keyof CreateDocumentFormData,
+    current: number[],
+    id: number,
+  ) => {
+    const next = current.includes(id)
+      ? current.filter((v) => v !== id)
+      : [...current, id];
     setValue(field, next, { shouldValidate: true });
   };
 
@@ -182,14 +210,19 @@ export default function NovoDocumentoPage() {
           type: data.type,
           validityDate: data.validityDate || undefined,
           unitIds: data.unitIds.length > 0 ? data.unitIds : undefined,
-          elaboratorIds: data.elaboratorIds.length > 0 ? data.elaboratorIds : undefined,
+          elaboratorIds:
+            data.elaboratorIds.length > 0 ? data.elaboratorIds : undefined,
           approverIds: data.approverIds,
-          recipientIds: data.recipientIds.length > 0 ? data.recipientIds : undefined,
-          referenceIds: data.referenceIds.length > 0 ? data.referenceIds : undefined,
+          recipientIds:
+            data.recipientIds.length > 0 ? data.recipientIds : undefined,
+          referenceIds:
+            data.referenceIds.length > 0 ? data.referenceIds : undefined,
           attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined,
         },
       });
-      queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey(orgId) });
+      queryClient.invalidateQueries({
+        queryKey: getListDocumentsQueryKey(orgId),
+      });
       navigate(`/app/qualidade/documentacao/${doc.id}`);
     } catch (err) {
       console.error("Create failed:", err);
@@ -220,7 +253,9 @@ export default function NovoDocumentoPage() {
             className="mt-2"
             {...register("title")}
           />
-          {errors.title && <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>}
+          {errors.title && (
+            <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-6">
@@ -228,7 +263,9 @@ export default function NovoDocumentoPage() {
             <Label>Tipo</Label>
             <Select {...register("type")} className="mt-2">
               {TYPE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
               ))}
             </Select>
           </div>
@@ -236,7 +273,10 @@ export default function NovoDocumentoPage() {
             <Label>Filial</Label>
             <MultiSelectDropdown
               placeholder="Selecione"
-              options={(units || []).map((u) => ({ value: u.id, label: u.name }))}
+              options={(units || []).map((u) => ({
+                value: u.id,
+                label: u.name,
+              }))}
               selected={unitIds}
               onToggle={(id) => toggleMultiSelect("unitIds", unitIds, id)}
             />
@@ -248,21 +288,39 @@ export default function NovoDocumentoPage() {
             <Label>Elaborado por *</Label>
             <MultiSelectDropdown
               placeholder="Selecione"
-              options={availableUsers.map((u: UserOption) => ({ value: u.id, label: u.name }))}
+              options={availableUsers.map((u: UserOption) => ({
+                value: u.id,
+                label: u.name,
+              }))}
               selected={elaboratorIds}
-              onToggle={(id) => toggleMultiSelect("elaboratorIds", elaboratorIds, id)}
+              onToggle={(id) =>
+                toggleMultiSelect("elaboratorIds", elaboratorIds, id)
+              }
             />
-            {errors.elaboratorIds && <p className="text-xs text-red-500 mt-1">{errors.elaboratorIds.message}</p>}
+            {errors.elaboratorIds && (
+              <p className="text-xs text-red-500 mt-1">
+                {errors.elaboratorIds.message}
+              </p>
+            )}
           </div>
           <div>
             <Label>Aprovado por *</Label>
             <MultiSelectDropdown
               placeholder="Selecione"
-              options={availableUsers.map((u: UserOption) => ({ value: u.id, label: u.name }))}
+              options={availableUsers.map((u: UserOption) => ({
+                value: u.id,
+                label: u.name,
+              }))}
               selected={approverIds}
-              onToggle={(id) => toggleMultiSelect("approverIds", approverIds, id)}
+              onToggle={(id) =>
+                toggleMultiSelect("approverIds", approverIds, id)
+              }
             />
-            {errors.approverIds && <p className="text-xs text-red-500 mt-1">{errors.approverIds.message}</p>}
+            {errors.approverIds && (
+              <p className="text-xs text-red-500 mt-1">
+                {errors.approverIds.message}
+              </p>
+            )}
           </div>
         </div>
 
@@ -273,7 +331,11 @@ export default function NovoDocumentoPage() {
             className="mt-2 w-64"
             {...register("validityDate")}
           />
-          {errors.validityDate && <p className="text-xs text-red-500 mt-1">{errors.validityDate.message}</p>}
+          {errors.validityDate && (
+            <p className="text-xs text-red-500 mt-1">
+              {errors.validityDate.message}
+            </p>
+          )}
         </div>
 
         <div>
@@ -293,19 +355,30 @@ export default function NovoDocumentoPage() {
                 disabled={isUploading}
               />
               {uploadedFiles.length === 0 && (
-                <span className="text-sm text-muted-foreground/50 ml-2">nenhum arquivo selecionado</span>
+                <span className="text-sm text-muted-foreground/50 ml-2">
+                  nenhum arquivo selecionado
+                </span>
               )}
             </label>
             {uploadedFiles.length > 0 && (
               <div className="mt-2 space-y-1">
                 {uploadedFiles.map((f, i) => (
-                  <div key={i} className="flex items-center justify-between px-3 py-2 bg-muted/30 rounded-lg text-sm">
+                  <div
+                    key={i}
+                    className="flex items-center justify-between px-3 py-2 bg-muted/30 rounded-lg text-sm"
+                  >
                     <div className="flex items-center gap-2">
                       <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="truncate">{f.fileName}</span>
-                      <span className="text-muted-foreground text-xs">({formatFileSize(f.fileSize)})</span>
+                      <span className="text-muted-foreground text-xs">
+                        ({formatFileSize(f.fileSize)})
+                      </span>
                     </div>
-                    <button type="button" onClick={() => removeFile(i)} className="p-1 hover:bg-muted rounded cursor-pointer">
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="p-1 hover:bg-muted rounded cursor-pointer"
+                    >
                       <X className="h-3.5 w-3.5 text-muted-foreground" />
                     </button>
                   </div>
@@ -319,32 +392,47 @@ export default function NovoDocumentoPage() {
           <Label>Destinatários (protocolo de recebimento) *</Label>
           <MultiSelectDropdown
             placeholder="Selecionar destinatários"
-            options={availableUsers.map((u: UserOption) => ({ value: u.id, label: u.name }))}
+            options={availableUsers.map((u: UserOption) => ({
+              value: u.id,
+              label: u.name,
+            }))}
             selected={recipientIds}
-            onToggle={(id) => toggleMultiSelect("recipientIds", recipientIds, id)}
+            onToggle={(id) =>
+              toggleMultiSelect("recipientIds", recipientIds, id)
+            }
           />
-          {errors.recipientIds && <p className="text-xs text-red-500 mt-1">{errors.recipientIds.message}</p>}
+          {errors.recipientIds && (
+            <p className="text-xs text-red-500 mt-1">
+              {errors.recipientIds.message}
+            </p>
+          )}
         </div>
 
         <div>
           <Label>Referências a outros documentos</Label>
           <MultiSelectDropdown
             placeholder="Selecionar documentos referenciados"
-            options={(existingDocs || []).map((d) => ({ value: d.id, label: d.title }))}
+            options={(existingDocs || []).map((d) => ({
+              value: d.id,
+              label: d.title,
+            }))}
             selected={referenceIds}
-            onToggle={(id) => toggleMultiSelect("referenceIds", referenceIds, id)}
+            onToggle={(id) =>
+              toggleMultiSelect("referenceIds", referenceIds, id)
+            }
           />
         </div>
 
         <div className="flex gap-3 pt-4 border-t border-border/40">
-          <Button type="button" variant="outline" size="sm" onClick={() => navigate("/app/qualidade/documentacao")}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/app/qualidade/documentacao")}
+          >
             Cancelar
           </Button>
-          <Button
-            type="submit"
-            size="sm"
-            isLoading={isSubmitting}
-          >
+          <Button type="submit" size="sm" isLoading={isSubmitting}>
             Salvar Documento
           </Button>
         </div>
@@ -377,11 +465,27 @@ function MultiSelectDropdown({
         onClick={() => setOpen(!open)}
         className="flex items-center justify-between w-full h-9 border-0 border-b border-border bg-transparent px-0 py-2 text-sm text-left cursor-pointer focus:outline-none focus:border-foreground transition-colors"
       >
-        <span className={selectedLabels.length > 0 ? "text-foreground truncate" : "text-muted-foreground/50"}>
+        <span
+          className={
+            selectedLabels.length > 0
+              ? "text-foreground truncate"
+              : "text-muted-foreground/50"
+          }
+        >
           {selectedLabels.length > 0 ? selectedLabels.join(", ") : placeholder}
         </span>
-        <svg className="h-4 w-4 text-muted-foreground shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        <svg
+          className="h-4 w-4 text-muted-foreground shrink-0"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
         </svg>
       </button>
       {open && (
@@ -389,7 +493,9 @@ function MultiSelectDropdown({
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto bg-white border border-border/60 rounded-xl shadow-lg py-1">
             {options.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-muted-foreground">Nenhuma opção disponível</div>
+              <div className="px-3 py-2 text-sm text-muted-foreground">
+                Nenhuma opção disponível
+              </div>
             ) : (
               options.map((opt) => (
                 <label

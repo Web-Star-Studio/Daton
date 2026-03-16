@@ -1,51 +1,20 @@
 import { Resend } from "resend";
 
-type ReplitConnectorSettings = {
-  settings?: {
-    api_key?: string;
-    from_email?: string;
-  };
-};
-
-let connectionSettings: ReplitConnectorSettings | undefined;
-
 async function getCredentials() {
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const xReplitToken = process.env.REPL_IDENTITY
-    ? "repl " + process.env.REPL_IDENTITY
-    : process.env.WEB_REPL_RENEWAL
-      ? "depl " + process.env.WEB_REPL_RENEWAL
-      : null;
+  const apiKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.RESEND_FROM_EMAIL;
 
-  if (!xReplitToken) {
-    throw new Error("X-Replit-Token not found for repl/depl");
+  if (!apiKey) {
+    throw new Error("RESEND_API_KEY is required");
   }
 
-  const data = await fetch(
-    "https://" + hostname + "/api/v2/connection?include_secrets=true&connector_names=resend",
-    {
-      headers: {
-        Accept: "application/json",
-        "X-Replit-Token": xReplitToken,
-      },
-    },
-  ).then((res) => res.json()) as { items?: ReplitConnectorSettings[] };
-
-  connectionSettings = data.items?.[0];
-
-  const settings = connectionSettings?.settings;
-
-  if (!settings?.api_key) {
-    throw new Error("Resend not connected: missing api_key");
-  }
-
-  if (!settings.from_email) {
-    throw new Error("Resend not connected: missing from_email");
+  if (!fromEmail) {
+    throw new Error("RESEND_FROM_EMAIL is required");
   }
 
   return {
-    apiKey: settings.api_key,
-    fromEmail: settings.from_email,
+    apiKey,
+    fromEmail,
   };
 }
 
