@@ -1,12 +1,14 @@
+import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LayoutProvider } from "@/contexts/LayoutContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 
 import AuthPage from "@/pages/auth";
+import OnboardingOrganizationPage from "@/pages/onboarding-organizacao";
 import AppIndex from "@/pages/app/index";
 import OrganizacaoPage from "@/pages/app/organizacao";
 import UnitDetailPage from "@/pages/app/organizacao/unidades/[id]";
@@ -56,11 +58,50 @@ function AppPages() {
 }
 
 function Router() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
+  const { isAuthenticated, isLoading, organization } = useAuth();
   const isAppRoute =
     location.startsWith("/app") ||
     location.startsWith("/organizacao") ||
     location.startsWith("/qualidade");
+  const isAuthRoute = location === "/" || location.startsWith("/auth");
+  const isOnboardingRoute = location.startsWith("/onboarding/organizacao");
+  const onboardingPending = organization?.onboardingStatus === "pending";
+  let redirectTo: string | null = null;
+
+  if (!isLoading) {
+    if (!isAuthenticated && (isAppRoute || isOnboardingRoute)) {
+      redirectTo = "/auth";
+    } else if (isAuthenticated && onboardingPending && !isOnboardingRoute) {
+      redirectTo = "/onboarding/organizacao";
+    } else if (isAuthenticated && !onboardingPending && (isOnboardingRoute || isAuthRoute)) {
+      redirectTo = "/organizacao";
+    }
+  }
+
+  useEffect(() => {
+    if (redirectTo && redirectTo !== location) {
+      navigate(redirectTo);
+    }
+  }, [location, navigate, redirectTo]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">Carregando sessão...</p>
+      </div>
+    );
+  }
+
+  if (redirectTo && redirectTo !== location) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">
+          {redirectTo === "/onboarding/organizacao" ? "Preparando onboarding..." : "Redirecionando..."}
+        </p>
+      </div>
+    );
+  }
 
   if (isAppRoute) {
     return (
@@ -76,6 +117,7 @@ function Router() {
     <Switch>
       <Route path="/" component={AuthPage} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/onboarding/organizacao" component={OnboardingOrganizationPage} />
       <Route path="/convite/:token" component={AcceptInvitePage} />
       <Route component={NotFound} />
     </Switch>

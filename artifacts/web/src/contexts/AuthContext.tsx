@@ -14,6 +14,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (token: string) => void;
   logout: () => void;
+  refreshAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,6 +44,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = import.meta.env.BASE_URL || "/";
   };
 
+  const refreshAuth = async () => {
+    await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+    await refetch();
+  };
+
   useEffect(() => {
     if (error) {
       localStorage.removeItem("daton_token");
@@ -65,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!data?.user,
         login,
         logout,
+        refreshAuth,
       }}
     >
       {children}

@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Pencil, Mail, X, Clock, CheckCircle2, XCircle, Shield, ShieldCheck, Eye, Settings2 } from "lucide-react";
+import { Plus, Trash2, Pencil, Mail, X, Clock, CheckCircle2, XCircle, Shield, ShieldCheck, Eye, Settings2, RotateCcw } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -71,6 +71,32 @@ type InviteFormData = {
   modules: OrgUserModule[];
 };
 
+const SECTOR_LABELS: Record<string, string> = {
+  manufacturing: "Indústria de transformação", agro: "Agro", food_beverage: "Alimentos e bebidas",
+  mining: "Mineração", oil_gas: "Óleo e gás", energy: "Energia", chemical: "Químico",
+  pulp_paper: "Papel e celulose", steel: "Siderurgia", logistics: "Logística",
+  financial: "Financeiro", telecom: "Telecom", public: "Setor público",
+  pharma_cosmetics: "Farma e cosméticos", automotive: "Automotivo", technology: "Tecnologia",
+  consumer_goods: "Bens de consumo", utilities: "Utilities", healthcare: "Saúde",
+  education: "Educação", retail: "Varejo", construction: "Construção", services: "Serviços", other: "Outro",
+};
+
+const SIZE_LABELS: Record<string, string> = {
+  micro: "Micro", small: "Pequena", medium: "Média", large: "Grande", xlarge: "Muito grande", enterprise: "Enterprise",
+};
+
+const GOAL_LABELS: Record<string, string> = {
+  emissions_reduction: "Redução de emissões", environmental_compliance: "Conformidade ambiental",
+  health_safety: "Saúde e segurança", energy_efficiency: "Eficiência energética",
+  water_management: "Gestão de água", waste_reduction: "Redução de resíduos",
+  sustainability: "Sustentabilidade", quality: "Qualidade", compliance: "Compliance",
+  performance: "Performance", innovation: "Inovação", cost_reduction: "Redução de custos",
+};
+
+const MATURITY_LABELS: Record<string, string> = {
+  beginner: "Inicial", intermediate: "Intermediário", advanced: "Avançado",
+};
+
 const ROLE_LABELS: Record<string, string> = {
   platform_admin: "Admin Plataforma",
   org_admin: "Admin Organização",
@@ -102,7 +128,7 @@ const emptyInviteForm: InviteFormData = {
 };
 
 export default function OrganizacaoPage() {
-  const { organization, user: currentUser } = useAuth();
+  const { organization, user: currentUser, refreshAuth } = useAuth();
   const { isOrgAdmin, canWriteModule, hasModuleAccess } = usePermissions();
   const orgId = organization?.id;
   const queryClient = useQueryClient();
@@ -223,11 +249,24 @@ export default function OrganizacaoPage() {
     switch (activeTab) {
       case "visao-geral":
         if (!isOrgAdmin) return null;
-        return isEditingOrg ? null : (
-          <Button size="sm" variant="outline" onClick={() => setIsEditingOrg(true)}>
-            <Pencil className="h-3.5 w-3.5 mr-1.5" />
-            Editar
-          </Button>
+        if (isEditingOrg) return null;
+        return (
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={async () => {
+              if (!orgId) return;
+              if (!confirm("Tem certeza que deseja refazer o onboarding? Você será redirecionado para o fluxo inicial.")) return;
+              await updateOrgMut.mutateAsync({ orgId, data: { onboardingStatus: "pending" } });
+              await refreshAuth();
+              navigate("/onboarding/organizacao");
+            }} isLoading={updateOrgMut.isPending}>
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+              Refazer onboarding
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setIsEditingOrg(true)}>
+              <Pencil className="h-3.5 w-3.5 mr-1.5" />
+              Editar
+            </Button>
+          </div>
         );
       case "unidades":
         if (!canWriteModule("units")) return null;
@@ -307,7 +346,7 @@ export default function OrganizacaoPage() {
           </div>
         );
     }
-  }, [activeTab, canWriteModule, deleteInviteMut.isPending, invitationsData, isEditingOrg, isOrgAdmin, queryClient, resetCreateUserDialog, revokeInviteMut.isPending, selectedInviteIds]);
+  }, [activeTab, canWriteModule, deleteInviteMut.isPending, invitationsData, isEditingOrg, isOrgAdmin, navigate, orgId, queryClient, refreshAuth, resetCreateUserDialog, revokeInviteMut.isPending, selectedInviteIds, updateOrgMut]);
   useHeaderActions(headerActions);
 
   const allTabs: { key: Tab; label: string; module?: string }[] = [
@@ -410,9 +449,10 @@ export default function OrganizacaoPage() {
       </div>
 
       {activeTab === "visao-geral" && (
-        <div className="space-y-8">
+        <div className="space-y-10">
+          {/* Dados Cadastrais */}
           <div>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Dados Cadastrais</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Dados Cadastrais</h3>
             {isEditingOrg ? (
               <div className="grid grid-cols-3 gap-4">
                 <div>
@@ -452,30 +492,30 @@ export default function OrganizacaoPage() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-x-8 gap-y-5">
+              <div className="grid grid-cols-3 gap-x-8 gap-y-6">
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Razão Social</p>
-                  <p className="text-[14px] font-medium text-foreground">{orgData?.name || "—"}</p>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Razão Social</p>
+                  <p className="text-[14px] text-foreground">{orgData?.name || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">CNPJ</p>
-                  <p className="text-[14px] font-medium text-foreground">{orgData?.cnpj || "—"}</p>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">CNPJ</p>
+                  <p className="text-[14px] text-foreground">{orgData?.cnpj || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Nome Fantasia</p>
-                  <p className="text-[14px] font-medium text-foreground">{orgData?.nomeFantasia || "—"}</p>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Nome Fantasia</p>
+                  <p className="text-[14px] text-foreground">{orgData?.nomeFantasia || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Data de Fundação</p>
-                  <p className="text-[14px] font-medium text-foreground">{orgData?.dataFundacao || "—"}</p>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Data de Fundação</p>
+                  <p className="text-[14px] text-foreground">{orgData?.dataFundacao || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Inscrição Estadual</p>
-                  <p className="text-[14px] font-medium text-foreground">{orgData?.inscricaoEstadual || "—"}</p>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Inscrição Estadual</p>
+                  <p className="text-[14px] text-foreground">{orgData?.inscricaoEstadual || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Status Operacional</p>
-                  <p className="text-[14px] font-medium text-foreground">
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Status Operacional</p>
+                  <p className="text-[14px] text-foreground">
                     {orgData?.statusOperacional === "ativa" ? "Ativa" : orgData?.statusOperacional === "inativa" ? "Inativa" : "—"}
                     {orgData?.statusOperacional === "ativa" && <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 ml-2" />}
                   </p>
@@ -484,9 +524,91 @@ export default function OrganizacaoPage() {
             )}
           </div>
 
+          {/* Perfil da Empresa (onboarding data) */}
+          {orgData?.onboardingData?.companyProfile && (() => {
+            const profile = orgData.onboardingData.companyProfile;
+            return (
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Perfil da Empresa</h3>
+                <div className="grid grid-cols-3 gap-x-8 gap-y-6">
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Setor</p>
+                    <p className="text-[14px] text-foreground">
+                      {profile.sector === "other" && profile.customSector
+                        ? profile.customSector
+                        : SECTOR_LABELS[profile.sector] ?? profile.sector}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Porte</p>
+                    <p className="text-[14px] text-foreground">{SIZE_LABELS[profile.size] ?? profile.size}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Maturidade</p>
+                    <p className="text-[14px] text-foreground">{MATURITY_LABELS[profile.maturityLevel] ?? profile.maturityLevel}</p>
+                  </div>
+                  <div className="col-span-3">
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-2.5">Objetivos</p>
+                    {profile.goals.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {profile.goals.map((goal) => (
+                          <span key={goal} className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-3 py-1 text-[12px] text-foreground">
+                            {GOAL_LABELS[goal] ?? goal}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[14px] text-muted-foreground">—</p>
+                    )}
+                  </div>
+                  {profile.currentChallenges.length > 0 && (
+                    <div className="col-span-3">
+                      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-2.5">Desafios Atuais</p>
+                      <div className="flex flex-wrap gap-2">
+                        {profile.currentChallenges.map((challenge) => (
+                          <span key={challenge} className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-3 py-1 text-[12px] text-foreground">
+                            {challenge}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Dados Fiscais e Cadastrais */}
+          {orgData && (orgData.taxRegime || orgData.primaryCnae || orgData.municipalRegistration) && (
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Dados Fiscais</h3>
+              <div className="grid grid-cols-3 gap-x-8 gap-y-6">
+                {orgData.taxRegime && (
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Regime Tributário</p>
+                    <p className="text-[14px] text-foreground">{orgData.taxRegime}</p>
+                  </div>
+                )}
+                {orgData.primaryCnae && (
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">CNAE Principal</p>
+                    <p className="text-[14px] text-foreground">{orgData.primaryCnae}</p>
+                  </div>
+                )}
+                {orgData.municipalRegistration && (
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Inscrição Municipal</p>
+                    <p className="text-[14px] text-foreground">{orgData.municipalRegistration}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Sede Principal */}
           {sede && (
             <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Sede Principal</h3>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Sede Principal</h3>
               <div className="bg-muted/30 rounded-xl overflow-hidden">
                 <div className="bg-gradient-to-br from-slate-200 to-slate-300 h-40 relative">
                   <div className="absolute bottom-4 left-4 bg-white rounded-xl shadow-sm p-4 max-w-xs">

@@ -8,19 +8,24 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Eye, EyeOff } from "lucide-react";
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
   password: z.string().min(1, "A senha é obrigatória"),
 });
 
 const registerSchema = z.object({
-  razaoSocial: z.string().min(2, "Razão social é obrigatória"),
-  nomeFantasia: z.string().optional(),
-  cnpj: z.string().optional(),
-  adminName: z.string().min(2, "Nome do administrador é obrigatório"),
-  email: z.string().email("Email inválido"),
+  legalName: z.string().min(2, "Razão social é obrigatória"),
+  tradeName: z.string().optional(),
+  legalIdentifier: z.string().min(14, "CNPJ é obrigatório"),
+  adminFullName: z.string().min(2, "Nome do administrador é obrigatório"),
+  adminEmail: z.string().email("Email inválido"),
   password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
+  confirmPassword: z.string().min(1, "Confirme sua senha"),
   terms: z.literal(true, { errorMap: () => ({ message: "Você deve aceitar os termos" }) }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
 });
 
 type LoginData = z.infer<typeof loginSchema>;
@@ -29,6 +34,9 @@ type RegisterData = z.infer<typeof registerSchema>;
 export default function AuthPage() {
   const authBg = "/images/bg-auth.png";
   const [isLogin, setIsLogin] = useState(true);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [, setLocation] = useLocation();
   const { login: setAuthToken } = useAuth();
 
@@ -47,9 +55,10 @@ export default function AuthPage() {
     try {
       const res = await loginMutation.mutateAsync({ data });
       setAuthToken(res.token);
-      setLocation("/organizacao");
-    } catch {
-      alert("Credenciais inválidas");
+      setLocation("/app");
+    } catch (err: unknown) {
+      const message = (err as { data?: { error?: string } })?.data?.error || "Credenciais inválidas";
+      alert(message);
     }
   };
 
@@ -57,18 +66,19 @@ export default function AuthPage() {
     try {
       const res = await registerMutation.mutateAsync({
         data: {
-          razaoSocial: data.razaoSocial,
-          nomeFantasia: data.nomeFantasia,
-          cnpj: data.cnpj,
-          adminName: data.adminName,
-          email: data.email,
+          legalName: data.legalName,
+          tradeName: data.tradeName || undefined,
+          legalIdentifier: data.legalIdentifier,
+          adminFullName: data.adminFullName,
+          adminEmail: data.adminEmail,
           password: data.password,
         },
       });
       setAuthToken(res.token);
-      setLocation("/organizacao");
-    } catch {
-      alert("Erro ao criar conta. Verifique os dados.");
+      setLocation("/app");
+    } catch (err: unknown) {
+      const message = (err as { data?: { error?: string } })?.data?.error || "Erro ao criar conta. Verifique os dados.";
+      alert(message);
     }
   };
 
@@ -113,7 +123,16 @@ export default function AuthPage() {
                   </div>
                   <div>
                     <Label>Senha</Label>
-                    <Input type="password" {...loginForm.register("password")} className="mt-2" />
+                    <div className="relative mt-2">
+                      <Input type={showLoginPassword ? "text" : "password"} {...loginForm.register("password")} className="pr-10" />
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                     {loginForm.formState.errors.password && (
                       <p className="text-xs text-destructive mt-1.5">{loginForm.formState.errors.password.message}</p>
                     )}
@@ -153,38 +172,66 @@ export default function AuthPage() {
                 <div className="grid grid-cols-2 gap-x-6 gap-y-6">
                   <div>
                     <Label>Razão social</Label>
-                    <Input {...registerForm.register("razaoSocial")} className="mt-2" />
-                    {registerForm.formState.errors.razaoSocial && (
-                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.razaoSocial.message}</p>
+                    <Input {...registerForm.register("legalName")} className="mt-2" />
+                    {registerForm.formState.errors.legalName && (
+                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.legalName.message}</p>
                     )}
                   </div>
                   <div>
                     <Label>Nome fantasia</Label>
-                    <Input {...registerForm.register("nomeFantasia")} className="mt-2" />
+                    <Input {...registerForm.register("tradeName")} className="mt-2" />
                   </div>
                   <div>
                     <Label>CNPJ</Label>
-                    <Input {...registerForm.register("cnpj")} placeholder="00.000.000/0000-00" className="mt-2" />
+                    <Input {...registerForm.register("legalIdentifier")} placeholder="00.000.000/0000-00" className="mt-2" />
+                    {registerForm.formState.errors.legalIdentifier && (
+                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.legalIdentifier.message}</p>
+                    )}
                   </div>
                   <div>
                     <Label>Nome completo do administrador</Label>
-                    <Input {...registerForm.register("adminName")} className="mt-2" />
-                    {registerForm.formState.errors.adminName && (
-                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.adminName.message}</p>
+                    <Input {...registerForm.register("adminFullName")} className="mt-2" />
+                    {registerForm.formState.errors.adminFullName && (
+                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.adminFullName.message}</p>
                     )}
                   </div>
                   <div>
                     <Label>E-mail do administrador</Label>
-                    <Input {...registerForm.register("email")} className="mt-2" />
-                    {registerForm.formState.errors.email && (
-                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.email.message}</p>
+                    <Input {...registerForm.register("adminEmail")} className="mt-2" />
+                    {registerForm.formState.errors.adminEmail && (
+                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.adminEmail.message}</p>
                     )}
                   </div>
                   <div>
                     <Label>Senha</Label>
-                    <Input type="password" {...registerForm.register("password")} className="mt-2" />
+                    <div className="relative mt-2">
+                      <Input type={showRegisterPassword ? "text" : "password"} {...registerForm.register("password")} className="pr-10" />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                     {registerForm.formState.errors.password && (
                       <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.password.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>Confirmar senha</Label>
+                    <div className="relative mt-2">
+                      <Input type={showConfirmPassword ? "text" : "password"} {...registerForm.register("confirmPassword")} className="pr-10" />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    {registerForm.formState.errors.confirmPassword && (
+                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.confirmPassword.message}</p>
                     )}
                   </div>
                 </div>

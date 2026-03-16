@@ -23,6 +23,7 @@ import type {
   ApproveDocumentBody,
   AssignLegislationBody,
   AuthResponse,
+  CompleteOrganizationOnboardingBody,
   ComplianceTag,
   CreateAwarenessBody,
   CreateCompetencyBody,
@@ -672,6 +673,97 @@ export const useUpdateOrganization = <
   TContext
 > => {
   return useMutation(getUpdateOrganizationMutationOptions(options));
+};
+
+/**
+ * @summary Complete organization onboarding
+ */
+export const getCompleteOrganizationOnboardingUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/onboarding/complete`;
+};
+
+export const completeOrganizationOnboarding = async (
+  orgId: number,
+  completeOrganizationOnboardingBody: CompleteOrganizationOnboardingBody,
+  options?: RequestInit,
+): Promise<Organization> => {
+  return customFetch<Organization>(
+    getCompleteOrganizationOnboardingUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(completeOrganizationOnboardingBody),
+    },
+  );
+};
+
+export const getCompleteOrganizationOnboardingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeOrganizationOnboarding>>,
+    TError,
+    { orgId: number; data: BodyType<CompleteOrganizationOnboardingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof completeOrganizationOnboarding>>,
+  TError,
+  { orgId: number; data: BodyType<CompleteOrganizationOnboardingBody> },
+  TContext
+> => {
+  const mutationKey = ["completeOrganizationOnboarding"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof completeOrganizationOnboarding>>,
+    { orgId: number; data: BodyType<CompleteOrganizationOnboardingBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return completeOrganizationOnboarding(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CompleteOrganizationOnboardingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof completeOrganizationOnboarding>>
+>;
+export type CompleteOrganizationOnboardingMutationBody =
+  BodyType<CompleteOrganizationOnboardingBody>;
+export type CompleteOrganizationOnboardingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Complete organization onboarding
+ */
+export const useCompleteOrganizationOnboarding = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeOrganizationOnboarding>>,
+    TError,
+    { orgId: number; data: BodyType<CompleteOrganizationOnboardingBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof completeOrganizationOnboarding>>,
+  TError,
+  { orgId: number; data: BodyType<CompleteOrganizationOnboardingBody> },
+  TContext
+> => {
+  return useMutation(getCompleteOrganizationOnboardingMutationOptions(options));
 };
 
 /**

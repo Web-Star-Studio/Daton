@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
-import { db, userModulePermissionsTable } from "@workspace/db";
+import { db, organizationsTable, userModulePermissionsTable } from "@workspace/db";
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -87,6 +87,33 @@ export function requireModuleAccess(moduleName: AppModule) {
     }
     next();
   };
+}
+
+export async function requireCompletedOnboarding(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (!req.auth) {
+    res.status(401).json({ error: "Não autenticado" });
+    return;
+  }
+
+  const [organization] = await db
+    .select({ onboardingStatus: organizationsTable.onboardingStatus })
+    .from(organizationsTable)
+    .where(eq(organizationsTable.id, req.auth.organizationId));
+
+  if (!organization) {
+    res.status(404).json({ error: "Organização não encontrada" });
+    return;
+  }
+
+  if (organization.onboardingStatus === "pending") {
+    res.status(403).json({
+      error: "Onboarding da organização pendente",
+      code: "ONBOARDING_PENDING",
+    });
+    return;
+  }
+
+  next();
 }
 
 export function requireWriteAccess() {

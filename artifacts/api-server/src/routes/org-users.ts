@@ -3,7 +3,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db, usersTable, userModulePermissionsTable } from "@workspace/db";
 import { CreateOrgUserBody } from "@workspace/api-zod";
-import { requireAuth, requireRole, APP_MODULES } from "../middlewares/auth";
+import { requireAuth, requireCompletedOnboarding, requireRole, APP_MODULES } from "../middlewares/auth";
 import type { AppModule, UserRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -25,7 +25,7 @@ function serializeOrgUser(user: {
   };
 }
 
-router.get("/organizations/:orgId/users", requireAuth, requireRole("org_admin"), async (req, res): Promise<void> => {
+router.get("/organizations/:orgId/users", requireAuth, requireCompletedOnboarding, requireRole("org_admin"), async (req, res): Promise<void> => {
   const orgId = Number(req.params.orgId);
   if (orgId !== req.auth!.organizationId) {
     res.status(403).json({ error: "Acesso negado" });
@@ -54,6 +54,7 @@ router.get("/organizations/:orgId/users", requireAuth, requireRole("org_admin"),
 
 router.post("/organizations/:orgId/users",
   requireAuth,
+  requireCompletedOnboarding,
   requireRole("org_admin"),
   async (req, res): Promise<void> => {
     const orgId = Number(req.params.orgId);
@@ -118,6 +119,7 @@ router.post("/organizations/:orgId/users",
 
 router.patch("/organizations/:orgId/users/:userId/role",
   requireAuth,
+  requireCompletedOnboarding,
   requireRole("org_admin"),
   async (req, res): Promise<void> => {
     const orgId = Number(req.params.orgId);
@@ -161,6 +163,7 @@ router.patch("/organizations/:orgId/users/:userId/role",
 
 router.put("/organizations/:orgId/users/:userId/modules",
   requireAuth,
+  requireCompletedOnboarding,
   requireRole("org_admin"),
   async (req, res): Promise<void> => {
     const orgId = Number(req.params.orgId);
