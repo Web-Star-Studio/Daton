@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useRoute, Link } from "wouter";
+import { useParams, Link } from "wouter";
 import { useHeaderActions, usePageTitle } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import {
@@ -283,7 +283,7 @@ function TagEditor({
 type Tab = "geral" | "unidades";
 
 export default function LegislationDetailPage() {
-  const [, params] = useRoute("/app/qualidade/legislacoes/:id");
+  const params = useParams<{ id: string }>();
   const legId = parseInt(params?.id || "0");
 
   const { organization } = useAuth();
@@ -558,7 +558,7 @@ export default function LegislationDetailPage() {
   useHeaderActions(
     leg ? (
       <div className="flex items-center gap-2">
-        <Link href="/app/qualidade/legislacoes">
+        <Link href="/qualidade/legislacoes">
           <Button variant="ghost" size="sm">
             <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
           </Button>

@@ -5,8 +5,7 @@ export default function AppIndex() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    // Redirect default /app to the main module for now
-    setLocation("/app/qualidade/legislacoes");
+    setLocation("/organizacao");
   }, [setLocation]);
 
   return (

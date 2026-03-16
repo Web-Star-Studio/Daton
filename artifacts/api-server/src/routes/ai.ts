@@ -215,7 +215,7 @@ router.post("/ai/conversations/:convId/messages", requireAuth, async (req: Reque
 
     while (maxToolCalls > 0) {
       const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5-mini-2025-08-07",
         max_completion_tokens: 8192,
         messages: currentMessages,
         tools: [DB_QUERY_TOOL],

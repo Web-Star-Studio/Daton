@@ -517,7 +517,7 @@ export default function OrganizacaoPage() {
               {units?.map((unit) => (
                 <div
                   key={unit.id}
-                  onClick={() => navigate(`/app/organizacao/unidades/${unit.id}`)}
+                  onClick={() => navigate(`/organizacao/unidades/${unit.id}`)}
                   className="bg-card border border-border rounded-xl p-5 hover:shadow-sm transition-shadow group cursor-pointer"
                 >
                   <div className="flex justify-between items-start mb-3">

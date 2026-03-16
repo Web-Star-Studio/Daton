@@ -46,7 +46,7 @@ export default function AcceptInvitePage() {
       });
       if (result.token) {
         login(result.token);
-        setLocation("/app");
+        setLocation("/organizacao");
       }
     } catch (err: any) {
       setFormError(err?.response?.data?.error || err?.data?.error || "Erro ao aceitar convite");

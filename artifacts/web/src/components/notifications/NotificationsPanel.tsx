@@ -29,9 +29,9 @@ function getNotificationLink(notification: NotificationItem): string | null {
   if (!notification.relatedEntityType || !notification.relatedEntityId) return null;
   switch (notification.relatedEntityType) {
     case "document":
-      return `/app/qualidade/documentacao/${notification.relatedEntityId}`;
+      return `/qualidade/documentacao/${notification.relatedEntityId}`;
     case "legislation":
-      return `/app/qualidade/legislacoes/${notification.relatedEntityId}`;
+      return `/qualidade/legislacoes/${notification.relatedEntityId}`;
     default:
       return null;
   }

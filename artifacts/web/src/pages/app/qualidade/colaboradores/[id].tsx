@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useRoute, Link } from "wouter";
+import { useParams, Link } from "wouter";
 import { usePageTitle } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import {
@@ -863,7 +863,7 @@ export default function ColaboradorDetailPage() {
   const { canWriteModule } = usePermissions();
   const orgId = user?.organizationId;
   const canWriteEmployees = canWriteModule("employees");
-  const [, params] = useRoute("/app/qualidade/colaboradores/:id");
+  const params = useParams<{ id: string }>();
   const empId = Number(params?.id);
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
@@ -893,7 +893,7 @@ export default function ColaboradorDetailPage() {
     if (!confirm("Tem certeza que deseja arquivar este colaborador? O status será alterado para Inativo.")) return;
     await deleteMutation.mutateAsync({ orgId: orgId!, empId });
     queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey(orgId!) });
-    navigate("/app/qualidade/colaboradores");
+    navigate("/qualidade/colaboradores");
   };
 
   usePageTitle(employee?.name);
@@ -908,7 +908,7 @@ export default function ColaboradorDetailPage() {
     return (
       <div className="text-center py-20">
         <p className="text-[13px] text-muted-foreground">Colaborador não encontrado</p>
-        <Link href="/app/qualidade/colaboradores">
+        <Link href="/qualidade/colaboradores">
           <Button variant="outline" size="sm" className="mt-4 cursor-pointer">
             Voltar
           </Button>
@@ -929,7 +929,7 @@ export default function ColaboradorDetailPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/app/qualidade/colaboradores">
+            <Link href="/qualidade/colaboradores">
               <button className="p-1.5 rounded-lg hover:bg-secondary/60 text-muted-foreground transition-colors cursor-pointer">
                 <ArrowLeft className="h-4 w-4" />
               </button>

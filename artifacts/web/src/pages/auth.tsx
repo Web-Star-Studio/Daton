@@ -48,7 +48,7 @@ export default function AuthPage() {
     try {
       const res = await loginMutation.mutateAsync({ data });
       setAuthToken(res.token);
-      setLocation("/app/qualidade/legislacoes");
+      setLocation("/organizacao");
     } catch {
       alert("Credenciais inválidas");
     }
@@ -67,7 +67,7 @@ export default function AuthPage() {
         },
       });
       setAuthToken(res.token);
-      setLocation("/app/qualidade/legislacoes");
+      setLocation("/organizacao");
     } catch {
       alert("Erro ao criar conta. Verifique os dados.");
     }

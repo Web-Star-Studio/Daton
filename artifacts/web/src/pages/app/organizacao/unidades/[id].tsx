@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useRoute, Link } from "wouter";
+import { useParams, Link } from "wouter";
 import { useHeaderActions, usePageTitle } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import {
@@ -20,7 +20,7 @@ import { ArrowLeft, Pencil, Save, X, ClipboardList } from "lucide-react";
 import { QuestionnaireModal } from "@/components/questionnaire/QuestionnaireModal";
 
 export default function UnitDetailPage() {
-  const [, params] = useRoute("/app/organizacao/unidades/:id");
+  const params = useParams<{ id: string }>();
   const unitId = parseInt(params?.id || "0");
 
   const { organization } = useAuth();
@@ -110,7 +110,7 @@ export default function UnitDetailPage() {
   useHeaderActions(
     unit ? (
       <div className="flex items-center gap-2">
-        <Link href="/app/organizacao">
+        <Link href="/organizacao">
           <Button variant="ghost" size="sm">
             <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
           </Button>

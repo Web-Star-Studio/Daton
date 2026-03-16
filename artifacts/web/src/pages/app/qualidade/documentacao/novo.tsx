@@ -223,7 +223,7 @@ export default function NovoDocumentoPage() {
       queryClient.invalidateQueries({
         queryKey: getListDocumentsQueryKey(orgId),
       });
-      navigate(`/app/qualidade/documentacao/${doc.id}`);
+      navigate(`/qualidade/documentacao/${doc.id}`);
     } catch (err) {
       console.error("Create failed:", err);
     }
@@ -238,7 +238,7 @@ export default function NovoDocumentoPage() {
   return (
     <div className="max-w-3xl">
       <button
-        onClick={() => navigate("/app/qualidade/documentacao")}
+        onClick={() => navigate("/qualidade/documentacao")}
         className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 cursor-pointer"
       >
         <ArrowLeft className="h-4 w-4 mr-1.5" />
@@ -428,7 +428,7 @@ export default function NovoDocumentoPage() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => navigate("/app/qualidade/documentacao")}
+            onClick={() => navigate("/qualidade/documentacao")}
           >
             Cancelar
           </Button>

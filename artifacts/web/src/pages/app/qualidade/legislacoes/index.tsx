@@ -745,7 +745,7 @@ export default function LegislacoesPage() {
                       key={leg.id}
                       className={`transition-colors cursor-pointer ${isSelected ? "bg-primary/5" : "hover:bg-muted/50"}`}
                       onClick={() =>
-                        navigate(`/app/qualidade/legislacoes/${leg.id}`)
+                        navigate(`/qualidade/legislacoes/${leg.id}`)
                       }
                     >
                       <td

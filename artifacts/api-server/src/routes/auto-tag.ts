@@ -108,7 +108,7 @@ async function autoTagLegislation(leg: Legislation): Promise<string[]> {
   ].filter(Boolean).join("\n");
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-5-mini-2025-08-07",
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: `Analise esta legislação e selecione as tags aplicáveis:\n\n${content}` },

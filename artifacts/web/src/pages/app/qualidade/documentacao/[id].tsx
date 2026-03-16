@@ -447,7 +447,7 @@ export default function DocumentDetailPage() {
   const handleDelete = async () => {
     if (!orgId) return;
     await deleteMut.mutateAsync({ orgId, docId });
-    navigate("/app/qualidade/documentacao");
+    navigate("/qualidade/documentacao");
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -517,7 +517,7 @@ export default function DocumentDetailPage() {
       <div className="py-12 text-center">
         <p className="text-muted-foreground">Documento não encontrado.</p>
         <button
-          onClick={() => navigate("/app/qualidade/documentacao")}
+          onClick={() => navigate("/qualidade/documentacao")}
           className="text-sm text-primary mt-2 cursor-pointer"
         >
           Voltar para Documentação
@@ -536,7 +536,7 @@ export default function DocumentDetailPage() {
   return (
     <div>
       <button
-        onClick={() => navigate("/app/qualidade/documentacao")}
+        onClick={() => navigate("/qualidade/documentacao")}
         className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 cursor-pointer"
       >
         <ArrowLeft className="h-4 w-4 mr-1.5" />
@@ -648,7 +648,7 @@ export default function DocumentDetailPage() {
                     key={r.id}
                     className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-sm cursor-pointer hover:bg-blue-100 transition-colors"
                     onClick={() =>
-                      navigate(`/app/qualidade/documentacao/${r.documentId}`)
+                      navigate(`/qualidade/documentacao/${r.documentId}`)
                     }
                   >
                     {r.title}

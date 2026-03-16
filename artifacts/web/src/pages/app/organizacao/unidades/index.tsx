@@ -165,7 +165,7 @@ export default function UnidadesPage() {
               {units?.map((unit) => (
                 <tr
                   key={unit.id}
-                  onClick={() => navigate(`/app/organizacao/unidades/${unit.id}`)}
+                  onClick={() => navigate(`/organizacao/unidades/${unit.id}`)}
                   className="border-b border-border/60 hover:bg-muted/20 transition-colors cursor-pointer group"
                 >
                   <td className="px-3 py-4 w-10" onClick={(e) => e.stopPropagation()}>

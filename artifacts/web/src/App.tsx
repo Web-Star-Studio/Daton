@@ -31,6 +31,15 @@ const queryClient = new QueryClient({
 function AppPages() {
   return (
     <Switch>
+      <Route path="/organizacao" component={OrganizacaoPage} />
+      <Route path="/organizacao/unidades" component={OrganizacaoPage} />
+      <Route path="/organizacao/unidades/:id" component={UnitDetailPage} />
+      <Route path="/qualidade/legislacoes" component={LegislacoesPage} />
+      <Route path="/qualidade/legislacoes/:id" component={LegislationDetailPage} />
+      <Route path="/qualidade/colaboradores" component={ColaboradoresPage} />
+      <Route path="/qualidade/colaboradores/:id" component={ColaboradorDetailPage} />
+      <Route path="/qualidade/documentacao" component={DocumentacaoPage} />
+      <Route path="/qualidade/documentacao/:id" component={DocumentDetailPage} />
       <Route path="/app" component={AppIndex} />
       <Route path="/app/organizacao" component={OrganizacaoPage} />
       <Route path="/app/organizacao/unidades" component={OrganizacaoPage} />
@@ -48,7 +57,10 @@ function AppPages() {
 
 function Router() {
   const [location] = useLocation();
-  const isAppRoute = location.startsWith("/app");
+  const isAppRoute =
+    location.startsWith("/app") ||
+    location.startsWith("/organizacao") ||
+    location.startsWith("/qualidade");
 
   if (isAppRoute) {
     return (

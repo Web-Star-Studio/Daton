@@ -39,47 +39,49 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     },
   });
   const unreadNotifCount = notifData?.unreadCount ?? 0;
+  const normalizedLocation =
+    location === "/app" ? "/organizacao" : location.replace(/^\/app(?=\/|$)/, "");
 
   useEffect(() => {
     const moduleByPath: Array<{ prefix: string; module: "documents" | "legislations" | "employees" | "units" | "departments" | "positions" }> = [
-      { prefix: "/app/qualidade/documentacao", module: "documents" },
-      { prefix: "/app/qualidade/legislacoes", module: "legislations" },
-      { prefix: "/app/qualidade/colaboradores", module: "employees" },
-      { prefix: "/app/organizacao/unidades", module: "units" },
+      { prefix: "/qualidade/documentacao", module: "documents" },
+      { prefix: "/qualidade/legislacoes", module: "legislations" },
+      { prefix: "/qualidade/colaboradores", module: "employees" },
+      { prefix: "/organizacao/unidades", module: "units" },
     ];
 
-    const deniedRoute = moduleByPath.find((entry) => location.startsWith(entry.prefix) && !hasModuleAccess(entry.module));
+    const deniedRoute = moduleByPath.find((entry) => normalizedLocation.startsWith(entry.prefix) && !hasModuleAccess(entry.module));
     if (deniedRoute) {
-      navigate("/app");
+      navigate("/organizacao");
     }
-  }, [hasModuleAccess, location, navigate]);
+  }, [hasModuleAccess, navigate, normalizedLocation]);
 
-  const isActive = (path: string) => location.startsWith(path);
+  const isActive = (path: string) => normalizedLocation.startsWith(path);
 
   const getBreadcrumbs = (): { label: string; href?: string }[] => {
     const crumbs: { label: string; href?: string }[] = [];
 
-    if (location.startsWith("/app/qualidade")) {
+    if (normalizedLocation.startsWith("/qualidade")) {
       crumbs.push({ label: "Qualidade" });
-      if (location.startsWith("/app/qualidade/legislacoes")) {
-        crumbs.push({ label: "Legislações", href: "/app/qualidade/legislacoes" });
-        if (pageTitle && location !== "/app/qualidade/legislacoes") {
+      if (normalizedLocation.startsWith("/qualidade/legislacoes")) {
+        crumbs.push({ label: "Legislações", href: "/qualidade/legislacoes" });
+        if (pageTitle && normalizedLocation !== "/qualidade/legislacoes") {
           crumbs.push({ label: pageTitle });
         }
-      } else if (location.startsWith("/app/qualidade/colaboradores")) {
-        crumbs.push({ label: "Colaboradores", href: "/app/qualidade/colaboradores" });
-        if (pageTitle && location !== "/app/qualidade/colaboradores") {
+      } else if (normalizedLocation.startsWith("/qualidade/colaboradores")) {
+        crumbs.push({ label: "Colaboradores", href: "/qualidade/colaboradores" });
+        if (pageTitle && normalizedLocation !== "/qualidade/colaboradores") {
           crumbs.push({ label: pageTitle });
         }
-      } else if (location.startsWith("/app/qualidade/documentacao")) {
-        crumbs.push({ label: "Documentação", href: "/app/qualidade/documentacao" });
-        if (pageTitle && location !== "/app/qualidade/documentacao") {
+      } else if (normalizedLocation.startsWith("/qualidade/documentacao")) {
+        crumbs.push({ label: "Documentação", href: "/qualidade/documentacao" });
+        if (pageTitle && normalizedLocation !== "/qualidade/documentacao") {
           crumbs.push({ label: pageTitle });
         }
       }
-    } else if (location.startsWith("/app/organizacao")) {
-      crumbs.push({ label: "Organização", href: "/app/organizacao" });
-      if (location.startsWith("/app/organizacao/unidades/") && pageTitle) {
+    } else if (normalizedLocation.startsWith("/organizacao")) {
+      crumbs.push({ label: "Organização", href: "/organizacao" });
+      if (normalizedLocation.startsWith("/organizacao/unidades/") && pageTitle) {
         crumbs.push({ label: pageTitle });
       }
     }
@@ -90,9 +92,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const breadcrumbs = getBreadcrumbs();
 
   const qualidadeLinks = [
-    { href: "/app/qualidade/legislacoes", label: "Legislações", module: "legislations" as const },
-    { href: "/app/qualidade/colaboradores", label: "Colaboradores", module: "employees" as const },
-    { href: "/app/qualidade/documentacao", label: "Documentação", module: "documents" as const },
+    { href: "/qualidade/legislacoes", label: "Legislações", module: "legislations" as const },
+    { href: "/qualidade/colaboradores", label: "Colaboradores", module: "employees" as const },
+    { href: "/qualidade/documentacao", label: "Documentação", module: "documents" as const },
   ].filter(l => hasModuleAccess(l.module));
 
   const showQualidade = qualidadeLinks.length > 0;
@@ -111,10 +113,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         
         <div className="flex-1 overflow-y-auto py-5 px-2.5 space-y-1">
           <Link 
-            href="/app/organizacao"
+            href="/organizacao"
             className={cn(
               "flex items-center px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
-              isActive("/app/organizacao") 
+              isActive("/organizacao") 
                 ? "text-foreground font-medium" 
                 : "text-muted-foreground hover:text-foreground"
             )}
@@ -142,7 +144,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 href={qualidadeLinks[0].href}
                 className={cn(
                   "w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
-                  isActive("/app/qualidade")
+                  isActive("/qualidade")
                     ? "text-foreground font-medium"
                     : "text-muted-foreground hover:text-foreground"
                 )}

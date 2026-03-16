@@ -381,7 +381,7 @@ export default function DocumentacaoPage() {
                       key={doc.id}
                       className={`transition-colors cursor-pointer ${isSelected ? "bg-primary/5" : "hover:bg-muted/50"}`}
                       onClick={() =>
-                        navigate(`/app/qualidade/documentacao/${doc.id}`)
+                        navigate(`/qualidade/documentacao/${doc.id}`)
                       }
                     >
                       <td
@@ -447,7 +447,7 @@ export default function DocumentacaoPage() {
               queryKey: getListDocumentsQueryKey(orgId!),
             });
             setCreateOpen(false);
-            navigate(`/app/qualidade/documentacao/${docId}`);
+            navigate(`/qualidade/documentacao/${docId}`);
           }}
         />
       )}
