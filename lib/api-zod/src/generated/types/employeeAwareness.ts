@@ -14,6 +14,6 @@ export interface EmployeeAwareness {
   date: string;
   verificationMethod?: string | null;
   result?: string | null;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt?: string;
+  updatedAt?: string;
 }

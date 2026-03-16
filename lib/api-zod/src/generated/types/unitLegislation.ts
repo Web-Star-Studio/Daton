@@ -18,8 +18,8 @@ export interface UnitLegislation {
   /** @nullable */
   evidenceUrl: string | null;
   /** @nullable */
-  evaluatedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  evaluatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
   unit: Unit;
 }

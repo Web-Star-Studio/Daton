@@ -13,10 +13,11 @@ import {
   Bell
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import datonLogo from "@assets/daton-logo-header-DC_evyPp_1773347395767.png";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
 import { getListNotificationsQueryKey, useListNotifications } from "@workspace/api-client-react";
+
+const datonLogo = "/images/daton-logo.png";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, organization } = useAuth();

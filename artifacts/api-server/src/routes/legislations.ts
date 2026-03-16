@@ -17,7 +17,7 @@ import { requireAuth, requireModuleAccess, requireWriteAccess } from "../middlew
 
 const router: IRouter = Router();
 
-function normalizePublicationDate(value: Date | null | undefined): string | undefined {
+function normalizePublicationDate(value: string | Date | null | undefined): string | undefined {
   if (!value) {
     return undefined;
   }

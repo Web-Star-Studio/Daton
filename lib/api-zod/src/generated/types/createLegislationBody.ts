@@ -18,7 +18,7 @@ export interface CreateLegislationBody {
   macrotema?: string;
   subtema?: string;
   applicability?: string;
-  publicationDate?: Date;
+  publicationDate?: string;
   sourceUrl?: string;
   applicableArticles?: string;
   reviewFrequencyDays?: number;

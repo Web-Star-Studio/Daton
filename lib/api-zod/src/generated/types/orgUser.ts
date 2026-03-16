@@ -11,6 +11,6 @@ export interface OrgUser {
   name: string;
   email: string;
   role: string;
-  createdAt: Date;
+  createdAt: string;
   modules: string[];
 }

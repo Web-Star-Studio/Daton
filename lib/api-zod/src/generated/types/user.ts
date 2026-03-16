@@ -12,5 +12,5 @@ export interface User {
   email: string;
   organizationId: number;
   role: string;
-  createdAt: Date;
+  createdAt: string;
 }

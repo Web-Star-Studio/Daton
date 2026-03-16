@@ -34,6 +34,6 @@ export interface Unit {
   country?: string | null;
   /** @nullable */
   phone?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

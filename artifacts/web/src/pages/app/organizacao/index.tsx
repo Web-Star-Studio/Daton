@@ -310,6 +310,21 @@ export default function OrganizacaoPage() {
   }, [activeTab, canWriteModule, deleteInviteMut.isPending, invitationsData, isEditingOrg, isOrgAdmin, queryClient, resetCreateUserDialog, revokeInviteMut.isPending, selectedInviteIds]);
   useHeaderActions(headerActions);
 
+  const allTabs: { key: Tab; label: string; module?: string }[] = [
+    { key: "visao-geral", label: "Visão Geral" },
+    { key: "unidades", label: "Unidades", module: "units" },
+    { key: "departamentos", label: "Departamentos", module: "departments" },
+    { key: "cargos", label: "Cargos", module: "positions" },
+    ...(isOrgAdmin ? [{ key: "usuarios" as const, label: "Usuários" }] : []),
+  ];
+  const tabs = allTabs.filter(t => !t.module || hasModuleAccess(t.module as any));
+
+  useEffect(() => {
+    if (!tabs.some((tab) => tab.key === activeTab)) {
+      setActiveTab("visao-geral");
+    }
+  }, [activeTab, tabs]);
+
   if (!orgId) return null;
 
   const onUnitSubmit = async (data: UnitFormData) => {
@@ -372,21 +387,6 @@ export default function OrganizacaoPage() {
     setEditingPosId(null);
     posForm.reset();
   };
-
-  const allTabs: { key: Tab; label: string; module?: string }[] = [
-    { key: "visao-geral", label: "Visão Geral" },
-    { key: "unidades", label: "Unidades", module: "units" },
-    { key: "departamentos", label: "Departamentos", module: "departments" },
-    { key: "cargos", label: "Cargos", module: "positions" },
-    ...(isOrgAdmin ? [{ key: "usuarios" as const, label: "Usuários" }] : []),
-  ];
-  const tabs = allTabs.filter(t => !t.module || hasModuleAccess(t.module as any));
-
-  useEffect(() => {
-    if (!tabs.some((tab) => tab.key === activeTab)) {
-      setActiveTab("visao-geral");
-    }
-  }, [activeTab, tabs]);
 
   return (
     <>

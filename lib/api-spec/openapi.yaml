@@ -2950,6 +2950,12 @@ components:
         department:
           type: string
           nullable: true
+        professionalExperience:
+          type: string
+          nullable: true
+        educationCertifications:
+          type: string
+          nullable: true
         contractType:
           type: string
           enum: [clt, pj, intern, temporary]
@@ -3154,8 +3160,10 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
         cpf:
           type: string
+          minLength: 1
         email:
           type: string
           format: email
@@ -3164,6 +3172,10 @@ components:
         position:
           type: string
         department:
+          type: string
+        professionalExperience:
+          type: string
+        educationCertifications:
           type: string
         unitId:
           type: integer
@@ -3179,14 +3191,18 @@ components:
           enum: [active, inactive, on_leave]
       required:
         - name
+        - cpf
+        - admissionDate
 
     UpdateEmployeeBody:
       type: object
       properties:
         name:
           type: string
+          minLength: 1
         cpf:
           type: string
+          minLength: 1
         email:
           type: string
           format: email
@@ -3195,6 +3211,10 @@ components:
         position:
           type: string
         department:
+          type: string
+        professionalExperience:
+          type: string
+        educationCertifications:
           type: string
         unitId:
           type: integer

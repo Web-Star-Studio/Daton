@@ -17,6 +17,6 @@ export interface EmployeeTraining {
   completionDate?: string | null;
   expirationDate?: string | null;
   status: EmployeeTrainingStatus;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt?: string;
+  updatedAt?: string;
 }

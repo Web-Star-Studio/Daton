@@ -8,8 +8,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import authBg from "@assets/Gemini_Generated_Image_y7vg0oy7vg0oy7vg_1773347119413.png";
-
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
   password: z.string().min(1, "A senha é obrigatória"),
@@ -29,6 +27,7 @@ type LoginData = z.infer<typeof loginSchema>;
 type RegisterData = z.infer<typeof registerSchema>;
 
 export default function AuthPage() {
+  const authBg = "/images/bg-auth.png";
   const [isLogin, setIsLogin] = useState(true);
   const [, setLocation] = useLocation();
   const { login: setAuthToken } = useAuth();

@@ -19,6 +19,6 @@ export interface Organization {
   dataFundacao?: string | null;
   /** @nullable */
   statusOperacional?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }

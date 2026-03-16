@@ -62,7 +62,6 @@ export default defineConfig({
             param: ['boolean', 'number', 'string'],
           },
         },
-        useDates: true,
       },
     },
   },

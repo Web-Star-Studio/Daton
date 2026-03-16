@@ -24,6 +24,6 @@ export interface EmployeeCompetency {
    */
   acquiredLevel: number;
   evidence?: string | null;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt?: string;
+  updatedAt?: string;
 }

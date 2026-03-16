@@ -31,7 +31,7 @@ export interface LegislationDetail {
   /** @nullable */
   applicability?: string | null;
   /** @nullable */
-  publicationDate?: Date | null;
+  publicationDate?: string | null;
   /** @nullable */
   sourceUrl?: string | null;
   /** @nullable */
@@ -43,7 +43,7 @@ export interface LegislationDetail {
   /** @nullable */
   generalObservations?: string | null;
   tags: string[];
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   unitLegislations: UnitLegislation[];
 }

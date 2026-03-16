@@ -39,6 +39,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -84,6 +85,12 @@ const COMPETENCY_TYPE_LABELS: Record<string, string> = {
   formacao: "Formação",
   experiencia: "Experiência",
   habilidade: "Habilidade",
+};
+
+const REQUIRED_EMPLOYEE_FIELDS: Record<string, string> = {
+  name: "Nome completo",
+  cpf: "CPF",
+  admissionDate: "Data de admissão",
 };
 
 function InlineField({
@@ -878,6 +885,19 @@ export default function ColaboradorDetailPage() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId!, empId) });
 
   const handleFieldSave = async (key: string, val: string | number | null) => {
+    if (Object.hasOwn(REQUIRED_EMPLOYEE_FIELDS, key)) {
+      const normalizedValue = typeof val === "string" ? val.trim() : val;
+      if (normalizedValue == null || normalizedValue === "") {
+        toast({
+          title: `${REQUIRED_EMPLOYEE_FIELDS[key]} obrigatório`,
+          description: `Preencha ${REQUIRED_EMPLOYEE_FIELDS[key].toLowerCase()} antes de salvar.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      val = normalizedValue;
+    }
+
     const data: Record<string, string | number | null | undefined> = {};
     if (key === "unitId") {
       data.unitId = val ? Number(val) : null;
@@ -978,8 +998,8 @@ export default function ColaboradorDetailPage() {
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                 Informações Pessoais
               </h3>
-              <InlineField label="Nome" value={employee.name} fieldKey="name" editable={canWriteEmployees} onSave={handleFieldSave} />
-              <InlineField label="CPF" value={employee.cpf} fieldKey="cpf" editable={canWriteEmployees} onSave={handleFieldSave} />
+              <InlineField label="Nome completo *" value={employee.name} fieldKey="name" editable={canWriteEmployees} onSave={handleFieldSave} />
+              <InlineField label="CPF *" value={employee.cpf} fieldKey="cpf" editable={canWriteEmployees} onSave={handleFieldSave} />
               <InlineField label="E-mail" value={employee.email} fieldKey="email" editable={canWriteEmployees} onSave={handleFieldSave} />
               <InlineField label="Telefone" value={employee.phone} fieldKey="phone" editable={canWriteEmployees} onSave={handleFieldSave} />
             </div>
@@ -989,6 +1009,22 @@ export default function ColaboradorDetailPage() {
               </h3>
               <InlineField label="Cargo" value={employee.position} fieldKey="position" editable={canWriteEmployees} onSave={handleFieldSave} />
               <InlineField label="Departamento" value={employee.department} fieldKey="department" editable={canWriteEmployees} onSave={handleFieldSave} />
+              <InlineField
+                label="Experiências profissionais"
+                value={employee.professionalExperience}
+                fieldKey="professionalExperience"
+                type="textarea"
+                editable={canWriteEmployees}
+                onSave={handleFieldSave}
+              />
+              <InlineField
+                label="Educação e certificações"
+                value={employee.educationCertifications}
+                fieldKey="educationCertifications"
+                type="textarea"
+                editable={canWriteEmployees}
+                onSave={handleFieldSave}
+              />
               <LinkedUnitsSection
                 linkedUnits={employee.units || []}
                 allUnits={units}
@@ -1023,7 +1059,7 @@ export default function ColaboradorDetailPage() {
                 editable={canWriteEmployees}
                 onSave={handleFieldSave}
               />
-              <InlineField label="Data de Admissão" value={employee.admissionDate} fieldKey="admissionDate" type="date" editable={canWriteEmployees} onSave={handleFieldSave} />
+              <InlineField label="Data de Admissão *" value={employee.admissionDate} fieldKey="admissionDate" type="date" editable={canWriteEmployees} onSave={handleFieldSave} />
               <InlineField label="Data de Desligamento" value={employee.terminationDate} fieldKey="terminationDate" type="date" editable={canWriteEmployees} onSave={handleFieldSave} />
             </div>
           </div>

@@ -60,6 +60,8 @@ interface EmployeeRow {
   phone: string | null;
   position: string | null;
   department: string | null;
+  professionalExperience: string | null;
+  educationCertifications: string | null;
   contractType: string;
   admissionDate: string | null;
   terminationDate: string | null;
@@ -90,6 +92,8 @@ function formatEmployee(e: EmployeeRow) {
     phone: e.phone,
     position: e.position,
     department: e.department,
+    professionalExperience: e.professionalExperience,
+    educationCertifications: e.educationCertifications,
     contractType: e.contractType,
     admissionDate: e.admissionDate,
     terminationDate: e.terminationDate,
@@ -98,6 +102,64 @@ function formatEmployee(e: EmployeeRow) {
     createdAt: e.createdAt instanceof Date ? e.createdAt.toISOString() : e.createdAt,
     updatedAt: e.updatedAt instanceof Date ? e.updatedAt.toISOString() : e.updatedAt,
   };
+}
+
+const EMPLOYEE_REQUIRED_FIELD_LABELS = {
+  name: "Nome completo",
+  cpf: "CPF",
+  admissionDate: "Data de admissão",
+} as const;
+
+const EMPLOYEE_TEXT_FIELDS = [
+  "name",
+  "cpf",
+  "email",
+  "phone",
+  "position",
+  "department",
+  "professionalExperience",
+  "educationCertifications",
+  "admissionDate",
+  "terminationDate",
+] as const;
+
+function sanitizeEmployeePayload(payload: Record<string, unknown>) {
+  const sanitized: Record<string, unknown> = { ...payload };
+
+  for (const field of EMPLOYEE_TEXT_FIELDS) {
+    if (!(field in sanitized)) continue;
+
+    const value = sanitized[field];
+    if (typeof value !== "string") continue;
+
+    const trimmedValue = value.trim();
+    if (trimmedValue.length === 0 && !Object.hasOwn(EMPLOYEE_REQUIRED_FIELD_LABELS, field)) {
+      delete sanitized[field];
+      continue;
+    }
+
+    sanitized[field] = trimmedValue;
+  }
+
+  return sanitized;
+}
+
+function getInvalidRequiredEmployeeFields(
+  payload: Record<string, unknown>,
+  options: { requireAllFields: boolean },
+): string[] {
+  return (Object.entries(EMPLOYEE_REQUIRED_FIELD_LABELS) as Array<
+    [keyof typeof EMPLOYEE_REQUIRED_FIELD_LABELS, string]
+  >)
+    .filter(([field]) => {
+      if (!(field in payload)) return options.requireAllFields;
+
+      const value = payload[field];
+      if (value == null) return true;
+      if (typeof value === "string") return value.trim().length === 0;
+      return false;
+    })
+    .map(([, label]) => label);
 }
 
 router.get("/organizations/:orgId/employees", requireAuth, async (req, res): Promise<void> => {
@@ -157,6 +219,8 @@ router.get("/organizations/:orgId/employees", requireAuth, async (req, res): Pro
       phone: employeesTable.phone,
       position: employeesTable.position,
       department: employeesTable.department,
+      professionalExperience: employeesTable.professionalExperience,
+      educationCertifications: employeesTable.educationCertifications,
       contractType: employeesTable.contractType,
       admissionDate: employeesTable.admissionDate,
       terminationDate: employeesTable.terminationDate,
@@ -191,14 +255,21 @@ router.post("/organizations/:orgId/employees", requireAuth, requireWriteAccess()
   const body = CreateEmployeeBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  if (body.data.unitId) {
+  const payload = sanitizeEmployeePayload(body.data) as typeof body.data;
+  const invalidRequiredFields = getInvalidRequiredEmployeeFields(payload, { requireAllFields: true });
+  if (invalidRequiredFields.length > 0) {
+    res.status(400).json({ error: `${invalidRequiredFields.join(", ")} ${invalidRequiredFields.length > 1 ? "são obrigatórios" : "é obrigatório"}` });
+    return;
+  }
+
+  if (payload.unitId) {
     const [unit] = await db.select({ id: unitsTable.id }).from(unitsTable)
-      .where(and(eq(unitsTable.id, body.data.unitId), eq(unitsTable.organizationId, params.data.orgId)));
+      .where(and(eq(unitsTable.id, payload.unitId), eq(unitsTable.organizationId, params.data.orgId)));
     if (!unit) { res.status(400).json({ error: "Unidade não pertence a esta organização" }); return; }
   }
 
   const [emp] = await db.insert(employeesTable).values({
-    ...body.data,
+    ...payload,
     organizationId: params.data.orgId,
   }).returning();
 
@@ -221,6 +292,8 @@ router.get("/organizations/:orgId/employees/:empId", requireAuth, async (req, re
       phone: employeesTable.phone,
       position: employeesTable.position,
       department: employeesTable.department,
+      professionalExperience: employeesTable.professionalExperience,
+      educationCertifications: employeesTable.educationCertifications,
       contractType: employeesTable.contractType,
       admissionDate: employeesTable.admissionDate,
       terminationDate: employeesTable.terminationDate,
@@ -273,14 +346,21 @@ router.patch("/organizations/:orgId/employees/:empId", requireAuth, requireWrite
   const body = UpdateEmployeeBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  if (body.data.unitId) {
+  const payload = sanitizeEmployeePayload(body.data) as typeof body.data;
+  const invalidRequiredFields = getInvalidRequiredEmployeeFields(payload, { requireAllFields: false });
+  if (invalidRequiredFields.length > 0) {
+    res.status(400).json({ error: `${invalidRequiredFields.join(", ")} ${invalidRequiredFields.length > 1 ? "são obrigatórios" : "é obrigatório"}` });
+    return;
+  }
+
+  if (payload.unitId) {
     const [unit] = await db.select({ id: unitsTable.id }).from(unitsTable)
-      .where(and(eq(unitsTable.id, body.data.unitId), eq(unitsTable.organizationId, params.data.orgId)));
+      .where(and(eq(unitsTable.id, payload.unitId), eq(unitsTable.organizationId, params.data.orgId)));
     if (!unit) { res.status(400).json({ error: "Unidade não pertence a esta organização" }); return; }
   }
 
   const [emp] = await db.update(employeesTable)
-    .set(body.data)
+    .set(payload)
     .where(and(eq(employeesTable.id, params.data.empId), eq(employeesTable.organizationId, params.data.orgId)))
     .returning();
 

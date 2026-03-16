@@ -511,6 +511,8 @@ export interface Employee {
   phone?: string | null;
   position?: string | null;
   department?: string | null;
+  professionalExperience?: string | null;
+  educationCertifications?: string | null;
   contractType: EmployeeContractType;
   admissionDate?: string | null;
   terminationDate?: string | null;
@@ -629,15 +631,19 @@ export const CreateEmployeeBodyStatus = {
 } as const;
 
 export interface CreateEmployeeBody {
+  /** @minLength 1 */
   name: string;
-  cpf?: string;
+  /** @minLength 1 */
+  cpf: string;
   email?: string;
   phone?: string;
   position?: string;
   department?: string;
+  professionalExperience?: string;
+  educationCertifications?: string;
   unitId?: number;
   contractType?: CreateEmployeeBodyContractType;
-  admissionDate?: string;
+  admissionDate: string;
   terminationDate?: string;
   status?: CreateEmployeeBodyStatus;
 }
@@ -662,12 +668,16 @@ export const UpdateEmployeeBodyStatus = {
 } as const;
 
 export interface UpdateEmployeeBody {
+  /** @minLength 1 */
   name?: string;
+  /** @minLength 1 */
   cpf?: string;
   email?: string;
   phone?: string;
   position?: string;
   department?: string;
+  professionalExperience?: string;
+  educationCertifications?: string;
   unitId?: number | null;
   contractType?: UpdateEmployeeBodyContractType;
   admissionDate?: string | null;

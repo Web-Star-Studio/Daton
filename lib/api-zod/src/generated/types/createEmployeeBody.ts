@@ -9,15 +9,19 @@ import type { CreateEmployeeBodyContractType } from "./createEmployeeBodyContrac
 import type { CreateEmployeeBodyStatus } from "./createEmployeeBodyStatus";
 
 export interface CreateEmployeeBody {
+  /** @minLength 1 */
   name: string;
-  cpf?: string;
+  /** @minLength 1 */
+  cpf: string;
   email?: string;
   phone?: string;
   position?: string;
   department?: string;
+  professionalExperience?: string;
+  educationCertifications?: string;
   unitId?: number;
   contractType?: CreateEmployeeBodyContractType;
-  admissionDate?: string;
+  admissionDate: string;
   terminationDate?: string;
   status?: CreateEmployeeBodyStatus;
 }

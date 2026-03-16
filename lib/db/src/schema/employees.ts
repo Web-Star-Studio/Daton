@@ -14,6 +14,8 @@ export const employeesTable = pgTable("employees", {
   phone: text("phone"),
   position: text("position"),
   department: text("department"),
+  professionalExperience: text("professional_experience"),
+  educationCertifications: text("education_certifications"),
   contractType: text("contract_type").notNull().default("clt"),
   admissionDate: date("admission_date"),
   terminationDate: date("termination_date"),

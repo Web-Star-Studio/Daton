@@ -15,6 +15,7 @@ async function seed() {
     email: "admin@demo.com",
     passwordHash,
     organizationId: org.id,
+    role: "org_admin",
   }).returning();
   console.log(`Created user: ${user.email} (id: ${user.id})`);
 

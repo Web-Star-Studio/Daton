@@ -38,6 +38,25 @@ const CONTRACT_LABELS: Record<string, string> = {
   temporary: "Temporário",
 };
 
+function toRequiredString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function toOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : undefined;
+}
+
+function formatCpfInput(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
 export default function ColaboradoresPage() {
   const { user } = useAuth();
   const { canWriteModule } = usePermissions();
@@ -67,7 +86,16 @@ export default function ColaboradoresPage() {
 
   const createMutation = useCreateEmployee();
   const deleteEmpMut = useDeleteEmployee();
-  const { register, handleSubmit, reset } = useForm<CreateEmployeeBody>();
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<CreateEmployeeBody>({
+    defaultValues: {
+      contractType: "clt",
+    },
+  });
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
@@ -117,7 +145,21 @@ export default function ColaboradoresPage() {
   }, [employees, pagination]);
 
   const onCreateSubmit = async (data: CreateEmployeeBody) => {
-    await createMutation.mutateAsync({ orgId: orgId!, data });
+    const payload: CreateEmployeeBody = {
+      name: data.name.trim(),
+      cpf: data.cpf.trim(),
+      admissionDate: data.admissionDate,
+      contractType: data.contractType || "clt",
+      ...(data.email ? { email: data.email } : {}),
+      ...(data.phone ? { phone: data.phone } : {}),
+      ...(data.department ? { department: data.department } : {}),
+      ...(data.position ? { position: data.position } : {}),
+      ...(data.professionalExperience ? { professionalExperience: data.professionalExperience } : {}),
+      ...(data.educationCertifications ? { educationCertifications: data.educationCertifications } : {}),
+      ...(typeof data.unitId === "number" ? { unitId: data.unitId } : {}),
+    };
+
+    await createMutation.mutateAsync({ orgId: orgId!, data: payload });
     queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey(orgId!) });
     setCreateOpen(false);
     reset();
@@ -340,28 +382,94 @@ export default function ColaboradoresPage() {
         <form onSubmit={handleSubmit(onCreateSubmit)}>
           <div className="grid grid-cols-2 gap-x-8 gap-y-5">
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Nome completo *</Label>
-              <Input {...register("name", { required: true })} className="mt-1" placeholder="Nome completo" />
+              <Label className="text-xs font-semibold text-muted-foreground">CPF *</Label>
+              <Input
+                {...register("cpf", {
+                  required: "CPF é obrigatório",
+                  setValueAs: toRequiredString,
+                  onChange: (event) => {
+                    event.target.value = formatCpfInput(event.target.value);
+                  },
+                })}
+                className="mt-1"
+                placeholder="000.000.000-00"
+                inputMode="numeric"
+                maxLength={14}
+              />
+              {errors.cpf && <p className="mt-1.5 text-xs text-destructive">{errors.cpf.message}</p>}
             </div>
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">CPF</Label>
-              <Input {...register("cpf")} className="mt-1" placeholder="000.000.000-00" />
+              <Label className="text-xs font-semibold text-muted-foreground">Nome completo *</Label>
+              <Input
+                {...register("name", {
+                  required: "Nome completo é obrigatório",
+                  setValueAs: toRequiredString,
+                })}
+                className="mt-1"
+                placeholder="Nome completo do funcionário"
+              />
+              {errors.name && <p className="mt-1.5 text-xs text-destructive">{errors.name.message}</p>}
             </div>
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">E-mail</Label>
-              <Input {...register("email")} className="mt-1" type="email" placeholder="email@empresa.com" />
+              <Input
+                {...register("email", {
+                  setValueAs: toOptionalString,
+                })}
+                className="mt-1"
+                type="email"
+                placeholder="email@empresa.com"
+              />
             </div>
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">Telefone</Label>
-              <Input {...register("phone")} className="mt-1" placeholder="(00) 00000-0000" />
+              <Input
+                {...register("phone", {
+                  setValueAs: toOptionalString,
+                })}
+                className="mt-1"
+                placeholder="(00) 00000-0000"
+              />
             </div>
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">Departamento</Label>
-              <Input {...register("department")} className="mt-1" placeholder="Ex: SGQ" />
+              <Input
+                {...register("department", {
+                  setValueAs: toOptionalString,
+                })}
+                className="mt-1"
+                placeholder="Ex: SGQ"
+              />
             </div>
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">Cargo</Label>
-              <Input {...register("position")} className="mt-1" placeholder="Ex: Analista Ambiental" />
+              <Input
+                {...register("position", {
+                  setValueAs: toOptionalString,
+                })}
+                className="mt-1"
+                placeholder="Ex: Analista Ambiental"
+              />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs font-semibold text-muted-foreground">Experiências profissionais</Label>
+              <textarea
+                {...register("professionalExperience", {
+                  setValueAs: toOptionalString,
+                })}
+                className="mt-1 flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="Resumo de experiências anteriores, áreas de atuação e histórico profissional"
+              />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs font-semibold text-muted-foreground">Educação e certificações</Label>
+              <textarea
+                {...register("educationCertifications", {
+                  setValueAs: toOptionalString,
+                })}
+                className="mt-1 flex min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="Formação acadêmica, cursos, certificados e qualificações"
+              />
             </div>
             <div>
               <Label className="text-xs font-semibold text-muted-foreground">Unidade</Label>
@@ -380,8 +488,16 @@ export default function ColaboradoresPage() {
               </select>
             </div>
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Data de admissão</Label>
-              <Input {...register("admissionDate")} className="mt-1" type="date" />
+              <Label className="text-xs font-semibold text-muted-foreground">Data de admissão *</Label>
+              <Input
+                {...register("admissionDate", {
+                  required: "Data de admissão é obrigatória",
+                  setValueAs: toRequiredString,
+                })}
+                className="mt-1"
+                type="date"
+              />
+              {errors.admissionDate && <p className="mt-1.5 text-xs text-destructive">{errors.admissionDate.message}</p>}
             </div>
           </div>
           <DialogFooter>

@@ -44,7 +44,7 @@ export const LoginResponse = zod.object({
     email: zod.string(),
     organizationId: zod.number(),
     role: zod.string(),
-    createdAt: zod.date(),
+    createdAt: zod.string().datetime({}),
   }),
   token: zod.string(),
 });
@@ -66,7 +66,7 @@ export const GetMeResponse = zod.object({
     email: zod.string(),
     organizationId: zod.number(),
     role: zod.string(),
-    createdAt: zod.date(),
+    createdAt: zod.string().datetime({}),
   }),
   organization: zod.object({
     id: zod.number(),
@@ -76,8 +76,8 @@ export const GetMeResponse = zod.object({
     inscricaoEstadual: zod.string().nullish(),
     dataFundacao: zod.string().nullish(),
     statusOperacional: zod.string().nullish(),
-    createdAt: zod.date(),
-    updatedAt: zod.date(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
   }),
   modules: zod.array(zod.string()),
 });
@@ -97,8 +97,8 @@ export const GetOrganizationResponse = zod.object({
   inscricaoEstadual: zod.string().nullish(),
   dataFundacao: zod.string().nullish(),
   statusOperacional: zod.string().nullish(),
-  createdAt: zod.date(),
-  updatedAt: zod.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -125,8 +125,8 @@ export const UpdateOrganizationResponse = zod.object({
   inscricaoEstadual: zod.string().nullish(),
   dataFundacao: zod.string().nullish(),
   statusOperacional: zod.string().nullish(),
-  createdAt: zod.date(),
-  updatedAt: zod.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -152,8 +152,8 @@ export const ListUnitsResponseItem = zod.object({
   state: zod.string().nullish(),
   country: zod.string().nullish(),
   phone: zod.string().nullish(),
-  createdAt: zod.date(),
-  updatedAt: zod.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListUnitsResponse = zod.array(ListUnitsResponseItem);
 
@@ -204,8 +204,8 @@ export const GetUnitResponse = zod.object({
   state: zod.string().nullish(),
   country: zod.string().nullish(),
   phone: zod.string().nullish(),
-  createdAt: zod.date(),
-  updatedAt: zod.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -248,8 +248,8 @@ export const UpdateUnitResponse = zod.object({
   state: zod.string().nullish(),
   country: zod.string().nullish(),
   phone: zod.string().nullish(),
-  createdAt: zod.date(),
-  updatedAt: zod.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -292,7 +292,7 @@ export const ListLegislationsResponseItem = zod.object({
   macrotema: zod.string().nullish(),
   subtema: zod.string().nullish(),
   applicability: zod.string().nullish(),
-  publicationDate: zod.date().nullish(),
+  publicationDate: zod.string().date().nullish(),
   sourceUrl: zod.string().nullish(),
   applicableArticles: zod.string().nullish(),
   reviewFrequencyDays: zod.number().nullish(),
@@ -300,8 +300,8 @@ export const ListLegislationsResponseItem = zod.object({
   generalObservations: zod.string().nullish(),
   tags: zod.array(zod.string()),
   matchedTags: zod.array(zod.string()).nullish(),
-  createdAt: zod.date(),
-  updatedAt: zod.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 export const ListLegislationsResponse = zod.array(ListLegislationsResponseItem);
 
@@ -324,7 +324,7 @@ export const CreateLegislationBody = zod.object({
   macrotema: zod.string().optional(),
   subtema: zod.string().optional(),
   applicability: zod.string().optional(),
-  publicationDate: zod.date().optional(),
+  publicationDate: zod.string().date().optional(),
   sourceUrl: zod.string().optional(),
   applicableArticles: zod.string().optional(),
   reviewFrequencyDays: zod.number().optional(),
@@ -354,7 +354,7 @@ export const ImportLegislationsBody = zod.object({
       macrotema: zod.string().optional(),
       subtema: zod.string().optional(),
       applicability: zod.string().optional(),
-      publicationDate: zod.date().optional(),
+      publicationDate: zod.string().date().optional(),
       sourceUrl: zod.string().optional(),
       applicableArticles: zod.string().optional(),
       reviewFrequencyDays: zod.number().optional(),
@@ -393,15 +393,15 @@ export const GetLegislationResponse = zod.object({
   macrotema: zod.string().nullish(),
   subtema: zod.string().nullish(),
   applicability: zod.string().nullish(),
-  publicationDate: zod.date().nullish(),
+  publicationDate: zod.string().date().nullish(),
   sourceUrl: zod.string().nullish(),
   applicableArticles: zod.string().nullish(),
   reviewFrequencyDays: zod.number().nullish(),
   observations: zod.string().nullish(),
   generalObservations: zod.string().nullish(),
   tags: zod.array(zod.string()),
-  createdAt: zod.date(),
-  updatedAt: zod.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
   unitLegislations: zod.array(
     zod.object({
       id: zod.number(),
@@ -415,9 +415,9 @@ export const GetLegislationResponse = zod.object({
       ]),
       notes: zod.string().nullable(),
       evidenceUrl: zod.string().nullable(),
-      evaluatedAt: zod.date().nullable(),
-      createdAt: zod.date(),
-      updatedAt: zod.date(),
+      evaluatedAt: zod.string().datetime({}).nullable(),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
       unit: zod.object({
         id: zod.number(),
         organizationId: zod.number(),
@@ -434,8 +434,8 @@ export const GetLegislationResponse = zod.object({
         state: zod.string().nullish(),
         country: zod.string().nullish(),
         phone: zod.string().nullish(),
-        createdAt: zod.date(),
-        updatedAt: zod.date(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
       }),
     }),
   ),
@@ -461,7 +461,7 @@ export const UpdateLegislationBody = zod.object({
   macrotema: zod.string().optional(),
   subtema: zod.string().optional(),
   applicability: zod.string().optional(),
-  publicationDate: zod.date().optional(),
+  publicationDate: zod.string().date().optional(),
   sourceUrl: zod.string().optional(),
   applicableArticles: zod.string().optional(),
   reviewFrequencyDays: zod.number().optional(),
@@ -484,7 +484,7 @@ export const UpdateLegislationResponse = zod.object({
   macrotema: zod.string().nullish(),
   subtema: zod.string().nullish(),
   applicability: zod.string().nullish(),
-  publicationDate: zod.date().nullish(),
+  publicationDate: zod.string().date().nullish(),
   sourceUrl: zod.string().nullish(),
   applicableArticles: zod.string().nullish(),
   reviewFrequencyDays: zod.number().nullish(),
@@ -492,8 +492,8 @@ export const UpdateLegislationResponse = zod.object({
   generalObservations: zod.string().nullish(),
   tags: zod.array(zod.string()),
   matchedTags: zod.array(zod.string()).nullish(),
-  createdAt: zod.date(),
-  updatedAt: zod.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -524,9 +524,9 @@ export const ListLegislationUnitsResponseItem = zod.object({
   ]),
   notes: zod.string().nullable(),
   evidenceUrl: zod.string().nullable(),
-  evaluatedAt: zod.date().nullable(),
-  createdAt: zod.date(),
-  updatedAt: zod.date(),
+  evaluatedAt: zod.string().datetime({}).nullable(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
   unit: zod.object({
     id: zod.number(),
     organizationId: zod.number(),
@@ -543,8 +543,8 @@ export const ListLegislationUnitsResponseItem = zod.object({
     state: zod.string().nullish(),
     country: zod.string().nullish(),
     phone: zod.string().nullish(),
-    createdAt: zod.date(),
-    updatedAt: zod.date(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
   }),
 });
 export const ListLegislationUnitsResponse = zod.array(
@@ -596,9 +596,9 @@ export const UpdateUnitLegislationResponse = zod.object({
   ]),
   notes: zod.string().nullable(),
   evidenceUrl: zod.string().nullable(),
-  evaluatedAt: zod.date().nullable(),
-  createdAt: zod.date(),
-  updatedAt: zod.date(),
+  evaluatedAt: zod.string().datetime({}).nullable(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
   unit: zod.object({
     id: zod.number(),
     organizationId: zod.number(),
@@ -615,8 +615,8 @@ export const UpdateUnitLegislationResponse = zod.object({
     state: zod.string().nullish(),
     country: zod.string().nullish(),
     phone: zod.string().nullish(),
-    createdAt: zod.date(),
-    updatedAt: zod.date(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
   }),
 });
 
@@ -649,9 +649,9 @@ export const ListUnitLegislationsResponseItem = zod.object({
   ]),
   notes: zod.string().nullable(),
   evidenceUrl: zod.string().nullable(),
-  evaluatedAt: zod.date().nullable(),
-  createdAt: zod.date(),
-  updatedAt: zod.date(),
+  evaluatedAt: zod.string().datetime({}).nullable(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
   legislation: zod.object({
     id: zod.number(),
     organizationId: zod.number(),
@@ -666,7 +666,7 @@ export const ListUnitLegislationsResponseItem = zod.object({
     macrotema: zod.string().nullish(),
     subtema: zod.string().nullish(),
     applicability: zod.string().nullish(),
-    publicationDate: zod.date().nullish(),
+    publicationDate: zod.string().date().nullish(),
     sourceUrl: zod.string().nullish(),
     applicableArticles: zod.string().nullish(),
     reviewFrequencyDays: zod.number().nullish(),
@@ -674,8 +674,8 @@ export const ListUnitLegislationsResponseItem = zod.object({
     generalObservations: zod.string().nullish(),
     tags: zod.array(zod.string()),
     matchedTags: zod.array(zod.string()).nullish(),
-    createdAt: zod.date(),
-    updatedAt: zod.date(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
   }),
 });
 export const ListUnitLegislationsResponse = zod.array(
@@ -815,13 +815,15 @@ export const ListEmployeesResponse = zod.object({
       phone: zod.string().nullish(),
       position: zod.string().nullish(),
       department: zod.string().nullish(),
+      professionalExperience: zod.string().nullish(),
+      educationCertifications: zod.string().nullish(),
       contractType: zod.enum(["clt", "pj", "intern", "temporary"]),
       admissionDate: zod.string().nullish(),
       terminationDate: zod.string().nullish(),
       status: zod.enum(["active", "inactive", "on_leave"]),
       unitName: zod.string().nullish(),
-      createdAt: zod.date(),
-      updatedAt: zod.date(),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
     }),
   ),
   pagination: zod.object({
@@ -840,15 +842,17 @@ export const CreateEmployeeParams = zod.object({
 });
 
 export const CreateEmployeeBody = zod.object({
-  name: zod.string(),
-  cpf: zod.string().optional(),
+  name: zod.string().min(1),
+  cpf: zod.string().min(1),
   email: zod.string().email().optional(),
   phone: zod.string().optional(),
   position: zod.string().optional(),
   department: zod.string().optional(),
+  professionalExperience: zod.string().optional(),
+  educationCertifications: zod.string().optional(),
   unitId: zod.number().optional(),
   contractType: zod.enum(["clt", "pj", "intern", "temporary"]).optional(),
-  admissionDate: zod.string().optional(),
+  admissionDate: zod.string(),
   terminationDate: zod.string().optional(),
   status: zod.enum(["active", "inactive", "on_leave"]).optional(),
 });
@@ -878,13 +882,15 @@ export const GetEmployeeResponse = zod
     phone: zod.string().nullish(),
     position: zod.string().nullish(),
     department: zod.string().nullish(),
+    professionalExperience: zod.string().nullish(),
+    educationCertifications: zod.string().nullish(),
     contractType: zod.enum(["clt", "pj", "intern", "temporary"]),
     admissionDate: zod.string().nullish(),
     terminationDate: zod.string().nullish(),
     status: zod.enum(["active", "inactive", "on_leave"]),
     unitName: zod.string().nullish(),
-    createdAt: zod.date(),
-    updatedAt: zod.date(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
   })
   .and(
     zod.object({
@@ -913,8 +919,8 @@ export const GetEmployeeResponse = zod
               .min(getEmployeeResponseTwoCompetenciesItemAcquiredLevelMin)
               .max(getEmployeeResponseTwoCompetenciesItemAcquiredLevelMax),
             evidence: zod.string().nullish(),
-            createdAt: zod.date().optional(),
-            updatedAt: zod.date().optional(),
+            createdAt: zod.string().datetime({}).optional(),
+            updatedAt: zod.string().datetime({}).optional(),
           }),
         )
         .optional(),
@@ -930,8 +936,8 @@ export const GetEmployeeResponse = zod
             completionDate: zod.string().nullish(),
             expirationDate: zod.string().nullish(),
             status: zod.enum(["pendente", "concluido", "vencido"]),
-            createdAt: zod.date().optional(),
-            updatedAt: zod.date().optional(),
+            createdAt: zod.string().datetime({}).optional(),
+            updatedAt: zod.string().datetime({}).optional(),
           }),
         )
         .optional(),
@@ -945,8 +951,8 @@ export const GetEmployeeResponse = zod
             date: zod.string(),
             verificationMethod: zod.string().nullish(),
             result: zod.string().nullish(),
-            createdAt: zod.date().optional(),
-            updatedAt: zod.date().optional(),
+            createdAt: zod.string().datetime({}).optional(),
+            updatedAt: zod.string().datetime({}).optional(),
           }),
         )
         .optional(),
@@ -962,12 +968,14 @@ export const UpdateEmployeeParams = zod.object({
 });
 
 export const UpdateEmployeeBody = zod.object({
-  name: zod.string().optional(),
-  cpf: zod.string().optional(),
+  name: zod.string().min(1).optional(),
+  cpf: zod.string().min(1).optional(),
   email: zod.string().email().optional(),
   phone: zod.string().optional(),
   position: zod.string().optional(),
   department: zod.string().optional(),
+  professionalExperience: zod.string().optional(),
+  educationCertifications: zod.string().optional(),
   unitId: zod.number().nullish(),
   contractType: zod.enum(["clt", "pj", "intern", "temporary"]).optional(),
   admissionDate: zod.string().nullish(),
@@ -985,13 +993,15 @@ export const UpdateEmployeeResponse = zod.object({
   phone: zod.string().nullish(),
   position: zod.string().nullish(),
   department: zod.string().nullish(),
+  professionalExperience: zod.string().nullish(),
+  educationCertifications: zod.string().nullish(),
   contractType: zod.enum(["clt", "pj", "intern", "temporary"]),
   admissionDate: zod.string().nullish(),
   terminationDate: zod.string().nullish(),
   status: zod.enum(["active", "inactive", "on_leave"]),
   unitName: zod.string().nullish(),
-  createdAt: zod.date(),
-  updatedAt: zod.date(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
 });
 
 /**
@@ -1031,8 +1041,8 @@ export const ListCompetenciesResponseItem = zod.object({
     .min(listCompetenciesResponseAcquiredLevelMin)
     .max(listCompetenciesResponseAcquiredLevelMax),
   evidence: zod.string().nullish(),
-  createdAt: zod.date().optional(),
-  updatedAt: zod.date().optional(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 export const ListCompetenciesResponse = zod.array(ListCompetenciesResponseItem);
 
@@ -1120,8 +1130,8 @@ export const UpdateCompetencyResponse = zod.object({
     .min(updateCompetencyResponseAcquiredLevelMin)
     .max(updateCompetencyResponseAcquiredLevelMax),
   evidence: zod.string().nullish(),
-  createdAt: zod.date().optional(),
-  updatedAt: zod.date().optional(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 
 /**
@@ -1151,8 +1161,8 @@ export const ListTrainingsResponseItem = zod.object({
   completionDate: zod.string().nullish(),
   expirationDate: zod.string().nullish(),
   status: zod.enum(["pendente", "concluido", "vencido"]),
-  createdAt: zod.date().optional(),
-  updatedAt: zod.date().optional(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 export const ListTrainingsResponse = zod.array(ListTrainingsResponseItem);
 
@@ -1203,8 +1213,8 @@ export const UpdateTrainingResponse = zod.object({
   completionDate: zod.string().nullish(),
   expirationDate: zod.string().nullish(),
   status: zod.enum(["pendente", "concluido", "vencido"]),
-  createdAt: zod.date().optional(),
-  updatedAt: zod.date().optional(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 
 /**
@@ -1232,8 +1242,8 @@ export const ListAwarenessResponseItem = zod.object({
   date: zod.string(),
   verificationMethod: zod.string().nullish(),
   result: zod.string().nullish(),
-  createdAt: zod.date().optional(),
-  updatedAt: zod.date().optional(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 export const ListAwarenessResponse = zod.array(ListAwarenessResponseItem);
 
@@ -1278,8 +1288,8 @@ export const UpdateAwarenessResponse = zod.object({
   date: zod.string(),
   verificationMethod: zod.string().nullish(),
   result: zod.string().nullish(),
-  createdAt: zod.date().optional(),
-  updatedAt: zod.date().optional(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
 });
 
 /**
@@ -1544,7 +1554,7 @@ export const GetDocumentResponse = zod.object({
         name: zod.string(),
         email: zod.string(),
         role: zod.string(),
-        createdAt: zod.date(),
+        createdAt: zod.string().datetime({}),
         modules: zod.array(zod.string()),
       }),
     )
@@ -1656,7 +1666,7 @@ export const UpdateDocumentResponse = zod.object({
         name: zod.string(),
         email: zod.string(),
         role: zod.string(),
-        createdAt: zod.date(),
+        createdAt: zod.string().datetime({}),
         modules: zod.array(zod.string()),
       }),
     )
@@ -1808,7 +1818,7 @@ export const SubmitDocumentForReviewResponse = zod.object({
         name: zod.string(),
         email: zod.string(),
         role: zod.string(),
-        createdAt: zod.date(),
+        createdAt: zod.string().datetime({}),
         modules: zod.array(zod.string()),
       }),
     )
@@ -1912,7 +1922,7 @@ export const ApproveDocumentResponse = zod.object({
         name: zod.string(),
         email: zod.string(),
         role: zod.string(),
-        createdAt: zod.date(),
+        createdAt: zod.string().datetime({}),
         modules: zod.array(zod.string()),
       }),
     )
@@ -2016,7 +2026,7 @@ export const RejectDocumentResponse = zod.object({
         name: zod.string(),
         email: zod.string(),
         role: zod.string(),
-        createdAt: zod.date(),
+        createdAt: zod.string().datetime({}),
         modules: zod.array(zod.string()),
       }),
     )
@@ -2116,7 +2126,7 @@ export const DistributeDocumentResponse = zod.object({
         name: zod.string(),
         email: zod.string(),
         role: zod.string(),
-        createdAt: zod.date(),
+        createdAt: zod.string().datetime({}),
         modules: zod.array(zod.string()),
       }),
     )
@@ -2256,7 +2266,7 @@ export const ListOrgUsersResponse = zod.object({
       name: zod.string(),
       email: zod.string(),
       role: zod.string(),
-      createdAt: zod.date(),
+      createdAt: zod.string().datetime({}),
       modules: zod.array(zod.string()),
     }),
   ),
