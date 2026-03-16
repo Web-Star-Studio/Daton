@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
-import { db, organizationsTable, userModulePermissionsTable } from "@workspace/db";
+import { db, organizationsTable, userModulePermissionsTable, type OrganizationOnboardingStatus } from "@workspace/db";
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -22,6 +22,8 @@ export interface AuthPayload {
   userId: number;
   organizationId: number;
   role: UserRole;
+  organizationAuthVersion: number;
+  onboardingStatus: OrganizationOnboardingStatus;
 }
 
 declare global {
@@ -32,7 +34,41 @@ declare global {
   }
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+export function signToken(payload: AuthPayload): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+}
+
+export async function issueAuthToken({
+  userId,
+  organizationId,
+  role,
+}: {
+  userId: number;
+  organizationId: number;
+  role: UserRole;
+}): Promise<string> {
+  const [organization] = await db
+    .select({
+      authVersion: organizationsTable.authVersion,
+      onboardingStatus: organizationsTable.onboardingStatus,
+    })
+    .from(organizationsTable)
+    .where(eq(organizationsTable.id, organizationId));
+
+  if (!organization) {
+    throw new Error("Organization not found while issuing auth token");
+  }
+
+  return signToken({
+    userId,
+    organizationId,
+    role,
+    organizationAuthVersion: organization.authVersion,
+    onboardingStatus: organization.onboardingStatus as OrganizationOnboardingStatus,
+  });
+}
+
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization;
   if (!header || !header.startsWith("Bearer ")) {
     res.status(401).json({ error: "Não autenticado" });
@@ -41,8 +77,49 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 
   const token = header.slice(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as unknown as AuthPayload;
-    req.auth = payload;
+    const payload = jwt.verify(token, JWT_SECRET) as unknown as Partial<AuthPayload>;
+    if (
+      typeof payload.userId !== "number" ||
+      typeof payload.organizationId !== "number" ||
+      typeof payload.role !== "string" ||
+      typeof payload.organizationAuthVersion !== "number" ||
+      typeof payload.onboardingStatus !== "string"
+    ) {
+      res.status(401).json({ error: "Token inválido" });
+      return;
+    }
+
+    const [organization] = await db
+      .select({
+        authVersion: organizationsTable.authVersion,
+        onboardingStatus: organizationsTable.onboardingStatus,
+      })
+      .from(organizationsTable)
+      .where(eq(organizationsTable.id, payload.organizationId));
+
+    if (!organization) {
+      res.status(404).json({ error: "Organização não encontrada" });
+      return;
+    }
+
+    if (
+      payload.organizationAuthVersion !== organization.authVersion ||
+      payload.onboardingStatus !== organization.onboardingStatus
+    ) {
+      res.status(401).json({
+        error: "O estado da organização mudou. Faça login novamente.",
+        code: "ORG_STATE_STALE",
+      });
+      return;
+    }
+
+    req.auth = {
+      userId: payload.userId,
+      organizationId: payload.organizationId,
+      role: payload.role as UserRole,
+      organizationAuthVersion: organization.authVersion,
+      onboardingStatus: organization.onboardingStatus as OrganizationOnboardingStatus,
+    };
     next();
   } catch {
     res.status(401).json({ error: "Token inválido" });
@@ -89,23 +166,13 @@ export function requireModuleAccess(moduleName: AppModule) {
   };
 }
 
-export async function requireCompletedOnboarding(req: Request, res: Response, next: NextFunction): Promise<void> {
+export function requireCompletedOnboarding(req: Request, res: Response, next: NextFunction): void {
   if (!req.auth) {
     res.status(401).json({ error: "Não autenticado" });
     return;
   }
 
-  const [organization] = await db
-    .select({ onboardingStatus: organizationsTable.onboardingStatus })
-    .from(organizationsTable)
-    .where(eq(organizationsTable.id, req.auth.organizationId));
-
-  if (!organization) {
-    res.status(404).json({ error: "Organização não encontrada" });
-    return;
-  }
-
-  if (organization.onboardingStatus === "pending") {
+  if (req.auth.onboardingStatus === "pending") {
     res.status(403).json({
       error: "Onboarding da organização pendente",
       code: "ONBOARDING_PENDING",
@@ -128,8 +195,4 @@ export function requireWriteAccess() {
     }
     next();
   };
-}
-
-export function signToken(payload: AuthPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 }

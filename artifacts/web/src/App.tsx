@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useLayoutEffect, useMemo } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -67,19 +67,15 @@ function Router() {
   const isAuthRoute = location === "/" || location.startsWith("/auth");
   const isOnboardingRoute = location.startsWith("/onboarding/organizacao");
   const onboardingPending = organization?.onboardingStatus === "pending";
-  let redirectTo: string | null = null;
+  const redirectTo = useMemo(() => {
+    if (isLoading) return null;
+    if (!isAuthenticated && (isAppRoute || isOnboardingRoute)) return "/auth";
+    if (isAuthenticated && onboardingPending && !isOnboardingRoute) return "/onboarding/organizacao";
+    if (isAuthenticated && !onboardingPending && (isOnboardingRoute || isAuthRoute)) return "/organizacao";
+    return null;
+  }, [isAppRoute, isAuthRoute, isAuthenticated, isLoading, isOnboardingRoute, onboardingPending]);
 
-  if (!isLoading) {
-    if (!isAuthenticated && (isAppRoute || isOnboardingRoute)) {
-      redirectTo = "/auth";
-    } else if (isAuthenticated && onboardingPending && !isOnboardingRoute) {
-      redirectTo = "/onboarding/organizacao";
-    } else if (isAuthenticated && !onboardingPending && (isOnboardingRoute || isAuthRoute)) {
-      redirectTo = "/organizacao";
-    }
-  }
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (redirectTo && redirectTo !== location) {
       navigate(redirectTo);
     }
@@ -94,13 +90,7 @@ function Router() {
   }
 
   if (redirectTo && redirectTo !== location) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">
-          {redirectTo === "/onboarding/organizacao" ? "Preparando onboarding..." : "Redirecionando..."}
-        </p>
-      </div>
-    );
+    return null;
   }
 
   if (isAppRoute) {

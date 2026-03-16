@@ -13,11 +13,13 @@ import { Plus, Trash2, Pencil, Mail, X, Clock, CheckCircle2, XCircle, Shield, Sh
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { toast } from "@/hooks/use-toast";
+import { GOAL_LABELS, MATURITY_LABELS, SECTOR_LABELS, SIZE_LABELS } from "@/lib/organization-onboarding";
 import {
   useListUnits, useCreateUnit, useDeleteUnit, getListUnitsQueryKey,
   useListDepartments, useCreateDepartment, useDeleteDepartment, useUpdateDepartment, getListDepartmentsQueryKey,
   useListPositions, useCreatePosition, useDeletePosition, useUpdatePosition, getListPositionsQueryKey,
-  useGetOrganization, useUpdateOrganization, getGetOrganizationQueryKey,
+  useGetOrganization, useUpdateOrganization, useResetOrganizationOnboarding, getGetOrganizationQueryKey,
   useListInvitations, useCreateInvitation, useRevokeInvitation, useDeleteInvitation, getListInvitationsQueryKey,
   useListOrgUsers, useCreateOrgUser, useUpdateUserRole, useUpdateUserModules, getListOrgUsersQueryKey,
   type CreateUnitBody, type CreateUnitBodyType,
@@ -71,32 +73,6 @@ type InviteFormData = {
   modules: OrgUserModule[];
 };
 
-const SECTOR_LABELS: Record<string, string> = {
-  manufacturing: "Indústria de transformação", agro: "Agro", food_beverage: "Alimentos e bebidas",
-  mining: "Mineração", oil_gas: "Óleo e gás", energy: "Energia", chemical: "Químico",
-  pulp_paper: "Papel e celulose", steel: "Siderurgia", logistics: "Logística",
-  financial: "Financeiro", telecom: "Telecom", public: "Setor público",
-  pharma_cosmetics: "Farma e cosméticos", automotive: "Automotivo", technology: "Tecnologia",
-  consumer_goods: "Bens de consumo", utilities: "Utilities", healthcare: "Saúde",
-  education: "Educação", retail: "Varejo", construction: "Construção", services: "Serviços", other: "Outro",
-};
-
-const SIZE_LABELS: Record<string, string> = {
-  micro: "Micro", small: "Pequena", medium: "Média", large: "Grande", xlarge: "Muito grande", enterprise: "Enterprise",
-};
-
-const GOAL_LABELS: Record<string, string> = {
-  emissions_reduction: "Redução de emissões", environmental_compliance: "Conformidade ambiental",
-  health_safety: "Saúde e segurança", energy_efficiency: "Eficiência energética",
-  water_management: "Gestão de água", waste_reduction: "Redução de resíduos",
-  sustainability: "Sustentabilidade", quality: "Qualidade", compliance: "Compliance",
-  performance: "Performance", innovation: "Inovação", cost_reduction: "Redução de custos",
-};
-
-const MATURITY_LABELS: Record<string, string> = {
-  beginner: "Inicial", intermediate: "Intermediário", advanced: "Avançado",
-};
-
 const ROLE_LABELS: Record<string, string> = {
   platform_admin: "Admin Plataforma",
   org_admin: "Admin Organização",
@@ -128,7 +104,7 @@ const emptyInviteForm: InviteFormData = {
 };
 
 export default function OrganizacaoPage() {
-  const { organization, user: currentUser, refreshAuth } = useAuth();
+  const { organization, user: currentUser, login } = useAuth();
   const { isOrgAdmin, canWriteModule, hasModuleAccess } = usePermissions();
   const orgId = organization?.id;
   const queryClient = useQueryClient();
@@ -166,9 +142,10 @@ export default function OrganizacaoPage() {
 
   const { data: orgData } = useGetOrganization(orgId!, { query: { queryKey: getGetOrganizationQueryKey(orgId!), enabled: !!orgId } });
   const updateOrgMut = useUpdateOrganization();
+  const resetOnboardingMut = useResetOrganizationOnboarding();
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [orgForm, setOrgForm] = useState({
-    name: "", nomeFantasia: "", cnpj: "", inscricaoEstadual: "", dataFundacao: "", statusOperacional: "ativa",
+    name: "", tradeName: "", legalIdentifier: "", stateRegistration: "", openingDate: "", statusOperacional: "ativa",
   });
 
   const { data: invitationsData, isLoading: invitationsLoading } = useListInvitations({ query: { queryKey: getListInvitationsQueryKey(), enabled: activeTab === "usuarios" && isOrgAdmin } });
@@ -198,10 +175,10 @@ export default function OrganizacaoPage() {
     if (orgData) {
       setOrgForm({
         name: orgData.name || "",
-        nomeFantasia: orgData.nomeFantasia || "",
-        cnpj: orgData.cnpj || "",
-        inscricaoEstadual: orgData.inscricaoEstadual || "",
-        dataFundacao: orgData.dataFundacao || "",
+        tradeName: orgData.tradeName || "",
+        legalIdentifier: orgData.legalIdentifier || "",
+        stateRegistration: orgData.stateRegistration || "",
+        openingDate: orgData.openingDate || "",
         statusOperacional: orgData.statusOperacional || "ativa",
       });
     }
@@ -226,10 +203,10 @@ export default function OrganizacaoPage() {
       orgId,
       data: {
         name: orgForm.name,
-        nomeFantasia: orgForm.nomeFantasia || null,
-        cnpj: orgForm.cnpj || null,
-        inscricaoEstadual: orgForm.inscricaoEstadual || null,
-        dataFundacao: orgForm.dataFundacao || null,
+        tradeName: orgForm.tradeName || null,
+        legalIdentifier: orgForm.legalIdentifier || null,
+        stateRegistration: orgForm.stateRegistration || null,
+        openingDate: orgForm.openingDate || null,
         statusOperacional: orgForm.statusOperacional || null,
       },
     });
@@ -255,10 +232,21 @@ export default function OrganizacaoPage() {
             <Button size="sm" variant="outline" onClick={async () => {
               if (!orgId) return;
               if (!confirm("Tem certeza que deseja refazer o onboarding? Você será redirecionado para o fluxo inicial.")) return;
-              await updateOrgMut.mutateAsync({ orgId, data: { onboardingStatus: "pending" } });
-              await refreshAuth();
-              navigate("/onboarding/organizacao");
-            }} isLoading={updateOrgMut.isPending}>
+              try {
+                const response = await resetOnboardingMut.mutateAsync({ orgId });
+                login(response.token);
+                navigate("/onboarding/organizacao");
+              } catch (error: unknown) {
+                const message =
+                  (error as { data?: { error?: string } })?.data?.error ||
+                  "Não foi possível reiniciar o onboarding.";
+                toast({
+                  title: "Falha ao reiniciar onboarding",
+                  description: message,
+                  variant: "destructive",
+                });
+              }
+            }} isLoading={resetOnboardingMut.isPending}>
               <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
               Refazer onboarding
             </Button>
@@ -346,7 +334,22 @@ export default function OrganizacaoPage() {
           </div>
         );
     }
-  }, [activeTab, canWriteModule, deleteInviteMut.isPending, invitationsData, isEditingOrg, isOrgAdmin, navigate, orgId, queryClient, refreshAuth, resetCreateUserDialog, revokeInviteMut.isPending, selectedInviteIds, updateOrgMut]);
+  }, [
+    activeTab,
+    canWriteModule,
+    deleteInviteMut.isPending,
+    invitationsData,
+    isEditingOrg,
+    isOrgAdmin,
+    login,
+    navigate,
+    orgId,
+    queryClient,
+    resetCreateUserDialog,
+    resetOnboardingMut,
+    revokeInviteMut.isPending,
+    selectedInviteIds,
+  ]);
   useHeaderActions(headerActions);
 
   const allTabs: { key: Tab; label: string; module?: string }[] = [
@@ -461,19 +464,19 @@ export default function OrganizacaoPage() {
                 </div>
                 <div>
                   <Label>CNPJ</Label>
-                  <Input value={orgForm.cnpj} onChange={(e) => setOrgForm((f) => ({ ...f, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" />
+                  <Input value={orgForm.legalIdentifier} onChange={(e) => setOrgForm((f) => ({ ...f, legalIdentifier: e.target.value }))} placeholder="00.000.000/0000-00" />
                 </div>
                 <div>
                   <Label>Nome Fantasia</Label>
-                  <Input value={orgForm.nomeFantasia} onChange={(e) => setOrgForm((f) => ({ ...f, nomeFantasia: e.target.value }))} />
+                  <Input value={orgForm.tradeName} onChange={(e) => setOrgForm((f) => ({ ...f, tradeName: e.target.value }))} />
                 </div>
                 <div>
-                  <Label>Data de Fundação</Label>
-                  <Input value={orgForm.dataFundacao} onChange={(e) => setOrgForm((f) => ({ ...f, dataFundacao: e.target.value }))} placeholder="DD/MM/AAAA" />
+                  <Label>Data de Abertura</Label>
+                  <Input value={orgForm.openingDate} onChange={(e) => setOrgForm((f) => ({ ...f, openingDate: e.target.value }))} placeholder="AAAA-MM-DD" />
                 </div>
                 <div>
                   <Label>Inscrição Estadual</Label>
-                  <Input value={orgForm.inscricaoEstadual} onChange={(e) => setOrgForm((f) => ({ ...f, inscricaoEstadual: e.target.value }))} />
+                  <Input value={orgForm.stateRegistration} onChange={(e) => setOrgForm((f) => ({ ...f, stateRegistration: e.target.value }))} />
                 </div>
                 <div>
                   <Label>Status Operacional</Label>
@@ -483,7 +486,7 @@ export default function OrganizacaoPage() {
                   </Select>
                 </div>
                 <div className="col-span-3 flex justify-end gap-3 pt-2">
-                  <Button variant="outline" size="sm" onClick={() => { setIsEditingOrg(false); if (orgData) setOrgForm({ name: orgData.name || "", nomeFantasia: orgData.nomeFantasia || "", cnpj: orgData.cnpj || "", inscricaoEstadual: orgData.inscricaoEstadual || "", dataFundacao: orgData.dataFundacao || "", statusOperacional: orgData.statusOperacional || "ativa" }); }}>
+                  <Button variant="outline" size="sm" onClick={() => { setIsEditingOrg(false); if (orgData) setOrgForm({ name: orgData.name || "", tradeName: orgData.tradeName || "", legalIdentifier: orgData.legalIdentifier || "", stateRegistration: orgData.stateRegistration || "", openingDate: orgData.openingDate || "", statusOperacional: orgData.statusOperacional || "ativa" }); }}>
                     Cancelar
                   </Button>
                   <Button size="sm" onClick={handleSaveOrg} isLoading={updateOrgMut.isPending} disabled={!orgForm.name}>
@@ -499,19 +502,19 @@ export default function OrganizacaoPage() {
                 </div>
                 <div>
                   <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">CNPJ</p>
-                  <p className="text-[14px] text-foreground">{orgData?.cnpj || "—"}</p>
+                  <p className="text-[14px] text-foreground">{orgData?.legalIdentifier || "—"}</p>
                 </div>
                 <div>
                   <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Nome Fantasia</p>
-                  <p className="text-[14px] text-foreground">{orgData?.nomeFantasia || "—"}</p>
+                  <p className="text-[14px] text-foreground">{orgData?.tradeName || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Data de Fundação</p>
-                  <p className="text-[14px] text-foreground">{orgData?.dataFundacao || "—"}</p>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Data de Abertura</p>
+                  <p className="text-[14px] text-foreground">{orgData?.openingDate || "—"}</p>
                 </div>
                 <div>
                   <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Inscrição Estadual</p>
-                  <p className="text-[14px] text-foreground">{orgData?.inscricaoEstadual || "—"}</p>
+                  <p className="text-[14px] text-foreground">{orgData?.stateRegistration || "—"}</p>
                 </div>
                 <div>
                   <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Status Operacional</p>

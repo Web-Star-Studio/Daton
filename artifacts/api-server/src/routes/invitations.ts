@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { eq, and, gt } from "drizzle-orm";
 import { db, usersTable, organizationsTable, invitationsTable, userModulePermissionsTable } from "@workspace/db";
 import { CreateInvitationBody, AcceptInvitationBody } from "@workspace/api-zod";
-import { requireAuth, requireCompletedOnboarding, requireRole, signToken, APP_MODULES } from "../middlewares/auth";
+import { requireAuth, requireCompletedOnboarding, requireRole, issueAuthToken, APP_MODULES } from "../middlewares/auth";
 import type { AppModule, UserRole } from "../middlewares/auth";
 import { getResendClient } from "../lib/resend";
 
@@ -384,7 +384,7 @@ router.post("/invitations/accept/:token", async (req, res): Promise<void> => {
         .set({ status: "accepted" })
         .where(eq(invitationsTable.id, invitation.id));
 
-      const authToken = signToken({ userId: user.id, organizationId: user.organizationId, role: user.role as any });
+      const authToken = await issueAuthToken({ userId: user.id, organizationId: user.organizationId, role: user.role as any });
 
       return {
         user: {

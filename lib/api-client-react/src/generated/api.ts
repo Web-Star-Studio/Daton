@@ -71,6 +71,7 @@ import type {
   MeResponse,
   MessageResponse,
   Organization,
+  OrganizationOnboardingAuthResponse,
   PaginatedEmployees,
   Position,
   QuestionnaireTheme,
@@ -686,8 +687,8 @@ export const completeOrganizationOnboarding = async (
   orgId: number,
   completeOrganizationOnboardingBody: CompleteOrganizationOnboardingBody,
   options?: RequestInit,
-): Promise<Organization> => {
-  return customFetch<Organization>(
+): Promise<OrganizationOnboardingAuthResponse> => {
+  return customFetch<OrganizationOnboardingAuthResponse>(
     getCompleteOrganizationOnboardingUrl(orgId),
     {
       ...options,
@@ -764,6 +765,93 @@ export const useCompleteOrganizationOnboarding = <
   TContext
 > => {
   return useMutation(getCompleteOrganizationOnboardingMutationOptions(options));
+};
+
+/**
+ * @summary Reset organization onboarding
+ */
+export const getResetOrganizationOnboardingUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/onboarding/reset`;
+};
+
+export const resetOrganizationOnboarding = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<OrganizationOnboardingAuthResponse> => {
+  return customFetch<OrganizationOnboardingAuthResponse>(
+    getResetOrganizationOnboardingUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getResetOrganizationOnboardingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetOrganizationOnboarding>>,
+    TError,
+    { orgId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resetOrganizationOnboarding>>,
+  TError,
+  { orgId: number },
+  TContext
+> => {
+  const mutationKey = ["resetOrganizationOnboarding"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resetOrganizationOnboarding>>,
+    { orgId: number }
+  > = (props) => {
+    const { orgId } = props ?? {};
+
+    return resetOrganizationOnboarding(orgId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResetOrganizationOnboardingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resetOrganizationOnboarding>>
+>;
+
+export type ResetOrganizationOnboardingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reset organization onboarding
+ */
+export const useResetOrganizationOnboarding = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetOrganizationOnboarding>>,
+    TError,
+    { orgId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resetOrganizationOnboarding>>,
+  TError,
+  { orgId: number },
+  TContext
+> => {
+  return useMutation(getResetOrganizationOnboardingMutationOptions(options));
 };
 
 /**

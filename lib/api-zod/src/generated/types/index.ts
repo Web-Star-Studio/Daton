@@ -95,6 +95,7 @@ export * from "./organization";
 export * from "./organizationCompanyProfile";
 export * from "./organizationGoal";
 export * from "./organizationMaturityLevel";
+export * from "./organizationOnboardingAuthResponse";
 export * from "./organizationOnboardingData";
 export * from "./organizationSector";
 export * from "./organizationSize";

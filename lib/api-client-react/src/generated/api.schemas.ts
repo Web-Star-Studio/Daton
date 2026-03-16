@@ -11,6 +11,7 @@ export interface HealthStatus {
 
 export interface ErrorResponse {
   error: string;
+  code?: string;
 }
 
 export interface MessageResponse {
@@ -142,15 +143,9 @@ export interface Organization {
   id: number;
   name: string;
   /** @nullable */
-  legalName?: string | null;
-  /** @nullable */
   tradeName?: string | null;
   /** @nullable */
   legalIdentifier?: string | null;
-  /** @nullable */
-  nomeFantasia?: string | null;
-  /** @nullable */
-  cnpj?: string | null;
   /** @nullable */
   openingDate?: string | null;
   /** @nullable */
@@ -161,10 +156,6 @@ export interface Organization {
   stateRegistration?: string | null;
   /** @nullable */
   municipalRegistration?: string | null;
-  /** @nullable */
-  inscricaoEstadual?: string | null;
-  /** @nullable */
-  dataFundacao?: string | null;
   /** @nullable */
   statusOperacional?: string | null;
   onboardingStatus?: OnboardingStatus;
@@ -184,15 +175,9 @@ export interface MeResponse {
 export interface UpdateOrganizationBody {
   name?: string;
   /** @nullable */
-  legalName?: string | null;
-  /** @nullable */
   tradeName?: string | null;
   /** @nullable */
   legalIdentifier?: string | null;
-  /** @nullable */
-  nomeFantasia?: string | null;
-  /** @nullable */
-  cnpj?: string | null;
   /** @nullable */
   openingDate?: string | null;
   /** @nullable */
@@ -204,15 +189,12 @@ export interface UpdateOrganizationBody {
   /** @nullable */
   municipalRegistration?: string | null;
   /** @nullable */
-  inscricaoEstadual?: string | null;
-  /** @nullable */
-  dataFundacao?: string | null;
-  /** @nullable */
   statusOperacional?: string | null;
-  onboardingStatus?: OnboardingStatus;
-  onboardingData?: OrganizationOnboardingData;
-  /** @nullable */
-  onboardingCompletedAt?: string | null;
+}
+
+export interface OrganizationOnboardingAuthResponse {
+  token: string;
+  organization: Organization;
 }
 
 export interface CompleteOrganizationOnboardingFiscalRegistration {

@@ -12,15 +12,9 @@ export interface Organization {
   id: number;
   name: string;
   /** @nullable */
-  legalName?: string | null;
-  /** @nullable */
   tradeName?: string | null;
   /** @nullable */
   legalIdentifier?: string | null;
-  /** @nullable */
-  nomeFantasia?: string | null;
-  /** @nullable */
-  cnpj?: string | null;
   /** @nullable */
   openingDate?: string | null;
   /** @nullable */
@@ -31,10 +25,6 @@ export interface Organization {
   stateRegistration?: string | null;
   /** @nullable */
   municipalRegistration?: string | null;
-  /** @nullable */
-  inscricaoEstadual?: string | null;
-  /** @nullable */
-  dataFundacao?: string | null;
   /** @nullable */
   statusOperacional?: string | null;
   onboardingStatus?: OnboardingStatus;

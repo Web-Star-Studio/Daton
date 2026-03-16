@@ -1,4 +1,4 @@
-import { jsonb, pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+import { integer, jsonb, pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -62,12 +62,7 @@ export interface OrganizationOnboardingData {
 export const organizationsTable = pgTable("organizations", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  nomeFantasia: text("nome_fantasia"),
-  cnpj: text("cnpj"),
-  inscricaoEstadual: text("inscricao_estadual"),
-  dataFundacao: text("data_fundacao"),
   statusOperacional: text("status_operacional").default("ativa"),
-  legalName: text("legal_name"),
   tradeName: text("trade_name"),
   legalIdentifier: text("legal_identifier"),
   openingDate: text("opening_date"),
@@ -78,6 +73,7 @@ export const organizationsTable = pgTable("organizations", {
   onboardingStatus: text("onboarding_status").notNull().default("completed"),
   onboardingData: jsonb("onboarding_data").$type<OrganizationOnboardingData>(),
   onboardingCompletedAt: timestamp("onboarding_completed_at", { withTimezone: true }),
+  authVersion: integer("auth_version").notNull().default(1),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

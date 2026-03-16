@@ -167,6 +167,21 @@ function buildErrorMessage(response: Response, data: unknown): string {
   return prefix;
 }
 
+function handleOrganizationStateStale(data: unknown): void {
+  if (typeof window === "undefined") return;
+  if (getStringField(data, "code") !== "ORG_STATE_STALE") return;
+
+  localStorage.removeItem("daton_token");
+  sessionStorage.setItem(
+    "daton_auth_notice",
+    "Sua sessão foi invalidada após uma mudança no onboarding da organização. Entre novamente para continuar.",
+  );
+
+  const authUrl = new URL("auth", document.baseURI);
+  if (window.location.pathname === authUrl.pathname) return;
+  window.location.replace(authUrl.toString());
+}
+
 export class ApiError<T = unknown> extends Error {
   readonly name = "ApiError";
   readonly status: number;
@@ -369,6 +384,9 @@ export async function customFetch<T = unknown>(
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
+    if (response.status === 401) {
+      handleOrganizationStateStale(errorData);
+    }
     throw new ApiError(response, errorData, requestInfo);
   }
 

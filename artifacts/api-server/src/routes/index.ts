@@ -26,29 +26,16 @@ router.use(invitationsRouter);
 router.use(orgUsersRouter);
 router.use(organizationsRouter);
 
-router.use("/ai", requireAuth, requireCompletedOnboarding);
-router.use("/compliance-tag-vocabulary", requireAuth, requireCompletedOnboarding);
-router.use("/organizations/:orgId/notifications", requireAuth, requireCompletedOnboarding);
-router.use("/organizations/:orgId/questionnaire", requireAuth, requireCompletedOnboarding);
-router.use("/organizations/:orgId/units/:unitId/questionnaire", requireAuth, requireCompletedOnboarding);
-router.use("/organizations/:orgId/user-options", requireAuth, requireCompletedOnboarding);
+router.use(requireAuth, requireCompletedOnboarding, aiRouter);
+router.use(requireAuth, requireCompletedOnboarding, notificationsRouter);
+router.use(requireAuth, requireCompletedOnboarding, questionnaireRouter);
+router.use(requireAuth, requireCompletedOnboarding, autoTagRouter);
 
-router.use("/organizations/:orgId/units", requireAuth, requireCompletedOnboarding, requireModuleAccess("units"));
-router.use("/organizations/:orgId/legislations", requireAuth, requireCompletedOnboarding, requireModuleAccess("legislations"));
-router.use("/organizations/:orgId/employees", requireAuth, requireCompletedOnboarding, requireModuleAccess("employees"));
-router.use("/organizations/:orgId/documents", requireAuth, requireCompletedOnboarding, requireModuleAccess("documents"));
-router.use("/organizations/:orgId/departments", requireAuth, requireCompletedOnboarding, requireModuleAccess("departments"));
-router.use("/organizations/:orgId/positions", requireAuth, requireCompletedOnboarding, requireModuleAccess("positions"));
-
-router.use(aiRouter);
-router.use(notificationsRouter);
-router.use(questionnaireRouter);
-router.use(unitsRouter);
-router.use(legislationsRouter);
-router.use(unitLegislationsRouter);
-router.use(employeesRouter);
-router.use(departmentsRouter);
-router.use(documentsRouter);
-router.use(autoTagRouter);
+router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("units"), unitsRouter);
+router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("legislations"), legislationsRouter);
+router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("legislations"), unitLegislationsRouter);
+router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("employees"), employeesRouter);
+router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("departments"), departmentsRouter);
+router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("documents"), documentsRouter);
 
 export default router;

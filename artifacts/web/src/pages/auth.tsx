@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
   password: z.string().min(1, "A senha é obrigatória"),
@@ -50,6 +51,17 @@ export default function AuthPage() {
   const registerForm = useForm<RegisterData>({
     resolver: zodResolver(registerSchema),
   });
+
+  useEffect(() => {
+    const notice = sessionStorage.getItem("daton_auth_notice");
+    if (!notice) return;
+
+    sessionStorage.removeItem("daton_auth_notice");
+    toast({
+      title: "Sessão atualizada",
+      description: notice,
+    });
+  }, []);
 
   const onLogin = async (data: LoginData) => {
     try {

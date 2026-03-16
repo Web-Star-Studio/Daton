@@ -205,7 +205,26 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Organization"
+                $ref: "#/components/schemas/OrganizationOnboardingAuthResponse"
+
+  /organizations/{orgId}/onboarding/reset:
+    post:
+      operationId: resetOrganizationOnboarding
+      tags: [organizations]
+      summary: Reset organization onboarding
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Onboarding reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationOnboardingAuthResponse"
 
   /organizations/{orgId}/units:
     get:
@@ -2372,6 +2391,8 @@ components:
       properties:
         error:
           type: string
+        code:
+          type: string
       required:
         - error
 
@@ -2478,15 +2499,9 @@ components:
           type: integer
         name:
           type: string
-        legalName:
-          type: ["string", "null"]
         tradeName:
           type: ["string", "null"]
         legalIdentifier:
-          type: ["string", "null"]
-        nomeFantasia:
-          type: ["string", "null"]
-        cnpj:
           type: ["string", "null"]
         openingDate:
           type: ["string", "null"]
@@ -2497,10 +2512,6 @@ components:
         stateRegistration:
           type: ["string", "null"]
         municipalRegistration:
-          type: ["string", "null"]
-        inscricaoEstadual:
-          type: ["string", "null"]
-        dataFundacao:
           type: ["string", "null"]
         statusOperacional:
           type: ["string", "null"]
@@ -2528,15 +2539,9 @@ components:
       properties:
         name:
           type: string
-        legalName:
-          type: ["string", "null"]
         tradeName:
           type: ["string", "null"]
         legalIdentifier:
-          type: ["string", "null"]
-        nomeFantasia:
-          type: ["string", "null"]
-        cnpj:
           type: ["string", "null"]
         openingDate:
           type: ["string", "null"]
@@ -2548,19 +2553,19 @@ components:
           type: ["string", "null"]
         municipalRegistration:
           type: ["string", "null"]
-        inscricaoEstadual:
-          type: ["string", "null"]
-        dataFundacao:
-          type: ["string", "null"]
         statusOperacional:
           type: ["string", "null"]
-        onboardingStatus:
-          $ref: "#/components/schemas/OnboardingStatus"
-        onboardingData:
-          $ref: "#/components/schemas/OrganizationOnboardingData"
-        onboardingCompletedAt:
-          type: ["string", "null"]
-          format: date-time
+
+    OrganizationOnboardingAuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        organization:
+          $ref: "#/components/schemas/Organization"
+      required:
+        - token
+        - organization
 
     OnboardingStatus:
       type: string

@@ -11,74 +11,33 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import {
+  goalOptions,
+  maturityOptions,
+  sectorOptions,
+  sizeOptions,
+  getGoalLabel,
+  getMaturityLabel,
+  getSectorLabel,
+  getSizeLabel,
+  ORGANIZATION_GOALS,
+  ORGANIZATION_MATURITY_LEVELS,
+  ORGANIZATION_SECTORS,
+  ORGANIZATION_SIZES,
+  type OrganizationGoal,
+} from "@/lib/organization-onboarding";
 
 const authBg = "/images/bg-auth.png";
 
-const sectorOptions = [
-  ["manufacturing", "Indústria de transformação"],
-  ["agro", "Agro"],
-  ["food_beverage", "Alimentos e bebidas"],
-  ["mining", "Mineração"],
-  ["oil_gas", "Óleo e gás"],
-  ["energy", "Energia"],
-  ["chemical", "Químico"],
-  ["pulp_paper", "Papel e celulose"],
-  ["steel", "Siderurgia"],
-  ["logistics", "Logística"],
-  ["financial", "Financeiro"],
-  ["telecom", "Telecom"],
-  ["public", "Setor público"],
-  ["pharma_cosmetics", "Farma e cosméticos"],
-  ["automotive", "Automotivo"],
-  ["technology", "Tecnologia"],
-  ["consumer_goods", "Bens de consumo"],
-  ["utilities", "Utilities"],
-  ["healthcare", "Saúde"],
-  ["education", "Educação"],
-  ["retail", "Varejo"],
-  ["construction", "Construção"],
-  ["services", "Serviços"],
-  ["other", "Outro"],
-] as const;
-
-const sizeOptions = [
-  ["micro", "Micro"],
-  ["small", "Pequena"],
-  ["medium", "Média"],
-  ["large", "Grande"],
-  ["xlarge", "Muito grande"],
-  ["enterprise", "Enterprise"],
-] as const;
-
-const goalOptions = [
-  ["emissions_reduction", "Redução de emissões"],
-  ["environmental_compliance", "Conformidade ambiental"],
-  ["health_safety", "Saúde e segurança"],
-  ["energy_efficiency", "Eficiência energética"],
-  ["water_management", "Gestão de água"],
-  ["waste_reduction", "Redução de resíduos"],
-  ["sustainability", "Sustentabilidade"],
-  ["quality", "Qualidade"],
-  ["compliance", "Compliance"],
-  ["performance", "Performance"],
-  ["innovation", "Inovação"],
-  ["cost_reduction", "Redução de custos"],
-] as const;
-
-const maturityOptions = [
-  ["beginner", "Inicial"],
-  ["intermediate", "Intermediário"],
-  ["advanced", "Avançado"],
-] as const;
-
 const onboardingSchema = z
   .object({
-    sector: z.string().min(1, "Selecione o setor principal"),
+    sector: z.enum(ORGANIZATION_SECTORS, { message: "Selecione o setor principal" }),
     customSector: z.string().max(120, "Use até 120 caracteres").optional(),
-    size: z.string().min(1, "Selecione o porte da empresa"),
-    goals: z.array(z.string()).min(1, "Selecione pelo menos um objetivo"),
-    maturityLevel: z.string().min(1, "Selecione o nível de maturidade"),
+    size: z.enum(ORGANIZATION_SIZES, { message: "Selecione o porte da empresa" }),
+    goals: z.array(z.enum(ORGANIZATION_GOALS)).min(1, "Selecione pelo menos um objetivo"),
+    maturityLevel: z.enum(ORGANIZATION_MATURITY_LEVELS, { message: "Selecione o nível de maturidade" }),
     currentChallenges: z
       .array(z.string().trim().min(1).max(120, "Cada desafio deve ter até 120 caracteres"))
       .max(12, "Adicione no máximo 12 desafios"),
@@ -123,14 +82,9 @@ const stepDefinitions = [
   },
 ] as const;
 
-function labelFor(value: string | null | undefined, options: readonly (readonly [string, string])[]) {
-  if (!value) return "Não informado";
-  return options.find(([optionValue]) => optionValue === value)?.[1] ?? value;
-}
-
 export default function OnboardingOrganizationPage() {
   const [, navigate] = useLocation();
-  const { organization, role, logout, refreshAuth } = useAuth();
+  const { organization, role, logout, login } = useAuth();
   const completeOnboardingMutation = useCompleteOrganizationOnboarding();
   const [stepIndex, setStepIndex] = useState(0);
   const [challengeInput, setChallengeInput] = useState("");
@@ -138,16 +92,16 @@ export default function OnboardingOrganizationPage() {
   const form = useForm<OnboardingFormData>({
     resolver: zodResolver(onboardingSchema),
     defaultValues: {
-      sector: organization?.onboardingData?.companyProfile?.sector ?? "",
+      sector: organization?.onboardingData?.companyProfile?.sector,
       customSector: organization?.onboardingData?.companyProfile?.customSector ?? "",
-      size: organization?.onboardingData?.companyProfile?.size ?? "",
+      size: organization?.onboardingData?.companyProfile?.size,
       goals: organization?.onboardingData?.companyProfile?.goals ?? [],
-      maturityLevel: organization?.onboardingData?.companyProfile?.maturityLevel ?? "",
+      maturityLevel: organization?.onboardingData?.companyProfile?.maturityLevel,
       currentChallenges: organization?.onboardingData?.companyProfile?.currentChallenges ?? [],
       openingDate: organization?.openingDate ?? "",
       taxRegime: organization?.taxRegime ?? "",
       primaryCnae: organization?.primaryCnae ?? "",
-      stateRegistration: organization?.stateRegistration ?? organization?.inscricaoEstadual ?? "",
+      stateRegistration: organization?.stateRegistration ?? "",
       municipalRegistration: organization?.municipalRegistration ?? "",
     },
   });
@@ -161,9 +115,9 @@ export default function OnboardingOrganizationPage() {
       {
         title: "Base da organização",
         items: [
-          ["Razão social", organization?.legalName ?? organization?.name ?? "Não informado"],
-          ["Nome fantasia", organization?.tradeName ?? organization?.nomeFantasia ?? "Não informado"],
-          ["CNPJ", organization?.legalIdentifier ?? organization?.cnpj ?? "Não informado"],
+          ["Razão social", organization?.name ?? "Não informado"],
+          ["Nome fantasia", organization?.tradeName ?? "Não informado"],
+          ["CNPJ", organization?.legalIdentifier ?? "Não informado"],
         ],
       },
       {
@@ -171,13 +125,11 @@ export default function OnboardingOrganizationPage() {
         items: [
           [
             "Setor principal",
-            values.sector === "other"
-              ? values.customSector?.trim() || "Não informado"
-              : labelFor(values.sector, sectorOptions),
+            getSectorLabel(values.sector, values.customSector),
           ],
-          ["Porte", labelFor(values.size, sizeOptions)],
-          ["Objetivos", values.goals.length > 0 ? values.goals.map((goal) => labelFor(goal, goalOptions)).join(", ") : "Não informado"],
-          ["Maturidade", labelFor(values.maturityLevel, maturityOptions)],
+          ["Porte", getSizeLabel(values.size)],
+          ["Objetivos", values.goals.length > 0 ? values.goals.map((goal) => getGoalLabel(goal)).join(", ") : "Não informado"],
+          ["Maturidade", getMaturityLabel(values.maturityLevel)],
           ["Desafios atuais", currentChallenges.length > 0 ? currentChallenges.join(", ") : "Não informado"],
         ],
       },
@@ -221,7 +173,7 @@ export default function OnboardingOrganizationPage() {
     );
   };
 
-  const toggleGoal = (goal: string, checked: boolean) => {
+  const toggleGoal = (goal: OrganizationGoal, checked: boolean) => {
     const nextGoals = checked ? [...values.goals, goal] : values.goals.filter((item) => item !== goal);
     form.setValue("goals", nextGoals, { shouldDirty: true, shouldValidate: true });
   };
@@ -248,29 +200,40 @@ export default function OnboardingOrganizationPage() {
   const handleFormSubmit = form.handleSubmit(async (data) => {
     if (!organization?.id) return;
 
-    await completeOnboardingMutation.mutateAsync({
-      orgId: organization.id,
-      data: {
-        companyProfile: {
-          sector: data.sector as never,
-          customSector: data.sector === "other" ? data.customSector?.trim() || null : null,
-          size: data.size as never,
-          goals: data.goals as never,
-          maturityLevel: data.maturityLevel as never,
-          currentChallenges: data.currentChallenges,
+    try {
+      const response = await completeOnboardingMutation.mutateAsync({
+        orgId: organization.id,
+        data: {
+          companyProfile: {
+            sector: data.sector,
+            customSector: data.sector === "other" ? data.customSector?.trim() || null : null,
+            size: data.size,
+            goals: data.goals,
+            maturityLevel: data.maturityLevel,
+            currentChallenges: data.currentChallenges,
+          },
+          fiscalRegistration: {
+            openingDate: data.openingDate?.trim() || null,
+            taxRegime: data.taxRegime?.trim() || null,
+            primaryCnae: data.primaryCnae?.trim() || null,
+            stateRegistration: data.stateRegistration?.trim() || null,
+            municipalRegistration: data.municipalRegistration?.trim() || null,
+          },
         },
-        fiscalRegistration: {
-          openingDate: data.openingDate?.trim() || null,
-          taxRegime: data.taxRegime?.trim() || null,
-          primaryCnae: data.primaryCnae?.trim() || null,
-          stateRegistration: data.stateRegistration?.trim() || null,
-          municipalRegistration: data.municipalRegistration?.trim() || null,
-        },
-      },
-    });
+      });
 
-    await refreshAuth();
-    navigate("/organizacao");
+      login(response.token);
+      navigate("/organizacao");
+    } catch (error: unknown) {
+      const message =
+        (error as { data?: { error?: string } })?.data?.error ||
+        "Não foi possível concluir o onboarding. Revise os dados e tente novamente.";
+      toast({
+        title: "Falha ao concluir onboarding",
+        description: message,
+        variant: "destructive",
+      });
+    }
   });
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -342,11 +305,11 @@ export default function OnboardingOrganizationPage() {
                     <div className="grid gap-6 lg:grid-cols-2">
                       <div className="lg:col-span-2">
                         <Label>Setor principal</Label>
-                        <Select className="mt-2" value={values.sector} onChange={(event) => form.setValue("sector", event.target.value, { shouldValidate: true })}>
+                        <Select className="mt-2" value={values.sector ?? ""} onChange={(event) => form.setValue("sector", event.target.value as OnboardingFormData["sector"], { shouldValidate: true })}>
                           <option value="">Selecione</option>
-                          {sectorOptions.map(([value, label]) => (
-                            <option key={value} value={value}>
-                              {label}
+                          {sectorOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
                             </option>
                           ))}
                         </Select>
@@ -368,14 +331,14 @@ export default function OnboardingOrganizationPage() {
                       <div className="lg:col-span-2">
                         <Label>Porte da empresa</Label>
                         <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                          {sizeOptions.map(([value, label]) => {
-                            const checked = values.size === value;
+                          {sizeOptions.map((option) => {
+                            const checked = values.size === option.value;
 
                             return (
                               <button
-                                key={value}
+                                key={option.value}
                                 type="button"
-                                onClick={() => form.setValue("size", value, { shouldValidate: true, shouldDirty: true })}
+                                onClick={() => form.setValue("size", option.value, { shouldValidate: true, shouldDirty: true })}
                                 className={cn(
                                   "cursor-pointer rounded-2xl border px-4 py-4 text-left transition-colors",
                                   checked
@@ -383,7 +346,7 @@ export default function OnboardingOrganizationPage() {
                                     : "border-border bg-background text-foreground hover:border-foreground/15",
                                 )}
                               >
-                                <p className="text-sm font-medium">{label}</p>
+                                <p className="text-sm font-medium">{option.label}</p>
                               </button>
                             );
                           })}
@@ -403,19 +366,21 @@ export default function OnboardingOrganizationPage() {
                           Selecione pelo menos uma frente que precisa ganhar estrutura ou tração no curto prazo.
                         </p>
                         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                          {goalOptions.map(([value, label]) => {
-                            const checked = values.goals.includes(value);
+                          {goalOptions.map((option) => {
+                            const checked = values.goals.includes(option.value);
 
                             return (
                               <label
-                                key={value}
+                                key={option.value}
                                 className={cn(
                                   "flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-4 transition-colors",
-                                  checked ? "border-foreground/20 bg-secondary" : "border-border bg-background hover:border-foreground/15",
+                                  checked
+                                    ? "border-[#007AFF] bg-[#007AFF] text-white"
+                                    : "border-border bg-background hover:border-foreground/15",
                                 )}
                               >
-                                <Checkbox checked={checked} onCheckedChange={(next) => toggleGoal(value, next === true)} className="mt-0.5" />
-                                <span className="text-sm text-foreground">{label}</span>
+                                <Checkbox checked={checked} onCheckedChange={(next) => toggleGoal(option.value, next === true)} className="mt-0.5 border-white/60 data-[state=checked]:border-white data-[state=checked]:bg-white data-[state=checked]:text-[#007AFF]" />
+                                <span className={cn("text-sm", checked ? "text-white" : "text-foreground")}>{option.label}</span>
                               </label>
                             );
                           })}
@@ -428,14 +393,14 @@ export default function OnboardingOrganizationPage() {
                       <div>
                         <Label>Nível de maturidade</Label>
                         <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                          {maturityOptions.map(([value, label]) => {
-                            const checked = values.maturityLevel === value;
+                          {maturityOptions.map((option) => {
+                            const checked = values.maturityLevel === option.value;
 
                             return (
                               <button
-                                key={value}
+                                key={option.value}
                                 type="button"
-                                onClick={() => form.setValue("maturityLevel", value, { shouldValidate: true, shouldDirty: true })}
+                                onClick={() => form.setValue("maturityLevel", option.value, { shouldValidate: true, shouldDirty: true })}
                                 className={cn(
                                   "cursor-pointer rounded-2xl border px-4 py-4 text-left transition-colors",
                                   checked
@@ -443,7 +408,7 @@ export default function OnboardingOrganizationPage() {
                                     : "border-border bg-background text-foreground hover:border-foreground/15",
                                 )}
                               >
-                                <p className="text-sm font-medium">{label}</p>
+                                <p className="text-sm font-medium">{option.label}</p>
                               </button>
                             );
                           })}
