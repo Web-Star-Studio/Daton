@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db, organizationsTable, type OrganizationOnboardingStatus } from "@workspace/db";
 import {
   CompleteOrganizationOnboardingBody,
@@ -7,7 +7,7 @@ import {
   UpdateOrganizationParams,
   UpdateOrganizationBody,
 } from "@workspace/api-zod";
-import { requireAuth, requireCompletedOnboarding, requireRole, signToken } from "../middlewares/auth";
+import { issueAuthTokenFromState, requireAuth, requireCompletedOnboarding, requireRole } from "../middlewares/auth";
 import { serializeOrganization } from "../lib/serialize-organization";
 
 const router: IRouter = Router();
@@ -133,17 +133,36 @@ router.post("/organizations/:orgId/onboarding/complete", requireAuth, requireRol
           },
         },
         onboardingCompletedAt: new Date(),
-        authVersion: existing.authVersion + 1,
+        authVersion: sql`${organizationsTable.authVersion} + 1`,
       })
-      .where(eq(organizationsTable.id, params.data.orgId))
+      .where(
+        and(
+          eq(organizationsTable.id, params.data.orgId),
+          eq(organizationsTable.onboardingStatus, "pending"),
+        ),
+      )
       .returning();
   });
 
-  const token = signToken({
+  if (!org) {
+    const [current] = await db.select().from(organizationsTable).where(eq(organizationsTable.id, params.data.orgId));
+    if (!current) {
+      res.status(404).json({ error: "Organização não encontrada" });
+      return;
+    }
+    if (current.onboardingStatus === "completed") {
+      res.status(409).json({ error: "Onboarding já concluído" });
+      return;
+    }
+    res.status(400).json({ error: "A organização não está apta para concluir o onboarding" });
+    return;
+  }
+
+  const token = issueAuthTokenFromState({
     userId: req.auth!.userId,
     organizationId: req.auth!.organizationId,
     role: req.auth!.role,
-    organizationAuthVersion: org.authVersion,
+    authVersion: org.authVersion,
     onboardingStatus: org.onboardingStatus as OrganizationOnboardingStatus,
   });
 
@@ -179,17 +198,36 @@ router.post("/organizations/:orgId/onboarding/reset", requireAuth, requireRole("
       .set({
         onboardingStatus: "pending",
         onboardingCompletedAt: null,
-        authVersion: existing.authVersion + 1,
+        authVersion: sql`${organizationsTable.authVersion} + 1`,
       })
-      .where(eq(organizationsTable.id, params.data.orgId))
+      .where(
+        and(
+          eq(organizationsTable.id, params.data.orgId),
+          eq(organizationsTable.onboardingStatus, "completed"),
+        ),
+      )
       .returning();
   });
 
-  const token = signToken({
+  if (!org) {
+    const [current] = await db.select().from(organizationsTable).where(eq(organizationsTable.id, params.data.orgId));
+    if (!current) {
+      res.status(404).json({ error: "Organização não encontrada" });
+      return;
+    }
+    if (current.onboardingStatus !== "completed") {
+      res.status(400).json({ error: "O onboarding só pode ser reiniciado após a conclusão" });
+      return;
+    }
+    res.status(409).json({ error: "O estado do onboarding foi alterado por outra requisição" });
+    return;
+  }
+
+  const token = issueAuthTokenFromState({
     userId: req.auth!.userId,
     organizationId: req.auth!.organizationId,
     role: req.auth!.role,
-    organizationAuthVersion: org.authVersion,
+    authVersion: org.authVersion,
     onboardingStatus: org.onboardingStatus as OrganizationOnboardingStatus,
   });
 

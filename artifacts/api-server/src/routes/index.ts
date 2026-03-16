@@ -12,6 +12,7 @@ import questionnaireRouter from "./questionnaire";
 import autoTagRouter from "./auto-tag";
 import employeesRouter from "./employees";
 import departmentsRouter from "./departments";
+import positionsRouter from "./positions";
 import documentsRouter from "./documents";
 import notificationsRouter from "./notifications";
 import invitationsRouter from "./invitations";
@@ -36,6 +37,7 @@ router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("legisla
 router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("legislations"), unitLegislationsRouter);
 router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("employees"), employeesRouter);
 router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("departments"), departmentsRouter);
+router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("positions"), positionsRouter);
 router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("documents"), documentsRouter);
 
 export default router;

@@ -10,6 +10,21 @@ const router: IRouter = Router();
 
 router.post("/auth/register", async (req, res): Promise<void> => {
   const rawBody = typeof req.body === "object" && req.body !== null ? req.body as Record<string, unknown> : {};
+  const legacyAliasesUsed = [
+    "razaoSocial",
+    "nomeFantasia",
+    "cnpj",
+    "adminName",
+    "email",
+  ].filter((key) => key in rawBody);
+
+  if (legacyAliasesUsed.length > 0) {
+    console.warn(
+      `[register] deprecated legacy register aliases used: ${legacyAliasesUsed.join(", ")}. ` +
+      "Migrate clients to legalName/tradeName/legalIdentifier/adminFullName/adminEmail.",
+    );
+  }
+
   const parsed = RegisterBody.safeParse({
     legalName: rawBody.legalName ?? rawBody.razaoSocial,
     tradeName: rawBody.tradeName ?? rawBody.nomeFantasia ?? null,

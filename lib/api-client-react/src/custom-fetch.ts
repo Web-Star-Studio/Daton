@@ -8,6 +8,7 @@ export type BodyType<T> = T;
 
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
+let staleOrganizationRedirectInFlight = false;
 const API_BASE_URL =
   typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL
     ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/$/, "")
@@ -170,6 +171,7 @@ function buildErrorMessage(response: Response, data: unknown): string {
 function handleOrganizationStateStale(data: unknown): void {
   if (typeof window === "undefined") return;
   if (getStringField(data, "code") !== "ORG_STATE_STALE") return;
+  if (staleOrganizationRedirectInFlight) return;
 
   localStorage.removeItem("daton_token");
   sessionStorage.setItem(
@@ -179,6 +181,7 @@ function handleOrganizationStateStale(data: unknown): void {
 
   const authUrl = new URL("auth", document.baseURI);
   if (window.location.pathname === authUrl.pathname) return;
+  staleOrganizationRedirectInFlight = true;
   window.location.replace(authUrl.toString());
 }
 

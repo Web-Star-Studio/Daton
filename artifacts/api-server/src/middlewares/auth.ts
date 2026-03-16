@@ -12,6 +12,7 @@ function getJwtSecret(): string {
 }
 
 const JWT_SECRET: string = getJwtSecret();
+const ORGANIZATION_AUTH_STATE_TTL_MS = 30_000;
 
 export type UserRole = "platform_admin" | "org_admin" | "operator" | "analyst";
 
@@ -26,6 +27,13 @@ export interface AuthPayload {
   onboardingStatus: OrganizationOnboardingStatus;
 }
 
+interface OrganizationAuthState {
+  authVersion: number;
+  onboardingStatus: OrganizationOnboardingStatus;
+}
+
+const organizationAuthStateCache = new Map<number, OrganizationAuthState & { expiresAt: number }>();
+
 declare global {
   namespace Express {
     interface Request {
@@ -34,8 +42,74 @@ declare global {
   }
 }
 
-export function signToken(payload: AuthPayload): string {
+function signToken(payload: AuthPayload): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+}
+
+function cacheOrganizationAuthState(
+  organizationId: number,
+  state: OrganizationAuthState,
+): OrganizationAuthState {
+  organizationAuthStateCache.set(organizationId, {
+    ...state,
+    expiresAt: Date.now() + ORGANIZATION_AUTH_STATE_TTL_MS,
+  });
+  return state;
+}
+
+async function loadOrganizationAuthState(
+  organizationId: number,
+  forceRefresh = false,
+): Promise<OrganizationAuthState | null> {
+  const cached = organizationAuthStateCache.get(organizationId);
+  if (!forceRefresh && cached && cached.expiresAt > Date.now()) {
+    return {
+      authVersion: cached.authVersion,
+      onboardingStatus: cached.onboardingStatus,
+    };
+  }
+
+  const [organization] = await db
+    .select({
+      authVersion: organizationsTable.authVersion,
+      onboardingStatus: organizationsTable.onboardingStatus,
+    })
+    .from(organizationsTable)
+    .where(eq(organizationsTable.id, organizationId));
+
+  if (!organization) {
+    organizationAuthStateCache.delete(organizationId);
+    return null;
+  }
+
+  return cacheOrganizationAuthState(organizationId, {
+    authVersion: organization.authVersion,
+    onboardingStatus: organization.onboardingStatus as OrganizationOnboardingStatus,
+  });
+}
+
+export function issueAuthTokenFromState({
+  userId,
+  organizationId,
+  role,
+  authVersion,
+  onboardingStatus,
+}: {
+  userId: number;
+  organizationId: number;
+  role: UserRole;
+  authVersion: number;
+  onboardingStatus: OrganizationOnboardingStatus;
+}): string {
+  cacheOrganizationAuthState(organizationId, { authVersion, onboardingStatus });
+
+  return signToken({
+    userId,
+    organizationId,
+    role,
+    organizationAuthVersion: authVersion,
+    onboardingStatus,
+  });
 }
 
 export async function issueAuthToken({
@@ -47,24 +121,17 @@ export async function issueAuthToken({
   organizationId: number;
   role: UserRole;
 }): Promise<string> {
-  const [organization] = await db
-    .select({
-      authVersion: organizationsTable.authVersion,
-      onboardingStatus: organizationsTable.onboardingStatus,
-    })
-    .from(organizationsTable)
-    .where(eq(organizationsTable.id, organizationId));
-
+  const organization = await loadOrganizationAuthState(organizationId, true);
   if (!organization) {
     throw new Error("Organization not found while issuing auth token");
   }
 
-  return signToken({
+  return issueAuthTokenFromState({
     userId,
     organizationId,
     role,
-    organizationAuthVersion: organization.authVersion,
-    onboardingStatus: organization.onboardingStatus as OrganizationOnboardingStatus,
+    authVersion: organization.authVersion,
+    onboardingStatus: organization.onboardingStatus,
   });
 }
 
@@ -89,14 +156,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       return;
     }
 
-    const [organization] = await db
-      .select({
-        authVersion: organizationsTable.authVersion,
-        onboardingStatus: organizationsTable.onboardingStatus,
-      })
-      .from(organizationsTable)
-      .where(eq(organizationsTable.id, payload.organizationId));
-
+    const organization = await loadOrganizationAuthState(payload.organizationId);
     if (!organization) {
       res.status(404).json({ error: "Organização não encontrada" });
       return;
