@@ -8,8 +8,6 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
-import * as fs from "fs";
-import * as path from "path";
 import { Readable } from "stream";
 import {
   ObjectAclPolicy,
@@ -18,8 +16,6 @@ import {
   getObjectAclPolicy,
   setObjectAclPolicy,
 } from "./objectAcl";
-
-const LOCAL_UPLOADS_DIR = path.join(process.cwd(), ".data", "uploads");
 
 function getRequiredEnv(name: string): string {
   const value = process.env[name]?.trim();
@@ -32,9 +28,7 @@ function getRequiredEnv(name: string): string {
 function createObjectStorageClient(): S3Client {
   return new S3Client({
     region: process.env.S3_REGION || "auto",
-    endpoint:
-      process.env.S3_ENDPOINT ||
-      `https://${getRequiredEnv("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
+    endpoint: getRequiredEnv("S3_ENDPOINT"),
     credentials: {
       accessKeyId: getRequiredEnv("S3_ACCESS_KEY_ID"),
       secretAccessKey: getRequiredEnv("S3_SECRET_ACCESS_KEY"),
@@ -146,6 +140,7 @@ class StoredS3Object {
 
     const encodedKey = encodeURIComponent(this.objectName).replace(/%2F/g, "/");
 
+    // S3-compatible providers replace metadata by copying the object onto itself.
     await getObjectStorageClient().send(
       new CopyObjectCommand({
         Bucket: this.bucketName,
@@ -275,44 +270,21 @@ export class ObjectStorageService {
   }
 
   async uploadDirect(data: Buffer, contentType: string): Promise<string> {
+    const privateObjectDir = this.getPrivateObjectDir();
     const objectId = randomUUID();
-    const uploadDir = path.join(LOCAL_UPLOADS_DIR, "uploads");
-    await fs.promises.mkdir(uploadDir, { recursive: true });
-    const filePath = path.join(uploadDir, objectId);
-    await fs.promises.writeFile(filePath, data);
-    const metaPath = `${filePath}.meta`;
-    await fs.promises.writeFile(metaPath, JSON.stringify({ contentType }));
+    const fullPath = `${privateObjectDir.replace(/\/$/, "")}/uploads/${objectId}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+
+    await getObjectStorageClient().send(
+      new PutObjectCommand({
+        Bucket: bucketName,
+        Key: objectName,
+        Body: data,
+        ContentType: contentType,
+      }),
+    );
+
     return `/objects/uploads/${objectId}`;
-  }
-
-  async getLocalFile(
-    objectPath: string,
-  ): Promise<{ data: Buffer; contentType: string } | null> {
-    if (!objectPath.startsWith("/objects/")) return null;
-
-    const parts = objectPath.slice(1).split("/");
-    if (parts.length < 2) return null;
-
-    const entityId = parts.slice(1).join("/");
-    const filePath = path.join(LOCAL_UPLOADS_DIR, entityId);
-
-    try {
-      await fs.promises.access(filePath);
-      const data = await fs.promises.readFile(filePath);
-      let contentType = "application/octet-stream";
-
-      try {
-        const metaStr = await fs.promises.readFile(`${filePath}.meta`, "utf-8");
-        const meta = JSON.parse(metaStr) as { contentType?: string };
-        if (meta.contentType) {
-          contentType = meta.contentType;
-        }
-      } catch {}
-
-      return { data, contentType };
-    } catch {
-      return null;
-    }
   }
 
   async getObjectEntityFile(objectPath: string): Promise<StoredS3Object> {
@@ -342,22 +314,17 @@ export class ObjectStorageService {
     return objectFile;
   }
 
-  normalizeObjectEntityPath(rawPath: string): string {
-    return rawPath;
-  }
-
   async trySetObjectEntityAclPolicy(
     rawPath: string,
     aclPolicy: ObjectAclPolicy,
   ): Promise<string> {
-    const normalizedPath = this.normalizeObjectEntityPath(rawPath);
-    if (!normalizedPath.startsWith("/")) {
-      return normalizedPath;
+    if (!rawPath.startsWith("/")) {
+      return rawPath;
     }
 
-    const objectFile = await this.getObjectEntityFile(normalizedPath);
+    const objectFile = await this.getObjectEntityFile(rawPath);
     await setObjectAclPolicy(objectFile, aclPolicy);
-    return normalizedPath;
+    return rawPath;
   }
 
   async canAccessObjectEntity({

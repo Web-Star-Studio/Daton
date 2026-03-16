@@ -138,15 +138,6 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
     const objectPath = `/objects/${wildcardPath}`;
 
-    const localFile = await objectStorageService.getLocalFile(objectPath);
-    if (localFile) {
-      res.setHeader("Content-Type", localFile.contentType);
-      res.setHeader("Content-Length", String(localFile.data.length));
-      res.setHeader("Cache-Control", "private, max-age=3600");
-      res.send(localFile.data);
-      return;
-    }
-
     const objectFile =
       await objectStorageService.getObjectEntityFile(objectPath);
 

@@ -62,6 +62,7 @@ Required Render env vars:
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `APP_BASE_URL`
+- `CORS_ALLOWED_ORIGINS`
 - `RESEND_API_KEY`
 - `RESEND_FROM_EMAIL`
 - `AI_INTEGRATIONS_OPENAI_API_KEY`
@@ -77,6 +78,7 @@ Recommended:
 
 - Point a custom API domain such as `api.yourdomain.com` to Render.
 - Set `APP_BASE_URL` to the frontend domain, for example `https://app.yourdomain.com`.
+- Set `CORS_ALLOWED_ORIGINS` to a comma-separated list of allowed frontend origins, including your main Pages domain and any preview Pages domains you want to use.
 
 ## 5. Cloudflare Pages Frontend
 
