@@ -720,20 +720,18 @@ router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", re
 
   const userId = req.auth!.userId;
   const newVersion = doc.currentVersion + 1;
-  let att: typeof documentAttachmentsTable.$inferSelect | null = null;
+  let deletedAttachment: typeof documentAttachmentsTable.$inferSelect;
 
   try {
-    await db.transaction(async (tx) => {
-      const [deletedAttachment] = await tx
+    deletedAttachment = await db.transaction(async (tx) => {
+      const [attachment] = await tx
         .delete(documentAttachmentsTable)
         .where(and(eq(documentAttachmentsTable.id, params.data.attachId), eq(documentAttachmentsTable.documentId, params.data.docId)))
         .returning();
 
-      if (!deletedAttachment) {
+      if (!attachment) {
         throw new Error("DOCUMENT_ATTACHMENT_NOT_FOUND");
       }
-
-      att = deletedAttachment;
 
       await tx
         .update(documentsTable)
@@ -743,10 +741,12 @@ router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", re
       await tx.insert(documentVersionsTable).values({
         documentId: doc.id,
         versionNumber: newVersion,
-        changeDescription: `Anexo removido: ${deletedAttachment.fileName}`,
+        changeDescription: `Anexo removido: ${attachment.fileName}`,
         changedById: userId,
         changedFields: "anexos",
       });
+
+      return attachment;
     });
   } catch (error) {
     if (error instanceof Error && error.message === "DOCUMENT_ATTACHMENT_NOT_FOUND") {
@@ -765,7 +765,7 @@ router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", re
     actorUserId: userId,
     type: "document_updated",
     title: "Anexo removido",
-    description: `${userName?.name || "Um usuário"} removeu o anexo "${att!.fileName}" do documento "${doc.title}".`,
+    description: `${userName?.name || "Um usuário"} removeu o anexo "${deletedAttachment.fileName}" do documento "${doc.title}".`,
   });
 
   res.sendStatus(204);
@@ -1011,31 +1011,37 @@ router.post("/organizations/:orgId/documents/:docId/distribute", requireAuth, re
 
   const orgId = params.data.orgId;
   const docId = params.data.docId;
+  const actorUserId = req.auth!.userId;
 
   const [doc] = await db.select().from(documentsTable)
     .where(and(eq(documentsTable.id, docId), eq(documentsTable.organizationId, orgId)));
   if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
   if (doc.status !== "approved") { res.status(400).json({ error: "Documento precisa estar aprovado para ser distribuído" }); return; }
 
-  await db.update(documentsTable).set({ status: "distributed" }).where(eq(documentsTable.id, docId));
+  const recipients = await db.transaction(async (tx) => {
+    await tx
+      .update(documentsTable)
+      .set({ status: "distributed" })
+      .where(eq(documentsTable.id, docId));
 
-  await db.insert(documentVersionsTable).values({
-    documentId: docId,
-    versionNumber: doc.currentVersion,
-    changeDescription: "Documento distribuído manualmente aos destinatários",
-    changedById: req.auth!.userId,
-    changedFields: "status:distributed",
+    await tx.insert(documentVersionsTable).values({
+      documentId: docId,
+      versionNumber: doc.currentVersion,
+      changeDescription: "Documento distribuído manualmente aos destinatários",
+      changedById: actorUserId,
+      changedFields: "status:distributed",
+    });
+
+    return tx
+      .select({ userId: documentRecipientsTable.userId })
+      .from(documentRecipientsTable)
+      .where(eq(documentRecipientsTable.documentId, docId));
   });
-
-  const recipients = await db
-    .select({ userId: documentRecipientsTable.userId })
-    .from(documentRecipientsTable)
-    .where(eq(documentRecipientsTable.documentId, docId));
 
   await notifyUsers({
     orgId,
     userIds: recipients.map((recipient) => recipient.userId),
-    actorUserId: req.auth!.userId,
+    actorUserId,
     type: "document_distributed",
     title: "Documento distribuído",
     description: `O documento "${doc.title}" foi distribuído para você. Acuse o recebimento e a leitura.`,
