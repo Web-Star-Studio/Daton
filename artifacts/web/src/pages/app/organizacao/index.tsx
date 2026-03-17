@@ -9,20 +9,64 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Pencil, Mail, X, Clock, CheckCircle2, XCircle, Shield, ShieldCheck, Eye, Settings2, RotateCcw } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Pencil,
+  Mail,
+  X,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Shield,
+  ShieldCheck,
+  Eye,
+  Settings2,
+  RotateCcw,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { toast } from "@/hooks/use-toast";
-import { GOAL_LABELS, MATURITY_LABELS, SECTOR_LABELS, SIZE_LABELS } from "@/lib/organization-onboarding";
 import {
-  useListUnits, useCreateUnit, useDeleteUnit, getListUnitsQueryKey,
-  useListDepartments, useCreateDepartment, useDeleteDepartment, useUpdateDepartment, getListDepartmentsQueryKey,
-  useListPositions, useCreatePosition, useDeletePosition, useUpdatePosition, getListPositionsQueryKey,
-  useGetOrganization, useUpdateOrganization, useResetOrganizationOnboarding, getGetOrganizationQueryKey,
-  useListInvitations, useCreateInvitation, useRevokeInvitation, useDeleteInvitation, getListInvitationsQueryKey,
-  useListOrgUsers, useCreateOrgUser, useUpdateUserRole, useUpdateUserModules, getListOrgUsersQueryKey,
-  type AppModule, type CreateUnitBody, type CreateUnitBodyType, type UpdateUserRoleBodyRole,
+  GOAL_LABELS,
+  MATURITY_LABELS,
+  SECTOR_LABELS,
+  SIZE_LABELS,
+} from "@/lib/organization-onboarding";
+import {
+  useListUnits,
+  useCreateUnit,
+  useDeleteUnit,
+  getListUnitsQueryKey,
+  useListDepartments,
+  useCreateDepartment,
+  useDeleteDepartment,
+  useUpdateDepartment,
+  getListDepartmentsQueryKey,
+  useListPositions,
+  useCreatePosition,
+  useDeletePosition,
+  useUpdatePosition,
+  getListPositionsQueryKey,
+  useGetOrganization,
+  useUpdateOrganization,
+  useResetOrganizationOnboarding,
+  getGetOrganizationQueryKey,
+  useListInvitations,
+  useCreateInvitation,
+  useRevokeInvitation,
+  useDeleteInvitation,
+  getListInvitationsQueryKey,
+  useListOrgUsers,
+  useCreateOrgUser,
+  useUpdateUserRole,
+  useUpdateUserModules,
+  getListOrgUsersQueryKey,
+  type AppModule,
+  type CreateUnitBody,
+  type CreateUnitBodyType,
+  type UpdateUserRoleBodyRole,
 } from "@workspace/api-client-react";
 
 type Tab = "visao-geral" | "unidades" | "departamentos" | "cargos" | "usuarios";
@@ -90,7 +134,15 @@ const MODULE_LABELS: Record<string, string> = {
   governance: "Governança",
 };
 
-const ALL_MODULES: OrgUserModule[] = ["documents", "legislations", "employees", "units", "departments", "positions", "governance"];
+const ALL_MODULES: OrgUserModule[] = [
+  "documents",
+  "legislations",
+  "employees",
+  "units",
+  "departments",
+  "positions",
+  "governance",
+];
 const emptyCreateUserForm: CreateUserFormData = {
   name: "",
   email: "",
@@ -112,61 +164,120 @@ export default function OrganizacaoPage() {
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<Tab>("visao-geral");
 
-  const { data: units, isLoading: unitsLoading } = useListUnits(orgId!, { query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId } });
+  const { data: units, isLoading: unitsLoading } = useListUnits(orgId!, {
+    query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
+  });
   const createUnitMut = useCreateUnit();
   const deleteUnitMut = useDeleteUnit();
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
   const unitForm = useForm<UnitFormData>({
     defaultValues: {
-      name: "", code: "", type: "filial", cnpj: "", status: "ativa",
-      cep: "", address: "", streetNumber: "", neighborhood: "",
-      city: "", state: "", country: "Brasil", phone: "",
-    }
+      name: "",
+      code: "",
+      type: "filial",
+      cnpj: "",
+      status: "ativa",
+      cep: "",
+      address: "",
+      streetNumber: "",
+      neighborhood: "",
+      city: "",
+      state: "",
+      country: "Brasil",
+      phone: "",
+    },
   });
 
-  const { data: departments, isLoading: deptsLoading } = useListDepartments(orgId!, { query: { queryKey: getListDepartmentsQueryKey(orgId!), enabled: !!orgId } });
+  const { data: departments, isLoading: deptsLoading } = useListDepartments(
+    orgId!,
+    {
+      query: { queryKey: getListDepartmentsQueryKey(orgId!), enabled: !!orgId },
+    },
+  );
   const createDeptMut = useCreateDepartment();
   const updateDeptMut = useUpdateDepartment();
   const deleteDeptMut = useDeleteDepartment();
   const [deptDialogOpen, setDeptDialogOpen] = useState(false);
   const [editingDeptId, setEditingDeptId] = useState<number | null>(null);
-  const deptForm = useForm<SimpleFormData>({ defaultValues: { name: "", description: "" } });
+  const deptForm = useForm<SimpleFormData>({
+    defaultValues: { name: "", description: "" },
+  });
 
-  const { data: positions, isLoading: posLoading } = useListPositions(orgId!, { query: { queryKey: getListPositionsQueryKey(orgId!), enabled: !!orgId } });
+  const { data: positions, isLoading: posLoading } = useListPositions(orgId!, {
+    query: { queryKey: getListPositionsQueryKey(orgId!), enabled: !!orgId },
+  });
   const createPosMut = useCreatePosition();
   const updatePosMut = useUpdatePosition();
   const deletePosMut = useDeletePosition();
   const [posDialogOpen, setPosDialogOpen] = useState(false);
   const [editingPosId, setEditingPosId] = useState<number | null>(null);
-  const emptyPosForm: PositionFormData = { name: "", description: "", education: "", experience: "", requirements: "", responsibilities: "" };
+  const emptyPosForm: PositionFormData = {
+    name: "",
+    description: "",
+    education: "",
+    experience: "",
+    requirements: "",
+    responsibilities: "",
+  };
   const posForm = useForm<PositionFormData>({ defaultValues: emptyPosForm });
 
-  const { data: orgData } = useGetOrganization(orgId!, { query: { queryKey: getGetOrganizationQueryKey(orgId!), enabled: !!orgId } });
+  const { data: orgData } = useGetOrganization(orgId!, {
+    query: { queryKey: getGetOrganizationQueryKey(orgId!), enabled: !!orgId },
+  });
   const updateOrgMut = useUpdateOrganization();
   const resetOnboardingMut = useResetOrganizationOnboarding();
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [orgForm, setOrgForm] = useState({
-    name: "", tradeName: "", legalIdentifier: "", stateRegistration: "", openingDate: "", statusOperacional: "ativa",
+    name: "",
+    tradeName: "",
+    legalIdentifier: "",
+    stateRegistration: "",
+    openingDate: "",
+    statusOperacional: "ativa",
   });
 
-  const { data: invitationsData, isLoading: invitationsLoading } = useListInvitations({ query: { queryKey: getListInvitationsQueryKey(), enabled: activeTab === "usuarios" && isOrgAdmin } });
+  const { data: invitationsData, isLoading: invitationsLoading } =
+    useListInvitations({
+      query: {
+        queryKey: getListInvitationsQueryKey(),
+        enabled: activeTab === "usuarios" && isOrgAdmin,
+      },
+    });
   const createInviteMut = useCreateInvitation();
   const revokeInviteMut = useRevokeInvitation();
   const deleteInviteMut = useDeleteInvitation();
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteError, setInviteError] = useState("");
-  const [selectedInviteIds, setSelectedInviteIds] = useState<Set<number>>(new Set());
+  const [selectedInviteIds, setSelectedInviteIds] = useState<Set<number>>(
+    new Set(),
+  );
   const [inviteForm, setInviteForm] = useState<InviteFormData>(emptyInviteForm);
 
-  const { data: orgUsersData, isLoading: orgUsersLoading } = useListOrgUsers(orgId!, { query: { queryKey: getListOrgUsersQueryKey(orgId!), enabled: !!orgId && activeTab === "usuarios" && isOrgAdmin } });
+  const { data: orgUsersData, isLoading: orgUsersLoading } = useListOrgUsers(
+    orgId!,
+    {
+      query: {
+        queryKey: getListOrgUsersQueryKey(orgId!),
+        enabled: !!orgId && activeTab === "usuarios" && isOrgAdmin,
+      },
+    },
+  );
   const createOrgUserMut = useCreateOrgUser();
   const updateRoleMut = useUpdateUserRole();
   const updateModulesMut = useUpdateUserModules();
   const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
   const [createUserError, setCreateUserError] = useState("");
-  const createUserForm = useForm<CreateUserFormData>({ defaultValues: emptyCreateUserForm });
+  const createUserForm = useForm<CreateUserFormData>({
+    defaultValues: emptyCreateUserForm,
+  });
   const [permDialogOpen, setPermDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<{ id: number; name: string; email: string; role: string; modules: AppModule[] } | null>(null);
+  const [editingUser, setEditingUser] = useState<{
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    modules: AppModule[];
+  } | null>(null);
   const [editRole, setEditRole] = useState<UpdateUserRoleBodyRole>("operator");
   const [editModules, setEditModules] = useState<AppModule[]>([]);
   const createUserRole = createUserForm.watch("role");
@@ -211,7 +322,9 @@ export default function OrganizacaoPage() {
         statusOperacional: orgForm.statusOperacional || null,
       },
     });
-    queryClient.invalidateQueries({ queryKey: getGetOrganizationQueryKey(orgId) });
+    queryClient.invalidateQueries({
+      queryKey: getGetOrganizationQueryKey(orgId),
+    });
     setIsEditingOrg(false);
   };
 
@@ -230,28 +343,44 @@ export default function OrganizacaoPage() {
         if (isEditingOrg) return null;
         return (
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={async () => {
-              if (!orgId) return;
-              if (!confirm("Tem certeza que deseja refazer o onboarding? Você será redirecionado para o fluxo inicial.")) return;
-              try {
-                const response = await resetOnboardingMut.mutateAsync({ orgId });
-                login(response.token);
-                navigate("/onboarding/organizacao");
-              } catch (error: unknown) {
-                const message =
-                  (error as { data?: { error?: string } })?.data?.error ||
-                  "Não foi possível reiniciar o onboarding.";
-                toast({
-                  title: "Falha ao reiniciar onboarding",
-                  description: message,
-                  variant: "destructive",
-                });
-              }
-            }} isLoading={resetOnboardingMut.isPending}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                if (!orgId) return;
+                if (
+                  !confirm(
+                    "Tem certeza que deseja refazer o onboarding? Você será redirecionado para o fluxo inicial.",
+                  )
+                )
+                  return;
+                try {
+                  const response = await resetOnboardingMut.mutateAsync({
+                    orgId,
+                  });
+                  login(response.token);
+                  navigate("/onboarding/organizacao");
+                } catch (error: unknown) {
+                  const message =
+                    (error as { data?: { error?: string } })?.data?.error ||
+                    "Não foi possível reiniciar o onboarding.";
+                  toast({
+                    title: "Falha ao reiniciar onboarding",
+                    description: message,
+                    variant: "destructive",
+                  });
+                }
+              }}
+              isLoading={resetOnboardingMut.isPending}
+            >
               <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
               Refazer onboarding
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setIsEditingOrg(true)}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsEditingOrg(true)}
+            >
               <Pencil className="h-3.5 w-3.5 mr-1.5" />
               Editar
             </Button>
@@ -268,7 +397,14 @@ export default function OrganizacaoPage() {
       case "departamentos":
         if (!canWriteModule("departments")) return null;
         return (
-          <Button size="sm" onClick={() => { setEditingDeptId(null); deptForm.reset({ name: "", description: "" }); setDeptDialogOpen(true); }}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setEditingDeptId(null);
+              deptForm.reset({ name: "", description: "" });
+              setDeptDialogOpen(true);
+            }}
+          >
             <Plus className="h-3.5 w-3.5 mr-1.5" />
             Novo Departamento
           </Button>
@@ -276,7 +412,14 @@ export default function OrganizacaoPage() {
       case "cargos":
         if (!canWriteModule("positions")) return null;
         return (
-          <Button size="sm" onClick={() => { setEditingPosId(null); posForm.reset(emptyPosForm); setPosDialogOpen(true); }}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setEditingPosId(null);
+              posForm.reset(emptyPosForm);
+              setPosDialogOpen(true);
+            }}
+          >
             <Plus className="h-3.5 w-3.5 mr-1.5" />
             Novo Cargo
           </Button>
@@ -284,39 +427,69 @@ export default function OrganizacaoPage() {
       case "usuarios":
         if (!isOrgAdmin) return null;
         if (selectedInviteIds.size > 0) {
-          const selectedInvites = invitationsData?.invitations?.filter(inv => selectedInviteIds.has(inv.id)) || [];
-          const pendingIds = selectedInvites.filter(inv => inv.status === "pending").map(inv => inv.id);
-          const deletableIds = selectedInvites.filter(inv => inv.status !== "pending").map(inv => inv.id);
+          const selectedInvites =
+            invitationsData?.invitations?.filter((inv) =>
+              selectedInviteIds.has(inv.id),
+            ) || [];
+          const pendingIds = selectedInvites
+            .filter((inv) => inv.status === "pending")
+            .map((inv) => inv.id);
+          const deletableIds = selectedInvites
+            .filter((inv) => inv.status !== "pending")
+            .map((inv) => inv.id);
           return (
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground mr-1">
-                {selectedInviteIds.size} selecionado{selectedInviteIds.size > 1 ? "s" : ""}
+                {selectedInviteIds.size} selecionado
+                {selectedInviteIds.size > 1 ? "s" : ""}
               </span>
               {pendingIds.length > 0 && (
-                <Button size="sm" variant="destructive" onClick={async () => {
-                  for (const id of pendingIds) {
-                    try { await revokeInviteMut.mutateAsync({ invitationId: id }); } catch {}
-                  }
-                  queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
-                  setSelectedInviteIds(new Set());
-                }} isLoading={revokeInviteMut.isPending}>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={async () => {
+                    for (const id of pendingIds) {
+                      try {
+                        await revokeInviteMut.mutateAsync({ invitationId: id });
+                      } catch {}
+                    }
+                    queryClient.invalidateQueries({
+                      queryKey: getListInvitationsQueryKey(),
+                    });
+                    setSelectedInviteIds(new Set());
+                  }}
+                  isLoading={revokeInviteMut.isPending}
+                >
                   <X className="h-3.5 w-3.5 mr-1.5" />
                   Revogar ({pendingIds.length})
                 </Button>
               )}
               {deletableIds.length > 0 && (
-                <Button size="sm" variant="destructive" onClick={async () => {
-                  for (const id of deletableIds) {
-                    try { await deleteInviteMut.mutateAsync({ invitationId: id }); } catch {}
-                  }
-                  queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
-                  setSelectedInviteIds(new Set());
-                }} isLoading={deleteInviteMut.isPending}>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={async () => {
+                    for (const id of deletableIds) {
+                      try {
+                        await deleteInviteMut.mutateAsync({ invitationId: id });
+                      } catch {}
+                    }
+                    queryClient.invalidateQueries({
+                      queryKey: getListInvitationsQueryKey(),
+                    });
+                    setSelectedInviteIds(new Set());
+                  }}
+                  isLoading={deleteInviteMut.isPending}
+                >
                   <Trash2 className="h-3.5 w-3.5 mr-1.5" />
                   Excluir ({deletableIds.length})
                 </Button>
               )}
-              <Button size="sm" variant="outline" onClick={() => setSelectedInviteIds(new Set())}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedInviteIds(new Set())}
+              >
                 Cancelar
               </Button>
             </div>
@@ -324,11 +497,25 @@ export default function OrganizacaoPage() {
         }
         return (
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => { setInviteForm(emptyInviteForm); setInviteError(""); setInviteDialogOpen(true); }}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setInviteForm(emptyInviteForm);
+                setInviteError("");
+                setInviteDialogOpen(true);
+              }}
+            >
               <Mail className="h-3.5 w-3.5 mr-1.5" />
               Convidar Usuário
             </Button>
-            <Button size="sm" onClick={() => { resetCreateUserDialog(); setCreateUserDialogOpen(true); }}>
+            <Button
+              size="sm"
+              onClick={() => {
+                resetCreateUserDialog();
+                setCreateUserDialogOpen(true);
+              }}
+            >
               <Plus className="h-3.5 w-3.5 mr-1.5" />
               Criar Usuário
             </Button>
@@ -360,7 +547,7 @@ export default function OrganizacaoPage() {
     { key: "cargos", label: "Cargos", module: "positions" },
     ...(isOrgAdmin ? [{ key: "usuarios" as const, label: "Usuários" }] : []),
   ];
-  const tabs = allTabs.filter(t => !t.module || hasModuleAccess(t.module));
+  const tabs = allTabs.filter((t) => !t.module || hasModuleAccess(t.module));
 
   useEffect(() => {
     if (!tabs.some((tab) => tab.key === activeTab)) {
@@ -401,11 +588,20 @@ export default function OrganizacaoPage() {
 
   const onDeptSubmit = async (data: SimpleFormData) => {
     if (editingDeptId) {
-      await updateDeptMut.mutateAsync({ orgId, deptId: editingDeptId, data: { name: data.name, description: data.description || undefined } });
+      await updateDeptMut.mutateAsync({
+        orgId,
+        deptId: editingDeptId,
+        data: { name: data.name, description: data.description || undefined },
+      });
     } else {
-      await createDeptMut.mutateAsync({ orgId, data: { name: data.name, description: data.description || undefined } });
+      await createDeptMut.mutateAsync({
+        orgId,
+        data: { name: data.name, description: data.description || undefined },
+      });
     }
-    queryClient.invalidateQueries({ queryKey: getListDepartmentsQueryKey(orgId) });
+    queryClient.invalidateQueries({
+      queryKey: getListDepartmentsQueryKey(orgId),
+    });
     setDeptDialogOpen(false);
     setEditingDeptId(null);
     deptForm.reset();
@@ -421,11 +617,17 @@ export default function OrganizacaoPage() {
       responsibilities: data.responsibilities || undefined,
     };
     if (editingPosId) {
-      await updatePosMut.mutateAsync({ orgId, posId: editingPosId, data: payload });
+      await updatePosMut.mutateAsync({
+        orgId,
+        posId: editingPosId,
+        data: payload,
+      });
     } else {
       await createPosMut.mutateAsync({ orgId, data: payload });
     }
-    queryClient.invalidateQueries({ queryKey: getListPositionsQueryKey(orgId) });
+    queryClient.invalidateQueries({
+      queryKey: getListPositionsQueryKey(orgId),
+    });
     setPosDialogOpen(false);
     setEditingPosId(null);
     posForm.reset();
@@ -438,12 +640,15 @@ export default function OrganizacaoPage() {
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => { setActiveTab(tab.key); setSelectedInviteIds(new Set()); }}
+              onClick={() => {
+                setActiveTab(tab.key);
+                setSelectedInviteIds(new Set());
+              }}
               className={cn(
                 "relative pb-2.5 text-[13px] font-medium transition-colors duration-200 cursor-pointer hover:text-foreground",
                 activeTab === tab.key
                   ? "text-foreground font-semibold after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:bg-foreground after:rounded-full"
-                  : "text-muted-foreground"
+                  : "text-muted-foreground",
               )}
             >
               {tab.label}
@@ -456,41 +661,105 @@ export default function OrganizacaoPage() {
         <div className="space-y-10">
           {/* Dados Cadastrais */}
           <div>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Dados Cadastrais</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">
+              Dados Cadastrais
+            </h3>
             {isEditingOrg ? (
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label>Razão Social</Label>
-                  <Input value={orgForm.name} onChange={(e) => setOrgForm((f) => ({ ...f, name: e.target.value }))} />
+                  <Input
+                    value={orgForm.name}
+                    onChange={(e) =>
+                      setOrgForm((f) => ({ ...f, name: e.target.value }))
+                    }
+                  />
                 </div>
                 <div>
                   <Label>CNPJ</Label>
-                  <Input value={orgForm.legalIdentifier} onChange={(e) => setOrgForm((f) => ({ ...f, legalIdentifier: e.target.value }))} placeholder="00.000.000/0000-00" />
+                  <Input
+                    value={orgForm.legalIdentifier}
+                    onChange={(e) =>
+                      setOrgForm((f) => ({
+                        ...f,
+                        legalIdentifier: e.target.value,
+                      }))
+                    }
+                    placeholder="00.000.000/0000-00"
+                  />
                 </div>
                 <div>
                   <Label>Nome Fantasia</Label>
-                  <Input value={orgForm.tradeName} onChange={(e) => setOrgForm((f) => ({ ...f, tradeName: e.target.value }))} />
+                  <Input
+                    value={orgForm.tradeName}
+                    onChange={(e) =>
+                      setOrgForm((f) => ({ ...f, tradeName: e.target.value }))
+                    }
+                  />
                 </div>
                 <div>
                   <Label>Data de Abertura</Label>
-                  <Input value={orgForm.openingDate} onChange={(e) => setOrgForm((f) => ({ ...f, openingDate: e.target.value }))} placeholder="AAAA-MM-DD" />
+                  <Input
+                    value={orgForm.openingDate}
+                    onChange={(e) =>
+                      setOrgForm((f) => ({ ...f, openingDate: e.target.value }))
+                    }
+                    placeholder="AAAA-MM-DD"
+                  />
                 </div>
                 <div>
                   <Label>Inscrição Estadual</Label>
-                  <Input value={orgForm.stateRegistration} onChange={(e) => setOrgForm((f) => ({ ...f, stateRegistration: e.target.value }))} />
+                  <Input
+                    value={orgForm.stateRegistration}
+                    onChange={(e) =>
+                      setOrgForm((f) => ({
+                        ...f,
+                        stateRegistration: e.target.value,
+                      }))
+                    }
+                  />
                 </div>
                 <div>
                   <Label>Status Operacional</Label>
-                  <Select value={orgForm.statusOperacional} onChange={(e) => setOrgForm((f) => ({ ...f, statusOperacional: e.target.value }))}>
+                  <Select
+                    value={orgForm.statusOperacional}
+                    onChange={(e) =>
+                      setOrgForm((f) => ({
+                        ...f,
+                        statusOperacional: e.target.value,
+                      }))
+                    }
+                  >
                     <option value="ativa">Ativa</option>
                     <option value="inativa">Inativa</option>
                   </Select>
                 </div>
                 <div className="col-span-3 flex justify-end gap-3 pt-2">
-                  <Button variant="outline" size="sm" onClick={() => { setIsEditingOrg(false); if (orgData) setOrgForm({ name: orgData.name || "", tradeName: orgData.tradeName || "", legalIdentifier: orgData.legalIdentifier || "", stateRegistration: orgData.stateRegistration || "", openingDate: orgData.openingDate || "", statusOperacional: orgData.statusOperacional || "ativa" }); }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsEditingOrg(false);
+                      if (orgData)
+                        setOrgForm({
+                          name: orgData.name || "",
+                          tradeName: orgData.tradeName || "",
+                          legalIdentifier: orgData.legalIdentifier || "",
+                          stateRegistration: orgData.stateRegistration || "",
+                          openingDate: orgData.openingDate || "",
+                          statusOperacional:
+                            orgData.statusOperacional || "ativa",
+                        });
+                    }}
+                  >
                     Cancelar
                   </Button>
-                  <Button size="sm" onClick={handleSaveOrg} isLoading={updateOrgMut.isPending} disabled={!orgForm.name}>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveOrg}
+                    isLoading={updateOrgMut.isPending}
+                    disabled={!orgForm.name}
+                  >
                     Salvar
                   </Button>
                 </div>
@@ -498,30 +767,58 @@ export default function OrganizacaoPage() {
             ) : (
               <div className="grid grid-cols-3 gap-x-8 gap-y-6">
                 <div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Razão Social</p>
-                  <p className="text-[14px] text-foreground">{orgData?.name || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">CNPJ</p>
-                  <p className="text-[14px] text-foreground">{orgData?.legalIdentifier || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Nome Fantasia</p>
-                  <p className="text-[14px] text-foreground">{orgData?.tradeName || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Data de Abertura</p>
-                  <p className="text-[14px] text-foreground">{orgData?.openingDate || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Inscrição Estadual</p>
-                  <p className="text-[14px] text-foreground">{orgData?.stateRegistration || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Status Operacional</p>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                    Razão Social
+                  </p>
                   <p className="text-[14px] text-foreground">
-                    {orgData?.statusOperacional === "ativa" ? "Ativa" : orgData?.statusOperacional === "inativa" ? "Inativa" : "—"}
-                    {orgData?.statusOperacional === "ativa" && <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 ml-2" />}
+                    {orgData?.name || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                    CNPJ
+                  </p>
+                  <p className="text-[14px] text-foreground">
+                    {orgData?.legalIdentifier || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                    Nome Fantasia
+                  </p>
+                  <p className="text-[14px] text-foreground">
+                    {orgData?.tradeName || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                    Data de Abertura
+                  </p>
+                  <p className="text-[14px] text-foreground">
+                    {orgData?.openingDate || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                    Inscrição Estadual
+                  </p>
+                  <p className="text-[14px] text-foreground">
+                    {orgData?.stateRegistration || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                    Status Operacional
+                  </p>
+                  <p className="text-[14px] text-foreground">
+                    {orgData?.statusOperacional === "ativa"
+                      ? "Ativa"
+                      : orgData?.statusOperacional === "inativa"
+                        ? "Inativa"
+                        : "—"}
+                    {orgData?.statusOperacional === "ativa" && (
+                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 ml-2" />
+                    )}
                   </p>
                 </div>
               </div>
@@ -529,101 +826,153 @@ export default function OrganizacaoPage() {
           </div>
 
           {/* Perfil da Empresa (onboarding data) */}
-          {orgData?.onboardingData?.companyProfile && (() => {
-            const profile = orgData.onboardingData.companyProfile;
-            return (
-              <div>
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Perfil da Empresa</h3>
-                <div className="grid grid-cols-3 gap-x-8 gap-y-6">
-                  <div>
-                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Setor</p>
-                    <p className="text-[14px] text-foreground">
-                      {profile.sector === "other" && profile.customSector
-                        ? profile.customSector
-                        : SECTOR_LABELS[profile.sector] ?? profile.sector}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Porte</p>
-                    <p className="text-[14px] text-foreground">{SIZE_LABELS[profile.size] ?? profile.size}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Maturidade</p>
-                    <p className="text-[14px] text-foreground">{MATURITY_LABELS[profile.maturityLevel] ?? profile.maturityLevel}</p>
-                  </div>
-                  <div className="col-span-3">
-                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-2.5">Objetivos</p>
-                    {profile.goals.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {profile.goals.map((goal) => (
-                          <span key={goal} className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-3 py-1 text-[12px] text-foreground">
-                            {GOAL_LABELS[goal] ?? goal}
-                          </span>
-                        ))}
+          {orgData?.onboardingData?.companyProfile &&
+            (() => {
+              const profile = orgData.onboardingData.companyProfile;
+              return (
+                <div>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">
+                    Perfil da Empresa
+                  </h3>
+                  <div className="grid grid-cols-3 gap-x-8 gap-y-6">
+                    <div>
+                      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                        Setor
+                      </p>
+                      <p className="text-[14px] text-foreground">
+                        {profile.sector === "other" && profile.customSector
+                          ? profile.customSector
+                          : (SECTOR_LABELS[profile.sector] ?? profile.sector)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                        Porte
+                      </p>
+                      <p className="text-[14px] text-foreground">
+                        {SIZE_LABELS[profile.size] ?? profile.size}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                        Maturidade
+                      </p>
+                      <p className="text-[14px] text-foreground">
+                        {MATURITY_LABELS[profile.maturityLevel] ??
+                          profile.maturityLevel}
+                      </p>
+                    </div>
+                    <div className="col-span-3">
+                      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-2.5">
+                        Objetivos
+                      </p>
+                      {profile.goals.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {profile.goals.map((goal) => (
+                            <span
+                              key={goal}
+                              className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-3 py-1 text-[12px] text-foreground"
+                            >
+                              {GOAL_LABELS[goal] ?? goal}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[14px] text-muted-foreground">—</p>
+                      )}
+                    </div>
+                    {profile.currentChallenges.length > 0 && (
+                      <div className="col-span-3">
+                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-2.5">
+                          Desafios Atuais
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {profile.currentChallenges.map((challenge) => (
+                            <span
+                              key={challenge}
+                              className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-3 py-1 text-[12px] text-foreground"
+                            >
+                              {challenge}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    ) : (
-                      <p className="text-[14px] text-muted-foreground">—</p>
                     )}
                   </div>
-                  {profile.currentChallenges.length > 0 && (
-                    <div className="col-span-3">
-                      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-2.5">Desafios Atuais</p>
-                      <div className="flex flex-wrap gap-2">
-                        {profile.currentChallenges.map((challenge) => (
-                          <span key={challenge} className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-3 py-1 text-[12px] text-foreground">
-                            {challenge}
-                          </span>
-                        ))}
-                      </div>
+                </div>
+              );
+            })()}
+
+          {/* Dados Fiscais e Cadastrais */}
+          {orgData &&
+            (orgData.taxRegime ||
+              orgData.primaryCnae ||
+              orgData.municipalRegistration) && (
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">
+                  Dados Fiscais
+                </h3>
+                <div className="grid grid-cols-3 gap-x-8 gap-y-6">
+                  {orgData.taxRegime && (
+                    <div>
+                      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                        Regime Tributário
+                      </p>
+                      <p className="text-[14px] text-foreground">
+                        {orgData.taxRegime}
+                      </p>
+                    </div>
+                  )}
+                  {orgData.primaryCnae && (
+                    <div>
+                      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                        CNAE Principal
+                      </p>
+                      <p className="text-[14px] text-foreground">
+                        {orgData.primaryCnae}
+                      </p>
+                    </div>
+                  )}
+                  {orgData.municipalRegistration && (
+                    <div>
+                      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                        Inscrição Municipal
+                      </p>
+                      <p className="text-[14px] text-foreground">
+                        {orgData.municipalRegistration}
+                      </p>
                     </div>
                   )}
                 </div>
               </div>
-            );
-          })()}
-
-          {/* Dados Fiscais e Cadastrais */}
-          {orgData && (orgData.taxRegime || orgData.primaryCnae || orgData.municipalRegistration) && (
-            <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Dados Fiscais</h3>
-              <div className="grid grid-cols-3 gap-x-8 gap-y-6">
-                {orgData.taxRegime && (
-                  <div>
-                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Regime Tributário</p>
-                    <p className="text-[14px] text-foreground">{orgData.taxRegime}</p>
-                  </div>
-                )}
-                {orgData.primaryCnae && (
-                  <div>
-                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">CNAE Principal</p>
-                    <p className="text-[14px] text-foreground">{orgData.primaryCnae}</p>
-                  </div>
-                )}
-                {orgData.municipalRegistration && (
-                  <div>
-                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Inscrição Municipal</p>
-                    <p className="text-[14px] text-foreground">{orgData.municipalRegistration}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+            )}
 
           {/* Sede Principal */}
           {sede && (
             <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Sede Principal</h3>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">
+                Sede Principal
+              </h3>
               <div className="bg-muted/30 rounded-xl overflow-hidden">
                 <div className="bg-gradient-to-br from-slate-200 to-slate-300 h-40 relative">
                   <div className="absolute bottom-4 left-4 bg-white rounded-xl shadow-sm p-4 max-w-xs">
-                    <p className="text-[14px] font-semibold text-foreground">{sede.name}</p>
+                    <p className="text-[14px] font-semibold text-foreground">
+                      {sede.name}
+                    </p>
                     <p className="text-[12px] text-muted-foreground mt-0.5">
-                      {sede.city && sede.state ? `${sede.city}, ${sede.state}` : "Localização não informada"}{sede.country ? `, ${sede.country}` : ""}
+                      {sede.city && sede.state
+                        ? `${sede.city}, ${sede.state}`
+                        : "Localização não informada"}
+                      {sede.country ? `, ${sede.country}` : ""}
                     </p>
                     {(sede.address || sede.neighborhood) && (
                       <p className="text-[12px] text-muted-foreground mt-0.5">
-                        {[sede.address, sede.streetNumber].filter(Boolean).join(", ")}
-                        {sede.neighborhood ? ` \u2022 ${sede.neighborhood}` : ""}
+                        {[sede.address, sede.streetNumber]
+                          .filter(Boolean)
+                          .join(", ")}
+                        {sede.neighborhood
+                          ? ` \u2022 ${sede.neighborhood}`
+                          : ""}
                       </p>
                     )}
                   </div>
@@ -637,7 +986,9 @@ export default function OrganizacaoPage() {
       {activeTab === "unidades" && (
         <>
           {unitsLoading ? (
-            <div className="text-center py-12 text-muted-foreground">Carregando unidades...</div>
+            <div className="text-center py-12 text-muted-foreground">
+              Carregando unidades...
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {units?.map((unit) => (
@@ -647,9 +998,14 @@ export default function OrganizacaoPage() {
                   className="bg-card border border-border rounded-xl p-5 hover:shadow-sm transition-shadow group cursor-pointer"
                 >
                   <div className="flex justify-between items-start mb-3">
-                    <h3 className="text-[15px] font-semibold text-foreground">{unit.name}</h3>
+                    <h3 className="text-[15px] font-semibold text-foreground">
+                      {unit.name}
+                    </h3>
                     <div className="flex items-center gap-2">
-                      <Badge variant={unit.type === 'sede' ? 'default' : 'secondary'} className="uppercase text-[10px]">
+                      <Badge
+                        variant={unit.type === "sede" ? "default" : "secondary"}
+                        className="uppercase text-[10px]"
+                      >
                         {unit.type}
                       </Badge>
                       {canWriteModule("units") && (
@@ -663,13 +1019,17 @@ export default function OrganizacaoPage() {
                     </div>
                   </div>
                   <p className="text-[13px] text-muted-foreground">
-                    {unit.city && unit.state ? `${unit.city}, ${unit.state}` : 'Endereço não informado'}
+                    {unit.city && unit.state
+                      ? `${unit.city}, ${unit.state}`
+                      : "Endereço não informado"}
                   </p>
                 </div>
               ))}
               {units?.length === 0 && (
                 <div className="col-span-full text-center py-12 bg-card rounded-xl border border-dashed border-border">
-                  <p className="text-muted-foreground text-[13px]">Nenhuma unidade cadastrada.</p>
+                  <p className="text-muted-foreground text-[13px]">
+                    Nenhuma unidade cadastrada.
+                  </p>
                 </div>
               )}
             </div>
@@ -683,115 +1043,208 @@ export default function OrganizacaoPage() {
           isLoading={deptsLoading}
           entityName="departamento"
           canWrite={canWriteModule("departments")}
-          onEdit={(item) => { setEditingDeptId(item.id); deptForm.reset({ name: item.name, description: item.description || "" }); setDeptDialogOpen(true); }}
+          onEdit={(item) => {
+            setEditingDeptId(item.id);
+            deptForm.reset({
+              name: item.name,
+              description: item.description || "",
+            });
+            setDeptDialogOpen(true);
+          }}
           onDelete={async (id) => {
             if (!confirm("Tem certeza que deseja remover?")) return;
             await deleteDeptMut.mutateAsync({ orgId, deptId: id });
-            queryClient.invalidateQueries({ queryKey: getListDepartmentsQueryKey(orgId) });
+            queryClient.invalidateQueries({
+              queryKey: getListDepartmentsQueryKey(orgId),
+            });
           }}
         />
       )}
 
-      {activeTab === "cargos" && (
-        posLoading ? (
-          <div className="text-center py-12 text-muted-foreground">Carregando...</div>
+      {activeTab === "cargos" &&
+        (posLoading ? (
+          <div className="text-center py-12 text-muted-foreground">
+            Carregando...
+          </div>
         ) : (
           <div className="overflow-hidden">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Título</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Escolaridade</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Experiência</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Título
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Escolaridade
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Experiência
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {positions?.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
+                    <td
+                      colSpan={3}
+                      className="px-6 py-12 text-center text-muted-foreground text-[13px]"
+                    >
                       Nenhum cargo cadastrado.
                     </td>
                   </tr>
                 )}
                 {positions?.map((pos) => (
-                  <tr key={pos.id} className={cn("transition-colors", canWriteModule("positions") ? "hover:bg-muted/50 cursor-pointer" : "")} onClick={() => {
-                    if (!canWriteModule("positions")) return;
-                    setEditingPosId(pos.id);
-                    posForm.reset({ name: pos.name, description: pos.description || "", education: pos.education || "", experience: pos.experience || "", requirements: pos.requirements || "", responsibilities: pos.responsibilities || "" });
-                    setPosDialogOpen(true);
-                  }}>
+                  <tr
+                    key={pos.id}
+                    className={cn(
+                      "transition-colors",
+                      canWriteModule("positions")
+                        ? "hover:bg-muted/50 cursor-pointer"
+                        : "",
+                    )}
+                    onClick={() => {
+                      if (!canWriteModule("positions")) return;
+                      setEditingPosId(pos.id);
+                      posForm.reset({
+                        name: pos.name,
+                        description: pos.description || "",
+                        education: pos.education || "",
+                        experience: pos.experience || "",
+                        requirements: pos.requirements || "",
+                        responsibilities: pos.responsibilities || "",
+                      });
+                      setPosDialogOpen(true);
+                    }}
+                  >
                     <td className="px-6 py-4">
-                      <div className="text-[13px] font-medium text-foreground">{pos.name}</div>
-                      {pos.description && <div className="text-xs text-muted-foreground mt-0.5">{pos.description}</div>}
+                      <div className="text-[13px] font-medium text-foreground">
+                        {pos.name}
+                      </div>
+                      {pos.description && (
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {pos.description}
+                        </div>
+                      )}
                     </td>
-                    <td className="px-6 py-4 text-[13px] text-muted-foreground">{pos.education || "—"}</td>
-                    <td className="px-6 py-4 text-[13px] text-muted-foreground">{pos.experience || "—"}</td>
+                    <td className="px-6 py-4 text-[13px] text-muted-foreground">
+                      {pos.education || "—"}
+                    </td>
+                    <td className="px-6 py-4 text-[13px] text-muted-foreground">
+                      {pos.experience || "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )
-      )}
+        ))}
 
       {activeTab === "usuarios" && (
         <div className="space-y-8">
           <div>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Membros da Organização</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+              Membros da Organização
+            </h3>
             {orgUsersLoading ? (
-              <div className="text-center py-12 text-muted-foreground">Carregando...</div>
+              <div className="text-center py-12 text-muted-foreground">
+                Carregando...
+              </div>
             ) : (
               <div className="overflow-hidden">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/30">
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cargo</th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Módulos</th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Nome
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Cargo
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Módulos
+                      </th>
                       {isOrgAdmin && <th className="px-6 py-3 w-16" />}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {(!orgUsersData?.users || orgUsersData.users.length === 0) && (
+                    {(!orgUsersData?.users ||
+                      orgUsersData.users.length === 0) && (
                       <tr>
-                        <td colSpan={isOrgAdmin ? 5 : 4} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
+                        <td
+                          colSpan={isOrgAdmin ? 5 : 4}
+                          className="px-6 py-12 text-center text-muted-foreground text-[13px]"
+                        >
                           Nenhum usuário encontrado.
                         </td>
                       </tr>
                     )}
                     {orgUsersData?.users?.map((u) => {
                       const isSelf = u.id === currentUser?.id;
-                      const isProtected = u.role === "org_admin" || u.role === "platform_admin";
+                      const isProtected =
+                        u.role === "org_admin" || u.role === "platform_admin";
                       return (
-                        <tr key={u.id} className="hover:bg-muted/50 transition-colors">
+                        <tr
+                          key={u.id}
+                          className="hover:bg-muted/50 transition-colors"
+                        >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
                               <div className="h-7 w-7 rounded-full bg-foreground/5 text-foreground/60 flex items-center justify-center text-xs font-medium shrink-0">
                                 {u.name.charAt(0).toUpperCase()}
                               </div>
-                              <span className="text-[13px] font-medium text-foreground">{u.name}</span>
-                              {isSelf && <Badge variant="secondary" className="text-[10px]">Você</Badge>}
+                              <span className="text-[13px] font-medium text-foreground">
+                                {u.name}
+                              </span>
+                              {isSelf && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px]"
+                                >
+                                  Você
+                                </Badge>
+                              )}
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-[13px] text-muted-foreground">{u.email}</td>
+                          <td className="px-6 py-4 text-[13px] text-muted-foreground">
+                            {u.email}
+                          </td>
                           <td className="px-6 py-4">
-                            <Badge variant={isProtected ? "default" : "outline"} className="text-[11px]">
-                              {u.role === "org_admin" && <ShieldCheck className="h-3 w-3 mr-1" />}
-                              {u.role === "operator" && <Shield className="h-3 w-3 mr-1" />}
-                              {u.role === "analyst" && <Eye className="h-3 w-3 mr-1" />}
+                            <Badge
+                              variant={isProtected ? "default" : "outline"}
+                              className="text-[11px]"
+                            >
+                              {u.role === "org_admin" && (
+                                <ShieldCheck className="h-3 w-3 mr-1" />
+                              )}
+                              {u.role === "operator" && (
+                                <Shield className="h-3 w-3 mr-1" />
+                              )}
+                              {u.role === "analyst" && (
+                                <Eye className="h-3 w-3 mr-1" />
+                              )}
                               {ROLE_LABELS[u.role] || u.role}
                             </Badge>
                           </td>
                           <td className="px-6 py-4">
                             {isProtected ? (
-                              <span className="text-[12px] text-muted-foreground">Acesso total</span>
+                              <span className="text-[12px] text-muted-foreground">
+                                Acesso total
+                              </span>
                             ) : u.modules.length === 0 ? (
-                              <span className="text-[12px] text-muted-foreground">Nenhum</span>
+                              <span className="text-[12px] text-muted-foreground">
+                                Nenhum
+                              </span>
                             ) : (
                               <div className="flex flex-wrap gap-1">
-                                {u.modules.map(m => (
-                                  <Badge key={m} variant="secondary" className="text-[10px]">
+                                {u.modules.map((m) => (
+                                  <Badge
+                                    key={m}
+                                    variant="secondary"
+                                    className="text-[10px]"
+                                  >
                                     {MODULE_LABELS[m] || m}
                                   </Badge>
                                 ))}
@@ -803,8 +1256,18 @@ export default function OrganizacaoPage() {
                               {!isProtected && !isSelf && (
                                 <button
                                   onClick={() => {
-                                    setEditingUser({ id: u.id, name: u.name, email: u.email, role: u.role, modules: u.modules });
-                                    setEditRole(u.role === "analyst" ? "analyst" : "operator");
+                                    setEditingUser({
+                                      id: u.id,
+                                      name: u.name,
+                                      email: u.email,
+                                      role: u.role,
+                                      modules: u.modules,
+                                    });
+                                    setEditRole(
+                                      u.role === "analyst"
+                                        ? "analyst"
+                                        : "operator",
+                                    );
                                     setEditModules([...u.modules]);
                                     setPermDialogOpen(true);
                                   }}
@@ -827,9 +1290,13 @@ export default function OrganizacaoPage() {
 
           {isOrgAdmin && (
             <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Convites</h3>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+                Convites
+              </h3>
               {invitationsLoading ? (
-                <div className="text-center py-12 text-muted-foreground">Carregando...</div>
+                <div className="text-center py-12 text-muted-foreground">
+                  Carregando...
+                </div>
               ) : (
                 <div className="overflow-hidden">
                   <table className="w-full">
@@ -840,32 +1307,57 @@ export default function OrganizacaoPage() {
                             type="checkbox"
                             checked={
                               !!invitationsData?.invitations?.length &&
-                              invitationsData.invitations.every((inv) => selectedInviteIds.has(inv.id))
+                              invitationsData.invitations.every((inv) =>
+                                selectedInviteIds.has(inv.id),
+                              )
                             }
                             onChange={() => {
                               const all = invitationsData?.invitations ?? [];
-                              if (all.length > 0 && all.every((inv) => selectedInviteIds.has(inv.id))) {
+                              if (
+                                all.length > 0 &&
+                                all.every((inv) =>
+                                  selectedInviteIds.has(inv.id),
+                                )
+                              ) {
                                 setSelectedInviteIds(new Set());
                               } else {
-                                setSelectedInviteIds(new Set(all.map((inv) => inv.id)));
+                                setSelectedInviteIds(
+                                  new Set(all.map((inv) => inv.id)),
+                                );
                               }
                             }}
                             className="rounded border-border text-primary cursor-pointer"
                             disabled={!invitationsData?.invitations?.length}
                           />
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cargo</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Módulos</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Convidado por</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Enviado em</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Cargo
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Módulos
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Convidado por
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Enviado em
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {(!invitationsData?.invitations || invitationsData.invitations.length === 0) && (
+                      {(!invitationsData?.invitations ||
+                        invitationsData.invitations.length === 0) && (
                         <tr>
-                          <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
+                          <td
+                            colSpan={7}
+                            className="px-6 py-12 text-center text-muted-foreground text-[13px]"
+                          >
                             Nenhum convite enviado.
                           </td>
                         </tr>
@@ -877,7 +1369,7 @@ export default function OrganizacaoPage() {
                             key={inv.id}
                             className={cn(
                               "transition-colors",
-                              isSelected ? "bg-primary/5" : "hover:bg-muted/50"
+                              isSelected ? "bg-primary/5" : "hover:bg-muted/50",
                             )}
                           >
                             <td className="px-3 py-4 w-10">
@@ -885,7 +1377,7 @@ export default function OrganizacaoPage() {
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={() => {
-                                  setSelectedInviteIds(prev => {
+                                  setSelectedInviteIds((prev) => {
                                     const next = new Set(prev);
                                     if (next.has(inv.id)) next.delete(inv.id);
                                     else next.add(inv.id);
@@ -895,26 +1387,44 @@ export default function OrganizacaoPage() {
                                 className="rounded border-border text-primary cursor-pointer"
                               />
                             </td>
-                            <td className="px-6 py-4 text-[13px] font-medium text-foreground">{inv.email}</td>
+                            <td className="px-6 py-4 text-[13px] font-medium text-foreground">
+                              {inv.email}
+                            </td>
                             <td className="px-6 py-4">
                               {inv.status === "pending" && (
-                                <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
-                                  <Clock className="h-3 w-3 mr-1" />Pendente
+                                <Badge
+                                  variant="outline"
+                                  className="text-amber-600 border-amber-200 bg-amber-50"
+                                >
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  Pendente
                                 </Badge>
                               )}
                               {inv.status === "accepted" && (
-                                <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
-                                  <CheckCircle2 className="h-3 w-3 mr-1" />Aceito
+                                <Badge
+                                  variant="outline"
+                                  className="text-green-600 border-green-200 bg-green-50"
+                                >
+                                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                                  Aceito
                                 </Badge>
                               )}
                               {inv.status === "revoked" && (
-                                <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
-                                  <XCircle className="h-3 w-3 mr-1" />Revogado
+                                <Badge
+                                  variant="outline"
+                                  className="text-red-600 border-red-200 bg-red-50"
+                                >
+                                  <XCircle className="h-3 w-3 mr-1" />
+                                  Revogado
                                 </Badge>
                               )}
                               {inv.status === "expired" && (
-                                <Badge variant="outline" className="text-muted-foreground border-border">
-                                  <Clock className="h-3 w-3 mr-1" />Expirado
+                                <Badge
+                                  variant="outline"
+                                  className="text-muted-foreground border-border"
+                                >
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  Expirado
                                 </Badge>
                               )}
                             </td>
@@ -925,22 +1435,34 @@ export default function OrganizacaoPage() {
                             </td>
                             <td className="px-6 py-4">
                               {inv.role === "org_admin" ? (
-                                <span className="text-[12px] text-muted-foreground">Acesso total</span>
+                                <span className="text-[12px] text-muted-foreground">
+                                  Acesso total
+                                </span>
                               ) : inv.modules.length === 0 ? (
-                                <span className="text-[12px] text-muted-foreground">Nenhum</span>
+                                <span className="text-[12px] text-muted-foreground">
+                                  Nenhum
+                                </span>
                               ) : (
                                 <div className="flex flex-wrap gap-1">
                                   {inv.modules.map((module) => (
-                                    <Badge key={module} variant="secondary" className="text-[10px]">
+                                    <Badge
+                                      key={module}
+                                      variant="secondary"
+                                      className="text-[10px]"
+                                    >
                                       {MODULE_LABELS[module] || module}
                                     </Badge>
                                   ))}
                                 </div>
                               )}
                             </td>
-                            <td className="px-6 py-4 text-[13px] text-muted-foreground">{inv.invitedByName}</td>
                             <td className="px-6 py-4 text-[13px] text-muted-foreground">
-                              {new Date(inv.createdAt).toLocaleDateString("pt-BR")}
+                              {inv.invitedByName}
+                            </td>
+                            <td className="px-6 py-4 text-[13px] text-muted-foreground">
+                              {new Date(inv.createdAt).toLocaleDateString(
+                                "pt-BR",
+                              )}
                             </td>
                           </tr>
                         );
@@ -954,38 +1476,58 @@ export default function OrganizacaoPage() {
         </div>
       )}
 
-      <Dialog open={unitDialogOpen} onOpenChange={setUnitDialogOpen} title="Nova Unidade" description="Cadastre uma nova unidade organizacional." size="lg">
+      <Dialog
+        open={unitDialogOpen}
+        onOpenChange={setUnitDialogOpen}
+        title="Nova Unidade"
+        description="Cadastre uma nova unidade organizacional."
+        size="lg"
+      >
         <form onSubmit={unitForm.handleSubmit(onUnitSubmit)}>
           <div className="grid grid-cols-2 gap-x-8 gap-y-5">
             <div>
-              <Label>Nome</Label>
-              <Input {...unitForm.register("name", { required: true })} placeholder="Ex: Filial Recife" />
+              <Label htmlFor="unit-name">Nome</Label>
+              <Input
+                id="unit-name"
+                {...unitForm.register("name", { required: true })}
+                placeholder="Ex: Filial Recife"
+              />
             </div>
             <div>
-              <Label>Código</Label>
-              <Input {...unitForm.register("code")} placeholder="FIL-001" />
+              <Label htmlFor="unit-code">Código</Label>
+              <Input
+                id="unit-code"
+                {...unitForm.register("code")}
+                placeholder="FIL-001"
+              />
             </div>
             <div>
-              <Label>Tipo</Label>
-              <Select {...unitForm.register("type")}>
+              <Label htmlFor="unit-type">Tipo</Label>
+              <Select id="unit-type" {...unitForm.register("type")}>
                 <option value="sede">Sede</option>
                 <option value="filial">Filial</option>
               </Select>
             </div>
             <div>
-              <Label>Status</Label>
-              <Select {...unitForm.register("status")}>
+              <Label htmlFor="unit-status">Status</Label>
+              <Select id="unit-status" {...unitForm.register("status")}>
                 <option value="ativa">Ativa</option>
                 <option value="inativa">Inativa</option>
               </Select>
             </div>
             <div>
               <Label>CNPJ</Label>
-              <Input {...unitForm.register("cnpj")} placeholder="00.000.000/0000-00" />
+              <Input
+                {...unitForm.register("cnpj")}
+                placeholder="00.000.000/0000-00"
+              />
             </div>
             <div>
               <Label>Telefone</Label>
-              <Input {...unitForm.register("phone")} placeholder="(00) 0000-0000" />
+              <Input
+                {...unitForm.register("phone")}
+                placeholder="(00) 0000-0000"
+              />
             </div>
             <div>
               <Label>CEP</Label>
@@ -993,7 +1535,10 @@ export default function OrganizacaoPage() {
             </div>
             <div>
               <Label>Endereço</Label>
-              <Input {...unitForm.register("address")} placeholder="Rua, Avenida..." />
+              <Input
+                {...unitForm.register("address")}
+                placeholder="Rua, Avenida..."
+              />
             </div>
             <div>
               <Label>Número</Label>
@@ -1001,89 +1546,185 @@ export default function OrganizacaoPage() {
             </div>
             <div>
               <Label>Bairro</Label>
-              <Input {...unitForm.register("neighborhood")} placeholder="Centro" />
+              <Input
+                {...unitForm.register("neighborhood")}
+                placeholder="Centro"
+              />
             </div>
             <div>
-              <Label>Cidade</Label>
-              <Input {...unitForm.register("city")} placeholder="São Paulo" />
+              <Label htmlFor="unit-city">Cidade</Label>
+              <Input
+                id="unit-city"
+                {...unitForm.register("city")}
+                placeholder="São Paulo"
+              />
             </div>
             <div>
-              <Label>Estado (UF)</Label>
-              <Input {...unitForm.register("state")} placeholder="SP" maxLength={2} />
+              <Label htmlFor="unit-state">Estado (UF)</Label>
+              <Input
+                id="unit-state"
+                {...unitForm.register("state")}
+                placeholder="SP"
+                maxLength={2}
+              />
             </div>
             <div>
-              <Label>País</Label>
-              <Input {...unitForm.register("country")} placeholder="Brasil" />
+              <Label htmlFor="unit-country">País</Label>
+              <Input
+                id="unit-country"
+                {...unitForm.register("country")}
+                placeholder="Brasil"
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" size="sm" onClick={() => setUnitDialogOpen(false)}>Cancelar</Button>
-            <Button type="submit" size="sm" isLoading={createUnitMut.isPending}>Salvar</Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setUnitDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" size="sm" isLoading={createUnitMut.isPending}>
+              Salvar
+            </Button>
           </DialogFooter>
         </form>
       </Dialog>
 
-      <Dialog open={deptDialogOpen} onOpenChange={setDeptDialogOpen} title={editingDeptId ? "Editar Departamento" : "Novo Departamento"} description="Defina os departamentos da organização.">
+      <Dialog
+        open={deptDialogOpen}
+        onOpenChange={setDeptDialogOpen}
+        title={editingDeptId ? "Editar Departamento" : "Novo Departamento"}
+        description="Defina os departamentos da organização."
+      >
         <form onSubmit={deptForm.handleSubmit(onDeptSubmit)}>
           <div className="grid grid-cols-2 gap-x-8 gap-y-5">
             <div>
               <Label>Nome</Label>
-              <Input {...deptForm.register("name", { required: true })} placeholder="Nome do departamento" />
+              <Input
+                {...deptForm.register("name", { required: true })}
+                placeholder="Nome do departamento"
+              />
             </div>
             <div>
               <Label>Descrição</Label>
-              <Input {...deptForm.register("description")} placeholder="Descrição (opcional)" />
+              <Input
+                {...deptForm.register("description")}
+                placeholder="Descrição (opcional)"
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" size="sm" onClick={() => setDeptDialogOpen(false)}>Cancelar</Button>
-            <Button type="submit" size="sm" isLoading={createDeptMut.isPending || updateDeptMut.isPending}>{editingDeptId ? "Atualizar" : "Salvar"}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDeptDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              isLoading={createDeptMut.isPending || updateDeptMut.isPending}
+            >
+              {editingDeptId ? "Atualizar" : "Salvar"}
+            </Button>
           </DialogFooter>
         </form>
       </Dialog>
 
-      <Dialog open={posDialogOpen} onOpenChange={setPosDialogOpen} title={editingPosId ? "Editar Cargo" : "Novo Cargo"} description="Defina os cargos e requisitos da organização." size="lg">
+      <Dialog
+        open={posDialogOpen}
+        onOpenChange={setPosDialogOpen}
+        title={editingPosId ? "Editar Cargo" : "Novo Cargo"}
+        description="Defina os cargos e requisitos da organização."
+        size="lg"
+      >
         <form onSubmit={posForm.handleSubmit(onPosSubmit)}>
           <div className="grid grid-cols-2 gap-x-8 gap-y-5">
             <div>
               <Label>Título</Label>
-              <Input {...posForm.register("name", { required: true })} placeholder="Título do cargo" />
+              <Input
+                {...posForm.register("name", { required: true })}
+                placeholder="Título do cargo"
+              />
             </div>
             <div>
               <Label>Escolaridade</Label>
-              <Input {...posForm.register("education")} placeholder="Ex: Ensino Superior em Engenharia" />
+              <Input
+                {...posForm.register("education")}
+                placeholder="Ex: Ensino Superior em Engenharia"
+              />
             </div>
             <div>
               <Label>Tempo de experiência</Label>
-              <Input {...posForm.register("experience")} placeholder="Ex: 2 anos na área" />
+              <Input
+                {...posForm.register("experience")}
+                placeholder="Ex: 2 anos na área"
+              />
             </div>
             <div>
               <Label>Descrição</Label>
-              <Input {...posForm.register("description")} placeholder="Descrição do cargo" />
+              <Input
+                {...posForm.register("description")}
+                placeholder="Descrição do cargo"
+              />
             </div>
             <div className="col-span-2">
               <Label>Requisitos</Label>
-              <Textarea {...posForm.register("requirements")} placeholder="Requisitos do cargo" rows={2} />
+              <Textarea
+                {...posForm.register("requirements")}
+                placeholder="Requisitos do cargo"
+                rows={2}
+              />
             </div>
             <div className="col-span-2">
               <Label>Responsabilidades</Label>
-              <Textarea {...posForm.register("responsibilities")} placeholder="Responsabilidades do cargo" rows={2} />
+              <Textarea
+                {...posForm.register("responsibilities")}
+                placeholder="Responsabilidades do cargo"
+                rows={2}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" size="sm" onClick={() => setPosDialogOpen(false)}>Cancelar</Button>
-            <Button type="submit" size="sm" isLoading={createPosMut.isPending || updatePosMut.isPending}>{editingPosId ? "Atualizar" : "Salvar"}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPosDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              isLoading={createPosMut.isPending || updatePosMut.isPending}
+            >
+              {editingPosId ? "Atualizar" : "Salvar"}
+            </Button>
           </DialogFooter>
         </form>
       </Dialog>
 
-      <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen} title="Convidar Usuário" description="Envie um convite por email para adicionar um novo usuário à organização.">
+      <Dialog
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
+        title="Convidar Usuário"
+        description="Envie um convite por email para adicionar um novo usuário à organização."
+      >
         <form
           onSubmit={async (e) => {
             e.preventDefault();
             setInviteError("");
             if (!inviteForm.email.trim()) return;
-            if (inviteForm.role !== "org_admin" && inviteForm.modules.length === 0) {
+            if (
+              inviteForm.role !== "org_admin" &&
+              inviteForm.modules.length === 0
+            ) {
               setInviteError("Selecione ao menos um módulo para este convite");
               return;
             }
@@ -1092,18 +1733,22 @@ export default function OrganizacaoPage() {
                 data: {
                   email: inviteForm.email.trim(),
                   role: inviteForm.role,
-                  modules: inviteForm.role === "org_admin" ? [] : inviteForm.modules,
+                  modules:
+                    inviteForm.role === "org_admin" ? [] : inviteForm.modules,
                 },
               });
               setInviteForm(emptyInviteForm);
               setInviteDialogOpen(false);
-              queryClient.invalidateQueries({ queryKey: getListInvitationsQueryKey() });
+              queryClient.invalidateQueries({
+                queryKey: getListInvitationsQueryKey(),
+              });
             } catch (err: unknown) {
               const message =
-                err instanceof Error ? err.message :
-                typeof err === "object" && err !== null && "data" in err
-                  ? (err as { data?: { error?: string } }).data?.error
-                  : undefined;
+                err instanceof Error
+                  ? err.message
+                  : typeof err === "object" && err !== null && "data" in err
+                    ? (err as { data?: { error?: string } }).data?.error
+                    : undefined;
               setInviteError(message || "Erro ao enviar convite");
             }
           }}
@@ -1114,14 +1759,26 @@ export default function OrganizacaoPage() {
               <Input
                 type="email"
                 value={inviteForm.email}
-                onChange={(e) => { setInviteForm((prev) => ({ ...prev, email: e.target.value })); setInviteError(""); }}
+                onChange={(e) => {
+                  setInviteForm((prev) => ({ ...prev, email: e.target.value }));
+                  setInviteError("");
+                }}
                 placeholder="colaborador@empresa.com"
                 autoFocus
               />
             </div>
             <div>
               <Label>Cargo</Label>
-              <Select value={inviteForm.role} onChange={(e) => { setInviteForm((prev) => ({ ...prev, role: e.target.value as InviteFormData["role"] })); setInviteError(""); }}>
+              <Select
+                value={inviteForm.role}
+                onChange={(e) => {
+                  setInviteForm((prev) => ({
+                    ...prev,
+                    role: e.target.value as InviteFormData["role"],
+                  }));
+                  setInviteError("");
+                }}
+              >
                 <option value="org_admin">Admin Organização</option>
                 <option value="operator">Operador</option>
                 <option value="analyst">Analista</option>
@@ -1138,12 +1795,16 @@ export default function OrganizacaoPage() {
               <Label>Módulos</Label>
               {inviteForm.role === "org_admin" ? (
                 <div className="mt-2 rounded-lg border border-border bg-muted/20 px-3 py-3 text-[13px] text-muted-foreground">
-                  Admins da organização recebem acesso total. Nenhum módulo precisa ser selecionado.
+                  Admins da organização recebem acesso total. Nenhum módulo
+                  precisa ser selecionado.
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2 mt-2">
                   {ALL_MODULES.map((mod) => (
-                    <label key={mod} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors">
+                    <label
+                      key={mod}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors"
+                    >
                       <input
                         type="checkbox"
                         checked={inviteForm.modules.includes(mod)}
@@ -1151,14 +1812,18 @@ export default function OrganizacaoPage() {
                           setInviteForm((prev) => ({
                             ...prev,
                             modules: prev.modules.includes(mod)
-                              ? prev.modules.filter((currentModule) => currentModule !== mod)
+                              ? prev.modules.filter(
+                                  (currentModule) => currentModule !== mod,
+                                )
                               : [...prev.modules, mod],
                           }));
                           setInviteError("");
                         }}
                         className="rounded border-border text-primary"
                       />
-                      <span className="text-[13px]">{MODULE_LABELS[mod] || mod}</span>
+                      <span className="text-[13px]">
+                        {MODULE_LABELS[mod] || mod}
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -1169,8 +1834,19 @@ export default function OrganizacaoPage() {
             <p className="text-sm text-destructive mt-3">{inviteError}</p>
           )}
           <DialogFooter>
-            <Button type="button" variant="outline" size="sm" onClick={() => setInviteDialogOpen(false)}>Cancelar</Button>
-            <Button type="submit" size="sm" isLoading={createInviteMut.isPending}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setInviteDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              isLoading={createInviteMut.isPending}
+            >
               <Mail className="h-4 w-4 mr-1.5" />
               Enviar Convite
             </Button>
@@ -1210,15 +1886,18 @@ export default function OrganizacaoPage() {
                   modules: data.role === "org_admin" ? [] : data.modules,
                 },
               });
-              queryClient.invalidateQueries({ queryKey: getListOrgUsersQueryKey(orgId) });
+              queryClient.invalidateQueries({
+                queryKey: getListOrgUsersQueryKey(orgId),
+              });
               setCreateUserDialogOpen(false);
               resetCreateUserDialog();
             } catch (err: unknown) {
               const message =
                 typeof err === "object" && err !== null && "data" in err
                   ? (err as { data?: { error?: string } }).data?.error
-                  : err instanceof Error ? err.message
-                  : undefined;
+                  : err instanceof Error
+                    ? err.message
+                    : undefined;
               setCreateUserError(message || "Erro ao criar usuário");
             }
           })}
@@ -1228,22 +1907,30 @@ export default function OrganizacaoPage() {
               <div>
                 <Label>Nome</Label>
                 <Input
-                  {...createUserForm.register("name", { required: "Nome é obrigatório" })}
+                  {...createUserForm.register("name", {
+                    required: "Nome é obrigatório",
+                  })}
                   placeholder="Nome completo"
                 />
                 {createUserForm.formState.errors.name && (
-                  <p className="text-xs text-destructive mt-1.5">{createUserForm.formState.errors.name.message}</p>
+                  <p className="text-xs text-destructive mt-1.5">
+                    {createUserForm.formState.errors.name.message}
+                  </p>
                 )}
               </div>
               <div>
                 <Label>Email</Label>
                 <Input
                   type="email"
-                  {...createUserForm.register("email", { required: "Email é obrigatório" })}
+                  {...createUserForm.register("email", {
+                    required: "Email é obrigatório",
+                  })}
                   placeholder="colaborador@empresa.com"
                 />
                 {createUserForm.formState.errors.email && (
-                  <p className="text-xs text-destructive mt-1.5">{createUserForm.formState.errors.email.message}</p>
+                  <p className="text-xs text-destructive mt-1.5">
+                    {createUserForm.formState.errors.email.message}
+                  </p>
                 )}
               </div>
               <div>
@@ -1260,7 +1947,9 @@ export default function OrganizacaoPage() {
                   placeholder="Mínimo de 6 caracteres"
                 />
                 {createUserForm.formState.errors.password && (
-                  <p className="text-xs text-destructive mt-1.5">{createUserForm.formState.errors.password.message}</p>
+                  <p className="text-xs text-destructive mt-1.5">
+                    {createUserForm.formState.errors.password.message}
+                  </p>
                 )}
               </div>
               <div>
@@ -1284,31 +1973,46 @@ export default function OrganizacaoPage() {
               <Label>Módulos</Label>
               {createUserRole === "org_admin" ? (
                 <div className="mt-2 rounded-lg border border-border bg-muted/20 px-3 py-3 text-[13px] text-muted-foreground">
-                  Admins da organização recebem acesso total. Nenhum módulo precisa ser selecionado.
+                  Admins da organização recebem acesso total. Nenhum módulo
+                  precisa ser selecionado.
                 </div>
               ) : (
                 <>
                   <div className="grid grid-cols-2 gap-2 mt-2">
                     {ALL_MODULES.map((mod) => (
-                      <label key={mod} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors">
+                      <label
+                        key={mod}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors"
+                      >
                         <input
                           type="checkbox"
                           checked={createUserModules.includes(mod)}
                           onChange={() => {
                             const nextModules = createUserModules.includes(mod)
-                              ? createUserModules.filter((currentModule) => currentModule !== mod)
+                              ? createUserModules.filter(
+                                  (currentModule) => currentModule !== mod,
+                                )
                               : [...createUserModules, mod];
-                            createUserForm.setValue("modules", nextModules, { shouldValidate: true });
+                            createUserForm.setValue("modules", nextModules, {
+                              shouldValidate: true,
+                            });
                             createUserForm.clearErrors("modules");
                           }}
                           className="rounded border-border text-primary"
                         />
-                        <span className="text-[13px]">{MODULE_LABELS[mod] || mod}</span>
+                        <span className="text-[13px]">
+                          {MODULE_LABELS[mod] || mod}
+                        </span>
                       </label>
                     ))}
                   </div>
                   {createUserForm.formState.errors.modules && (
-                    <p className="text-xs text-destructive mt-1.5">{createUserForm.formState.errors.modules.message as string}</p>
+                    <p className="text-xs text-destructive mt-1.5">
+                      {
+                        createUserForm.formState.errors.modules
+                          .message as string
+                      }
+                    </p>
                   )}
                 </>
               )}
@@ -1318,10 +2022,22 @@ export default function OrganizacaoPage() {
             <p className="text-sm text-destructive mt-4">{createUserError}</p>
           )}
           <DialogFooter>
-            <Button type="button" variant="outline" size="sm" onClick={() => { setCreateUserDialogOpen(false); resetCreateUserDialog(); }}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setCreateUserDialogOpen(false);
+                resetCreateUserDialog();
+              }}
+            >
               Cancelar
             </Button>
-            <Button type="submit" size="sm" isLoading={createOrgUserMut.isPending}>
+            <Button
+              type="submit"
+              size="sm"
+              isLoading={createOrgUserMut.isPending}
+            >
               <Plus className="h-4 w-4 mr-1.5" />
               Criar Usuário
             </Button>
@@ -1329,54 +2045,96 @@ export default function OrganizacaoPage() {
         </form>
       </Dialog>
 
-      <Dialog open={permDialogOpen} onOpenChange={setPermDialogOpen} title="Configurar Permissões" description={editingUser ? `Defina o cargo e módulos de ${editingUser.name}.` : ""}>
+      <Dialog
+        open={permDialogOpen}
+        onOpenChange={setPermDialogOpen}
+        title="Configurar Permissões"
+        description={
+          editingUser ? `Defina o cargo e módulos de ${editingUser.name}.` : ""
+        }
+      >
         {editingUser && (
           <div className="space-y-5">
             <div>
               <Label>Cargo</Label>
-              <Select value={editRole} onChange={(e) => setEditRole(e.target.value as UpdateUserRoleBodyRole)}>
+              <Select
+                value={editRole}
+                onChange={(e) =>
+                  setEditRole(e.target.value as UpdateUserRoleBodyRole)
+                }
+              >
                 <option value="operator">Operador</option>
                 <option value="analyst">Analista</option>
               </Select>
               <p className="text-[11px] text-muted-foreground mt-1">
-                {editRole === "operator" ? "Pode visualizar e editar dados dos módulos atribuídos." : "Somente visualização dos módulos atribuídos."}
+                {editRole === "operator"
+                  ? "Pode visualizar e editar dados dos módulos atribuídos."
+                  : "Somente visualização dos módulos atribuídos."}
               </p>
             </div>
             <div>
               <Label>Módulos</Label>
               <div className="grid grid-cols-2 gap-2 mt-2">
-                {ALL_MODULES.map(mod => (
-                  <label key={mod} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors">
+                {ALL_MODULES.map((mod) => (
+                  <label
+                    key={mod}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors"
+                  >
                     <input
                       type="checkbox"
                       checked={editModules.includes(mod)}
                       onChange={() => {
-                        setEditModules(prev =>
-                          prev.includes(mod) ? prev.filter(m => m !== mod) : [...prev, mod]
+                        setEditModules((prev) =>
+                          prev.includes(mod)
+                            ? prev.filter((m) => m !== mod)
+                            : [...prev, mod],
                         );
                       }}
                       className="rounded border-border text-primary"
                     />
-                    <span className="text-[13px]">{MODULE_LABELS[mod] || mod}</span>
+                    <span className="text-[13px]">
+                      {MODULE_LABELS[mod] || mod}
+                    </span>
                   </label>
                 ))}
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" size="sm" onClick={() => setPermDialogOpen(false)}>Cancelar</Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPermDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
               <Button
                 size="sm"
-                isLoading={updateRoleMut.isPending || updateModulesMut.isPending}
+                isLoading={
+                  updateRoleMut.isPending || updateModulesMut.isPending
+                }
                 onClick={async () => {
                   if (!orgId || !editingUser) return;
                   if (editRole !== editingUser.role) {
-                    await updateRoleMut.mutateAsync({ orgId, userId: editingUser.id, data: { role: editRole } });
+                    await updateRoleMut.mutateAsync({
+                      orgId,
+                      userId: editingUser.id,
+                      data: { role: editRole },
+                    });
                   }
-                  const modulesChanged = editModules.sort().join(",") !== [...editingUser.modules].sort().join(",");
+                  const modulesChanged =
+                    editModules.sort().join(",") !==
+                    [...editingUser.modules].sort().join(",");
                   if (modulesChanged) {
-                    await updateModulesMut.mutateAsync({ orgId, userId: editingUser.id, data: { modules: editModules } });
+                    await updateModulesMut.mutateAsync({
+                      orgId,
+                      userId: editingUser.id,
+                      data: { modules: editModules },
+                    });
                   }
-                  queryClient.invalidateQueries({ queryKey: getListOrgUsersQueryKey(orgId) });
+                  queryClient.invalidateQueries({
+                    queryKey: getListOrgUsersQueryKey(orgId),
+                  });
                   setPermDialogOpen(false);
                 }}
               >
@@ -1398,15 +2156,25 @@ function SimpleTable({
   onEdit,
   onDelete,
 }: {
-  items: Array<{ id: number; name: string; description?: string | null }> | undefined;
+  items:
+    | Array<{ id: number; name: string; description?: string | null }>
+    | undefined;
   isLoading: boolean;
   entityName: string;
   canWrite: boolean;
-  onEdit: (item: { id: number; name: string; description?: string | null }) => void;
+  onEdit: (item: {
+    id: number;
+    name: string;
+    description?: string | null;
+  }) => void;
   onDelete: (id: number) => void;
 }) {
   if (isLoading) {
-    return <div className="text-center py-12 text-muted-foreground">Carregando...</div>;
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        Carregando...
+      </div>
+    );
   }
 
   return (
@@ -1414,22 +2182,40 @@ function SimpleTable({
       <table className="w-full">
         <thead>
           <tr className="border-b border-border bg-muted/30">
-            <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome</th>
-            <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Descrição</th>
+            <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Nome
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Descrição
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
           {items?.length === 0 && (
             <tr>
-              <td colSpan={2} className="px-6 py-12 text-center text-muted-foreground text-[13px]">
+              <td
+                colSpan={2}
+                className="px-6 py-12 text-center text-muted-foreground text-[13px]"
+              >
                 Nenhum {entityName} cadastrado.
               </td>
             </tr>
           )}
           {items?.map((item) => (
-            <tr key={item.id} className={cn("transition-colors", canWrite ? "hover:bg-muted/50 cursor-pointer" : "")} onClick={() => canWrite && onEdit(item)}>
-              <td className="px-6 py-4 text-[13px] font-medium text-foreground">{item.name}</td>
-              <td className="px-6 py-4 text-[13px] text-muted-foreground">{item.description || "—"}</td>
+            <tr
+              key={item.id}
+              className={cn(
+                "transition-colors",
+                canWrite ? "hover:bg-muted/50 cursor-pointer" : "",
+              )}
+              onClick={() => canWrite && onEdit(item)}
+            >
+              <td className="px-6 py-4 text-[13px] font-medium text-foreground">
+                {item.name}
+              </td>
+              <td className="px-6 py-4 text-[13px] text-muted-foreground">
+                {item.description || "—"}
+              </td>
             </tr>
           ))}
         </tbody>

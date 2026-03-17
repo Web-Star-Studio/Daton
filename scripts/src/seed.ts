@@ -1,169 +1,1195 @@
-import { db, organizationsTable, usersTable, unitsTable, legislationsTable, unitLegislationsTable } from "@workspace/db";
+import {
+  db,
+  organizationsTable,
+  usersTable,
+  userModulePermissionsTable,
+  unitsTable,
+  departmentsTable,
+  positionsTable,
+  employeesTable,
+  employeeProfileItemsTable,
+  employeeProfileItemAttachmentsTable,
+  employeeCompetenciesTable,
+  employeeTrainingsTable,
+  employeeAwarenessTable,
+  employeeUnitsTable,
+  legislationsTable,
+  unitLegislationsTable,
+  evidenceAttachmentsTable,
+  documentsTable,
+  documentUnitsTable,
+  documentElaboratorsTable,
+  documentApproversTable,
+  documentRecipientsTable,
+  documentReferencesTable,
+  documentAttachmentsTable,
+  documentVersionsTable,
+  conversations,
+  messages,
+  questionnaireThemesTable,
+  questionnaireQuestionsTable,
+  unitQuestionnaireResponsesTable,
+  unitComplianceTagsTable,
+  notificationsTable,
+  invitationsTable,
+  strategicPlansTable,
+  strategicPlanSwotItemsTable,
+  strategicPlanInterestedPartiesTable,
+  strategicPlanObjectivesTable,
+  strategicPlanActionsTable,
+  strategicPlanActionUnitsTable,
+  strategicPlanRevisionsTable,
+  productKnowledgeArticlesTable,
+  productKnowledgeArticleRevisionsTable,
+} from "@workspace/db";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 async function seed() {
-  console.log("Seeding database...");
+  console.log("🌱 Seeding database with comprehensive demo data...\n");
 
+  // ─── 1. Organization ─────────────────────────────────────────────────────────
   const [org] = await db.insert(organizationsTable).values({
     name: "Empresa Demo LTDA",
+    tradeName: "Daton Demo",
+    legalIdentifier: "12.345.678/0001-90",
+    openingDate: "2018-03-15",
+    taxRegime: "Lucro Presumido",
+    primaryCnae: "62.01-5-01",
+    stateRegistration: "123.456.789.012",
+    municipalRegistration: "987654",
+    statusOperacional: "ativa",
+    onboardingStatus: "completed",
+    onboardingData: {
+      sector: "manufacturing",
+      size: "medium",
+      goals: ["quality", "compliance", "performance"],
+      maturityLevel: "intermediate",
+      challenges: ["Padronização de processos", "Gestão de documentos", "Conformidade legal"],
+    },
+    onboardingCompletedAt: new Date("2024-01-10"),
+    authVersion: 1,
   }).returning();
-  console.log(`Created organization: ${org.name} (id: ${org.id})`);
+  console.log(`✅ Organization: ${org.name} (id: ${org.id})`);
 
+  // ─── 2. Users ─────────────────────────────────────────────────────────────────
   const passwordHash = await bcrypt.hash("demo123", 10);
-  const [user] = await db.insert(usersTable).values({
-    name: "Admin Demo",
+
+  const [adminUser] = await db.insert(usersTable).values({
+    name: "Carlos Silva",
     email: "admin@demo.com",
     passwordHash,
     organizationId: org.id,
     role: "org_admin",
   }).returning();
-  console.log(`Created user: ${user.email} (id: ${user.id})`);
 
+  const [operatorUser] = await db.insert(usersTable).values({
+    name: "Ana Oliveira",
+    email: "ana@demo.com",
+    passwordHash,
+    organizationId: org.id,
+    role: "operator",
+  }).returning();
+
+  const [analystUser] = await db.insert(usersTable).values({
+    name: "Pedro Santos",
+    email: "pedro@demo.com",
+    passwordHash,
+    organizationId: org.id,
+    role: "analyst",
+  }).returning();
+
+  const [operator2User] = await db.insert(usersTable).values({
+    name: "Mariana Costa",
+    email: "mariana@demo.com",
+    passwordHash,
+    organizationId: org.id,
+    role: "operator",
+  }).returning();
+
+  console.log(`✅ Users: ${adminUser.name}, ${operatorUser.name}, ${analystUser.name}, ${operator2User.name}`);
+
+  // ─── 3. User Module Permissions ───────────────────────────────────────────────
+  const allModules = ["documents", "legislations", "employees", "units", "departments", "positions"];
+
+  // Admin gets all modules
+  for (const mod of allModules) {
+    await db.insert(userModulePermissionsTable).values({ userId: adminUser.id, module: mod });
+  }
+  // Operator gets documents, employees, units
+  for (const mod of ["documents", "employees", "units"]) {
+    await db.insert(userModulePermissionsTable).values({ userId: operatorUser.id, module: mod });
+  }
+  // Analyst gets legislations, documents (read-only by role)
+  for (const mod of ["legislations", "documents"]) {
+    await db.insert(userModulePermissionsTable).values({ userId: analystUser.id, module: mod });
+  }
+  // Operator2 gets departments, positions, employees
+  for (const mod of ["departments", "positions", "employees"]) {
+    await db.insert(userModulePermissionsTable).values({ userId: operator2User.id, module: mod });
+  }
+  console.log(`✅ User module permissions assigned`);
+
+  // ─── 4. Units ─────────────────────────────────────────────────────────────────
   const [sede] = await db.insert(unitsTable).values({
     organizationId: org.id,
     name: "Sede Principal",
+    code: "SEDE-SP",
     type: "sede",
+    cnpj: "12.345.678/0001-90",
+    status: "ativa",
+    cep: "01310-100",
     address: "Av. Paulista, 1000",
+    streetNumber: "1000",
+    neighborhood: "Bela Vista",
     city: "São Paulo",
     state: "SP",
+    country: "Brasil",
+    phone: "(11) 3000-1000",
   }).returning();
 
-  const [filial] = await db.insert(unitsTable).values({
+  const [filialRJ] = await db.insert(unitsTable).values({
     organizationId: org.id,
     name: "Filial Rio de Janeiro",
+    code: "FIL-RJ",
     type: "filial",
+    cnpj: "12.345.678/0002-71",
+    status: "ativa",
+    cep: "20040-020",
     address: "Rua da Assembleia, 50",
+    streetNumber: "50",
+    neighborhood: "Centro",
     city: "Rio de Janeiro",
     state: "RJ",
+    country: "Brasil",
+    phone: "(21) 3000-2000",
   }).returning();
 
-  const [filial2] = await db.insert(unitsTable).values({
+  const [filialBH] = await db.insert(unitsTable).values({
     organizationId: org.id,
     name: "Filial Belo Horizonte",
+    code: "FIL-BH",
     type: "filial",
+    cnpj: "12.345.678/0003-52",
+    status: "ativa",
+    cep: "30130-000",
     address: "Av. Afonso Pena, 1500",
+    streetNumber: "1500",
+    neighborhood: "Centro",
     city: "Belo Horizonte",
     state: "MG",
+    country: "Brasil",
+    phone: "(31) 3000-3000",
   }).returning();
 
-  console.log(`Created units: ${sede.name}, ${filial.name}, ${filial2.name}`);
+  console.log(`✅ Units: ${sede.name}, ${filialRJ.name}, ${filialBH.name}`);
 
-  const legislations = [
+  // ─── 5. Departments ──────────────────────────────────────────────────────────
+  const deptValues = [
+    { name: "Qualidade", description: "Departamento responsável pelo Sistema de Gestão da Qualidade (SGQ) e melhoria contínua." },
+    { name: "Produção", description: "Responsável pela fabricação e controle de processos produtivos." },
+    { name: "Recursos Humanos", description: "Gestão de pessoas, recrutamento, treinamento e desenvolvimento." },
+    { name: "Administrativo / Financeiro", description: "Gestão financeira, contábil e administrativa." },
+    { name: "Comercial", description: "Vendas, relacionamento com clientes e pós-venda." },
+    { name: "Logística", description: "Armazenagem, expedição e gestão da cadeia de suprimentos." },
+    { name: "Manutenção", description: "Manutenção preventiva e corretiva de equipamentos e infraestrutura." },
+  ];
+  const departments = [];
+  for (const d of deptValues) {
+    const [dept] = await db.insert(departmentsTable).values({ ...d, organizationId: org.id }).returning();
+    departments.push(dept);
+  }
+  console.log(`✅ Departments: ${departments.length} created`);
+
+  // ─── 6. Positions ─────────────────────────────────────────────────────────────
+  const posValues = [
+    {
+      name: "Gerente da Qualidade",
+      description: "Responsável pela coordenação do SGQ e auditorias internas.",
+      education: "Ensino Superior em Engenharia ou Administração",
+      experience: "5 anos em gestão da qualidade",
+      requirements: "Certificação ISO 9001 Lead Auditor\nConhecimento de ferramentas da qualidade (PDCA, FMEA, 5W2H)",
+      responsibilities: "Coordenar auditorias internas\nGerenciar não conformidades\nRelatar desempenho do SGQ à alta direção",
+    },
+    {
+      name: "Analista da Qualidade",
+      description: "Apoio na manutenção e melhoria do SGQ.",
+      education: "Ensino Superior em andamento ou concluído",
+      experience: "2 anos em área da qualidade",
+      requirements: "Conhecimento em normas ISO 9001:2015\nDomínio de Excel avançado",
+      responsibilities: "Controlar documentos do SGQ\nAcompanhar indicadores de qualidade\nConduzir inspeções",
+    },
+    {
+      name: "Supervisor de Produção",
+      description: "Supervisiona as atividades de produção e garante conformidade com padrões.",
+      education: "Ensino Técnico ou Superior em Engenharia",
+      experience: "3 anos em produção industrial",
+      requirements: "Liderança de equipe\nConhecimento de processos produtivos",
+      responsibilities: "Supervisionar equipe de produção\nGarantir cumprimento de metas\nRelatar desvios de processo",
+    },
+    {
+      name: "Técnico de Manutenção",
+      description: "Execução de manutenção preventiva e corretiva.",
+      education: "Ensino Técnico em Eletromecânica ou Mecatrônica",
+      experience: "2 anos em manutenção industrial",
+      requirements: "NR-10 e NR-12\nConhecimento em hidráulica e pneumática",
+      responsibilities: "Executar planos de manutenção preventiva\nAtender chamados de manutenção corretiva\nManter registros de intervenção",
+    },
+    {
+      name: "Analista de RH",
+      description: "Responsável por processos de RH e desenvolvimento de pessoas.",
+      education: "Ensino Superior em Administração ou Psicologia",
+      experience: "2 anos em recursos humanos",
+      requirements: "Conhecimento em legislação trabalhista\nExperiência com treinamento e desenvolvimento",
+      responsibilities: "Conduzir processos seletivos\nElaborar planos de treinamento\nGerenciar documentação de funcionários",
+    },
+    {
+      name: "Operador de Produção",
+      description: "Operação de máquinas e equipamentos na linha de produção.",
+      education: "Ensino Médio completo",
+      experience: "1 ano em ambiente industrial",
+      requirements: "Disponibilidade para turnos\nConhecimento básico de leitura de desenho técnico",
+      responsibilities: "Operar máquinas conforme instruções de trabalho\nPreencher registros de produção\nReportar anomalias",
+    },
+  ];
+  const positions = [];
+  for (const p of posValues) {
+    const [pos] = await db.insert(positionsTable).values({ ...p, organizationId: org.id }).returning();
+    positions.push(pos);
+  }
+  console.log(`✅ Positions: ${positions.length} created`);
+
+  // ─── 7. Employees ─────────────────────────────────────────────────────────────
+  const empValues = [
+    { name: "Roberto Mendes", cpf: "111.222.333-44", email: "roberto@empresa.com", phone: "(11) 99000-1001", position: "Gerente da Qualidade", department: "Qualidade", contractType: "clt", admissionDate: "2019-02-01", status: "active", unitId: sede.id },
+    { name: "Juliana Ferreira", cpf: "222.333.444-55", email: "juliana@empresa.com", phone: "(11) 99000-1002", position: "Analista da Qualidade", department: "Qualidade", contractType: "clt", admissionDate: "2020-06-15", status: "active", unitId: sede.id },
+    { name: "Marcos Almeida", cpf: "333.444.555-66", email: "marcos@empresa.com", phone: "(21) 99000-2001", position: "Supervisor de Produção", department: "Produção", contractType: "clt", admissionDate: "2018-09-10", status: "active", unitId: filialRJ.id },
+    { name: "Fernanda Lima", cpf: "444.555.666-77", email: "fernanda@empresa.com", phone: "(11) 99000-1003", position: "Analista de RH", department: "Recursos Humanos", contractType: "clt", admissionDate: "2021-01-20", status: "active", unitId: sede.id },
+    { name: "Ricardo Souza", cpf: "555.666.777-88", email: "ricardo@empresa.com", phone: "(31) 99000-3001", position: "Técnico de Manutenção", department: "Manutenção", contractType: "clt", admissionDate: "2020-03-05", status: "active", unitId: filialBH.id },
+    { name: "Camila Nunes", cpf: "666.777.888-99", email: "camila@empresa.com", phone: "(21) 99000-2002", position: "Operador de Produção", department: "Produção", contractType: "clt", admissionDate: "2022-07-01", status: "active", unitId: filialRJ.id },
+    { name: "Lucas Rocha", cpf: "777.888.999-00", email: "lucas@empresa.com", phone: "(11) 99000-1004", position: "Operador de Produção", department: "Produção", contractType: "temporario", admissionDate: "2024-01-15", terminationDate: "2024-12-31", status: "active", unitId: sede.id },
+    { name: "Patrícia Dias", cpf: "888.999.000-11", email: "patricia@empresa.com", phone: "(31) 99000-3002", position: "Analista da Qualidade", department: "Qualidade", contractType: "clt", admissionDate: "2017-04-22", terminationDate: "2024-06-30", status: "inactive", unitId: filialBH.id },
+  ];
+  const employees = [];
+  for (const e of empValues) {
+    const [emp] = await db.insert(employeesTable).values({ ...e, organizationId: org.id }).returning();
+    employees.push(emp);
+  }
+  console.log(`✅ Employees: ${employees.length} created`);
+
+  // ─── 8. Employee Units (secondary unit assignments) ───────────────────────────
+  // Roberto (HQ) also works at RJ filial
+  await db.insert(employeeUnitsTable).values({ employeeId: employees[0].id, unitId: filialRJ.id });
+  // Juliana (HQ) also works at BH filial
+  await db.insert(employeeUnitsTable).values({ employeeId: employees[1].id, unitId: filialBH.id });
+  console.log(`✅ Employee unit assignments: 2 secondary assignments`);
+
+  // ─── 9. Employee Profile Items ────────────────────────────────────────────────
+  const profileItems = [
+    { employeeId: employees[0].id, category: "formacao", title: "MBA em Gestão da Qualidade", description: "Universidade de São Paulo (USP) — Concluído em 2018" },
+    { employeeId: employees[0].id, category: "formacao", title: "Engenharia de Produção", description: "Universidade Estadual de Campinas (UNICAMP) — Concluído em 2014" },
+    { employeeId: employees[0].id, category: "experiencia", title: "Coordenador da Qualidade — Indústria ABC", description: "2015 a 2019. Coordenação de auditorias e gestão de não conformidades." },
+    { employeeId: employees[1].id, category: "formacao", title: "Administração de Empresas", description: "PUC-SP — Concluído em 2019" },
+    { employeeId: employees[1].id, category: "experiencia", title: "Estagiária de Qualidade — Fábrica XYZ", description: "2018 a 2020. Apoio em inspeções e controle documental." },
+    { employeeId: employees[2].id, category: "formacao", title: "Engenharia Mecânica", description: "UFRJ — Concluído em 2015" },
+    { employeeId: employees[3].id, category: "formacao", title: "Psicologia Organizacional", description: "Universidade Mackenzie — Concluído em 2020" },
+    { employeeId: employees[4].id, category: "formacao", title: "Técnico em Eletromecânica", description: "SENAI — Concluído em 2017" },
+    { employeeId: employees[4].id, category: "certificacao", title: "NR-10 — Segurança em Instalações Elétricas", description: "Certificado válido até 2026-06-30" },
+  ];
+  const createdProfileItems = [];
+  for (const pi of profileItems) {
+    const [item] = await db.insert(employeeProfileItemsTable).values(pi).returning();
+    createdProfileItems.push(item);
+  }
+  console.log(`✅ Employee profile items: ${createdProfileItems.length} created`);
+
+  // ─── 10. Employee Profile Item Attachments (dummy references) ─────────────────
+  await db.insert(employeeProfileItemAttachmentsTable).values({
+    itemId: createdProfileItems[0].id,
+    fileName: "diploma_mba_qualidade.pdf",
+    fileSize: 245000,
+    contentType: "application/pdf",
+    objectPath: "demo/employees/roberto/diploma_mba_qualidade.pdf",
+  });
+  await db.insert(employeeProfileItemAttachmentsTable).values({
+    itemId: createdProfileItems[8].id,
+    fileName: "certificado_nr10.pdf",
+    fileSize: 180000,
+    contentType: "application/pdf",
+    objectPath: "demo/employees/ricardo/certificado_nr10.pdf",
+  });
+  console.log(`✅ Employee profile item attachments: 2 created`);
+
+  // ─── 11. Employee Competencies ────────────────────────────────────────────────
+  const competencies = [
+    { employeeId: employees[0].id, name: "Auditoria Interna ISO 9001", type: "formacao", requiredLevel: 5, acquiredLevel: 5, evidence: "Lead Auditor certificado IRCA", description: "Capacidade de conduzir auditorias internas do SGQ" },
+    { employeeId: employees[0].id, name: "Análise de Causa Raiz", type: "habilidade", requiredLevel: 4, acquiredLevel: 4, evidence: "Experiência em Ishikawa e 5 Porquês", description: "Ferramentas de análise de não conformidades" },
+    { employeeId: employees[1].id, name: "Controle de Documentos", type: "conhecimento", requiredLevel: 4, acquiredLevel: 3, evidence: "Treinamento interno concluído", description: "Gestão documental conforme requisitos ISO 9001" },
+    { employeeId: employees[1].id, name: "Metrologia Básica", type: "formacao", requiredLevel: 3, acquiredLevel: 2, evidence: "Curso SENAI em andamento", description: "Calibração e verificação de instrumentos" },
+    { employeeId: employees[2].id, name: "Gestão de Equipes", type: "habilidade", requiredLevel: 4, acquiredLevel: 4, evidence: "Supervisão de 15 operadores", description: "Liderança de equipes em ambiente fabril" },
+    { employeeId: employees[4].id, name: "Manutenção Preventiva", type: "conhecimento", requiredLevel: 4, acquiredLevel: 4, evidence: "3 anos de experiência documentada", description: "Planejamento e execução de planos de manutenção preventiva" },
+    { employeeId: employees[4].id, name: "NR-10 Segurança Elétrica", type: "formacao", requiredLevel: 3, acquiredLevel: 3, evidence: "Certificado NR-10 válido", description: "Segurança em instalações e serviços em eletricidade" },
+    { employeeId: employees[5].id, name: "Operação de CNC", type: "habilidade", requiredLevel: 3, acquiredLevel: 2, evidence: "Treinamento on-the-job", description: "Operação de máquinas CNC" },
+  ];
+  for (const c of competencies) {
+    await db.insert(employeeCompetenciesTable).values(c);
+  }
+  console.log(`✅ Employee competencies: ${competencies.length} created`);
+
+  // ─── 12. Employee Trainings ───────────────────────────────────────────────────
+  const trainings = [
+    { employeeId: employees[0].id, title: "Lead Auditor ISO 9001:2015", institution: "Bureau Veritas", workloadHours: 40, completionDate: "2022-09-15", expirationDate: "2025-09-15", status: "concluido", description: "Formação de auditor líder em sistemas de gestão da qualidade." },
+    { employeeId: employees[0].id, title: "FMEA — Análise de Modos de Falha", institution: "IQA", workloadHours: 16, completionDate: "2023-03-20", status: "concluido", description: "Metodologia FMEA aplicada a processos industriais." },
+    { employeeId: employees[1].id, title: "Formação em Auditor Interno ISO 9001", institution: "ABNT", workloadHours: 24, completionDate: "2024-05-10", expirationDate: "2027-05-10", status: "concluido", description: "Habilitação para conduzir auditorias internas do SGQ." },
+    { employeeId: employees[1].id, title: "Excel Avançado para Qualidade", institution: "Udemy", workloadHours: 12, status: "em_andamento", description: "Dashboards e análise de dados para indicadores de qualidade." },
+    { employeeId: employees[2].id, title: "Liderança e Gestão de Equipes", institution: "FGV Online", workloadHours: 30, completionDate: "2023-11-05", status: "concluido", description: "Desenvolvimento de habilidades de liderança." },
+    { employeeId: employees[3].id, title: "Gestão de Treinamento e Desenvolvimento", institution: "ABRH", workloadHours: 20, completionDate: "2024-02-28", status: "concluido", description: "Metodologias de T&D e avaliação de eficácia." },
+    { employeeId: employees[4].id, title: "NR-10 Reciclagem", institution: "SENAI", workloadHours: 8, completionDate: "2024-06-30", expirationDate: "2026-06-30", status: "concluido", description: "Reciclagem obrigatória da NR-10." },
+    { employeeId: employees[5].id, title: "Operação de CNC Básico", institution: "SENAI", workloadHours: 40, status: "pendente", description: "Treinamento programado para operação de máquinas CNC." },
+    { employeeId: employees[6].id, title: "Integração — Segurança do Trabalho", institution: "Interno", workloadHours: 4, completionDate: "2024-01-15", status: "concluido", description: "Treinamento de integração para novos colaboradores." },
+  ];
+  for (const t of trainings) {
+    await db.insert(employeeTrainingsTable).values(t);
+  }
+  console.log(`✅ Employee trainings: ${trainings.length} created`);
+
+  // ─── 13. Employee Awareness Records ───────────────────────────────────────────
+  const awarenessRecords = [
+    { employeeId: employees[0].id, topic: "Política da Qualidade", description: "Apresentação da política da qualidade revisada para 2024.", date: "2024-02-01", verificationMethod: "Assinatura em lista de presença", result: "Satisfatório" },
+    { employeeId: employees[1].id, topic: "Política da Qualidade", description: "Apresentação da política da qualidade revisada para 2024.", date: "2024-02-01", verificationMethod: "Assinatura em lista de presença", result: "Satisfatório" },
+    { employeeId: employees[2].id, topic: "Objetivos da Qualidade 2024", description: "Comunicação dos objetivos e metas da qualidade para o ano.", date: "2024-01-15", verificationMethod: "Questionário online", result: "Satisfatório" },
+    { employeeId: employees[3].id, topic: "LGPD — Proteção de Dados Pessoais", description: "Treinamento sobre tratamento de dados pessoais de colaboradores.", date: "2024-03-10", verificationMethod: "Avaliação escrita", result: "Satisfatório" },
+    { employeeId: employees[4].id, topic: "Procedimentos de Emergência", description: "Simulado de evacuação e uso de extintores.", date: "2024-04-22", verificationMethod: "Participação em simulado", result: "Satisfatório" },
+    { employeeId: employees[5].id, topic: "5S — Organização do Posto de Trabalho", description: "Palestra sobre metodologia 5S aplicada à produção.", date: "2024-05-10", verificationMethod: "Checklist de verificação", result: "Parcialmente satisfatório — necessita reforço" },
+  ];
+  for (const a of awarenessRecords) {
+    await db.insert(employeeAwarenessTable).values(a);
+  }
+  console.log(`✅ Employee awareness records: ${awarenessRecords.length} created`);
+
+  // ─── 14. Legislations ─────────────────────────────────────────────────────────
+  const legislationValues = [
     {
       title: "Política Nacional do Meio Ambiente",
       number: "Lei 6.938/1981",
       description: "Dispõe sobre a Política Nacional do Meio Ambiente, seus fins e mecanismos de formulação e aplicação.",
+      tipoNorma: "Lei Federal",
+      emissor: "Congresso Nacional",
       level: "federal",
       status: "vigente",
+      macrotema: "Meio Ambiente",
+      subtema: "Política Ambiental",
+      applicability: "Todas as unidades com atividades potencialmente poluidoras",
       publicationDate: "1981-08-31",
       sourceUrl: "https://www.planalto.gov.br/ccivil_03/leis/l6938.htm",
       applicableArticles: "Art. 2°, Art. 4°, Art. 9°, Art. 10",
+      reviewFrequencyDays: 365,
+      tags: ["meio_ambiente", "licenciamento"],
     },
     {
       title: "Política Nacional de Resíduos Sólidos",
       number: "Lei 12.305/2010",
       description: "Institui a Política Nacional de Resíduos Sólidos; altera a Lei 9.605/1998.",
+      tipoNorma: "Lei Federal",
+      emissor: "Congresso Nacional",
       level: "federal",
       status: "vigente",
+      macrotema: "Meio Ambiente",
+      subtema: "Resíduos Sólidos",
+      applicability: "Unidades que geram resíduos industriais",
       publicationDate: "2010-08-02",
       sourceUrl: "https://www.planalto.gov.br/ccivil_03/_ato2007-2010/2010/lei/l12305.htm",
       applicableArticles: "Art. 3°, Art. 6°, Art. 9°, Art. 20, Art. 33",
+      reviewFrequencyDays: 365,
+      tags: ["meio_ambiente", "residuos"],
     },
     {
       title: "Dispõe sobre padrões de qualidade do ar",
       number: "Resolução CONAMA 491/2018",
       description: "Dispõe sobre padrões de qualidade do ar e dá outras providências.",
+      tipoNorma: "Resolução",
+      emissor: "CONAMA",
       level: "federal",
       status: "vigente",
+      macrotema: "Meio Ambiente",
+      subtema: "Qualidade do Ar",
+      applicability: "Unidades com emissões atmosféricas",
       publicationDate: "2018-11-19",
       sourceUrl: "https://www.in.gov.br/materia/-/asset_publisher/Kujrw0TZC2Mb/content/id/51058895",
       applicableArticles: "Art. 3°, Art. 4°, Anexo I",
+      reviewFrequencyDays: 180,
+      tags: ["meio_ambiente", "emissoes"],
     },
     {
-      title: "Dispõe sobre o controle e fiscalização de atividades potencialmente poluidoras",
+      title: "Licenciamento Ambiental",
       number: "Resolução CONAMA 237/1997",
       description: "Regulamenta os aspectos de licenciamento ambiental estabelecidos na Política Nacional do Meio Ambiente.",
+      tipoNorma: "Resolução",
+      emissor: "CONAMA",
       level: "federal",
       status: "vigente",
+      macrotema: "Meio Ambiente",
+      subtema: "Licenciamento",
+      applicability: "Todas as unidades sujeitas a licenciamento ambiental",
       publicationDate: "1997-12-19",
       sourceUrl: "https://www.ibama.gov.br/sophia/cnia/legislacao/MMA/RE0237-191297.PDF",
       applicableArticles: "Art. 1°, Art. 2°, Art. 8°, Art. 10",
+      reviewFrequencyDays: 365,
+      tags: ["meio_ambiente", "licenciamento"],
     },
     {
-      title: "Normas de Segurança e Saúde no Trabalho",
+      title: "Programa de Gerenciamento de Riscos",
       number: "NR-9 / Portaria 6.735/2020",
-      description: "Programa de Gerenciamento de Riscos. Avaliação e controle das exposições ocupacionais a agentes físicos, químicos e biológicos.",
+      description: "Avaliação e controle das exposições ocupacionais a agentes físicos, químicos e biológicos.",
+      tipoNorma: "Norma Regulamentadora",
+      emissor: "Ministério do Trabalho",
       level: "federal",
       status: "vigente",
+      macrotema: "Saúde e Segurança",
+      subtema: "Riscos Ocupacionais",
+      applicability: "Todas as unidades com empregados CLT",
       publicationDate: "2020-03-12",
-      sourceUrl: "https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-paritaria-permanente/normas-regulamentadoras/normas-regulamentadoras-vigentes/norma-regulamentadora-no-9-nr-9",
+      sourceUrl: "https://www.gov.br/trabalho-e-emprego/pt-br",
       applicableArticles: "Item 9.1, Item 9.3, Item 9.5",
+      reviewFrequencyDays: 365,
+      tags: ["sst", "riscos"],
     },
     {
       title: "Política Estadual de Mudanças Climáticas",
       number: "Lei 13.798/2009 (SP)",
       description: "Institui a Política Estadual de Mudanças Climáticas do Estado de São Paulo.",
+      tipoNorma: "Lei Estadual",
+      emissor: "Assembleia Legislativa de SP",
       level: "estadual",
       status: "vigente",
+      uf: "SP",
+      macrotema: "Meio Ambiente",
+      subtema: "Mudanças Climáticas",
+      applicability: "Unidades no estado de São Paulo",
       publicationDate: "2009-11-09",
       sourceUrl: "https://www.al.sp.gov.br/repositorio/legislacao/lei/2009/lei-13798-09.11.2009.html",
       applicableArticles: "Art. 5°, Art. 6°, Art. 32",
+      reviewFrequencyDays: 365,
+      tags: ["meio_ambiente", "clima"],
     },
     {
       title: "Código de Posturas do Município de São Paulo",
       number: "Lei 13.725/2004",
-      description: "Institui o Código Sanitário do Município de São Paulo e dá outras providências.",
+      description: "Institui o Código Sanitário do Município de São Paulo.",
+      tipoNorma: "Lei Municipal",
+      emissor: "Câmara Municipal de São Paulo",
       level: "municipal",
       status: "vigente",
+      uf: "SP",
+      municipality: "São Paulo",
+      macrotema: "Saúde Pública",
+      subtema: "Código Sanitário",
+      applicability: "Sede Principal (São Paulo)",
       publicationDate: "2004-01-09",
       applicableArticles: "Capítulo III, Seção II",
+      reviewFrequencyDays: 730,
+      tags: ["sanitario", "municipal"],
     },
     {
-      title: "ISO 14001:2015",
-      number: "ISO 14001:2015",
-      description: "Sistemas de gestão ambiental — Requisitos com orientações para uso. Norma internacional para sistemas de gestão ambiental.",
-      level: "internacional",
+      title: "ISO 9001:2015 — Sistema de Gestão da Qualidade",
+      number: "ISO 9001:2015",
+      description: "Requisitos para um sistema de gestão da qualidade. Norma internacional para SGQ.",
+      tipoNorma: "Norma Internacional",
+      emissor: "ISO",
+      level: "federal",
       status: "vigente",
+      macrotema: "Qualidade",
+      subtema: "SGQ",
+      applicability: "Todas as unidades — base do sistema de gestão",
+      publicationDate: "2015-09-15",
+      sourceUrl: "https://www.iso.org/standard/62085.html",
+      applicableArticles: "Cláusula 4, 5, 6, 7, 8, 9, 10",
+      reviewFrequencyDays: 365,
+      tags: ["qualidade", "sgq", "iso"],
+    },
+    {
+      title: "ISO 14001:2015 — Sistema de Gestão Ambiental",
+      number: "ISO 14001:2015",
+      description: "Sistemas de gestão ambiental — Requisitos com orientações para uso.",
+      tipoNorma: "Norma Internacional",
+      emissor: "ISO",
+      level: "federal",
+      status: "vigente",
+      macrotema: "Meio Ambiente",
+      subtema: "SGA",
+      applicability: "Todas as unidades — gestão ambiental integrada",
       publicationDate: "2015-09-15",
       sourceUrl: "https://www.iso.org/standard/60857.html",
       applicableArticles: "Cláusula 4, 5, 6, 7, 8, 9, 10",
+      reviewFrequencyDays: 365,
+      tags: ["meio_ambiente", "sga", "iso"],
+    },
+    {
+      title: "NR-12 — Segurança no Trabalho em Máquinas e Equipamentos",
+      number: "NR-12 / Portaria 916/2019",
+      description: "Requisitos de segurança para máquinas e equipamentos nos locais de trabalho.",
+      tipoNorma: "Norma Regulamentadora",
+      emissor: "Ministério do Trabalho",
+      level: "federal",
+      status: "vigente",
+      macrotema: "Saúde e Segurança",
+      subtema: "Máquinas e Equipamentos",
+      applicability: "Unidades com máquinas industriais",
+      publicationDate: "2019-07-25",
+      applicableArticles: "Item 12.1 a 12.5, Anexo VI",
+      reviewFrequencyDays: 365,
+      tags: ["sst", "maquinas"],
     },
   ];
-
   const createdLegs = [];
-  for (const leg of legislations) {
+  for (const leg of legislationValues) {
     const [created] = await db.insert(legislationsTable).values({
       ...leg,
       organizationId: org.id,
     }).returning();
     createdLegs.push(created);
   }
-  console.log(`Created ${createdLegs.length} legislations`);
+  console.log(`✅ Legislations: ${createdLegs.length} created`);
 
+  // ─── 15. Unit-Legislation Assignments ─────────────────────────────────────────
   const assignments = [
-    { unitId: sede.id, legislationId: createdLegs[0].id, complianceStatus: "conforme", notes: "Licença ambiental em dia" },
-    { unitId: sede.id, legislationId: createdLegs[1].id, complianceStatus: "parcialmente_conforme", notes: "Plano de gerenciamento em elaboração" },
-    { unitId: sede.id, legislationId: createdLegs[2].id, complianceStatus: "conforme", notes: "Monitoramento realizado trimestralmente" },
-    { unitId: sede.id, legislationId: createdLegs[3].id, complianceStatus: "conforme", notes: "Licença vigente" },
-    { unitId: sede.id, legislationId: createdLegs[4].id, complianceStatus: "conforme", notes: "PGR atualizado em 2025" },
-    { unitId: sede.id, legislationId: createdLegs[7].id, complianceStatus: "parcialmente_conforme", notes: "Certificação ISO 14001 em andamento" },
-    { unitId: filial.id, legislationId: createdLegs[0].id, complianceStatus: "nao_avaliado" },
-    { unitId: filial.id, legislationId: createdLegs[1].id, complianceStatus: "nao_conforme", notes: "Aguardando implementação do plano" },
-    { unitId: filial.id, legislationId: createdLegs[4].id, complianceStatus: "conforme", notes: "PGR implementado" },
-    { unitId: filial2.id, legislationId: createdLegs[0].id, complianceStatus: "conforme" },
-    { unitId: filial2.id, legislationId: createdLegs[3].id, complianceStatus: "nao_avaliado" },
+    // Sede — all legislations apply
+    { unitId: sede.id, legislationId: createdLegs[0].id, complianceStatus: "conforme", notes: "Licença ambiental em dia. Última renovação: Jan/2024." },
+    { unitId: sede.id, legislationId: createdLegs[1].id, complianceStatus: "parcialmente_conforme", notes: "Plano de gerenciamento de resíduos em elaboração." },
+    { unitId: sede.id, legislationId: createdLegs[2].id, complianceStatus: "conforme", notes: "Monitoramento realizado trimestralmente." },
+    { unitId: sede.id, legislationId: createdLegs[3].id, complianceStatus: "conforme", notes: "Licença de operação vigente até 2026." },
+    { unitId: sede.id, legislationId: createdLegs[4].id, complianceStatus: "conforme", notes: "PGR atualizado em 2024." },
+    { unitId: sede.id, legislationId: createdLegs[5].id, complianceStatus: "conforme", notes: "Relatório de emissões entregue ao estado." },
+    { unitId: sede.id, legislationId: createdLegs[6].id, complianceStatus: "conforme", notes: "Alvará sanitário vigente." },
+    { unitId: sede.id, legislationId: createdLegs[7].id, complianceStatus: "conforme", notes: "Certificação ISO 9001 válida até 2026-12." },
+    { unitId: sede.id, legislationId: createdLegs[8].id, complianceStatus: "parcialmente_conforme", notes: "Certificação ISO 14001 em andamento." },
+    { unitId: sede.id, legislationId: createdLegs[9].id, complianceStatus: "conforme", notes: "Máquinas adequadas conforme laudo técnico." },
+    // Filial RJ
+    { unitId: filialRJ.id, legislationId: createdLegs[0].id, complianceStatus: "nao_avaliado" },
+    { unitId: filialRJ.id, legislationId: createdLegs[1].id, complianceStatus: "nao_conforme", notes: "Aguardando implementação do plano de resíduos." },
+    { unitId: filialRJ.id, legislationId: createdLegs[4].id, complianceStatus: "conforme", notes: "PGR implementado." },
+    { unitId: filialRJ.id, legislationId: createdLegs[7].id, complianceStatus: "conforme", notes: "Escopo da certificação inclui filial." },
+    { unitId: filialRJ.id, legislationId: createdLegs[9].id, complianceStatus: "parcialmente_conforme", notes: "Adequação de 2 máquinas pendente." },
+    // Filial BH
+    { unitId: filialBH.id, legislationId: createdLegs[0].id, complianceStatus: "conforme", notes: "Licença ambiental vigente." },
+    { unitId: filialBH.id, legislationId: createdLegs[3].id, complianceStatus: "nao_avaliado" },
+    { unitId: filialBH.id, legislationId: createdLegs[4].id, complianceStatus: "conforme", notes: "PGR implementado." },
+    { unitId: filialBH.id, legislationId: createdLegs[7].id, complianceStatus: "conforme", notes: "Escopo da certificação inclui filial." },
   ];
-
+  const createdUnitLegs = [];
   for (const a of assignments) {
-    await db.insert(unitLegislationsTable).values({
+    const [ul] = await db.insert(unitLegislationsTable).values({
       ...a,
       evaluatedAt: a.complianceStatus !== "nao_avaliado" ? new Date() : null,
-    });
+    }).returning();
+    createdUnitLegs.push(ul);
   }
-  console.log(`Created ${assignments.length} unit-legislation assignments`);
+  console.log(`✅ Unit-legislation assignments: ${createdUnitLegs.length} created`);
 
-  console.log("\nSeed complete!");
-  console.log("Login credentials: admin@demo.com / demo123");
+  // ─── 16. Evidence Attachments ─────────────────────────────────────────────────
+  // Attach evidence to a couple of compliant unit-legislations
+  await db.insert(evidenceAttachmentsTable).values({
+    unitLegislationId: createdUnitLegs[0].id, // sede - Lei 6.938 (conforme)
+    fileName: "licenca_ambiental_sede_2024.pdf",
+    fileSize: 520000,
+    contentType: "application/pdf",
+    objectPath: "demo/evidence/licenca_ambiental_sede_2024.pdf",
+  });
+  await db.insert(evidenceAttachmentsTable).values({
+    unitLegislationId: createdUnitLegs[7].id, // sede - ISO 9001 (conforme)
+    fileName: "certificado_iso9001_2024.pdf",
+    fileSize: 340000,
+    contentType: "application/pdf",
+    objectPath: "demo/evidence/certificado_iso9001_2024.pdf",
+  });
+  await db.insert(evidenceAttachmentsTable).values({
+    unitLegislationId: createdUnitLegs[4].id, // sede - PGR (conforme)
+    fileName: "pgr_sede_2024.pdf",
+    fileSize: 890000,
+    contentType: "application/pdf",
+    objectPath: "demo/evidence/pgr_sede_2024.pdf",
+  });
+  console.log(`✅ Evidence attachments: 3 created`);
+
+  // ─── 17. Documents ────────────────────────────────────────────────────────────
+  const docValues = [
+    { title: "Manual da Qualidade", type: "manual", status: "published", currentVersion: 3, validityDate: "2026-12-31" },
+    { title: "Procedimento de Controle de Documentos", type: "procedimento", status: "published", currentVersion: 2, validityDate: "2025-12-31" },
+    { title: "Procedimento de Auditoria Interna", type: "procedimento", status: "published", currentVersion: 1, validityDate: "2025-06-30" },
+    { title: "Instrução de Trabalho — Inspeção de Recebimento", type: "instrucao", status: "published", currentVersion: 1, validityDate: "2025-12-31" },
+    { title: "Política da Qualidade", type: "politica", status: "published", currentVersion: 2, validityDate: "2026-12-31" },
+    { title: "Procedimento de Ação Corretiva", type: "procedimento", status: "draft", currentVersion: 1 },
+    { title: "Plano de Gerenciamento de Resíduos", type: "plano", status: "draft", currentVersion: 1 },
+    { title: "Registro de Treinamento — Integração 2024", type: "registro", status: "published", currentVersion: 1, validityDate: "2024-12-31" },
+  ];
+  const docs = [];
+  for (const d of docValues) {
+    const [doc] = await db.insert(documentsTable).values({
+      ...d,
+      organizationId: org.id,
+      createdById: adminUser.id,
+    }).returning();
+    docs.push(doc);
+  }
+  console.log(`✅ Documents: ${docs.length} created`);
+
+  // ─── 18. Document Units ───────────────────────────────────────────────────────
+  // Manual da Qualidade applies to all units
+  for (const unit of [sede, filialRJ, filialBH]) {
+    await db.insert(documentUnitsTable).values({ documentId: docs[0].id, unitId: unit.id });
+  }
+  // Procedimento de Controle applies to all units
+  for (const unit of [sede, filialRJ, filialBH]) {
+    await db.insert(documentUnitsTable).values({ documentId: docs[1].id, unitId: unit.id });
+  }
+  // Auditoria Interna — sede only
+  await db.insert(documentUnitsTable).values({ documentId: docs[2].id, unitId: sede.id });
+  // Inspeção de Recebimento — sede and RJ
+  await db.insert(documentUnitsTable).values({ documentId: docs[3].id, unitId: sede.id });
+  await db.insert(documentUnitsTable).values({ documentId: docs[3].id, unitId: filialRJ.id });
+  // Política da Qualidade — all units
+  for (const unit of [sede, filialRJ, filialBH]) {
+    await db.insert(documentUnitsTable).values({ documentId: docs[4].id, unitId: unit.id });
+  }
+  console.log(`✅ Document unit assignments created`);
+
+  // ─── 19. Document Elaborators ─────────────────────────────────────────────────
+  await db.insert(documentElaboratorsTable).values({ documentId: docs[0].id, userId: adminUser.id });
+  await db.insert(documentElaboratorsTable).values({ documentId: docs[0].id, userId: operatorUser.id });
+  await db.insert(documentElaboratorsTable).values({ documentId: docs[1].id, userId: adminUser.id });
+  await db.insert(documentElaboratorsTable).values({ documentId: docs[2].id, userId: adminUser.id });
+  await db.insert(documentElaboratorsTable).values({ documentId: docs[3].id, userId: operatorUser.id });
+  await db.insert(documentElaboratorsTable).values({ documentId: docs[4].id, userId: adminUser.id });
+  await db.insert(documentElaboratorsTable).values({ documentId: docs[5].id, userId: operatorUser.id });
+  await db.insert(documentElaboratorsTable).values({ documentId: docs[6].id, userId: operator2User.id });
+  console.log(`✅ Document elaborators assigned`);
+
+  // ─── 20. Document Approvers ───────────────────────────────────────────────────
+  await db.insert(documentApproversTable).values({ documentId: docs[0].id, userId: adminUser.id, status: "approved", approvedAt: new Date("2024-01-15"), comment: "Manual revisado e aprovado." });
+  await db.insert(documentApproversTable).values({ documentId: docs[1].id, userId: adminUser.id, status: "approved", approvedAt: new Date("2024-02-01"), comment: "Aprovado." });
+  await db.insert(documentApproversTable).values({ documentId: docs[2].id, userId: adminUser.id, status: "approved", approvedAt: new Date("2024-03-10") });
+  await db.insert(documentApproversTable).values({ documentId: docs[3].id, userId: adminUser.id, status: "approved", approvedAt: new Date("2024-04-01") });
+  await db.insert(documentApproversTable).values({ documentId: docs[4].id, userId: adminUser.id, status: "approved", approvedAt: new Date("2024-01-05"), comment: "Política aprovada pela diretoria." });
+  await db.insert(documentApproversTable).values({ documentId: docs[5].id, userId: adminUser.id, status: "pending" }); // Draft — pending
+  await db.insert(documentApproversTable).values({ documentId: docs[7].id, userId: operatorUser.id, status: "approved", approvedAt: new Date("2024-01-20") });
+  console.log(`✅ Document approvers assigned`);
+
+  // ─── 21. Document Recipients ──────────────────────────────────────────────────
+  const now = new Date();
+  await db.insert(documentRecipientsTable).values({ documentId: docs[0].id, userId: operatorUser.id, receivedAt: now, readAt: now });
+  await db.insert(documentRecipientsTable).values({ documentId: docs[0].id, userId: analystUser.id, receivedAt: now, readAt: now });
+  await db.insert(documentRecipientsTable).values({ documentId: docs[0].id, userId: operator2User.id, receivedAt: now });
+  await db.insert(documentRecipientsTable).values({ documentId: docs[4].id, userId: operatorUser.id, receivedAt: now, readAt: now });
+  await db.insert(documentRecipientsTable).values({ documentId: docs[4].id, userId: analystUser.id, receivedAt: now });
+  await db.insert(documentRecipientsTable).values({ documentId: docs[4].id, userId: operator2User.id, receivedAt: now, readAt: now });
+  console.log(`✅ Document recipients assigned`);
+
+  // ─── 22. Document References ──────────────────────────────────────────────────
+  // Manual da Qualidade references Política da Qualidade
+  await db.insert(documentReferencesTable).values({ documentId: docs[0].id, referencedDocumentId: docs[4].id });
+  // Auditoria Interna references Controle de Documentos
+  await db.insert(documentReferencesTable).values({ documentId: docs[2].id, referencedDocumentId: docs[1].id });
+  // Ação Corretiva references Auditoria Interna
+  await db.insert(documentReferencesTable).values({ documentId: docs[5].id, referencedDocumentId: docs[2].id });
+  console.log(`✅ Document references: 3 created`);
+
+  // ─── 23. Document Attachments ─────────────────────────────────────────────────
+  await db.insert(documentAttachmentsTable).values({
+    documentId: docs[0].id,
+    versionNumber: 3,
+    fileName: "manual_qualidade_v3.pdf",
+    fileSize: 1250000,
+    contentType: "application/pdf",
+    objectPath: "demo/documents/manual_qualidade_v3.pdf",
+    uploadedById: adminUser.id,
+  });
+  await db.insert(documentAttachmentsTable).values({
+    documentId: docs[1].id,
+    versionNumber: 2,
+    fileName: "proc_controle_docs_v2.pdf",
+    fileSize: 480000,
+    contentType: "application/pdf",
+    objectPath: "demo/documents/proc_controle_docs_v2.pdf",
+    uploadedById: adminUser.id,
+  });
+  await db.insert(documentAttachmentsTable).values({
+    documentId: docs[4].id,
+    versionNumber: 2,
+    fileName: "politica_qualidade_v2.pdf",
+    fileSize: 210000,
+    contentType: "application/pdf",
+    objectPath: "demo/documents/politica_qualidade_v2.pdf",
+    uploadedById: adminUser.id,
+  });
+  console.log(`✅ Document attachments: 3 created`);
+
+  // ─── 24. Document Versions ────────────────────────────────────────────────────
+  const docVersions = [
+    { documentId: docs[0].id, versionNumber: 1, changeDescription: "Versão inicial do Manual da Qualidade.", changedById: adminUser.id, changedFields: "title,type,status" },
+    { documentId: docs[0].id, versionNumber: 2, changeDescription: "Atualização do escopo e inclusão de processos terceirizados.", changedById: adminUser.id, changedFields: "content" },
+    { documentId: docs[0].id, versionNumber: 3, changeDescription: "Revisão geral para adequação à nova estrutura organizacional.", changedById: adminUser.id, changedFields: "content,scope" },
+    { documentId: docs[1].id, versionNumber: 1, changeDescription: "Versão inicial do procedimento de controle de documentos.", changedById: adminUser.id },
+    { documentId: docs[1].id, versionNumber: 2, changeDescription: "Inclusão de fluxo digital para aprovação.", changedById: adminUser.id, changedFields: "content" },
+    { documentId: docs[4].id, versionNumber: 1, changeDescription: "Política da Qualidade original.", changedById: adminUser.id },
+    { documentId: docs[4].id, versionNumber: 2, changeDescription: "Revisão com inclusão de compromisso com melhoria contínua e satisfação do cliente.", changedById: adminUser.id, changedFields: "content" },
+  ];
+  for (const v of docVersions) {
+    await db.insert(documentVersionsTable).values(v);
+  }
+  console.log(`✅ Document versions: ${docVersions.length} created`);
+
+  // ─── 25. Questionnaire Themes & Questions ─────────────────────────────────────
+  const [theme1] = await db.insert(questionnaireThemesTable).values({
+    code: "ENV",
+    name: "Aspectos Ambientais",
+    description: "Questões relacionadas a impactos ambientais, emissões e gestão de resíduos.",
+    sortOrder: 1,
+  }).returning();
+
+  const [theme2] = await db.insert(questionnaireThemesTable).values({
+    code: "SST",
+    name: "Saúde e Segurança do Trabalho",
+    description: "Questões relacionadas a riscos ocupacionais e segurança dos colaboradores.",
+    sortOrder: 2,
+  }).returning();
+
+  const [theme3] = await db.insert(questionnaireThemesTable).values({
+    code: "QMS",
+    name: "Sistema de Gestão da Qualidade",
+    description: "Questões sobre maturidade do SGQ e processos de qualidade.",
+    sortOrder: 3,
+  }).returning();
+
+  const questionValues = [
+    {
+      themeId: theme1.id,
+      code: "ENV-01",
+      questionNumber: "1.1",
+      text: "A unidade possui licença ambiental vigente?",
+      type: "single_select",
+      options: ["Sim", "Não", "Não aplicável"],
+      tags: { compliance: ["licenciamento"] },
+      sortOrder: 1,
+    },
+    {
+      themeId: theme1.id,
+      code: "ENV-02",
+      questionNumber: "1.2",
+      text: "A unidade realiza gerenciamento de resíduos sólidos?",
+      type: "single_select",
+      options: ["Sim, com plano formalizado", "Sim, informalmente", "Não"],
+      tags: { compliance: ["residuos"] },
+      sortOrder: 2,
+    },
+    {
+      themeId: theme1.id,
+      code: "ENV-03",
+      questionNumber: "1.3",
+      text: "Quais tipos de resíduos são gerados? (selecione todos aplicáveis)",
+      type: "multi_select",
+      options: ["Classe I (perigosos)", "Classe II-A (não inertes)", "Classe II-B (inertes)", "Resíduos orgânicos", "Resíduos eletrônicos"],
+      conditionalOn: "ENV-02",
+      conditionalValue: "Sim, com plano formalizado",
+      tags: { compliance: ["residuos"] },
+      sortOrder: 3,
+    },
+    {
+      themeId: theme2.id,
+      code: "SST-01",
+      questionNumber: "2.1",
+      text: "A unidade possui PGR (Programa de Gerenciamento de Riscos) implementado?",
+      type: "single_select",
+      options: ["Sim", "Em elaboração", "Não"],
+      tags: { compliance: ["pgr", "riscos"] },
+      sortOrder: 1,
+    },
+    {
+      themeId: theme2.id,
+      code: "SST-02",
+      questionNumber: "2.2",
+      text: "A unidade opera com máquinas que exigem adequação à NR-12?",
+      type: "single_select",
+      options: ["Sim, todas adequadas", "Sim, parcialmente adequadas", "Sim, sem adequação", "Não aplicável"],
+      tags: { compliance: ["maquinas", "nr12"] },
+      sortOrder: 2,
+    },
+    {
+      themeId: theme3.id,
+      code: "QMS-01",
+      questionNumber: "3.1",
+      text: "A organização possui certificação ISO 9001:2015?",
+      type: "single_select",
+      options: ["Sim, certificada", "Em processo de certificação", "Não"],
+      tags: { compliance: ["iso9001", "sgq"] },
+      sortOrder: 1,
+    },
+    {
+      themeId: theme3.id,
+      code: "QMS-02",
+      questionNumber: "3.2",
+      text: "Descreva os principais processos cobertos pelo SGQ.",
+      type: "text",
+      tags: { compliance: ["sgq"] },
+      sortOrder: 2,
+    },
+  ];
+  const questions = [];
+  for (const q of questionValues) {
+    const [question] = await db.insert(questionnaireQuestionsTable).values(q).returning();
+    questions.push(question);
+  }
+  console.log(`✅ Questionnaire: ${3} themes, ${questions.length} questions`);
+
+  // ─── 26. Unit Questionnaire Responses ─────────────────────────────────────────
+  const responses = [
+    { unitId: sede.id, questionId: questions[0].id, answer: "Sim" },
+    { unitId: sede.id, questionId: questions[1].id, answer: "Sim, com plano formalizado" },
+    { unitId: sede.id, questionId: questions[2].id, answer: ["Classe II-A (não inertes)", "Classe II-B (inertes)", "Resíduos eletrônicos"] },
+    { unitId: sede.id, questionId: questions[3].id, answer: "Sim" },
+    { unitId: sede.id, questionId: questions[4].id, answer: "Sim, todas adequadas" },
+    { unitId: sede.id, questionId: questions[5].id, answer: "Sim, certificada" },
+    { unitId: sede.id, questionId: questions[6].id, answer: "Produção, Logística, Qualidade, Vendas, RH" },
+    { unitId: filialRJ.id, questionId: questions[0].id, answer: "Sim" },
+    { unitId: filialRJ.id, questionId: questions[1].id, answer: "Não" },
+    { unitId: filialRJ.id, questionId: questions[3].id, answer: "Sim" },
+    { unitId: filialRJ.id, questionId: questions[4].id, answer: "Sim, parcialmente adequadas" },
+    { unitId: filialRJ.id, questionId: questions[5].id, answer: "Sim, certificada" },
+    { unitId: filialBH.id, questionId: questions[0].id, answer: "Sim" },
+    { unitId: filialBH.id, questionId: questions[3].id, answer: "Sim" },
+    { unitId: filialBH.id, questionId: questions[5].id, answer: "Sim, certificada" },
+  ];
+  for (const r of responses) {
+    await db.insert(unitQuestionnaireResponsesTable).values(r);
+  }
+  console.log(`✅ Questionnaire responses: ${responses.length} created`);
+
+  // ─── 27. Unit Compliance Tags ─────────────────────────────────────────────────
+  const complianceTags = [
+    { unitId: sede.id, tag: "licenciamento", sourceQuestionId: questions[0].id },
+    { unitId: sede.id, tag: "residuos", sourceQuestionId: questions[1].id },
+    { unitId: sede.id, tag: "pgr", sourceQuestionId: questions[3].id },
+    { unitId: sede.id, tag: "nr12", sourceQuestionId: questions[4].id },
+    { unitId: sede.id, tag: "iso9001", sourceQuestionId: questions[5].id },
+    { unitId: filialRJ.id, tag: "licenciamento", sourceQuestionId: questions[0].id },
+    { unitId: filialRJ.id, tag: "pgr", sourceQuestionId: questions[3].id },
+    { unitId: filialRJ.id, tag: "nr12", sourceQuestionId: questions[4].id },
+    { unitId: filialRJ.id, tag: "iso9001", sourceQuestionId: questions[5].id },
+    { unitId: filialBH.id, tag: "licenciamento", sourceQuestionId: questions[0].id },
+    { unitId: filialBH.id, tag: "pgr", sourceQuestionId: questions[3].id },
+    { unitId: filialBH.id, tag: "iso9001", sourceQuestionId: questions[5].id },
+  ];
+  for (const ct of complianceTags) {
+    await db.insert(unitComplianceTagsTable).values(ct);
+  }
+  console.log(`✅ Unit compliance tags: ${complianceTags.length} created`);
+
+  // ─── 28. Conversations & Messages ─────────────────────────────────────────────
+  const [conv1] = await db.insert(conversations).values({
+    userId: adminUser.id,
+    organizationId: org.id,
+    title: "Dúvida sobre requisitos ISO 9001 — Cláusula 7.5",
+  }).returning();
+
+  await db.insert(messages).values([
+    { conversationId: conv1.id, role: "user", content: "Quais são os requisitos da cláusula 7.5 da ISO 9001:2015 sobre informação documentada?" },
+    { conversationId: conv1.id, role: "assistant", content: "A cláusula 7.5 da ISO 9001:2015 trata da **Informação Documentada** e se divide em três subcláusulas:\n\n**7.5.1 — Generalidades:** O SGQ deve incluir informação documentada requerida pela norma e pela organização.\n\n**7.5.2 — Criação e atualização:** Ao criar e atualizar, a organização deve assegurar identificação, formato, revisão e aprovação.\n\n**7.5.3 — Controle:** A informação documentada deve estar disponível, adequadamente protegida contra perda de confidencialidade, uso impróprio ou perda de integridade." },
+    { conversationId: conv1.id, role: "user", content: "Como podemos evidenciar o controle de documentos na auditoria?" },
+    { conversationId: conv1.id, role: "assistant", content: "Para evidenciar o controle de documentos na auditoria, recomendo:\n\n1. **Lista mestra de documentos** atualizada com versões vigentes\n2. **Registros de aprovação** com datas e responsáveis\n3. **Histórico de revisões** mostrando alterações entre versões\n4. **Controle de distribuição** — quem recebeu e confirmou leitura\n5. **Procedimento de controle de documentos** formalizado\n\nNo Daton, todos esses controles já estão disponíveis no módulo de Documentos." },
+  ]);
+
+  const [conv2] = await db.insert(conversations).values({
+    userId: operatorUser.id,
+    organizationId: org.id,
+    title: "Como cadastrar uma não conformidade?",
+  }).returning();
+
+  await db.insert(messages).values([
+    { conversationId: conv2.id, role: "user", content: "Como faço para registrar uma não conformidade identificada na auditoria?" },
+    { conversationId: conv2.id, role: "assistant", content: "Para registrar uma não conformidade no Daton:\n\n1. Acesse o módulo **Documentos**\n2. Crie um novo documento do tipo **Registro**\n3. Preencha os campos: descrição da NC, evidência objetiva, requisito da norma violado\n4. Atribua um responsável pela ação corretiva\n5. Defina prazo para tratamento\n\nO procedimento de ação corretiva (se publicado) descreve o fluxo completo de tratamento." },
+  ]);
+
+  console.log(`✅ Conversations: 2 created with messages`);
+
+  // ─── 29. Notifications ────────────────────────────────────────────────────────
+  const notificationValues = [
+    { userId: adminUser.id, type: "document_approval", title: "Documento aguardando aprovação", description: "O Procedimento de Ação Corretiva foi submetido para sua aprovação.", relatedEntityType: "document", relatedEntityId: docs[5].id, read: false },
+    { userId: adminUser.id, type: "legislation_expiring", title: "Revisão de legislação próxima", description: "A legislação 'Resolução CONAMA 491/2018' deve ser revisada nos próximos 30 dias.", relatedEntityType: "legislation", relatedEntityId: createdLegs[2].id, read: false },
+    { userId: operatorUser.id, type: "document_published", title: "Documento publicado", description: "O Manual da Qualidade v3 foi publicado e está disponível para leitura.", relatedEntityType: "document", relatedEntityId: docs[0].id, read: true },
+    { userId: operatorUser.id, type: "training_expiring", title: "Treinamento próximo do vencimento", description: "O treinamento 'Lead Auditor ISO 9001:2015' de Roberto Mendes vence em Set/2025.", relatedEntityType: "employee", relatedEntityId: employees[0].id, read: false },
+    { userId: analystUser.id, type: "document_received", title: "Novo documento recebido", description: "Você recebeu a Política da Qualidade v2 para leitura.", relatedEntityType: "document", relatedEntityId: docs[4].id, read: false },
+    { userId: operator2User.id, type: "system", title: "Bem-vinda ao Daton!", description: "Sua conta foi criada. Explore os módulos disponíveis no menu lateral.", read: true },
+  ];
+  for (const n of notificationValues) {
+    await db.insert(notificationsTable).values({ ...n, organizationId: org.id });
+  }
+  console.log(`✅ Notifications: ${notificationValues.length} created`);
+
+  // ─── 30. Invitations ──────────────────────────────────────────────────────────
+  await db.insert(invitationsTable).values({
+    email: "novo.auditor@email.com",
+    organizationId: org.id,
+    invitedBy: adminUser.id,
+    role: "operator",
+    modules: ["documents", "legislations"],
+    token: crypto.randomUUID(),
+    status: "pending",
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+  });
+  await db.insert(invitationsTable).values({
+    email: "consultor.externo@email.com",
+    organizationId: org.id,
+    invitedBy: adminUser.id,
+    role: "analyst",
+    modules: ["documents"],
+    token: crypto.randomUUID(),
+    status: "expired",
+    expiresAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // expired 2 days ago
+  });
+  console.log(`✅ Invitations: 2 created`);
+
+  // ─── 31. Strategic Plan ───────────────────────────────────────────────────────
+  const [plan] = await db.insert(strategicPlansTable).values({
+    organizationId: org.id,
+    title: "Planejamento Estratégico SGQ 2024–2026",
+    status: "approved",
+    standards: ["ISO 9001:2015"],
+    executiveSummary: "Planejamento estratégico para consolidação do Sistema de Gestão da Qualidade, com foco em melhoria contínua, satisfação do cliente e expansão do escopo de certificação.",
+    reviewFrequencyMonths: 12,
+    nextReviewAt: new Date("2025-06-01"),
+    climateChangeRelevant: true,
+    climateChangeJustification: "A organização considera riscos climáticos na análise de contexto conforme requisito 4.1 e avalia oportunidades de eficiência energética.",
+    technicalScope: "Fabricação de componentes metálicos e montagem de conjuntos para a indústria automotiva.",
+    geographicScope: "Sede em São Paulo/SP, filiais em Rio de Janeiro/RJ e Belo Horizonte/MG.",
+    policy: "A Empresa Demo LTDA está comprometida com a excelência na qualidade de seus produtos e serviços, buscando a satisfação dos clientes, a melhoria contínua dos processos e o atendimento aos requisitos legais e normativos aplicáveis.",
+    mission: "Fornecer soluções industriais de alta qualidade, contribuindo para o sucesso de nossos clientes e o desenvolvimento sustentável.",
+    vision: "Ser referência em gestão da qualidade no setor industrial brasileiro até 2026.",
+    values: "Qualidade, Integridade, Inovação, Respeito às Pessoas, Sustentabilidade",
+    strategicConclusion: "O planejamento demonstra alinhamento entre os objetivos da qualidade e a estratégia organizacional, com metas mensuráveis e planos de ação definidos.",
+    methodologyNotes: "Análise SWOT por domínio, identificação de partes interessadas conforme cláusula 4.2, definição de objetivos SMART conforme cláusula 6.2.",
+    reminderFlags: { d30: true, d7: false, d0: false },
+    activeRevisionNumber: 1,
+    createdById: adminUser.id,
+    updatedById: adminUser.id,
+    submittedAt: new Date("2024-01-20"),
+    approvedAt: new Date("2024-02-01"),
+  }).returning();
+  console.log(`✅ Strategic plan: ${plan.title} (id: ${plan.id})`);
+
+  // ─── 32. Strategic Plan SWOT Items ────────────────────────────────────────────
+  const swotItems = [
+    { planId: plan.id, domain: "sgq" as const, swotType: "strength" as const, environment: "internal" as const, description: "Equipe de qualidade experiente e certificada (Lead Auditor)", performance: 5, relevance: 5, result: 25, sortOrder: 1 },
+    { planId: plan.id, domain: "sgq" as const, swotType: "strength" as const, environment: "internal" as const, description: "SGQ certificado ISO 9001:2015 com escopo abrangente", performance: 4, relevance: 5, result: 20, sortOrder: 2 },
+    { planId: plan.id, domain: "sgq" as const, swotType: "weakness" as const, environment: "internal" as const, description: "Documentação parcialmente desatualizada em filiais", performance: 2, relevance: 4, result: 8, treatmentDecision: "Plano de atualização documental", linkedObjectiveCode: "OBJ-02", sortOrder: 3 },
+    { planId: plan.id, domain: "sgq" as const, swotType: "weakness" as const, environment: "internal" as const, description: "Falta de digitalização completa dos registros", performance: 2, relevance: 3, result: 6, treatmentDecision: "Implementar gestão digital via Daton", sortOrder: 4 },
+    { planId: plan.id, domain: "sgq" as const, swotType: "opportunity" as const, environment: "external" as const, description: "Crescente demanda de clientes por fornecedores certificados", performance: 4, relevance: 5, result: 20, linkedObjectiveCode: "OBJ-01", sortOrder: 5 },
+    { planId: plan.id, domain: "sgq" as const, swotType: "opportunity" as const, environment: "external" as const, description: "Possibilidade de expandir certificação para ISO 14001", performance: 3, relevance: 4, result: 12, linkedObjectiveCode: "OBJ-04", sortOrder: 6 },
+    { planId: plan.id, domain: "sgq" as const, swotType: "threat" as const, environment: "external" as const, description: "Aumento da complexidade regulatória ambiental", performance: 3, relevance: 4, result: 12, treatmentDecision: "Monitoramento contínuo via módulo de legislações", sortOrder: 7 },
+    { planId: plan.id, domain: "sgq" as const, swotType: "threat" as const, environment: "external" as const, description: "Rotatividade de mão de obra qualificada no setor", performance: 3, relevance: 3, result: 9, treatmentDecision: "Programa de retenção de talentos", sortOrder: 8 },
+  ];
+  const createdSwot = [];
+  for (const s of swotItems) {
+    const [item] = await db.insert(strategicPlanSwotItemsTable).values(s).returning();
+    createdSwot.push(item);
+  }
+  console.log(`✅ SWOT items: ${createdSwot.length} created`);
+
+  // ─── 33. Strategic Plan Interested Parties ────────────────────────────────────
+  const parties = [
+    { planId: plan.id, name: "Clientes", expectedRequirements: "Produtos conformes, entregas no prazo, certificação ISO 9001", roleInCompany: "Demandantes", roleSummary: "Destinatários finais dos produtos", relevantToManagementSystem: true, legalRequirementApplicable: false, monitoringMethod: "Pesquisa de satisfação semestral", sortOrder: 1 },
+    { planId: plan.id, name: "Colaboradores", expectedRequirements: "Ambiente seguro, desenvolvimento profissional, remuneração justa", roleInCompany: "Força de trabalho", roleSummary: "Executam os processos do SGQ", relevantToManagementSystem: true, legalRequirementApplicable: true, monitoringMethod: "Pesquisa de clima anual, indicadores de RH", sortOrder: 2 },
+    { planId: plan.id, name: "Fornecedores", expectedRequirements: "Pedidos claros, pagamento em dia, parceria de longo prazo", roleInCompany: "Cadeia de suprimentos", roleSummary: "Fornecem insumos e serviços", relevantToManagementSystem: true, legalRequirementApplicable: false, monitoringMethod: "Avaliação de fornecedores trimestral", sortOrder: 3 },
+    { planId: plan.id, name: "Órgãos reguladores", expectedRequirements: "Conformidade legal e regulatória", roleInCompany: "Fiscalizadores", roleSummary: "Definem e fiscalizam requisitos legais", relevantToManagementSystem: true, legalRequirementApplicable: true, monitoringMethod: "Módulo de legislações do Daton", sortOrder: 4 },
+    { planId: plan.id, name: "Acionistas / Sócios", expectedRequirements: "Rentabilidade, governança, crescimento sustentável", roleInCompany: "Proprietários", roleSummary: "Direcionamento estratégico e investimento", relevantToManagementSystem: true, legalRequirementApplicable: false, monitoringMethod: "Reunião de análise crítica semestral", sortOrder: 5 },
+    { planId: plan.id, name: "Comunidade local", expectedRequirements: "Responsabilidade ambiental, geração de empregos", roleInCompany: "Vizinhança", roleSummary: "Afetados pelas operações", relevantToManagementSystem: false, legalRequirementApplicable: false, monitoringMethod: "Canal de comunicação / ouvidoria", sortOrder: 6 },
+  ];
+  for (const p of parties) {
+    await db.insert(strategicPlanInterestedPartiesTable).values(p);
+  }
+  console.log(`✅ Interested parties: ${parties.length} created`);
+
+  // ─── 34. Strategic Plan Objectives ────────────────────────────────────────────
+  const objectives = [
+    { planId: plan.id, code: "OBJ-01", systemDomain: "sgq", description: "Manter índice de satisfação do cliente acima de 85% em todas as unidades.", sortOrder: 1 },
+    { planId: plan.id, code: "OBJ-02", systemDomain: "sgq", description: "Reduzir em 30% as não conformidades recorrentes até dezembro de 2025.", notes: "Baseline: 24 NCs recorrentes em 2023.", sortOrder: 2 },
+    { planId: plan.id, code: "OBJ-03", systemDomain: "sgq", description: "Garantir 100% dos colaboradores treinados nos procedimentos do SGQ até junho de 2025.", sortOrder: 3 },
+    { planId: plan.id, code: "OBJ-04", systemDomain: "sga", description: "Obter certificação ISO 14001:2015 até dezembro de 2026.", notes: "Processo já iniciado na sede.", sortOrder: 4 },
+    { planId: plan.id, code: "OBJ-05", systemDomain: "sgq", description: "Digitalizar 100% da documentação do SGQ no Daton até março de 2025.", sortOrder: 5 },
+  ];
+  const createdObjectives = [];
+  for (const o of objectives) {
+    const [obj] = await db.insert(strategicPlanObjectivesTable).values(o).returning();
+    createdObjectives.push(obj);
+  }
+  console.log(`✅ Strategic objectives: ${createdObjectives.length} created`);
+
+  // ─── 35. Strategic Plan Actions ───────────────────────────────────────────────
+  const actions = [
+    { planId: plan.id, title: "Implementar pesquisa de satisfação digital", description: "Desenvolver e aplicar pesquisa de satisfação via formulário online para todos os clientes ativos.", objectiveId: createdObjectives[0].id, responsibleUserId: operatorUser.id, dueDate: new Date("2025-03-31"), status: "in_progress" as const, sortOrder: 1 },
+    { planId: plan.id, title: "Análise de causa raiz das NCs recorrentes", description: "Aplicar diagrama de Ishikawa e 5 Porquês para as top 10 NCs recorrentes.", objectiveId: createdObjectives[1].id, swotItemId: createdSwot[2].id, responsibleUserId: adminUser.id, dueDate: new Date("2025-04-30"), status: "in_progress" as const, sortOrder: 2 },
+    { planId: plan.id, title: "Plano de treinamento SGQ 2025", description: "Elaborar e executar plano de treinamento para todos os colaboradores nos procedimentos do SGQ.", objectiveId: createdObjectives[2].id, responsibleUserId: operator2User.id, dueDate: new Date("2025-06-30"), status: "pending" as const, sortOrder: 3 },
+    { planId: plan.id, title: "Gap analysis ISO 14001", description: "Realizar diagnóstico de lacunas para certificação ISO 14001:2015.", objectiveId: createdObjectives[3].id, swotItemId: createdSwot[5].id, responsibleUserId: adminUser.id, dueDate: new Date("2025-09-30"), status: "pending" as const, sortOrder: 4 },
+    { planId: plan.id, title: "Migrar documentos para o Daton", description: "Digitalizar e migrar toda a documentação do SGQ (procedimentos, registros, instruções) para a plataforma Daton.", objectiveId: createdObjectives[4].id, swotItemId: createdSwot[3].id, responsibleUserId: operatorUser.id, dueDate: new Date("2025-03-31"), status: "in_progress" as const, sortOrder: 5 },
+    { planId: plan.id, title: "Revisão da Política da Qualidade", description: "Revisar a política com inclusão de compromisso ambiental visando futura certificação ISO 14001.", objectiveId: createdObjectives[3].id, responsibleUserId: adminUser.id, dueDate: new Date("2025-12-31"), status: "done" as const, notes: "Concluída em Fev/2024 — nova versão publicada.", sortOrder: 6 },
+  ];
+  const createdActions = [];
+  for (const a of actions) {
+    const [action] = await db.insert(strategicPlanActionsTable).values(a).returning();
+    createdActions.push(action);
+  }
+  console.log(`✅ Strategic actions: ${createdActions.length} created`);
+
+  // ─── 36. Strategic Plan Action Units ──────────────────────────────────────────
+  // Pesquisa de satisfação — all units
+  for (const unit of [sede, filialRJ, filialBH]) {
+    await db.insert(strategicPlanActionUnitsTable).values({ actionId: createdActions[0].id, unitId: unit.id });
+  }
+  // NC analysis — sede
+  await db.insert(strategicPlanActionUnitsTable).values({ actionId: createdActions[1].id, unitId: sede.id });
+  // Training plan — all units
+  for (const unit of [sede, filialRJ, filialBH]) {
+    await db.insert(strategicPlanActionUnitsTable).values({ actionId: createdActions[2].id, unitId: unit.id });
+  }
+  // Gap analysis ISO 14001 — sede first
+  await db.insert(strategicPlanActionUnitsTable).values({ actionId: createdActions[3].id, unitId: sede.id });
+  // Document migration — all units
+  for (const unit of [sede, filialRJ, filialBH]) {
+    await db.insert(strategicPlanActionUnitsTable).values({ actionId: createdActions[4].id, unitId: unit.id });
+  }
+  console.log(`✅ Strategic action unit assignments created`);
+
+  // ─── 37. Strategic Plan Revision ──────────────────────────────────────────────
+  await db.insert(strategicPlanRevisionsTable).values({
+    planId: plan.id,
+    revisionNumber: 1,
+    revisionDate: new Date("2024-02-01"),
+    reason: "Aprovação inicial do planejamento estratégico pela alta direção.",
+    changeSummary: "Versão inicial aprovada após análise crítica pela diretoria. Inclui SWOT, partes interessadas, objetivos e plano de ação.",
+    approvedById: adminUser.id,
+    snapshot: {
+      title: plan.title,
+      status: "approved",
+      objectives: objectives.map(o => o.description),
+      swotCount: swotItems.length,
+      actionCount: actions.length,
+    },
+  });
+  console.log(`✅ Strategic plan revision: 1 created`);
+
+  // ─── 38. Product Knowledge Articles ───────────────────────────────────────────
+  const articles = [
+    {
+      slug: "como-funciona-controle-documentos",
+      title: "Como funciona o Controle de Documentos no Daton",
+      category: "Módulos",
+      summary: "Guia completo sobre o módulo de controle de documentos, incluindo criação, aprovação, distribuição e controle de versões.",
+      bodyMarkdown: `# Controle de Documentos no Daton\n\nO módulo de Documentos do Daton implementa os requisitos da cláusula 7.5 da ISO 9001:2015.\n\n## Funcionalidades\n\n- **Criação e edição** de documentos com controle de versão automático\n- **Fluxo de aprovação** com múltiplos aprovadores\n- **Distribuição controlada** com confirmação de leitura\n- **Referências cruzadas** entre documentos\n- **Validade e revisão** programada\n\n## Tipos de Documento\n\n| Tipo | Descrição |\n|------|----------|\n| Manual | Manuais do sistema de gestão |\n| Procedimento | Procedimentos operacionais |\n| Instrução | Instruções de trabalho |\n| Política | Políticas organizacionais |\n| Registro | Registros e formulários |\n| Plano | Planos de ação e gestão |`,
+      status: "published" as const,
+      version: 1,
+      checksum: crypto.createHash("md5").update("controle-documentos-v1").digest("hex"),
+      publishedAt: new Date("2024-06-01"),
+    },
+    {
+      slug: "gestao-legislacoes-compliance",
+      title: "Gestão de Legislações e Compliance",
+      category: "Módulos",
+      summary: "Como utilizar o módulo de Legislações para manter conformidade legal e regulatória em todas as unidades.",
+      bodyMarkdown: `# Gestão de Legislações\n\nO módulo de Legislações permite rastrear e gerenciar todas as obrigações legais e regulatórias aplicáveis.\n\n## Funcionalidades principais\n\n- Cadastro de legislações por nível (federal, estadual, municipal, internacional)\n- Vinculação de legislações a unidades específicas\n- Status de conformidade por unidade\n- Anexo de evidências de conformidade\n- Alertas de revisão periódica\n\n## Boas práticas\n\n1. Revise legislações conforme frequência definida\n2. Mantenha evidências atualizadas\n3. Utilize tags para classificar por tema`,
+      status: "published" as const,
+      version: 1,
+      checksum: crypto.createHash("md5").update("legislacoes-v1").digest("hex"),
+      publishedAt: new Date("2024-06-15"),
+    },
+    {
+      slug: "planejamento-estrategico-iso9001",
+      title: "Planejamento Estratégico conforme ISO 9001:2015",
+      category: "Gestão",
+      summary: "Como o Daton apoia o planejamento estratégico seguindo os requisitos das cláusulas 4, 5 e 6 da ISO 9001:2015.",
+      bodyMarkdown: `# Planejamento Estratégico no Daton\n\nO módulo de Planejamento Estratégico do Daton atende aos requisitos das cláusulas 4.1 (Contexto), 4.2 (Partes Interessadas), 5.2 (Política) e 6.2 (Objetivos) da ISO 9001:2015.\n\n## Estrutura\n\n- Análise SWOT por domínio (SGQ, SGA, SST, ESG, Governança)\n- Partes interessadas com requisitos e monitoramento\n- Objetivos da qualidade com indicadores\n- Planos de ação vinculados a objetivos e SWOT\n- Revisões com snapshot de versão`,
+      status: "draft" as const,
+      version: 0,
+      checksum: crypto.createHash("md5").update("planejamento-v0").digest("hex"),
+    },
+  ];
+  const createdArticles = [];
+  for (const a of articles) {
+    const [article] = await db.insert(productKnowledgeArticlesTable).values({
+      ...a,
+      createdById: adminUser.id,
+      updatedById: adminUser.id,
+    }).returning();
+    createdArticles.push(article);
+  }
+  console.log(`✅ Product knowledge articles: ${createdArticles.length} created`);
+
+  // ─── 39. Product Knowledge Article Revisions ──────────────────────────────────
+  // Published articles get revision records
+  await db.insert(productKnowledgeArticleRevisionsTable).values({
+    articleId: createdArticles[0].id,
+    version: 1,
+    title: articles[0].title,
+    summary: articles[0].summary,
+    bodyMarkdown: articles[0].bodyMarkdown,
+    checksum: articles[0].checksum,
+    publishedById: adminUser.id,
+    publishedAt: new Date("2024-06-01"),
+  });
+  await db.insert(productKnowledgeArticleRevisionsTable).values({
+    articleId: createdArticles[1].id,
+    version: 1,
+    title: articles[1].title,
+    summary: articles[1].summary,
+    bodyMarkdown: articles[1].bodyMarkdown,
+    checksum: articles[1].checksum,
+    publishedById: adminUser.id,
+    publishedAt: new Date("2024-06-15"),
+  });
+  console.log(`✅ Product knowledge article revisions: 2 created`);
+
+  // ─── Summary ──────────────────────────────────────────────────────────────────
+  console.log("\n" + "═".repeat(60));
+  console.log("  SEED COMPLETE — All tables populated!");
+  console.log("═".repeat(60));
+  console.log(`
+  Organization:     1  (${org.name})
+  Users:            4  (admin, operator, analyst, operator2)
+  Module perms:     ${allModules.length + 3 + 2 + 3} assigned
+  Units:            3  (sede + 2 filiais)
+  Departments:      ${departments.length}
+  Positions:        ${positions.length}
+  Employees:        ${employees.length}
+  Employee units:   2  (secondary assignments)
+  Profile items:    ${createdProfileItems.length}
+  Profile attachm:  2
+  Competencies:     ${competencies.length}
+  Trainings:        ${trainings.length}
+  Awareness:        ${awarenessRecords.length}
+  Legislations:     ${createdLegs.length}
+  Unit-leg assigns: ${createdUnitLegs.length}
+  Evidence attachm: 3
+  Documents:        ${docs.length}
+  Doc versions:     ${docVersions.length}
+  Doc attachments:  3
+  Questionnaire:    3 themes, ${questions.length} questions
+  Quest responses:  ${responses.length}
+  Compliance tags:  ${complianceTags.length}
+  Conversations:    2 (with ${6} messages)
+  Notifications:    ${notificationValues.length}
+  Invitations:      2
+  Strategic plan:   1 (with SWOT, parties, objectives, actions)
+  SWOT items:       ${createdSwot.length}
+  Interested party: ${parties.length}
+  Objectives:       ${createdObjectives.length}
+  Actions:          ${createdActions.length}
+  Plan revisions:   1
+  KB articles:      ${createdArticles.length}
+  KB revisions:     2
+
+  Login credentials:
+    admin@demo.com   / demo123 (org_admin)
+    ana@demo.com     / demo123 (operator)
+    pedro@demo.com   / demo123 (analyst)
+    mariana@demo.com / demo123 (operator)
+  `);
 
   process.exit(0);
 }

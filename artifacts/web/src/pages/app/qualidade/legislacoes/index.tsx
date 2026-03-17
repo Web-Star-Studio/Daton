@@ -858,26 +858,34 @@ export default function LegislacoesPage() {
         <form onSubmit={form.handleSubmit(onCreateSubmit)}>
           <div className="grid grid-cols-2 gap-x-8 gap-y-5">
             <div className="col-span-2">
-              <Label>Título</Label>
+              <Label htmlFor="legislation-title">Título</Label>
               <Input
+                id="legislation-title"
                 {...form.register("title", { required: true })}
                 placeholder="Ex: Lei da Política Nacional do Meio Ambiente"
               />
             </div>
             <div>
-              <Label>Número</Label>
+              <Label htmlFor="legislation-number">Número</Label>
               <Input
+                id="legislation-number"
                 {...form.register("number")}
                 placeholder="Ex: Lei 6.938/1981"
               />
             </div>
             <div>
-              <Label>Data de publicação</Label>
-              <Input type="date" {...form.register("publicationDate")} />
+              <Label htmlFor="legislation-publication-date">
+                Data de publicação
+              </Label>
+              <Input
+                id="legislation-publication-date"
+                type="date"
+                {...form.register("publicationDate")}
+              />
             </div>
             <div>
-              <Label>Nível / Esfera</Label>
-              <Select {...form.register("level")}>
+              <Label htmlFor="legislation-level">Nível / Esfera</Label>
+              <Select id="legislation-level" {...form.register("level")}>
                 <option value="federal">Federal</option>
                 <option value="estadual">Estadual</option>
                 <option value="municipal">Municipal</option>
@@ -892,8 +900,11 @@ export default function LegislacoesPage() {
               />
             </div>
             <div className="col-span-2">
-              <Label>Descrição / Ementa</Label>
+              <Label htmlFor="legislation-description">
+                Descrição / Ementa
+              </Label>
               <Textarea
+                id="legislation-description"
                 {...form.register("description")}
                 placeholder="Resumo do conteúdo da legislação..."
                 rows={2}

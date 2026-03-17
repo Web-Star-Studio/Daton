@@ -51,4 +51,7 @@ Thumbs.db
 # Uploaded files
 .data/
 
+# Playwright
+/output/playwright/
+
 .env
