@@ -95,6 +95,51 @@ async function getDocumentParticipantUserIds(docId: number): Promise<number[]> {
   ])];
 }
 
+async function notifyUsers({
+  orgId,
+  userIds,
+  actorUserId,
+  type,
+  title,
+  description,
+  docId,
+}: {
+  orgId: number;
+  userIds: number[];
+  actorUserId?: number;
+  type: string;
+  title: string;
+  description: string;
+  docId?: number;
+}): Promise<void> {
+  const recipientIds = [...new Set(userIds)].filter((userId) => userId !== actorUserId);
+  if (recipientIds.length === 0) return;
+
+  const results = await Promise.allSettled(
+    recipientIds.map((userId) =>
+      createNotification(
+        orgId,
+        userId,
+        type,
+        title,
+        description,
+        "document",
+        docId,
+      ),
+    ),
+  );
+
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length > 0) {
+    console.error("Failed to create some document notifications", {
+      orgId,
+      docId,
+      type,
+      failedCount: failures.length,
+    });
+  }
+}
+
 async function notifyDocumentParticipants({
   orgId,
   docId,
@@ -111,21 +156,15 @@ async function notifyDocumentParticipants({
   description: string;
 }): Promise<void> {
   const participantIds = await getDocumentParticipantUserIds(docId);
-  const recipientIds = participantIds.filter((userId) => userId !== actorUserId);
-
-  await Promise.all(
-    recipientIds.map((userId) =>
-      createNotification(
-        orgId,
-        userId,
-        type,
-        title,
-        description,
-        "document",
-        docId,
-      ),
-    ),
-  );
+  await notifyUsers({
+    orgId,
+    userIds: participantIds,
+    actorUserId,
+    type,
+    title,
+    description,
+    docId,
+  });
 }
 
 async function getDocumentDetail(docId: number, orgId: number) {
@@ -744,13 +783,14 @@ router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, requir
     changedFields: "status:in_review",
   });
 
-  await notifyDocumentParticipants({
+  await notifyUsers({
     orgId,
-    docId,
+    userIds: distinctApprovers.map((approver) => approver.userId),
     actorUserId: req.auth!.userId,
     type: "document_review",
     title: "Documento em revisão",
     description: `O documento "${doc.title}" foi enviado para revisão.`,
+    docId,
   });
 
   const detail = await getDocumentDetail(docId, orgId);
@@ -850,13 +890,14 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
         changedFields: "status:distributed",
       });
 
-      await notifyDocumentParticipants({
+      await notifyUsers({
         orgId,
-        docId,
+        userIds: recipients.map((recipient) => recipient.userId),
         actorUserId: userId,
         type: "document_distributed",
         title: "Documento distribuído",
-        description: `O documento "${doc.title}" foi distribuído aos destinatários.`,
+        description: `O documento "${doc.title}" foi distribuído para você. Confirme o recebimento.`,
+        docId,
       });
     }
   }
@@ -948,20 +989,26 @@ router.post("/organizations/:orgId/documents/:docId/distribute", requireAuth, re
     changedFields: "status:distributed",
   });
 
-  await notifyDocumentParticipants({
+  const recipients = await db
+    .select({ userId: documentRecipientsTable.userId })
+    .from(documentRecipientsTable)
+    .where(eq(documentRecipientsTable.documentId, docId));
+
+  await notifyUsers({
     orgId,
-    docId,
+    userIds: recipients.map((recipient) => recipient.userId),
     actorUserId: req.auth!.userId,
     type: "document_distributed",
     title: "Documento distribuído",
-    description: `O documento "${doc.title}" foi distribuído aos destinatários.`,
+    description: `O documento "${doc.title}" foi distribuído para você. Acuse o recebimento e a leitura.`,
+    docId,
   });
 
   const detail = await getDocumentDetail(docId, orgId);
   res.json(detail);
 });
 
-router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, async (req, res): Promise<void> => {
   const params = AcknowledgeDocumentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
