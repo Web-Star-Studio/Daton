@@ -50,6 +50,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     location === "/app" ? "/organizacao" : location.replace(/^\/app(?=\/|$)/, "");
 
   useEffect(() => {
+    return () => {
+      if (popoverTimeoutRef.current) {
+        clearTimeout(popoverTimeoutRef.current);
+        popoverTimeoutRef.current = null;
+      }
+
+      if (govPopoverTimeoutRef.current) {
+        clearTimeout(govPopoverTimeoutRef.current);
+        govPopoverTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const moduleByPath: Array<{ prefix: string; module: "documents" | "legislations" | "employees" | "units" | "departments" | "positions" | "governance" }> = [
       { prefix: "/qualidade/documentacao", module: "documents" },
       { prefix: "/qualidade/legislacoes", module: "legislations" },

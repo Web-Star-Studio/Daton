@@ -300,28 +300,34 @@ function AssistantMessage({
   content: string;
   sources?: ProductKnowledgeSource[];
 }) {
-  if (!content) return null;
+  const hasContent = Boolean(content);
+  const messageSources = sources ?? [];
+  const hasSources = messageSources.length > 0;
 
-  const parts = content.split(/(\*\*[^*]+\*\*)/g);
+  if (!hasContent && !hasSources) return null;
+
+  const parts = hasContent ? content.split(/(\*\*[^*]+\*\*)/g) : [];
 
   return (
     <div className="space-y-3">
-      <span className="whitespace-pre-wrap">
-        {parts.map((part, i) => {
-          if (part.startsWith("**") && part.endsWith("**")) {
-            return <strong key={i}>{part.slice(2, -2)}</strong>;
-          }
-          return <span key={i}>{part}</span>;
-        })}
-      </span>
+      {hasContent && (
+        <span className="whitespace-pre-wrap">
+          {parts.map((part, i) => {
+            if (part.startsWith("**") && part.endsWith("**")) {
+              return <strong key={i}>{part.slice(2, -2)}</strong>;
+            }
+            return <span key={i}>{part}</span>;
+          })}
+        </span>
+      )}
 
-      {sources && sources.length > 0 && (
+      {hasSources && (
         <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             Fontes
           </p>
           <div className="mt-2 space-y-2">
-            {sources.map((source) => (
+            {messageSources.map((source) => (
               <div key={`${source.slug}:${source.version}`} className="text-[12px] text-muted-foreground">
                 <p className="font-medium text-foreground">
                   {source.title} <span className="text-muted-foreground">v{source.version}</span>

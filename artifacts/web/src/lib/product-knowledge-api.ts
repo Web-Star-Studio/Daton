@@ -80,18 +80,33 @@ export const productKnowledgeKeys = {
   detail: (articleId: number) => [...productKnowledgeKeys.all, "detail", articleId] as const,
 };
 
-export function useProductKnowledgeArticles() {
+function assertProductKnowledgeArticleId(
+  articleId: number | null | undefined,
+  context: string,
+): number {
+  if (articleId == null) {
+    throw new Error(`${context}: articleId is ${String(articleId)}`);
+  }
+
+  return articleId;
+}
+
+export function useProductKnowledgeArticles(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: productKnowledgeKeys.list(),
+    enabled: options?.enabled ?? true,
     queryFn: () =>
       fetchJson<ProductKnowledgeArticleListItem[]>("/api/admin/product-knowledge/articles"),
   });
 }
 
-export function useProductKnowledgeArticle(articleId?: number | null) {
+export function useProductKnowledgeArticle(
+  articleId?: number | null,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: productKnowledgeKeys.detail(articleId || 0),
-    enabled: !!articleId,
+    enabled: (options?.enabled ?? true) && !!articleId,
     queryFn: () =>
       fetchJson<ProductKnowledgeArticleDetail>(
         `/api/admin/product-knowledge/articles/${articleId}`,
@@ -112,29 +127,47 @@ function useInvalidateProductKnowledge() {
   };
 }
 
-export function useCreateProductKnowledgeArticle() {
+export function useCreateProductKnowledgeArticle(options?: { enabled?: boolean }) {
   const invalidate = useInvalidateProductKnowledge();
   return useMutation({
-    mutationFn: (body: ProductKnowledgeArticleBody) =>
-      fetchJson<ProductKnowledgeArticleDetail>("/api/admin/product-knowledge/articles", {
+    mutationFn: (body: ProductKnowledgeArticleBody) => {
+      if (options?.enabled === false) {
+        throw new Error("useCreateProductKnowledgeArticle: mutation disabled");
+      }
+
+      return fetchJson<ProductKnowledgeArticleDetail>("/api/admin/product-knowledge/articles", {
         method: "POST",
         body: JSON.stringify(body),
-      }),
+      });
+    },
     onSuccess: (article) => invalidate(article.id),
   });
 }
 
-export function useUpdateProductKnowledgeArticle(articleId?: number | null) {
+export function useUpdateProductKnowledgeArticle(
+  articleId?: number | null,
+  options?: { enabled?: boolean },
+) {
   const invalidate = useInvalidateProductKnowledge();
   return useMutation({
-    mutationFn: (body: ProductKnowledgeArticleBody) =>
-      fetchJson<ProductKnowledgeArticleDetail>(
-        `/api/admin/product-knowledge/articles/${articleId}`,
+    mutationFn: (body: ProductKnowledgeArticleBody) => {
+      if (options?.enabled === false) {
+        throw new Error("useUpdateProductKnowledgeArticle: mutation disabled");
+      }
+
+      const resolvedArticleId = assertProductKnowledgeArticleId(
+        articleId,
+        "useUpdateProductKnowledgeArticle",
+      );
+
+      return fetchJson<ProductKnowledgeArticleDetail>(
+        `/api/admin/product-knowledge/articles/${resolvedArticleId}`,
         {
           method: "PATCH",
           body: JSON.stringify(body),
         },
-      ),
+      );
+    },
     onSuccess: (article) => invalidate(article.id),
   });
 }
@@ -142,28 +175,44 @@ export function useUpdateProductKnowledgeArticle(articleId?: number | null) {
 export function useProductKnowledgeLifecycleAction(
   action: "publish" | "reindex" | "archive",
   articleId?: number | null,
+  options?: { enabled?: boolean },
 ) {
   const invalidate = useInvalidateProductKnowledge();
   return useMutation({
-    mutationFn: () =>
-      fetchJson<ProductKnowledgeArticleDetail>(
-        `/api/admin/product-knowledge/articles/${articleId}/${action}`,
+    mutationFn: () => {
+      if (options?.enabled === false) {
+        throw new Error(`useProductKnowledgeLifecycleAction(${action}): mutation disabled`);
+      }
+
+      const resolvedArticleId = assertProductKnowledgeArticleId(
+        articleId,
+        `useProductKnowledgeLifecycleAction(${action})`,
+      );
+
+      return fetchJson<ProductKnowledgeArticleDetail>(
+        `/api/admin/product-knowledge/articles/${resolvedArticleId}/${action}`,
         {
           method: "POST",
         },
-      ),
+      );
+    },
     onSuccess: (article) => invalidate(article.id),
   });
 }
 
-export function useBootstrapProductKnowledgeArticles() {
+export function useBootstrapProductKnowledgeArticles(options?: { enabled?: boolean }) {
   const invalidate = useInvalidateProductKnowledge();
   return useMutation({
-    mutationFn: () =>
-      fetchJson<{ insertedCount: number; articles: ProductKnowledgeArticleListItem[] }>(
+    mutationFn: () => {
+      if (options?.enabled === false) {
+        throw new Error("useBootstrapProductKnowledgeArticles: mutation disabled");
+      }
+
+      return fetchJson<{ insertedCount: number; articles: ProductKnowledgeArticleListItem[] }>(
         "/api/admin/product-knowledge/bootstrap",
         { method: "POST" },
-      ),
+      );
+    },
     onSuccess: () => invalidate(),
   });
 }

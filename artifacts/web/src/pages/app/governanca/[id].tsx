@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, Controller } from "react-hook-form";
 import { Link, useLocation, useParams } from "wouter";
+import { z } from "zod";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Badge } from "@/components/ui/badge";
@@ -38,9 +41,83 @@ import {
 } from "@/lib/governance-ui";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, CheckCircle2, FileSpreadsheet, FileText, Pencil, Plus, RotateCcw, Send, ShieldAlert, Trash2, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileSpreadsheet, FileText, Loader2, Pencil, Plus, RotateCcw, Send, ShieldAlert, Trash2, XCircle } from "lucide-react";
 
 type Tab = "overview" | "swot" | "interested" | "scope" | "objectives" | "actions" | "revisions";
+
+const governancePlanSchema = z.object({
+  title: z.string().min(1, "Informe o título"),
+  standards: z.array(z.string()),
+  executiveSummary: z.string().nullable().optional(),
+  reviewFrequencyMonths: z.number().min(1, "Informe a frequência de revisão"),
+  nextReviewAt: z.string().nullable().optional(),
+  reviewReason: z.string().nullable().optional(),
+  climateChangeRelevant: z.boolean().nullable(),
+  climateChangeJustification: z.string().nullable().optional(),
+  technicalScope: z.string().nullable().optional(),
+  geographicScope: z.string().nullable().optional(),
+  policy: z.string().nullable().optional(),
+  mission: z.string().nullable().optional(),
+  vision: z.string().nullable().optional(),
+  values: z.string().nullable().optional(),
+  strategicConclusion: z.string().nullable().optional(),
+  methodologyNotes: z.string().nullable().optional(),
+  legacyMethodology: z.string().nullable().optional(),
+  legacyIndicatorsNotes: z.string().nullable().optional(),
+  legacyRevisionHistory: z.array(z.any()).nullable().optional(),
+  importedWorkbookName: z.string().nullable().optional(),
+});
+
+const governanceSwotSchema = z.object({
+  domain: z.enum(["sgq", "sga", "sgsv", "esg", "governance"]),
+  matrixLabel: z.string().nullable().optional(),
+  swotType: z.enum(["strength", "weakness", "opportunity", "threat"]),
+  environment: z.enum(["internal", "external"]),
+  perspective: z.string().nullable().optional(),
+  description: z.string().min(1, "Informe a descrição"),
+  performance: z.number().nullable().optional(),
+  relevance: z.number().nullable().optional(),
+  result: z.number().nullable().optional(),
+  treatmentDecision: z.string().nullable().optional(),
+  linkedObjectiveCode: z.string().nullable().optional(),
+  linkedObjectiveLabel: z.string().nullable().optional(),
+  importedActionReference: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  sortOrder: z.number(),
+});
+
+const governanceInterestedPartySchema = z.object({
+  name: z.string().min(1, "Informe o nome"),
+  expectedRequirements: z.string().nullable().optional(),
+  roleInCompany: z.string().nullable().optional(),
+  roleSummary: z.string().nullable().optional(),
+  relevantToManagementSystem: z.boolean(),
+  legalRequirementApplicable: z.boolean(),
+  monitoringMethod: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  sortOrder: z.number(),
+});
+
+const governanceObjectiveSchema = z.object({
+  code: z.string().min(1, "Informe o código"),
+  systemDomain: z.string().nullable().optional(),
+  description: z.string().min(1, "Informe a descrição"),
+  notes: z.string().nullable().optional(),
+  sortOrder: z.number(),
+});
+
+const governanceActionSchema = z.object({
+  title: z.string().min(1, "Informe o título"),
+  description: z.string().nullable().optional(),
+  swotItemId: z.number().nullable().optional(),
+  objectiveId: z.number().nullable().optional(),
+  responsibleUserId: z.number().nullable().optional(),
+  dueDate: z.string().nullable().optional(),
+  status: z.enum(["pending", "in_progress", "done", "canceled"]),
+  notes: z.string().nullable().optional(),
+  sortOrder: z.number(),
+  unitIds: z.array(z.number()),
+});
 
 function blankSwotForm(): GovernanceSwotBody {
   return {
@@ -127,29 +204,70 @@ export default function GovernanceDetailPage() {
   });
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
-  const [planForm, setPlanForm] = useState<GovernancePlanBody | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importPreview, setImportPreview] = useState<GovernanceImportPreview | null>(null);
   const [swotDialogOpen, setSwotDialogOpen] = useState(false);
   const [swotEditing, setSwotEditing] = useState<GovernanceSwotItem | null>(null);
-  const [swotForm, setSwotForm] = useState(blankSwotForm());
   const [partyDialogOpen, setPartyDialogOpen] = useState(false);
   const [partyEditing, setPartyEditing] = useState<GovernanceInterestedParty | null>(null);
-  const [partyForm, setPartyForm] = useState(blankInterestedForm());
   const [objectiveDialogOpen, setObjectiveDialogOpen] = useState(false);
   const [objectiveEditing, setObjectiveEditing] = useState<GovernanceObjective | null>(null);
-  const [objectiveForm, setObjectiveForm] = useState(blankObjectiveForm());
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
   const [actionEditing, setActionEditing] = useState<GovernanceAction | null>(null);
-  const [actionForm, setActionForm] = useState(blankActionForm());
+  const [swotDeletingId, setSwotDeletingId] = useState<number | null>(null);
+  const [partyDeletingId, setPartyDeletingId] = useState<number | null>(null);
+  const [objectiveDeletingId, setObjectiveDeletingId] = useState<number | null>(null);
+  const [actionDeletingId, setActionDeletingId] = useState<number | null>(null);
+  const planForm = useForm<GovernancePlanBody>({
+    resolver: zodResolver(governancePlanSchema),
+    defaultValues: {
+      title: "",
+      standards: [],
+      executiveSummary: "",
+      reviewFrequencyMonths: 12,
+      nextReviewAt: "",
+      reviewReason: "",
+      climateChangeRelevant: null,
+      climateChangeJustification: "",
+      technicalScope: "",
+      geographicScope: "",
+      policy: "",
+      mission: "",
+      vision: "",
+      values: "",
+      strategicConclusion: "",
+      methodologyNotes: "",
+      legacyMethodology: "",
+      legacyIndicatorsNotes: "",
+      legacyRevisionHistory: [],
+      importedWorkbookName: "",
+    },
+  });
+  const swotForm = useForm<GovernanceSwotBody>({
+    resolver: zodResolver(governanceSwotSchema),
+    defaultValues: blankSwotForm(),
+  });
+  const partyForm = useForm<GovernanceInterestedPartyBody>({
+    resolver: zodResolver(governanceInterestedPartySchema),
+    defaultValues: blankInterestedForm(),
+  });
+  const objectiveForm = useForm<GovernanceObjectiveBody>({
+    resolver: zodResolver(governanceObjectiveSchema),
+    defaultValues: blankObjectiveForm(),
+  });
+  const actionForm = useForm<GovernanceActionBody & { unitIds: number[] }>({
+    resolver: zodResolver(governanceActionSchema),
+    defaultValues: blankActionForm(),
+  });
   const canEdit = canWriteModule("governance") && !!plan && ["draft", "rejected"].includes(plan.status);
+  const actionUnitIds = actionForm.watch("unitIds");
 
   usePageTitle(plan?.title || "Planejamento Estratégico");
   usePageSubtitle(plan ? `Status ${GOVERNANCE_STATUS_LABELS[plan.status] || plan.status} • revisão ativa R${plan.activeRevisionNumber}` : undefined);
 
   useEffect(() => {
     if (plan) {
-      setPlanForm({
+      planForm.reset({
         title: plan.title,
         standards: plan.standards,
         executiveSummary: plan.executiveSummary || "",
@@ -172,29 +290,29 @@ export default function GovernanceDetailPage() {
         importedWorkbookName: plan.importedWorkbookName || "",
       });
     }
-  }, [plan]);
+  }, [plan, planForm]);
 
   const openSwotDialog = (item?: GovernanceSwotItem) => {
     setSwotEditing(item || null);
-    setSwotForm(item ? { ...item } : blankSwotForm());
+    swotForm.reset(item ? { ...item } : blankSwotForm());
     setSwotDialogOpen(true);
   };
 
   const openPartyDialog = (item?: GovernanceInterestedParty) => {
     setPartyEditing(item || null);
-    setPartyForm(item ? { ...item } : blankInterestedForm());
+    partyForm.reset(item ? { ...item } : blankInterestedForm());
     setPartyDialogOpen(true);
   };
 
   const openObjectiveDialog = (item?: GovernanceObjective) => {
     setObjectiveEditing(item || null);
-    setObjectiveForm(item ? { ...item } : blankObjectiveForm());
+    objectiveForm.reset(item ? { ...item } : blankObjectiveForm());
     setObjectiveDialogOpen(true);
   };
 
   const openActionDialog = (item?: GovernanceAction) => {
     setActionEditing(item || null);
-    setActionForm(
+    actionForm.reset(
       item
         ? {
             title: item.title,
@@ -213,13 +331,12 @@ export default function GovernanceDetailPage() {
     setActionDialogOpen(true);
   };
 
-  const handleSavePlan = async () => {
-    if (!planForm) return;
+  const handleSavePlan = planForm.handleSubmit(async (values) => {
     try {
       await updatePlanMutation.mutateAsync({
-        ...planForm,
-        nextReviewAt: planForm.nextReviewAt ? dateToIso(planForm.nextReviewAt) : null,
-        importedWorkbookName: planForm.importedWorkbookName || null,
+        ...values,
+        nextReviewAt: values.nextReviewAt ? dateToIso(values.nextReviewAt) : null,
+        importedWorkbookName: values.importedWorkbookName || null,
       });
       toast({ title: "Plano atualizado", description: "As informações principais foram salvas." });
     } catch (error) {
@@ -228,20 +345,21 @@ export default function GovernanceDetailPage() {
         description: error instanceof Error ? error.message : "Não foi possível salvar o plano.",
       });
     }
-  };
+  });
 
   const handleWorkflow = async (kind: "submit" | "approve" | "reject" | "reopen") => {
+    const currentPlanForm = planForm.getValues();
     try {
       if (kind === "submit") {
         await submitMutation.mutateAsync({});
       } else if (kind === "approve") {
         await approveMutation.mutateAsync({
-          reviewReason: planForm?.reviewReason || plan?.reviewReason || null,
+          reviewReason: currentPlanForm.reviewReason || plan?.reviewReason || null,
           changeSummary: "Aprovação do planejamento estratégico.",
         });
       } else if (kind === "reject") {
         await rejectMutation.mutateAsync({
-          reviewReason: planForm?.reviewReason || plan?.reviewReason || null,
+          reviewReason: currentPlanForm.reviewReason || plan?.reviewReason || null,
           changeSummary: "Rejeição para ajustes.",
         });
       } else {
@@ -299,19 +417,19 @@ export default function GovernanceDetailPage() {
     }
   };
 
-  const saveSwot = async () => {
+  const saveSwot = swotForm.handleSubmit(async (values) => {
     const payload = {
-      ...swotForm,
-      matrixLabel: swotForm.matrixLabel || null,
-      perspective: swotForm.perspective || null,
-      performance: swotForm.performance ? Number(swotForm.performance) : null,
-      relevance: swotForm.relevance ? Number(swotForm.relevance) : null,
-      result: swotForm.result ? Number(swotForm.result) : null,
-      treatmentDecision: swotForm.treatmentDecision || null,
-      linkedObjectiveCode: swotForm.linkedObjectiveCode || null,
-      linkedObjectiveLabel: swotForm.linkedObjectiveLabel || null,
-      importedActionReference: swotForm.importedActionReference || null,
-      notes: swotForm.notes || null,
+      ...values,
+      matrixLabel: values.matrixLabel || null,
+      perspective: values.perspective || null,
+      performance: values.performance != null ? Number(values.performance) : null,
+      relevance: values.relevance != null ? Number(values.relevance) : null,
+      result: values.result != null ? Number(values.result) : null,
+      treatmentDecision: values.treatmentDecision || null,
+      linkedObjectiveCode: values.linkedObjectiveCode || null,
+      linkedObjectiveLabel: values.linkedObjectiveLabel || null,
+      importedActionReference: values.importedActionReference || null,
+      notes: values.notes || null,
     };
     try {
       if (swotEditing) {
@@ -319,47 +437,50 @@ export default function GovernanceDetailPage() {
       } else {
         await swotCrud.createMutation.mutateAsync(payload);
       }
+      swotForm.reset(blankSwotForm());
       setSwotDialogOpen(false);
     } catch (error) {
       toast({ title: "Falha ao salvar item SWOT", description: error instanceof Error ? error.message : "Erro ao salvar." });
     }
-  };
+  });
 
-  const saveParty = async () => {
+  const saveParty = partyForm.handleSubmit(async (values) => {
     try {
       if (partyEditing) {
-        await interestedCrud.updateMutation.mutateAsync({ id: partyEditing.id, body: partyForm });
+        await interestedCrud.updateMutation.mutateAsync({ id: partyEditing.id, body: values });
       } else {
-        await interestedCrud.createMutation.mutateAsync(partyForm);
+        await interestedCrud.createMutation.mutateAsync(values);
       }
+      partyForm.reset(blankInterestedForm());
       setPartyDialogOpen(false);
     } catch (error) {
       toast({ title: "Falha ao salvar parte interessada", description: error instanceof Error ? error.message : "Erro ao salvar." });
     }
-  };
+  });
 
-  const saveObjective = async () => {
+  const saveObjective = objectiveForm.handleSubmit(async (values) => {
     try {
       if (objectiveEditing) {
-        await objectiveCrud.updateMutation.mutateAsync({ id: objectiveEditing.id, body: objectiveForm });
+        await objectiveCrud.updateMutation.mutateAsync({ id: objectiveEditing.id, body: values });
       } else {
-        await objectiveCrud.createMutation.mutateAsync(objectiveForm);
+        await objectiveCrud.createMutation.mutateAsync(values);
       }
+      objectiveForm.reset(blankObjectiveForm());
       setObjectiveDialogOpen(false);
     } catch (error) {
       toast({ title: "Falha ao salvar objetivo", description: error instanceof Error ? error.message : "Erro ao salvar." });
     }
-  };
+  });
 
-  const saveAction = async () => {
+  const saveAction = actionForm.handleSubmit(async (values) => {
     const payload = {
-      ...actionForm,
-      dueDate: actionForm.dueDate ? dateToIso(actionForm.dueDate) : null,
-      description: actionForm.description || null,
-      notes: actionForm.notes || null,
-      swotItemId: actionForm.swotItemId || null,
-      objectiveId: actionForm.objectiveId || null,
-      responsibleUserId: actionForm.responsibleUserId || null,
+      ...values,
+      dueDate: values.dueDate ? dateToIso(values.dueDate) : null,
+      description: values.description || null,
+      notes: values.notes || null,
+      swotItemId: values.swotItemId || null,
+      objectiveId: values.objectiveId || null,
+      responsibleUserId: values.responsibleUserId || null,
     };
     try {
       if (actionEditing) {
@@ -367,9 +488,66 @@ export default function GovernanceDetailPage() {
       } else {
         await actionCrud.createMutation.mutateAsync(payload);
       }
+      actionForm.reset(blankActionForm());
       setActionDialogOpen(false);
     } catch (error) {
       toast({ title: "Falha ao salvar ação", description: error instanceof Error ? error.message : "Erro ao salvar." });
+    }
+  });
+
+  const deleteSwot = async (itemId: number) => {
+    setSwotDeletingId(itemId);
+    try {
+      await swotCrud.deleteMutation.mutateAsync(itemId);
+    } catch (error) {
+      toast({
+        title: "Falha ao excluir item SWOT",
+        description: error instanceof Error ? error.message : "Erro ao excluir.",
+      });
+    } finally {
+      setSwotDeletingId(null);
+    }
+  };
+
+  const deleteInterestedParty = async (itemId: number) => {
+    setPartyDeletingId(itemId);
+    try {
+      await interestedCrud.deleteMutation.mutateAsync(itemId);
+    } catch (error) {
+      toast({
+        title: "Falha ao excluir parte interessada",
+        description: error instanceof Error ? error.message : "Erro ao excluir.",
+      });
+    } finally {
+      setPartyDeletingId(null);
+    }
+  };
+
+  const deleteObjective = async (itemId: number) => {
+    setObjectiveDeletingId(itemId);
+    try {
+      await objectiveCrud.deleteMutation.mutateAsync(itemId);
+    } catch (error) {
+      toast({
+        title: "Falha ao excluir objetivo",
+        description: error instanceof Error ? error.message : "Erro ao excluir.",
+      });
+    } finally {
+      setObjectiveDeletingId(null);
+    }
+  };
+
+  const deleteAction = async (itemId: number) => {
+    setActionDeletingId(itemId);
+    try {
+      await actionCrud.deleteMutation.mutateAsync(itemId);
+    } catch (error) {
+      toast({
+        title: "Falha ao excluir ação",
+        description: error instanceof Error ? error.message : "Erro ao excluir.",
+      });
+    } finally {
+      setActionDeletingId(null);
     }
   };
 
@@ -449,7 +627,7 @@ export default function GovernanceDetailPage() {
     </div>,
   );
 
-  if (isLoading || !plan || !planForm) {
+  if (isLoading || !plan) {
     return <div className="px-6 py-6 text-sm text-muted-foreground">Carregando planejamento estratégico...</div>;
   }
 
@@ -484,27 +662,48 @@ export default function GovernanceDetailPage() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="col-span-2">
                   <Label>Título</Label>
-                  <Input value={planForm.title} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, title: event.target.value } : prev)} />
+                  <Input {...planForm.register("title")} />
                 </div>
                 <div>
                   <Label>Normas</Label>
-                  <Input value={(planForm.standards || []).join(", ")} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, standards: event.target.value.split(",").map((value) => value.trim()).filter(Boolean) } : prev)} />
+                  <Controller
+                    control={planForm.control}
+                    name="standards"
+                    render={({ field }) => (
+                      <Input
+                        value={(field.value || []).join(", ")}
+                        onChange={(event) =>
+                          field.onChange(
+                            event.target.value
+                              .split(",")
+                              .map((value) => value.trim())
+                              .filter(Boolean),
+                          )
+                        }
+                      />
+                    )}
+                  />
                 </div>
                 <div className="col-span-3">
                   <Label>Resumo executivo</Label>
-                  <Textarea value={planForm.executiveSummary || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, executiveSummary: event.target.value } : prev)} rows={4} />
+                  <Textarea rows={4} {...planForm.register("executiveSummary")} />
                 </div>
                 <div>
                   <Label>Frequência de revisão (meses)</Label>
-                  <Input type="number" value={planForm.reviewFrequencyMonths || 12} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, reviewFrequencyMonths: Number(event.target.value) } : prev)} />
+                  <Input
+                    type="number"
+                    {...planForm.register("reviewFrequencyMonths", {
+                      setValueAs: (value) => (value === "" ? 12 : Number(value)),
+                    })}
+                  />
                 </div>
                 <div>
                   <Label>Próxima revisão</Label>
-                  <Input type="date" value={planForm.nextReviewAt || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, nextReviewAt: event.target.value } : prev)} />
+                  <Input type="date" {...planForm.register("nextReviewAt")} />
                 </div>
                 <div>
                   <Label>Motivo da revisão</Label>
-                  <Input value={planForm.reviewReason || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, reviewReason: event.target.value } : prev)} />
+                  <Input {...planForm.register("reviewReason")} />
                 </div>
               </div>
             ) : (
@@ -543,21 +742,29 @@ export default function GovernanceDetailPage() {
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label>Relevância</Label>
-                  <Select
-                    value={planForm.climateChangeRelevant === null ? "" : planForm.climateChangeRelevant ? "sim" : "nao"}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setPlanForm((prev) => prev ? { ...prev, climateChangeRelevant: value === "" ? null : value === "sim" } : prev);
-                    }}
-                  >
-                    <option value="">Não avaliado</option>
-                    <option value="sim">Sim</option>
-                    <option value="nao">Não</option>
-                  </Select>
+                  <Controller
+                    control={planForm.control}
+                    name="climateChangeRelevant"
+                    render={({ field }) => (
+                      <Select
+                        value={
+                          field.value === null ? "" : field.value ? "sim" : "nao"
+                        }
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          field.onChange(value === "" ? null : value === "sim");
+                        }}
+                      >
+                        <option value="">Não avaliado</option>
+                        <option value="sim">Sim</option>
+                        <option value="nao">Não</option>
+                      </Select>
+                    )}
+                  />
                 </div>
                 <div className="col-span-2">
                   <Label>Justificativa</Label>
-                  <Textarea value={planForm.climateChangeJustification || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, climateChangeJustification: event.target.value } : prev)} rows={3} />
+                  <Textarea rows={3} {...planForm.register("climateChangeJustification")} />
                 </div>
               </div>
             ) : (
@@ -565,7 +772,7 @@ export default function GovernanceDetailPage() {
                 <div>
                   <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Relevância</p>
                   <p className="text-[14px] text-foreground">
-                    {planForm.climateChangeRelevant === null ? "Não avaliado" : planForm.climateChangeRelevant ? "Sim" : "Não"}
+                    {plan.climateChangeRelevant === null ? "Não avaliado" : plan.climateChangeRelevant ? "Sim" : "Não"}
                   </p>
                 </div>
                 <div className="col-span-2">
@@ -617,11 +824,11 @@ export default function GovernanceDetailPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Escopo técnico</Label>
-                  <Textarea value={planForm.technicalScope || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, technicalScope: event.target.value } : prev)} rows={3} />
+                  <Textarea rows={3} {...planForm.register("technicalScope")} />
                 </div>
                 <div>
                   <Label>Escopo geográfico</Label>
-                  <Textarea value={planForm.geographicScope || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, geographicScope: event.target.value } : prev)} rows={3} />
+                  <Textarea rows={3} {...planForm.register("geographicScope")} />
                 </div>
               </div>
             ) : (
@@ -644,25 +851,25 @@ export default function GovernanceDetailPage() {
               <div className="grid gap-4">
                 <div>
                   <Label>Política</Label>
-                  <Textarea value={planForm.policy || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, policy: event.target.value } : prev)} rows={4} />
+                  <Textarea rows={4} {...planForm.register("policy")} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Missão</Label>
-                    <Textarea value={planForm.mission || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, mission: event.target.value } : prev)} rows={3} />
+                    <Textarea rows={3} {...planForm.register("mission")} />
                   </div>
                   <div>
                     <Label>Visão</Label>
-                    <Textarea value={planForm.vision || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, vision: event.target.value } : prev)} rows={3} />
+                    <Textarea rows={3} {...planForm.register("vision")} />
                   </div>
                 </div>
                 <div>
                   <Label>Valores</Label>
-                  <Textarea value={planForm.values || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, values: event.target.value } : prev)} rows={5} />
+                  <Textarea rows={5} {...planForm.register("values")} />
                 </div>
                 <div>
                   <Label>Conclusão estratégica</Label>
-                  <Textarea value={planForm.strategicConclusion || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, strategicConclusion: event.target.value } : prev)} rows={3} />
+                  <Textarea rows={3} {...planForm.register("strategicConclusion")} />
                 </div>
               </div>
             ) : (
@@ -735,8 +942,17 @@ export default function GovernanceDetailPage() {
                           <button type="button" onClick={() => openSwotDialog(item)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          <button type="button" onClick={() => swotCrud.deleteMutation.mutate(item.id)} className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors">
-                            <Trash2 className="h-3.5 w-3.5" />
+                          <button
+                            type="button"
+                            onClick={() => void deleteSwot(item.id)}
+                            disabled={swotDeletingId === item.id}
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {swotDeletingId === item.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
                           </button>
                         </div>
                       </td>
@@ -778,8 +994,17 @@ export default function GovernanceDetailPage() {
                     <button type="button" onClick={() => openPartyDialog(item)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
-                    <button type="button" onClick={() => interestedCrud.deleteMutation.mutate(item.id)} className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors">
-                      <Trash2 className="h-3.5 w-3.5" />
+                    <button
+                      type="button"
+                      onClick={() => void deleteInterestedParty(item.id)}
+                      disabled={partyDeletingId === item.id}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {partyDeletingId === item.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
                     </button>
                   </div>
                 )}
@@ -822,8 +1047,17 @@ export default function GovernanceDetailPage() {
                     <button type="button" onClick={() => openObjectiveDialog(item)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
-                    <button type="button" onClick={() => objectiveCrud.deleteMutation.mutate(item.id)} className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors">
-                      <Trash2 className="h-3.5 w-3.5" />
+                    <button
+                      type="button"
+                      onClick={() => void deleteObjective(item.id)}
+                      disabled={objectiveDeletingId === item.id}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {objectiveDeletingId === item.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
                     </button>
                   </div>
                 )}
@@ -869,8 +1103,17 @@ export default function GovernanceDetailPage() {
                     <button type="button" onClick={() => openActionDialog(item)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
-                    <button type="button" onClick={() => actionCrud.deleteMutation.mutate(item.id)} className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors">
-                      <Trash2 className="h-3.5 w-3.5" />
+                    <button
+                      type="button"
+                      onClick={() => void deleteAction(item.id)}
+                      disabled={actionDeletingId === item.id}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {actionDeletingId === item.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
                     </button>
                   </div>
                 )}
@@ -939,8 +1182,8 @@ export default function GovernanceDetailPage() {
               </div>
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
                 <ul className="list-disc pl-5 text-sm text-amber-900 space-y-1">
-                  {(importPreview.anomalies.length > 0 ? importPreview.anomalies : ["Nenhuma anomalia detectada na leitura inicial."]).map((issue) => (
-                    <li key={issue}>{issue}</li>
+                  {(importPreview.anomalies.length > 0 ? importPreview.anomalies : ["Nenhuma anomalia detectada na leitura inicial."]).map((issue, index) => (
+                    <li key={`${index}-${issue}`}>{issue}</li>
                   ))}
                 </ul>
               </div>
@@ -957,7 +1200,7 @@ export default function GovernanceDetailPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <Label>Domínio</Label>
-            <Select value={swotForm.domain} onChange={(event) => setSwotForm((prev) => ({ ...prev, domain: event.target.value as GovernanceSwotItem["domain"] }))}>
+            <Select {...swotForm.register("domain")}>
               <option value="sgq">SGQ</option>
               <option value="sga">SGA</option>
               <option value="sgsv">SGSV</option>
@@ -967,7 +1210,7 @@ export default function GovernanceDetailPage() {
           </div>
           <div>
             <Label>Tipo</Label>
-            <Select value={swotForm.swotType} onChange={(event) => setSwotForm((prev) => ({ ...prev, swotType: event.target.value as GovernanceSwotItem["swotType"] }))}>
+            <Select {...swotForm.register("swotType")}>
               <option value="strength">Força</option>
               <option value="weakness">Fraqueza</option>
               <option value="opportunity">Oportunidade</option>
@@ -976,19 +1219,32 @@ export default function GovernanceDetailPage() {
           </div>
           <div className="md:col-span-2">
             <Label>Descrição</Label>
-            <Textarea value={swotForm.description} onChange={(event) => setSwotForm((prev) => ({ ...prev, description: event.target.value }))} rows={3} />
+            <Textarea rows={3} {...swotForm.register("description")} />
           </div>
           <div>
             <Label>Resultado</Label>
-            <Input type="number" value={swotForm.result || ""} onChange={(event) => setSwotForm((prev) => ({ ...prev, result: event.target.value ? Number(event.target.value) : null }))} />
+            <Input
+              type="number"
+              {...swotForm.register("result", {
+                setValueAs: (value) => (value === "" || value == null ? null : Number(value)),
+              })}
+            />
           </div>
           <div>
             <Label>Decisão de tratamento</Label>
-            <Input value={swotForm.treatmentDecision || ""} onChange={(event) => setSwotForm((prev) => ({ ...prev, treatmentDecision: event.target.value }))} />
+            <Input {...swotForm.register("treatmentDecision")} />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setSwotDialogOpen(false)}>Cancelar</Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              swotForm.reset(blankSwotForm());
+              setSwotDialogOpen(false);
+            }}
+          >
+            Cancelar
+          </Button>
           <Button onClick={saveSwot} isLoading={swotCrud.createMutation.isPending || swotCrud.updateMutation.isPending}>Salvar</Button>
         </DialogFooter>
       </Dialog>
@@ -997,19 +1253,27 @@ export default function GovernanceDetailPage() {
         <div className="grid gap-4">
           <div>
             <Label>Nome</Label>
-            <Input value={partyForm.name} onChange={(event) => setPartyForm((prev) => ({ ...prev, name: event.target.value }))} />
+            <Input {...partyForm.register("name")} />
           </div>
           <div>
             <Label>Requisitos esperados</Label>
-            <Textarea value={partyForm.expectedRequirements || ""} onChange={(event) => setPartyForm((prev) => ({ ...prev, expectedRequirements: event.target.value }))} rows={3} />
+            <Textarea rows={3} {...partyForm.register("expectedRequirements")} />
           </div>
           <div>
             <Label>Forma de monitoramento</Label>
-            <Textarea value={partyForm.monitoringMethod || ""} onChange={(event) => setPartyForm((prev) => ({ ...prev, monitoringMethod: event.target.value }))} rows={3} />
+            <Textarea rows={3} {...partyForm.register("monitoringMethod")} />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setPartyDialogOpen(false)}>Cancelar</Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              partyForm.reset(blankInterestedForm());
+              setPartyDialogOpen(false);
+            }}
+          >
+            Cancelar
+          </Button>
           <Button onClick={saveParty} isLoading={interestedCrud.createMutation.isPending || interestedCrud.updateMutation.isPending}>Salvar</Button>
         </DialogFooter>
       </Dialog>
@@ -1019,24 +1283,32 @@ export default function GovernanceDetailPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label>Código</Label>
-              <Input value={objectiveForm.code} onChange={(event) => setObjectiveForm((prev) => ({ ...prev, code: event.target.value }))} />
+              <Input {...objectiveForm.register("code")} />
             </div>
             <div>
               <Label>Sistema</Label>
-              <Input value={objectiveForm.systemDomain || ""} onChange={(event) => setObjectiveForm((prev) => ({ ...prev, systemDomain: event.target.value }))} />
+              <Input {...objectiveForm.register("systemDomain")} />
             </div>
           </div>
           <div>
             <Label>Descrição</Label>
-            <Textarea value={objectiveForm.description} onChange={(event) => setObjectiveForm((prev) => ({ ...prev, description: event.target.value }))} rows={3} />
+            <Textarea rows={3} {...objectiveForm.register("description")} />
           </div>
           <div>
             <Label>Notas</Label>
-            <Textarea value={objectiveForm.notes || ""} onChange={(event) => setObjectiveForm((prev) => ({ ...prev, notes: event.target.value }))} rows={3} />
+            <Textarea rows={3} {...objectiveForm.register("notes")} />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setObjectiveDialogOpen(false)}>Cancelar</Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              objectiveForm.reset(blankObjectiveForm());
+              setObjectiveDialogOpen(false);
+            }}
+          >
+            Cancelar
+          </Button>
           <Button onClick={saveObjective} isLoading={objectiveCrud.createMutation.isPending || objectiveCrud.updateMutation.isPending}>Salvar</Button>
         </DialogFooter>
       </Dialog>
@@ -1045,27 +1317,31 @@ export default function GovernanceDetailPage() {
         <div className="grid gap-4">
           <div>
             <Label>Título</Label>
-            <Input value={actionForm.title} onChange={(event) => setActionForm((prev) => ({ ...prev, title: event.target.value }))} />
+            <Input {...actionForm.register("title")} />
           </div>
           <div>
             <Label>Descrição</Label>
-            <Textarea value={actionForm.description || ""} onChange={(event) => setActionForm((prev) => ({ ...prev, description: event.target.value }))} rows={3} />
+            <Textarea rows={3} {...actionForm.register("description")} />
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <Label>Responsável</Label>
-              <Select value={actionForm.responsibleUserId || ""} onChange={(event) => setActionForm((prev) => ({ ...prev, responsibleUserId: event.target.value ? Number(event.target.value) : null }))}>
+              <Select
+                {...actionForm.register("responsibleUserId", {
+                  setValueAs: (value) => (value === "" || value == null ? null : Number(value)),
+                })}
+              >
                 <option value="">Não definido</option>
                 {users.map((user: UserOption) => <option key={user.id} value={user.id}>{user.name}</option>)}
               </Select>
             </div>
             <div>
               <Label>Prazo</Label>
-              <Input type="date" value={actionForm.dueDate || ""} onChange={(event) => setActionForm((prev) => ({ ...prev, dueDate: event.target.value }))} />
+              <Input type="date" {...actionForm.register("dueDate")} />
             </div>
             <div>
               <Label>Status</Label>
-              <Select value={actionForm.status} onChange={(event) => setActionForm((prev) => ({ ...prev, status: event.target.value as GovernanceAction["status"] }))}>
+              <Select {...actionForm.register("status")}>
                 <option value="pending">Pendente</option>
                 <option value="in_progress">Em andamento</option>
                 <option value="done">Concluída</option>
@@ -1076,14 +1352,22 @@ export default function GovernanceDetailPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label>Item SWOT vinculado</Label>
-              <Select value={actionForm.swotItemId || ""} onChange={(event) => setActionForm((prev) => ({ ...prev, swotItemId: event.target.value ? Number(event.target.value) : null }))}>
+              <Select
+                {...actionForm.register("swotItemId", {
+                  setValueAs: (value) => (value === "" || value == null ? null : Number(value)),
+                })}
+              >
                 <option value="">Sem vínculo</option>
                 {plan.swotItems.map((item) => <option key={item.id} value={item.id}>{item.description}</option>)}
               </Select>
             </div>
             <div>
               <Label>Objetivo vinculado</Label>
-              <Select value={actionForm.objectiveId || ""} onChange={(event) => setActionForm((prev) => ({ ...prev, objectiveId: event.target.value ? Number(event.target.value) : null }))}>
+              <Select
+                {...actionForm.register("objectiveId", {
+                  setValueAs: (value) => (value === "" || value == null ? null : Number(value)),
+                })}
+              >
                 <option value="">Sem vínculo</option>
                 {plan.objectives.map((item) => <option key={item.id} value={item.id}>{item.code} - {item.description}</option>)}
               </Select>
@@ -1096,11 +1380,16 @@ export default function GovernanceDetailPage() {
                 <label key={unit.id} className="flex items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm">
                   <input
                     type="checkbox"
-                    checked={actionForm.unitIds.includes(unit.id)}
-                    onChange={(event) => setActionForm((prev) => ({
-                      ...prev,
-                      unitIds: event.target.checked ? [...prev.unitIds, unit.id] : prev.unitIds.filter((id) => id !== unit.id),
-                    }))}
+                    checked={actionUnitIds.includes(unit.id)}
+                    onChange={(event) =>
+                      actionForm.setValue(
+                        "unitIds",
+                        event.target.checked
+                          ? [...actionUnitIds, unit.id]
+                          : actionUnitIds.filter((id) => id !== unit.id),
+                        { shouldDirty: true },
+                      )
+                    }
                   />
                   <span>{unit.name}</span>
                 </label>
@@ -1109,7 +1398,15 @@ export default function GovernanceDetailPage() {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setActionDialogOpen(false)}>Cancelar</Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              actionForm.reset(blankActionForm());
+              setActionDialogOpen(false);
+            }}
+          >
+            Cancelar
+          </Button>
           <Button onClick={saveAction} isLoading={actionCrud.createMutation.isPending || actionCrud.updateMutation.isPending}>Salvar</Button>
         </DialogFooter>
       </Dialog>

@@ -144,6 +144,10 @@ export async function streamDatonAiAssistant(params: {
     }
 
     if (functionCall.name !== "query_database") {
+      console.info("Daton AI received unsupported tool call", {
+        name: functionCall.name,
+        callId: functionCall.callId,
+      });
       break;
     }
 

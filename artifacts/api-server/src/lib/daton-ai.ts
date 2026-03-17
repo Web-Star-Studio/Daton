@@ -90,6 +90,7 @@ export const DATON_AI_DB_QUERY_TOOL = {
     "Executa uma consulta SQL somente leitura no banco de dados da organização do usuário. Use para obter dados sobre organização, legislações, colaboradores, documentos, governança, notificações e conformidade. SEMPRE inclua WHERE organization_id = $ORG_ID quando a tabela tiver essa coluna diretamente. Em tabelas filhas que não têm organization_id, faça JOIN com a tabela pai correta para garantir o filtro da organização.",
   parameters: {
     type: "object",
+    additionalProperties: false,
     properties: {
       sql: {
         type: "string",

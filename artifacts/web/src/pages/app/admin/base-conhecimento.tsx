@@ -1,6 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { Plus, RefreshCcw, BookText, Archive, Upload, Sparkles } from "lucide-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
@@ -29,6 +32,14 @@ const EMPTY_ARTICLE: ProductKnowledgeArticleBody = {
   bodyMarkdown: "# Novo artigo\n\nDescreva aqui o conteúdo oficial do produto.",
 };
 
+const productKnowledgeArticleSchema = z.object({
+  slug: z.string().max(80).optional().nullable(),
+  title: z.string().min(1, "Informe um título").max(160),
+  category: z.string().min(1, "Informe uma categoria").max(80),
+  summary: z.string().min(1, "Informe um resumo").max(400),
+  bodyMarkdown: z.string().min(1, "Informe o conteúdo em markdown"),
+});
+
 const STATUS_LABELS = {
   draft: "Rascunho",
   published: "Publicado",
@@ -45,17 +56,30 @@ const INDEX_STATUS_LABELS = {
 export default function ProductKnowledgeAdminPage() {
   const { role } = useAuth();
   const { isPlatformAdmin } = usePermissions();
-  const { data: articles = [] } = useProductKnowledgeArticles();
+  const isAdmin = isPlatformAdmin && role === "platform_admin";
+  const { data: articles = [] } = useProductKnowledgeArticles({ enabled: isAdmin });
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const { data: detail } = useProductKnowledgeArticle(selectedId);
-  const createMutation = useCreateProductKnowledgeArticle();
-  const updateMutation = useUpdateProductKnowledgeArticle(selectedId);
-  const publishMutation = useProductKnowledgeLifecycleAction("publish", selectedId);
-  const reindexMutation = useProductKnowledgeLifecycleAction("reindex", selectedId);
-  const archiveMutation = useProductKnowledgeLifecycleAction("archive", selectedId);
-  const bootstrapMutation = useBootstrapProductKnowledgeArticles();
-  const [form, setForm] = useState<ProductKnowledgeArticleBody>(EMPTY_ARTICLE);
+  const { data: detail } = useProductKnowledgeArticle(selectedId, { enabled: isAdmin && !!selectedId });
+  const createMutation = useCreateProductKnowledgeArticle({ enabled: isAdmin });
+  const updateMutation = useUpdateProductKnowledgeArticle(selectedId, { enabled: isAdmin });
+  const publishMutation = useProductKnowledgeLifecycleAction("publish", selectedId, { enabled: isAdmin });
+  const reindexMutation = useProductKnowledgeLifecycleAction("reindex", selectedId, { enabled: isAdmin });
+  const archiveMutation = useProductKnowledgeLifecycleAction("archive", selectedId, { enabled: isAdmin });
+  const bootstrapMutation = useBootstrapProductKnowledgeArticles({ enabled: isAdmin });
   const [activeTab, setActiveTab] = useState("editor");
+  const form = useForm<ProductKnowledgeArticleBody>({
+    resolver: zodResolver(productKnowledgeArticleSchema),
+    defaultValues: EMPTY_ARTICLE,
+  });
+  const {
+    register,
+    reset,
+    watch,
+    getValues,
+    handleSubmit,
+    formState: { errors, isDirty },
+  } = form;
+  const watchedForm = watch();
 
   usePageTitle("Base de Conhecimento");
   usePageSubtitle(
@@ -63,57 +87,59 @@ export default function ProductKnowledgeAdminPage() {
   );
 
   useHeaderActions(
-    <div className="flex items-center gap-2">
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={async () => {
-          try {
-            const result = await bootstrapMutation.mutateAsync();
-            if (result.articles[0]) {
-              setSelectedId(result.articles[0].id);
+    isAdmin ? (
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={async () => {
+            try {
+              const result = await bootstrapMutation.mutateAsync();
+              if (result.articles[0]) {
+                setSelectedId(result.articles[0].id);
+              }
+              toast({
+                title: "Artigos iniciais carregados",
+                description:
+                  result.insertedCount > 0
+                    ? `${result.insertedCount} artigos criados em rascunho.`
+                    : "Os artigos iniciais já estavam disponíveis.",
+              });
+            } catch (error) {
+              toast({
+                title: "Falha ao carregar artigos iniciais",
+                description: error instanceof Error ? error.message : "Tente novamente.",
+              });
             }
-            toast({
-              title: "Artigos iniciais carregados",
-              description:
-                result.insertedCount > 0
-                  ? `${result.insertedCount} artigos criados em rascunho.`
-                  : "Os artigos iniciais já estavam disponíveis.",
-            });
-          } catch (error) {
-            toast({
-              title: "Falha ao carregar artigos iniciais",
-              description: error instanceof Error ? error.message : "Tente novamente.",
-            });
-          }
-        }}
-      >
-        <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-        Carregar artigos iniciais
-      </Button>
-      <Button
-        size="sm"
-        onClick={async () => {
-          try {
-            const created = await createMutation.mutateAsync({
-              ...EMPTY_ARTICLE,
-              title: "Novo artigo",
-              category: "Geral",
-              summary: "Resumo breve do conteúdo oficial do produto.",
-            });
-            setSelectedId(created.id);
-          } catch (error) {
-            toast({
-              title: "Falha ao criar artigo",
-              description: error instanceof Error ? error.message : "Tente novamente.",
-            });
-          }
-        }}
-      >
-        <Plus className="mr-1.5 h-3.5 w-3.5" />
-        Novo artigo
-      </Button>
-    </div>,
+          }}
+        >
+          <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+          Carregar artigos iniciais
+        </Button>
+        <Button
+          size="sm"
+          onClick={async () => {
+            try {
+              const created = await createMutation.mutateAsync({
+                ...EMPTY_ARTICLE,
+                title: "Novo artigo",
+                category: "Geral",
+                summary: "Resumo breve do conteúdo oficial do produto.",
+              });
+              setSelectedId(created.id);
+            } catch (error) {
+              toast({
+                title: "Falha ao criar artigo",
+                description: error instanceof Error ? error.message : "Tente novamente.",
+              });
+            }
+          }}
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Novo artigo
+        </Button>
+      </div>
+    ) : null,
   );
 
   useEffect(() => {
@@ -124,28 +150,19 @@ export default function ProductKnowledgeAdminPage() {
 
   useEffect(() => {
     if (detail) {
-      setForm({
+      reset({
         slug: detail.slug,
         title: detail.title,
         category: detail.category,
         summary: detail.summary,
         bodyMarkdown: detail.bodyMarkdown,
       });
+      return;
     }
-  }, [detail]);
+    reset(EMPTY_ARTICLE);
+  }, [detail, reset]);
 
-  const isDirty = useMemo(() => {
-    if (!detail) return false;
-    return (
-      (form.slug || "") !== detail.slug ||
-      form.title !== detail.title ||
-      form.category !== detail.category ||
-      form.summary !== detail.summary ||
-      form.bodyMarkdown !== detail.bodyMarkdown
-    );
-  }, [detail, form]);
-
-  if (!isPlatformAdmin || role !== "platform_admin") {
+  if (!isAdmin) {
     return (
       <div className="rounded-2xl border border-border/60 bg-card p-8">
         <p className="text-sm text-muted-foreground">
@@ -243,9 +260,9 @@ export default function ProductKnowledgeAdminPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
                     variant="outline"
-                    onClick={async () => {
+                    onClick={handleSubmit(async (values) => {
                       try {
-                        await updateMutation.mutateAsync(form);
+                        await updateMutation.mutateAsync(values);
                         toast({
                           title: "Artigo salvo",
                           description: "O conteúdo foi atualizado com sucesso.",
@@ -256,7 +273,7 @@ export default function ProductKnowledgeAdminPage() {
                           description: error instanceof Error ? error.message : "Tente novamente.",
                         });
                       }
-                    }}
+                    })}
                     disabled={!isDirty}
                     isLoading={updateMutation.isPending}
                   >
@@ -289,7 +306,7 @@ export default function ProductKnowledgeAdminPage() {
                     onClick={async () => {
                       try {
                         if (isDirty) {
-                          await updateMutation.mutateAsync(form);
+                          await updateMutation.mutateAsync(getValues());
                         }
                         const updated = await publishMutation.mutateAsync();
                         setSelectedId(updated.id);
@@ -355,53 +372,30 @@ export default function ProductKnowledgeAdminPage() {
                       <div>
                         <Label>Título</Label>
                         <Input
-                          value={form.title}
-                          onChange={(event) =>
-                            setForm((current) => ({ ...current, title: event.target.value }))
-                          }
+                          {...register("title")}
                         />
+                        {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
                       </div>
                       <div>
                         <Label>Slug</Label>
-                        <Input
-                          value={form.slug || ""}
-                          onChange={(event) =>
-                            setForm((current) => ({ ...current, slug: event.target.value }))
-                          }
-                        />
+                        <Input {...register("slug")} />
+                        {errors.slug && <p className="text-xs text-destructive">{errors.slug.message}</p>}
                       </div>
                     </div>
                     <div>
                       <Label>Categoria</Label>
-                      <Input
-                        value={form.category}
-                        onChange={(event) =>
-                          setForm((current) => ({ ...current, category: event.target.value }))
-                        }
-                      />
+                      <Input {...register("category")} />
+                      {errors.category && <p className="text-xs text-destructive">{errors.category.message}</p>}
                     </div>
                     <div>
                       <Label>Resumo</Label>
-                      <Textarea
-                        rows={3}
-                        value={form.summary}
-                        onChange={(event) =>
-                          setForm((current) => ({ ...current, summary: event.target.value }))
-                        }
-                      />
+                      <Textarea rows={3} {...register("summary")} />
+                      {errors.summary && <p className="text-xs text-destructive">{errors.summary.message}</p>}
                     </div>
                     <div>
                       <Label>Corpo em Markdown</Label>
-                      <Textarea
-                        rows={20}
-                        value={form.bodyMarkdown}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            bodyMarkdown: event.target.value,
-                          }))
-                        }
-                      />
+                      <Textarea rows={20} {...register("bodyMarkdown")} />
+                      {errors.bodyMarkdown && <p className="text-xs text-destructive">{errors.bodyMarkdown.message}</p>}
                     </div>
                   </TabsContent>
 
@@ -409,7 +403,7 @@ export default function ProductKnowledgeAdminPage() {
                     <div className="rounded-2xl border border-border/60 bg-background px-6 py-6">
                       <div className="prose prose-sm max-w-none">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {`# ${form.title || "Sem título"}\n\n${form.summary}\n\n${form.bodyMarkdown}`}
+                          {`# ${watchedForm.title || "Sem título"}\n\n${watchedForm.summary || ""}\n\n${watchedForm.bodyMarkdown || ""}`}
                         </ReactMarkdown>
                       </div>
                     </div>

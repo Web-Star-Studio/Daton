@@ -7,11 +7,8 @@ import {
   type ProductKnowledgeArticle,
   type ProductKnowledgeArticleStatus,
 } from "@workspace/db";
-import {
-  openai,
-  toFile,
-  type OpenAI,
-} from "@workspace/integrations-openai-ai-server";
+import { openai, type OpenAI } from "@workspace/integrations-openai-ai-server";
+import { toFile } from "@workspace/integrations-openai-ai-server/to-file";
 
 export interface ProductKnowledgeSource {
   title: string;
@@ -482,15 +479,22 @@ export async function syncProductKnowledgeArticleIndex(article: ProductKnowledge
   });
 
   try {
-    const vectorFile = await openai.vectorStores.files.createAndPoll(vectorStoreId, {
-      file_id: uploadedFile.id,
-      attributes: {
-        title: article.title,
-        slug: article.slug,
-        category: article.category,
-        version,
+    const vectorFile = await openai.vectorStores.files.createAndPoll(
+      vectorStoreId,
+      {
+        file_id: uploadedFile.id,
+        attributes: {
+          title: article.title,
+          slug: article.slug,
+          category: article.category,
+          version,
+        },
       },
-    });
+      {
+        timeout: 60_000,
+        pollIntervalMs: 1_000,
+      },
+    );
 
     if (vectorFile.status !== "completed") {
       throw new Error(
@@ -514,7 +518,6 @@ export async function replacePublishedProductKnowledgeIndex(options: {
   publishedById: number;
 }) {
   const { article, version, publishedById } = options;
-  const previousFileId = article.openaiFileId;
   const indexed = await syncProductKnowledgeArticleIndex(article, version);
 
   const [updated] = await db.transaction(async (tx) => {
@@ -524,10 +527,6 @@ export async function replacePublishedProductKnowledgeIndex(options: {
         status: "published",
         version,
         publishedAt: new Date(),
-        openaiFileId: indexed.openaiFileId,
-        lastIndexedAt: indexed.indexedAt,
-        lastIndexStatus: "indexed",
-        lastIndexError: null,
         updatedAt: new Date(),
       })
       .where(eq(productKnowledgeArticlesTable.id, article.id))
@@ -547,11 +546,39 @@ export async function replacePublishedProductKnowledgeIndex(options: {
     return [nextArticle];
   });
 
-  if (previousFileId && previousFileId !== indexed.openaiFileId) {
-    await openai.files.delete(previousFileId).catch(() => undefined);
-  }
+  await applyProductKnowledgeIndexedFile({
+    articleId: article.id,
+    previousOpenaiFileId: article.openaiFileId,
+    indexed,
+  });
 
   return updated;
+}
+
+export async function applyProductKnowledgeIndexedFile(options: {
+  articleId: number;
+  previousOpenaiFileId: string | null;
+  indexed: {
+    openaiFileId: string;
+    indexedAt: Date;
+  };
+}) {
+  const { articleId, previousOpenaiFileId, indexed } = options;
+
+  await db
+    .update(productKnowledgeArticlesTable)
+    .set({
+      openaiFileId: indexed.openaiFileId,
+      lastIndexedAt: indexed.indexedAt,
+      lastIndexStatus: "indexed",
+      lastIndexError: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(productKnowledgeArticlesTable.id, articleId));
+
+  if (previousOpenaiFileId && previousOpenaiFileId !== indexed.openaiFileId) {
+    await openai.files.delete(previousOpenaiFileId).catch(() => undefined);
+  }
 }
 
 export async function markProductKnowledgeIndexFailure(articleId: number, error: unknown) {

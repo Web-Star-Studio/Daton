@@ -6,9 +6,9 @@ import {
   productKnowledgeArticlesTable,
   productKnowledgeArticleRevisionsTable,
 } from "@workspace/db";
-import { openai } from "@workspace/integrations-openai-ai-server";
 import { requireAuth, requireRole } from "../middlewares/auth";
 import {
+  applyProductKnowledgeIndexedFile,
   archiveProductKnowledgeArticle,
   bootstrapDefaultProductKnowledgeArticles,
   createProductKnowledgeDraft,
@@ -225,22 +225,11 @@ router.post(
     await markProductKnowledgeIndexing(article.id);
     try {
       const indexed = await syncProductKnowledgeArticleIndex(article, article.version);
-      const previousFileId = article.openaiFileId;
-
-      await db
-        .update(productKnowledgeArticlesTable)
-        .set({
-          openaiFileId: indexed.openaiFileId,
-          lastIndexedAt: indexed.indexedAt,
-          lastIndexStatus: "indexed",
-          lastIndexError: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(productKnowledgeArticlesTable.id, article.id));
-
-      if (previousFileId && previousFileId !== indexed.openaiFileId) {
-        await openai.files.delete(previousFileId).catch(() => undefined);
-      }
+      await applyProductKnowledgeIndexedFile({
+        articleId: article.id,
+        previousOpenaiFileId: article.openaiFileId,
+        indexed,
+      });
 
       res.json(await getProductKnowledgeArticleDetail(article.id));
     } catch (error) {
