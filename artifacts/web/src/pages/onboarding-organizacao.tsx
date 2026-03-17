@@ -33,19 +33,36 @@ const authBg = "/images/bg-auth.png";
 
 const onboardingSchema = z
   .object({
-    sector: z.enum(ORGANIZATION_SECTORS, { message: "Selecione o setor principal" }),
+    sector: z.enum(ORGANIZATION_SECTORS, {
+      message: "Selecione o setor principal",
+    }),
     customSector: z.string().max(120, "Use até 120 caracteres").optional(),
-    size: z.enum(ORGANIZATION_SIZES, { message: "Selecione o porte da empresa" }),
-    goals: z.array(z.enum(ORGANIZATION_GOALS)).min(1, "Selecione pelo menos um objetivo"),
-    maturityLevel: z.enum(ORGANIZATION_MATURITY_LEVELS, { message: "Selecione o nível de maturidade" }),
+    size: z.enum(ORGANIZATION_SIZES, {
+      message: "Selecione o porte da empresa",
+    }),
+    goals: z
+      .array(z.enum(ORGANIZATION_GOALS))
+      .min(1, "Selecione pelo menos um objetivo"),
+    maturityLevel: z.enum(ORGANIZATION_MATURITY_LEVELS, {
+      message: "Selecione o nível de maturidade",
+    }),
     currentChallenges: z
-      .array(z.string().trim().min(1).max(120, "Cada desafio deve ter até 120 caracteres"))
+      .array(
+        z
+          .string()
+          .trim()
+          .min(1)
+          .max(120, "Cada desafio deve ter até 120 caracteres"),
+      )
       .max(12, "Adicione no máximo 12 desafios"),
     openingDate: z.string().optional(),
     taxRegime: z.string().max(120, "Use até 120 caracteres").optional(),
     primaryCnae: z.string().max(120, "Use até 120 caracteres").optional(),
     stateRegistration: z.string().max(120, "Use até 120 caracteres").optional(),
-    municipalRegistration: z.string().max(120, "Use até 120 caracteres").optional(),
+    municipalRegistration: z
+      .string()
+      .max(120, "Use até 120 caracteres")
+      .optional(),
   })
   .superRefine((value, ctx) => {
     if (value.sector === "other" && !value.customSector?.trim()) {
@@ -63,22 +80,26 @@ const stepDefinitions = [
   {
     key: "company_profile",
     title: "Perfil da empresa",
-    description: "Defina o contexto principal da organização para calibrar o produto desde o primeiro acesso.",
+    description:
+      "Defina o contexto principal da organização para calibrar o produto desde o primeiro acesso.",
   },
   {
     key: "goals_maturity",
     title: "Objetivos e maturidade",
-    description: "Entenda o que precisa ser priorizado agora e em que nível de estrutura a organização já opera.",
+    description:
+      "Entenda o que precisa ser priorizado agora e em que nível de estrutura a organização já opera.",
   },
   {
     key: "fiscal_registration",
     title: "Dados fiscais e cadastrais",
-    description: "Complete a base cadastral que sustenta a organização e seus próximos módulos.",
+    description:
+      "Complete a base cadastral que sustenta a organização e seus próximos módulos.",
   },
   {
     key: "review",
     title: "Revisão final",
-    description: "Confira os dados antes de liberar o acesso completo ao ambiente.",
+    description:
+      "Confira os dados antes de liberar o acesso completo ao ambiente.",
   },
 ] as const;
 
@@ -93,11 +114,14 @@ export default function OnboardingOrganizationPage() {
     resolver: zodResolver(onboardingSchema),
     defaultValues: {
       sector: organization?.onboardingData?.companyProfile?.sector,
-      customSector: organization?.onboardingData?.companyProfile?.customSector ?? "",
+      customSector:
+        organization?.onboardingData?.companyProfile?.customSector ?? "",
       size: organization?.onboardingData?.companyProfile?.size,
       goals: organization?.onboardingData?.companyProfile?.goals ?? [],
-      maturityLevel: organization?.onboardingData?.companyProfile?.maturityLevel,
-      currentChallenges: organization?.onboardingData?.companyProfile?.currentChallenges ?? [],
+      maturityLevel:
+        organization?.onboardingData?.companyProfile?.maturityLevel,
+      currentChallenges:
+        organization?.onboardingData?.companyProfile?.currentChallenges ?? [],
       openingDate: organization?.openingDate ?? "",
       taxRegime: organization?.taxRegime ?? "",
       primaryCnae: organization?.primaryCnae ?? "",
@@ -128,9 +152,19 @@ export default function OnboardingOrganizationPage() {
             getSectorLabel(values.sector, values.customSector),
           ],
           ["Porte", getSizeLabel(values.size)],
-          ["Objetivos", values.goals.length > 0 ? values.goals.map((goal) => getGoalLabel(goal)).join(", ") : "Não informado"],
+          [
+            "Objetivos",
+            values.goals.length > 0
+              ? values.goals.map((goal) => getGoalLabel(goal)).join(", ")
+              : "Não informado",
+          ],
           ["Maturidade", getMaturityLabel(values.maturityLevel)],
-          ["Desafios atuais", currentChallenges.length > 0 ? currentChallenges.join(", ") : "Não informado"],
+          [
+            "Desafios atuais",
+            currentChallenges.length > 0
+              ? currentChallenges.join(", ")
+              : "Não informado",
+          ],
         ],
       },
       {
@@ -139,8 +173,14 @@ export default function OnboardingOrganizationPage() {
           ["Data de abertura", values.openingDate || "Não informado"],
           ["Regime tributário", values.taxRegime?.trim() || "Não informado"],
           ["CNAE principal", values.primaryCnae?.trim() || "Não informado"],
-          ["Inscrição estadual", values.stateRegistration?.trim() || "Não informado"],
-          ["Inscrição municipal", values.municipalRegistration?.trim() || "Não informado"],
+          [
+            "Inscrição estadual",
+            values.stateRegistration?.trim() || "Não informado",
+          ],
+          [
+            "Inscrição municipal",
+            values.municipalRegistration?.trim() || "Não informado",
+          ],
         ],
       },
     ],
@@ -152,16 +192,25 @@ export default function OnboardingOrganizationPage() {
 
     if (!nextValue) return;
     if (nextValue.length > 120) {
-      form.setError("currentChallenges", { type: "manual", message: "Cada desafio deve ter até 120 caracteres" });
+      form.setError("currentChallenges", {
+        type: "manual",
+        message: "Cada desafio deve ter até 120 caracteres",
+      });
       return;
     }
     if (currentChallenges.length >= 12) {
-      form.setError("currentChallenges", { type: "manual", message: "Adicione no máximo 12 desafios" });
+      form.setError("currentChallenges", {
+        type: "manual",
+        message: "Adicione no máximo 12 desafios",
+      });
       return;
     }
 
     form.clearErrors("currentChallenges");
-    form.setValue("currentChallenges", [...currentChallenges, nextValue], { shouldDirty: true, shouldValidate: true });
+    form.setValue("currentChallenges", [...currentChallenges, nextValue], {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
     setChallengeInput("");
   };
 
@@ -174,26 +223,41 @@ export default function OnboardingOrganizationPage() {
   };
 
   const toggleGoal = (goal: OrganizationGoal, checked: boolean) => {
-    const nextGoals = checked ? [...values.goals, goal] : values.goals.filter((item) => item !== goal);
-    form.setValue("goals", nextGoals, { shouldDirty: true, shouldValidate: true });
+    const nextGoals = checked
+      ? [...values.goals, goal]
+      : values.goals.filter((item) => item !== goal);
+    form.setValue("goals", nextGoals, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
   };
 
   const goNext = async () => {
     const fieldsByStep: Record<number, Array<keyof OnboardingFormData>> = {
       0: ["sector", "customSector", "size"],
       1: ["goals", "maturityLevel", "currentChallenges"],
-      2: ["openingDate", "taxRegime", "primaryCnae", "stateRegistration", "municipalRegistration"],
+      2: [
+        "openingDate",
+        "taxRegime",
+        "primaryCnae",
+        "stateRegistration",
+        "municipalRegistration",
+      ],
     };
 
     const fields = fieldsByStep[stepIndex];
     if (!fields) {
-      setStepIndex((current) => Math.min(current + 1, stepDefinitions.length - 1));
+      setStepIndex((current) =>
+        Math.min(current + 1, stepDefinitions.length - 1),
+      );
       return;
     }
 
     const isValid = await form.trigger(fields);
     if (isValid) {
-      setStepIndex((current) => Math.min(current + 1, stepDefinitions.length - 1));
+      setStepIndex((current) =>
+        Math.min(current + 1, stepDefinitions.length - 1),
+      );
     }
   };
 
@@ -206,7 +270,10 @@ export default function OnboardingOrganizationPage() {
         data: {
           companyProfile: {
             sector: data.sector,
-            customSector: data.sector === "other" ? data.customSector?.trim() || null : null,
+            customSector:
+              data.sector === "other"
+                ? data.customSector?.trim() || null
+                : null,
             size: data.size,
             goals: data.goals,
             maturityLevel: data.maturityLevel,
@@ -244,7 +311,11 @@ export default function OnboardingOrganizationPage() {
 
   return (
     <div className="relative h-screen overflow-hidden bg-slate-950">
-      <img src={authBg} alt="" className="absolute inset-0 h-full w-full object-cover scale-[1.03]" />
+      <img
+        src={authBg}
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover scale-[1.03]"
+      />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.18),transparent_34%),linear-gradient(135deg,rgba(7,12,24,0.82),rgba(6,12,22,0.56))]" />
       <div className="absolute inset-0 backdrop-blur-[7px]" />
 
@@ -294,9 +365,13 @@ export default function OnboardingOrganizationPage() {
               {!canEdit ? (
                 <div className="flex min-h-[440px] flex-col items-center justify-center rounded-[24px] border border-dashed border-border bg-secondary/30 px-6 text-center">
                   <CircleDashed className="h-10 w-10 text-muted-foreground/60" />
-                  <h3 className="mt-5 text-xl font-semibold text-foreground">Aguardando conclusão do onboarding</h3>
+                  <h3 className="mt-5 text-xl font-semibold text-foreground">
+                    Aguardando conclusão do onboarding
+                  </h3>
                   <p className="mt-3 max-w-lg text-sm leading-6 text-muted-foreground">
-                    Assim que um administrador concluir este formulário, o acesso às rotas internas e aos módulos da plataforma será liberado.
+                    Assim que um administrador concluir este formulário, o
+                    acesso às rotas internas e aos módulos da plataforma será
+                    liberado.
                   </p>
                 </div>
               ) : (
@@ -304,8 +379,22 @@ export default function OnboardingOrganizationPage() {
                   {stepIndex === 0 && (
                     <div className="grid gap-6 lg:grid-cols-2">
                       <div className="lg:col-span-2">
-                        <Label>Setor principal</Label>
-                        <Select className="mt-2" value={values.sector ?? ""} onChange={(event) => form.setValue("sector", event.target.value as OnboardingFormData["sector"], { shouldValidate: true })}>
+                        <Label htmlFor="onboarding-sector">
+                          Setor principal
+                        </Label>
+                        <Select
+                          id="onboarding-sector"
+                          className="mt-2"
+                          value={values.sector ?? ""}
+                          onChange={(event) =>
+                            form.setValue(
+                              "sector",
+                              event.target
+                                .value as OnboardingFormData["sector"],
+                              { shouldValidate: true },
+                            )
+                          }
+                        >
                           <option value="">Selecione</option>
                           {sectorOptions.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -314,16 +403,27 @@ export default function OnboardingOrganizationPage() {
                           ))}
                         </Select>
                         {form.formState.errors.sector && (
-                          <p className="mt-1.5 text-xs text-destructive">{form.formState.errors.sector.message}</p>
+                          <p className="mt-1.5 text-xs text-destructive">
+                            {form.formState.errors.sector.message}
+                          </p>
                         )}
                       </div>
 
                       {values.sector === "other" && (
                         <div className="lg:col-span-2">
-                          <Label>Qual é o setor?</Label>
-                          <Input className="mt-2" {...form.register("customSector")} placeholder="Descreva o setor principal" />
+                          <Label htmlFor="onboarding-custom-sector">
+                            Qual é o setor?
+                          </Label>
+                          <Input
+                            id="onboarding-custom-sector"
+                            className="mt-2"
+                            {...form.register("customSector")}
+                            placeholder="Descreva o setor principal"
+                          />
                           {form.formState.errors.customSector && (
-                            <p className="mt-1.5 text-xs text-destructive">{form.formState.errors.customSector.message}</p>
+                            <p className="mt-1.5 text-xs text-destructive">
+                              {form.formState.errors.customSector.message}
+                            </p>
                           )}
                         </div>
                       )}
@@ -338,7 +438,12 @@ export default function OnboardingOrganizationPage() {
                               <button
                                 key={option.value}
                                 type="button"
-                                onClick={() => form.setValue("size", option.value, { shouldValidate: true, shouldDirty: true })}
+                                onClick={() =>
+                                  form.setValue("size", option.value, {
+                                    shouldValidate: true,
+                                    shouldDirty: true,
+                                  })
+                                }
                                 className={cn(
                                   "cursor-pointer rounded-2xl border px-4 py-4 text-left transition-colors",
                                   checked
@@ -346,13 +451,17 @@ export default function OnboardingOrganizationPage() {
                                     : "border-border bg-background text-foreground hover:border-foreground/15",
                                 )}
                               >
-                                <p className="text-sm font-medium">{option.label}</p>
+                                <p className="text-sm font-medium">
+                                  {option.label}
+                                </p>
                               </button>
                             );
                           })}
                         </div>
                         {form.formState.errors.size && (
-                          <p className="mt-1.5 text-xs text-destructive">{form.formState.errors.size.message}</p>
+                          <p className="mt-1.5 text-xs text-destructive">
+                            {form.formState.errors.size.message}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -363,7 +472,8 @@ export default function OnboardingOrganizationPage() {
                       <div>
                         <Label>Objetivos de negócio</Label>
                         <p className="mt-2 text-sm text-muted-foreground">
-                          Selecione pelo menos uma frente que precisa ganhar estrutura ou tração no curto prazo.
+                          Selecione pelo menos uma frente que precisa ganhar
+                          estrutura ou tração no curto prazo.
                         </p>
                         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                           {goalOptions.map((option) => {
@@ -379,14 +489,29 @@ export default function OnboardingOrganizationPage() {
                                     : "border-border bg-background hover:border-foreground/15",
                                 )}
                               >
-                                <Checkbox checked={checked} onCheckedChange={(next) => toggleGoal(option.value, next === true)} className="mt-0.5 border-white/60 data-[state=checked]:border-white data-[state=checked]:bg-white data-[state=checked]:text-[#007AFF]" />
-                                <span className={cn("text-sm", checked ? "text-white" : "text-foreground")}>{option.label}</span>
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(next) =>
+                                    toggleGoal(option.value, next === true)
+                                  }
+                                  className="mt-0.5 border-white/60 data-[state=checked]:border-white data-[state=checked]:bg-white data-[state=checked]:text-[#007AFF]"
+                                />
+                                <span
+                                  className={cn(
+                                    "text-sm",
+                                    checked ? "text-white" : "text-foreground",
+                                  )}
+                                >
+                                  {option.label}
+                                </span>
                               </label>
                             );
                           })}
                         </div>
                         {form.formState.errors.goals && (
-                          <p className="mt-1.5 text-xs text-destructive">{form.formState.errors.goals.message}</p>
+                          <p className="mt-1.5 text-xs text-destructive">
+                            {form.formState.errors.goals.message}
+                          </p>
                         )}
                       </div>
 
@@ -394,13 +519,19 @@ export default function OnboardingOrganizationPage() {
                         <Label>Nível de maturidade</Label>
                         <div className="mt-3 grid gap-3 sm:grid-cols-3">
                           {maturityOptions.map((option) => {
-                            const checked = values.maturityLevel === option.value;
+                            const checked =
+                              values.maturityLevel === option.value;
 
                             return (
                               <button
                                 key={option.value}
                                 type="button"
-                                onClick={() => form.setValue("maturityLevel", option.value, { shouldValidate: true, shouldDirty: true })}
+                                onClick={() =>
+                                  form.setValue("maturityLevel", option.value, {
+                                    shouldValidate: true,
+                                    shouldDirty: true,
+                                  })
+                                }
                                 className={cn(
                                   "cursor-pointer rounded-2xl border px-4 py-4 text-left transition-colors",
                                   checked
@@ -408,25 +539,33 @@ export default function OnboardingOrganizationPage() {
                                     : "border-border bg-background text-foreground hover:border-foreground/15",
                                 )}
                               >
-                                <p className="text-sm font-medium">{option.label}</p>
+                                <p className="text-sm font-medium">
+                                  {option.label}
+                                </p>
                               </button>
                             );
                           })}
                         </div>
                         {form.formState.errors.maturityLevel && (
-                          <p className="mt-1.5 text-xs text-destructive">{form.formState.errors.maturityLevel.message}</p>
+                          <p className="mt-1.5 text-xs text-destructive">
+                            {form.formState.errors.maturityLevel.message}
+                          </p>
                         )}
                       </div>
 
                       <div>
                         <Label>Desafios atuais</Label>
                         <p className="mt-2 text-sm text-muted-foreground">
-                          Opcional. Liste até 12 desafios para orientar a configuração inicial do produto.
+                          Opcional. Liste até 12 desafios para orientar a
+                          configuração inicial do produto.
                         </p>
                         <div className="mt-3 flex flex-col gap-3 sm:flex-row">
                           <Input
+                            id="onboarding-current-challenge"
                             value={challengeInput}
-                            onChange={(event) => setChallengeInput(event.target.value)}
+                            onChange={(event) =>
+                              setChallengeInput(event.target.value)
+                            }
                             onKeyDown={(event) => {
                               if (event.key === "Enter") {
                                 event.preventDefault();
@@ -435,13 +574,21 @@ export default function OnboardingOrganizationPage() {
                             }}
                             placeholder="Ex.: consolidar requisitos legais entre unidades"
                           />
-                          <Button type="button" variant="secondary" onClick={addChallenge}>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={addChallenge}
+                          >
                             Adicionar
                           </Button>
                         </div>
-                        <p className="mt-2 text-xs text-muted-foreground">{currentChallenges.length}/12 itens</p>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {currentChallenges.length}/12 itens
+                        </p>
                         {form.formState.errors.currentChallenges && (
-                          <p className="mt-1.5 text-xs text-destructive">{form.formState.errors.currentChallenges.message}</p>
+                          <p className="mt-1.5 text-xs text-destructive">
+                            {form.formState.errors.currentChallenges.message}
+                          </p>
                         )}
                         <div className="mt-4 flex flex-wrap gap-2">
                           {currentChallenges.map((challenge) => (
@@ -450,7 +597,12 @@ export default function OnboardingOrganizationPage() {
                               className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/55 px-3 py-1.5 text-xs text-foreground"
                             >
                               {challenge}
-                              <button type="button" onClick={() => removeChallenge(challenge)} className="text-muted-foreground hover:text-foreground">
+                              <button
+                                type="button"
+                                onClick={() => removeChallenge(challenge)}
+                                aria-label={`Remover desafio ${challenge}`}
+                                className="text-muted-foreground hover:text-foreground"
+                              >
                                 <X className="h-3 w-3" />
                               </button>
                             </span>
@@ -463,24 +615,57 @@ export default function OnboardingOrganizationPage() {
                   {stepIndex === 2 && (
                     <div className="grid gap-6 lg:grid-cols-2">
                       <div>
-                        <Label>Data de abertura</Label>
-                        <Input type="date" className="mt-2" {...form.register("openingDate")} />
+                        <Label htmlFor="onboarding-opening-date">
+                          Data de abertura
+                        </Label>
+                        <Input
+                          id="onboarding-opening-date"
+                          type="date"
+                          className="mt-2"
+                          {...form.register("openingDate")}
+                        />
                       </div>
                       <div>
-                        <Label>Regime tributário</Label>
-                        <Input className="mt-2" {...form.register("taxRegime")} placeholder="Ex.: Lucro Real" />
+                        <Label htmlFor="onboarding-tax-regime">
+                          Regime tributário
+                        </Label>
+                        <Input
+                          id="onboarding-tax-regime"
+                          className="mt-2"
+                          {...form.register("taxRegime")}
+                          placeholder="Ex.: Lucro Real"
+                        />
                       </div>
                       <div>
-                        <Label>CNAE principal</Label>
-                        <Input className="mt-2" {...form.register("primaryCnae")} placeholder="Ex.: 6201-5/01" />
+                        <Label htmlFor="onboarding-primary-cnae">
+                          CNAE principal
+                        </Label>
+                        <Input
+                          id="onboarding-primary-cnae"
+                          className="mt-2"
+                          {...form.register("primaryCnae")}
+                          placeholder="Ex.: 6201-5/01"
+                        />
                       </div>
                       <div>
-                        <Label>Inscrição estadual</Label>
-                        <Input className="mt-2" {...form.register("stateRegistration")} />
+                        <Label htmlFor="onboarding-state-registration">
+                          Inscrição estadual
+                        </Label>
+                        <Input
+                          id="onboarding-state-registration"
+                          className="mt-2"
+                          {...form.register("stateRegistration")}
+                        />
                       </div>
                       <div className="lg:col-span-2">
-                        <Label>Inscrição municipal</Label>
-                        <Input className="mt-2" {...form.register("municipalRegistration")} />
+                        <Label htmlFor="onboarding-municipal-registration">
+                          Inscrição municipal
+                        </Label>
+                        <Input
+                          id="onboarding-municipal-registration"
+                          className="mt-2"
+                          {...form.register("municipalRegistration")}
+                        />
                       </div>
                     </div>
                   )}
@@ -498,7 +683,9 @@ export default function OnboardingOrganizationPage() {
                                 <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
                                   {label}
                                 </p>
-                                <p className="text-[14px] leading-6 text-foreground">{value}</p>
+                                <p className="text-[14px] leading-6 text-foreground">
+                                  {value}
+                                </p>
                               </div>
                             ))}
                           </div>
@@ -517,7 +704,9 @@ export default function OnboardingOrganizationPage() {
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setStepIndex((current) => Math.max(current - 1, 0))}
+                        onClick={() =>
+                          setStepIndex((current) => Math.max(current - 1, 0))
+                        }
                         disabled={stepIndex === 0}
                       >
                         <ArrowLeft className="mr-2 h-4 w-4" />
@@ -529,7 +718,11 @@ export default function OnboardingOrganizationPage() {
                           <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                       ) : (
-                        <Button key="submit-onboarding" type="submit" isLoading={completeOnboardingMutation.isPending}>
+                        <Button
+                          key="submit-onboarding"
+                          type="submit"
+                          isLoading={completeOnboardingMutation.isPending}
+                        >
                           Confirmar e liberar acesso
                         </Button>
                       )}

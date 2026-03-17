@@ -2,7 +2,11 @@ import React, { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
-import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
+import {
+  useHeaderActions,
+  usePageSubtitle,
+  usePageTitle,
+} from "@/contexts/LayoutContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
@@ -15,10 +19,22 @@ import {
   useGovernancePlans,
   type GovernanceImportPayload,
 } from "@/lib/governance-client";
-import { parseGovernanceWorkbook, type GovernanceImportPreview } from "@/lib/governance-import";
-import { formatGovernanceDate, GOVERNANCE_STATUS_LABELS } from "@/lib/governance-ui";
+import {
+  parseGovernanceWorkbook,
+  type GovernanceImportPreview,
+} from "@/lib/governance-import";
+import {
+  formatGovernanceDate,
+  GOVERNANCE_STATUS_LABELS,
+} from "@/lib/governance-ui";
 import { toast } from "@/hooks/use-toast";
-import { ChevronRight, FileSpreadsheet, Landmark, Plus, ShieldAlert } from "lucide-react";
+import {
+  ChevronRight,
+  FileSpreadsheet,
+  Landmark,
+  Plus,
+  ShieldAlert,
+} from "lucide-react";
 
 export default function GovernancePage() {
   const { organization } = useAuth();
@@ -30,13 +46,17 @@ export default function GovernancePage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [planTitle, setPlanTitle] = useState("Planejamento Estratégico");
-  const [importPreview, setImportPreview] = useState<GovernanceImportPreview | null>(null);
+  const [importPreview, setImportPreview] =
+    useState<GovernanceImportPreview | null>(null);
   const [targetPlanId, setTargetPlanId] = useState<number | null>(null);
 
   usePageTitle("Planejamento Estratégico");
-  usePageSubtitle("Contexto, SWOT, partes interessadas, objetivos e evidências do requisito ISO 9001:2015 §4.1.");
+  usePageSubtitle(
+    "Contexto, SWOT, partes interessadas, objetivos e evidências do requisito ISO 9001:2015 §4.1.",
+  );
 
-  const currentPlan = plans.find((plan) => plan.status !== "archived") || plans[0];
+  const currentPlan =
+    plans.find((plan) => plan.status !== "archived") || plans[0];
 
   const actionBreakdown = useMemo(() => {
     return currentPlan?.openActionsByUnit || [];
@@ -68,24 +88,34 @@ export default function GovernancePage() {
     } catch (error) {
       toast({
         title: "Falha ao criar plano",
-        description: error instanceof Error ? error.message : "Não foi possível criar o plano.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível criar o plano.",
       });
     }
   };
 
-  const handleWorkbookSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleWorkbookSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     try {
       const preview = await parseGovernanceWorkbook(file);
       setImportPreview(preview);
-      const editablePlan = plans.find((plan) => ["draft", "rejected"].includes(plan.status));
+      const editablePlan = plans.find((plan) =>
+        ["draft", "rejected"].includes(plan.status),
+      );
       setTargetPlanId(editablePlan?.id ?? null);
     } catch (error) {
       toast({
         title: "Falha ao ler planilha",
-        description: error instanceof Error ? error.message : "O arquivo não pôde ser processado.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "O arquivo não pôde ser processado.",
       });
     } finally {
       event.target.value = "";
@@ -100,12 +130,15 @@ export default function GovernancePage() {
       if (!planId && plans.length > 0) {
         toast({
           title: "Importação bloqueada",
-          description: "Reabra o plano atual para rascunho antes de sobrescrever com uma planilha.",
+          description:
+            "Reabra o plano atual para rascunho antes de sobrescrever com uma planilha.",
         });
         return;
       }
       if (!planId) {
-        const created = await createPlanMutation.mutateAsync(importPreview.payload.plan);
+        const created = await createPlanMutation.mutateAsync(
+          importPreview.payload.plan,
+        );
         planId = created.id;
         setTargetPlanId(planId);
       }
@@ -119,14 +152,19 @@ export default function GovernancePage() {
       };
 
       const result = await importGovernancePlan(orgId, planId, payload);
-      await queryClient.invalidateQueries({ queryKey: governanceKeys.list(orgId) });
+      await queryClient.invalidateQueries({
+        queryKey: governanceKeys.list(orgId),
+      });
       setImportOpen(false);
       setImportPreview(null);
       navigate(`/governanca/planejamento/${result.id}`);
     } catch (error) {
       toast({
         title: "Falha ao importar planilha",
-        description: error instanceof Error ? error.message : "Não foi possível importar a planilha.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível importar a planilha.",
       });
     }
   };
@@ -136,45 +174,82 @@ export default function GovernancePage() {
       {currentPlan ? (
         <>
           <div>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Plano Vigente</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">
+              Plano Vigente
+            </h3>
             <div className="grid grid-cols-4 gap-x-8 gap-y-6">
               <div>
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Título</p>
-                <p className="text-[14px] text-foreground font-medium">{currentPlan.title}</p>
-                <Badge variant="secondary" className="mt-2">{GOVERNANCE_STATUS_LABELS[currentPlan.status] || currentPlan.status}</Badge>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                  Título
+                </p>
+                <p className="text-[14px] text-foreground font-medium">
+                  {currentPlan.title}
+                </p>
+                <Badge variant="secondary" className="mt-2">
+                  {GOVERNANCE_STATUS_LABELS[currentPlan.status] ||
+                    currentPlan.status}
+                </Badge>
               </div>
               <div>
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Próxima Revisão</p>
-                <p className="text-[14px] text-foreground">{formatGovernanceDate(currentPlan.nextReviewAt)}</p>
-                <p className="mt-1 text-[12px] text-muted-foreground">Frequência: {currentPlan.reviewFrequencyMonths} meses</p>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                  Próxima Revisão
+                </p>
+                <p className="text-[14px] text-foreground">
+                  {formatGovernanceDate(currentPlan.nextReviewAt)}
+                </p>
+                <p className="mt-1 text-[12px] text-muted-foreground">
+                  Frequência: {currentPlan.reviewFrequencyMonths} meses
+                </p>
               </div>
               <div>
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Pendências</p>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                  Pendências
+                </p>
                 <div className="flex items-center gap-2">
-                  <p className="text-[14px] text-foreground">{currentPlan.complianceIssues.length}</p>
-                  {currentPlan.complianceIssues.length > 0 && <ShieldAlert className="h-3.5 w-3.5 text-amber-500" />}
+                  <p className="text-[14px] text-foreground">
+                    {currentPlan.complianceIssues.length}
+                  </p>
+                  {currentPlan.complianceIssues.length > 0 && (
+                    <ShieldAlert className="h-3.5 w-3.5 text-amber-500" />
+                  )}
                 </div>
-                <p className="mt-1 text-[12px] text-muted-foreground">SWOT: {currentPlan.metrics.swotCount} · Objetivos: {currentPlan.metrics.objectiveCount}</p>
+                <p className="mt-1 text-[12px] text-muted-foreground">
+                  SWOT: {currentPlan.metrics.swotCount} · Objetivos:{" "}
+                  {currentPlan.metrics.objectiveCount}
+                </p>
               </div>
               <div>
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Ações Abertas</p>
-                <p className="text-[14px] text-foreground">{currentPlan.metrics.openActionCount}</p>
-                <p className="mt-1 text-[12px] text-muted-foreground">Em atraso: {currentPlan.metrics.overdueActionCount}</p>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                  Ações Abertas
+                </p>
+                <p className="text-[14px] text-foreground">
+                  {currentPlan.metrics.openActionCount}
+                </p>
+                <p className="mt-1 text-[12px] text-muted-foreground">
+                  Em atraso: {currentPlan.metrics.overdueActionCount}
+                </p>
               </div>
             </div>
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Resumo</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">
+              Resumo
+            </h3>
             <button
               type="button"
-              onClick={() => navigate(`/governanca/planejamento/${currentPlan.id}`)}
+              onClick={() =>
+                navigate(`/governanca/planejamento/${currentPlan.id}`)
+              }
               className="w-full text-left group flex items-center justify-between gap-4 py-4 border-b border-border/40 hover:bg-muted/20 -mx-2 px-2 rounded-lg transition-colors"
             >
               <div>
-                <p className="text-[14px] font-medium text-foreground">{currentPlan.title}</p>
+                <p className="text-[14px] font-medium text-foreground">
+                  {currentPlan.title}
+                </p>
                 <p className="mt-1 text-[13px] text-muted-foreground leading-relaxed">
-                  {currentPlan.executiveSummary || "Abra o plano para consolidar contexto, SWOT, partes interessadas e evidências formais."}
+                  {currentPlan.executiveSummary ||
+                    "Abra o plano para consolidar contexto, SWOT, partes interessadas e evidências formais."}
                 </p>
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-foreground shrink-0 transition-colors" />
@@ -183,12 +258,21 @@ export default function GovernancePage() {
 
           {actionBreakdown.length > 0 && (
             <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Ações Abertas por Unidade</h3>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">
+                Ações Abertas por Unidade
+              </h3>
               <div className="space-y-px">
                 {actionBreakdown.map((item) => (
-                  <div key={item.unitId} className="flex items-center justify-between py-3 border-b border-border/40">
-                    <span className="text-[14px] font-medium text-foreground">{item.unitName}</span>
-                    <span className="text-[13px] text-muted-foreground">{item.openActionCount}</span>
+                  <div
+                    key={item.unitId}
+                    className="flex items-center justify-between py-3 border-b border-border/40"
+                  >
+                    <span className="text-[14px] font-medium text-foreground">
+                      {item.unitName}
+                    </span>
+                    <span className="text-[13px] text-muted-foreground">
+                      {item.openActionCount}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -196,16 +280,28 @@ export default function GovernancePage() {
           )}
 
           <div>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Histórico e Versões</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">
+              Histórico e Versões
+            </h3>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-[13px]">
                 <thead>
                   <tr className="border-b border-border text-left">
-                    <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Título</th>
-                    <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Status</th>
-                    <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Revisão ativa</th>
-                    <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Próxima revisão</th>
-                    <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Pendências</th>
+                    <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                      Título
+                    </th>
+                    <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                      Status
+                    </th>
+                    <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                      Revisão ativa
+                    </th>
+                    <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                      Próxima revisão
+                    </th>
+                    <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                      Pendências
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -213,13 +309,25 @@ export default function GovernancePage() {
                     <tr
                       key={plan.id}
                       className="border-b border-border/40 hover:bg-muted/30 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/governanca/planejamento/${plan.id}`)}
+                      onClick={() =>
+                        navigate(`/governanca/planejamento/${plan.id}`)
+                      }
                     >
-                      <td className="px-3 py-3 font-medium text-foreground">{plan.title}</td>
-                      <td className="px-3 py-3 text-foreground">{GOVERNANCE_STATUS_LABELS[plan.status] || plan.status}</td>
-                      <td className="px-3 py-3 text-foreground">R{plan.activeRevisionNumber || 0}</td>
-                      <td className="px-3 py-3 text-foreground">{formatGovernanceDate(plan.nextReviewAt)}</td>
-                      <td className="px-3 py-3 text-foreground">{plan.complianceIssues.length}</td>
+                      <td className="px-3 py-3 font-medium text-foreground">
+                        {plan.title}
+                      </td>
+                      <td className="px-3 py-3 text-foreground">
+                        {GOVERNANCE_STATUS_LABELS[plan.status] || plan.status}
+                      </td>
+                      <td className="px-3 py-3 text-foreground">
+                        R{plan.activeRevisionNumber || 0}
+                      </td>
+                      <td className="px-3 py-3 text-foreground">
+                        {formatGovernanceDate(plan.nextReviewAt)}
+                      </td>
+                      <td className="px-3 py-3 text-foreground">
+                        {plan.complianceIssues.length}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -230,7 +338,9 @@ export default function GovernancePage() {
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <Landmark className="h-9 w-9 text-muted-foreground/40" />
-          <h2 className="mt-4 text-lg font-semibold text-foreground">Nenhum planejamento estratégico cadastrado</h2>
+          <h2 className="mt-4 text-lg font-semibold text-foreground">
+            Nenhum planejamento estratégico cadastrado
+          </h2>
           <p className="mt-1.5 text-[13px] text-muted-foreground">
             Crie um plano do zero ou importe a planilha atual.
           </p>
@@ -245,15 +355,22 @@ export default function GovernancePage() {
       >
         <div className="space-y-4">
           <div>
-            <Label>Título do plano</Label>
-            <Input value={planTitle} onChange={(event) => setPlanTitle(event.target.value)} />
+            <Label htmlFor="governance-plan-title">Título do plano</Label>
+            <Input
+              id="governance-plan-title"
+              value={planTitle}
+              onChange={(event) => setPlanTitle(event.target.value)}
+            />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setCreateOpen(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleCreatePlan} isLoading={createPlanMutation.isPending}>
+          <Button
+            onClick={handleCreatePlan}
+            isLoading={createPlanMutation.isPending}
+          >
             Criar rascunho
           </Button>
         </DialogFooter>
@@ -272,29 +389,49 @@ export default function GovernancePage() {
         <div className="space-y-5">
           <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 p-5">
             <Label htmlFor="governance-workbook">Arquivo .xlsx</Label>
-            <Input id="governance-workbook" type="file" accept=".xlsx,.xls" onChange={handleWorkbookSelect} className="mt-2" />
+            <Input
+              id="governance-workbook"
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleWorkbookSelect}
+              className="mt-2"
+            />
           </div>
 
           {importPreview && (
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-xl bg-muted/30 px-4 py-3">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Itens SWOT</p>
-                  <p className="mt-1 text-lg font-semibold">{importPreview.swotCount}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                    Itens SWOT
+                  </p>
+                  <p className="mt-1 text-lg font-semibold">
+                    {importPreview.swotCount}
+                  </p>
                 </div>
                 <div className="rounded-xl bg-muted/30 px-4 py-3">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Partes interessadas</p>
-                  <p className="mt-1 text-lg font-semibold">{importPreview.interestedPartyCount}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                    Partes interessadas
+                  </p>
+                  <p className="mt-1 text-lg font-semibold">
+                    {importPreview.interestedPartyCount}
+                  </p>
                 </div>
                 <div className="rounded-xl bg-muted/30 px-4 py-3">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Objetivos</p>
-                  <p className="mt-1 text-lg font-semibold">{importPreview.objectiveCount}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                    Objetivos
+                  </p>
+                  <p className="mt-1 text-lg font-semibold">
+                    {importPreview.objectiveCount}
+                  </p>
                 </div>
               </div>
 
               <div className="rounded-xl border border-border/60 p-4">
                 <p className="text-sm font-medium">{importPreview.planTitle}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{importPreview.workbookName}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {importPreview.workbookName}
+                </p>
                 <p className="mt-3 text-sm text-muted-foreground">
                   {targetPlanId
                     ? "A importação vai sobrescrever o rascunho editável atual."
@@ -303,9 +440,13 @@ export default function GovernancePage() {
               </div>
 
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <p className="text-sm font-medium text-amber-950">Alertas de consistência</p>
+                <p className="text-sm font-medium text-amber-950">
+                  Alertas de consistência
+                </p>
                 {importPreview.anomalies.length === 0 ? (
-                  <p className="mt-2 text-sm text-amber-900">Nenhuma anomalia identificada na leitura inicial.</p>
+                  <p className="mt-2 text-sm text-amber-900">
+                    Nenhuma anomalia identificada na leitura inicial.
+                  </p>
                 ) : (
                   <ul className="mt-2 list-disc pl-5 text-sm text-amber-900 space-y-1">
                     {importPreview.anomalies.map((anomaly) => (
@@ -332,7 +473,9 @@ export default function GovernancePage() {
       </Dialog>
 
       {isLoading && (
-        <div className="text-sm text-muted-foreground">Carregando planejamento estratégico...</div>
+        <div className="text-sm text-muted-foreground">
+          Carregando planejamento estratégico...
+        </div>
       )}
     </div>
   );

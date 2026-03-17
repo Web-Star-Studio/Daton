@@ -15,19 +15,23 @@ const loginSchema = z.object({
   password: z.string().min(1, "A senha é obrigatória"),
 });
 
-const registerSchema = z.object({
-  legalName: z.string().min(2, "Razão social é obrigatória"),
-  tradeName: z.string().optional(),
-  legalIdentifier: z.string().min(14, "CNPJ é obrigatório"),
-  adminFullName: z.string().min(2, "Nome do administrador é obrigatório"),
-  adminEmail: z.string().email("Email inválido"),
-  password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
-  confirmPassword: z.string().min(1, "Confirme sua senha"),
-  terms: z.literal(true, { errorMap: () => ({ message: "Você deve aceitar os termos" }) }),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "As senhas não coincidem",
-  path: ["confirmPassword"],
-});
+const registerSchema = z
+  .object({
+    legalName: z.string().min(2, "Razão social é obrigatória"),
+    tradeName: z.string().optional(),
+    legalIdentifier: z.string().min(14, "CNPJ é obrigatório"),
+    adminFullName: z.string().min(2, "Nome do administrador é obrigatório"),
+    adminEmail: z.string().email("Email inválido"),
+    password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
+    confirmPassword: z.string().min(1, "Confirme sua senha"),
+    terms: z.boolean().refine((val) => val === true, {
+      message: "Você deve aceitar os termos",
+    }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não coincidem",
+    path: ["confirmPassword"],
+  });
 
 type LoginData = z.infer<typeof loginSchema>;
 type RegisterData = z.infer<typeof registerSchema>;
@@ -50,6 +54,9 @@ export default function AuthPage() {
 
   const registerForm = useForm<RegisterData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      terms: false,
+    },
   });
 
   useEffect(() => {
@@ -69,7 +76,9 @@ export default function AuthPage() {
       setAuthToken(res.token);
       setLocation("/app");
     } catch (err: unknown) {
-      const message = (err as { data?: { error?: string } })?.data?.error || "Credenciais inválidas";
+      const message =
+        (err as { data?: { error?: string } })?.data?.error ||
+        "Credenciais inválidas";
       alert(message);
     }
   };
@@ -89,7 +98,9 @@ export default function AuthPage() {
       setAuthToken(res.token);
       setLocation("/app");
     } catch (err: unknown) {
-      const message = (err as { data?: { error?: string } })?.data?.error || "Erro ao criar conta. Verifique os dados.";
+      const message =
+        (err as { data?: { error?: string } })?.data?.error ||
+        "Erro ao criar conta. Verifique os dados.";
       alert(message);
     }
   };
@@ -104,7 +115,9 @@ export default function AuthPage() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30" />
         <div className="relative z-10 flex flex-col justify-between p-10 w-full">
-          <p className="text-white/90 text-xl tracking-wide font-light">daton</p>
+          <p className="text-white/90 text-xl tracking-wide font-light">
+            daton
+          </p>
           <h1 className="text-white text-[2.5rem] leading-tight font-bold max-w-[520px]">
             {isLogin
               ? "Bem-vindo ao Daton — sua plataforma de gestão ESG."
@@ -118,35 +131,62 @@ export default function AuthPage() {
           {isLogin ? (
             <>
               <div className="mb-10">
-                <h2 className="text-lg font-semibold text-foreground">Entrar</h2>
+                <h2 className="text-lg font-semibold text-foreground">
+                  Entrar
+                </h2>
                 <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">
-                  Informe suas credenciais para acessar o ambiente e conduzir a operação.
+                  Informe suas credenciais para acessar o ambiente e conduzir a
+                  operação.
                 </p>
               </div>
 
-              <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-8">
+              <form
+                onSubmit={loginForm.handleSubmit(onLogin)}
+                className="space-y-8"
+              >
                 <div className="space-y-6">
                   <div>
-                    <Label>E-mail de trabalho</Label>
-                    <Input {...loginForm.register("email")} className="mt-2" />
+                    <Label htmlFor="login-email">E-mail de trabalho</Label>
+                    <Input
+                      id="login-email"
+                      {...loginForm.register("email")}
+                      className="mt-2"
+                    />
                     {loginForm.formState.errors.email && (
-                      <p className="text-xs text-destructive mt-1.5">{loginForm.formState.errors.email.message}</p>
+                      <p className="text-xs text-destructive mt-1.5">
+                        {loginForm.formState.errors.email.message}
+                      </p>
                     )}
                   </div>
                   <div>
-                    <Label>Senha</Label>
+                    <Label htmlFor="login-password">Senha</Label>
                     <div className="relative mt-2">
-                      <Input type={showLoginPassword ? "text" : "password"} {...loginForm.register("password")} className="pr-10" />
+                      <Input
+                        id="login-password"
+                        type={showLoginPassword ? "text" : "password"}
+                        {...loginForm.register("password")}
+                        className="pr-10"
+                      />
                       <button
                         type="button"
                         onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        aria-label={
+                          showLoginPassword ? "Ocultar senha" : "Mostrar senha"
+                        }
+                        aria-pressed={showLoginPassword}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                       >
-                        {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showLoginPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                     {loginForm.formState.errors.password && (
-                      <p className="text-xs text-destructive mt-1.5">{loginForm.formState.errors.password.message}</p>
+                      <p className="text-xs text-destructive mt-1.5">
+                        {loginForm.formState.errors.password.message}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -174,76 +214,156 @@ export default function AuthPage() {
           ) : (
             <>
               <div className="mb-10">
-                <h2 className="text-lg font-semibold text-foreground">Estruturar organização</h2>
+                <h2 className="text-lg font-semibold text-foreground">
+                  Estruturar organização
+                </h2>
                 <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">
-                  Isso estabelece a base identitária da qual o restante do Daton depende: entidade legal, acesso inicial e a base de governança que depois pode se expandir para múltiplas unidades.
+                  Isso estabelece a base identitária da qual o restante do Daton
+                  depende: entidade legal, acesso inicial e a base de governança
+                  que depois pode se expandir para múltiplas unidades.
                 </p>
               </div>
 
-              <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-8">
+              <form
+                onSubmit={registerForm.handleSubmit(onRegister)}
+                className="space-y-8"
+              >
                 <div className="grid grid-cols-2 gap-x-6 gap-y-6">
                   <div>
-                    <Label>Razão social</Label>
-                    <Input {...registerForm.register("legalName")} className="mt-2" />
+                    <Label htmlFor="register-legal-name">Razão social</Label>
+                    <Input
+                      id="register-legal-name"
+                      {...registerForm.register("legalName")}
+                      className="mt-2"
+                    />
                     {registerForm.formState.errors.legalName && (
-                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.legalName.message}</p>
+                      <p className="text-xs text-destructive mt-1.5">
+                        {registerForm.formState.errors.legalName.message}
+                      </p>
                     )}
                   </div>
                   <div>
-                    <Label>Nome fantasia</Label>
-                    <Input {...registerForm.register("tradeName")} className="mt-2" />
+                    <Label htmlFor="register-trade-name">Nome fantasia</Label>
+                    <Input
+                      id="register-trade-name"
+                      {...registerForm.register("tradeName")}
+                      className="mt-2"
+                    />
                   </div>
                   <div>
-                    <Label>CNPJ</Label>
-                    <Input {...registerForm.register("legalIdentifier")} placeholder="00.000.000/0000-00" className="mt-2" />
+                    <Label htmlFor="register-legal-identifier">CNPJ</Label>
+                    <Input
+                      id="register-legal-identifier"
+                      {...registerForm.register("legalIdentifier")}
+                      placeholder="00.000.000/0000-00"
+                      className="mt-2"
+                    />
                     {registerForm.formState.errors.legalIdentifier && (
-                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.legalIdentifier.message}</p>
+                      <p className="text-xs text-destructive mt-1.5">
+                        {registerForm.formState.errors.legalIdentifier.message}
+                      </p>
                     )}
                   </div>
                   <div>
-                    <Label>Nome completo do administrador</Label>
-                    <Input {...registerForm.register("adminFullName")} className="mt-2" />
+                    <Label htmlFor="register-admin-full-name">
+                      Nome completo do administrador
+                    </Label>
+                    <Input
+                      id="register-admin-full-name"
+                      {...registerForm.register("adminFullName")}
+                      className="mt-2"
+                    />
                     {registerForm.formState.errors.adminFullName && (
-                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.adminFullName.message}</p>
+                      <p className="text-xs text-destructive mt-1.5">
+                        {registerForm.formState.errors.adminFullName.message}
+                      </p>
                     )}
                   </div>
                   <div>
-                    <Label>E-mail do administrador</Label>
-                    <Input {...registerForm.register("adminEmail")} className="mt-2" />
+                    <Label htmlFor="register-admin-email">
+                      E-mail do administrador
+                    </Label>
+                    <Input
+                      id="register-admin-email"
+                      {...registerForm.register("adminEmail")}
+                      className="mt-2"
+                    />
                     {registerForm.formState.errors.adminEmail && (
-                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.adminEmail.message}</p>
+                      <p className="text-xs text-destructive mt-1.5">
+                        {registerForm.formState.errors.adminEmail.message}
+                      </p>
                     )}
                   </div>
                   <div>
-                    <Label>Senha</Label>
+                    <Label htmlFor="register-password">Senha</Label>
                     <div className="relative mt-2">
-                      <Input type={showRegisterPassword ? "text" : "password"} {...registerForm.register("password")} className="pr-10" />
+                      <Input
+                        id="register-password"
+                        type={showRegisterPassword ? "text" : "password"}
+                        {...registerForm.register("password")}
+                        className="pr-10"
+                      />
                       <button
                         type="button"
-                        onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                        onClick={() =>
+                          setShowRegisterPassword(!showRegisterPassword)
+                        }
+                        aria-label={
+                          showRegisterPassword
+                            ? "Ocultar senha"
+                            : "Mostrar senha"
+                        }
+                        aria-pressed={showRegisterPassword}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                       >
-                        {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showRegisterPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                     {registerForm.formState.errors.password && (
-                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.password.message}</p>
+                      <p className="text-xs text-destructive mt-1.5">
+                        {registerForm.formState.errors.password.message}
+                      </p>
                     )}
                   </div>
                   <div>
-                    <Label>Confirmar senha</Label>
+                    <Label htmlFor="register-confirm-password">
+                      Confirmar senha
+                    </Label>
                     <div className="relative mt-2">
-                      <Input type={showConfirmPassword ? "text" : "password"} {...registerForm.register("confirmPassword")} className="pr-10" />
+                      <Input
+                        id="register-confirm-password"
+                        type={showConfirmPassword ? "text" : "password"}
+                        {...registerForm.register("confirmPassword")}
+                        className="pr-10"
+                      />
                       <button
                         type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
+                        aria-label={
+                          showConfirmPassword
+                            ? "Ocultar senha"
+                            : "Mostrar senha"
+                        }
+                        aria-pressed={showConfirmPassword}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                       >
-                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                     {registerForm.formState.errors.confirmPassword && (
-                      <p className="text-xs text-destructive mt-1.5">{registerForm.formState.errors.confirmPassword.message}</p>
+                      <p className="text-xs text-destructive mt-1.5">
+                        {registerForm.formState.errors.confirmPassword.message}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -253,16 +373,25 @@ export default function AuthPage() {
                     id="terms"
                     checked={registerForm.watch("terms") === true}
                     onCheckedChange={(checked) =>
-                      registerForm.setValue("terms", checked === true ? true : (false as unknown as true), { shouldValidate: true })
+                      registerForm.setValue("terms", checked === true, {
+                        shouldValidate: true,
+                      })
                     }
                     className="mt-0.5"
                   />
-                  <label htmlFor="terms" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
-                    Ao marcar esta caixa, declaro que li, entendi e concordo com os Termos de Serviço, a Política de Privacidade, o EULA e a Política de Uso Aceitável do Daton.
+                  <label
+                    htmlFor="terms"
+                    className="text-xs text-muted-foreground leading-relaxed cursor-pointer"
+                  >
+                    Ao marcar esta caixa, declaro que li, entendi e concordo com
+                    os Termos de Serviço, a Política de Privacidade, o EULA e a
+                    Política de Uso Aceitável do Daton.
                   </label>
                 </div>
                 {registerForm.formState.errors.terms && (
-                  <p className="text-xs text-destructive">{registerForm.formState.errors.terms.message}</p>
+                  <p className="text-xs text-destructive">
+                    {registerForm.formState.errors.terms.message}
+                  </p>
                 )}
 
                 <button
@@ -270,7 +399,9 @@ export default function AuthPage() {
                   disabled={registerMutation.isPending}
                   className="w-full bg-[#007AFF] text-white text-[13px] font-medium py-3 rounded-lg hover:bg-[#0066DD] transition-colors disabled:opacity-50 cursor-pointer"
                 >
-                  {registerMutation.isPending ? "Criando..." : "Continuar com a criação"}
+                  {registerMutation.isPending
+                    ? "Criando..."
+                    : "Continuar com a criação"}
                 </button>
 
                 <p className="text-[13px] text-muted-foreground">
