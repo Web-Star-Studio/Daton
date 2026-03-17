@@ -7,6 +7,8 @@ import {
   strategicPlanActionUnitsTable,
   strategicPlanInterestedPartiesTable,
   strategicPlanObjectivesTable,
+  strategicPlanRiskOpportunityEffectivenessReviewsTable,
+  strategicPlanRiskOpportunityItemsTable,
   strategicPlansTable,
   strategicPlanRevisionsTable,
   strategicPlanSwotItemsTable,
@@ -85,11 +87,26 @@ export async function cleanupTestData(prefix: string) {
         .from(strategicPlanActionsTable)
         .where(inArray(strategicPlanActionsTable.planId, planIds));
       const actionIds = actions.map((action) => action.id);
+      const riskItems = await tx
+        .select({ id: strategicPlanRiskOpportunityItemsTable.id })
+        .from(strategicPlanRiskOpportunityItemsTable)
+        .where(inArray(strategicPlanRiskOpportunityItemsTable.planId, planIds));
+      const riskItemIds = riskItems.map((item) => item.id);
 
       if (actionIds.length > 0) {
         await tx
           .delete(strategicPlanActionUnitsTable)
           .where(inArray(strategicPlanActionUnitsTable.actionId, actionIds));
+      }
+      if (riskItemIds.length > 0) {
+        await tx
+          .delete(strategicPlanRiskOpportunityEffectivenessReviewsTable)
+          .where(
+            inArray(
+              strategicPlanRiskOpportunityEffectivenessReviewsTable.riskOpportunityItemId,
+              riskItemIds,
+            ),
+          );
       }
 
       await tx
@@ -98,6 +115,9 @@ export async function cleanupTestData(prefix: string) {
       await tx
         .delete(strategicPlanActionsTable)
         .where(inArray(strategicPlanActionsTable.planId, planIds));
+      await tx
+        .delete(strategicPlanRiskOpportunityItemsTable)
+        .where(inArray(strategicPlanRiskOpportunityItemsTable.planId, planIds));
       await tx
         .delete(strategicPlanSwotItemsTable)
         .where(inArray(strategicPlanSwotItemsTable.planId, planIds));
