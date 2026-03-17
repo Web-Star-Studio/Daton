@@ -15,9 +15,16 @@ export interface StrategicPlanAction {
   description?: string | null;
   swotItemId?: number | null;
   objectiveId?: number | null;
+  riskOpportunityItemId?: number | null;
   responsibleUserId?: number | null;
   responsibleUserName?: string | null;
+  secondaryResponsibleUserId?: number | null;
+  secondaryResponsibleUserName?: string | null;
   dueDate?: string | null;
+  rescheduledDueDate?: string | null;
+  rescheduleReason?: string | null;
+  completedAt?: string | null;
+  completionNotes?: string | null;
   status: StrategicPlanActionStatus;
   notes?: string | null;
   sortOrder: number;

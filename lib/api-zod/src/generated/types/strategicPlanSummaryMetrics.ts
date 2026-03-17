@@ -6,13 +6,20 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { StrategicPlanSummaryMetricsActionsByStatus } from "./strategicPlanSummaryMetricsActionsByStatus";
+import type { StrategicPlanSummaryMetricsRiskOpportunitiesByStatus } from "./strategicPlanSummaryMetricsRiskOpportunitiesByStatus";
+import type { StrategicPlanSummaryMetricsRiskOpportunitiesByType } from "./strategicPlanSummaryMetricsRiskOpportunitiesByType";
 
 export interface StrategicPlanSummaryMetrics {
   swotCount: number;
   actionCount: number;
   interestedPartyCount: number;
   objectiveCount: number;
+  riskOpportunityCount: number;
   openActionCount: number;
   overdueActionCount: number;
+  openRiskOpportunityCount: number;
+  overdueRiskOpportunityCount: number;
   actionsByStatus: StrategicPlanSummaryMetricsActionsByStatus;
+  riskOpportunitiesByStatus: StrategicPlanSummaryMetricsRiskOpportunitiesByStatus;
+  riskOpportunitiesByType: StrategicPlanSummaryMetricsRiskOpportunitiesByType;
 }

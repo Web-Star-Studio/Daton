@@ -3444,6 +3444,231 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/risk-opportunity-items:
+    get:
+      operationId: listStrategicPlanRiskOpportunityItems
+      tags: [governance]
+      summary: List risk and opportunity items for a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Risk and opportunity items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StrategicPlanRiskOpportunityItem"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createStrategicPlanRiskOpportunityItem
+      tags: [governance]
+      summary: Create a risk or opportunity item for a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStrategicPlanRiskOpportunityItemBody"
+      responses:
+        "201":
+          description: Risk or opportunity item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanRiskOpportunityItem"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/risk-opportunity-items/{itemId}:
+    patch:
+      operationId: updateStrategicPlanRiskOpportunityItem
+      tags: [governance]
+      summary: Update a risk or opportunity item for a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStrategicPlanRiskOpportunityItemBody"
+      responses:
+        "200":
+          description: Risk or opportunity item updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanRiskOpportunityItem"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteStrategicPlanRiskOpportunityItem
+      tags: [governance]
+      summary: Delete a risk or opportunity item for a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Risk or opportunity item deleted
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/governance/strategic-plans/{planId}/risk-opportunity-items/{itemId}/effectiveness-review:
+    post:
+      operationId: createStrategicPlanRiskOpportunityEffectivenessReview
+      tags: [governance]
+      summary: Create an effectiveness review for a risk or opportunity item
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStrategicPlanRiskOpportunityEffectivenessReviewBody"
+      responses:
+        "200":
+          description: Risk or opportunity item updated with effectiveness review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanRiskOpportunityItem"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "403":
           description: Forbidden
           content:
@@ -5159,6 +5384,30 @@ components:
       type: string
       enum: [pending, in_progress, done, canceled]
 
+    StrategicPlanRiskOpportunityType:
+      type: string
+      enum: [risk, opportunity]
+
+    StrategicPlanRiskOpportunitySourceType:
+      type: string
+      enum: [swot, audit, meeting, legislation, incident, internal_strategy, other]
+
+    StrategicPlanRiskOpportunityStatus:
+      type: string
+      enum: [identified, assessed, responding, awaiting_effectiveness, effective, ineffective, continuous, canceled]
+
+    StrategicPlanRiskOpportunityResponseStrategy:
+      type: string
+      enum: [mitigate, eliminate, accept, monitor, exploit, enhance, share, avoid, other]
+
+    StrategicPlanRiskOpportunityPriority:
+      type: string
+      enum: [na, low, medium, high, critical]
+
+    StrategicPlanRiskOpportunityEffectivenessResult:
+      type: string
+      enum: [effective, ineffective]
+
     StrategicPlanLegacyRevisionEntry:
       type: object
       properties:
@@ -5189,11 +5438,25 @@ components:
           type: integer
         objectiveCount:
           type: integer
+        riskOpportunityCount:
+          type: integer
         openActionCount:
           type: integer
         overdueActionCount:
           type: integer
+        openRiskOpportunityCount:
+          type: integer
+        overdueRiskOpportunityCount:
+          type: integer
         actionsByStatus:
+          type: object
+          additionalProperties:
+            type: integer
+        riskOpportunitiesByStatus:
+          type: object
+          additionalProperties:
+            type: integer
+        riskOpportunitiesByType:
           type: object
           additionalProperties:
             type: integer
@@ -5202,9 +5465,14 @@ components:
         - actionCount
         - interestedPartyCount
         - objectiveCount
+        - riskOpportunityCount
         - openActionCount
         - overdueActionCount
+        - openRiskOpportunityCount
+        - overdueRiskOpportunityCount
         - actionsByStatus
+        - riskOpportunitiesByStatus
+        - riskOpportunitiesByType
 
     StrategicPlanOpenActionByUnit:
       type: object
@@ -5387,13 +5655,34 @@ components:
         objectiveId:
           type: integer
           nullable: true
+        riskOpportunityItemId:
+          type: integer
+          nullable: true
         responsibleUserId:
           type: integer
           nullable: true
         responsibleUserName:
           type: string
           nullable: true
+        secondaryResponsibleUserId:
+          type: integer
+          nullable: true
+        secondaryResponsibleUserName:
+          type: string
+          nullable: true
         dueDate:
+          type: string
+          nullable: true
+        rescheduledDueDate:
+          type: string
+          nullable: true
+        rescheduleReason:
+          type: string
+          nullable: true
+        completedAt:
+          type: string
+          nullable: true
+        completionNotes:
           type: string
           nullable: true
         status:
@@ -5420,6 +5709,141 @@ components:
         - status
         - sortOrder
         - units
+
+    StrategicPlanRiskOpportunityEffectivenessReview:
+      type: object
+      properties:
+        id:
+          type: integer
+        riskOpportunityItemId:
+          type: integer
+        reviewedById:
+          type: integer
+        reviewedByName:
+          type: string
+          nullable: true
+        result:
+          $ref: "#/components/schemas/StrategicPlanRiskOpportunityEffectivenessResult"
+        comment:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - riskOpportunityItemId
+        - reviewedById
+        - result
+
+    StrategicPlanRiskOpportunityItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        planId:
+          type: integer
+        type:
+          $ref: "#/components/schemas/StrategicPlanRiskOpportunityType"
+        sourceType:
+          $ref: "#/components/schemas/StrategicPlanRiskOpportunitySourceType"
+        sourceReference:
+          type: string
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+        ownerUserId:
+          type: integer
+          nullable: true
+        ownerUserName:
+          type: string
+          nullable: true
+        coOwnerUserId:
+          type: integer
+          nullable: true
+        coOwnerUserName:
+          type: string
+          nullable: true
+        unitId:
+          type: integer
+          nullable: true
+        unitName:
+          type: string
+          nullable: true
+        objectiveId:
+          type: integer
+          nullable: true
+        swotItemId:
+          type: integer
+          nullable: true
+        likelihood:
+          type: integer
+          minimum: 1
+          maximum: 4
+          nullable: true
+        impact:
+          type: integer
+          minimum: 1
+          maximum: 4
+          nullable: true
+        score:
+          type: integer
+          description: Derived by the server from likelihood x impact.
+          nullable: true
+        priority:
+          $ref: "#/components/schemas/StrategicPlanRiskOpportunityPriority"
+          description: Derived by the server from the calculated score.
+        responseStrategy:
+          allOf:
+            - $ref: "#/components/schemas/StrategicPlanRiskOpportunityResponseStrategy"
+          nullable: true
+        nextReviewAt:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/StrategicPlanRiskOpportunityStatus"
+        existingControls:
+          type: string
+          nullable: true
+        expectedEffect:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        latestEffectivenessResult:
+          type: string
+          enum: [effective, ineffective]
+          nullable: true
+        latestEffectivenessReview:
+          $ref: "#/components/schemas/StrategicPlanRiskOpportunityEffectivenessReview"
+        effectivenessReviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/StrategicPlanRiskOpportunityEffectivenessReview"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/StrategicPlanAction"
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - planId
+        - type
+        - sourceType
+        - title
+        - description
+        - status
+        - priority
+        - effectivenessReviews
+        - actions
 
     StrategicPlanRevision:
       type: object
@@ -5617,6 +6041,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/StrategicPlanAction"
+        riskOpportunityItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/StrategicPlanRiskOpportunityItem"
         revisions:
           type: array
           items:
@@ -5639,6 +6067,7 @@ components:
         - interestedParties
         - objectives
         - actions
+        - riskOpportunityItems
         - revisions
         - metrics
         - complianceIssues
@@ -5932,12 +6361,32 @@ components:
         objectiveId:
           type: integer
           nullable: true
+        riskOpportunityItemId:
+          type: integer
+          nullable: true
         responsibleUserId:
+          type: integer
+          nullable: true
+        secondaryResponsibleUserId:
           type: integer
           nullable: true
         dueDate:
           type: string
           format: date-time
+          nullable: true
+        rescheduledDueDate:
+          type: string
+          format: date-time
+          nullable: true
+        rescheduleReason:
+          type: string
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completionNotes:
+          type: string
           nullable: true
         status:
           $ref: "#/components/schemas/StrategicPlanActionStatus"
@@ -5957,6 +6406,90 @@ components:
     UpdateStrategicPlanActionBody:
       allOf:
         - $ref: "#/components/schemas/CreateStrategicPlanActionBody"
+
+    CreateStrategicPlanRiskOpportunityItemBody:
+      type: object
+      properties:
+        type:
+          $ref: "#/components/schemas/StrategicPlanRiskOpportunityType"
+        sourceType:
+          $ref: "#/components/schemas/StrategicPlanRiskOpportunitySourceType"
+        sourceReference:
+          type: string
+          nullable: true
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          minLength: 1
+        ownerUserId:
+          type: integer
+          nullable: true
+        coOwnerUserId:
+          type: integer
+          nullable: true
+        unitId:
+          type: integer
+          nullable: true
+        objectiveId:
+          type: integer
+          nullable: true
+        swotItemId:
+          type: integer
+          nullable: true
+        likelihood:
+          type: integer
+          minimum: 1
+          maximum: 4
+          nullable: true
+        impact:
+          type: integer
+          minimum: 1
+          maximum: 4
+          nullable: true
+        responseStrategy:
+          allOf:
+            - $ref: "#/components/schemas/StrategicPlanRiskOpportunityResponseStrategy"
+          nullable: true
+        nextReviewAt:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: "#/components/schemas/StrategicPlanRiskOpportunityStatus"
+        existingControls:
+          type: string
+          nullable: true
+        expectedEffect:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          minimum: 0
+      required:
+        - type
+        - sourceType
+        - title
+        - description
+
+    UpdateStrategicPlanRiskOpportunityItemBody:
+      allOf:
+        - $ref: "#/components/schemas/CreateStrategicPlanRiskOpportunityItemBody"
+
+    CreateStrategicPlanRiskOpportunityEffectivenessReviewBody:
+      type: object
+      properties:
+        result:
+          $ref: "#/components/schemas/StrategicPlanRiskOpportunityEffectivenessResult"
+        comment:
+          type: string
+          nullable: true
+      required:
+        - result
 
     ImportStrategicPlanSwotItem:
       allOf:

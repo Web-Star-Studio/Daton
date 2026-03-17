@@ -3,10 +3,13 @@ import {
   approveStrategicPlan,
   createStrategicPlan,
   createStrategicPlanAction,
+  createStrategicPlanRiskOpportunityEffectivenessReview,
+  createStrategicPlanRiskOpportunityItem,
   createStrategicPlanInterestedParty,
   createStrategicPlanObjective,
   createStrategicPlanSwotItem,
   deleteStrategicPlanAction,
+  deleteStrategicPlanRiskOpportunityItem,
   deleteStrategicPlanInterestedParty,
   deleteStrategicPlanObjective,
   deleteStrategicPlanSwotItem,
@@ -21,11 +24,14 @@ import {
   submitStrategicPlan,
   updateStrategicPlan,
   updateStrategicPlanAction,
+  updateStrategicPlanRiskOpportunityItem,
   updateStrategicPlanInterestedParty,
   updateStrategicPlanObjective,
   updateStrategicPlanSwotItem,
   type CreateStrategicPlanBody,
   type CreateStrategicPlanActionBody,
+  type CreateStrategicPlanRiskOpportunityEffectivenessReviewBody,
+  type CreateStrategicPlanRiskOpportunityItemBody,
   type CreateStrategicPlanInterestedPartyBody,
   type CreateStrategicPlanObjectiveBody,
   type CreateStrategicPlanSwotItemBody,
@@ -33,6 +39,8 @@ import {
   type StrategicPlanAction,
   type StrategicPlanDetail,
   type StrategicPlanExportResponse,
+  type StrategicPlanRiskOpportunityEffectivenessReview,
+  type StrategicPlanRiskOpportunityItem,
   type StrategicPlanInterestedParty,
   type StrategicPlanLegacyRevisionEntry,
   type StrategicPlanListItem,
@@ -42,6 +50,7 @@ import {
   type StrategicPlanSwotItem,
   type UpdateStrategicPlanActionBody,
   type UpdateStrategicPlanBody,
+  type UpdateStrategicPlanRiskOpportunityItemBody,
   type UpdateStrategicPlanInterestedPartyBody,
   type UpdateStrategicPlanObjectiveBody,
   type UpdateStrategicPlanSwotItemBody,
@@ -59,11 +68,18 @@ export type GovernanceSwotItem = StrategicPlanSwotItem;
 export type GovernanceInterestedParty = StrategicPlanInterestedParty;
 export type GovernanceObjective = StrategicPlanObjective;
 export type GovernanceAction = StrategicPlanAction;
+export type GovernanceRiskOpportunityItem = StrategicPlanRiskOpportunityItem;
+export type GovernanceRiskOpportunityEffectivenessReview =
+  StrategicPlanRiskOpportunityEffectivenessReview;
 export type GovernanceExportResponse = StrategicPlanExportResponse;
 export type GovernanceSwotBody = CreateStrategicPlanSwotItemBody;
 export type GovernanceInterestedPartyBody = CreateStrategicPlanInterestedPartyBody;
 export type GovernanceObjectiveBody = CreateStrategicPlanObjectiveBody;
 export type GovernanceActionBody = CreateStrategicPlanActionBody;
+export type GovernanceRiskOpportunityBody =
+  CreateStrategicPlanRiskOpportunityItemBody;
+export type GovernanceRiskOpportunityEffectivenessReviewBody =
+  CreateStrategicPlanRiskOpportunityEffectivenessReviewBody;
 
 export const governanceKeys = {
   list: (orgId: number) => getListStrategicPlansQueryKey(orgId),
@@ -164,12 +180,14 @@ type GovernanceResourceName =
   | "swot-items"
   | "interested-parties"
   | "objectives"
+  | "risk-opportunity-items"
   | "actions";
 
 type GovernanceCreateBodyMap = {
   "swot-items": CreateStrategicPlanSwotItemBody;
   "interested-parties": CreateStrategicPlanInterestedPartyBody;
   objectives: CreateStrategicPlanObjectiveBody;
+  "risk-opportunity-items": CreateStrategicPlanRiskOpportunityItemBody;
   actions: CreateStrategicPlanActionBody;
 };
 
@@ -177,6 +195,7 @@ type GovernanceUpdateBodyMap = {
   "swot-items": UpdateStrategicPlanSwotItemBody;
   "interested-parties": UpdateStrategicPlanInterestedPartyBody;
   objectives: UpdateStrategicPlanObjectiveBody;
+  "risk-opportunity-items": UpdateStrategicPlanRiskOpportunityItemBody;
   actions: UpdateStrategicPlanActionBody;
 };
 
@@ -199,6 +218,8 @@ export function useGovernanceCrudMutation<
           return createStrategicPlanInterestedParty(orgId || 0, planId || 0, body as CreateStrategicPlanInterestedPartyBody);
         case "objectives":
           return createStrategicPlanObjective(orgId || 0, planId || 0, body as CreateStrategicPlanObjectiveBody);
+        case "risk-opportunity-items":
+          return createStrategicPlanRiskOpportunityItem(orgId || 0, planId || 0, body as CreateStrategicPlanRiskOpportunityItemBody);
         case "actions":
           return createStrategicPlanAction(orgId || 0, planId || 0, body as CreateStrategicPlanActionBody);
       }
@@ -215,6 +236,8 @@ export function useGovernanceCrudMutation<
           return updateStrategicPlanInterestedParty(orgId || 0, planId || 0, id, body as UpdateStrategicPlanInterestedPartyBody);
         case "objectives":
           return updateStrategicPlanObjective(orgId || 0, planId || 0, id, body as UpdateStrategicPlanObjectiveBody);
+        case "risk-opportunity-items":
+          return updateStrategicPlanRiskOpportunityItem(orgId || 0, planId || 0, id, body as UpdateStrategicPlanRiskOpportunityItemBody);
         case "actions":
           return updateStrategicPlanAction(orgId || 0, planId || 0, id, body as UpdateStrategicPlanActionBody);
       }
@@ -231,6 +254,8 @@ export function useGovernanceCrudMutation<
           return deleteStrategicPlanInterestedParty(orgId || 0, planId || 0, id);
         case "objectives":
           return deleteStrategicPlanObjective(orgId || 0, planId || 0, id);
+        case "risk-opportunity-items":
+          return deleteStrategicPlanRiskOpportunityItem(orgId || 0, planId || 0, id);
         case "actions":
           return deleteStrategicPlanAction(orgId || 0, planId || 0, id);
       }
@@ -247,4 +272,28 @@ export function useGovernanceCrudMutation<
 
 export async function fetchGovernanceExport(orgId: number, planId: number) {
   return getStrategicPlanExport(orgId, planId);
+}
+
+export function useGovernanceRiskOpportunityEffectivenessReview(
+  orgId?: number,
+  planId?: number,
+) {
+  const invalidate = useInvalidateGovernance(orgId, planId);
+
+  return useMutation({
+    mutationFn: ({
+      itemId,
+      body,
+    }: {
+      itemId: number;
+      body: GovernanceRiskOpportunityEffectivenessReviewBody;
+    }) =>
+      createStrategicPlanRiskOpportunityEffectivenessReview(
+        orgId || 0,
+        planId || 0,
+        itemId,
+        body,
+      ),
+    onSuccess: invalidate,
+  });
 }

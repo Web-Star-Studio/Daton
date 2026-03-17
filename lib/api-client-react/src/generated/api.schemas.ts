@@ -1147,6 +1147,75 @@ export const StrategicPlanActionStatus = {
   canceled: "canceled",
 } as const;
 
+export type StrategicPlanRiskOpportunityType =
+  (typeof StrategicPlanRiskOpportunityType)[keyof typeof StrategicPlanRiskOpportunityType];
+
+export const StrategicPlanRiskOpportunityType = {
+  risk: "risk",
+  opportunity: "opportunity",
+} as const;
+
+export type StrategicPlanRiskOpportunitySourceType =
+  (typeof StrategicPlanRiskOpportunitySourceType)[keyof typeof StrategicPlanRiskOpportunitySourceType];
+
+export const StrategicPlanRiskOpportunitySourceType = {
+  swot: "swot",
+  audit: "audit",
+  meeting: "meeting",
+  legislation: "legislation",
+  incident: "incident",
+  internal_strategy: "internal_strategy",
+  other: "other",
+} as const;
+
+export type StrategicPlanRiskOpportunityStatus =
+  (typeof StrategicPlanRiskOpportunityStatus)[keyof typeof StrategicPlanRiskOpportunityStatus];
+
+export const StrategicPlanRiskOpportunityStatus = {
+  identified: "identified",
+  assessed: "assessed",
+  responding: "responding",
+  awaiting_effectiveness: "awaiting_effectiveness",
+  effective: "effective",
+  ineffective: "ineffective",
+  continuous: "continuous",
+  canceled: "canceled",
+} as const;
+
+export type StrategicPlanRiskOpportunityResponseStrategy =
+  (typeof StrategicPlanRiskOpportunityResponseStrategy)[keyof typeof StrategicPlanRiskOpportunityResponseStrategy];
+
+export const StrategicPlanRiskOpportunityResponseStrategy = {
+  mitigate: "mitigate",
+  eliminate: "eliminate",
+  accept: "accept",
+  monitor: "monitor",
+  exploit: "exploit",
+  enhance: "enhance",
+  share: "share",
+  avoid: "avoid",
+  other: "other",
+} as const;
+
+export type StrategicPlanRiskOpportunityPriority =
+  (typeof StrategicPlanRiskOpportunityPriority)[keyof typeof StrategicPlanRiskOpportunityPriority];
+
+export const StrategicPlanRiskOpportunityPriority = {
+  na: "na",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  critical: "critical",
+} as const;
+
+export type StrategicPlanRiskOpportunityEffectivenessResult =
+  (typeof StrategicPlanRiskOpportunityEffectivenessResult)[keyof typeof StrategicPlanRiskOpportunityEffectivenessResult];
+
+export const StrategicPlanRiskOpportunityEffectivenessResult = {
+  effective: "effective",
+  ineffective: "ineffective",
+} as const;
+
 export interface StrategicPlanLegacyRevisionEntry {
   date?: string | null;
   reason?: string | null;
@@ -1159,14 +1228,27 @@ export type StrategicPlanSummaryMetricsActionsByStatus = {
   [key: string]: number;
 };
 
+export type StrategicPlanSummaryMetricsRiskOpportunitiesByStatus = {
+  [key: string]: number;
+};
+
+export type StrategicPlanSummaryMetricsRiskOpportunitiesByType = {
+  [key: string]: number;
+};
+
 export interface StrategicPlanSummaryMetrics {
   swotCount: number;
   actionCount: number;
   interestedPartyCount: number;
   objectiveCount: number;
+  riskOpportunityCount: number;
   openActionCount: number;
   overdueActionCount: number;
+  openRiskOpportunityCount: number;
+  overdueRiskOpportunityCount: number;
   actionsByStatus: StrategicPlanSummaryMetricsActionsByStatus;
+  riskOpportunitiesByStatus: StrategicPlanSummaryMetricsRiskOpportunitiesByStatus;
+  riskOpportunitiesByType: StrategicPlanSummaryMetricsRiskOpportunitiesByType;
 }
 
 export interface StrategicPlanOpenActionByUnit {
@@ -1237,15 +1319,85 @@ export interface StrategicPlanAction {
   description?: string | null;
   swotItemId?: number | null;
   objectiveId?: number | null;
+  riskOpportunityItemId?: number | null;
   responsibleUserId?: number | null;
   responsibleUserName?: string | null;
+  secondaryResponsibleUserId?: number | null;
+  secondaryResponsibleUserName?: string | null;
   dueDate?: string | null;
+  rescheduledDueDate?: string | null;
+  rescheduleReason?: string | null;
+  completedAt?: string | null;
+  completionNotes?: string | null;
   status: StrategicPlanActionStatus;
   notes?: string | null;
   sortOrder: number;
   createdAt?: string | null;
   updatedAt?: string | null;
   units: StrategicPlanActionUnit[];
+}
+
+export interface StrategicPlanRiskOpportunityEffectivenessReview {
+  id: number;
+  riskOpportunityItemId: number;
+  reviewedById: number;
+  reviewedByName?: string | null;
+  result: StrategicPlanRiskOpportunityEffectivenessResult;
+  comment?: string | null;
+  createdAt?: string | null;
+}
+
+export type StrategicPlanRiskOpportunityItemLatestEffectivenessResult =
+  | (typeof StrategicPlanRiskOpportunityItemLatestEffectivenessResult)[keyof typeof StrategicPlanRiskOpportunityItemLatestEffectivenessResult]
+  | null;
+
+export const StrategicPlanRiskOpportunityItemLatestEffectivenessResult = {
+  effective: "effective",
+  ineffective: "ineffective",
+} as const;
+
+export interface StrategicPlanRiskOpportunityItem {
+  id: number;
+  planId: number;
+  type: StrategicPlanRiskOpportunityType;
+  sourceType: StrategicPlanRiskOpportunitySourceType;
+  sourceReference?: string | null;
+  title: string;
+  description: string;
+  ownerUserId?: number | null;
+  ownerUserName?: string | null;
+  coOwnerUserId?: number | null;
+  coOwnerUserName?: string | null;
+  unitId?: number | null;
+  unitName?: string | null;
+  objectiveId?: number | null;
+  swotItemId?: number | null;
+  /**
+   * @minimum 1
+   * @maximum 4
+   */
+  likelihood?: number | null;
+  /**
+   * @minimum 1
+   * @maximum 4
+   */
+  impact?: number | null;
+  /** Derived by the server from likelihood x impact. */
+  score?: number | null;
+  /** Derived by the server from the calculated score. */
+  priority: StrategicPlanRiskOpportunityPriority;
+  responseStrategy?: StrategicPlanRiskOpportunityResponseStrategy | null;
+  nextReviewAt?: string | null;
+  status: StrategicPlanRiskOpportunityStatus;
+  existingControls?: string | null;
+  expectedEffect?: string | null;
+  notes?: string | null;
+  latestEffectivenessResult?: StrategicPlanRiskOpportunityItemLatestEffectivenessResult;
+  latestEffectivenessReview?: StrategicPlanRiskOpportunityEffectivenessReview;
+  effectivenessReviews: StrategicPlanRiskOpportunityEffectivenessReview[];
+  actions: StrategicPlanAction[];
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export type StrategicPlanRevisionSnapshot = { [key: string]: unknown } | null;
@@ -1316,6 +1468,7 @@ export interface StrategicPlanDetail {
   interestedParties: StrategicPlanInterestedParty[];
   objectives: StrategicPlanObjective[];
   actions: StrategicPlanAction[];
+  riskOpportunityItems: StrategicPlanRiskOpportunityItem[];
   revisions: StrategicPlanRevision[];
   metrics: StrategicPlanSummaryMetrics;
   complianceIssues: string[];
@@ -1452,8 +1605,14 @@ export interface CreateStrategicPlanActionBody {
   description?: string | null;
   swotItemId?: number | null;
   objectiveId?: number | null;
+  riskOpportunityItemId?: number | null;
   responsibleUserId?: number | null;
+  secondaryResponsibleUserId?: number | null;
   dueDate?: string | null;
+  rescheduledDueDate?: string | null;
+  rescheduleReason?: string | null;
+  completedAt?: string | null;
+  completionNotes?: string | null;
   status?: StrategicPlanActionStatus;
   notes?: string | null;
   unitIds?: number[];
@@ -1462,6 +1621,47 @@ export interface CreateStrategicPlanActionBody {
 }
 
 export type UpdateStrategicPlanActionBody = CreateStrategicPlanActionBody;
+
+export interface CreateStrategicPlanRiskOpportunityItemBody {
+  type: StrategicPlanRiskOpportunityType;
+  sourceType: StrategicPlanRiskOpportunitySourceType;
+  sourceReference?: string | null;
+  /** @minLength 1 */
+  title: string;
+  /** @minLength 1 */
+  description: string;
+  ownerUserId?: number | null;
+  coOwnerUserId?: number | null;
+  unitId?: number | null;
+  objectiveId?: number | null;
+  swotItemId?: number | null;
+  /**
+   * @minimum 1
+   * @maximum 4
+   */
+  likelihood?: number | null;
+  /**
+   * @minimum 1
+   * @maximum 4
+   */
+  impact?: number | null;
+  responseStrategy?: StrategicPlanRiskOpportunityResponseStrategy | null;
+  nextReviewAt?: string | null;
+  status?: StrategicPlanRiskOpportunityStatus;
+  existingControls?: string | null;
+  expectedEffect?: string | null;
+  notes?: string | null;
+  /** @minimum 0 */
+  sortOrder?: number;
+}
+
+export type UpdateStrategicPlanRiskOpportunityItemBody =
+  CreateStrategicPlanRiskOpportunityItemBody;
+
+export interface CreateStrategicPlanRiskOpportunityEffectivenessReviewBody {
+  result: StrategicPlanRiskOpportunityEffectivenessResult;
+  comment?: string | null;
+}
 
 export type ImportStrategicPlanSwotItem = CreateStrategicPlanSwotItemBody & {
   importKey?: string | null;

@@ -13,8 +13,14 @@ export interface CreateStrategicPlanActionBody {
   description?: string | null;
   swotItemId?: number | null;
   objectiveId?: number | null;
+  riskOpportunityItemId?: number | null;
   responsibleUserId?: number | null;
+  secondaryResponsibleUserId?: number | null;
   dueDate?: string | null;
+  rescheduledDueDate?: string | null;
+  rescheduleReason?: string | null;
+  completedAt?: string | null;
+  completionNotes?: string | null;
   status?: StrategicPlanActionStatus;
   notes?: string | null;
   unitIds?: number[];

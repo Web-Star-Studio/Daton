@@ -10,6 +10,7 @@ import type { StrategicPlanInterestedParty } from "./strategicPlanInterestedPart
 import type { StrategicPlanLegacyRevisionEntry } from "./strategicPlanLegacyRevisionEntry";
 import type { StrategicPlanObjective } from "./strategicPlanObjective";
 import type { StrategicPlanRevision } from "./strategicPlanRevision";
+import type { StrategicPlanRiskOpportunityItem } from "./strategicPlanRiskOpportunityItem";
 import type { StrategicPlanStatus } from "./strategicPlanStatus";
 import type { StrategicPlanSummaryMetrics } from "./strategicPlanSummaryMetrics";
 import type { StrategicPlanSwotItem } from "./strategicPlanSwotItem";
@@ -49,6 +50,7 @@ export interface StrategicPlanDetail {
   interestedParties: StrategicPlanInterestedParty[];
   objectives: StrategicPlanObjective[];
   actions: StrategicPlanAction[];
+  riskOpportunityItems: StrategicPlanRiskOpportunityItem[];
   revisions: StrategicPlanRevision[];
   metrics: StrategicPlanSummaryMetrics;
   complianceIssues: string[];

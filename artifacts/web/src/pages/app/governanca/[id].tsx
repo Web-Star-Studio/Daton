@@ -27,6 +27,7 @@ import {
   fetchGovernanceExport,
   useGovernanceCrudMutation,
   useGovernancePlan,
+  useGovernanceRiskOpportunityEffectivenessReview,
   useGovernanceWorkflowAction,
   useImportGovernancePlan,
   useUpdateGovernancePlan,
@@ -37,6 +38,9 @@ import {
   type GovernanceObjective,
   type GovernanceObjectiveBody,
   type GovernancePlanBody,
+  type GovernanceRiskOpportunityBody,
+  type GovernanceRiskOpportunityEffectivenessReviewBody,
+  type GovernanceRiskOpportunityItem,
   type GovernanceSwotItem,
   type GovernanceSwotBody,
   type GovernanceActionBody,
@@ -75,6 +79,7 @@ type Tab =
   | "interested"
   | "scope"
   | "objectives"
+  | "risks"
   | "actions"
   | "revisions";
 
@@ -144,12 +149,70 @@ const governanceActionSchema = z.object({
   description: z.string().nullable().optional(),
   swotItemId: z.number().nullable().optional(),
   objectiveId: z.number().nullable().optional(),
+  riskOpportunityItemId: z.number().nullable().optional(),
   responsibleUserId: z.number().nullable().optional(),
+  secondaryResponsibleUserId: z.number().nullable().optional(),
   dueDate: z.string().nullable().optional(),
+  rescheduledDueDate: z.string().nullable().optional(),
+  rescheduleReason: z.string().nullable().optional(),
+  completedAt: z.string().nullable().optional(),
+  completionNotes: z.string().nullable().optional(),
   status: z.enum(["pending", "in_progress", "done", "canceled"]),
   notes: z.string().nullable().optional(),
   sortOrder: z.number(),
   unitIds: z.array(z.number()),
+});
+
+const governanceRiskOpportunitySchema = z.object({
+  type: z.enum(["risk", "opportunity"]),
+  sourceType: z.enum([
+    "swot",
+    "audit",
+    "meeting",
+    "legislation",
+    "incident",
+    "internal_strategy",
+    "other",
+  ]),
+  sourceReference: z.string().nullable().optional(),
+  title: z.string().min(1, "Informe o título"),
+  description: z.string().min(1, "Informe a descrição"),
+  ownerUserId: z.number().nullable().optional(),
+  coOwnerUserId: z.number().nullable().optional(),
+  unitId: z.number().nullable().optional(),
+  objectiveId: z.number().nullable().optional(),
+  swotItemId: z.number().nullable().optional(),
+  likelihood: z.number().int().min(1).max(4).nullable().optional(),
+  impact: z.number().int().min(1).max(4).nullable().optional(),
+  responseStrategy: z
+    .enum([
+      "mitigate",
+      "eliminate",
+      "accept",
+      "monitor",
+      "exploit",
+      "enhance",
+      "share",
+      "avoid",
+      "other",
+    ])
+    .nullable()
+    .optional(),
+  nextReviewAt: z.string().nullable().optional(),
+  status: z.enum([
+    "identified",
+    "assessed",
+    "responding",
+    "awaiting_effectiveness",
+    "effective",
+    "ineffective",
+    "continuous",
+    "canceled",
+  ]),
+  existingControls: z.string().nullable().optional(),
+  expectedEffect: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  sortOrder: z.number(),
 });
 
 function blankSwotForm(): GovernanceSwotBody {
@@ -202,13 +265,157 @@ function blankActionForm(): GovernanceActionBody & { unitIds: number[] } {
     description: "",
     swotItemId: null,
     objectiveId: null,
+    riskOpportunityItemId: null,
     responsibleUserId: null,
+    secondaryResponsibleUserId: null,
     dueDate: "",
+    rescheduledDueDate: "",
+    rescheduleReason: "",
+    completedAt: "",
+    completionNotes: "",
     status: "pending",
     notes: "",
     sortOrder: 0,
     unitIds: [],
   };
+}
+
+function blankRiskOpportunityForm(): GovernanceRiskOpportunityBody {
+  return {
+    type: "risk",
+    sourceType: "meeting",
+    sourceReference: "",
+    title: "",
+    description: "",
+    ownerUserId: null,
+    coOwnerUserId: null,
+    unitId: null,
+    objectiveId: null,
+    swotItemId: null,
+    likelihood: null,
+    impact: null,
+    responseStrategy: null,
+    nextReviewAt: "",
+    status: "identified",
+    existingControls: "",
+    expectedEffect: "",
+    notes: "",
+    sortOrder: 0,
+  };
+}
+
+function blankRiskEffectivenessReview(): GovernanceRiskOpportunityEffectivenessReviewBody {
+  return {
+    result: "effective",
+    comment: "",
+  };
+}
+
+function getRiskPriorityTone(priority?: string | null) {
+  switch (priority) {
+    case "critical":
+      return "bg-red-100 text-red-800 border-red-200";
+    case "high":
+      return "bg-orange-100 text-orange-800 border-orange-200";
+    case "medium":
+      return "bg-amber-100 text-amber-800 border-amber-200";
+    case "low":
+      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    default:
+      return "bg-secondary/40 text-foreground border-border";
+  }
+}
+
+function getRiskPriorityLabel(priority?: string | null) {
+  switch (priority) {
+    case "critical":
+      return "Crítico";
+    case "high":
+      return "Alto";
+    case "medium":
+      return "Médio";
+    case "low":
+      return "Baixo";
+    default:
+      return "Sem score";
+  }
+}
+
+function getRiskTypeLabel(type: GovernanceRiskOpportunityItem["type"]) {
+  return type === "risk" ? "Risco" : "Oportunidade";
+}
+
+function getRiskStatusLabel(status: GovernanceRiskOpportunityItem["status"]) {
+  switch (status) {
+    case "identified":
+      return "Identificado";
+    case "assessed":
+      return "Avaliado";
+    case "responding":
+      return "Em tratamento";
+    case "awaiting_effectiveness":
+      return "Aguardando eficácia";
+    case "effective":
+      return "Eficaz";
+    case "ineffective":
+      return "Ineficaz";
+    case "continuous":
+      return "Contínuo";
+    case "canceled":
+      return "Cancelado";
+    default:
+      return status;
+  }
+}
+
+function getRiskSourceLabel(
+  sourceType: GovernanceRiskOpportunityItem["sourceType"],
+) {
+  switch (sourceType) {
+    case "swot":
+      return "SWOT";
+    case "audit":
+      return "Auditoria";
+    case "meeting":
+      return "Reunião";
+    case "legislation":
+      return "Legislação";
+    case "incident":
+      return "Incidente";
+    case "internal_strategy":
+      return "Estratégia interna";
+    case "other":
+      return "Outro";
+    default:
+      return sourceType;
+  }
+}
+
+function getRiskResponseStrategyLabel(
+  strategy?: GovernanceRiskOpportunityItem["responseStrategy"] | null,
+) {
+  switch (strategy) {
+    case "mitigate":
+      return "Mitigar";
+    case "eliminate":
+      return "Eliminar";
+    case "accept":
+      return "Aceitar";
+    case "monitor":
+      return "Monitorar";
+    case "exploit":
+      return "Explorar";
+    case "enhance":
+      return "Potencializar";
+    case "share":
+      return "Compartilhar";
+    case "avoid":
+      return "Evitar";
+    case "other":
+      return "Outro";
+    default:
+      return "Não definida";
+  }
 }
 
 export default function GovernanceDetailPage() {
@@ -241,9 +448,16 @@ export default function GovernanceDetailPage() {
     planId,
     "objectives",
   );
+  const riskOpportunityCrud = useGovernanceCrudMutation<GovernanceRiskOpportunityBody>(
+    orgId,
+    planId,
+    "risk-opportunity-items",
+  );
   const actionCrud = useGovernanceCrudMutation<
     ReturnType<typeof blankActionForm>
   >(orgId, planId, "actions");
+  const riskEffectivenessReviewMutation =
+    useGovernanceRiskOpportunityEffectivenessReview(orgId, planId);
   const { data: units = [] } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
   });
@@ -265,6 +479,13 @@ export default function GovernanceDetailPage() {
   const [objectiveDialogOpen, setObjectiveDialogOpen] = useState(false);
   const [objectiveEditing, setObjectiveEditing] =
     useState<GovernanceObjective | null>(null);
+  const [riskDialogOpen, setRiskDialogOpen] = useState(false);
+  const [riskEditing, setRiskEditing] =
+    useState<GovernanceRiskOpportunityItem | null>(null);
+  const [riskEffectivenessDialogOpen, setRiskEffectivenessDialogOpen] =
+    useState(false);
+  const [riskEffectivenessTarget, setRiskEffectivenessTarget] =
+    useState<GovernanceRiskOpportunityItem | null>(null);
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
   const [actionEditing, setActionEditing] = useState<GovernanceAction | null>(
     null,
@@ -274,7 +495,14 @@ export default function GovernanceDetailPage() {
   const [objectiveDeletingId, setObjectiveDeletingId] = useState<number | null>(
     null,
   );
+  const [riskDeletingId, setRiskDeletingId] = useState<number | null>(null);
   const [actionDeletingId, setActionDeletingId] = useState<number | null>(null);
+  const [riskTypeFilter, setRiskTypeFilter] = useState<string>("all");
+  const [riskStatusFilter, setRiskStatusFilter] = useState<string>("all");
+  const [riskPriorityFilter, setRiskPriorityFilter] = useState<string>("all");
+  const [riskUnitFilter, setRiskUnitFilter] = useState<string>("all");
+  const [riskOwnerFilter, setRiskOwnerFilter] = useState<string>("all");
+  const [riskSourceFilter, setRiskSourceFilter] = useState<string>("all");
   const planForm = useForm<GovernancePlanBody>({
     resolver: zodResolver(governancePlanSchema),
     defaultValues: {
@@ -312,6 +540,14 @@ export default function GovernanceDetailPage() {
     resolver: zodResolver(governanceObjectiveSchema),
     defaultValues: blankObjectiveForm(),
   });
+  const riskOpportunityForm = useForm<GovernanceRiskOpportunityBody>({
+    resolver: zodResolver(governanceRiskOpportunitySchema),
+    defaultValues: blankRiskOpportunityForm(),
+  });
+  const riskEffectivenessForm =
+    useForm<GovernanceRiskOpportunityEffectivenessReviewBody>({
+      defaultValues: blankRiskEffectivenessReview(),
+    });
   const actionForm = useForm<GovernanceActionBody & { unitIds: number[] }>({
     resolver: zodResolver(governanceActionSchema),
     defaultValues: blankActionForm(),
@@ -321,6 +557,8 @@ export default function GovernanceDetailPage() {
     !!plan &&
     ["draft", "rejected"].includes(plan.status);
   const actionUnitIds = actionForm.watch("unitIds");
+  const riskLikelihood = riskOpportunityForm.watch("likelihood");
+  const riskImpact = riskOpportunityForm.watch("impact");
 
   usePageTitle(plan?.title || "Planejamento Estratégico");
   usePageSubtitle(
@@ -374,7 +612,10 @@ export default function GovernanceDetailPage() {
     setObjectiveDialogOpen(true);
   };
 
-  const openActionDialog = (item?: GovernanceAction) => {
+  const openActionDialog = (
+    item?: GovernanceAction,
+    defaults?: Partial<ReturnType<typeof blankActionForm>>,
+  ) => {
     setActionEditing(item || null);
     actionForm.reset(
       item
@@ -383,16 +624,94 @@ export default function GovernanceDetailPage() {
             description: item.description || "",
             swotItemId: item.swotItemId || null,
             objectiveId: item.objectiveId || null,
+            riskOpportunityItemId: item.riskOpportunityItemId || null,
             responsibleUserId: item.responsibleUserId || null,
+            secondaryResponsibleUserId:
+              item.secondaryResponsibleUserId || null,
             dueDate: isoToDateInput(item.dueDate),
+            rescheduledDueDate: isoToDateInput(item.rescheduledDueDate),
+            rescheduleReason: item.rescheduleReason || "",
+            completedAt: isoToDateInput(item.completedAt),
+            completionNotes: item.completionNotes || "",
             status: item.status,
             notes: item.notes || "",
             sortOrder: item.sortOrder,
             unitIds: item.units.map((unit) => unit.id),
           }
-        : blankActionForm(),
+        : {
+            ...blankActionForm(),
+            ...defaults,
+          },
     );
     setActionDialogOpen(true);
+  };
+
+  const openRiskOpportunityDialog = (item?: GovernanceRiskOpportunityItem) => {
+    setRiskEditing(item || null);
+    riskOpportunityForm.reset(
+      item
+        ? {
+            type: item.type,
+            sourceType: item.sourceType,
+            sourceReference: item.sourceReference || "",
+            title: item.title,
+            description: item.description,
+            ownerUserId: item.ownerUserId || null,
+            coOwnerUserId: item.coOwnerUserId || null,
+            unitId: item.unitId || null,
+            objectiveId: item.objectiveId || null,
+            swotItemId: item.swotItemId || null,
+            likelihood: item.likelihood || null,
+            impact: item.impact || null,
+            responseStrategy: item.responseStrategy || undefined,
+            nextReviewAt: isoToDateInput(item.nextReviewAt),
+            status: item.status,
+            existingControls: item.existingControls || "",
+            expectedEffect: item.expectedEffect || "",
+            notes: item.notes || "",
+            sortOrder: 0,
+          }
+        : blankRiskOpportunityForm(),
+    );
+    setRiskDialogOpen(true);
+  };
+
+  const openRiskOpportunityFromSwot = (item: GovernanceSwotItem) => {
+    const linkedObjectiveId =
+      plan?.objectives.find(
+        (objective) =>
+          objective.code === item.linkedObjectiveCode ||
+          objective.description === item.linkedObjectiveLabel,
+      )?.id || null;
+
+    setRiskEditing(null);
+    riskOpportunityForm.reset({
+      ...blankRiskOpportunityForm(),
+      type:
+        item.swotType === "strength" || item.swotType === "opportunity"
+          ? "opportunity"
+          : "risk",
+      sourceType: "swot",
+      sourceReference: item.matrixLabel || item.importedActionReference || "",
+      title: item.description.slice(0, 120),
+      description: item.description,
+      objectiveId: linkedObjectiveId,
+      swotItemId: item.id,
+      likelihood: item.performance || null,
+      impact: item.relevance || null,
+      notes: item.treatmentDecision || "",
+    });
+    setActiveTab("risks");
+    setRiskDialogOpen(true);
+  };
+
+  const openRiskEffectivenessDialog = (item: GovernanceRiskOpportunityItem) => {
+    setRiskEffectivenessTarget(item);
+    riskEffectivenessForm.reset({
+      result: item.latestEffectivenessReview?.result || "effective",
+      comment: item.latestEffectivenessReview?.comment || "",
+    });
+    setRiskEffectivenessDialogOpen(true);
   };
 
   const handleSavePlan = planForm.handleSubmit(async (values) => {
@@ -596,11 +915,19 @@ export default function GovernanceDetailPage() {
     const payload = {
       ...values,
       dueDate: values.dueDate ? dateToIso(values.dueDate) : null,
+      rescheduledDueDate: values.rescheduledDueDate
+        ? dateToIso(values.rescheduledDueDate)
+        : null,
+      completedAt: values.completedAt ? dateToIso(values.completedAt) : null,
       description: values.description || null,
       notes: values.notes || null,
       swotItemId: values.swotItemId || null,
       objectiveId: values.objectiveId || null,
+      riskOpportunityItemId: values.riskOpportunityItemId || null,
       responsibleUserId: values.responsibleUserId || null,
+      secondaryResponsibleUserId: values.secondaryResponsibleUserId || null,
+      rescheduleReason: values.rescheduleReason || null,
+      completionNotes: values.completionNotes || null,
     };
     try {
       if (actionEditing) {
@@ -620,6 +947,65 @@ export default function GovernanceDetailPage() {
       });
     }
   });
+
+  const saveRiskOpportunity = riskOpportunityForm.handleSubmit(async (values) => {
+    const payload = {
+      ...values,
+      sourceReference: values.sourceReference || null,
+      ownerUserId: values.ownerUserId || null,
+      coOwnerUserId: values.coOwnerUserId || null,
+      unitId: values.unitId || null,
+      objectiveId: values.objectiveId || null,
+      swotItemId: values.swotItemId || null,
+      responseStrategy: values.responseStrategy || undefined,
+      nextReviewAt: values.nextReviewAt ? dateToIso(values.nextReviewAt) : null,
+      existingControls: values.existingControls || null,
+      expectedEffect: values.expectedEffect || null,
+      notes: values.notes || null,
+    };
+    try {
+      if (riskEditing) {
+        await riskOpportunityCrud.updateMutation.mutateAsync({
+          id: riskEditing.id,
+          body: payload,
+        });
+      } else {
+        await riskOpportunityCrud.createMutation.mutateAsync(payload);
+      }
+      riskOpportunityForm.reset(blankRiskOpportunityForm());
+      setRiskDialogOpen(false);
+      setRiskEditing(null);
+    } catch (error) {
+      toast({
+        title: "Falha ao salvar risco ou oportunidade",
+        description: error instanceof Error ? error.message : "Erro ao salvar.",
+      });
+    }
+  });
+
+  const saveRiskEffectivenessReview = riskEffectivenessForm.handleSubmit(
+    async (values) => {
+      if (!riskEffectivenessTarget) return;
+      try {
+        await riskEffectivenessReviewMutation.mutateAsync({
+          itemId: riskEffectivenessTarget.id,
+          body: {
+            result: values.result,
+            comment: values.comment || null,
+          },
+        });
+        riskEffectivenessForm.reset(blankRiskEffectivenessReview());
+        setRiskEffectivenessDialogOpen(false);
+        setRiskEffectivenessTarget(null);
+      } catch (error) {
+        toast({
+          title: "Falha ao registrar eficácia",
+          description:
+            error instanceof Error ? error.message : "Erro ao salvar revisão.",
+        });
+      }
+    },
+  );
 
   const deleteSwot = async (itemId: number) => {
     setSwotDeletingId(itemId);
@@ -681,12 +1067,28 @@ export default function GovernanceDetailPage() {
     }
   };
 
+  const deleteRiskOpportunity = async (itemId: number) => {
+    setRiskDeletingId(itemId);
+    try {
+      await riskOpportunityCrud.deleteMutation.mutateAsync(itemId);
+    } catch (error) {
+      toast({
+        title: "Falha ao excluir risco ou oportunidade",
+        description:
+          error instanceof Error ? error.message : "Erro ao excluir.",
+      });
+    } finally {
+      setRiskDeletingId(null);
+    }
+  };
+
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: "overview", label: "Visão Geral" },
     { key: "swot", label: "SWOT" },
     { key: "interested", label: "Partes Interessadas" },
     { key: "scope", label: "Escopo e Direcionamento" },
     { key: "objectives", label: "Objetivos" },
+    { key: "risks", label: "Riscos e Oportunidades" },
     { key: "actions", label: "Ações" },
     { key: "revisions", label: "Revisões e Evidências" },
   ];
@@ -701,6 +1103,8 @@ export default function GovernanceDetailPage() {
         map.interested = [...(map.interested || []), issue];
       } else if (issue.includes("objetivos estratégicos")) {
         map.objectives = [...(map.objectives || []), issue];
+      } else if (issue.includes("risco") || issue.includes("oportunidade")) {
+        map.risks = [...(map.risks || []), issue];
       } else if (issue.includes("ação sem ação vinculada")) {
         map.actions = [...(map.actions || []), issue];
       } else {
@@ -709,6 +1113,44 @@ export default function GovernanceDetailPage() {
     }
     return map;
   }, [plan?.complianceIssues]);
+
+  const visibleRiskOpportunityItems = useMemo(() => {
+    const items = plan?.riskOpportunityItems || [];
+    return items.filter((item) => {
+      if (riskTypeFilter !== "all" && item.type !== riskTypeFilter) {
+        return false;
+      }
+      if (riskStatusFilter !== "all" && item.status !== riskStatusFilter) {
+        return false;
+      }
+      if (riskPriorityFilter !== "all" && item.priority !== riskPriorityFilter) {
+        return false;
+      }
+      if (riskUnitFilter !== "all" && String(item.unitId || "") !== riskUnitFilter) {
+        return false;
+      }
+      if (riskOwnerFilter !== "all" && String(item.ownerUserId || "") !== riskOwnerFilter) {
+        return false;
+      }
+      if (riskSourceFilter !== "all" && item.sourceType !== riskSourceFilter) {
+        return false;
+      }
+      return true;
+    });
+  }, [
+    plan?.riskOpportunityItems,
+    riskOwnerFilter,
+    riskPriorityFilter,
+    riskSourceFilter,
+    riskStatusFilter,
+    riskTypeFilter,
+    riskUnitFilter,
+  ]);
+
+  const riskScorePreview =
+    typeof riskLikelihood === "number" && typeof riskImpact === "number"
+      ? riskLikelihood * riskImpact
+      : null;
 
   const latestEvidenceDocumentId = plan?.revisions?.[0]?.evidenceDocumentId;
 
@@ -1000,7 +1442,7 @@ export default function GovernanceDetailPage() {
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">
               Métricas
             </h3>
-            <div className="grid grid-cols-4 gap-x-8 gap-y-6">
+            <div className="grid gap-x-8 gap-y-6 md:grid-cols-4 xl:grid-cols-7">
               <div>
                 <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
                   Itens SWOT
@@ -1031,6 +1473,30 @@ export default function GovernanceDetailPage() {
                 </p>
                 <p className="text-2xl font-semibold text-foreground">
                   {plan.metrics.openActionCount}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                  Riscos e Oportunidades
+                </p>
+                <p className="text-2xl font-semibold text-foreground">
+                  {plan.metrics.riskOpportunityCount}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                  Itens Abertos 6.1
+                </p>
+                <p className="text-2xl font-semibold text-foreground">
+                  {plan.metrics.openRiskOpportunityCount}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
+                  Revisões Atrasadas
+                </p>
+                <p className="text-2xl font-semibold text-foreground">
+                  {plan.metrics.overdueRiskOpportunityCount}
                 </p>
               </div>
             </div>
@@ -1252,6 +1718,14 @@ export default function GovernanceDetailPage() {
                         <div className="flex gap-1.5">
                           <button
                             type="button"
+                            title="Criar risco ou oportunidade"
+                            onClick={() => openRiskOpportunityFromSwot(item)}
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                          >
+                            <ShieldAlert className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => openSwotDialog(item)}
                             className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
                           >
@@ -1421,6 +1895,348 @@ export default function GovernanceDetailPage() {
             {plan.objectives.length === 0 && (
               <p className="py-8 text-center text-[13px] text-muted-foreground">
                 Nenhum objetivo cadastrado.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "risks" && (
+        <div className="space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+                Riscos e Oportunidades
+              </h3>
+              <p className="mt-1.5 text-[13px] text-muted-foreground">
+                Levantamento, avaliação, resposta e verificação de eficácia para o item 6.1.
+              </p>
+            </div>
+            {canEdit && (
+              <Button size="sm" onClick={() => openRiskOpportunityDialog()}>
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Novo item
+              </Button>
+            )}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+            <div>
+              <Label>Tipo</Label>
+              <Select
+                value={riskTypeFilter}
+                onChange={(event) => setRiskTypeFilter(event.target.value)}
+              >
+                <option value="all">Todos</option>
+                <option value="risk">Riscos</option>
+                <option value="opportunity">Oportunidades</option>
+              </Select>
+            </div>
+            <div>
+              <Label>Status</Label>
+              <Select
+                value={riskStatusFilter}
+                onChange={(event) => setRiskStatusFilter(event.target.value)}
+              >
+                <option value="all">Todos</option>
+                <option value="identified">Identificado</option>
+                <option value="assessed">Avaliado</option>
+                <option value="responding">Em tratamento</option>
+                <option value="awaiting_effectiveness">Aguardando eficácia</option>
+                <option value="effective">Eficaz</option>
+                <option value="ineffective">Ineficaz</option>
+                <option value="continuous">Contínuo</option>
+                <option value="canceled">Cancelado</option>
+              </Select>
+            </div>
+            <div>
+              <Label>Prioridade</Label>
+              <Select
+                value={riskPriorityFilter}
+                onChange={(event) => setRiskPriorityFilter(event.target.value)}
+              >
+                <option value="all">Todas</option>
+                <option value="critical">Crítico</option>
+                <option value="high">Alto</option>
+                <option value="medium">Médio</option>
+                <option value="low">Baixo</option>
+                <option value="na">Sem score</option>
+              </Select>
+            </div>
+            <div>
+              <Label>Unidade</Label>
+              <Select
+                value={riskUnitFilter}
+                onChange={(event) => setRiskUnitFilter(event.target.value)}
+              >
+                <option value="all">Todas</option>
+                {units.map((unit) => (
+                  <option key={unit.id} value={String(unit.id)}>
+                    {unit.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Responsável</Label>
+              <Select
+                value={riskOwnerFilter}
+                onChange={(event) => setRiskOwnerFilter(event.target.value)}
+              >
+                <option value="all">Todos</option>
+                {users.map((user: UserOption) => (
+                  <option key={user.id} value={String(user.id)}>
+                    {user.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Origem</Label>
+              <Select
+                value={riskSourceFilter}
+                onChange={(event) => setRiskSourceFilter(event.target.value)}
+              >
+                <option value="all">Todas</option>
+                <option value="swot">SWOT</option>
+                <option value="audit">Auditoria</option>
+                <option value="meeting">Reunião</option>
+                <option value="legislation">Legislação</option>
+                <option value="incident">Incidente</option>
+                <option value="internal_strategy">Estratégia interna</option>
+                <option value="other">Outra</option>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                Total
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-foreground">
+                {plan.metrics.riskOpportunityCount}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                Abertos
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-foreground">
+                {plan.metrics.openRiskOpportunityCount}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                Revisão vencida
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-foreground">
+                {plan.metrics.overdueRiskOpportunityCount}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                Riscos
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-foreground">
+                {plan.metrics.riskOpportunitiesByType.risk || 0}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                Oportunidades
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-foreground">
+                {plan.metrics.riskOpportunitiesByType.opportunity || 0}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {visibleRiskOpportunityItems.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-2xl border border-border/60 bg-card px-5 py-4"
+              >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">{getRiskTypeLabel(item.type)}</Badge>
+                      <Badge
+                        variant="outline"
+                        className={cn("border", getRiskPriorityTone(item.priority))}
+                      >
+                        {getRiskPriorityLabel(item.priority)}
+                      </Badge>
+                      <Badge variant="outline">{getRiskStatusLabel(item.status)}</Badge>
+                      <Badge variant="outline">{getRiskSourceLabel(item.sourceType)}</Badge>
+                    </div>
+                    <div>
+                      <h4 className="text-[15px] font-semibold text-foreground">
+                        {item.title}
+                      </h4>
+                      <p className="mt-1 text-[13px] text-muted-foreground whitespace-pre-line">
+                        {item.description}
+                      </p>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <div>
+                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                          Responsável
+                        </p>
+                        <p className="mt-1 text-[13px] text-foreground">
+                          {item.ownerUserName || "Não definido"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                          Unidade
+                        </p>
+                        <p className="mt-1 text-[13px] text-foreground">
+                          {item.unitName || "Não definida"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                          Avaliação
+                        </p>
+                        <p className="mt-1 text-[13px] text-foreground">
+                          {item.likelihood ?? "—"} x {item.impact ?? "—"} = {item.score ?? "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                          Próxima revisão
+                        </p>
+                        <p className="mt-1 text-[13px] text-foreground">
+                          {formatGovernanceDate(item.nextReviewAt)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div>
+                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                          Estratégia de resposta
+                        </p>
+                        <p className="mt-1 text-[13px] text-foreground">
+                          {getRiskResponseStrategyLabel(item.responseStrategy)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                          Última eficácia
+                        </p>
+                        <p className="mt-1 text-[13px] text-foreground">
+                          {item.latestEffectivenessReview
+                            ? `${item.latestEffectivenessReview.result === "effective" ? "Eficaz" : "Ineficaz"} em ${formatGovernanceDate(
+                                item.latestEffectivenessReview.createdAt,
+                                true,
+                              )}`
+                            : "Sem revisão"}
+                        </p>
+                      </div>
+                    </div>
+                    {item.expectedEffect && (
+                      <div>
+                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                          Efeito esperado
+                        </p>
+                        <p className="mt-1 text-[13px] text-muted-foreground whitespace-pre-line">
+                          {item.expectedEffect}
+                        </p>
+                      </div>
+                    )}
+                    <div className="rounded-xl bg-muted/30 px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                            Ações vinculadas
+                          </p>
+                          <p className="mt-1 text-[13px] text-muted-foreground">
+                            {item.actions.length} ação(ões) associada(s) ao tratamento.
+                          </p>
+                        </div>
+                        {canEdit && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              openActionDialog(undefined, {
+                                objectiveId: item.objectiveId || null,
+                                riskOpportunityItemId: item.id,
+                                responsibleUserId: item.ownerUserId || null,
+                                secondaryResponsibleUserId: item.coOwnerUserId || null,
+                                swotItemId: item.swotItemId || null,
+                                unitIds: item.unitId ? [item.unitId] : [],
+                              })
+                            }
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1.5" />
+                            Nova ação vinculada
+                          </Button>
+                        )}
+                      </div>
+                      {item.actions.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {item.actions.map((action) => (
+                            <div
+                              key={action.id}
+                              className="flex flex-col gap-1 rounded-lg border border-border/60 bg-background px-3 py-2 text-[13px] md:flex-row md:items-center md:justify-between"
+                            >
+                              <div>
+                                <p className="font-medium text-foreground">{action.title}</p>
+                                <p className="text-muted-foreground">
+                                  {action.responsibleUserName || "Sem responsável"} · prazo{" "}
+                                  {formatGovernanceDate(action.rescheduledDueDate || action.dueDate)}
+                                </p>
+                              </div>
+                              <Badge variant="outline">{action.status}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {canEdit && (
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openRiskEffectivenessDialog(item)}
+                      >
+                        Registrar eficácia
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openRiskOpportunityDialog(item)}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                        Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void deleteRiskOpportunity(item.id)}
+                        disabled={riskDeletingId === item.id}
+                      >
+                        {riskDeletingId === item.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                        )}
+                        Excluir
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {visibleRiskOpportunityItems.length === 0 && (
+              <p className="py-8 text-center text-[13px] text-muted-foreground">
+                {plan.riskOpportunityItems.length === 0
+                  ? "Nenhum risco ou oportunidade cadastrado."
+                  : "Nenhum item atende aos filtros aplicados."}
               </p>
             )}
           </div>
@@ -1799,6 +2615,285 @@ export default function GovernanceDetailPage() {
       </Dialog>
 
       <Dialog
+        open={riskDialogOpen}
+        onOpenChange={setRiskDialogOpen}
+        title={riskEditing ? "Editar risco ou oportunidade" : "Novo risco ou oportunidade"}
+        description="Registro ISO 9001:2015 §6.1 com avaliação, resposta e revisão."
+        size="lg"
+      >
+        <div className="grid gap-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <Label>Tipo</Label>
+              <Select {...riskOpportunityForm.register("type")}>
+                <option value="risk">Risco</option>
+                <option value="opportunity">Oportunidade</option>
+              </Select>
+            </div>
+            <div>
+              <Label>Origem</Label>
+              <Select {...riskOpportunityForm.register("sourceType")}>
+                <option value="meeting">Reunião</option>
+                <option value="swot">SWOT</option>
+                <option value="audit">Auditoria</option>
+                <option value="legislation">Legislação</option>
+                <option value="incident">Incidente</option>
+                <option value="internal_strategy">Estratégia interna</option>
+                <option value="other">Outra</option>
+              </Select>
+            </div>
+            <div>
+              <Label>Status</Label>
+              <Select {...riskOpportunityForm.register("status")}>
+                <option value="identified">Identificado</option>
+                <option value="assessed">Avaliado</option>
+                <option value="responding">Em tratamento</option>
+                <option value="awaiting_effectiveness">Aguardando eficácia</option>
+                <option value="effective">Eficaz</option>
+                <option value="ineffective">Ineficaz</option>
+                <option value="continuous">Contínuo</option>
+                <option value="canceled">Cancelado</option>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label>Título</Label>
+            <Input {...riskOpportunityForm.register("title")} />
+          </div>
+          <div>
+            <Label>Descrição</Label>
+            <Textarea rows={4} {...riskOpportunityForm.register("description")} />
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <Label>Responsável</Label>
+              <Select
+                {...riskOpportunityForm.register("ownerUserId", {
+                  setValueAs: (value) =>
+                    value === "" || value == null ? null : Number(value),
+                })}
+              >
+                <option value="">Não definido</option>
+                {users.map((user: UserOption) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Co-responsável</Label>
+              <Select
+                {...riskOpportunityForm.register("coOwnerUserId", {
+                  setValueAs: (value) =>
+                    value === "" || value == null ? null : Number(value),
+                })}
+              >
+                <option value="">Não definido</option>
+                {users.map((user: UserOption) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Unidade</Label>
+              <Select
+                {...riskOpportunityForm.register("unitId", {
+                  setValueAs: (value) =>
+                    value === "" || value == null ? null : Number(value),
+                })}
+              >
+                <option value="">Não definida</option>
+                {units.map((unit) => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <Label>Objetivo vinculado</Label>
+              <Select
+                {...riskOpportunityForm.register("objectiveId", {
+                  setValueAs: (value) =>
+                    value === "" || value == null ? null : Number(value),
+                })}
+              >
+                <option value="">Sem vínculo</option>
+                {plan.objectives.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.code} - {item.description}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Item SWOT vinculado</Label>
+              <Select
+                {...riskOpportunityForm.register("swotItemId", {
+                  setValueAs: (value) =>
+                    value === "" || value == null ? null : Number(value),
+                })}
+              >
+                <option value="">Sem vínculo</option>
+                {plan.swotItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.description}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-[1fr_1fr_1fr_auto]">
+            <div>
+              <Label>Probabilidade</Label>
+              <Input
+                type="number"
+                min={1}
+                max={4}
+                {...riskOpportunityForm.register("likelihood", {
+                  setValueAs: (value) =>
+                    value === "" || value == null ? null : Number(value),
+                })}
+              />
+            </div>
+            <div>
+              <Label>Impacto</Label>
+              <Input
+                type="number"
+                min={1}
+                max={4}
+                {...riskOpportunityForm.register("impact", {
+                  setValueAs: (value) =>
+                    value === "" || value == null ? null : Number(value),
+                })}
+              />
+            </div>
+            <div>
+              <Label>Próxima revisão</Label>
+              <Input type="date" {...riskOpportunityForm.register("nextReviewAt")} />
+            </div>
+            <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                Score
+              </p>
+              <p className="mt-1 text-xl font-semibold text-foreground">
+                {riskScorePreview ?? "—"}
+              </p>
+            </div>
+          </div>
+          <div>
+            <Label>Estratégia de resposta</Label>
+            <Select
+              {...riskOpportunityForm.register("responseStrategy", {
+                setValueAs: (value) => (value === "" ? null : value),
+              })}
+            >
+              <option value="">Não definida</option>
+              <option value="mitigate">Mitigar</option>
+              <option value="eliminate">Eliminar</option>
+              <option value="accept">Aceitar</option>
+              <option value="monitor">Monitorar</option>
+              <option value="exploit">Explorar</option>
+              <option value="enhance">Potencializar</option>
+              <option value="share">Compartilhar</option>
+              <option value="avoid">Evitar</option>
+              <option value="other">Outra</option>
+            </Select>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <Label>Controles existentes</Label>
+              <Textarea rows={3} {...riskOpportunityForm.register("existingControls")} />
+            </div>
+            <div>
+              <Label>Efeito esperado</Label>
+              <Textarea rows={3} {...riskOpportunityForm.register("expectedEffect")} />
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <Label>Referência de origem</Label>
+              <Input {...riskOpportunityForm.register("sourceReference")} />
+            </div>
+            <div>
+              <Label>Notas</Label>
+              <Textarea rows={3} {...riskOpportunityForm.register("notes")} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              riskOpportunityForm.reset(blankRiskOpportunityForm());
+              setRiskDialogOpen(false);
+              setRiskEditing(null);
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={saveRiskOpportunity}
+            isLoading={
+              riskOpportunityCrud.createMutation.isPending ||
+              riskOpportunityCrud.updateMutation.isPending
+            }
+          >
+            Salvar
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog
+        open={riskEffectivenessDialogOpen}
+        onOpenChange={setRiskEffectivenessDialogOpen}
+        title="Verificação de eficácia"
+        description={
+          riskEffectivenessTarget
+            ? `Registrar o resultado da resposta para "${riskEffectivenessTarget.title}".`
+            : "Registrar o resultado da resposta."
+        }
+        size="md"
+      >
+        <div className="grid gap-4">
+          <div>
+            <Label>Resultado</Label>
+            <Select {...riskEffectivenessForm.register("result")}>
+              <option value="effective">Eficaz</option>
+              <option value="ineffective">Ineficaz</option>
+            </Select>
+          </div>
+          <div>
+            <Label>Comentário</Label>
+            <Textarea rows={4} {...riskEffectivenessForm.register("comment")} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              riskEffectivenessForm.reset(blankRiskEffectivenessReview());
+              setRiskEffectivenessDialogOpen(false);
+              setRiskEffectivenessTarget(null);
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={saveRiskEffectivenessReview}
+            isLoading={riskEffectivenessReviewMutation.isPending}
+          >
+            Salvar revisão
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog
         open={actionDialogOpen}
         onOpenChange={setActionDialogOpen}
         title={actionEditing ? "Editar ação" : "Nova ação"}
@@ -1831,6 +2926,22 @@ export default function GovernanceDetailPage() {
               </Select>
             </div>
             <div>
+              <Label>Co-responsável</Label>
+              <Select
+                {...actionForm.register("secondaryResponsibleUserId", {
+                  setValueAs: (value) =>
+                    value === "" || value == null ? null : Number(value),
+                })}
+              >
+                <option value="">Não definido</option>
+                {users.map((user: UserOption) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
               <Label>Prazo</Label>
               <Input type="date" {...actionForm.register("dueDate")} />
             </div>
@@ -1844,7 +2955,7 @@ export default function GovernanceDetailPage() {
               </Select>
             </div>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <div>
               <Label>Item SWOT vinculado</Label>
               <Select
@@ -1876,6 +2987,42 @@ export default function GovernanceDetailPage() {
                   </option>
                 ))}
               </Select>
+            </div>
+            <div>
+              <Label>Risco ou oportunidade vinculado</Label>
+              <Select
+                {...actionForm.register("riskOpportunityItemId", {
+                  setValueAs: (value) =>
+                    value === "" || value == null ? null : Number(value),
+                })}
+              >
+                <option value="">Sem vínculo</option>
+                {plan.riskOpportunityItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    [{getRiskTypeLabel(item.type)}] {item.title}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <Label>Prazo reprogramado</Label>
+              <Input type="date" {...actionForm.register("rescheduledDueDate")} />
+            </div>
+            <div>
+              <Label>Data de conclusão</Label>
+              <Input type="date" {...actionForm.register("completedAt")} />
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <Label>Motivo da reprogramação</Label>
+              <Textarea rows={3} {...actionForm.register("rescheduleReason")} />
+            </div>
+            <div>
+              <Label>Notas de conclusão</Label>
+              <Textarea rows={3} {...actionForm.register("completionNotes")} />
             </div>
           </div>
           <div>

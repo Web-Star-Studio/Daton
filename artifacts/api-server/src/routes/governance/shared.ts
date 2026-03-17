@@ -5,6 +5,7 @@ import {
   db,
   strategicPlanActionsTable,
   strategicPlanObjectivesTable,
+  strategicPlanRiskOpportunityItemsTable,
   strategicPlansTable,
   strategicPlanSwotItemsTable,
   unitsTable,
@@ -98,12 +99,77 @@ export const actionBodySchema = z.object({
   description: z.string().nullable().optional(),
   swotItemId: z.number().int().positive().nullable().optional(),
   objectiveId: z.number().int().positive().nullable().optional(),
+  riskOpportunityItemId: z.number().int().positive().nullable().optional(),
   responsibleUserId: z.number().int().positive().nullable().optional(),
+  secondaryResponsibleUserId: z.number().int().positive().nullable().optional(),
   dueDate: z.string().datetime().nullable().optional(),
+  rescheduledDueDate: z.string().datetime().nullable().optional(),
+  rescheduleReason: z.string().nullable().optional(),
+  completedAt: z.string().datetime().nullable().optional(),
+  completionNotes: z.string().nullable().optional(),
   status: z.enum(["pending", "in_progress", "done", "canceled"]).optional(),
   notes: z.string().nullable().optional(),
   unitIds: z.array(z.number().int().positive()).optional(),
   sortOrder: z.number().int().min(0).optional(),
+});
+
+export const riskOpportunityBodySchema = z.object({
+  type: z.enum(["risk", "opportunity"]),
+  sourceType: z.enum([
+    "swot",
+    "audit",
+    "meeting",
+    "legislation",
+    "incident",
+    "internal_strategy",
+    "other",
+  ]),
+  sourceReference: z.string().nullable().optional(),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  ownerUserId: z.number().int().positive().nullable().optional(),
+  coOwnerUserId: z.number().int().positive().nullable().optional(),
+  unitId: z.number().int().positive().nullable().optional(),
+  objectiveId: z.number().int().positive().nullable().optional(),
+  swotItemId: z.number().int().positive().nullable().optional(),
+  likelihood: z.number().int().min(1).max(4).nullable().optional(),
+  impact: z.number().int().min(1).max(4).nullable().optional(),
+  responseStrategy: z
+    .enum([
+      "mitigate",
+      "eliminate",
+      "accept",
+      "monitor",
+      "exploit",
+      "enhance",
+      "share",
+      "avoid",
+      "other",
+    ])
+    .nullable()
+    .optional(),
+  nextReviewAt: z.string().datetime().nullable().optional(),
+  status: z
+    .enum([
+      "identified",
+      "assessed",
+      "responding",
+      "awaiting_effectiveness",
+      "effective",
+      "ineffective",
+      "continuous",
+      "canceled",
+    ])
+    .optional(),
+  existingControls: z.string().nullable().optional(),
+  expectedEffect: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
+export const riskOpportunityEffectivenessReviewBodySchema = z.object({
+  result: z.enum(["effective", "ineffective"]),
+  comment: z.string().nullable().optional(),
 });
 
 export const importBodySchema = z.object({
@@ -200,16 +266,20 @@ export async function validateActionReferences({
   orgId,
   planId,
   responsibleUserId,
+  secondaryResponsibleUserId,
   swotItemId,
   objectiveId,
+  riskOpportunityItemId,
   unitIds,
 }: {
   executor: SelectExecutor;
   orgId: number;
   planId: number;
   responsibleUserId?: number | null;
+  secondaryResponsibleUserId?: number | null;
   swotItemId?: number | null;
   objectiveId?: number | null;
+  riskOpportunityItemId?: number | null;
   unitIds: number[];
 }) {
   if (responsibleUserId) {
@@ -218,6 +288,19 @@ export async function validateActionReferences({
       .from(usersTable)
       .where(and(eq(usersTable.id, responsibleUserId), eq(usersTable.organizationId, orgId)));
     if (!user) return "Responsável inválido para esta organização";
+  }
+
+  if (secondaryResponsibleUserId) {
+    const [user] = await executor
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(
+        and(
+          eq(usersTable.id, secondaryResponsibleUserId),
+          eq(usersTable.organizationId, orgId),
+        ),
+      );
+    if (!user) return "Co-responsável inválido para esta organização";
   }
 
   if (swotItemId) {
@@ -243,12 +326,93 @@ export async function validateActionReferences({
     if (!objective) return "Objetivo vinculado não pertence ao plano";
   }
 
+  if (riskOpportunityItemId) {
+    const [item] = await executor
+      .select({ id: strategicPlanRiskOpportunityItemsTable.id })
+      .from(strategicPlanRiskOpportunityItemsTable)
+      .where(
+        and(
+          eq(strategicPlanRiskOpportunityItemsTable.id, riskOpportunityItemId),
+          eq(strategicPlanRiskOpportunityItemsTable.planId, planId),
+        ),
+      );
+    if (!item) return "Item de risco ou oportunidade não pertence ao plano";
+  }
+
   if (unitIds.length > 0) {
     const units = await executor
       .select({ id: unitsTable.id })
       .from(unitsTable)
       .where(and(eq(unitsTable.organizationId, orgId), inArray(unitsTable.id, unitIds)));
     if (units.length !== unitIds.length) return "Uma ou mais unidades não pertencem à organização";
+  }
+
+  return null;
+}
+
+export async function validateRiskOpportunityReferences({
+  executor,
+  orgId,
+  planId,
+  ownerUserId,
+  coOwnerUserId,
+  swotItemId,
+  objectiveId,
+  unitId,
+}: {
+  executor: SelectExecutor;
+  orgId: number;
+  planId: number;
+  ownerUserId?: number | null;
+  coOwnerUserId?: number | null;
+  swotItemId?: number | null;
+  objectiveId?: number | null;
+  unitId?: number | null;
+}) {
+  const userIds = [ownerUserId, coOwnerUserId].filter(
+    (value): value is number => typeof value === "number" && value > 0,
+  );
+
+  if (userIds.length > 0) {
+    const users = await executor
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(and(eq(usersTable.organizationId, orgId), inArray(usersTable.id, userIds)));
+
+    if (users.length !== userIds.length) {
+      return "Responsável ou co-responsável inválido para esta organização";
+    }
+  }
+
+  if (swotItemId) {
+    const [item] = await executor
+      .select({ id: strategicPlanSwotItemsTable.id })
+      .from(strategicPlanSwotItemsTable)
+      .where(
+        and(eq(strategicPlanSwotItemsTable.id, swotItemId), eq(strategicPlanSwotItemsTable.planId, planId)),
+      );
+    if (!item) return "Item SWOT vinculado não pertence ao plano";
+  }
+
+  if (objectiveId) {
+    const [objective] = await executor
+      .select({ id: strategicPlanObjectivesTable.id })
+      .from(strategicPlanObjectivesTable)
+      .where(
+        and(
+          eq(strategicPlanObjectivesTable.id, objectiveId),
+          eq(strategicPlanObjectivesTable.planId, planId),
+        ),
+      );
+    if (!objective) return "Objetivo vinculado não pertence ao plano";
+  }
+
+  if (unitId) {
+    const [unit] = await executor
+      .select({ id: unitsTable.id })
+      .from(unitsTable)
+      .where(and(eq(unitsTable.organizationId, orgId), eq(unitsTable.id, unitId)));
+    if (!unit) return "Unidade vinculada não pertence à organização";
   }
 
   return null;

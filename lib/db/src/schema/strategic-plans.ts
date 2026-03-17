@@ -42,6 +42,42 @@ export type StrategicPlanActionStatus =
   | "done"
   | "canceled";
 
+export type StrategicPlanRiskOpportunityType = "risk" | "opportunity";
+
+export type StrategicPlanRiskOpportunitySourceType =
+  | "swot"
+  | "audit"
+  | "meeting"
+  | "legislation"
+  | "incident"
+  | "internal_strategy"
+  | "other";
+
+export type StrategicPlanRiskOpportunityStatus =
+  | "identified"
+  | "assessed"
+  | "responding"
+  | "awaiting_effectiveness"
+  | "effective"
+  | "ineffective"
+  | "continuous"
+  | "canceled";
+
+export type StrategicPlanRiskOpportunityResponseStrategy =
+  | "mitigate"
+  | "eliminate"
+  | "accept"
+  | "monitor"
+  | "exploit"
+  | "enhance"
+  | "share"
+  | "avoid"
+  | "other";
+
+export type StrategicPlanRiskOpportunityEffectivenessResult =
+  | "effective"
+  | "ineffective";
+
 export interface StrategicPlanReminderFlags {
   d30?: boolean;
   d7?: boolean;
@@ -188,10 +224,26 @@ export const strategicPlanActionsTable = pgTable("strategic_plan_actions", {
   objectiveId: integer("objective_id").references(() => strategicPlanObjectivesTable.id, {
     onDelete: "set null",
   }),
+  riskOpportunityItemId: integer("risk_opportunity_item_id").references(
+    () => strategicPlanRiskOpportunityItemsTable.id,
+    {
+      onDelete: "set null",
+    },
+  ),
   responsibleUserId: integer("responsible_user_id").references(() => usersTable.id, {
     onDelete: "set null",
   }),
+  secondaryResponsibleUserId: integer("secondary_responsible_user_id").references(
+    () => usersTable.id,
+    {
+      onDelete: "set null",
+    },
+  ),
   dueDate: timestamp("due_date", { withTimezone: true }),
+  rescheduledDueDate: timestamp("rescheduled_due_date", { withTimezone: true }),
+  rescheduleReason: text("reschedule_reason"),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  completionNotes: text("completion_notes"),
   status: text("status").notNull().default("pending").$type<StrategicPlanActionStatus>(),
   notes: text("notes"),
   sortOrder: integer("sort_order").notNull().default(0),
@@ -215,6 +267,76 @@ export const strategicPlanActionUnitsTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [unique("strategic_plan_action_unit_unique").on(table.actionId, table.unitId)],
+);
+
+export const strategicPlanRiskOpportunityItemsTable = pgTable(
+  "strategic_plan_risk_opportunity_items",
+  {
+    id: serial("id").primaryKey(),
+    planId: integer("plan_id")
+      .notNull()
+      .references(() => strategicPlansTable.id, { onDelete: "cascade" }),
+    type: text("type").notNull().$type<StrategicPlanRiskOpportunityType>(),
+    sourceType: text("source_type")
+      .notNull()
+      .$type<StrategicPlanRiskOpportunitySourceType>(),
+    sourceReference: text("source_reference"),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    ownerUserId: integer("owner_user_id").references(() => usersTable.id, {
+      onDelete: "set null",
+    }),
+    coOwnerUserId: integer("co_owner_user_id").references(() => usersTable.id, {
+      onDelete: "set null",
+    }),
+    unitId: integer("unit_id").references(() => unitsTable.id, {
+      onDelete: "set null",
+    }),
+    objectiveId: integer("objective_id").references(() => strategicPlanObjectivesTable.id, {
+      onDelete: "set null",
+    }),
+    swotItemId: integer("swot_item_id").references(() => strategicPlanSwotItemsTable.id, {
+      onDelete: "set null",
+    }),
+    likelihood: integer("likelihood"),
+    impact: integer("impact"),
+    score: integer("score"),
+    responseStrategy: text("response_strategy").$type<StrategicPlanRiskOpportunityResponseStrategy>(),
+    nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
+    status: text("status")
+      .notNull()
+      .default("identified")
+      .$type<StrategicPlanRiskOpportunityStatus>(),
+    existingControls: text("existing_controls"),
+    expectedEffect: text("expected_effect"),
+    notes: text("notes"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+);
+
+export const strategicPlanRiskOpportunityEffectivenessReviewsTable = pgTable(
+  "strategic_plan_risk_opportunity_effectiveness_reviews",
+  {
+    id: serial("id").primaryKey(),
+    riskOpportunityItemId: integer("risk_opportunity_item_id")
+      .notNull()
+      .references(() => strategicPlanRiskOpportunityItemsTable.id, {
+        onDelete: "cascade",
+      }),
+    reviewedById: integer("reviewed_by_id")
+      .notNull()
+      .references(() => usersTable.id),
+    result: text("result")
+      .notNull()
+      .$type<StrategicPlanRiskOpportunityEffectivenessResult>(),
+    comment: text("comment"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
 );
 
 export const strategicPlanRevisionsTable = pgTable("strategic_plan_revisions", {
@@ -243,4 +365,8 @@ export type StrategicPlanInterestedParty =
 export type StrategicPlanObjective = typeof strategicPlanObjectivesTable.$inferSelect;
 export type StrategicPlanAction = typeof strategicPlanActionsTable.$inferSelect;
 export type StrategicPlanActionUnit = typeof strategicPlanActionUnitsTable.$inferSelect;
+export type StrategicPlanRiskOpportunityItem =
+  typeof strategicPlanRiskOpportunityItemsTable.$inferSelect;
+export type StrategicPlanRiskOpportunityEffectivenessReview =
+  typeof strategicPlanRiskOpportunityEffectivenessReviewsTable.$inferSelect;
 export type StrategicPlanRevision = typeof strategicPlanRevisionsTable.$inferSelect;

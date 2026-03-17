@@ -40,6 +40,8 @@ import type {
   CreateStrategicPlanBody,
   CreateStrategicPlanInterestedPartyBody,
   CreateStrategicPlanObjectiveBody,
+  CreateStrategicPlanRiskOpportunityEffectivenessReviewBody,
+  CreateStrategicPlanRiskOpportunityItemBody,
   CreateStrategicPlanSwotItemBody,
   CreateTrainingBody,
   CreateUnitBody,
@@ -91,6 +93,7 @@ import type {
   StrategicPlanListItem,
   StrategicPlanObjective,
   StrategicPlanReviewBody,
+  StrategicPlanRiskOpportunityItem,
   StrategicPlanSwotItem,
   SubmitQuestionnaireResponse,
   SuccessResponse,
@@ -110,6 +113,7 @@ import type {
   UpdateStrategicPlanBody,
   UpdateStrategicPlanInterestedPartyBody,
   UpdateStrategicPlanObjectiveBody,
+  UpdateStrategicPlanRiskOpportunityItemBody,
   UpdateStrategicPlanSwotItemBody,
   UpdateTrainingBody,
   UpdateUnitBody,
@@ -11048,6 +11052,625 @@ export const useUpdateStrategicPlanAction = <
 };
 
 /**
+ * @summary List risk and opportunity items for a strategic plan
+ */
+export const getListStrategicPlanRiskOpportunityItemsUrl = (
+  orgId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/risk-opportunity-items`;
+};
+
+export const listStrategicPlanRiskOpportunityItems = async (
+  orgId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<StrategicPlanRiskOpportunityItem[]> => {
+  return customFetch<StrategicPlanRiskOpportunityItem[]>(
+    getListStrategicPlanRiskOpportunityItemsUrl(orgId, planId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListStrategicPlanRiskOpportunityItemsQueryKey = (
+  orgId: number,
+  planId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/strategic-plans/${planId}/risk-opportunity-items`,
+  ] as const;
+};
+
+export const getListStrategicPlanRiskOpportunityItemsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listStrategicPlanRiskOpportunityItems>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listStrategicPlanRiskOpportunityItems>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListStrategicPlanRiskOpportunityItemsQueryKey(orgId, planId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listStrategicPlanRiskOpportunityItems>>
+  > = ({ signal }) =>
+    listStrategicPlanRiskOpportunityItems(orgId, planId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && planId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listStrategicPlanRiskOpportunityItems>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListStrategicPlanRiskOpportunityItemsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listStrategicPlanRiskOpportunityItems>>
+>;
+export type ListStrategicPlanRiskOpportunityItemsQueryError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary List risk and opportunity items for a strategic plan
+ */
+
+export function useListStrategicPlanRiskOpportunityItems<
+  TData = Awaited<ReturnType<typeof listStrategicPlanRiskOpportunityItems>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listStrategicPlanRiskOpportunityItems>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListStrategicPlanRiskOpportunityItemsQueryOptions(
+    orgId,
+    planId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a risk or opportunity item for a strategic plan
+ */
+export const getCreateStrategicPlanRiskOpportunityItemUrl = (
+  orgId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/risk-opportunity-items`;
+};
+
+export const createStrategicPlanRiskOpportunityItem = async (
+  orgId: number,
+  planId: number,
+  createStrategicPlanRiskOpportunityItemBody: CreateStrategicPlanRiskOpportunityItemBody,
+  options?: RequestInit,
+): Promise<StrategicPlanRiskOpportunityItem> => {
+  return customFetch<StrategicPlanRiskOpportunityItem>(
+    getCreateStrategicPlanRiskOpportunityItemUrl(orgId, planId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createStrategicPlanRiskOpportunityItemBody),
+    },
+  );
+};
+
+export const getCreateStrategicPlanRiskOpportunityItemMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStrategicPlanRiskOpportunityItem>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateStrategicPlanRiskOpportunityItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createStrategicPlanRiskOpportunityItem>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    data: BodyType<CreateStrategicPlanRiskOpportunityItemBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createStrategicPlanRiskOpportunityItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createStrategicPlanRiskOpportunityItem>>,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateStrategicPlanRiskOpportunityItemBody>;
+    }
+  > = (props) => {
+    const { orgId, planId, data } = props ?? {};
+
+    return createStrategicPlanRiskOpportunityItem(
+      orgId,
+      planId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateStrategicPlanRiskOpportunityItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createStrategicPlanRiskOpportunityItem>>
+>;
+export type CreateStrategicPlanRiskOpportunityItemMutationBody =
+  BodyType<CreateStrategicPlanRiskOpportunityItemBody>;
+export type CreateStrategicPlanRiskOpportunityItemMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a risk or opportunity item for a strategic plan
+ */
+export const useCreateStrategicPlanRiskOpportunityItem = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createStrategicPlanRiskOpportunityItem>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      data: BodyType<CreateStrategicPlanRiskOpportunityItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createStrategicPlanRiskOpportunityItem>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    data: BodyType<CreateStrategicPlanRiskOpportunityItemBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateStrategicPlanRiskOpportunityItemMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Update a risk or opportunity item for a strategic plan
+ */
+export const getUpdateStrategicPlanRiskOpportunityItemUrl = (
+  orgId: number,
+  planId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/risk-opportunity-items/${itemId}`;
+};
+
+export const updateStrategicPlanRiskOpportunityItem = async (
+  orgId: number,
+  planId: number,
+  itemId: number,
+  updateStrategicPlanRiskOpportunityItemBody: UpdateStrategicPlanRiskOpportunityItemBody,
+  options?: RequestInit,
+): Promise<StrategicPlanRiskOpportunityItem> => {
+  return customFetch<StrategicPlanRiskOpportunityItem>(
+    getUpdateStrategicPlanRiskOpportunityItemUrl(orgId, planId, itemId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateStrategicPlanRiskOpportunityItemBody),
+    },
+  );
+};
+
+export const getUpdateStrategicPlanRiskOpportunityItemMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStrategicPlanRiskOpportunityItem>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<UpdateStrategicPlanRiskOpportunityItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateStrategicPlanRiskOpportunityItem>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    itemId: number;
+    data: BodyType<UpdateStrategicPlanRiskOpportunityItemBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateStrategicPlanRiskOpportunityItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateStrategicPlanRiskOpportunityItem>>,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<UpdateStrategicPlanRiskOpportunityItemBody>;
+    }
+  > = (props) => {
+    const { orgId, planId, itemId, data } = props ?? {};
+
+    return updateStrategicPlanRiskOpportunityItem(
+      orgId,
+      planId,
+      itemId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateStrategicPlanRiskOpportunityItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateStrategicPlanRiskOpportunityItem>>
+>;
+export type UpdateStrategicPlanRiskOpportunityItemMutationBody =
+  BodyType<UpdateStrategicPlanRiskOpportunityItemBody>;
+export type UpdateStrategicPlanRiskOpportunityItemMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update a risk or opportunity item for a strategic plan
+ */
+export const useUpdateStrategicPlanRiskOpportunityItem = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStrategicPlanRiskOpportunityItem>>,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<UpdateStrategicPlanRiskOpportunityItemBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateStrategicPlanRiskOpportunityItem>>,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    itemId: number;
+    data: BodyType<UpdateStrategicPlanRiskOpportunityItemBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getUpdateStrategicPlanRiskOpportunityItemMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Delete a risk or opportunity item for a strategic plan
+ */
+export const getDeleteStrategicPlanRiskOpportunityItemUrl = (
+  orgId: number,
+  planId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/risk-opportunity-items/${itemId}`;
+};
+
+export const deleteStrategicPlanRiskOpportunityItem = async (
+  orgId: number,
+  planId: number,
+  itemId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteStrategicPlanRiskOpportunityItemUrl(orgId, planId, itemId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteStrategicPlanRiskOpportunityItemMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteStrategicPlanRiskOpportunityItem>>,
+    TError,
+    { orgId: number; planId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteStrategicPlanRiskOpportunityItem>>,
+  TError,
+  { orgId: number; planId: number; itemId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteStrategicPlanRiskOpportunityItem"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteStrategicPlanRiskOpportunityItem>>,
+    { orgId: number; planId: number; itemId: number }
+  > = (props) => {
+    const { orgId, planId, itemId } = props ?? {};
+
+    return deleteStrategicPlanRiskOpportunityItem(
+      orgId,
+      planId,
+      itemId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteStrategicPlanRiskOpportunityItemMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteStrategicPlanRiskOpportunityItem>>
+>;
+
+export type DeleteStrategicPlanRiskOpportunityItemMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete a risk or opportunity item for a strategic plan
+ */
+export const useDeleteStrategicPlanRiskOpportunityItem = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteStrategicPlanRiskOpportunityItem>>,
+    TError,
+    { orgId: number; planId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteStrategicPlanRiskOpportunityItem>>,
+  TError,
+  { orgId: number; planId: number; itemId: number },
+  TContext
+> => {
+  return useMutation(
+    getDeleteStrategicPlanRiskOpportunityItemMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Create an effectiveness review for a risk or opportunity item
+ */
+export const getCreateStrategicPlanRiskOpportunityEffectivenessReviewUrl = (
+  orgId: number,
+  planId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/risk-opportunity-items/${itemId}/effectiveness-review`;
+};
+
+export const createStrategicPlanRiskOpportunityEffectivenessReview = async (
+  orgId: number,
+  planId: number,
+  itemId: number,
+  createStrategicPlanRiskOpportunityEffectivenessReviewBody: CreateStrategicPlanRiskOpportunityEffectivenessReviewBody,
+  options?: RequestInit,
+): Promise<StrategicPlanRiskOpportunityItem> => {
+  return customFetch<StrategicPlanRiskOpportunityItem>(
+    getCreateStrategicPlanRiskOpportunityEffectivenessReviewUrl(
+      orgId,
+      planId,
+      itemId,
+    ),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(
+        createStrategicPlanRiskOpportunityEffectivenessReviewBody,
+      ),
+    },
+  );
+};
+
+export const getCreateStrategicPlanRiskOpportunityEffectivenessReviewMutationOptions =
+  <TError = ErrorType<ErrorResponse>, TContext = unknown>(options?: {
+    mutation?: UseMutationOptions<
+      Awaited<
+        ReturnType<typeof createStrategicPlanRiskOpportunityEffectivenessReview>
+      >,
+      TError,
+      {
+        orgId: number;
+        planId: number;
+        itemId: number;
+        data: BodyType<CreateStrategicPlanRiskOpportunityEffectivenessReviewBody>;
+      },
+      TContext
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  }): UseMutationOptions<
+    Awaited<
+      ReturnType<typeof createStrategicPlanRiskOpportunityEffectivenessReview>
+    >,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<CreateStrategicPlanRiskOpportunityEffectivenessReviewBody>;
+    },
+    TContext
+  > => {
+    const mutationKey = [
+      "createStrategicPlanRiskOpportunityEffectivenessReview",
+    ];
+    const { mutation: mutationOptions, request: requestOptions } = options
+      ? options.mutation &&
+        "mutationKey" in options.mutation &&
+        options.mutation.mutationKey
+        ? options
+        : { ...options, mutation: { ...options.mutation, mutationKey } }
+      : { mutation: { mutationKey }, request: undefined };
+
+    const mutationFn: MutationFunction<
+      Awaited<
+        ReturnType<typeof createStrategicPlanRiskOpportunityEffectivenessReview>
+      >,
+      {
+        orgId: number;
+        planId: number;
+        itemId: number;
+        data: BodyType<CreateStrategicPlanRiskOpportunityEffectivenessReviewBody>;
+      }
+    > = (props) => {
+      const { orgId, planId, itemId, data } = props ?? {};
+
+      return createStrategicPlanRiskOpportunityEffectivenessReview(
+        orgId,
+        planId,
+        itemId,
+        data,
+        requestOptions,
+      );
+    };
+
+    return { mutationFn, ...mutationOptions };
+  };
+
+export type CreateStrategicPlanRiskOpportunityEffectivenessReviewMutationResult =
+  NonNullable<
+    Awaited<
+      ReturnType<typeof createStrategicPlanRiskOpportunityEffectivenessReview>
+    >
+  >;
+export type CreateStrategicPlanRiskOpportunityEffectivenessReviewMutationBody =
+  BodyType<CreateStrategicPlanRiskOpportunityEffectivenessReviewBody>;
+export type CreateStrategicPlanRiskOpportunityEffectivenessReviewMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create an effectiveness review for a risk or opportunity item
+ */
+export const useCreateStrategicPlanRiskOpportunityEffectivenessReview = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<
+      ReturnType<typeof createStrategicPlanRiskOpportunityEffectivenessReview>
+    >,
+    TError,
+    {
+      orgId: number;
+      planId: number;
+      itemId: number;
+      data: BodyType<CreateStrategicPlanRiskOpportunityEffectivenessReviewBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<
+    ReturnType<typeof createStrategicPlanRiskOpportunityEffectivenessReview>
+  >,
+  TError,
+  {
+    orgId: number;
+    planId: number;
+    itemId: number;
+    data: BodyType<CreateStrategicPlanRiskOpportunityEffectivenessReviewBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateStrategicPlanRiskOpportunityEffectivenessReviewMutationOptions(
+      options,
+    ),
+  );
+};
+
+/**
  * @summary Delete an action for a strategic plan
  */
 export const getDeleteStrategicPlanActionUrl = (
@@ -11055,7 +11678,7 @@ export const getDeleteStrategicPlanActionUrl = (
   planId: number,
   itemId: number,
 ) => {
-  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/actions/${itemId}`;
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/risk-opportunity-items/${itemId}/effectiveness-review`;
 };
 
 export const deleteStrategicPlanAction = async (

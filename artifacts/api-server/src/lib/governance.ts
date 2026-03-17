@@ -10,6 +10,8 @@ import {
   strategicPlanActionUnitsTable,
   strategicPlanInterestedPartiesTable,
   strategicPlanObjectivesTable,
+  strategicPlanRiskOpportunityEffectivenessReviewsTable,
+  strategicPlanRiskOpportunityItemsTable,
   strategicPlanRevisionsTable,
   strategicPlansTable,
   strategicPlanSwotItemsTable,
@@ -30,9 +32,14 @@ export interface StrategicPlanSummaryMetrics {
   actionCount: number;
   interestedPartyCount: number;
   objectiveCount: number;
+  riskOpportunityCount: number;
   openActionCount: number;
   overdueActionCount: number;
+  openRiskOpportunityCount: number;
+  overdueRiskOpportunityCount: number;
   actionsByStatus: Record<string, number>;
+  riskOpportunitiesByStatus: Record<string, number>;
+  riskOpportunitiesByType: Record<string, number>;
 }
 
 export interface StrategicPlanOpenActionByUnit {
@@ -164,17 +171,37 @@ function buildStrategicPlanMetrics(args: {
   interestedPartyCount: number;
   objectiveCount: number;
   actions: Array<{ dueDate?: string | null; status: string }>;
+  riskOpportunityItems: Array<{
+    nextReviewAt?: string | null;
+    status: string;
+    type: string;
+  }>;
 }): StrategicPlanSummaryMetrics {
   const actionsByStatus = args.actions.reduce<Record<string, number>>((acc, action) => {
     acc[action.status] = (acc[action.status] || 0) + 1;
     return acc;
   }, {});
+  const riskOpportunitiesByStatus = args.riskOpportunityItems.reduce<Record<string, number>>(
+    (acc, item) => {
+      acc[item.status] = (acc[item.status] || 0) + 1;
+      return acc;
+    },
+    {},
+  );
+  const riskOpportunitiesByType = args.riskOpportunityItems.reduce<Record<string, number>>(
+    (acc, item) => {
+      acc[item.type] = (acc[item.type] || 0) + 1;
+      return acc;
+    },
+    {},
+  );
 
   return {
     swotCount: args.swotCount,
     actionCount: args.actions.length,
     interestedPartyCount: args.interestedPartyCount,
     objectiveCount: args.objectiveCount,
+    riskOpportunityCount: args.riskOpportunityItems.length,
     openActionCount: args.actions.filter((action) => action.status !== "done").length,
     overdueActionCount: args.actions.filter(
       (action) =>
@@ -183,7 +210,51 @@ function buildStrategicPlanMetrics(args: {
         action.status !== "done",
     ).length,
     actionsByStatus,
+    openRiskOpportunityCount: args.riskOpportunityItems.filter(
+      (item) => !["effective", "canceled"].includes(item.status),
+    ).length,
+    overdueRiskOpportunityCount: args.riskOpportunityItems.filter(
+      (item) =>
+        item.nextReviewAt &&
+        new Date(item.nextReviewAt).getTime() < Date.now() &&
+        !["effective", "canceled"].includes(item.status),
+    ).length,
+    riskOpportunitiesByStatus,
+    riskOpportunitiesByType,
   };
+}
+
+function buildRiskOpportunityPriority(score: number | null | undefined): string {
+  if (!score || score <= 0) return "na";
+  if (score <= 4) return "low";
+  if (score <= 8) return "medium";
+  if (score <= 12) return "high";
+  return "critical";
+}
+
+function deriveRiskOpportunityStatus(args: {
+  storedStatus: string;
+  likelihood?: number | null;
+  impact?: number | null;
+  responseStrategy?: string | null;
+  actions: Array<{ status: string }>;
+  latestEffectivenessResult?: string | null;
+}): string {
+  if (args.storedStatus === "continuous" || args.storedStatus === "canceled") {
+    return args.storedStatus;
+  }
+  if (args.latestEffectivenessResult === "ineffective") return "ineffective";
+  if (args.latestEffectivenessResult === "effective") return "effective";
+  if (args.actions.length > 0) {
+    const hasOpenAction = args.actions.some((action) =>
+      ["pending", "in_progress"].includes(action.status),
+    );
+    return hasOpenAction ? "responding" : "awaiting_effectiveness";
+  }
+  if (args.likelihood && args.impact && args.responseStrategy) {
+    return "assessed";
+  }
+  return "identified";
 }
 
 function buildStrategicPlanComplianceIssues(args: {
@@ -194,6 +265,17 @@ function buildStrategicPlanComplianceIssues(args: {
   interestedPartyCount: number;
   objectiveCount: number;
   actions: Array<{ swotItemId?: number | null }>;
+  riskOpportunityItems: Array<{
+    id: number;
+    ownerUserId?: number | null;
+    likelihood?: number | null;
+    impact?: number | null;
+    responseStrategy?: string | null;
+    nextReviewAt?: string | null;
+    status: string;
+    latestEffectivenessResult?: string | null;
+    actions: Array<{ status: string }>;
+  }>;
 }): string[] {
   const complianceIssues: string[] = [];
   const nextReviewAt =
@@ -232,6 +314,56 @@ function buildStrategicPlanComplianceIssues(args: {
     )
   ) {
     complianceIssues.push("Há item SWOT que requer ação sem ação vinculada.");
+  }
+  if (args.riskOpportunityItems.length === 0) {
+    complianceIssues.push("Ausência de riscos e oportunidades avaliados.");
+  }
+  if (
+    args.riskOpportunityItems.some(
+      (item) =>
+        !item.ownerUserId ||
+        !item.likelihood ||
+        !item.impact ||
+        !item.responseStrategy,
+    )
+  ) {
+    complianceIssues.push("Existem riscos ou oportunidades sem avaliação completa.");
+  }
+  if (
+    args.riskOpportunityItems.some(
+      (item) =>
+        item.responseStrategy &&
+        !["monitor", "accept"].includes(item.responseStrategy) &&
+        item.actions.length === 0 &&
+        !["canceled", "continuous"].includes(item.status),
+    )
+  ) {
+    complianceIssues.push("Há risco ou oportunidade que exige resposta sem ação vinculada.");
+  }
+  if (
+    args.riskOpportunityItems.some(
+      (item) =>
+        item.nextReviewAt &&
+        new Date(item.nextReviewAt).getTime() < Date.now() &&
+        !["effective", "canceled"].includes(item.status),
+    )
+  ) {
+    complianceIssues.push("Existem riscos ou oportunidades com revisão vencida.");
+  }
+  if (
+    args.riskOpportunityItems.some(
+      (item) =>
+        item.status === "awaiting_effectiveness" && !item.latestEffectivenessResult,
+    )
+  ) {
+    complianceIssues.push("Há risco ou oportunidade concluído sem verificação de eficácia.");
+  }
+  if (
+    args.riskOpportunityItems.some(
+      (item) => item.latestEffectivenessResult === "ineffective",
+    )
+  ) {
+    complianceIssues.push("Há risco ou oportunidade com eficácia reprovada.");
   }
 
   return complianceIssues;
@@ -427,7 +559,8 @@ export async function listStrategicPlanSummaries(organizationId: number) {
   }
 
   const planIds = plans.map((plan) => plan.id);
-  const [swotItems, interestedParties, objectives, actions] = await Promise.all([
+  const [swotItems, interestedParties, objectives, actions, riskOpportunityItems] =
+    await Promise.all([
     db
       .select({
         id: strategicPlanSwotItemsTable.id,
@@ -455,12 +588,47 @@ export async function listStrategicPlanSummaries(organizationId: number) {
         id: strategicPlanActionsTable.id,
         planId: strategicPlanActionsTable.planId,
         swotItemId: strategicPlanActionsTable.swotItemId,
+        riskOpportunityItemId: strategicPlanActionsTable.riskOpportunityItemId,
         dueDate: strategicPlanActionsTable.dueDate,
         status: strategicPlanActionsTable.status,
       })
       .from(strategicPlanActionsTable)
       .where(inArray(strategicPlanActionsTable.planId, planIds)),
+    db
+      .select({
+        id: strategicPlanRiskOpportunityItemsTable.id,
+        planId: strategicPlanRiskOpportunityItemsTable.planId,
+        ownerUserId: strategicPlanRiskOpportunityItemsTable.ownerUserId,
+        likelihood: strategicPlanRiskOpportunityItemsTable.likelihood,
+        impact: strategicPlanRiskOpportunityItemsTable.impact,
+        responseStrategy: strategicPlanRiskOpportunityItemsTable.responseStrategy,
+        nextReviewAt: strategicPlanRiskOpportunityItemsTable.nextReviewAt,
+        status: strategicPlanRiskOpportunityItemsTable.status,
+        type: strategicPlanRiskOpportunityItemsTable.type,
+      })
+      .from(strategicPlanRiskOpportunityItemsTable)
+      .where(inArray(strategicPlanRiskOpportunityItemsTable.planId, planIds)),
   ]);
+
+  const riskOpportunityItemIds = riskOpportunityItems.map((item) => item.id);
+  const effectivenessReviews =
+    riskOpportunityItemIds.length === 0
+      ? []
+      : await db
+          .select({
+            id: strategicPlanRiskOpportunityEffectivenessReviewsTable.id,
+            riskOpportunityItemId:
+              strategicPlanRiskOpportunityEffectivenessReviewsTable.riskOpportunityItemId,
+            result: strategicPlanRiskOpportunityEffectivenessReviewsTable.result,
+            createdAt: strategicPlanRiskOpportunityEffectivenessReviewsTable.createdAt,
+          })
+          .from(strategicPlanRiskOpportunityEffectivenessReviewsTable)
+          .where(
+            inArray(
+              strategicPlanRiskOpportunityEffectivenessReviewsTable.riskOpportunityItemId,
+              riskOpportunityItemIds,
+            ),
+          );
 
   const actionIds = actions.map((action) => action.id);
   const actionUnits =
@@ -484,16 +652,43 @@ export async function listStrategicPlanSummaries(organizationId: number) {
         id: action.id,
         status: action.status,
         swotItemId: action.swotItemId,
+        riskOpportunityItemId: action.riskOpportunityItemId,
         dueDate: isoDate(action.dueDate),
         units: actionUnits
           .filter((unit) => unit.actionId === action.id)
           .map((unit) => ({ id: unit.unitId, name: unit.unitName })),
       }));
+    const planRiskOpportunityItems = riskOpportunityItems
+      .filter((item) => item.planId === plan.id)
+      .map((item) => {
+        const itemActions = planActions.filter(
+          (action) => action.riskOpportunityItemId === item.id,
+        );
+        const latestEffectivenessReview = effectivenessReviews
+          .filter((review) => review.riskOpportunityItemId === item.id)
+          .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0];
+
+        return {
+          ...item,
+          nextReviewAt: isoDate(item.nextReviewAt),
+          latestEffectivenessResult: latestEffectivenessReview?.result ?? null,
+          actions: itemActions,
+          status: deriveRiskOpportunityStatus({
+            storedStatus: item.status,
+            likelihood: item.likelihood,
+            impact: item.impact,
+            responseStrategy: item.responseStrategy,
+            actions: itemActions,
+            latestEffectivenessResult: latestEffectivenessReview?.result ?? null,
+          }),
+        };
+      });
     const metrics = buildStrategicPlanMetrics({
       swotCount: planSwotItems.length,
       interestedPartyCount: interestedParties.filter((item) => item.planId === plan.id).length,
       objectiveCount: objectives.filter((item) => item.planId === plan.id).length,
       actions: planActions,
+      riskOpportunityItems: planRiskOpportunityItems,
     });
     const complianceIssues = buildStrategicPlanComplianceIssues({
       status: plan.status,
@@ -503,6 +698,7 @@ export async function listStrategicPlanSummaries(organizationId: number) {
       interestedPartyCount: metrics.interestedPartyCount,
       objectiveCount: metrics.objectiveCount,
       actions: planActions,
+      riskOpportunityItems: planRiskOpportunityItems,
     });
 
     return {
@@ -537,7 +733,14 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
 
   if (!plan) return null;
 
-  const [swotItems, interestedParties, objectives, actions, revisions] = await Promise.all([
+  const [
+    swotItems,
+    interestedParties,
+    objectives,
+    actions,
+    riskOpportunityItems,
+    revisions,
+  ] = await Promise.all([
     db
       .select()
       .from(strategicPlanSwotItemsTable)
@@ -565,8 +768,13 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
         swotItemId: strategicPlanActionsTable.swotItemId,
         objectiveId: strategicPlanActionsTable.objectiveId,
         responsibleUserId: strategicPlanActionsTable.responsibleUserId,
-        responsibleUserName: usersTable.name,
+        secondaryResponsibleUserId: strategicPlanActionsTable.secondaryResponsibleUserId,
+        riskOpportunityItemId: strategicPlanActionsTable.riskOpportunityItemId,
         dueDate: strategicPlanActionsTable.dueDate,
+        rescheduledDueDate: strategicPlanActionsTable.rescheduledDueDate,
+        rescheduleReason: strategicPlanActionsTable.rescheduleReason,
+        completedAt: strategicPlanActionsTable.completedAt,
+        completionNotes: strategicPlanActionsTable.completionNotes,
         status: strategicPlanActionsTable.status,
         notes: strategicPlanActionsTable.notes,
         sortOrder: strategicPlanActionsTable.sortOrder,
@@ -574,9 +782,16 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
         updatedAt: strategicPlanActionsTable.updatedAt,
       })
       .from(strategicPlanActionsTable)
-      .leftJoin(usersTable, eq(strategicPlanActionsTable.responsibleUserId, usersTable.id))
       .where(eq(strategicPlanActionsTable.planId, planId))
       .orderBy(strategicPlanActionsTable.sortOrder, strategicPlanActionsTable.id),
+    db
+      .select()
+      .from(strategicPlanRiskOpportunityItemsTable)
+      .where(eq(strategicPlanRiskOpportunityItemsTable.planId, planId))
+      .orderBy(
+        strategicPlanRiskOpportunityItemsTable.updatedAt,
+        strategicPlanRiskOpportunityItemsTable.id,
+      ),
     db
       .select({
         id: strategicPlanRevisionsTable.id,
@@ -598,6 +813,45 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
   ]);
 
   const actionIds = actions.map((action) => action.id);
+  const riskOpportunityItemIds = riskOpportunityItems.map((item) => item.id);
+  const effectivenessReviews =
+    riskOpportunityItemIds.length === 0
+      ? []
+      : await db
+          .select({
+            id: strategicPlanRiskOpportunityEffectivenessReviewsTable.id,
+            riskOpportunityItemId:
+              strategicPlanRiskOpportunityEffectivenessReviewsTable.riskOpportunityItemId,
+            reviewedById: strategicPlanRiskOpportunityEffectivenessReviewsTable.reviewedById,
+            result: strategicPlanRiskOpportunityEffectivenessReviewsTable.result,
+            comment: strategicPlanRiskOpportunityEffectivenessReviewsTable.comment,
+            createdAt: strategicPlanRiskOpportunityEffectivenessReviewsTable.createdAt,
+          })
+          .from(strategicPlanRiskOpportunityEffectivenessReviewsTable)
+          .where(
+            inArray(
+              strategicPlanRiskOpportunityEffectivenessReviewsTable.riskOpportunityItemId,
+              riskOpportunityItemIds,
+            ),
+          );
+  const governanceUserIds = uniqueNumbers(
+    [
+      ...actions.flatMap((action) => [
+        action.responsibleUserId,
+        action.secondaryResponsibleUserId,
+      ]),
+      ...riskOpportunityItems.flatMap((item) => [
+        item.ownerUserId,
+        item.coOwnerUserId,
+      ]),
+      ...effectivenessReviews.map((review) => review.reviewedById),
+    ].filter((value): value is number => typeof value === "number"),
+  );
+  const unitIds = uniqueNumbers(
+    riskOpportunityItems
+      .map((item) => item.unitId)
+      .filter((value): value is number => typeof value === "number"),
+  );
   const actionUnits =
     actionIds.length === 0
       ? []
@@ -610,10 +864,34 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
           .from(strategicPlanActionUnitsTable)
           .innerJoin(unitsTable, eq(strategicPlanActionUnitsTable.unitId, unitsTable.id))
           .where(inArray(strategicPlanActionUnitsTable.actionId, actionIds));
+  const governanceUsers =
+    governanceUserIds.length === 0
+      ? []
+      : await db
+          .select({ id: usersTable.id, name: usersTable.name })
+          .from(usersTable)
+          .where(inArray(usersTable.id, governanceUserIds));
+  const riskUnits =
+    unitIds.length === 0
+      ? []
+      : await db
+          .select({ id: unitsTable.id, name: unitsTable.name })
+          .from(unitsTable)
+          .where(inArray(unitsTable.id, unitIds));
+  const governanceUsersMap = new Map(governanceUsers.map((user) => [user.id, user.name]));
+  const riskUnitsMap = new Map(riskUnits.map((unit) => [unit.id, unit.name]));
 
   const actionsWithUnits = actions.map((action) => ({
     ...action,
+    responsibleUserName: action.responsibleUserId
+      ? governanceUsersMap.get(action.responsibleUserId) || null
+      : null,
+    secondaryResponsibleUserName: action.secondaryResponsibleUserId
+      ? governanceUsersMap.get(action.secondaryResponsibleUserId) || null
+      : null,
     dueDate: isoDate(action.dueDate),
+    rescheduledDueDate: isoDate(action.rescheduledDueDate),
+    completedAt: isoDate(action.completedAt),
     createdAt: isoDate(action.createdAt),
     updatedAt: isoDate(action.updatedAt),
     units: actionUnits
@@ -639,6 +917,52 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
     updatedAt: isoDate(item.updatedAt),
   }));
 
+  const effectivenessReviewsWithIso = effectivenessReviews.map((review) => ({
+    ...review,
+    reviewedByName: governanceUsersMap.get(review.reviewedById) || null,
+    createdAt: isoDate(review.createdAt),
+  }));
+
+  const riskOpportunityItemsWithIso = riskOpportunityItems.map((item) => {
+    const linkedActions = actionsWithUnits.filter(
+      (action) => action.riskOpportunityItemId === item.id,
+    );
+    const itemReviews = effectivenessReviewsWithIso
+      .filter((review) => review.riskOpportunityItemId === item.id)
+      .sort((left, right) =>
+        new Date(right.createdAt || 0).getTime() -
+        new Date(left.createdAt || 0).getTime(),
+      );
+    const latestEffectivenessReview = itemReviews[0] || null;
+    const derivedStatus = deriveRiskOpportunityStatus({
+      storedStatus: item.status,
+      likelihood: item.likelihood,
+      impact: item.impact,
+      responseStrategy: item.responseStrategy,
+      actions: linkedActions,
+      latestEffectivenessResult: latestEffectivenessReview?.result ?? null,
+    });
+
+    return {
+      ...item,
+      ownerUserName: item.ownerUserId
+        ? governanceUsersMap.get(item.ownerUserId) || null
+        : null,
+      coOwnerUserName: item.coOwnerUserId
+        ? governanceUsersMap.get(item.coOwnerUserId) || null
+        : null,
+      unitName: item.unitId ? riskUnitsMap.get(item.unitId) || null : null,
+      nextReviewAt: isoDate(item.nextReviewAt),
+      createdAt: isoDate(item.createdAt),
+      updatedAt: isoDate(item.updatedAt),
+      priority: buildRiskOpportunityPriority(item.score),
+      status: derivedStatus,
+      effectivenessReviews: itemReviews,
+      latestEffectivenessReview,
+      actions: linkedActions,
+    };
+  });
+
   const revisionsWithIso = revisions.map((item) => ({
     ...item,
     revisionDate: isoDate(item.revisionDate),
@@ -650,6 +974,7 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
     interestedPartyCount: interestedPartiesWithIso.length,
     objectiveCount: objectivesWithIso.length,
     actions: actionsWithUnits,
+    riskOpportunityItems: riskOpportunityItemsWithIso,
   });
   const complianceIssues = buildStrategicPlanComplianceIssues({
     status: plan.status,
@@ -659,6 +984,7 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
     interestedPartyCount: metrics.interestedPartyCount,
     objectiveCount: metrics.objectiveCount,
     actions: actionsWithUnits,
+    riskOpportunityItems: riskOpportunityItemsWithIso,
   });
 
   return {
@@ -674,6 +1000,7 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
     interestedParties: interestedPartiesWithIso,
     objectives: objectivesWithIso,
     actions: actionsWithUnits,
+    riskOpportunityItems: riskOpportunityItemsWithIso,
     revisions: revisionsWithIso,
     metrics,
     complianceIssues,
@@ -729,6 +1056,12 @@ export async function createStrategicPlanEvidenceDocument({
         `${item.domain}/${item.swotType} - ${item.description} | decisao=${item.treatmentDecision || "—"}`,
     ) || ["—"]),
     " ",
+    "Riscos e oportunidades:",
+    ...(detail?.riskOpportunityItems.map(
+      (item) =>
+        `${item.type} - ${item.title} | score=${item.score || "—"} | prioridade=${item.priority || "—"} | estrategia=${item.responseStrategy || "—"} | status=${item.status}`,
+    ) || ["—"]),
+    " ",
     "Ações:",
     ...(detail?.actions.map(
       (item) =>
@@ -743,7 +1076,12 @@ export async function createStrategicPlanEvidenceDocument({
   const objectPath = await objectStorageService.uploadDirect(pdfBuffer, "application/pdf");
 
   const impactedUnitIds = uniqueNumbers(
-    (detail?.actions || []).flatMap((action) => action.units.map((unit) => unit.id)),
+    [
+      ...(detail?.actions || []).flatMap((action) => action.units.map((unit) => unit.id)),
+      ...(detail?.riskOpportunityItems || [])
+        .map((item) => item.unitId)
+        .filter((value): value is number => typeof value === "number"),
+    ],
   );
 
   const [document] = await db
