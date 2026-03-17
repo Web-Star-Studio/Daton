@@ -864,18 +864,65 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
     ));
   if (!approver) { res.status(403).json({ error: "Você não é um aprovador pendente deste documento" }); return; }
 
-  await db.update(documentApproversTable)
-    .set({ status: "approved", approvedAt: new Date(), comment: body.success ? body.data.comment || null : null })
-    .where(eq(documentApproversTable.id, approver.id));
-
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
+  const approvalComment = body.success ? body.data.comment || null : null;
 
-  await db.insert(documentVersionsTable).values({
-    documentId: docId,
-    versionNumber: doc.currentVersion,
-    changeDescription: `Aprovado por usuário`,
-    changedById: userId,
-    changedFields: "approval:approved",
+  const approvalResult = await db.transaction(async (tx) => {
+    await tx.update(documentApproversTable)
+      .set({ status: "approved", approvedAt: new Date(), comment: approvalComment })
+      .where(eq(documentApproversTable.id, approver.id));
+
+    await tx.insert(documentVersionsTable).values({
+      documentId: docId,
+      versionNumber: doc.currentVersion,
+      changeDescription: "Aprovado por usuário",
+      changedById: userId,
+      changedFields: "approval:approved",
+    });
+
+    const pendingApprovers = await tx.select().from(documentApproversTable)
+      .where(and(
+        eq(documentApproversTable.documentId, docId),
+        eq(documentApproversTable.approvalCycle, currentCycle),
+        eq(documentApproversTable.status, "pending")
+      ));
+
+    if (pendingApprovers.length > 0) {
+      return {
+        fullyApproved: false,
+        distributedToUserIds: [] as number[],
+      };
+    }
+
+    await tx.update(documentsTable).set({ status: "approved" }).where(eq(documentsTable.id, docId));
+
+    await tx.insert(documentVersionsTable).values({
+      documentId: docId,
+      versionNumber: doc.currentVersion,
+      changeDescription: "Documento aprovado por todos os aprovadores",
+      changedById: userId,
+      changedFields: "status:approved",
+    });
+
+    const recipients = await tx.select({ userId: documentRecipientsTable.userId }).from(documentRecipientsTable)
+      .where(eq(documentRecipientsTable.documentId, docId));
+
+    if (recipients.length > 0) {
+      await tx.update(documentsTable).set({ status: "distributed" }).where(eq(documentsTable.id, docId));
+
+      await tx.insert(documentVersionsTable).values({
+        documentId: docId,
+        versionNumber: doc.currentVersion,
+        changeDescription: "Documento distribuído automaticamente aos destinatários",
+        changedById: userId,
+        changedFields: "status:distributed",
+      });
+    }
+
+    return {
+      fullyApproved: true,
+      distributedToUserIds: recipients.map((recipient) => recipient.userId),
+    };
   });
 
   await notifyDocumentParticipants({
@@ -887,24 +934,7 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
     description: `${userName?.name || "Um participante"} aprovou o documento "${doc.title}".`,
   });
 
-  const pending = await db.select().from(documentApproversTable)
-    .where(and(
-      eq(documentApproversTable.documentId, docId),
-      eq(documentApproversTable.approvalCycle, currentCycle),
-      eq(documentApproversTable.status, "pending")
-    ));
-
-  if (pending.length === 0) {
-    await db.update(documentsTable).set({ status: "approved" }).where(eq(documentsTable.id, docId));
-
-    await db.insert(documentVersionsTable).values({
-      documentId: docId,
-      versionNumber: doc.currentVersion,
-      changeDescription: "Documento aprovado por todos os aprovadores",
-      changedById: userId,
-      changedFields: "status:approved",
-    });
-
+  if (approvalResult.fullyApproved) {
     await notifyDocumentParticipants({
       orgId,
       docId,
@@ -914,23 +944,10 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
       description: `O documento "${doc.title}" foi aprovado por todos os aprovadores.`,
     });
 
-    const recipients = await db.select().from(documentRecipientsTable)
-      .where(eq(documentRecipientsTable.documentId, docId));
-
-    if (recipients.length > 0) {
-      await db.update(documentsTable).set({ status: "distributed" }).where(eq(documentsTable.id, docId));
-
-      await db.insert(documentVersionsTable).values({
-        documentId: docId,
-        versionNumber: doc.currentVersion,
-        changeDescription: "Documento distribuído automaticamente aos destinatários",
-        changedById: userId,
-        changedFields: "status:distributed",
-      });
-
+    if (approvalResult.distributedToUserIds.length > 0) {
       await notifyUsers({
         orgId,
-        userIds: recipients.map((recipient) => recipient.userId),
+        userIds: approvalResult.distributedToUserIds,
         actorUserId: userId,
         type: "document_distributed",
         title: "Documento distribuído",
