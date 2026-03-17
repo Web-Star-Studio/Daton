@@ -2452,6 +2452,74 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /organizations/{orgId}/governance/risk-opportunity-items:
+    get:
+      operationId: listGovernanceRiskOpportunityItems
+      tags: [governance]
+      summary: List risk and opportunity items across the organization's strategic plans
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/StrategicPlanRiskOpportunityType"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/StrategicPlanRiskOpportunityStatus"
+        - name: priority
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/StrategicPlanRiskOpportunityPriority"
+        - name: ownerUserId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: unitId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: sourceType
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/StrategicPlanRiskOpportunitySourceType"
+      responses:
+        "200":
+          description: Risk and opportunity items across strategic plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GovernanceRiskOpportunityListItem"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /organizations/{orgId}/governance/strategic-plans/{planId}:
     get:
       operationId: getStrategicPlan
@@ -5844,6 +5912,16 @@ components:
         - priority
         - effectivenessReviews
         - actions
+
+    GovernanceRiskOpportunityListItem:
+      allOf:
+        - $ref: "#/components/schemas/StrategicPlanRiskOpportunityItem"
+        - type: object
+          properties:
+            planTitle:
+              type: string
+          required:
+            - planTitle
 
     StrategicPlanRevision:
       type: object

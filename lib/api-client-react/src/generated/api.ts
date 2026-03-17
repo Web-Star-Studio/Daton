@@ -59,6 +59,7 @@ import type {
   EmployeeTraining,
   ErrorResponse,
   GetUnitQuestionnaireResponses200,
+  GovernanceRiskOpportunityListItem,
   HealthStatus,
   ImportLegislationsBody,
   ImportResult,
@@ -71,6 +72,7 @@ import type {
   LinkEmployeeUnitBody,
   ListDocumentsParams,
   ListEmployeesParams,
+  ListGovernanceRiskOpportunityItemsParams,
   ListInvitations200,
   ListLegislationsParams,
   ListNotifications200,
@@ -8599,6 +8601,131 @@ export const useCreateStrategicPlan = <
 > => {
   return useMutation(getCreateStrategicPlanMutationOptions(options));
 };
+
+/**
+ * @summary List risk and opportunity items across the organization's strategic plans
+ */
+export const getListGovernanceRiskOpportunityItemsUrl = (
+  orgId: number,
+  params?: ListGovernanceRiskOpportunityItemsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/governance/risk-opportunity-items?${stringifiedParams}`
+    : `/api/organizations/${orgId}/governance/risk-opportunity-items`;
+};
+
+export const listGovernanceRiskOpportunityItems = async (
+  orgId: number,
+  params?: ListGovernanceRiskOpportunityItemsParams,
+  options?: RequestInit,
+): Promise<GovernanceRiskOpportunityListItem[]> => {
+  return customFetch<GovernanceRiskOpportunityListItem[]>(
+    getListGovernanceRiskOpportunityItemsUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListGovernanceRiskOpportunityItemsQueryKey = (
+  orgId: number,
+  params?: ListGovernanceRiskOpportunityItemsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/risk-opportunity-items`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListGovernanceRiskOpportunityItemsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listGovernanceRiskOpportunityItems>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  params?: ListGovernanceRiskOpportunityItemsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listGovernanceRiskOpportunityItems>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListGovernanceRiskOpportunityItemsQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listGovernanceRiskOpportunityItems>>
+  > = ({ signal }) =>
+    listGovernanceRiskOpportunityItems(orgId, params, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listGovernanceRiskOpportunityItems>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListGovernanceRiskOpportunityItemsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listGovernanceRiskOpportunityItems>>
+>;
+export type ListGovernanceRiskOpportunityItemsQueryError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary List risk and opportunity items across the organization's strategic plans
+ */
+
+export function useListGovernanceRiskOpportunityItems<
+  TData = Awaited<ReturnType<typeof listGovernanceRiskOpportunityItems>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  orgId: number,
+  params?: ListGovernanceRiskOpportunityItemsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listGovernanceRiskOpportunityItems>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListGovernanceRiskOpportunityItemsQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get a strategic plan

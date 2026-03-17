@@ -16,6 +16,7 @@ import {
   createStrategicPlanRevision,
   getStrategicPlanDetail,
   isEditableStatus,
+  listGovernanceRiskOpportunityItems,
   listStrategicPlanSummaries,
 } from "../../lib/governance";
 import {
@@ -24,6 +25,7 @@ import {
   importBodySchema,
   parseGovernanceParams,
   planBodySchema,
+  riskOpportunityListQuerySchema,
   reviewBodySchema,
   validateActionReferences,
 } from "./shared";
@@ -35,6 +37,19 @@ router.get("/organizations/:orgId/governance/strategic-plans", async (req, res):
   if (!params) return;
 
   res.json(await listStrategicPlanSummaries(params.orgId));
+});
+
+router.get("/organizations/:orgId/governance/risk-opportunity-items", async (req, res): Promise<void> => {
+  const params = parseGovernanceParams(req.params, req.auth!.organizationId, res);
+  if (!params) return;
+
+  const query = riskOpportunityListQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: query.error.message });
+    return;
+  }
+
+  res.json(await listGovernanceRiskOpportunityItems(params.orgId, query.data));
 });
 
 router.post(

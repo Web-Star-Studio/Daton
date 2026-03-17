@@ -172,6 +172,37 @@ export const riskOpportunityEffectivenessReviewBodySchema = z.object({
   comment: z.string().nullable().optional(),
 });
 
+export const riskOpportunityListQuerySchema = z.object({
+  planId: z.coerce.number().int().positive().optional(),
+  type: z.enum(["risk", "opportunity"]).optional(),
+  status: z
+    .enum([
+      "identified",
+      "assessed",
+      "responding",
+      "awaiting_effectiveness",
+      "effective",
+      "ineffective",
+      "continuous",
+      "canceled",
+    ])
+    .optional(),
+  priority: z.enum(["na", "low", "medium", "high", "critical"]).optional(),
+  ownerUserId: z.coerce.number().int().positive().optional(),
+  unitId: z.coerce.number().int().positive().optional(),
+  sourceType: z
+    .enum([
+      "swot",
+      "audit",
+      "meeting",
+      "legislation",
+      "incident",
+      "internal_strategy",
+      "other",
+    ])
+    .optional(),
+});
+
 export const importBodySchema = z.object({
   workbookName: z.string().nullable().optional(),
   plan: planBodySchema.extend({

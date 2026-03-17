@@ -547,6 +547,254 @@ export async function runGovernanceMaintenancePass(): Promise<void> {
   }
 }
 
+export interface GovernanceRiskOpportunityListFilters {
+  planId?: number;
+  type?: "risk" | "opportunity";
+  status?:
+    | "identified"
+    | "assessed"
+    | "responding"
+    | "awaiting_effectiveness"
+    | "effective"
+    | "ineffective"
+    | "continuous"
+    | "canceled";
+  priority?: "na" | "low" | "medium" | "high" | "critical";
+  ownerUserId?: number;
+  unitId?: number;
+  sourceType?:
+    | "swot"
+    | "audit"
+    | "meeting"
+    | "legislation"
+    | "incident"
+    | "internal_strategy"
+    | "other";
+}
+
+export async function listGovernanceRiskOpportunityItems(
+  organizationId: number,
+  filters: GovernanceRiskOpportunityListFilters = {},
+) {
+  const planConditions = [eq(strategicPlansTable.organizationId, organizationId)];
+  if (filters.planId) {
+    planConditions.push(eq(strategicPlansTable.id, filters.planId));
+  }
+
+  const plans = await db
+    .select({
+      id: strategicPlansTable.id,
+      title: strategicPlansTable.title,
+    })
+    .from(strategicPlansTable)
+    .where(and(...planConditions));
+
+  if (plans.length === 0) {
+    return [];
+  }
+
+  const planIds = plans.map((plan) => plan.id);
+  const planTitleById = new Map(plans.map((plan) => [plan.id, plan.title]));
+  const riskConditions = [inArray(strategicPlanRiskOpportunityItemsTable.planId, planIds)];
+
+  if (filters.type) {
+    riskConditions.push(eq(strategicPlanRiskOpportunityItemsTable.type, filters.type));
+  }
+  if (filters.ownerUserId) {
+    riskConditions.push(eq(strategicPlanRiskOpportunityItemsTable.ownerUserId, filters.ownerUserId));
+  }
+  if (filters.unitId) {
+    riskConditions.push(eq(strategicPlanRiskOpportunityItemsTable.unitId, filters.unitId));
+  }
+  if (filters.sourceType) {
+    riskConditions.push(eq(strategicPlanRiskOpportunityItemsTable.sourceType, filters.sourceType));
+  }
+
+  const riskOpportunityItems = await db
+    .select()
+    .from(strategicPlanRiskOpportunityItemsTable)
+    .where(and(...riskConditions))
+    .orderBy(
+      desc(strategicPlanRiskOpportunityItemsTable.updatedAt),
+      desc(strategicPlanRiskOpportunityItemsTable.id),
+    );
+
+  if (riskOpportunityItems.length === 0) {
+    return [];
+  }
+
+  const riskOpportunityItemIds = riskOpportunityItems.map((item) => item.id);
+  const actions = await db
+    .select({
+      id: strategicPlanActionsTable.id,
+      planId: strategicPlanActionsTable.planId,
+      title: strategicPlanActionsTable.title,
+      description: strategicPlanActionsTable.description,
+      swotItemId: strategicPlanActionsTable.swotItemId,
+      objectiveId: strategicPlanActionsTable.objectiveId,
+      responsibleUserId: strategicPlanActionsTable.responsibleUserId,
+      secondaryResponsibleUserId: strategicPlanActionsTable.secondaryResponsibleUserId,
+      riskOpportunityItemId: strategicPlanActionsTable.riskOpportunityItemId,
+      dueDate: strategicPlanActionsTable.dueDate,
+      rescheduledDueDate: strategicPlanActionsTable.rescheduledDueDate,
+      rescheduleReason: strategicPlanActionsTable.rescheduleReason,
+      completedAt: strategicPlanActionsTable.completedAt,
+      completionNotes: strategicPlanActionsTable.completionNotes,
+      status: strategicPlanActionsTable.status,
+      notes: strategicPlanActionsTable.notes,
+      sortOrder: strategicPlanActionsTable.sortOrder,
+      createdAt: strategicPlanActionsTable.createdAt,
+      updatedAt: strategicPlanActionsTable.updatedAt,
+    })
+    .from(strategicPlanActionsTable)
+    .where(inArray(strategicPlanActionsTable.riskOpportunityItemId, riskOpportunityItemIds))
+    .orderBy(strategicPlanActionsTable.sortOrder, strategicPlanActionsTable.id);
+
+  const actionIds = actions.map((action) => action.id);
+  const effectivenessReviews = await db
+    .select({
+      id: strategicPlanRiskOpportunityEffectivenessReviewsTable.id,
+      riskOpportunityItemId:
+        strategicPlanRiskOpportunityEffectivenessReviewsTable.riskOpportunityItemId,
+      reviewedById: strategicPlanRiskOpportunityEffectivenessReviewsTable.reviewedById,
+      result: strategicPlanRiskOpportunityEffectivenessReviewsTable.result,
+      comment: strategicPlanRiskOpportunityEffectivenessReviewsTable.comment,
+      createdAt: strategicPlanRiskOpportunityEffectivenessReviewsTable.createdAt,
+    })
+    .from(strategicPlanRiskOpportunityEffectivenessReviewsTable)
+    .where(
+      inArray(
+        strategicPlanRiskOpportunityEffectivenessReviewsTable.riskOpportunityItemId,
+        riskOpportunityItemIds,
+      ),
+    );
+
+  const governanceUserIds = uniqueNumbers(
+    [
+      ...actions.flatMap((action) => [
+        action.responsibleUserId,
+        action.secondaryResponsibleUserId,
+      ]),
+      ...riskOpportunityItems.flatMap((item) => [
+        item.ownerUserId,
+        item.coOwnerUserId,
+      ]),
+      ...effectivenessReviews.map((review) => review.reviewedById),
+    ].filter((value): value is number => typeof value === "number"),
+  );
+  const unitIds = uniqueNumbers(
+    riskOpportunityItems
+      .map((item) => item.unitId)
+      .filter((value): value is number => typeof value === "number"),
+  );
+  const actionUnits =
+    actionIds.length === 0
+      ? []
+      : await db
+          .select({
+            actionId: strategicPlanActionUnitsTable.actionId,
+            unitId: unitsTable.id,
+            unitName: unitsTable.name,
+          })
+          .from(strategicPlanActionUnitsTable)
+          .innerJoin(unitsTable, eq(strategicPlanActionUnitsTable.unitId, unitsTable.id))
+          .where(inArray(strategicPlanActionUnitsTable.actionId, actionIds));
+  const governanceUsers =
+    governanceUserIds.length === 0
+      ? []
+      : await db
+          .select({ id: usersTable.id, name: usersTable.name })
+          .from(usersTable)
+          .where(inArray(usersTable.id, governanceUserIds));
+  const riskUnits =
+    unitIds.length === 0
+      ? []
+      : await db
+          .select({ id: unitsTable.id, name: unitsTable.name })
+          .from(unitsTable)
+          .where(inArray(unitsTable.id, unitIds));
+
+  const governanceUsersMap = new Map(governanceUsers.map((user) => [user.id, user.name]));
+  const riskUnitsMap = new Map(riskUnits.map((unit) => [unit.id, unit.name]));
+  const actionsWithUnits = actions.map((action) => ({
+    ...action,
+    responsibleUserName: action.responsibleUserId
+      ? governanceUsersMap.get(action.responsibleUserId) || null
+      : null,
+    secondaryResponsibleUserName: action.secondaryResponsibleUserId
+      ? governanceUsersMap.get(action.secondaryResponsibleUserId) || null
+      : null,
+    dueDate: isoDate(action.dueDate),
+    rescheduledDueDate: isoDate(action.rescheduledDueDate),
+    completedAt: isoDate(action.completedAt),
+    createdAt: isoDate(action.createdAt),
+    updatedAt: isoDate(action.updatedAt),
+    units: actionUnits
+      .filter((unit) => unit.actionId === action.id)
+      .map((unit) => ({ id: unit.unitId, name: unit.unitName })),
+  }));
+  const effectivenessReviewsWithIso = effectivenessReviews.map((review) => ({
+    ...review,
+    reviewedByName: governanceUsersMap.get(review.reviewedById) || null,
+    createdAt: isoDate(review.createdAt),
+  }));
+
+  const items = riskOpportunityItems
+    .map((item) => {
+      const linkedActions = actionsWithUnits.filter(
+        (action) => action.riskOpportunityItemId === item.id,
+      );
+      const itemReviews = effectivenessReviewsWithIso
+        .filter((review) => review.riskOpportunityItemId === item.id)
+        .sort(
+          (left, right) =>
+            new Date(right.createdAt || 0).getTime() -
+            new Date(left.createdAt || 0).getTime(),
+        );
+      const latestEffectivenessReview = itemReviews[0] || null;
+      const derivedStatus = deriveRiskOpportunityStatus({
+        storedStatus: item.status,
+        likelihood: item.likelihood,
+        impact: item.impact,
+        responseStrategy: item.responseStrategy,
+        actions: linkedActions,
+        latestEffectivenessResult: latestEffectivenessReview?.result ?? null,
+      });
+      const priority = buildRiskOpportunityPriority(item.score);
+
+      return {
+        ...item,
+        planTitle: planTitleById.get(item.planId) || "Plano sem título",
+        ownerUserName: item.ownerUserId
+          ? governanceUsersMap.get(item.ownerUserId) || null
+          : null,
+        coOwnerUserName: item.coOwnerUserId
+          ? governanceUsersMap.get(item.coOwnerUserId) || null
+          : null,
+        unitName: item.unitId ? riskUnitsMap.get(item.unitId) || null : null,
+        nextReviewAt: isoDate(item.nextReviewAt),
+        createdAt: isoDate(item.createdAt),
+        updatedAt: isoDate(item.updatedAt),
+        priority,
+        status: derivedStatus,
+        effectivenessReviews: itemReviews,
+        latestEffectivenessReview,
+        actions: linkedActions,
+      };
+    })
+    .filter((item) => {
+      if (filters.status && item.status !== filters.status) {
+        return false;
+      }
+      if (filters.priority && item.priority !== filters.priority) {
+        return false;
+      }
+      return true;
+    });
+
+  return items;
+}
+
 export async function listStrategicPlanSummaries(organizationId: number) {
   const plans = await db
     .select()

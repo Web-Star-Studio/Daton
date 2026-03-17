@@ -3298,6 +3298,183 @@ export const CreateStrategicPlanBody = zod.object({
 });
 
 /**
+ * @summary List risk and opportunity items across the organization's strategic plans
+ */
+export const ListGovernanceRiskOpportunityItemsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListGovernanceRiskOpportunityItemsQueryParams = zod.object({
+  planId: zod.coerce.number().optional(),
+  type: zod.enum(["risk", "opportunity"]).optional(),
+  status: zod
+    .enum([
+      "identified",
+      "assessed",
+      "responding",
+      "awaiting_effectiveness",
+      "effective",
+      "ineffective",
+      "continuous",
+      "canceled",
+    ])
+    .optional(),
+  priority: zod.enum(["na", "low", "medium", "high", "critical"]).optional(),
+  ownerUserId: zod.coerce.number().optional(),
+  unitId: zod.coerce.number().optional(),
+  sourceType: zod
+    .enum([
+      "swot",
+      "audit",
+      "meeting",
+      "legislation",
+      "incident",
+      "internal_strategy",
+      "other",
+    ])
+    .optional(),
+});
+
+export const listGovernanceRiskOpportunityItemsResponseOneLikelihoodMax = 4;
+
+export const listGovernanceRiskOpportunityItemsResponseOneImpactMax = 4;
+
+export const ListGovernanceRiskOpportunityItemsResponseItem = zod
+  .object({
+    id: zod.number(),
+    planId: zod.number(),
+    type: zod.enum(["risk", "opportunity"]),
+    sourceType: zod.enum([
+      "swot",
+      "audit",
+      "meeting",
+      "legislation",
+      "incident",
+      "internal_strategy",
+      "other",
+    ]),
+    sourceReference: zod.string().nullish(),
+    title: zod.string(),
+    description: zod.string(),
+    ownerUserId: zod.number().nullish(),
+    ownerUserName: zod.string().nullish(),
+    coOwnerUserId: zod.number().nullish(),
+    coOwnerUserName: zod.string().nullish(),
+    unitId: zod.number().nullish(),
+    unitName: zod.string().nullish(),
+    objectiveId: zod.number().nullish(),
+    swotItemId: zod.number().nullish(),
+    likelihood: zod
+      .number()
+      .min(1)
+      .max(listGovernanceRiskOpportunityItemsResponseOneLikelihoodMax)
+      .nullish(),
+    impact: zod
+      .number()
+      .min(1)
+      .max(listGovernanceRiskOpportunityItemsResponseOneImpactMax)
+      .nullish(),
+    score: zod
+      .number()
+      .nullish()
+      .describe("Derived by the server from likelihood x impact."),
+    priority: zod
+      .enum(["na", "low", "medium", "high", "critical"])
+      .describe("Derived by the server from the calculated score."),
+    responseStrategy: zod
+      .enum([
+        "mitigate",
+        "eliminate",
+        "accept",
+        "monitor",
+        "exploit",
+        "enhance",
+        "share",
+        "avoid",
+        "other",
+      ])
+      .nullish(),
+    nextReviewAt: zod.string().nullish(),
+    status: zod.enum([
+      "identified",
+      "assessed",
+      "responding",
+      "awaiting_effectiveness",
+      "effective",
+      "ineffective",
+      "continuous",
+      "canceled",
+    ]),
+    existingControls: zod.string().nullish(),
+    expectedEffect: zod.string().nullish(),
+    notes: zod.string().nullish(),
+    latestEffectivenessResult: zod.enum(["effective", "ineffective"]).nullish(),
+    latestEffectivenessReview: zod
+      .object({
+        id: zod.number(),
+        riskOpportunityItemId: zod.number(),
+        reviewedById: zod.number(),
+        reviewedByName: zod.string().nullish(),
+        result: zod.enum(["effective", "ineffective"]),
+        comment: zod.string().nullish(),
+        createdAt: zod.string().nullish(),
+      })
+      .optional(),
+    effectivenessReviews: zod.array(
+      zod.object({
+        id: zod.number(),
+        riskOpportunityItemId: zod.number(),
+        reviewedById: zod.number(),
+        reviewedByName: zod.string().nullish(),
+        result: zod.enum(["effective", "ineffective"]),
+        comment: zod.string().nullish(),
+        createdAt: zod.string().nullish(),
+      }),
+    ),
+    actions: zod.array(
+      zod.object({
+        id: zod.number(),
+        planId: zod.number(),
+        title: zod.string(),
+        description: zod.string().nullish(),
+        swotItemId: zod.number().nullish(),
+        objectiveId: zod.number().nullish(),
+        riskOpportunityItemId: zod.number().nullish(),
+        responsibleUserId: zod.number().nullish(),
+        responsibleUserName: zod.string().nullish(),
+        secondaryResponsibleUserId: zod.number().nullish(),
+        secondaryResponsibleUserName: zod.string().nullish(),
+        dueDate: zod.string().nullish(),
+        rescheduledDueDate: zod.string().nullish(),
+        rescheduleReason: zod.string().nullish(),
+        completedAt: zod.string().nullish(),
+        completionNotes: zod.string().nullish(),
+        status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+        notes: zod.string().nullish(),
+        sortOrder: zod.number(),
+        createdAt: zod.string().nullish(),
+        updatedAt: zod.string().nullish(),
+        units: zod.array(
+          zod.object({
+            id: zod.number(),
+            name: zod.string(),
+          }),
+        ),
+      }),
+    ),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      planTitle: zod.string(),
+    }),
+  );
+export const ListGovernanceRiskOpportunityItemsResponse = zod.array(
+  ListGovernanceRiskOpportunityItemsResponseItem,
+);
+
+/**
  * @summary Get a strategic plan
  */
 export const GetStrategicPlanParams = zod.object({

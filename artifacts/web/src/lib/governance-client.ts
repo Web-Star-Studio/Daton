@@ -14,10 +14,12 @@ import {
   deleteStrategicPlanObjective,
   deleteStrategicPlanSwotItem,
   getGetStrategicPlanQueryKey,
+  getListGovernanceRiskOpportunityItemsQueryKey,
   getListStrategicPlansQueryKey,
   getStrategicPlan,
   getStrategicPlanExport,
   importStrategicPlan,
+  listGovernanceRiskOpportunityItems,
   listStrategicPlans,
   rejectStrategicPlan,
   reopenStrategicPlan,
@@ -35,7 +37,9 @@ import {
   type CreateStrategicPlanInterestedPartyBody,
   type CreateStrategicPlanObjectiveBody,
   type CreateStrategicPlanSwotItemBody,
+  type GovernanceRiskOpportunityListItem,
   type ImportStrategicPlanBody,
+  type ListGovernanceRiskOpportunityItemsParams,
   type StrategicPlanAction,
   type StrategicPlanDetail,
   type StrategicPlanExportResponse,
@@ -69,6 +73,7 @@ export type GovernanceInterestedParty = StrategicPlanInterestedParty;
 export type GovernanceObjective = StrategicPlanObjective;
 export type GovernanceAction = StrategicPlanAction;
 export type GovernanceRiskOpportunityItem = StrategicPlanRiskOpportunityItem;
+export type GovernanceRiskOpportunityListEntry = GovernanceRiskOpportunityListItem;
 export type GovernanceRiskOpportunityEffectivenessReview =
   StrategicPlanRiskOpportunityEffectivenessReview;
 export type GovernanceExportResponse = StrategicPlanExportResponse;
@@ -80,9 +85,15 @@ export type GovernanceRiskOpportunityBody =
   CreateStrategicPlanRiskOpportunityItemBody;
 export type GovernanceRiskOpportunityEffectivenessReviewBody =
   CreateStrategicPlanRiskOpportunityEffectivenessReviewBody;
+export type GovernanceRiskOpportunityFilters =
+  ListGovernanceRiskOpportunityItemsParams;
 
 export const governanceKeys = {
   list: (orgId: number) => getListStrategicPlansQueryKey(orgId),
+  riskList: (
+    orgId: number,
+    params?: GovernanceRiskOpportunityFilters,
+  ) => getListGovernanceRiskOpportunityItemsQueryKey(orgId, params),
   detail: (orgId: number, planId: number) => getGetStrategicPlanQueryKey(orgId, planId),
 };
 
@@ -102,12 +113,24 @@ export function useGovernancePlan(orgId?: number, planId?: number) {
   });
 }
 
+export function useGovernanceRiskOpportunityItems(
+  orgId?: number,
+  params?: GovernanceRiskOpportunityFilters,
+) {
+  return useQuery({
+    queryKey: governanceKeys.riskList(orgId || 0, params),
+    enabled: !!orgId,
+    queryFn: () => listGovernanceRiskOpportunityItems(orgId || 0, params),
+  });
+}
+
 function useInvalidateGovernance(orgId?: number, planId?: number) {
   const queryClient = useQueryClient();
 
   return async () => {
     if (orgId) {
       await queryClient.invalidateQueries({ queryKey: governanceKeys.list(orgId) });
+      await queryClient.invalidateQueries({ queryKey: governanceKeys.riskList(orgId) });
     }
     if (orgId && planId) {
       await queryClient.invalidateQueries({ queryKey: governanceKeys.detail(orgId, planId) });
@@ -296,4 +319,101 @@ export function useGovernanceRiskOpportunityEffectivenessReview(
       ),
     onSuccess: invalidate,
   });
+}
+
+export function useGovernanceRiskOpportunityRegisterMutations(orgId?: number) {
+  const queryClient = useQueryClient();
+
+  const invalidate = async (planId?: number) => {
+    if (!orgId) return;
+    await queryClient.invalidateQueries({ queryKey: governanceKeys.list(orgId) });
+    await queryClient.invalidateQueries({ queryKey: governanceKeys.riskList(orgId) });
+    if (planId) {
+      await queryClient.invalidateQueries({ queryKey: governanceKeys.detail(orgId, planId) });
+    }
+  };
+
+  const createMutation = useMutation({
+    mutationFn: ({
+      planId,
+      body,
+    }: {
+      planId: number;
+      body: CreateStrategicPlanRiskOpportunityItemBody;
+    }) => createStrategicPlanRiskOpportunityItem(orgId || 0, planId, body),
+    onSuccess: async (_result, variables) => invalidate(variables.planId),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      planId,
+      itemId,
+      body,
+    }: {
+      planId: number;
+      itemId: number;
+      body: UpdateStrategicPlanRiskOpportunityItemBody;
+    }) => updateStrategicPlanRiskOpportunityItem(orgId || 0, planId, itemId, body),
+    onSuccess: async (_result, variables) => invalidate(variables.planId),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ planId, itemId }: { planId: number; itemId: number }) =>
+      deleteStrategicPlanRiskOpportunityItem(orgId || 0, planId, itemId),
+    onSuccess: async (_result, variables) => invalidate(variables.planId),
+  });
+
+  const effectivenessReviewMutation = useMutation({
+    mutationFn: ({
+      planId,
+      itemId,
+      body,
+    }: {
+      planId: number;
+      itemId: number;
+      body: CreateStrategicPlanRiskOpportunityEffectivenessReviewBody;
+    }) =>
+      createStrategicPlanRiskOpportunityEffectivenessReview(
+        orgId || 0,
+        planId,
+        itemId,
+        body,
+      ),
+    onSuccess: async (_result, variables) => invalidate(variables.planId),
+  });
+
+  return {
+    createMutation,
+    updateMutation,
+    deleteMutation,
+    effectivenessReviewMutation,
+  };
+}
+
+export function useGovernanceActionRegisterMutations(orgId?: number) {
+  const queryClient = useQueryClient();
+
+  const invalidate = async (planId?: number) => {
+    if (!orgId) return;
+    await queryClient.invalidateQueries({ queryKey: governanceKeys.list(orgId) });
+    await queryClient.invalidateQueries({ queryKey: governanceKeys.riskList(orgId) });
+    if (planId) {
+      await queryClient.invalidateQueries({ queryKey: governanceKeys.detail(orgId, planId) });
+    }
+  };
+
+  const createMutation = useMutation({
+    mutationFn: ({
+      planId,
+      body,
+    }: {
+      planId: number;
+      body: CreateStrategicPlanActionBody;
+    }) => createStrategicPlanAction(orgId || 0, planId, body),
+    onSuccess: async (_result, variables) => invalidate(variables.planId),
+  });
+
+  return {
+    createMutation,
+  };
 }

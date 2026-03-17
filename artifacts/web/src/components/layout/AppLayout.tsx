@@ -107,7 +107,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       }
     } else if (normalizedLocation.startsWith("/governanca")) {
       crumbs.push({ label: "Governança" });
-      if (normalizedLocation.startsWith("/governanca/planejamento")) {
+      if (normalizedLocation.startsWith("/governanca/riscos-oportunidades")) {
+        crumbs.push({
+          label: "Riscos e Oportunidades",
+          href: "/governanca/riscos-oportunidades",
+        });
+      } else if (normalizedLocation.startsWith("/governanca/planejamento")) {
         crumbs.push({ label: "Planejamento", href: "/governanca/planejamento" });
         if (pageTitle && normalizedLocation !== "/governanca/planejamento") {
           crumbs.push({ label: pageTitle });
@@ -139,6 +144,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const governancaLinks = [
     { href: "/governanca/planejamento", label: "Planejamento" },
+    { href: "/governanca/riscos-oportunidades", label: "Riscos e Oportunidades" },
   ];
 
   const showGovernanca = hasModuleAccess("governance");

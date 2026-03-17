@@ -4,11 +4,13 @@ import { createCompletedOrgAdmin, makeTestPrefix } from "./support/data";
 import {
   createGovernanceAction,
   createGovernanceDraftPlan,
+  createGovernanceSwotItem,
   createRiskEffectivenessReview,
   createRiskOpportunityItem,
   getCurrentUser,
   getGovernancePlan,
   governanceFetch,
+  listGovernanceRiskOpportunityItems,
   listGovernancePlans,
 } from "./support/governance";
 
@@ -21,6 +23,22 @@ function isoDate(daysFromNow = 30) {
 function inputDate(daysFromNow = 30) {
   return isoDate(daysFromNow).slice(0, 10);
 }
+
+test("opens the dedicated register from the governance menu", async ({
+  authenticatedPage,
+}) => {
+  await authenticatedPage.goto("/organizacao");
+  await authenticatedPage.getByRole("link", { name: "Governança" }).hover();
+  await expect(
+    authenticatedPage.getByRole("link", { name: "Riscos e Oportunidades" }),
+  ).toBeVisible();
+  await authenticatedPage
+    .getByRole("link", { name: "Riscos e Oportunidades" })
+    .click();
+  await expect(authenticatedPage).toHaveURL(
+    /\/governanca\/riscos-oportunidades$/,
+  );
+});
 
 test("creates and treats a risk item from the governance UI", async ({
   authenticatedPage,
@@ -41,8 +59,11 @@ test("creates and treats a risk item from the governance UI", async ({
 
   await expect(authenticatedPage).toHaveURL(/\/governanca\/planejamento\/\d+$/);
   await authenticatedPage
-    .getByRole("button", { name: "Riscos e Oportunidades" })
+    .getByRole("button", { name: "Abrir registro deste plano" })
     .click();
+  await expect(authenticatedPage).toHaveURL(
+    /\/governanca\/riscos-oportunidades\?planId=\d+$/,
+  );
   await authenticatedPage.getByRole("button", { name: "Novo item" }).click();
 
   const riskDialog = authenticatedPage.getByRole("dialog", {
@@ -55,15 +76,18 @@ test("creates and treats a risk item from the governance UI", async ({
     .fill("Risco criado pelo fluxo E2E da ISO 6.1.");
   await riskDialog
     .locator("select")
-    .nth(3)
+    .nth(4)
     .selectOption({ label: orgAdmin.adminFullName });
   await riskDialog.locator('input[type="number"]').nth(0).fill("4");
   await riskDialog.locator('input[type="number"]').nth(1).fill("4");
   await riskDialog.locator('input[type="date"]').fill(inputDate(45));
-  await riskDialog.locator("select").nth(8).selectOption("mitigate");
+  await riskDialog.locator("select").nth(9).selectOption("mitigate");
   await expect(riskDialog.getByText("16", { exact: true })).toBeVisible();
   await riskDialog.getByRole("button", { name: "Salvar" }).click();
 
+  await expect(
+    authenticatedPage.locator('select').first(),
+  ).toHaveValue(/^\d+$/);
   await expect(authenticatedPage.getByText(riskTitle)).toBeVisible();
   await expect(authenticatedPage.getByText("4 x 4 = 16")).toBeVisible();
   await expect(
@@ -111,6 +135,44 @@ test("creates and treats a risk item from the governance UI", async ({
   ).toBeVisible();
   await expect(authenticatedPage.getByText(actionTitle)).toBeVisible();
   await expect(authenticatedPage.getByText(/Eficaz em/)).toBeVisible();
+});
+
+test("opens the dedicated register from SWOT with prefilled context", async ({
+  authenticatedPage,
+  orgAdmin,
+}) => {
+  const plan = await createGovernanceDraftPlan(
+    orgAdmin,
+    `Plano ISO 6.1 SWOT ${Date.now()}`,
+  );
+  const swot = await createGovernanceSwotItem(orgAdmin, plan.id, {
+    domain: "sgq",
+    swotType: "threat",
+    environment: "external",
+    description: `Ameaça SWOT ${Date.now()}`,
+    treatmentDecision: "Requer ação preventiva.",
+    performance: 3,
+    relevance: 4,
+  });
+
+  await authenticatedPage.goto(`/governanca/planejamento/${plan.id}`);
+  await authenticatedPage.getByRole("button", { name: "SWOT" }).click();
+  await authenticatedPage.getByTitle("Criar risco ou oportunidade").click();
+
+  await expect(authenticatedPage).toHaveURL(
+    new RegExp(
+      `/governanca/riscos-oportunidades\\?planId=${plan.id}.*swotItemId=${swot.id}`,
+    ),
+  );
+
+  const riskDialog = authenticatedPage.getByRole("dialog", {
+    name: "Novo risco ou oportunidade",
+  });
+  await expect(riskDialog.locator("select").nth(1)).toHaveValue("risk");
+  await expect(riskDialog.locator("select").nth(2)).toHaveValue("swot");
+  await expect(riskDialog.locator("input").first()).toHaveValue(swot.description);
+  await expect(riskDialog.locator('input[type="number"]').nth(0)).toHaveValue("3");
+  await expect(riskDialog.locator('input[type="number"]').nth(1)).toHaveValue("4");
 });
 
 test("rejects invalid risk scoring and returns derived score/priority for valid items", async ({
@@ -225,7 +287,7 @@ test("clears ISO 6.1 compliance blockers after linked action and effectiveness r
   );
 });
 
-test("isolates effectiveness data to the relevant plan items", async ({
+test("lists aggregated risk items with plan context and scoped filters", async ({
   orgAdmin,
 }) => {
   const secondaryPrefix = makeTestPrefix("iso61-secondary-org");
@@ -301,13 +363,30 @@ test("isolates effectiveness data to the relevant plan items", async ({
     );
 
     const primaryDetail = await getGovernancePlan(orgAdmin, primaryPlan.id);
-    const secondaryDetail = await getGovernancePlan(
+    const primaryRegisterItems = await listGovernanceRiskOpportunityItems(orgAdmin, {
+      planId: primaryPlan.id,
+    });
+    const primaryCriticalItems = await listGovernanceRiskOpportunityItems(orgAdmin, {
+      planId: primaryPlan.id,
+      priority: "critical",
+    });
+    const primaryIneffectiveItems = await listGovernanceRiskOpportunityItems(orgAdmin, {
+      planId: primaryPlan.id,
+      status: "ineffective",
+    });
+    const secondaryRegisterItems = await listGovernanceRiskOpportunityItems(
       secondaryOrgAdmin,
-      secondaryPlan.id,
+      {
+        planId: secondaryPlan.id,
+      },
     );
 
     expect(primaryDetail.riskOpportunityItems).toHaveLength(2);
-    expect(primaryDetail.riskOpportunityItems.map((item) => item.id).sort((a, b) => a - b)).toEqual([
+    expect(
+      primaryDetail.riskOpportunityItems
+        .map((item) => item.id)
+        .sort((a, b) => a - b),
+    ).toEqual([
       primaryItemA.id,
       primaryItemB.id,
     ]);
@@ -326,10 +405,23 @@ test("isolates effectiveness data to the relevant plan items", async ({
         (item) => item.id === secondaryItem.id,
       ),
     ).toBe(false);
+    expect(primaryRegisterItems).toHaveLength(2);
+    expect(primaryRegisterItems.every((item) => item.planId === primaryPlan.id)).toBe(true);
+    expect(primaryRegisterItems.every((item) => item.planTitle === primaryPlan.title)).toBe(true);
+    expect(primaryRegisterItems.some((item) => item.id === secondaryItem.id)).toBe(false);
 
-    expect(secondaryDetail.riskOpportunityItems).toHaveLength(1);
-    expect(secondaryDetail.riskOpportunityItems[0]?.id).toBe(secondaryItem.id);
-    expect(secondaryDetail.riskOpportunityItems[0]?.status).toBe("effective");
+    expect(primaryCriticalItems).toHaveLength(1);
+    expect(primaryCriticalItems[0]?.id).toBe(primaryItemA.id);
+    expect(primaryCriticalItems[0]?.priority).toBe("critical");
+
+    expect(primaryIneffectiveItems).toHaveLength(1);
+    expect(primaryIneffectiveItems[0]?.id).toBe(primaryItemB.id);
+    expect(primaryIneffectiveItems[0]?.status).toBe("ineffective");
+
+    expect(secondaryRegisterItems).toHaveLength(1);
+    expect(secondaryRegisterItems[0]?.id).toBe(secondaryItem.id);
+    expect(secondaryRegisterItems[0]?.planTitle).toBe(secondaryPlan.title);
+    expect(secondaryRegisterItems[0]?.status).toBe("effective");
 
     const primarySummaries = await listGovernancePlans(orgAdmin);
     const secondarySummaries = await listGovernancePlans(secondaryOrgAdmin);

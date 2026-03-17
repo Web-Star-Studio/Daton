@@ -16,6 +16,7 @@ export interface GovernancePlanSummary {
 
 export interface GovernanceRiskOpportunityItem {
   id: number;
+  planId: number;
   type: "risk" | "opportunity";
   title: string;
   description: string;
@@ -29,6 +30,11 @@ export interface GovernanceRiskOpportunityItem {
     createdAt: string;
   };
   actions: Array<{ id: number; title: string; status: string }>;
+}
+
+export interface GovernanceRiskOpportunityListItem
+  extends GovernanceRiskOpportunityItem {
+  planTitle: string;
 }
 
 export interface GovernancePlanDetail extends GovernancePlanSummary {
@@ -134,6 +140,40 @@ export async function createRiskOpportunityItem(
       bodyJson: body,
     },
   );
+}
+
+export async function createGovernanceSwotItem(
+  orgAdmin: CompletedOrgAdmin,
+  planId: number,
+  body: Record<string, unknown>,
+) {
+  return governanceJson<{ id: number; description: string }>(
+    orgAdmin,
+    `/api/organizations/${orgAdmin.organizationId}/governance/strategic-plans/${planId}/swot-items`,
+    {
+      method: "POST",
+      bodyJson: body,
+    },
+  );
+}
+
+export async function listGovernanceRiskOpportunityItems(
+  orgAdmin: CompletedOrgAdmin,
+  query: Record<string, string | number | undefined> = {},
+) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined) {
+      params.set(key, String(value));
+    }
+  }
+
+  const search = params.toString();
+  const path = `/api/organizations/${orgAdmin.organizationId}/governance/risk-opportunity-items${
+    search ? `?${search}` : ""
+  }`;
+
+  return governanceJson<GovernanceRiskOpportunityListItem[]>(orgAdmin, path);
 }
 
 export async function createGovernanceAction(

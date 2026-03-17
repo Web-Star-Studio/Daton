@@ -1400,6 +1400,11 @@ export interface StrategicPlanRiskOpportunityItem {
   updatedAt?: string | null;
 }
 
+export type GovernanceRiskOpportunityListItem =
+  StrategicPlanRiskOpportunityItem & {
+    planTitle: string;
+  };
+
 export type StrategicPlanRevisionSnapshot = { [key: string]: unknown } | null;
 
 export interface StrategicPlanRevision {
@@ -1982,4 +1987,14 @@ export type UpdateUserModules200 = {
 
 export type ListInvitations200 = {
   invitations: InvitationResponse[];
+};
+
+export type ListGovernanceRiskOpportunityItemsParams = {
+  planId?: number;
+  type?: StrategicPlanRiskOpportunityType;
+  status?: StrategicPlanRiskOpportunityStatus;
+  priority?: StrategicPlanRiskOpportunityPriority;
+  ownerUserId?: number;
+  unitId?: number;
+  sourceType?: StrategicPlanRiskOpportunitySourceType;
 };

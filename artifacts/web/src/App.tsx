@@ -14,6 +14,7 @@ import OrganizacaoPage from "@/pages/app/organizacao";
 import UnitDetailPage from "@/pages/app/organizacao/unidades/[id]";
 import GovernancePage from "@/pages/app/governanca";
 import GovernanceDetailPage from "@/pages/app/governanca/[id]";
+import GovernanceRiskOpportunityPage from "@/pages/app/governanca/riscos-oportunidades";
 import ProductKnowledgeAdminPage from "@/pages/app/admin/base-conhecimento";
 import LegislacoesPage from "@/pages/app/qualidade/legislacoes";
 import LegislationDetailPage from "@/pages/app/qualidade/legislacoes/[id]";
@@ -41,6 +42,7 @@ function AppPages() {
       <Route path="/organizacao/unidades/:id" component={UnitDetailPage} />
       <Route path="/governanca/planejamento" component={GovernancePage} />
       <Route path="/governanca/planejamento/:id" component={GovernanceDetailPage} />
+      <Route path="/governanca/riscos-oportunidades" component={GovernanceRiskOpportunityPage} />
       <Route path="/admin/base-conhecimento" component={ProductKnowledgeAdminPage} />
       <Route path="/qualidade/legislacoes" component={LegislacoesPage} />
       <Route path="/qualidade/legislacoes/:id" component={LegislationDetailPage} />
@@ -54,6 +56,7 @@ function AppPages() {
       <Route path="/app/organizacao/unidades/:id" component={UnitDetailPage} />
       <Route path="/app/governanca/planejamento" component={GovernancePage} />
       <Route path="/app/governanca/planejamento/:id" component={GovernanceDetailPage} />
+      <Route path="/app/governanca/riscos-oportunidades" component={GovernanceRiskOpportunityPage} />
       <Route path="/app/admin/base-conhecimento" component={ProductKnowledgeAdminPage} />
       <Route path="/app/qualidade/legislacoes" component={LegislacoesPage} />
       <Route path="/app/qualidade/legislacoes/:id" component={LegislationDetailPage} />

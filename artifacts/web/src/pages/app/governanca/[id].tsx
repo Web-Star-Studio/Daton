@@ -424,7 +424,10 @@ export default function GovernanceDetailPage() {
   const { organization } = useAuth();
   const { canWriteModule, isOrgAdmin } = usePermissions();
   const orgId = organization?.id;
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
+  const riskRegisterBase = location.startsWith("/app/")
+    ? "/app/governanca/riscos-oportunidades"
+    : "/governanca/riscos-oportunidades";
   const { data: plan, isLoading } = useGovernancePlan(orgId, planId);
   const updatePlanMutation = useUpdateGovernancePlan(orgId, planId);
   const importPlanMutation = useImportGovernancePlan(orgId, planId);
@@ -683,26 +686,22 @@ export default function GovernanceDetailPage() {
           objective.code === item.linkedObjectiveCode ||
           objective.description === item.linkedObjectiveLabel,
       )?.id || null;
-
-    setRiskEditing(null);
-    riskOpportunityForm.reset({
-      ...blankRiskOpportunityForm(),
-      type:
-        item.swotType === "strength" || item.swotType === "opportunity"
-          ? "opportunity"
-          : "risk",
-      sourceType: "swot",
-      sourceReference: item.matrixLabel || item.importedActionReference || "",
-      title: item.description.slice(0, 120),
-      description: item.description,
-      objectiveId: linkedObjectiveId,
-      swotItemId: item.id,
-      likelihood: item.performance || null,
-      impact: item.relevance || null,
-      notes: item.treatmentDecision || "",
+    const type =
+      item.swotType === "strength" || item.swotType === "opportunity"
+        ? "opportunity"
+        : "risk";
+    const params = new URLSearchParams({
+      planId: String(planId),
+      create: "1",
+      swotItemId: String(item.id),
+      type,
     });
-    setActiveTab("risks");
-    setRiskDialogOpen(true);
+
+    if (linkedObjectiveId) {
+      params.set("objectiveId", String(linkedObjectiveId));
+    }
+
+    navigate(`${riskRegisterBase}?${params.toString()}`);
   };
 
   const openRiskEffectivenessDialog = (item: GovernanceRiskOpportunityItem) => {
@@ -1088,7 +1087,6 @@ export default function GovernanceDetailPage() {
     { key: "interested", label: "Partes Interessadas" },
     { key: "scope", label: "Escopo e Direcionamento" },
     { key: "objectives", label: "Objetivos" },
-    { key: "risks", label: "Riscos e Oportunidades" },
     { key: "actions", label: "Ações" },
     { key: "revisions", label: "Revisões e Evidências" },
   ];
@@ -1104,7 +1102,7 @@ export default function GovernanceDetailPage() {
       } else if (issue.includes("objetivos estratégicos")) {
         map.objectives = [...(map.objectives || []), issue];
       } else if (issue.includes("risco") || issue.includes("oportunidade")) {
-        map.risks = [...(map.risks || []), issue];
+        map.overview = [...(map.overview || []), issue];
       } else if (issue.includes("ação sem ação vinculada")) {
         map.actions = [...(map.actions || []), issue];
       } else {
@@ -1516,6 +1514,67 @@ export default function GovernanceDetailPage() {
                 A evidência PDF será gerada automaticamente na aprovação.
               </p>
             )}
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-2">
+                  Registro ISO 6.1
+                </h3>
+                <p className="text-[13px] text-muted-foreground">
+                  O cadastro operacional de riscos e oportunidades agora fica no registro dedicado de Governança.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => navigate(`${riskRegisterBase}?planId=${plan.id}`)}
+              >
+                Abrir registro deste plano
+              </Button>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+              <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                  Total
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-foreground">
+                  {plan.metrics.riskOpportunityCount}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                  Abertos
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-foreground">
+                  {plan.metrics.openRiskOpportunityCount}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                  Revisão vencida
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-foreground">
+                  {plan.metrics.overdueRiskOpportunityCount}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                  Riscos
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-foreground">
+                  {plan.metrics.riskOpportunitiesByType.risk || 0}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
+                  Oportunidades
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-foreground">
+                  {plan.metrics.riskOpportunitiesByType.opportunity || 0}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}
