@@ -95,6 +95,24 @@ async function getDocumentParticipantUserIds(docId: number): Promise<number[]> {
   ])];
 }
 
+async function getDocumentReviewStakeholderUserIds(docId: number): Promise<number[]> {
+  const [elaborators, approvers] = await Promise.all([
+    db
+      .selectDistinct({ userId: documentElaboratorsTable.userId })
+      .from(documentElaboratorsTable)
+      .where(eq(documentElaboratorsTable.documentId, docId)),
+    db
+      .selectDistinct({ userId: documentApproversTable.userId })
+      .from(documentApproversTable)
+      .where(eq(documentApproversTable.documentId, docId)),
+  ]);
+
+  return [...new Set([
+    ...elaborators.map((row) => row.userId),
+    ...approvers.map((row) => row.userId),
+  ])];
+}
+
 async function notifyUsers({
   orgId,
   userIds,
@@ -110,7 +128,7 @@ async function notifyUsers({
   type: string;
   title: string;
   description: string;
-  docId?: number;
+  docId: number;
 }): Promise<void> {
   const recipientIds = [...new Set(userIds)].filter((userId) => userId !== actorUserId);
   if (recipientIds.length === 0) return;
@@ -701,23 +719,43 @@ router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", re
   }
 
   const userId = req.auth!.userId;
-
-  const [att] = await db.delete(documentAttachmentsTable)
-    .where(and(eq(documentAttachmentsTable.id, params.data.attachId), eq(documentAttachmentsTable.documentId, params.data.docId)))
-    .returning();
-
-  if (!att) { res.status(404).json({ error: "Anexo não encontrado" }); return; }
-
   const newVersion = doc.currentVersion + 1;
-  await db.update(documentsTable).set({ currentVersion: newVersion }).where(eq(documentsTable.id, doc.id));
+  let att: typeof documentAttachmentsTable.$inferSelect | null = null;
 
-  await db.insert(documentVersionsTable).values({
-    documentId: doc.id,
-    versionNumber: newVersion,
-    changeDescription: `Anexo removido: ${att.fileName}`,
-    changedById: userId,
-    changedFields: "anexos",
-  });
+  try {
+    await db.transaction(async (tx) => {
+      const [deletedAttachment] = await tx
+        .delete(documentAttachmentsTable)
+        .where(and(eq(documentAttachmentsTable.id, params.data.attachId), eq(documentAttachmentsTable.documentId, params.data.docId)))
+        .returning();
+
+      if (!deletedAttachment) {
+        throw new Error("DOCUMENT_ATTACHMENT_NOT_FOUND");
+      }
+
+      att = deletedAttachment;
+
+      await tx
+        .update(documentsTable)
+        .set({ currentVersion: newVersion })
+        .where(eq(documentsTable.id, doc.id));
+
+      await tx.insert(documentVersionsTable).values({
+        documentId: doc.id,
+        versionNumber: newVersion,
+        changeDescription: `Anexo removido: ${deletedAttachment.fileName}`,
+        changedById: userId,
+        changedFields: "anexos",
+      });
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "DOCUMENT_ATTACHMENT_NOT_FOUND") {
+      res.status(404).json({ error: "Anexo não encontrado" });
+      return;
+    }
+
+    throw error;
+  }
 
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
@@ -727,7 +765,7 @@ router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", re
     actorUserId: userId,
     type: "document_updated",
     title: "Anexo removido",
-    description: `${userName?.name || "Um usuário"} removeu o anexo "${att.fileName}" do documento "${doc.title}".`,
+    description: `${userName?.name || "Um usuário"} removeu o anexo "${att!.fileName}" do documento "${doc.title}".`,
   });
 
   res.sendStatus(204);
@@ -1017,10 +1055,10 @@ router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, a
   const docId = params.data.docId;
   const userId = req.auth!.userId;
 
-  const [doc2] = await db.select().from(documentsTable)
+  const [doc] = await db.select().from(documentsTable)
     .where(and(eq(documentsTable.id, docId), eq(documentsTable.organizationId, orgId)));
-  if (!doc2) { res.status(404).json({ error: "Documento não encontrado" }); return; }
-  if (doc2.status !== "distributed") { res.status(400).json({ error: "Documento não está distribuído" }); return; }
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+  if (doc.status !== "distributed") { res.status(400).json({ error: "Documento não está distribuído" }); return; }
 
   const [recipient] = await db.select().from(documentRecipientsTable)
     .where(and(eq(documentRecipientsTable.documentId, docId), eq(documentRecipientsTable.userId, userId)));
@@ -1031,29 +1069,26 @@ router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, a
     .set({ receivedAt: recipient.receivedAt || now, readAt: now })
     .where(eq(documentRecipientsTable.id, recipient.id));
 
-  const [doc] = await db.select().from(documentsTable)
-    .where(eq(documentsTable.id, docId));
-
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
-  if (doc) {
-    await db.insert(documentVersionsTable).values({
-      documentId: docId,
-      versionNumber: doc.currentVersion,
-      changeDescription: `Recebimento confirmado por ${userName?.name || "destinatário"}`,
-      changedById: userId,
-      changedFields: "acknowledgment",
-    });
+  await db.insert(documentVersionsTable).values({
+    documentId: docId,
+    versionNumber: doc.currentVersion,
+    changeDescription: `Recebimento confirmado por ${userName?.name || "destinatário"}`,
+    changedById: userId,
+    changedFields: "acknowledgment",
+  });
 
-    await notifyDocumentParticipants({
-      orgId,
-      docId,
-      actorUserId: userId,
-      type: "document_acknowledged",
-      title: "Leitura confirmada",
-      description: `${userName?.name || "Um destinatário"} confirmou o recebimento e a leitura do documento "${doc.title}".`,
-    });
-  }
+  const acknowledgmentAudience = await getDocumentReviewStakeholderUserIds(docId);
+  await notifyUsers({
+    orgId,
+    userIds: acknowledgmentAudience,
+    actorUserId: userId,
+    type: "document_acknowledged",
+    title: "Leitura confirmada",
+    description: `${userName?.name || "Um destinatário"} confirmou o recebimento e a leitura do documento "${doc.title}".`,
+    docId,
+  });
 
   res.json({ message: "Recebimento confirmado" });
 });
