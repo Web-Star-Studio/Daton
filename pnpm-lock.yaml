@@ -709,6 +709,12 @@ importers:
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.1(@types/pg@8.18.0)(pg@8.20.0)
+      pg:
+        specifier: ^8.20.0
+        version: 8.20.0
     devDependencies:
       '@types/bcryptjs':
         specifier: ^2.4.6
@@ -716,6 +722,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.3.5
+      '@types/pg':
+        specifier: ^8.18.0
+        version: 8.18.0
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
