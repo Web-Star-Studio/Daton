@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useListUnits, useListUserOptions, getListUnitsQueryKey, getListUserOptionsQueryKey, type UserOption } from "@workspace/api-client-react";
 import {
@@ -36,6 +37,7 @@ import {
   isoToDateInput,
 } from "@/lib/governance-ui";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { ArrowLeft, CheckCircle2, FileSpreadsheet, FileText, Pencil, Plus, RotateCcw, Send, ShieldAlert, Trash2, XCircle } from "lucide-react";
 
 type Tab = "overview" | "swot" | "interested" | "scope" | "objectives" | "actions" | "revisions";
@@ -381,6 +383,25 @@ export default function GovernanceDetailPage() {
     { key: "revisions", label: "Revisões e Evidências" },
   ];
 
+  const tabIssues = useMemo(() => {
+    const issues = plan?.complianceIssues || [];
+    const map: Partial<Record<Tab, string[]>> = {};
+    for (const issue of issues) {
+      if (issue.includes("SWOT")) {
+        map.swot = [...(map.swot || []), issue];
+      } else if (issue.includes("partes interessadas")) {
+        map.interested = [...(map.interested || []), issue];
+      } else if (issue.includes("objetivos estratégicos")) {
+        map.objectives = [...(map.objectives || []), issue];
+      } else if (issue.includes("ação sem ação vinculada")) {
+        map.actions = [...(map.actions || []), issue];
+      } else {
+        map.overview = [...(map.overview || []), issue];
+      }
+    }
+    return map;
+  }, [plan?.complianceIssues]);
+
   const latestEvidenceDocumentId = plan?.revisions?.[0]?.evidenceDocumentId;
 
   useHeaderActions(
@@ -433,171 +454,251 @@ export default function GovernanceDetailPage() {
   }
 
   return (
-    <div className="px-6 py-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href="/governanca/planejamento" className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5">
-          <ArrowLeft className="h-4 w-4" />
-          Voltar para Governança
-        </Link>
-        <Badge variant="secondary">{GOVERNANCE_STATUS_LABELS[plan.status] || plan.status}</Badge>
-      </div>
-
-      {plan.complianceIssues.length > 0 && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
-          <div className="flex items-start gap-3">
-            <ShieldAlert className="h-5 w-5 text-amber-700 mt-0.5" />
-            <div>
-              <p className="font-medium text-amber-950">Pendências de conformidade</p>
-              <ul className="mt-2 list-disc pl-5 text-sm text-amber-900 space-y-1">
-                {plan.complianceIssues.map((issue) => (
-                  <li key={issue}>{issue}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-wrap gap-2 border-b border-border/60 pb-4">
+    <div className="px-6 py-6 space-y-8">
+      <nav className="flex items-center gap-6 border-b border-border">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
             onClick={() => setActiveTab(tab.key)}
-            className={`rounded-full px-4 py-2 text-sm transition-colors ${activeTab === tab.key ? "bg-foreground text-background" : "bg-muted/50 text-muted-foreground hover:text-foreground"}`}
+            className={cn(
+              "relative pb-2.5 text-[13px] font-medium transition-colors duration-200 cursor-pointer hover:text-foreground inline-flex items-center gap-1.5",
+              activeTab === tab.key
+                ? "text-foreground font-semibold after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:bg-foreground after:rounded-full"
+                : "text-muted-foreground"
+            )}
           >
             {tab.label}
+            {tabIssues[tab.key] && (
+              <ShieldAlert className="h-3.5 w-3.5 text-amber-500" />
+            )}
           </button>
         ))}
-      </div>
+      </nav>
 
       {activeTab === "overview" && (
-        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="space-y-4 rounded-2xl border border-border/60 bg-card p-6">
-            <div>
-              <Label>Título</Label>
-              <Input value={planForm.title} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, title: event.target.value } : prev)} disabled={!canEdit} />
-            </div>
-            <div>
-              <Label>Resumo executivo</Label>
-              <Textarea value={planForm.executiveSummary || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, executiveSummary: event.target.value } : prev)} disabled={!canEdit} rows={4} />
-            </div>
-            <div className="grid gap-4 md:grid-cols-3">
+        <div className="space-y-10">
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Informações do Plano</h3>
+            {canEdit ? (
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2">
+                  <Label>Título</Label>
+                  <Input value={planForm.title} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, title: event.target.value } : prev)} />
+                </div>
+                <div>
+                  <Label>Normas</Label>
+                  <Input value={(planForm.standards || []).join(", ")} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, standards: event.target.value.split(",").map((value) => value.trim()).filter(Boolean) } : prev)} />
+                </div>
+                <div className="col-span-3">
+                  <Label>Resumo executivo</Label>
+                  <Textarea value={planForm.executiveSummary || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, executiveSummary: event.target.value } : prev)} rows={4} />
+                </div>
+                <div>
+                  <Label>Frequência de revisão (meses)</Label>
+                  <Input type="number" value={planForm.reviewFrequencyMonths || 12} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, reviewFrequencyMonths: Number(event.target.value) } : prev)} />
+                </div>
+                <div>
+                  <Label>Próxima revisão</Label>
+                  <Input type="date" value={planForm.nextReviewAt || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, nextReviewAt: event.target.value } : prev)} />
+                </div>
+                <div>
+                  <Label>Motivo da revisão</Label>
+                  <Input value={planForm.reviewReason || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, reviewReason: event.target.value } : prev)} />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-x-8 gap-y-6">
+                <div className="col-span-2">
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Título</p>
+                  <p className="text-[14px] text-foreground">{plan.title}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Normas</p>
+                  <p className="text-[14px] text-foreground">{(plan.standards || []).join(", ") || "—"}</p>
+                </div>
+                <div className="col-span-3">
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Resumo Executivo</p>
+                  <p className="text-[14px] text-foreground whitespace-pre-line">{plan.executiveSummary || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Frequência de Revisão</p>
+                  <p className="text-[14px] text-foreground">{plan.reviewFrequencyMonths} meses</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Próxima Revisão</p>
+                  <p className="text-[14px] text-foreground">{formatGovernanceDate(plan.nextReviewAt)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Motivo da Revisão</p>
+                  <p className="text-[14px] text-foreground">{plan.reviewReason || "—"}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Mudança Climática</h3>
+            {canEdit ? (
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>Relevância</Label>
+                  <Select
+                    value={planForm.climateChangeRelevant === null ? "" : planForm.climateChangeRelevant ? "sim" : "nao"}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setPlanForm((prev) => prev ? { ...prev, climateChangeRelevant: value === "" ? null : value === "sim" } : prev);
+                    }}
+                  >
+                    <option value="">Não avaliado</option>
+                    <option value="sim">Sim</option>
+                    <option value="nao">Não</option>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <Label>Justificativa</Label>
+                  <Textarea value={planForm.climateChangeJustification || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, climateChangeJustification: event.target.value } : prev)} rows={3} />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-x-8 gap-y-6">
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Relevância</p>
+                  <p className="text-[14px] text-foreground">
+                    {planForm.climateChangeRelevant === null ? "Não avaliado" : planForm.climateChangeRelevant ? "Sim" : "Não"}
+                  </p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Justificativa</p>
+                  <p className="text-[14px] text-foreground">{plan.climateChangeJustification || "—"}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Métricas</h3>
+            <div className="grid grid-cols-4 gap-x-8 gap-y-6">
               <div>
-                <Label>Frequência de revisão (meses)</Label>
-                <Input type="number" value={planForm.reviewFrequencyMonths || 12} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, reviewFrequencyMonths: Number(event.target.value) } : prev)} disabled={!canEdit} />
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Itens SWOT</p>
+                <p className="text-2xl font-semibold text-foreground">{plan.metrics.swotCount}</p>
               </div>
               <div>
-                <Label>Próxima revisão</Label>
-                <Input type="date" value={planForm.nextReviewAt || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, nextReviewAt: event.target.value } : prev)} disabled={!canEdit} />
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Partes Interessadas</p>
+                <p className="text-2xl font-semibold text-foreground">{plan.metrics.interestedPartyCount}</p>
               </div>
               <div>
-                <Label>Normas</Label>
-                <Input value={(planForm.standards || []).join(", ")} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, standards: event.target.value.split(",").map((value) => value.trim()).filter(Boolean) } : prev)} disabled={!canEdit} />
-              </div>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <Label>Mudança climática relevante?</Label>
-                <select
-                  className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={planForm.climateChangeRelevant === null ? "" : planForm.climateChangeRelevant ? "sim" : "nao"}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setPlanForm((prev) => prev ? { ...prev, climateChangeRelevant: value === "" ? null : value === "sim" } : prev);
-                  }}
-                  disabled={!canEdit}
-                >
-                  <option value="">Não avaliado</option>
-                  <option value="sim">Sim</option>
-                  <option value="nao">Não</option>
-                </select>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Objetivos</p>
+                <p className="text-2xl font-semibold text-foreground">{plan.metrics.objectiveCount}</p>
               </div>
               <div>
-                <Label>Motivo da revisão</Label>
-                <Input value={planForm.reviewReason || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, reviewReason: event.target.value } : prev)} disabled={!canEdit} />
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Ações Abertas</p>
+                <p className="text-2xl font-semibold text-foreground">{plan.metrics.openActionCount}</p>
               </div>
-            </div>
-            <div>
-              <Label>Justificativa de mudança climática</Label>
-              <Textarea value={planForm.climateChangeJustification || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, climateChangeJustification: event.target.value } : prev)} disabled={!canEdit} rows={3} />
             </div>
           </div>
 
-          <div className="space-y-4 rounded-2xl border border-border/60 bg-card p-6">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl bg-muted/30 px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Itens SWOT</p>
-                <p className="mt-1 text-xl font-semibold">{plan.metrics.swotCount}</p>
-              </div>
-              <div className="rounded-xl bg-muted/30 px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Partes interessadas</p>
-                <p className="mt-1 text-xl font-semibold">{plan.metrics.interestedPartyCount}</p>
-              </div>
-              <div className="rounded-xl bg-muted/30 px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Objetivos</p>
-                <p className="mt-1 text-xl font-semibold">{plan.metrics.objectiveCount}</p>
-              </div>
-              <div className="rounded-xl bg-muted/30 px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Ações abertas</p>
-                <p className="mt-1 text-xl font-semibold">{plan.metrics.openActionCount}</p>
-              </div>
-            </div>
-            <div className="rounded-xl border border-border/60 p-4">
-              <p className="text-sm font-medium">Evidência formal</p>
-              {latestEvidenceDocumentId ? (
-                <div className="mt-2 text-sm text-muted-foreground">
-                  Última evidência vinculada ao documento #{latestEvidenceDocumentId}.
-                </div>
-              ) : (
-                <div className="mt-2 text-sm text-muted-foreground">A evidência PDF será gerada automaticamente na aprovação.</div>
-              )}
-            </div>
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Evidência Formal</h3>
+            {latestEvidenceDocumentId ? (
+              <p className="text-[14px] text-foreground">Última evidência vinculada ao documento #{latestEvidenceDocumentId}.</p>
+            ) : (
+              <p className="text-[14px] text-muted-foreground">A evidência PDF será gerada automaticamente na aprovação.</p>
+            )}
           </div>
         </div>
       )}
 
       {activeTab === "scope" && (
-        <div className="grid gap-4 rounded-2xl border border-border/60 bg-card p-6">
+        <div className="space-y-10">
           <div>
-            <Label>Escopo técnico</Label>
-            <Textarea value={planForm.technicalScope || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, technicalScope: event.target.value } : prev)} disabled={!canEdit} rows={3} />
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Escopo</h3>
+            {canEdit ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Escopo técnico</Label>
+                  <Textarea value={planForm.technicalScope || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, technicalScope: event.target.value } : prev)} rows={3} />
+                </div>
+                <div>
+                  <Label>Escopo geográfico</Label>
+                  <Textarea value={planForm.geographicScope || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, geographicScope: event.target.value } : prev)} rows={3} />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Escopo Técnico</p>
+                  <p className="text-[14px] text-foreground whitespace-pre-line">{plan.technicalScope || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Escopo Geográfico</p>
+                  <p className="text-[14px] text-foreground whitespace-pre-line">{plan.geographicScope || "—"}</p>
+                </div>
+              </div>
+            )}
           </div>
+
           <div>
-            <Label>Escopo geográfico</Label>
-            <Textarea value={planForm.geographicScope || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, geographicScope: event.target.value } : prev)} disabled={!canEdit} rows={3} />
-          </div>
-          <div>
-            <Label>Política</Label>
-            <Textarea value={planForm.policy || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, policy: event.target.value } : prev)} disabled={!canEdit} rows={4} />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label>Missão</Label>
-              <Textarea value={planForm.mission || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, mission: event.target.value } : prev)} disabled={!canEdit} rows={3} />
-            </div>
-            <div>
-              <Label>Visão</Label>
-              <Textarea value={planForm.vision || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, vision: event.target.value } : prev)} disabled={!canEdit} rows={3} />
-            </div>
-          </div>
-          <div>
-            <Label>Valores</Label>
-            <Textarea value={planForm.values || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, values: event.target.value } : prev)} disabled={!canEdit} rows={5} />
-          </div>
-          <div>
-            <Label>Conclusão estratégica</Label>
-            <Textarea value={planForm.strategicConclusion || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, strategicConclusion: event.target.value } : prev)} disabled={!canEdit} rows={3} />
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Direcionamento Estratégico</h3>
+            {canEdit ? (
+              <div className="grid gap-4">
+                <div>
+                  <Label>Política</Label>
+                  <Textarea value={planForm.policy || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, policy: event.target.value } : prev)} rows={4} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Missão</Label>
+                    <Textarea value={planForm.mission || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, mission: event.target.value } : prev)} rows={3} />
+                  </div>
+                  <div>
+                    <Label>Visão</Label>
+                    <Textarea value={planForm.vision || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, vision: event.target.value } : prev)} rows={3} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Valores</Label>
+                  <Textarea value={planForm.values || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, values: event.target.value } : prev)} rows={5} />
+                </div>
+                <div>
+                  <Label>Conclusão estratégica</Label>
+                  <Textarea value={planForm.strategicConclusion || ""} onChange={(event) => setPlanForm((prev) => prev ? { ...prev, strategicConclusion: event.target.value } : prev)} rows={3} />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                <div className="col-span-2">
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Política</p>
+                  <p className="text-[14px] text-foreground whitespace-pre-line">{plan.policy || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Missão</p>
+                  <p className="text-[14px] text-foreground whitespace-pre-line">{plan.mission || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Visão</p>
+                  <p className="text-[14px] text-foreground whitespace-pre-line">{plan.vision || "—"}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Valores</p>
+                  <p className="text-[14px] text-foreground whitespace-pre-line">{plan.values || "—"}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Conclusão Estratégica</p>
+                  <p className="text-[14px] text-foreground whitespace-pre-line">{plan.strategicConclusion || "—"}</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {activeTab === "swot" && (
-        <div className="rounded-2xl border border-border/60 bg-card p-6">
-          <div className="flex items-center justify-between gap-3">
+        <div className="space-y-5">
+          <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold">Matriz SWOT</h3>
-              <p className="text-sm text-muted-foreground">Itens de contexto interno e externo com decisão de tratamento.</p>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">Matriz SWOT</h3>
+              <p className="mt-1.5 text-[13px] text-muted-foreground">Itens de contexto interno e externo com decisão de tratamento.</p>
             </div>
             {canEdit && (
               <Button size="sm" onClick={() => openSwotDialog()}>
@@ -606,35 +707,37 @@ export default function GovernanceDetailPage() {
               </Button>
             )}
           </div>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[980px] text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] text-[13px]">
               <thead>
-                <tr className="border-b border-border/60 text-left text-muted-foreground">
-                  <th className="px-2 py-3">Domínio</th>
-                  <th className="px-2 py-3">Tipo</th>
-                  <th className="px-2 py-3">Descrição</th>
-                  <th className="px-2 py-3">Resultado</th>
-                  <th className="px-2 py-3">Tratamento</th>
-                  <th className="px-2 py-3">Objetivo</th>
-                  {canEdit && <th className="px-2 py-3">Ações</th>}
+                <tr className="border-b border-border text-left">
+                  <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Domínio</th>
+                  <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Tipo</th>
+                  <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Descrição</th>
+                  <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Resultado</th>
+                  <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Tratamento</th>
+                  <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Objetivo</th>
+                  {canEdit && <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]"></th>}
                 </tr>
               </thead>
               <tbody>
                 {plan.swotItems.map((item) => (
-                  <tr key={item.id} className="border-b border-border/40">
-                    <td className="px-2 py-3">{item.domain.toUpperCase()}</td>
-                    <td className="px-2 py-3">{item.swotType}</td>
-                    <td className="px-2 py-3">{item.description}</td>
-                    <td className="px-2 py-3">{item.result ?? "—"}</td>
-                    <td className="px-2 py-3">{item.treatmentDecision || "—"}</td>
-                    <td className="px-2 py-3">{item.linkedObjectiveLabel || item.linkedObjectiveCode || "—"}</td>
+                  <tr key={item.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+                    <td className="px-3 py-3 text-foreground">{item.domain.toUpperCase()}</td>
+                    <td className="px-3 py-3 text-foreground">{item.swotType}</td>
+                    <td className="px-3 py-3 text-foreground">{item.description}</td>
+                    <td className="px-3 py-3 text-foreground">{item.result ?? "—"}</td>
+                    <td className="px-3 py-3 text-foreground">{item.treatmentDecision || "—"}</td>
+                    <td className="px-3 py-3 text-foreground">{item.linkedObjectiveLabel || item.linkedObjectiveCode || "—"}</td>
                     {canEdit && (
-                      <td className="px-2 py-3">
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => openSwotDialog(item)}>Editar</Button>
-                          <Button size="sm" variant="outline" onClick={() => swotCrud.deleteMutation.mutate(item.id)}>
+                      <td className="px-3 py-3">
+                        <div className="flex gap-1.5">
+                          <button type="button" onClick={() => openSwotDialog(item)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button type="button" onClick={() => swotCrud.deleteMutation.mutate(item.id)} className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors">
                             <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          </button>
                         </div>
                       </td>
                     )}
@@ -642,16 +745,19 @@ export default function GovernanceDetailPage() {
                 ))}
               </tbody>
             </table>
+            {plan.swotItems.length === 0 && (
+              <p className="py-8 text-center text-[13px] text-muted-foreground">Nenhum item SWOT cadastrado.</p>
+            )}
           </div>
         </div>
       )}
 
       {activeTab === "interested" && (
-        <div className="rounded-2xl border border-border/60 bg-card p-6">
-          <div className="flex items-center justify-between gap-3">
+        <div className="space-y-5">
+          <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold">Partes Interessadas</h3>
-              <p className="text-sm text-muted-foreground">Requisitos relevantes ao contexto do sistema de gestão.</p>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">Partes Interessadas</h3>
+              <p className="mt-1.5 text-[13px] text-muted-foreground">Requisitos relevantes ao contexto do sistema de gestão.</p>
             </div>
             {canEdit && (
               <Button size="sm" onClick={() => openPartyDialog()}>
@@ -660,35 +766,38 @@ export default function GovernanceDetailPage() {
               </Button>
             )}
           </div>
-          <div className="mt-4 space-y-3">
+          <div className="space-y-px">
             {plan.interestedParties.map((item) => (
-              <div key={item.id} className="rounded-xl border border-border/60 p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h4 className="font-medium">{item.name}</h4>
-                    <p className="mt-1 text-sm text-muted-foreground">{item.expectedRequirements || "Sem requisitos descritos."}</p>
-                  </div>
-                  {canEdit && (
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => openPartyDialog(item)}>Editar</Button>
-                      <Button size="sm" variant="outline" onClick={() => interestedCrud.deleteMutation.mutate(item.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  )}
+              <div key={item.id} className="group flex items-start justify-between gap-4 py-4 border-b border-border/40">
+                <div>
+                  <h4 className="text-[14px] font-medium text-foreground">{item.name}</h4>
+                  <p className="mt-1 text-[13px] text-muted-foreground">{item.expectedRequirements || "Sem requisitos descritos."}</p>
                 </div>
+                {canEdit && (
+                  <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button type="button" onClick={() => openPartyDialog(item)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={() => interestedCrud.deleteMutation.mutate(item.id)} className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
+            {plan.interestedParties.length === 0 && (
+              <p className="py-8 text-center text-[13px] text-muted-foreground">Nenhuma parte interessada cadastrada.</p>
+            )}
           </div>
         </div>
       )}
 
       {activeTab === "objectives" && (
-        <div className="rounded-2xl border border-border/60 bg-card p-6">
-          <div className="flex items-center justify-between gap-3">
+        <div className="space-y-5">
+          <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold">Objetivos Estratégicos</h3>
-              <p className="text-sm text-muted-foreground">Objetivos vinculados ao contexto e aos desdobramentos do plano.</p>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">Objetivos Estratégicos</h3>
+              <p className="mt-1.5 text-[13px] text-muted-foreground">Objetivos vinculados ao contexto e aos desdobramentos do plano.</p>
             </div>
             {canEdit && (
               <Button size="sm" onClick={() => openObjectiveDialog()}>
@@ -697,39 +806,42 @@ export default function GovernanceDetailPage() {
               </Button>
             )}
           </div>
-          <div className="mt-4 grid gap-3">
+          <div className="space-y-px">
             {plan.objectives.map((item) => (
-              <div key={item.id} className="rounded-xl border border-border/60 p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{item.code}</Badge>
-                      <span className="text-sm text-muted-foreground">{item.systemDomain || "Sem sistema"}</span>
-                    </div>
-                    <h4 className="mt-2 font-medium">{item.description}</h4>
-                    {item.notes && <p className="mt-1 text-sm text-muted-foreground">{item.notes}</p>}
+              <div key={item.id} className="group flex items-start justify-between gap-4 py-4 border-b border-border/40">
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <span className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-2.5 py-0.5 text-[12px] font-medium text-foreground">{item.code}</span>
+                    <span className="text-[13px] text-muted-foreground">{item.systemDomain || "Sem sistema"}</span>
                   </div>
-                  {canEdit && (
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => openObjectiveDialog(item)}>Editar</Button>
-                      <Button size="sm" variant="outline" onClick={() => objectiveCrud.deleteMutation.mutate(item.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  )}
+                  <h4 className="mt-2 text-[14px] font-medium text-foreground">{item.description}</h4>
+                  {item.notes && <p className="mt-1 text-[13px] text-muted-foreground">{item.notes}</p>}
                 </div>
+                {canEdit && (
+                  <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button type="button" onClick={() => openObjectiveDialog(item)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={() => objectiveCrud.deleteMutation.mutate(item.id)} className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
+            {plan.objectives.length === 0 && (
+              <p className="py-8 text-center text-[13px] text-muted-foreground">Nenhum objetivo cadastrado.</p>
+            )}
           </div>
         </div>
       )}
 
       {activeTab === "actions" && (
-        <div className="rounded-2xl border border-border/60 bg-card p-6">
-          <div className="flex items-center justify-between gap-3">
+        <div className="space-y-5">
+          <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold">Ações</h3>
-              <p className="text-sm text-muted-foreground">Desdobramentos por unidade, responsáveis e prazos.</p>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">Ações</h3>
+              <p className="mt-1.5 text-[13px] text-muted-foreground">Desdobramentos por unidade, responsáveis e prazos.</p>
             </div>
             {canEdit && (
               <Button size="sm" onClick={() => openActionDialog()}>
@@ -738,66 +850,67 @@ export default function GovernanceDetailPage() {
               </Button>
             )}
           </div>
-          <div className="mt-4 grid gap-3">
+          <div className="space-y-px">
             {plan.actions.map((item) => (
-              <div key={item.id} className="rounded-xl border border-border/60 p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{item.status}</Badge>
-                      <span className="text-sm text-muted-foreground">Prazo: {formatGovernanceDate(item.dueDate)}</span>
-                    </div>
-                    <h4 className="mt-2 font-medium">{item.title}</h4>
-                    <p className="mt-1 text-sm text-muted-foreground">{item.description || "Sem descrição."}</p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Responsável: {item.responsibleUserName || "Não definido"} • Unidades: {item.units.map((unit) => unit.name).join(", ") || "Nenhuma"}
-                    </p>
+              <div key={item.id} className="group flex items-start justify-between gap-4 py-4 border-b border-border/40">
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <span className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-2.5 py-0.5 text-[12px] font-medium text-foreground">{item.status}</span>
+                    <span className="text-[13px] text-muted-foreground">Prazo: {formatGovernanceDate(item.dueDate)}</span>
                   </div>
-                  {canEdit && (
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => openActionDialog(item)}>Editar</Button>
-                      <Button size="sm" variant="outline" onClick={() => actionCrud.deleteMutation.mutate(item.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  )}
+                  <h4 className="mt-2 text-[14px] font-medium text-foreground">{item.title}</h4>
+                  <p className="mt-1 text-[13px] text-muted-foreground">{item.description || "Sem descrição."}</p>
+                  <p className="mt-1.5 text-[12px] text-muted-foreground">
+                    Responsável: {item.responsibleUserName || "Não definido"} · Unidades: {item.units.map((unit) => unit.name).join(", ") || "Nenhuma"}
+                  </p>
                 </div>
+                {canEdit && (
+                  <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button type="button" onClick={() => openActionDialog(item)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={() => actionCrud.deleteMutation.mutate(item.id)} className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted/50 transition-colors">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
+            {plan.actions.length === 0 && (
+              <p className="py-8 text-center text-[13px] text-muted-foreground">Nenhuma ação cadastrada.</p>
+            )}
           </div>
         </div>
       )}
 
       {activeTab === "revisions" && (
-        <div className="rounded-2xl border border-border/60 bg-card p-6 space-y-4">
+        <div className="space-y-5">
           <div>
-            <h3 className="text-lg font-semibold">Revisões e Evidências</h3>
-            <p className="text-sm text-muted-foreground">Histórico formal de aprovação, snapshots e evidência documental.</p>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">Revisões e Evidências</h3>
+            <p className="mt-1.5 text-[13px] text-muted-foreground">Histórico formal de aprovação, snapshots e evidência documental.</p>
           </div>
 
-          <div className="grid gap-3">
+          <div className="space-y-px">
             {plan.revisions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma revisão aprovada ainda.</p>
+              <p className="py-8 text-center text-[13px] text-muted-foreground">Nenhuma revisão aprovada ainda.</p>
             ) : (
               plan.revisions.map((revision) => (
-                <div key={revision.id} className="rounded-xl border border-border/60 p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary">R{revision.revisionNumber}</Badge>
-                        <span className="text-sm text-muted-foreground">{formatGovernanceDate(revision.revisionDate, true)}</span>
-                      </div>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Motivo: {revision.reason || "—"} • Aprovado por: {revision.approvedByName || "—"}
-                      </p>
-                      {revision.changeSummary && <p className="mt-1 text-sm text-muted-foreground">{revision.changeSummary}</p>}
+                <div key={revision.id} className="flex items-center justify-between gap-4 py-4 border-b border-border/40">
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-2.5 py-0.5 text-[12px] font-medium text-foreground">R{revision.revisionNumber}</span>
+                      <span className="text-[13px] text-muted-foreground">{formatGovernanceDate(revision.revisionDate, true)}</span>
                     </div>
-                    {revision.evidenceDocumentId && (
-                      <Button size="sm" variant="outline" onClick={() => navigate(`/qualidade/documentacao/${revision.evidenceDocumentId}`)}>
-                        Ver documento
-                      </Button>
-                    )}
+                    <p className="mt-2 text-[13px] text-muted-foreground">
+                      Motivo: {revision.reason || "—"} · Aprovado por: {revision.approvedByName || "—"}
+                    </p>
+                    {revision.changeSummary && <p className="mt-1 text-[13px] text-muted-foreground">{revision.changeSummary}</p>}
                   </div>
+                  {revision.evidenceDocumentId && (
+                    <Button size="sm" variant="outline" onClick={() => navigate(`/qualidade/documentacao/${revision.evidenceDocumentId}`)}>
+                      Ver documento
+                    </Button>
+                  )}
                 </div>
               ))
             )}
@@ -844,22 +957,22 @@ export default function GovernanceDetailPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <Label>Domínio</Label>
-            <select className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={swotForm.domain} onChange={(event) => setSwotForm((prev) => ({ ...prev, domain: event.target.value as GovernanceSwotItem["domain"] }))}>
+            <Select value={swotForm.domain} onChange={(event) => setSwotForm((prev) => ({ ...prev, domain: event.target.value as GovernanceSwotItem["domain"] }))}>
               <option value="sgq">SGQ</option>
               <option value="sga">SGA</option>
               <option value="sgsv">SGSV</option>
               <option value="esg">ESG</option>
               <option value="governance">Governança</option>
-            </select>
+            </Select>
           </div>
           <div>
             <Label>Tipo</Label>
-            <select className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={swotForm.swotType} onChange={(event) => setSwotForm((prev) => ({ ...prev, swotType: event.target.value as GovernanceSwotItem["swotType"] }))}>
+            <Select value={swotForm.swotType} onChange={(event) => setSwotForm((prev) => ({ ...prev, swotType: event.target.value as GovernanceSwotItem["swotType"] }))}>
               <option value="strength">Força</option>
               <option value="weakness">Fraqueza</option>
               <option value="opportunity">Oportunidade</option>
               <option value="threat">Ameaça</option>
-            </select>
+            </Select>
           </div>
           <div className="md:col-span-2">
             <Label>Descrição</Label>
@@ -941,10 +1054,10 @@ export default function GovernanceDetailPage() {
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <Label>Responsável</Label>
-              <select className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={actionForm.responsibleUserId || ""} onChange={(event) => setActionForm((prev) => ({ ...prev, responsibleUserId: event.target.value ? Number(event.target.value) : null }))}>
+              <Select value={actionForm.responsibleUserId || ""} onChange={(event) => setActionForm((prev) => ({ ...prev, responsibleUserId: event.target.value ? Number(event.target.value) : null }))}>
                 <option value="">Não definido</option>
                 {users.map((user: UserOption) => <option key={user.id} value={user.id}>{user.name}</option>)}
-              </select>
+              </Select>
             </div>
             <div>
               <Label>Prazo</Label>
@@ -952,28 +1065,28 @@ export default function GovernanceDetailPage() {
             </div>
             <div>
               <Label>Status</Label>
-              <select className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={actionForm.status} onChange={(event) => setActionForm((prev) => ({ ...prev, status: event.target.value as GovernanceAction["status"] }))}>
+              <Select value={actionForm.status} onChange={(event) => setActionForm((prev) => ({ ...prev, status: event.target.value as GovernanceAction["status"] }))}>
                 <option value="pending">Pendente</option>
                 <option value="in_progress">Em andamento</option>
                 <option value="done">Concluída</option>
                 <option value="canceled">Cancelada</option>
-              </select>
+              </Select>
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label>Item SWOT vinculado</Label>
-              <select className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={actionForm.swotItemId || ""} onChange={(event) => setActionForm((prev) => ({ ...prev, swotItemId: event.target.value ? Number(event.target.value) : null }))}>
+              <Select value={actionForm.swotItemId || ""} onChange={(event) => setActionForm((prev) => ({ ...prev, swotItemId: event.target.value ? Number(event.target.value) : null }))}>
                 <option value="">Sem vínculo</option>
                 {plan.swotItems.map((item) => <option key={item.id} value={item.id}>{item.description}</option>)}
-              </select>
+              </Select>
             </div>
             <div>
               <Label>Objetivo vinculado</Label>
-              <select className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={actionForm.objectiveId || ""} onChange={(event) => setActionForm((prev) => ({ ...prev, objectiveId: event.target.value ? Number(event.target.value) : null }))}>
+              <Select value={actionForm.objectiveId || ""} onChange={(event) => setActionForm((prev) => ({ ...prev, objectiveId: event.target.value ? Number(event.target.value) : null }))}>
                 <option value="">Sem vínculo</option>
                 {plan.objectives.map((item) => <option key={item.id} value={item.id}>{item.code} - {item.description}</option>)}
-              </select>
+              </Select>
             </div>
           </div>
           <div>

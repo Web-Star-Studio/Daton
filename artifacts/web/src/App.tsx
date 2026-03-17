@@ -14,6 +14,7 @@ import OrganizacaoPage from "@/pages/app/organizacao";
 import UnitDetailPage from "@/pages/app/organizacao/unidades/[id]";
 import GovernancePage from "@/pages/app/governanca";
 import GovernanceDetailPage from "@/pages/app/governanca/[id]";
+import ProductKnowledgeAdminPage from "@/pages/app/admin/base-conhecimento";
 import LegislacoesPage from "@/pages/app/qualidade/legislacoes";
 import LegislationDetailPage from "@/pages/app/qualidade/legislacoes/[id]";
 import ColaboradoresPage from "@/pages/app/qualidade/colaboradores";
@@ -40,6 +41,7 @@ function AppPages() {
       <Route path="/organizacao/unidades/:id" component={UnitDetailPage} />
       <Route path="/governanca/planejamento" component={GovernancePage} />
       <Route path="/governanca/planejamento/:id" component={GovernanceDetailPage} />
+      <Route path="/admin/base-conhecimento" component={ProductKnowledgeAdminPage} />
       <Route path="/qualidade/legislacoes" component={LegislacoesPage} />
       <Route path="/qualidade/legislacoes/:id" component={LegislationDetailPage} />
       <Route path="/qualidade/colaboradores" component={ColaboradoresPage} />
@@ -52,6 +54,7 @@ function AppPages() {
       <Route path="/app/organizacao/unidades/:id" component={UnitDetailPage} />
       <Route path="/app/governanca/planejamento" component={GovernancePage} />
       <Route path="/app/governanca/planejamento/:id" component={GovernanceDetailPage} />
+      <Route path="/app/admin/base-conhecimento" component={ProductKnowledgeAdminPage} />
       <Route path="/app/qualidade/legislacoes" component={LegislacoesPage} />
       <Route path="/app/qualidade/legislacoes/:id" component={LegislationDetailPage} />
       <Route path="/app/qualidade/colaboradores" component={ColaboradoresPage} />
@@ -65,22 +68,35 @@ function AppPages() {
 
 function Router() {
   const [location, navigate] = useLocation();
-  const { isAuthenticated, isLoading, organization } = useAuth();
+  const { isAuthenticated, isLoading, organization, role } = useAuth();
   const isAppRoute =
     location.startsWith("/app") ||
+    location.startsWith("/admin") ||
     location.startsWith("/organizacao") ||
     location.startsWith("/governanca") ||
     location.startsWith("/qualidade");
   const isAuthRoute = location === "/" || location.startsWith("/auth");
   const isOnboardingRoute = location.startsWith("/onboarding/organizacao");
   const onboardingPending = organization?.onboardingStatus === "pending";
+  const isPlatformAdmin = role === "platform_admin";
   const redirectTo = useMemo(() => {
     if (isLoading) return null;
     if (!isAuthenticated && (isAppRoute || isOnboardingRoute)) return "/auth";
-    if (isAuthenticated && onboardingPending && !isOnboardingRoute) return "/onboarding/organizacao";
+    if (isAuthenticated && isAuthRoute && isPlatformAdmin) return "/admin/base-conhecimento";
+    if (isAuthenticated && onboardingPending && !isOnboardingRoute && !isPlatformAdmin) {
+      return "/onboarding/organizacao";
+    }
     if (isAuthenticated && !onboardingPending && (isOnboardingRoute || isAuthRoute)) return "/organizacao";
     return null;
-  }, [isAppRoute, isAuthRoute, isAuthenticated, isLoading, isOnboardingRoute, onboardingPending]);
+  }, [
+    isAppRoute,
+    isAuthRoute,
+    isAuthenticated,
+    isLoading,
+    isOnboardingRoute,
+    onboardingPending,
+    isPlatformAdmin,
+  ]);
 
   useLayoutEffect(() => {
     if (redirectTo && redirectTo !== location) {

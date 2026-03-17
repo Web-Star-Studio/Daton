@@ -260,6 +260,11 @@ export function requireCompletedOnboarding(req: Request, res: Response, next: Ne
     return;
   }
 
+  if (req.auth.role === "platform_admin") {
+    next();
+    return;
+  }
+
   if (req.auth.onboardingStatus === "pending") {
     res.status(403).json({
       error: "Onboarding da organização pendente",

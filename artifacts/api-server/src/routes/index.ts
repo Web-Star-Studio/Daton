@@ -18,6 +18,8 @@ import governanceRouter from "./governance/index";
 import notificationsRouter from "./notifications";
 import invitationsRouter from "./invitations";
 import orgUsersRouter from "./org-users";
+import productKnowledgeRouter from "./product-knowledge";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -28,6 +30,7 @@ router.use(invitationsRouter);
 router.use(orgUsersRouter);
 router.use(organizationsRouter);
 
+router.use(requireAuth, requireRole("platform_admin"), productKnowledgeRouter);
 router.use(requireAuth, requireCompletedOnboarding, aiRouter);
 router.use(requireAuth, requireCompletedOnboarding, notificationsRouter);
 router.use(requireAuth, requireCompletedOnboarding, questionnaireRouter);

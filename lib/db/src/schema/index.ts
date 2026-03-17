@@ -13,3 +13,4 @@ export * from "./documents";
 export * from "./notifications";
 export * from "./invitations";
 export * from "./strategic-plans";
+export * from "./product-knowledge";

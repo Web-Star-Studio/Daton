@@ -18,7 +18,7 @@ import {
 import { parseGovernanceWorkbook, type GovernanceImportPreview } from "@/lib/governance-import";
 import { formatGovernanceDate, GOVERNANCE_STATUS_LABELS } from "@/lib/governance-ui";
 import { toast } from "@/hooks/use-toast";
-import { FileSpreadsheet, Plus, ShieldCheck, Sparkles } from "lucide-react";
+import { ChevronRight, FileSpreadsheet, Landmark, Plus, ShieldAlert } from "lucide-react";
 
 export default function GovernancePage() {
   const { organization } = useAuth();
@@ -132,112 +132,94 @@ export default function GovernancePage() {
   };
 
   return (
-    <div className="px-6 py-6 space-y-6">
+    <div className="px-6 py-6 space-y-10">
       {currentPlan ? (
         <>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="rounded-2xl border border-border/60 bg-card p-5">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Plano vigente</p>
-              <h3 className="mt-2 text-lg font-semibold">{currentPlan.title}</h3>
-              <div className="mt-3">
-                <Badge variant="secondary">{GOVERNANCE_STATUS_LABELS[currentPlan.status] || currentPlan.status}</Badge>
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Plano Vigente</h3>
+            <div className="grid grid-cols-4 gap-x-8 gap-y-6">
+              <div>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Título</p>
+                <p className="text-[14px] text-foreground font-medium">{currentPlan.title}</p>
+                <Badge variant="secondary" className="mt-2">{GOVERNANCE_STATUS_LABELS[currentPlan.status] || currentPlan.status}</Badge>
               </div>
-            </div>
-            <div className="rounded-2xl border border-border/60 bg-card p-5">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Próxima revisão</p>
-              <h3 className="mt-2 text-lg font-semibold">{formatGovernanceDate(currentPlan.nextReviewAt)}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Frequência: {currentPlan.reviewFrequencyMonths} meses
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border/60 bg-card p-5">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Pendências impeditivas</p>
-              <h3 className="mt-2 text-lg font-semibold">{currentPlan.complianceIssues.length}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                SWOT: {currentPlan.metrics.swotCount} • Objetivos: {currentPlan.metrics.objectiveCount}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border/60 bg-card p-5">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Ações abertas</p>
-              <h3 className="mt-2 text-lg font-semibold">{currentPlan.metrics.openActionCount}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Em atraso: {currentPlan.metrics.overdueActionCount}
-              </p>
+              <div>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Próxima Revisão</p>
+                <p className="text-[14px] text-foreground">{formatGovernanceDate(currentPlan.nextReviewAt)}</p>
+                <p className="mt-1 text-[12px] text-muted-foreground">Frequência: {currentPlan.reviewFrequencyMonths} meses</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Pendências</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[14px] text-foreground">{currentPlan.complianceIssues.length}</p>
+                  {currentPlan.complianceIssues.length > 0 && <ShieldAlert className="h-3.5 w-3.5 text-amber-500" />}
+                </div>
+                <p className="mt-1 text-[12px] text-muted-foreground">SWOT: {currentPlan.metrics.swotCount} · Objetivos: {currentPlan.metrics.objectiveCount}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">Ações Abertas</p>
+                <p className="text-[14px] text-foreground">{currentPlan.metrics.openActionCount}</p>
+                <p className="mt-1 text-[12px] text-muted-foreground">Em atraso: {currentPlan.metrics.overdueActionCount}</p>
+              </div>
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Resumo</h3>
             <button
               type="button"
               onClick={() => navigate(`/governanca/planejamento/${currentPlan.id}`)}
-              className="text-left rounded-2xl border border-border/60 bg-card p-6 hover:border-foreground/20 transition-colors"
+              className="w-full text-left group flex items-center justify-between gap-4 py-4 border-b border-border/40 hover:bg-muted/20 -mx-2 px-2 rounded-lg transition-colors"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Plano atual</p>
-                  <h2 className="mt-2 text-2xl font-semibold">{currentPlan.title}</h2>
-                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                    {currentPlan.executiveSummary || "Abra o plano para consolidar contexto, SWOT, partes interessadas e evidências formais."}
-                  </p>
-                </div>
-                <ShieldCheck className="h-8 w-8 text-muted-foreground" />
+              <div>
+                <p className="text-[14px] font-medium text-foreground">{currentPlan.title}</p>
+                <p className="mt-1 text-[13px] text-muted-foreground leading-relaxed">
+                  {currentPlan.executiveSummary || "Abra o plano para consolidar contexto, SWOT, partes interessadas e evidências formais."}
+                </p>
               </div>
-
-              {currentPlan.complianceIssues.length > 0 && (
-                <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                  <p className="font-medium">O plano ainda não está totalmente auditável.</p>
-                  <p className="mt-1">{currentPlan.complianceIssues[0]}</p>
-                </div>
-              )}
+              <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-foreground shrink-0 transition-colors" />
             </button>
-
-            <div className="rounded-2xl border border-border/60 bg-card p-6">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Ações abertas por unidade</p>
-              <div className="mt-4 space-y-3">
-                {actionBreakdown.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhuma ação com desdobramento por unidade.</p>
-                ) : (
-                  actionBreakdown.map((item) => (
-                    <div key={item.unitId} className="flex items-center justify-between rounded-xl bg-muted/40 px-4 py-3">
-                      <span className="text-sm font-medium">{item.unitName}</span>
-                      <Badge variant="secondary">{item.openActionCount}</Badge>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
           </div>
 
-          <div className="rounded-2xl border border-border/60 bg-card p-6">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Planos do módulo</p>
-                <h3 className="mt-2 text-lg font-semibold">Histórico e versões</h3>
+          {actionBreakdown.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Ações Abertas por Unidade</h3>
+              <div className="space-y-px">
+                {actionBreakdown.map((item) => (
+                  <div key={item.unitId} className="flex items-center justify-between py-3 border-b border-border/40">
+                    <span className="text-[14px] font-medium text-foreground">{item.unitName}</span>
+                    <span className="text-[13px] text-muted-foreground">{item.openActionCount}</span>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[720px] text-sm">
+          )}
+
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">Histórico e Versões</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-[13px]">
                 <thead>
-                  <tr className="border-b border-border/60 text-left text-muted-foreground">
-                    <th className="px-2 py-3 font-medium">Título</th>
-                    <th className="px-2 py-3 font-medium">Status</th>
-                    <th className="px-2 py-3 font-medium">Revisão ativa</th>
-                    <th className="px-2 py-3 font-medium">Próxima revisão</th>
-                    <th className="px-2 py-3 font-medium">Pendências</th>
+                  <tr className="border-b border-border text-left">
+                    <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Título</th>
+                    <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Status</th>
+                    <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Revisão ativa</th>
+                    <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Próxima revisão</th>
+                    <th className="px-3 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">Pendências</th>
                   </tr>
                 </thead>
                 <tbody>
                   {plans.map((plan) => (
                     <tr
                       key={plan.id}
-                      className="border-b border-border/40 hover:bg-muted/30 cursor-pointer"
+                      className="border-b border-border/40 hover:bg-muted/30 cursor-pointer transition-colors"
                       onClick={() => navigate(`/governanca/planejamento/${plan.id}`)}
                     >
-                      <td className="px-2 py-3 font-medium">{plan.title}</td>
-                      <td className="px-2 py-3">{GOVERNANCE_STATUS_LABELS[plan.status] || plan.status}</td>
-                      <td className="px-2 py-3">R{plan.activeRevisionNumber || 0}</td>
-                      <td className="px-2 py-3">{formatGovernanceDate(plan.nextReviewAt)}</td>
-                      <td className="px-2 py-3">{plan.complianceIssues.length}</td>
+                      <td className="px-3 py-3 font-medium text-foreground">{plan.title}</td>
+                      <td className="px-3 py-3 text-foreground">{GOVERNANCE_STATUS_LABELS[plan.status] || plan.status}</td>
+                      <td className="px-3 py-3 text-foreground">R{plan.activeRevisionNumber || 0}</td>
+                      <td className="px-3 py-3 text-foreground">{formatGovernanceDate(plan.nextReviewAt)}</td>
+                      <td className="px-3 py-3 text-foreground">{plan.complianceIssues.length}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -246,22 +228,12 @@ export default function GovernancePage() {
           </div>
         </>
       ) : (
-        <div className="rounded-[28px] border border-dashed border-border/80 bg-card p-10 text-center">
-          <Sparkles className="mx-auto h-9 w-9 text-muted-foreground" />
-          <h2 className="mt-4 text-2xl font-semibold">Nenhum planejamento estratégico cadastrado</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Crie um plano do zero ou importe a planilha atual para transformar o requisito ISO 9001:2015 §4.1 em fluxo auditável dentro do sistema.
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <Landmark className="h-9 w-9 text-muted-foreground/40" />
+          <h2 className="mt-4 text-lg font-semibold text-foreground">Nenhum planejamento estratégico cadastrado</h2>
+          <p className="mt-1.5 text-[13px] text-muted-foreground">
+            Crie um plano do zero ou importe a planilha atual.
           </p>
-          <div className="mt-6 flex items-center justify-center gap-3">
-            <Button variant="outline" onClick={() => setImportOpen(true)}>
-              <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />
-              Importar planilha
-            </Button>
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
-              Criar plano
-            </Button>
-          </div>
         </div>
       )}
 
