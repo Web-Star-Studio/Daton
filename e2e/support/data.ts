@@ -12,9 +12,7 @@ export interface PendingOrgAdmin {
   token: string;
 }
 
-export interface CompletedOrgAdmin extends PendingOrgAdmin {
-  token: string;
-}
+export interface CompletedOrgAdmin extends PendingOrgAdmin {}
 
 function slugify(value: string) {
   return value

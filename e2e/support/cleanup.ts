@@ -1,4 +1,4 @@
-import { and, eq, inArray, like } from "drizzle-orm";
+import { inArray, like } from "drizzle-orm";
 import {
   db,
   legislationsTable,

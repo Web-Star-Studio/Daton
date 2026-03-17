@@ -4,7 +4,7 @@ const path = require("node:path");
 
 const workspaceRoot = __dirname;
 
-function loadEnvFile(filePath) {
+function loadEnvFile(filePath: string): void {
   if (!existsSync(filePath)) return;
 
   const content = readFileSync(filePath, "utf8");
@@ -29,16 +29,17 @@ function loadEnvFile(filePath) {
   }
 }
 
-function shellQuote(value) {
+function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
-function withEnv(baseCommand, env) {
+function withEnv(baseCommand: string, env: Record<string, string>): string {
   const exportedVars = Object.entries(env)
     .map(([key, value]) => `export ${key}=${shellQuote(value)}`)
     .join("; ");
+  const shell = process.env.SHELL || "sh";
 
-  return `zsh -lc '${exportedVars}; ${baseCommand}'`;
+  return `${shell} -lc ${shellQuote(`${exportedVars}; ${baseCommand}`)}`;
 }
 
 loadEnvFile(path.join(workspaceRoot, ".env"));

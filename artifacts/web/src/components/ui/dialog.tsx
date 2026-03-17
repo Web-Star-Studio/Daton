@@ -78,6 +78,8 @@ export function Dialog({
           </div>
           <button
             onClick={() => onOpenChange(false)}
+            aria-label="Fechar diálogo"
+            title="Fechar diálogo"
             className="p-1 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-secondary/60 transition-colors cursor-pointer shrink-0 ml-4"
           >
             <X className="h-4 w-4" />

@@ -24,8 +24,8 @@ const registerSchema = z
     adminEmail: z.string().email("Email inválido"),
     password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
     confirmPassword: z.string().min(1, "Confirme sua senha"),
-    terms: z.literal(true, {
-      errorMap: () => ({ message: "Você deve aceitar os termos" }),
+    terms: z.boolean().refine((val) => val === true, {
+      message: "Você deve aceitar os termos",
     }),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -54,6 +54,9 @@ export default function AuthPage() {
 
   const registerForm = useForm<RegisterData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      terms: false,
+    },
   });
 
   useEffect(() => {
@@ -167,6 +170,10 @@ export default function AuthPage() {
                       <button
                         type="button"
                         onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        aria-label={
+                          showLoginPassword ? "Ocultar senha" : "Mostrar senha"
+                        }
+                        aria-pressed={showLoginPassword}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                       >
                         {showLoginPassword ? (
@@ -301,6 +308,12 @@ export default function AuthPage() {
                         onClick={() =>
                           setShowRegisterPassword(!showRegisterPassword)
                         }
+                        aria-label={
+                          showRegisterPassword
+                            ? "Ocultar senha"
+                            : "Mostrar senha"
+                        }
+                        aria-pressed={showRegisterPassword}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                       >
                         {showRegisterPassword ? (
@@ -332,6 +345,12 @@ export default function AuthPage() {
                         onClick={() =>
                           setShowConfirmPassword(!showConfirmPassword)
                         }
+                        aria-label={
+                          showConfirmPassword
+                            ? "Ocultar senha"
+                            : "Mostrar senha"
+                        }
+                        aria-pressed={showConfirmPassword}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                       >
                         {showConfirmPassword ? (
@@ -354,11 +373,9 @@ export default function AuthPage() {
                     id="terms"
                     checked={registerForm.watch("terms") === true}
                     onCheckedChange={(checked) =>
-                      registerForm.setValue(
-                        "terms",
-                        checked === true ? true : (false as unknown as true),
-                        { shouldValidate: true },
-                      )
+                      registerForm.setValue("terms", checked === true, {
+                        shouldValidate: true,
+                      })
                     }
                     className="mt-0.5"
                   />

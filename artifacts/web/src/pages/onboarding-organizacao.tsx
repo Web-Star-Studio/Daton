@@ -600,6 +600,7 @@ export default function OnboardingOrganizationPage() {
                               <button
                                 type="button"
                                 onClick={() => removeChallenge(challenge)}
+                                aria-label={`Remover desafio ${challenge}`}
                                 className="text-muted-foreground hover:text-foreground"
                               >
                                 <X className="h-3 w-3" />

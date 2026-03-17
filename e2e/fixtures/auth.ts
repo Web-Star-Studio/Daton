@@ -54,11 +54,14 @@ export const test = base.extend<AuthFixtures>({
       );
     });
 
-    await page.goto(`${WEB_BASE_URL}/app`);
+    await page.goto("/app");
     try {
       await use(page);
     } finally {
-      if (testInfo.status !== testInfo.expectedStatus && failedApiResponses.length > 0) {
+      if (
+        testInfo.status !== testInfo.expectedStatus &&
+        failedApiResponses.length > 0
+      ) {
         console.log("Failed API responses:");
         for (const entry of failedApiResponses) {
           console.log(entry);
