@@ -2,9 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useLayoutState } from "@/contexts/LayoutContext";
-import { 
+import {
   Building2,
-  BookText,
   Scale,
   LogOut,
   PanelLeftClose,
@@ -23,7 +22,7 @@ const datonLogo = "/images/daton-logo.png";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, organization } = useAuth();
-  const { hasModuleAccess, isPlatformAdmin } = usePermissions();
+  const { hasModuleAccess } = usePermissions();
   const [location, navigate] = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isChatOpen, setChatOpen] = useState(false);
@@ -118,11 +117,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           crumbs.push({ label: pageTitle });
         }
       }
-    } else if (normalizedLocation.startsWith("/admin")) {
-      crumbs.push({ label: "Admin" });
-      if (normalizedLocation.startsWith("/admin/base-conhecimento")) {
-        crumbs.push({ label: "Base de Conhecimento", href: "/admin/base-conhecimento" });
-      }
     }
 
     return crumbs;
@@ -174,21 +168,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Building2 className={cn("h-[18px] w-[18px] shrink-0", isSidebarOpen && "mr-2.5")} />
             {isSidebarOpen && <span>Organização</span>}
           </Link>
-
-          {isPlatformAdmin && (
-            <Link
-              href="/admin/base-conhecimento"
-              className={cn(
-                "flex items-center px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
-                isActive("/admin")
-                  ? "text-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <BookText className={cn("h-[18px] w-[18px] shrink-0", isSidebarOpen && "mr-2.5")} />
-              {isSidebarOpen && <span>Base de Conhecimento</span>}
-            </Link>
-          )}
 
           {showGovernanca && (
             <div

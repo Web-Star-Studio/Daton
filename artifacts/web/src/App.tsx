@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LayoutProvider } from "@/contexts/LayoutContext";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { AdminLayout } from "@/components/layout/AdminLayout";
 
 import AuthPage from "@/pages/auth";
 import OnboardingOrganizationPage from "@/pages/onboarding-organizacao";
@@ -15,6 +16,7 @@ import UnitDetailPage from "@/pages/app/organizacao/unidades/[id]";
 import GovernancePage from "@/pages/app/governanca";
 import GovernanceDetailPage from "@/pages/app/governanca/[id]";
 import GovernanceRiskOpportunityPage from "@/pages/app/governanca/riscos-oportunidades";
+import AdminDashboardPage from "@/pages/app/admin/index";
 import ProductKnowledgeAdminPage from "@/pages/app/admin/base-conhecimento";
 import LegislacoesPage from "@/pages/app/qualidade/legislacoes";
 import LegislationDetailPage from "@/pages/app/qualidade/legislacoes/[id]";
@@ -34,6 +36,16 @@ const queryClient = new QueryClient({
   },
 });
 
+function AdminPages() {
+  return (
+    <Switch>
+      <Route path="/admin" component={AdminDashboardPage} />
+      <Route path="/admin/base-conhecimento" component={ProductKnowledgeAdminPage} />
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
 function AppPages() {
   return (
     <Switch>
@@ -43,7 +55,6 @@ function AppPages() {
       <Route path="/governanca/planejamento" component={GovernancePage} />
       <Route path="/governanca/planejamento/:id" component={GovernanceDetailPage} />
       <Route path="/governanca/riscos-oportunidades" component={GovernanceRiskOpportunityPage} />
-      <Route path="/admin/base-conhecimento" component={ProductKnowledgeAdminPage} />
       <Route path="/qualidade/legislacoes" component={LegislacoesPage} />
       <Route path="/qualidade/legislacoes/:id" component={LegislationDetailPage} />
       <Route path="/qualidade/colaboradores" component={ColaboradoresPage} />
@@ -57,7 +68,6 @@ function AppPages() {
       <Route path="/app/governanca/planejamento" component={GovernancePage} />
       <Route path="/app/governanca/planejamento/:id" component={GovernanceDetailPage} />
       <Route path="/app/governanca/riscos-oportunidades" component={GovernanceRiskOpportunityPage} />
-      <Route path="/app/admin/base-conhecimento" component={ProductKnowledgeAdminPage} />
       <Route path="/app/qualidade/legislacoes" component={LegislacoesPage} />
       <Route path="/app/qualidade/legislacoes/:id" component={LegislationDetailPage} />
       <Route path="/app/qualidade/colaboradores" component={ColaboradoresPage} />
@@ -72,12 +82,13 @@ function AppPages() {
 function Router() {
   const [location, navigate] = useLocation();
   const { isAuthenticated, isLoading, organization, role } = useAuth();
-  const isAppRoute =
+  const isAdminRoute = location.startsWith("/admin");
+  const isOrgRoute =
     location.startsWith("/app") ||
-    location.startsWith("/admin") ||
     location.startsWith("/organizacao") ||
     location.startsWith("/governanca") ||
     location.startsWith("/qualidade");
+  const isAppRoute = isAdminRoute || isOrgRoute;
   const isAuthRoute = location === "/" || location.startsWith("/auth");
   const isOnboardingRoute = location.startsWith("/onboarding/organizacao");
   const onboardingPending = organization?.onboardingStatus === "pending";
@@ -85,7 +96,7 @@ function Router() {
   const redirectTo = useMemo(() => {
     if (isLoading) return null;
     if (!isAuthenticated && (isAppRoute || isOnboardingRoute)) return "/auth";
-    if (isAuthenticated && isAuthRoute && isPlatformAdmin) return "/admin/base-conhecimento";
+    if (isAuthenticated && isAuthRoute && isPlatformAdmin) return "/admin";
     if (isAuthenticated && onboardingPending && !isOnboardingRoute && !isPlatformAdmin) {
       return "/onboarding/organizacao";
     }
@@ -119,7 +130,17 @@ function Router() {
     return null;
   }
 
-  if (isAppRoute) {
+  if (isAdminRoute) {
+    return (
+      <LayoutProvider>
+        <AdminLayout>
+          <AdminPages />
+        </AdminLayout>
+      </LayoutProvider>
+    );
+  }
+
+  if (isOrgRoute) {
     return (
       <LayoutProvider>
         <AppLayout>
