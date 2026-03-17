@@ -40,7 +40,7 @@ router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("legisla
 router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("employees"), employeesRouter);
 router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("departments"), departmentsRouter);
 router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("positions"), positionsRouter);
-router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("documents"), documentsRouter);
+router.use(requireAuth, requireCompletedOnboarding, documentsRouter);
 router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("governance"), governanceRouter);
 
 export default router;

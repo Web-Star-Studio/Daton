@@ -65,7 +65,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const moduleByPath: Array<{ prefix: string; module: "documents" | "legislations" | "employees" | "units" | "departments" | "positions" | "governance" }> = [
-      { prefix: "/qualidade/documentacao", module: "documents" },
       { prefix: "/qualidade/legislacoes", module: "legislations" },
       { prefix: "/qualidade/colaboradores", module: "employees" },
       { prefix: "/organizacao/unidades", module: "units" },
@@ -127,10 +126,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const breadcrumbs = getBreadcrumbs();
 
   const qualidadeLinks = [
-    { href: "/qualidade/legislacoes", label: "Legislações", module: "legislations" as const },
-    { href: "/qualidade/colaboradores", label: "Colaboradores", module: "employees" as const },
-    { href: "/qualidade/documentacao", label: "Documentação", module: "documents" as const },
-  ].filter(l => hasModuleAccess(l.module));
+    ...(hasModuleAccess("legislations")
+      ? [{ href: "/qualidade/legislacoes", label: "Legislações" }]
+      : []),
+    ...(hasModuleAccess("employees")
+      ? [{ href: "/qualidade/colaboradores", label: "Colaboradores" }]
+      : []),
+    { href: "/qualidade/documentacao", label: "Documentação" },
+  ];
 
   const showQualidade = qualidadeLinks.length > 0;
 
