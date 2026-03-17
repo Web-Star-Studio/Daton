@@ -16,6 +16,22 @@ import {
   usersTable,
 } from "@workspace/db";
 
+type CleanupTransaction = Pick<typeof db, "delete">;
+
+async function deleteStandaloneUsers(
+  tx: CleanupTransaction,
+  userIds: number[],
+) {
+  if (userIds.length === 0) {
+    return;
+  }
+
+  await tx
+    .delete(userModulePermissionsTable)
+    .where(inArray(userModulePermissionsTable.userId, userIds));
+  await tx.delete(usersTable).where(inArray(usersTable.id, userIds));
+}
+
 export async function cleanupTestData(prefix: string) {
   await db.transaction(async (tx) => {
     const orgs = await tx
@@ -32,22 +48,10 @@ export async function cleanupTestData(prefix: string) {
     const standalonePrefixedUsers = prefixedUsers.filter(
       (user) => !orgIds.includes(user.organizationId),
     );
+    const standaloneUserIds = standalonePrefixedUsers.map((user) => user.id);
 
     if (orgIds.length === 0) {
-      if (standalonePrefixedUsers.length > 0) {
-        await tx.delete(userModulePermissionsTable).where(
-          inArray(
-            userModulePermissionsTable.userId,
-            standalonePrefixedUsers.map((user) => user.id),
-          ),
-        );
-        await tx.delete(usersTable).where(
-          inArray(
-            usersTable.id,
-            standalonePrefixedUsers.map((user) => user.id),
-          ),
-        );
-      }
+      await deleteStandaloneUsers(tx, standaloneUserIds);
       return;
     }
 
@@ -134,20 +138,7 @@ export async function cleanupTestData(prefix: string) {
       await tx.delete(usersTable).where(inArray(usersTable.id, userIds));
     }
 
-    if (standalonePrefixedUsers.length > 0) {
-      await tx.delete(userModulePermissionsTable).where(
-        inArray(
-          userModulePermissionsTable.userId,
-          standalonePrefixedUsers.map((user) => user.id),
-        ),
-      );
-      await tx.delete(usersTable).where(
-        inArray(
-          usersTable.id,
-          standalonePrefixedUsers.map((user) => user.id),
-        ),
-      );
-    }
+    await deleteStandaloneUsers(tx, standaloneUserIds);
 
     await tx
       .delete(organizationsTable)
