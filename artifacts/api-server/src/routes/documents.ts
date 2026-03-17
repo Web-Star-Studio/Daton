@@ -72,6 +72,119 @@ async function createNotification(orgId: number, userId: number, type: string, t
   });
 }
 
+async function getDocumentParticipantUserIds(docId: number): Promise<number[]> {
+  const [elaborators, approvers, recipients] = await Promise.all([
+    db
+      .selectDistinct({ userId: documentElaboratorsTable.userId })
+      .from(documentElaboratorsTable)
+      .where(eq(documentElaboratorsTable.documentId, docId)),
+    db
+      .selectDistinct({ userId: documentApproversTable.userId })
+      .from(documentApproversTable)
+      .where(eq(documentApproversTable.documentId, docId)),
+    db
+      .selectDistinct({ userId: documentRecipientsTable.userId })
+      .from(documentRecipientsTable)
+      .where(eq(documentRecipientsTable.documentId, docId)),
+  ]);
+
+  return [...new Set([
+    ...elaborators.map((row) => row.userId),
+    ...approvers.map((row) => row.userId),
+    ...recipients.map((row) => row.userId),
+  ])];
+}
+
+async function getDocumentReviewStakeholderUserIds(docId: number): Promise<number[]> {
+  const [elaborators, approvers] = await Promise.all([
+    db
+      .selectDistinct({ userId: documentElaboratorsTable.userId })
+      .from(documentElaboratorsTable)
+      .where(eq(documentElaboratorsTable.documentId, docId)),
+    db
+      .selectDistinct({ userId: documentApproversTable.userId })
+      .from(documentApproversTable)
+      .where(eq(documentApproversTable.documentId, docId)),
+  ]);
+
+  return [...new Set([
+    ...elaborators.map((row) => row.userId),
+    ...approvers.map((row) => row.userId),
+  ])];
+}
+
+async function notifyUsers({
+  orgId,
+  userIds,
+  actorUserId,
+  type,
+  title,
+  description,
+  docId,
+}: {
+  orgId: number;
+  userIds: number[];
+  actorUserId?: number;
+  type: string;
+  title: string;
+  description: string;
+  docId: number;
+}): Promise<void> {
+  const recipientIds = [...new Set(userIds)].filter((userId) => userId !== actorUserId);
+  if (recipientIds.length === 0) return;
+
+  const results = await Promise.allSettled(
+    recipientIds.map((userId) =>
+      createNotification(
+        orgId,
+        userId,
+        type,
+        title,
+        description,
+        "document",
+        docId,
+      ),
+    ),
+  );
+
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length > 0) {
+    console.error("Failed to create some document notifications", {
+      orgId,
+      docId,
+      type,
+      failedCount: failures.length,
+    });
+  }
+}
+
+async function notifyDocumentParticipants({
+  orgId,
+  docId,
+  actorUserId,
+  type,
+  title,
+  description,
+}: {
+  orgId: number;
+  docId: number;
+  actorUserId?: number;
+  type: string;
+  title: string;
+  description: string;
+}): Promise<void> {
+  const participantIds = await getDocumentParticipantUserIds(docId);
+  await notifyUsers({
+    orgId,
+    userIds: participantIds,
+    actorUserId,
+    type,
+    title,
+    description,
+    docId,
+  });
+}
+
 async function getDocumentDetail(docId: number, orgId: number) {
   const [doc] = await db.select({
     id: documentsTable.id,
@@ -256,7 +369,7 @@ router.get("/organizations/:orgId/documents", requireAuth, async (req, res): Pro
   })));
 });
 
-router.post("/organizations/:orgId/documents", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = CreateDocumentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -362,7 +475,7 @@ router.get("/organizations/:orgId/documents/:docId", requireAuth, async (req, re
   res.json(detail);
 });
 
-router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = UpdateDocumentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -472,10 +585,18 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireWrite
   });
 
   const detail = await getDocumentDetail(docId, orgId);
+  await notifyDocumentParticipants({
+    orgId,
+    docId,
+    actorUserId: userId,
+    type: "document_updated",
+    title: "Documento atualizado",
+    description: `O documento "${detail?.title || existing.title}" recebeu uma nova revisão: ${changeDesc}.`,
+  });
   res.json(detail);
 });
 
-router.delete("/organizations/:orgId/documents/:docId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/documents/:docId", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteDocumentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -520,7 +641,7 @@ router.get("/organizations/:orgId/documents/:docId/versions", requireAuth, async
   })));
 });
 
-router.post("/organizations/:orgId/documents/:docId/attachments", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/documents/:docId/attachments", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = AddDocumentAttachmentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -562,6 +683,15 @@ router.post("/organizations/:orgId/documents/:docId/attachments", requireAuth, r
 
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
+  await notifyDocumentParticipants({
+    orgId: params.data.orgId,
+    docId: doc.id,
+    actorUserId: userId,
+    type: "document_updated",
+    title: "Anexo adicionado",
+    description: `${userName?.name || "Um usuário"} adicionou o anexo "${body.data.fileName}" ao documento "${doc.title}".`,
+  });
+
   res.status(201).json({
     ...att,
     uploadedByName: userName?.name || "",
@@ -569,12 +699,17 @@ router.post("/organizations/:orgId/documents/:docId/attachments", requireAuth, r
   });
 });
 
-router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DeleteDocumentAttachmentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
-  const [doc] = await db.select({ id: documentsTable.id, status: documentsTable.status }).from(documentsTable)
+  const [doc] = await db.select({
+    id: documentsTable.id,
+    status: documentsTable.status,
+    title: documentsTable.title,
+    currentVersion: documentsTable.currentVersion,
+  }).from(documentsTable)
     .where(and(eq(documentsTable.id, params.data.docId), eq(documentsTable.organizationId, params.data.orgId)));
   if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
 
@@ -583,15 +718,60 @@ router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", re
     return;
   }
 
-  const [att] = await db.delete(documentAttachmentsTable)
-    .where(and(eq(documentAttachmentsTable.id, params.data.attachId), eq(documentAttachmentsTable.documentId, params.data.docId)))
-    .returning();
+  const userId = req.auth!.userId;
+  const newVersion = doc.currentVersion + 1;
+  let deletedAttachment: typeof documentAttachmentsTable.$inferSelect;
 
-  if (!att) { res.status(404).json({ error: "Anexo não encontrado" }); return; }
+  try {
+    deletedAttachment = await db.transaction(async (tx) => {
+      const [attachment] = await tx
+        .delete(documentAttachmentsTable)
+        .where(and(eq(documentAttachmentsTable.id, params.data.attachId), eq(documentAttachmentsTable.documentId, params.data.docId)))
+        .returning();
+
+      if (!attachment) {
+        throw new Error("DOCUMENT_ATTACHMENT_NOT_FOUND");
+      }
+
+      await tx
+        .update(documentsTable)
+        .set({ currentVersion: newVersion })
+        .where(eq(documentsTable.id, doc.id));
+
+      await tx.insert(documentVersionsTable).values({
+        documentId: doc.id,
+        versionNumber: newVersion,
+        changeDescription: `Anexo removido: ${attachment.fileName}`,
+        changedById: userId,
+        changedFields: "anexos",
+      });
+
+      return attachment;
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "DOCUMENT_ATTACHMENT_NOT_FOUND") {
+      res.status(404).json({ error: "Anexo não encontrado" });
+      return;
+    }
+
+    throw error;
+  }
+
+  const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
+
+  await notifyDocumentParticipants({
+    orgId: params.data.orgId,
+    docId: doc.id,
+    actorUserId: userId,
+    type: "document_updated",
+    title: "Anexo removido",
+    description: `${userName?.name || "Um usuário"} removeu o anexo "${deletedAttachment.fileName}" do documento "${doc.title}".`,
+  });
+
   res.sendStatus(204);
 });
 
-router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = SubmitDocumentForReviewParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -641,20 +821,21 @@ router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, requir
     changedFields: "status:in_review",
   });
 
-  for (const a of distinctApprovers) {
-    await createNotification(
-      orgId, a.userId, "document_review",
-      "Documento aguardando aprovação",
-      `O documento "${doc.title}" foi enviado para sua aprovação.`,
-      "document", docId
-    );
-  }
+  await notifyUsers({
+    orgId,
+    userIds: distinctApprovers.map((approver) => approver.userId),
+    actorUserId: req.auth!.userId,
+    type: "document_review",
+    title: "Documento em revisão",
+    description: `O documento "${doc.title}" foi enviado para revisão.`,
+    docId,
+  });
 
   const detail = await getDocumentDetail(docId, orgId);
   res.json(detail);
 });
 
-router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = ApproveDocumentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -683,29 +864,39 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
     ));
   if (!approver) { res.status(403).json({ error: "Você não é um aprovador pendente deste documento" }); return; }
 
-  await db.update(documentApproversTable)
-    .set({ status: "approved", approvedAt: new Date(), comment: body.success ? body.data.comment || null : null })
-    .where(eq(documentApproversTable.id, approver.id));
+  const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
+  const approvalComment = body.success ? body.data.comment || null : null;
 
-  await db.insert(documentVersionsTable).values({
-    documentId: docId,
-    versionNumber: doc.currentVersion,
-    changeDescription: `Aprovado por usuário`,
-    changedById: userId,
-    changedFields: "approval:approved",
-  });
+  const approvalResult = await db.transaction(async (tx) => {
+    await tx.update(documentApproversTable)
+      .set({ status: "approved", approvedAt: new Date(), comment: approvalComment })
+      .where(eq(documentApproversTable.id, approver.id));
 
-  const pending = await db.select().from(documentApproversTable)
-    .where(and(
-      eq(documentApproversTable.documentId, docId),
-      eq(documentApproversTable.approvalCycle, currentCycle),
-      eq(documentApproversTable.status, "pending")
-    ));
+    await tx.insert(documentVersionsTable).values({
+      documentId: docId,
+      versionNumber: doc.currentVersion,
+      changeDescription: "Aprovado por usuário",
+      changedById: userId,
+      changedFields: "approval:approved",
+    });
 
-  if (pending.length === 0) {
-    await db.update(documentsTable).set({ status: "approved" }).where(eq(documentsTable.id, docId));
+    const pendingApprovers = await tx.select().from(documentApproversTable)
+      .where(and(
+        eq(documentApproversTable.documentId, docId),
+        eq(documentApproversTable.approvalCycle, currentCycle),
+        eq(documentApproversTable.status, "pending")
+      ));
 
-    await db.insert(documentVersionsTable).values({
+    if (pendingApprovers.length > 0) {
+      return {
+        fullyApproved: false,
+        distributedToUserIds: [] as number[],
+      };
+    }
+
+    await tx.update(documentsTable).set({ status: "approved" }).where(eq(documentsTable.id, docId));
+
+    await tx.insert(documentVersionsTable).values({
       documentId: docId,
       versionNumber: doc.currentVersion,
       changeDescription: "Documento aprovado por todos os aprovadores",
@@ -713,35 +904,56 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
       changedFields: "status:approved",
     });
 
-    await createNotification(
-      orgId, doc.createdById, "document_approved",
-      "Documento aprovado",
-      `O documento "${doc.title}" foi aprovado por todos os aprovadores.`,
-      "document", docId
-    );
-
-    const recipients = await db.select().from(documentRecipientsTable)
+    const recipients = await tx.select({ userId: documentRecipientsTable.userId }).from(documentRecipientsTable)
       .where(eq(documentRecipientsTable.documentId, docId));
 
     if (recipients.length > 0) {
-      await db.update(documentsTable).set({ status: "distributed" }).where(eq(documentsTable.id, docId));
+      await tx.update(documentsTable).set({ status: "distributed" }).where(eq(documentsTable.id, docId));
 
-      await db.insert(documentVersionsTable).values({
+      await tx.insert(documentVersionsTable).values({
         documentId: docId,
         versionNumber: doc.currentVersion,
         changeDescription: "Documento distribuído automaticamente aos destinatários",
         changedById: userId,
         changedFields: "status:distributed",
       });
+    }
 
-      for (const r of recipients) {
-        await createNotification(
-          orgId, r.userId, "document_distributed",
-          "Novo documento para leitura",
-          `O documento "${doc.title}" foi distribuído para você. Confirme o recebimento.`,
-          "document", docId
-        );
-      }
+    return {
+      fullyApproved: true,
+      distributedToUserIds: recipients.map((recipient) => recipient.userId),
+    };
+  });
+
+  await notifyDocumentParticipants({
+    orgId,
+    docId,
+    actorUserId: userId,
+    type: "document_approval_recorded",
+    title: "Aprovação registrada",
+    description: `${userName?.name || "Um participante"} aprovou o documento "${doc.title}".`,
+  });
+
+  if (approvalResult.fullyApproved) {
+    await notifyDocumentParticipants({
+      orgId,
+      docId,
+      actorUserId: userId,
+      type: "document_approved",
+      title: "Documento aprovado",
+      description: `O documento "${doc.title}" foi aprovado por todos os aprovadores.`,
+    });
+
+    if (approvalResult.distributedToUserIds.length > 0) {
+      await notifyUsers({
+        orgId,
+        userIds: approvalResult.distributedToUserIds,
+        actorUserId: userId,
+        type: "document_distributed",
+        title: "Documento distribuído",
+        description: `O documento "${doc.title}" foi distribuído para você. Confirme o recebimento.`,
+        docId,
+      });
     }
   }
 
@@ -749,7 +961,7 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
   res.json(detail);
 });
 
-router.post("/organizations/:orgId/documents/:docId/reject", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/documents/:docId/reject", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = RejectDocumentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -796,49 +1008,68 @@ router.post("/organizations/:orgId/documents/:docId/reject", requireAuth, requir
     changedFields: "status:rejected",
   });
 
-  await createNotification(
-    orgId, doc.createdById, "document_rejected",
-    "Documento rejeitado",
-    `O documento "${doc.title}" foi rejeitado por ${userName?.name || "um aprovador"}. Motivo: ${body.data.comment}`,
-    "document", docId
-  );
+  await notifyDocumentParticipants({
+    orgId,
+    docId,
+    actorUserId: userId,
+    type: "document_rejected",
+    title: "Documento rejeitado",
+    description: `O documento "${doc.title}" foi rejeitado por ${userName?.name || "um aprovador"}. Motivo: ${body.data.comment}`,
+  });
 
   const detail = await getDocumentDetail(docId, orgId);
   res.json(detail);
 });
 
-router.post("/organizations/:orgId/documents/:docId/distribute", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/documents/:docId/distribute", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = DistributeDocumentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
   const orgId = params.data.orgId;
   const docId = params.data.docId;
+  const actorUserId = req.auth!.userId;
 
   const [doc] = await db.select().from(documentsTable)
     .where(and(eq(documentsTable.id, docId), eq(documentsTable.organizationId, orgId)));
   if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
   if (doc.status !== "approved") { res.status(400).json({ error: "Documento precisa estar aprovado para ser distribuído" }); return; }
 
-  await db.update(documentsTable).set({ status: "distributed" }).where(eq(documentsTable.id, docId));
+  const recipients = await db.transaction(async (tx) => {
+    await tx
+      .update(documentsTable)
+      .set({ status: "distributed" })
+      .where(eq(documentsTable.id, docId));
 
-  const recipients = await db.select({ userId: documentRecipientsTable.userId })
-    .from(documentRecipientsTable).where(eq(documentRecipientsTable.documentId, docId));
+    await tx.insert(documentVersionsTable).values({
+      documentId: docId,
+      versionNumber: doc.currentVersion,
+      changeDescription: "Documento distribuído manualmente aos destinatários",
+      changedById: actorUserId,
+      changedFields: "status:distributed",
+    });
 
-  for (const recipient of recipients) {
-    await createNotification(
-      orgId, recipient.userId, "document_distributed",
-      "Novo documento para leitura",
-      `O documento "${doc.title}" foi distribuído para você. Acuse o recebimento e a leitura.`,
-      "document", docId
-    );
-  }
+    return tx
+      .select({ userId: documentRecipientsTable.userId })
+      .from(documentRecipientsTable)
+      .where(eq(documentRecipientsTable.documentId, docId));
+  });
+
+  await notifyUsers({
+    orgId,
+    userIds: recipients.map((recipient) => recipient.userId),
+    actorUserId,
+    type: "document_distributed",
+    title: "Documento distribuído",
+    description: `O documento "${doc.title}" foi distribuído para você. Acuse o recebimento e a leitura.`,
+    docId,
+  });
 
   const detail = await getDocumentDetail(docId, orgId);
   res.json(detail);
 });
 
-router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, async (req, res): Promise<void> => {
   const params = AcknowledgeDocumentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
@@ -847,10 +1078,10 @@ router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, r
   const docId = params.data.docId;
   const userId = req.auth!.userId;
 
-  const [doc2] = await db.select().from(documentsTable)
+  const [doc] = await db.select().from(documentsTable)
     .where(and(eq(documentsTable.id, docId), eq(documentsTable.organizationId, orgId)));
-  if (!doc2) { res.status(404).json({ error: "Documento não encontrado" }); return; }
-  if (doc2.status !== "distributed") { res.status(400).json({ error: "Documento não está distribuído" }); return; }
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+  if (doc.status !== "distributed") { res.status(400).json({ error: "Documento não está distribuído" }); return; }
 
   const [recipient] = await db.select().from(documentRecipientsTable)
     .where(and(eq(documentRecipientsTable.documentId, docId), eq(documentRecipientsTable.userId, userId)));
@@ -861,27 +1092,26 @@ router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, r
     .set({ receivedAt: recipient.receivedAt || now, readAt: now })
     .where(eq(documentRecipientsTable.id, recipient.id));
 
-  const [doc] = await db.select().from(documentsTable)
-    .where(eq(documentsTable.id, docId));
-
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
-  if (doc) {
-    await db.insert(documentVersionsTable).values({
-      documentId: docId,
-      versionNumber: doc.currentVersion,
-      changeDescription: `Recebimento confirmado por ${userName?.name || "destinatário"}`,
-      changedById: userId,
-      changedFields: "acknowledgment",
-    });
+  await db.insert(documentVersionsTable).values({
+    documentId: docId,
+    versionNumber: doc.currentVersion,
+    changeDescription: `Recebimento confirmado por ${userName?.name || "destinatário"}`,
+    changedById: userId,
+    changedFields: "acknowledgment",
+  });
 
-    await createNotification(
-      orgId, doc.createdById, "document_acknowledged",
-      "Documento recebido",
-      `${userName?.name || "Um destinatário"} acusou o recebimento e leitura do documento "${doc.title}".`,
-      "document", docId
-    );
-  }
+  const acknowledgmentAudience = await getDocumentReviewStakeholderUserIds(docId);
+  await notifyUsers({
+    orgId,
+    userIds: acknowledgmentAudience,
+    actorUserId: userId,
+    type: "document_acknowledged",
+    title: "Leitura confirmada",
+    description: `${userName?.name || "Um destinatário"} confirmou o recebimento e a leitura do documento "${doc.title}".`,
+    docId,
+  });
 
   res.json({ message: "Recebimento confirmado" });
 });
