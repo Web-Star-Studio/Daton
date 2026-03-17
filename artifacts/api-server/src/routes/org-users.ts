@@ -1,12 +1,20 @@
 import { Router, type IRouter } from "express";
 import { eq, and, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { z } from "zod";
 import { db, usersTable, userModulePermissionsTable } from "@workspace/db";
-import { CreateOrgUserBody } from "@workspace/api-zod";
 import { requireAuth, requireCompletedOnboarding, requireRole, APP_MODULES } from "../middlewares/auth";
 import type { AppModule, UserRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
+
+const createOrgUserBodySchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(6),
+  role: z.enum(["org_admin", "operator", "analyst"]),
+  modules: z.array(z.enum(APP_MODULES)).default([]),
+});
 
 function serializeOrgUser(user: {
   id: number;
@@ -64,7 +72,7 @@ router.post("/organizations/:orgId/users",
       return;
     }
 
-    const parsed = CreateOrgUserBody.safeParse(req.body);
+    const parsed = createOrgUserBodySchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.message });
       return;

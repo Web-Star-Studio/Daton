@@ -2,13 +2,20 @@ import { Router, type IRouter } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { eq, and, gt } from "drizzle-orm";
+import { z } from "zod";
 import { db, usersTable, organizationsTable, invitationsTable, userModulePermissionsTable } from "@workspace/db";
-import { CreateInvitationBody, AcceptInvitationBody } from "@workspace/api-zod";
+import { AcceptInvitationBody } from "@workspace/api-zod";
 import { requireAuth, requireCompletedOnboarding, requireRole, issueAuthToken, APP_MODULES } from "../middlewares/auth";
 import type { AppModule, UserRole } from "../middlewares/auth";
 import { getResendClient } from "../lib/resend";
 
 const router: IRouter = Router();
+
+const createInvitationBodySchema = z.object({
+  email: z.string().email(),
+  role: z.enum(["org_admin", "operator", "analyst"]).optional(),
+  modules: z.array(z.enum(APP_MODULES)).optional(),
+});
 
 function getAllowedHosts(): string[] {
   const hosts: string[] = [];
@@ -100,7 +107,7 @@ function buildInviteEmailHtml(inviterName: string, orgName: string, acceptUrl: s
 }
 
 router.post("/invitations", requireAuth, requireCompletedOnboarding, requireRole("org_admin"), async (req, res): Promise<void> => {
-  const parsed = CreateInvitationBody.safeParse(req.body);
+  const parsed = createInvitationBodySchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;

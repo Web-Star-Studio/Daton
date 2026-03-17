@@ -32,6 +32,8 @@ function getNotificationLink(notification: NotificationItem): string | null {
       return `/qualidade/documentacao/${notification.relatedEntityId}`;
     case "legislation":
       return `/qualidade/legislacoes/${notification.relatedEntityId}`;
+    case "strategic_plan":
+      return `/governanca/planejamento/${notification.relatedEntityId}`;
     default:
       return null;
   }

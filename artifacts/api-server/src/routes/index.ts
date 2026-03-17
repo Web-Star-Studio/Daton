@@ -14,9 +14,12 @@ import employeesRouter from "./employees";
 import departmentsRouter from "./departments";
 import positionsRouter from "./positions";
 import documentsRouter from "./documents";
+import governanceRouter from "./governance/index";
 import notificationsRouter from "./notifications";
 import invitationsRouter from "./invitations";
 import orgUsersRouter from "./org-users";
+import productKnowledgeRouter from "./product-knowledge";
+import { requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -27,6 +30,7 @@ router.use(invitationsRouter);
 router.use(orgUsersRouter);
 router.use(organizationsRouter);
 
+router.use(requireAuth, requireRole("platform_admin"), productKnowledgeRouter);
 router.use(requireAuth, requireCompletedOnboarding, aiRouter);
 router.use(requireAuth, requireCompletedOnboarding, notificationsRouter);
 router.use(requireAuth, requireCompletedOnboarding, questionnaireRouter);
@@ -39,5 +43,6 @@ router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("employe
 router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("departments"), departmentsRouter);
 router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("positions"), positionsRouter);
 router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("documents"), documentsRouter);
+router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("governance"), governanceRouter);
 
 export default router;

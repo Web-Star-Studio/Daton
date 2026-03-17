@@ -2,11 +2,13 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { X, Send, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
+import type { ProductKnowledgeSource } from "@/lib/product-knowledge-api";
 
 type Message = {
   id?: number;
   role: "user" | "assistant";
   content: string;
+  sources?: ProductKnowledgeSource[];
   createdAt?: string;
 };
 
@@ -107,6 +109,19 @@ export function ChatPanel({
                 updated[updated.length - 1] = {
                   role: "assistant",
                   content: assistantContent,
+                  sources: updated[updated.length - 1]?.sources,
+                };
+                return updated;
+              });
+            }
+
+            if (data.sources) {
+              setChatMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = {
+                  role: "assistant",
+                  content: assistantContent,
+                  sources: data.sources,
                 };
                 return updated;
               });
@@ -119,6 +134,7 @@ export function ChatPanel({
                 updated[updated.length - 1] = {
                   role: "assistant",
                   content: assistantContent,
+                  sources: updated[updated.length - 1]?.sources,
                 };
                 return updated;
               });
@@ -210,8 +226,7 @@ export function ChatPanel({
               Olá! Sou o assistente Daton AI.
             </p>
             <p className="text-[12px] text-muted-foreground/70">
-              Posso consultar dados da sua organização, legislações, unidades e
-              conformidade.
+              Posso explicar como o sistema funciona e consultar dados reais da sua organização quando necessário.
             </p>
           </div>
         ) : (
@@ -228,7 +243,7 @@ export function ChatPanel({
                 }`}
               >
                 {msg.role === "assistant" ? (
-                  <AssistantMessage content={msg.content} />
+                  <AssistantMessage content={msg.content} sources={msg.sources} />
                 ) : (
                   <span className="whitespace-pre-wrap">{msg.content}</span>
                 )}
@@ -278,19 +293,54 @@ export function ChatPanel({
   );
 }
 
-function AssistantMessage({ content }: { content: string }) {
-  if (!content) return null;
+function AssistantMessage({
+  content,
+  sources,
+}: {
+  content: string;
+  sources?: ProductKnowledgeSource[];
+}) {
+  const hasContent = Boolean(content);
+  const messageSources = sources ?? [];
+  const hasSources = messageSources.length > 0;
 
-  const parts = content.split(/(\*\*[^*]+\*\*)/g);
+  if (!hasContent && !hasSources) return null;
+
+  const parts = hasContent ? content.split(/(\*\*[^*]+\*\*)/g) : [];
 
   return (
-    <span className="whitespace-pre-wrap">
-      {parts.map((part, i) => {
-        if (part.startsWith("**") && part.endsWith("**")) {
-          return <strong key={i}>{part.slice(2, -2)}</strong>;
-        }
-        return <span key={i}>{part}</span>;
-      })}
-    </span>
+    <div className="space-y-3">
+      {hasContent && (
+        <span className="whitespace-pre-wrap">
+          {parts.map((part, i) => {
+            if (part.startsWith("**") && part.endsWith("**")) {
+              return <strong key={i}>{part.slice(2, -2)}</strong>;
+            }
+            return <span key={i}>{part}</span>;
+          })}
+        </span>
+      )}
+
+      {hasSources && (
+        <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Fontes
+          </p>
+          <div className="mt-2 space-y-2">
+            {messageSources.map((source) => (
+              <div key={`${source.slug}:${source.version}`} className="text-[12px] text-muted-foreground">
+                <p className="font-medium text-foreground">
+                  {source.title} <span className="text-muted-foreground">v{source.version}</span>
+                </p>
+                <p>
+                  {source.category}
+                  {source.snippet ? ` • ${source.snippet}` : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

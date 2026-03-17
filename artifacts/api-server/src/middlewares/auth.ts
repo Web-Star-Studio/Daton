@@ -17,7 +17,15 @@ const ORGANIZATION_AUTH_STATE_CLEANUP_INTERVAL_MS = 60_000;
 
 export type UserRole = "platform_admin" | "org_admin" | "operator" | "analyst";
 
-export const APP_MODULES = ["documents", "legislations", "employees", "units", "departments", "positions"] as const;
+export const APP_MODULES = [
+  "documents",
+  "legislations",
+  "employees",
+  "units",
+  "departments",
+  "positions",
+  "governance",
+] as const;
 export type AppModule = typeof APP_MODULES[number];
 
 export interface AuthPayload {
@@ -249,6 +257,11 @@ export function requireModuleAccess(moduleName: AppModule) {
 export function requireCompletedOnboarding(req: Request, res: Response, next: NextFunction): void {
   if (!req.auth) {
     res.status(401).json({ error: "Não autenticado" });
+    return;
+  }
+
+  if (req.auth.role === "platform_admin") {
+    next();
     return;
   }
 

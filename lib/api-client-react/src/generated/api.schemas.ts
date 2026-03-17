@@ -166,10 +166,22 @@ export interface Organization {
   updatedAt: string;
 }
 
+export type AppModule = (typeof AppModule)[keyof typeof AppModule];
+
+export const AppModule = {
+  documents: "documents",
+  legislations: "legislations",
+  employees: "employees",
+  units: "units",
+  departments: "departments",
+  positions: "positions",
+  governance: "governance",
+} as const;
+
 export interface MeResponse {
   user: User;
   organization: Organization;
-  modules: string[];
+  modules: AppModule[];
 }
 
 export interface UpdateOrganizationBody {
@@ -1055,7 +1067,7 @@ export interface OrgUser {
   email: string;
   role: string;
   createdAt: string;
-  modules: string[];
+  modules: AppModule[];
 }
 
 export interface UserOption {
@@ -1073,28 +1085,425 @@ export const CreateOrgUserBodyRole = {
   analyst: "analyst",
 } as const;
 
-export type CreateOrgUserBodyModulesItem =
-  (typeof CreateOrgUserBodyModulesItem)[keyof typeof CreateOrgUserBodyModulesItem];
-
-export const CreateOrgUserBodyModulesItem = {
-  documents: "documents",
-  legislations: "legislations",
-  employees: "employees",
-  units: "units",
-  departments: "departments",
-  positions: "positions",
-} as const;
-
 export interface CreateOrgUserBody {
   name: string;
   email: string;
   /** @minLength 6 */
   password: string;
   role: CreateOrgUserBodyRole;
-  modules: CreateOrgUserBodyModulesItem[];
+  modules: AppModule[];
 }
 
 export type CreateOrgUserResponse = OrgUser;
+
+export type StrategicPlanStatus =
+  (typeof StrategicPlanStatus)[keyof typeof StrategicPlanStatus];
+
+export const StrategicPlanStatus = {
+  draft: "draft",
+  in_review: "in_review",
+  approved: "approved",
+  rejected: "rejected",
+  overdue: "overdue",
+  archived: "archived",
+} as const;
+
+export type StrategicPlanDomain =
+  (typeof StrategicPlanDomain)[keyof typeof StrategicPlanDomain];
+
+export const StrategicPlanDomain = {
+  sgq: "sgq",
+  sga: "sga",
+  sgsv: "sgsv",
+  esg: "esg",
+  governance: "governance",
+} as const;
+
+export type StrategicPlanSwotType =
+  (typeof StrategicPlanSwotType)[keyof typeof StrategicPlanSwotType];
+
+export const StrategicPlanSwotType = {
+  strength: "strength",
+  weakness: "weakness",
+  opportunity: "opportunity",
+  threat: "threat",
+} as const;
+
+export type StrategicPlanSwotEnvironment =
+  (typeof StrategicPlanSwotEnvironment)[keyof typeof StrategicPlanSwotEnvironment];
+
+export const StrategicPlanSwotEnvironment = {
+  internal: "internal",
+  external: "external",
+} as const;
+
+export type StrategicPlanActionStatus =
+  (typeof StrategicPlanActionStatus)[keyof typeof StrategicPlanActionStatus];
+
+export const StrategicPlanActionStatus = {
+  pending: "pending",
+  in_progress: "in_progress",
+  done: "done",
+  canceled: "canceled",
+} as const;
+
+export interface StrategicPlanLegacyRevisionEntry {
+  date?: string | null;
+  reason?: string | null;
+  changedItem?: string | null;
+  revision?: string | null;
+  changedBy?: string | null;
+}
+
+export type StrategicPlanSummaryMetricsActionsByStatus = {
+  [key: string]: number;
+};
+
+export interface StrategicPlanSummaryMetrics {
+  swotCount: number;
+  actionCount: number;
+  interestedPartyCount: number;
+  objectiveCount: number;
+  openActionCount: number;
+  overdueActionCount: number;
+  actionsByStatus: StrategicPlanSummaryMetricsActionsByStatus;
+}
+
+export interface StrategicPlanOpenActionByUnit {
+  unitId: number;
+  unitName: string;
+  openActionCount: number;
+}
+
+export interface StrategicPlanSwotItem {
+  id: number;
+  planId: number;
+  domain: StrategicPlanDomain;
+  matrixLabel?: string | null;
+  swotType: StrategicPlanSwotType;
+  environment: StrategicPlanSwotEnvironment;
+  perspective?: string | null;
+  description: string;
+  performance?: number | null;
+  relevance?: number | null;
+  result?: number | null;
+  treatmentDecision?: string | null;
+  linkedObjectiveCode?: string | null;
+  linkedObjectiveLabel?: string | null;
+  importedActionReference?: string | null;
+  notes?: string | null;
+  sortOrder: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface StrategicPlanInterestedParty {
+  id: number;
+  planId: number;
+  name: string;
+  expectedRequirements?: string | null;
+  roleInCompany?: string | null;
+  roleSummary?: string | null;
+  relevantToManagementSystem?: boolean | null;
+  legalRequirementApplicable?: boolean | null;
+  monitoringMethod?: string | null;
+  notes?: string | null;
+  sortOrder: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface StrategicPlanObjective {
+  id: number;
+  planId: number;
+  code: string;
+  systemDomain?: string | null;
+  description: string;
+  notes?: string | null;
+  sortOrder: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface StrategicPlanActionUnit {
+  id: number;
+  name: string;
+}
+
+export interface StrategicPlanAction {
+  id: number;
+  planId: number;
+  title: string;
+  description?: string | null;
+  swotItemId?: number | null;
+  objectiveId?: number | null;
+  responsibleUserId?: number | null;
+  responsibleUserName?: string | null;
+  dueDate?: string | null;
+  status: StrategicPlanActionStatus;
+  notes?: string | null;
+  sortOrder: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  units: StrategicPlanActionUnit[];
+}
+
+export type StrategicPlanRevisionSnapshot = { [key: string]: unknown } | null;
+
+export interface StrategicPlanRevision {
+  id: number;
+  planId: number;
+  revisionNumber: number;
+  revisionDate?: string | null;
+  reason?: string | null;
+  changeSummary?: string | null;
+  approvedById?: number | null;
+  approvedByName?: string | null;
+  evidenceDocumentId?: number | null;
+  snapshot?: StrategicPlanRevisionSnapshot;
+  createdAt?: string | null;
+}
+
+export interface StrategicPlanListItem {
+  id: number;
+  organizationId: number;
+  title: string;
+  status: StrategicPlanStatus;
+  reviewFrequencyMonths: number;
+  nextReviewAt?: string | null;
+  executiveSummary?: string | null;
+  activeRevisionNumber: number;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+  complianceIssues: string[];
+  firstComplianceIssue?: string | null;
+  openActionsByUnit: StrategicPlanOpenActionByUnit[];
+  metrics: StrategicPlanSummaryMetrics;
+}
+
+export interface StrategicPlanDetail {
+  id: number;
+  organizationId: number;
+  title: string;
+  status: StrategicPlanStatus;
+  standards: string[];
+  executiveSummary?: string | null;
+  reviewFrequencyMonths: number;
+  nextReviewAt?: string | null;
+  reviewReason?: string | null;
+  climateChangeRelevant?: boolean | null;
+  climateChangeJustification?: string | null;
+  technicalScope?: string | null;
+  geographicScope?: string | null;
+  policy?: string | null;
+  mission?: string | null;
+  vision?: string | null;
+  values?: string | null;
+  strategicConclusion?: string | null;
+  methodologyNotes?: string | null;
+  legacyMethodology?: string | null;
+  legacyIndicatorsNotes?: string | null;
+  legacyRevisionHistory?: StrategicPlanLegacyRevisionEntry[] | null;
+  importedWorkbookName?: string | null;
+  activeRevisionNumber: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  submittedAt?: string | null;
+  approvedAt?: string | null;
+  rejectedAt?: string | null;
+  archivedAt?: string | null;
+  swotItems: StrategicPlanSwotItem[];
+  interestedParties: StrategicPlanInterestedParty[];
+  objectives: StrategicPlanObjective[];
+  actions: StrategicPlanAction[];
+  revisions: StrategicPlanRevision[];
+  metrics: StrategicPlanSummaryMetrics;
+  complianceIssues: string[];
+}
+
+export interface CreateStrategicPlanBody {
+  /** @minLength 1 */
+  title: string;
+  standards?: string[];
+  executiveSummary?: string | null;
+  /**
+   * @minimum 1
+   * @maximum 36
+   */
+  reviewFrequencyMonths?: number;
+  nextReviewAt?: string | null;
+  reviewReason?: string | null;
+  climateChangeRelevant?: boolean | null;
+  climateChangeJustification?: string | null;
+  technicalScope?: string | null;
+  geographicScope?: string | null;
+  policy?: string | null;
+  mission?: string | null;
+  vision?: string | null;
+  values?: string | null;
+  strategicConclusion?: string | null;
+  methodologyNotes?: string | null;
+  legacyMethodology?: string | null;
+  legacyIndicatorsNotes?: string | null;
+  legacyRevisionHistory?: StrategicPlanLegacyRevisionEntry[] | null;
+  importedWorkbookName?: string | null;
+}
+
+export interface UpdateStrategicPlanBody {
+  /** @minLength 1 */
+  title?: string;
+  standards?: string[];
+  executiveSummary?: string | null;
+  /**
+   * @minimum 1
+   * @maximum 36
+   */
+  reviewFrequencyMonths?: number;
+  nextReviewAt?: string | null;
+  reviewReason?: string | null;
+  climateChangeRelevant?: boolean | null;
+  climateChangeJustification?: string | null;
+  technicalScope?: string | null;
+  geographicScope?: string | null;
+  policy?: string | null;
+  mission?: string | null;
+  vision?: string | null;
+  values?: string | null;
+  strategicConclusion?: string | null;
+  methodologyNotes?: string | null;
+  legacyMethodology?: string | null;
+  legacyIndicatorsNotes?: string | null;
+  legacyRevisionHistory?: StrategicPlanLegacyRevisionEntry[] | null;
+  importedWorkbookName?: string | null;
+}
+
+export interface StrategicPlanReviewBody {
+  reviewReason?: string | null;
+  changeSummary?: string | null;
+}
+
+export interface CreateStrategicPlanSwotItemBody {
+  domain: StrategicPlanDomain;
+  matrixLabel?: string | null;
+  swotType: StrategicPlanSwotType;
+  environment: StrategicPlanSwotEnvironment;
+  perspective?: string | null;
+  /** @minLength 1 */
+  description: string;
+  /**
+   * @minimum 0
+   * @maximum 20
+   */
+  performance?: number | null;
+  /**
+   * @minimum 0
+   * @maximum 20
+   */
+  relevance?: number | null;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  result?: number | null;
+  treatmentDecision?: string | null;
+  linkedObjectiveCode?: string | null;
+  linkedObjectiveLabel?: string | null;
+  importedActionReference?: string | null;
+  notes?: string | null;
+  /** @minimum 0 */
+  sortOrder?: number;
+}
+
+export type UpdateStrategicPlanSwotItemBody = CreateStrategicPlanSwotItemBody;
+
+export interface CreateStrategicPlanInterestedPartyBody {
+  /** @minLength 1 */
+  name: string;
+  expectedRequirements?: string | null;
+  roleInCompany?: string | null;
+  roleSummary?: string | null;
+  relevantToManagementSystem?: boolean | null;
+  legalRequirementApplicable?: boolean | null;
+  monitoringMethod?: string | null;
+  notes?: string | null;
+  /** @minimum 0 */
+  sortOrder?: number;
+}
+
+export type UpdateStrategicPlanInterestedPartyBody =
+  CreateStrategicPlanInterestedPartyBody;
+
+export interface CreateStrategicPlanObjectiveBody {
+  /** @minLength 1 */
+  code: string;
+  systemDomain?: string | null;
+  /** @minLength 1 */
+  description: string;
+  notes?: string | null;
+  /** @minimum 0 */
+  sortOrder?: number;
+}
+
+export type UpdateStrategicPlanObjectiveBody = CreateStrategicPlanObjectiveBody;
+
+export interface CreateStrategicPlanActionBody {
+  /** @minLength 1 */
+  title: string;
+  description?: string | null;
+  swotItemId?: number | null;
+  objectiveId?: number | null;
+  responsibleUserId?: number | null;
+  dueDate?: string | null;
+  status?: StrategicPlanActionStatus;
+  notes?: string | null;
+  unitIds?: number[];
+  /** @minimum 0 */
+  sortOrder?: number;
+}
+
+export type UpdateStrategicPlanActionBody = CreateStrategicPlanActionBody;
+
+export type ImportStrategicPlanSwotItem = CreateStrategicPlanSwotItemBody & {
+  importKey?: string | null;
+};
+
+export type ImportStrategicPlanObjective = CreateStrategicPlanObjectiveBody & {
+  importKey?: string | null;
+};
+
+export interface ImportStrategicPlanAction {
+  /** @minLength 1 */
+  title: string;
+  description?: string | null;
+  swotImportKey?: string | null;
+  objectiveCode?: string | null;
+  responsibleUserId?: number | null;
+  dueDate?: string | null;
+  status?: StrategicPlanActionStatus;
+  notes?: string | null;
+  unitIds?: number[];
+  /** @minimum 0 */
+  sortOrder?: number;
+}
+
+export interface ImportStrategicPlanBody {
+  workbookName?: string | null;
+  plan: CreateStrategicPlanBody;
+  swotItems: ImportStrategicPlanSwotItem[];
+  interestedParties: CreateStrategicPlanInterestedPartyBody[];
+  objectives: ImportStrategicPlanObjective[];
+  actions: ImportStrategicPlanAction[];
+}
+
+export interface StrategicPlanExportResponse {
+  revisionId: number;
+  revisionNumber: number;
+  evidenceDocumentId: number;
+  fileName: string;
+  contentType: string;
+  objectPath: string;
+  uploadedAt: string;
+}
 
 export interface DocumentSummary {
   id: number;
@@ -1257,22 +1666,10 @@ export const CreateInvitationBodyRole = {
   analyst: "analyst",
 } as const;
 
-export type CreateInvitationBodyModulesItem =
-  (typeof CreateInvitationBodyModulesItem)[keyof typeof CreateInvitationBodyModulesItem];
-
-export const CreateInvitationBodyModulesItem = {
-  documents: "documents",
-  legislations: "legislations",
-  employees: "employees",
-  units: "units",
-  departments: "departments",
-  positions: "positions",
-} as const;
-
 export interface CreateInvitationBody {
   email: string;
   role?: CreateInvitationBodyRole;
-  modules?: CreateInvitationBodyModulesItem[];
+  modules?: AppModule[];
 }
 
 export interface InvitationResponse {
@@ -1282,7 +1679,7 @@ export interface InvitationResponse {
   invitedByName: string;
   organizationName: string;
   role: string;
-  modules: string[];
+  modules: AppModule[];
   expiresAt: string;
   createdAt: string;
 }
@@ -1375,12 +1772,12 @@ export type UpdateUserRoleBody = {
 };
 
 export type UpdateUserModulesBody = {
-  modules: string[];
+  modules: AppModule[];
 };
 
 export type UpdateUserModules200 = {
   message?: string;
-  modules?: string[];
+  modules?: AppModule[];
 };
 
 export type ListInvitations200 = {

@@ -3,14 +3,16 @@ import { Link, useLocation } from "wouter";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useLayoutState } from "@/contexts/LayoutContext";
 import { 
-  Building2, 
-  Scale, 
-  LogOut, 
+  Building2,
+  BookText,
+  Scale,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
   ChevronRight,
-  Sparkles,
-  Bell
+  Landmark,
+  Bell,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatPanel } from "@/components/chat/ChatPanel";
@@ -21,15 +23,19 @@ const datonLogo = "/images/daton-logo.png";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, organization } = useAuth();
-  const { hasModuleAccess } = usePermissions();
+  const { hasModuleAccess, isPlatformAdmin } = usePermissions();
   const [location, navigate] = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isChatOpen, setChatOpen] = useState(false);
   const [isNotificationsOpen, setNotificationsOpen] = useState(false);
   const [qualidadePopover, setQualidadePopover] = useState(false);
+  const [governancaPopover, setGovernancaPopover] = useState(false);
   const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0 });
+  const [govPopoverPos, setGovPopoverPos] = useState({ top: 0, left: 0 });
   const qualidadeRef = useRef<HTMLDivElement>(null);
+  const governancaRef = useRef<HTMLDivElement>(null);
   const popoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const govPopoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { headerActions, pageTitle } = useLayoutState();
   const orgId = organization?.id;
   const { data: notifData } = useListNotifications(orgId!, {
@@ -44,11 +50,26 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     location === "/app" ? "/organizacao" : location.replace(/^\/app(?=\/|$)/, "");
 
   useEffect(() => {
-    const moduleByPath: Array<{ prefix: string; module: "documents" | "legislations" | "employees" | "units" | "departments" | "positions" }> = [
+    return () => {
+      if (popoverTimeoutRef.current) {
+        clearTimeout(popoverTimeoutRef.current);
+        popoverTimeoutRef.current = null;
+      }
+
+      if (govPopoverTimeoutRef.current) {
+        clearTimeout(govPopoverTimeoutRef.current);
+        govPopoverTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const moduleByPath: Array<{ prefix: string; module: "documents" | "legislations" | "employees" | "units" | "departments" | "positions" | "governance" }> = [
       { prefix: "/qualidade/documentacao", module: "documents" },
       { prefix: "/qualidade/legislacoes", module: "legislations" },
       { prefix: "/qualidade/colaboradores", module: "employees" },
       { prefix: "/organizacao/unidades", module: "units" },
+      { prefix: "/governanca", module: "governance" },
     ];
 
     const deniedRoute = moduleByPath.find((entry) => normalizedLocation.startsWith(entry.prefix) && !hasModuleAccess(entry.module));
@@ -85,6 +106,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       if (normalizedLocation.startsWith("/organizacao/unidades/") && pageTitle) {
         crumbs.push({ label: pageTitle });
       }
+    } else if (normalizedLocation.startsWith("/governanca")) {
+      crumbs.push({ label: "Governança" });
+      if (normalizedLocation.startsWith("/governanca/planejamento")) {
+        crumbs.push({ label: "Planejamento", href: "/governanca/planejamento" });
+        if (pageTitle && normalizedLocation !== "/governanca/planejamento") {
+          crumbs.push({ label: pageTitle });
+        }
+      }
+    } else if (normalizedLocation.startsWith("/admin")) {
+      crumbs.push({ label: "Admin" });
+      if (normalizedLocation.startsWith("/admin/base-conhecimento")) {
+        crumbs.push({ label: "Base de Conhecimento", href: "/admin/base-conhecimento" });
+      }
     }
 
     return crumbs;
@@ -99,6 +133,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   ].filter(l => hasModuleAccess(l.module));
 
   const showQualidade = qualidadeLinks.length > 0;
+
+  const governancaLinks = [
+    { href: "/governanca/planejamento", label: "Planejamento" },
+  ];
+
+  const showGovernanca = hasModuleAccess("governance");
 
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden p-2.5 gap-2.5">
@@ -125,6 +165,54 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Building2 className={cn("h-[18px] w-[18px] shrink-0", isSidebarOpen && "mr-2.5")} />
             {isSidebarOpen && <span>Organização</span>}
           </Link>
+
+          {isPlatformAdmin && (
+            <Link
+              href="/admin/base-conhecimento"
+              className={cn(
+                "flex items-center px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
+                isActive("/admin")
+                  ? "text-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <BookText className={cn("h-[18px] w-[18px] shrink-0", isSidebarOpen && "mr-2.5")} />
+              {isSidebarOpen && <span>Base de Conhecimento</span>}
+            </Link>
+          )}
+
+          {showGovernanca && (
+            <div
+              ref={governancaRef}
+              onMouseEnter={() => {
+                if (govPopoverTimeoutRef.current) clearTimeout(govPopoverTimeoutRef.current);
+                if (governancaRef.current) {
+                  const rect = governancaRef.current.getBoundingClientRect();
+                  setGovPopoverPos({ top: rect.top, left: rect.right + 6 });
+                }
+                setGovernancaPopover(true);
+              }}
+              onMouseLeave={() => {
+                govPopoverTimeoutRef.current = setTimeout(() => setGovernancaPopover(false), 150);
+              }}
+            >
+              <Link
+                href={governancaLinks[0].href}
+                className={cn(
+                  "w-full flex items-center justify-between px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
+                  isActive("/governanca")
+                    ? "text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <div className="flex items-center">
+                  <Landmark className={cn("h-[18px] w-[18px] shrink-0", isSidebarOpen && "mr-2.5")} />
+                  {isSidebarOpen && <span>Governança</span>}
+                </div>
+                {isSidebarOpen && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />}
+              </Link>
+            </div>
+          )}
 
           {showQualidade && (
             <div
@@ -176,6 +264,36 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   key={link.href}
                   href={link.href}
                   onClick={() => setQualidadePopover(false)}
+                  className={cn(
+                    "flex items-center px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
+                    isActive(link.href)
+                      ? "text-foreground font-medium bg-muted/50"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  )}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {governancaPopover && showGovernanca && (
+            <div
+              className="fixed z-[100] min-w-[180px] bg-white border border-border/60 rounded-xl shadow-lg py-2 px-1.5 animate-[popoverIn_150ms_cubic-bezier(0.16,1,0.3,1)]"
+              style={{ top: govPopoverPos.top, left: govPopoverPos.left }}
+              onMouseEnter={() => {
+                if (govPopoverTimeoutRef.current) clearTimeout(govPopoverTimeoutRef.current);
+              }}
+              onMouseLeave={() => {
+                govPopoverTimeoutRef.current = setTimeout(() => setGovernancaPopover(false), 150);
+              }}
+            >
+              <p className="px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Governança</p>
+              {governancaLinks.map(link => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setGovernancaPopover(false)}
                   className={cn(
                     "flex items-center px-2.5 py-2 rounded-lg transition-colors text-[13px] cursor-pointer",
                     isActive(link.href)

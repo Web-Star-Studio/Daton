@@ -5,7 +5,8 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { AppModule } from "./appModule";
 
 export type UpdateUserModulesBody = {
-  modules: string[];
+  modules: AppModule[];
 };

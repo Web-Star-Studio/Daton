@@ -22,7 +22,7 @@ import {
   useGetOrganization, useUpdateOrganization, useResetOrganizationOnboarding, getGetOrganizationQueryKey,
   useListInvitations, useCreateInvitation, useRevokeInvitation, useDeleteInvitation, getListInvitationsQueryKey,
   useListOrgUsers, useCreateOrgUser, useUpdateUserRole, useUpdateUserModules, getListOrgUsersQueryKey,
-  type CreateUnitBody, type CreateUnitBodyType,
+  type AppModule, type CreateUnitBody, type CreateUnitBodyType, type UpdateUserRoleBodyRole,
 } from "@workspace/api-client-react";
 
 type Tab = "visao-geral" | "unidades" | "departamentos" | "cargos" | "usuarios";
@@ -57,7 +57,7 @@ type PositionFormData = {
   responsibilities: string;
 };
 
-type OrgUserModule = "documents" | "legislations" | "employees" | "units" | "departments" | "positions";
+type OrgUserModule = AppModule;
 
 type CreateUserFormData = {
   name: string;
@@ -87,9 +87,10 @@ const MODULE_LABELS: Record<string, string> = {
   units: "Unidades",
   departments: "Departamentos",
   positions: "Cargos",
+  governance: "Governança",
 };
 
-const ALL_MODULES: OrgUserModule[] = ["documents", "legislations", "employees", "units", "departments", "positions"];
+const ALL_MODULES: OrgUserModule[] = ["documents", "legislations", "employees", "units", "departments", "positions", "governance"];
 const emptyCreateUserForm: CreateUserFormData = {
   name: "",
   email: "",
@@ -165,9 +166,9 @@ export default function OrganizacaoPage() {
   const [createUserError, setCreateUserError] = useState("");
   const createUserForm = useForm<CreateUserFormData>({ defaultValues: emptyCreateUserForm });
   const [permDialogOpen, setPermDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<{ id: number; name: string; email: string; role: string; modules: string[] } | null>(null);
-  const [editRole, setEditRole] = useState("");
-  const [editModules, setEditModules] = useState<string[]>([]);
+  const [editingUser, setEditingUser] = useState<{ id: number; name: string; email: string; role: string; modules: AppModule[] } | null>(null);
+  const [editRole, setEditRole] = useState<UpdateUserRoleBodyRole>("operator");
+  const [editModules, setEditModules] = useState<AppModule[]>([]);
   const createUserRole = createUserForm.watch("role");
   const createUserModules = createUserForm.watch("modules") || [];
 
@@ -352,14 +353,14 @@ export default function OrganizacaoPage() {
   ]);
   useHeaderActions(headerActions);
 
-  const allTabs: { key: Tab; label: string; module?: string }[] = [
+  const allTabs: { key: Tab; label: string; module?: AppModule }[] = [
     { key: "visao-geral", label: "Visão Geral" },
     { key: "unidades", label: "Unidades", module: "units" },
     { key: "departamentos", label: "Departamentos", module: "departments" },
     { key: "cargos", label: "Cargos", module: "positions" },
     ...(isOrgAdmin ? [{ key: "usuarios" as const, label: "Usuários" }] : []),
   ];
-  const tabs = allTabs.filter(t => !t.module || hasModuleAccess(t.module as any));
+  const tabs = allTabs.filter(t => !t.module || hasModuleAccess(t.module));
 
   useEffect(() => {
     if (!tabs.some((tab) => tab.key === activeTab)) {
@@ -803,7 +804,7 @@ export default function OrganizacaoPage() {
                                 <button
                                   onClick={() => {
                                     setEditingUser({ id: u.id, name: u.name, email: u.email, role: u.role, modules: u.modules });
-                                    setEditRole(u.role);
+                                    setEditRole(u.role === "analyst" ? "analyst" : "operator");
                                     setEditModules([...u.modules]);
                                     setPermDialogOpen(true);
                                   }}
@@ -1333,7 +1334,7 @@ export default function OrganizacaoPage() {
           <div className="space-y-5">
             <div>
               <Label>Cargo</Label>
-              <Select value={editRole} onChange={(e) => setEditRole(e.target.value)}>
+              <Select value={editRole} onChange={(e) => setEditRole(e.target.value as UpdateUserRoleBodyRole)}>
                 <option value="operator">Operador</option>
                 <option value="analyst">Analista</option>
               </Select>
@@ -1369,7 +1370,7 @@ export default function OrganizacaoPage() {
                 onClick={async () => {
                   if (!orgId || !editingUser) return;
                   if (editRole !== editingUser.role) {
-                    await updateRoleMut.mutateAsync({ orgId, userId: editingUser.id, data: { role: editRole as any } });
+                    await updateRoleMut.mutateAsync({ orgId, userId: editingUser.id, data: { role: editRole } });
                   }
                   const modulesChanged = editModules.sort().join(",") !== [...editingUser.modules].sort().join(",");
                   if (modulesChanged) {

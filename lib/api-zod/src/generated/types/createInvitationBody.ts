@@ -5,11 +5,11 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { CreateInvitationBodyModulesItem } from "./createInvitationBodyModulesItem";
+import type { AppModule } from "./appModule";
 import type { CreateInvitationBodyRole } from "./createInvitationBodyRole";
 
 export interface CreateInvitationBody {
   email: string;
   role?: CreateInvitationBodyRole;
-  modules?: CreateInvitationBodyModulesItem[];
+  modules?: AppModule[];
 }
