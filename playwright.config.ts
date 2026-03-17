@@ -37,15 +37,39 @@ function withEnv(baseCommand: string, env: Record<string, string>): string {
   const exportedVars = Object.entries(env)
     .map(([key, value]) => `export ${key}=${shellQuote(value)}`)
     .join("; ");
-  const shell = process.env.SHELL || "sh";
+  const shell = "/bin/sh";
 
   return `${shell} -lc ${shellQuote(`${exportedVars}; ${baseCommand}`)}`;
 }
 
+function parsePort(
+  value: string | undefined,
+  fallback: number,
+  envName: string,
+): number {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  if (
+    !Number.isFinite(parsed) ||
+    !Number.isInteger(parsed) ||
+    parsed < 1 ||
+    parsed > 65_535
+  ) {
+    throw new Error(
+      `${envName} must be an integer between 1 and 65535. Received: ${value}`,
+    );
+  }
+
+  return parsed;
+}
+
 loadEnvFile(path.join(workspaceRoot, ".env"));
 
-const apiPort = Number(process.env.E2E_API_PORT || "3001");
-const webPort = Number(process.env.E2E_WEB_PORT || "4173");
+const apiPort = parsePort(process.env.E2E_API_PORT, 3001, "E2E_API_PORT");
+const webPort = parsePort(process.env.E2E_WEB_PORT, 4173, "E2E_WEB_PORT");
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const webBaseUrl = `http://127.0.0.1:${webPort}`;
 const databaseUrl = process.env.DATABASE_URL;

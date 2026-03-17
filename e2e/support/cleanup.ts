@@ -17,125 +17,140 @@ import {
 } from "@workspace/db";
 
 export async function cleanupTestData(prefix: string) {
-  const orgs = await db
-    .select({ id: organizationsTable.id })
-    .from(organizationsTable)
-    .where(like(organizationsTable.name, `E2E ${prefix}%`));
+  await db.transaction(async (tx) => {
+    const orgs = await tx
+      .select({ id: organizationsTable.id })
+      .from(organizationsTable)
+      .where(like(organizationsTable.name, `E2E ${prefix}%`));
 
-  const prefixedUsers = await db
-    .select({ id: usersTable.id, organizationId: usersTable.organizationId })
-    .from(usersTable)
-    .where(like(usersTable.email, `${prefix}%@e2e.daton.example`));
+    const prefixedUsers = await tx
+      .select({ id: usersTable.id, organizationId: usersTable.organizationId })
+      .from(usersTable)
+      .where(like(usersTable.email, `${prefix}%@e2e.daton.example`));
 
-  const orgIds = Array.from(
-    new Set([
-      ...orgs.map((org) => org.id),
-      ...prefixedUsers.map((user) => user.organizationId),
-    ]),
-  );
+    const orgIds = Array.from(new Set(orgs.map((org) => org.id)));
+    const standalonePrefixedUsers = prefixedUsers.filter(
+      (user) => !orgIds.includes(user.organizationId),
+    );
 
-  if (orgIds.length === 0) {
-    if (prefixedUsers.length > 0) {
-      await db.delete(userModulePermissionsTable).where(
+    if (orgIds.length === 0) {
+      if (standalonePrefixedUsers.length > 0) {
+        await tx.delete(userModulePermissionsTable).where(
+          inArray(
+            userModulePermissionsTable.userId,
+            standalonePrefixedUsers.map((user) => user.id),
+          ),
+        );
+        await tx.delete(usersTable).where(
+          inArray(
+            usersTable.id,
+            standalonePrefixedUsers.map((user) => user.id),
+          ),
+        );
+      }
+      return;
+    }
+
+    const users = await tx
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(inArray(usersTable.organizationId, orgIds));
+    const userIds = users.map((user) => user.id);
+
+    const units = await tx
+      .select({ id: unitsTable.id })
+      .from(unitsTable)
+      .where(inArray(unitsTable.organizationId, orgIds));
+    const unitIds = units.map((unit) => unit.id);
+
+    const legislations = await tx
+      .select({ id: legislationsTable.id })
+      .from(legislationsTable)
+      .where(inArray(legislationsTable.organizationId, orgIds));
+    const legislationIds = legislations.map((legislation) => legislation.id);
+
+    const plans = await tx
+      .select({ id: strategicPlansTable.id })
+      .from(strategicPlansTable)
+      .where(inArray(strategicPlansTable.organizationId, orgIds));
+    const planIds = plans.map((plan) => plan.id);
+
+    if (planIds.length > 0) {
+      const actions = await tx
+        .select({ id: strategicPlanActionsTable.id })
+        .from(strategicPlanActionsTable)
+        .where(inArray(strategicPlanActionsTable.planId, planIds));
+      const actionIds = actions.map((action) => action.id);
+
+      if (actionIds.length > 0) {
+        await tx
+          .delete(strategicPlanActionUnitsTable)
+          .where(inArray(strategicPlanActionUnitsTable.actionId, actionIds));
+      }
+
+      await tx
+        .delete(strategicPlanRevisionsTable)
+        .where(inArray(strategicPlanRevisionsTable.planId, planIds));
+      await tx
+        .delete(strategicPlanActionsTable)
+        .where(inArray(strategicPlanActionsTable.planId, planIds));
+      await tx
+        .delete(strategicPlanSwotItemsTable)
+        .where(inArray(strategicPlanSwotItemsTable.planId, planIds));
+      await tx
+        .delete(strategicPlanInterestedPartiesTable)
+        .where(inArray(strategicPlanInterestedPartiesTable.planId, planIds));
+      await tx
+        .delete(strategicPlanObjectivesTable)
+        .where(inArray(strategicPlanObjectivesTable.planId, planIds));
+      await tx
+        .delete(strategicPlansTable)
+        .where(inArray(strategicPlansTable.id, planIds));
+    }
+
+    if (unitIds.length > 0) {
+      await tx
+        .delete(unitLegislationsTable)
+        .where(inArray(unitLegislationsTable.unitId, unitIds));
+    }
+
+    if (legislationIds.length > 0) {
+      await tx
+        .delete(unitLegislationsTable)
+        .where(inArray(unitLegislationsTable.legislationId, legislationIds));
+      await tx
+        .delete(legislationsTable)
+        .where(inArray(legislationsTable.id, legislationIds));
+    }
+
+    if (unitIds.length > 0) {
+      await tx.delete(unitsTable).where(inArray(unitsTable.id, unitIds));
+    }
+
+    if (userIds.length > 0) {
+      await tx
+        .delete(userModulePermissionsTable)
+        .where(inArray(userModulePermissionsTable.userId, userIds));
+      await tx.delete(usersTable).where(inArray(usersTable.id, userIds));
+    }
+
+    if (standalonePrefixedUsers.length > 0) {
+      await tx.delete(userModulePermissionsTable).where(
         inArray(
           userModulePermissionsTable.userId,
-          prefixedUsers.map((user) => user.id),
+          standalonePrefixedUsers.map((user) => user.id),
         ),
       );
-      await db.delete(usersTable).where(
+      await tx.delete(usersTable).where(
         inArray(
           usersTable.id,
-          prefixedUsers.map((user) => user.id),
+          standalonePrefixedUsers.map((user) => user.id),
         ),
       );
     }
-    return;
-  }
 
-  const users = await db
-    .select({ id: usersTable.id })
-    .from(usersTable)
-    .where(inArray(usersTable.organizationId, orgIds));
-  const userIds = users.map((user) => user.id);
-
-  const units = await db
-    .select({ id: unitsTable.id })
-    .from(unitsTable)
-    .where(inArray(unitsTable.organizationId, orgIds));
-  const unitIds = units.map((unit) => unit.id);
-
-  const legislations = await db
-    .select({ id: legislationsTable.id })
-    .from(legislationsTable)
-    .where(inArray(legislationsTable.organizationId, orgIds));
-  const legislationIds = legislations.map((legislation) => legislation.id);
-
-  const plans = await db
-    .select({ id: strategicPlansTable.id })
-    .from(strategicPlansTable)
-    .where(inArray(strategicPlansTable.organizationId, orgIds));
-  const planIds = plans.map((plan) => plan.id);
-
-  if (planIds.length > 0) {
-    const actions = await db
-      .select({ id: strategicPlanActionsTable.id })
-      .from(strategicPlanActionsTable)
-      .where(inArray(strategicPlanActionsTable.planId, planIds));
-    const actionIds = actions.map((action) => action.id);
-
-    if (actionIds.length > 0) {
-      await db
-        .delete(strategicPlanActionUnitsTable)
-        .where(inArray(strategicPlanActionUnitsTable.actionId, actionIds));
-    }
-
-    await db
-      .delete(strategicPlanRevisionsTable)
-      .where(inArray(strategicPlanRevisionsTable.planId, planIds));
-    await db
-      .delete(strategicPlanActionsTable)
-      .where(inArray(strategicPlanActionsTable.planId, planIds));
-    await db
-      .delete(strategicPlanSwotItemsTable)
-      .where(inArray(strategicPlanSwotItemsTable.planId, planIds));
-    await db
-      .delete(strategicPlanInterestedPartiesTable)
-      .where(inArray(strategicPlanInterestedPartiesTable.planId, planIds));
-    await db
-      .delete(strategicPlanObjectivesTable)
-      .where(inArray(strategicPlanObjectivesTable.planId, planIds));
-    await db
-      .delete(strategicPlansTable)
-      .where(inArray(strategicPlansTable.id, planIds));
-  }
-
-  if (unitIds.length > 0) {
-    await db
-      .delete(unitLegislationsTable)
-      .where(inArray(unitLegislationsTable.unitId, unitIds));
-  }
-
-  if (legislationIds.length > 0) {
-    await db
-      .delete(unitLegislationsTable)
-      .where(inArray(unitLegislationsTable.legislationId, legislationIds));
-    await db
-      .delete(legislationsTable)
-      .where(inArray(legislationsTable.id, legislationIds));
-  }
-
-  if (unitIds.length > 0) {
-    await db.delete(unitsTable).where(inArray(unitsTable.id, unitIds));
-  }
-
-  if (userIds.length > 0) {
-    await db
-      .delete(userModulePermissionsTable)
-      .where(inArray(userModulePermissionsTable.userId, userIds));
-    await db.delete(usersTable).where(inArray(usersTable.id, userIds));
-  }
-
-  await db
-    .delete(organizationsTable)
-    .where(inArray(organizationsTable.id, orgIds));
+    await tx
+      .delete(organizationsTable)
+      .where(inArray(organizationsTable.id, orgIds));
+  });
 }
