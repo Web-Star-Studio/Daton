@@ -283,6 +283,7 @@ export default function OrganizacaoPage() {
   const deletePosMut = useDeletePosition();
   const [posDialogOpen, setPosDialogOpen] = useState(false);
   const [editingPosId, setEditingPosId] = useState<number | null>(null);
+  const [posStep, setPosStep] = useState(0);
   const emptyPosForm: PositionFormData = {
     name: "",
     description: "",
@@ -505,6 +506,7 @@ export default function OrganizacaoPage() {
             onClick={() => {
               setEditingPosId(null);
               posForm.reset(emptyPosForm);
+              setPosStep(0);
               setPosDialogOpen(true);
             }}
           >
@@ -1314,6 +1316,7 @@ export default function OrganizacaoPage() {
                         requirements: pos.requirements || "",
                         responsibilities: pos.responsibilities || "",
                       });
+                      setPosStep(0);
                       setPosDialogOpen(true);
                     }}
                   >
@@ -1884,73 +1887,115 @@ export default function OrganizacaoPage() {
         open={posDialogOpen}
         onOpenChange={setPosDialogOpen}
         title={editingPosId ? "Editar Cargo" : "Novo Cargo"}
-        description="Defina os cargos e requisitos da organização."
-        size="xl"
+        description={["Informações básicas", "Descrição do cargo", "Requisitos", "Responsabilidades"][posStep]}
+        size="lg"
       >
         <form onSubmit={posForm.handleSubmit(onPosSubmit)}>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-            <div>
-              <Label>Título</Label>
-              <Input
-                {...posForm.register("name", { required: true })}
-                placeholder="Título do cargo"
-              />
+          <div className="flex items-center gap-1 mb-5">
+            {["Básico", "Descrição", "Requisitos", "Responsabilidades"].map((label, i) => (
+              <React.Fragment key={label}>
+                {i > 0 && <div className="h-px flex-1 bg-border" />}
+                <button
+                  type="button"
+                  onClick={() => setPosStep(i)}
+                  className={cn(
+                    "text-[11px] font-medium px-2.5 py-1 rounded-full transition-colors whitespace-nowrap cursor-pointer",
+                    posStep === i
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {label}
+                </button>
+              </React.Fragment>
+            ))}
+          </div>
+
+          {posStep === 0 && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+              <div>
+                <Label>Título *</Label>
+                <Input
+                  {...posForm.register("name", { required: true })}
+                  placeholder="Título do cargo"
+                />
+              </div>
+              <div>
+                <Label>Escolaridade</Label>
+                <Input
+                  {...posForm.register("education")}
+                  placeholder="Ex: Ensino Superior em Engenharia"
+                />
+              </div>
+              <div>
+                <Label>Tempo de experiência</Label>
+                <Input
+                  {...posForm.register("experience")}
+                  placeholder="Ex: 2 anos na área"
+                />
+              </div>
             </div>
-            <div>
-              <Label>Escolaridade</Label>
-              <Input
-                {...posForm.register("education")}
-                placeholder="Ex: Ensino Superior em Engenharia"
-              />
-            </div>
-            <div>
-              <Label>Tempo de experiência</Label>
-              <Input
-                {...posForm.register("experience")}
-                placeholder="Ex: 2 anos na área"
-              />
-            </div>
+          )}
+
+          {posStep === 1 && (
             <div>
               <Label>Descrição</Label>
               <Textarea
                 {...posForm.register("description")}
-                placeholder="Descrição do cargo"
-                rows={4}
+                placeholder="Descrição detalhada do cargo..."
+                rows={10}
+                className="mt-1"
               />
             </div>
-            <div className="col-span-2">
+          )}
+
+          {posStep === 2 && (
+            <div>
               <Label>Requisitos</Label>
               <Textarea
                 {...posForm.register("requirements")}
-                placeholder="Requisitos do cargo"
-                rows={4}
+                placeholder="Requisitos do cargo..."
+                rows={10}
+                className="mt-1"
               />
             </div>
-            <div className="col-span-2">
+          )}
+
+          {posStep === 3 && (
+            <div>
               <Label>Responsabilidades</Label>
               <Textarea
                 {...posForm.register("responsibilities")}
-                placeholder="Responsabilidades do cargo"
-                rows={4}
+                placeholder="Responsabilidades do cargo..."
+                rows={10}
+                className="mt-1"
               />
             </div>
-          </div>
+          )}
+
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setPosDialogOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              isLoading={createPosMut.isPending || updatePosMut.isPending}
-            >
-              {editingPosId ? "Atualizar" : "Salvar"}
-            </Button>
+            {posStep > 0 ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setPosStep(posStep - 1)}>
+                Anterior
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" size="sm" onClick={() => setPosDialogOpen(false)}>
+                Cancelar
+              </Button>
+            )}
+            {posStep < 3 ? (
+              <Button type="button" size="sm" onClick={() => setPosStep(posStep + 1)}>
+                Próximo
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                size="sm"
+                isLoading={createPosMut.isPending || updatePosMut.isPending}
+              >
+                {editingPosId ? "Atualizar" : "Salvar"}
+              </Button>
+            )}
           </DialogFooter>
         </form>
       </Dialog>
