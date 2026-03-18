@@ -349,7 +349,7 @@ export function ChatPanel({
   return (
     <div
       className={cn(
-        "flex h-full w-[620px] max-w-[calc(100vw-2rem)] flex-shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-white/76 shadow-sm backdrop-blur-md",
+        "flex h-full w-[480px] max-w-[calc(100vw-2rem)] flex-shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-white/76 shadow-sm backdrop-blur-md",
         isOpen
           ? "animate-[chatSlideIn_250ms_ease-in-out_forwards]"
           : "animate-[chatSlideOut_250ms_ease-in-out_forwards]",

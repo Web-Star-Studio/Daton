@@ -515,7 +515,7 @@ export default function ColaboradoresPage() {
                           />
                         </td>
                         <td className="px-4 py-3">
-                          <Link href={`/qualidade/colaboradores/${emp.id}`} className="cursor-pointer">
+                          <Link href={`/organizacao/colaboradores/${emp.id}`} className="cursor-pointer">
                             <p className="text-[13px] font-medium text-foreground hover:text-primary transition-colors">{emp.name}</p>
                             {emp.email && <p className="text-xs text-muted-foreground mt-0.5">{emp.email}</p>}
                           </Link>
@@ -529,7 +529,7 @@ export default function ColaboradoresPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <Link href={`/qualidade/colaboradores/${emp.id}`}>
+                          <Link href={`/organizacao/colaboradores/${emp.id}`}>
                             <ChevronRight className="h-4 w-4 text-muted-foreground/40 cursor-pointer" />
                           </Link>
                         </td>

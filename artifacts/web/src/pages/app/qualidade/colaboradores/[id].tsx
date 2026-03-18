@@ -1929,7 +1929,7 @@ export default function ColaboradorDetailPage() {
     if (!confirm("Tem certeza que deseja arquivar este colaborador? O status será alterado para Inativo.")) return;
     await deleteMutation.mutateAsync({ orgId: orgId!, empId });
     queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey(orgId!) });
-    navigate("/qualidade/colaboradores");
+    navigate("/organizacao/colaboradores");
   };
 
   usePageTitle(employee?.name);
@@ -1967,7 +1967,7 @@ export default function ColaboradorDetailPage() {
 
     return (
       <div className="flex items-center gap-2">
-        <Link href="/qualidade/colaboradores">
+        <Link href="/organizacao/colaboradores">
           <Button variant="outline" size="sm" className="cursor-pointer">
             <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
             Voltar
@@ -2002,7 +2002,7 @@ export default function ColaboradorDetailPage() {
     return (
       <div className="text-center py-20">
         <p className="text-[13px] text-muted-foreground">Colaborador não encontrado</p>
-        <Link href="/qualidade/colaboradores">
+        <Link href="/organizacao/colaboradores">
           <Button variant="outline" size="sm" className="mt-4 cursor-pointer">
             Voltar
           </Button>

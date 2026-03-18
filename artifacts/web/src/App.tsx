@@ -11,7 +11,13 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 import AuthPage from "@/pages/auth";
 import OnboardingOrganizationPage from "@/pages/onboarding-organizacao";
 import AppIndex from "@/pages/app/index";
-import OrganizacaoPage from "@/pages/app/organizacao";
+import OrganizacaoOverviewPage from "@/pages/app/organizacao/visao-geral";
+import OrganizacaoUnitsPage from "@/pages/app/organizacao/unidades";
+import OrganizacaoDepartmentsPage from "@/pages/app/organizacao/departamentos";
+import OrganizacaoPositionsPage from "@/pages/app/organizacao/cargos";
+import OrganizacaoUsersPage from "@/pages/app/organizacao/usuarios";
+import OrganizacaoEmployeesPage from "@/pages/app/organizacao/colaboradores";
+import OrganizacaoEmployeeDetailPage from "@/pages/app/organizacao/colaboradores/[id]";
 import UnitDetailPage from "@/pages/app/organizacao/unidades/[id]";
 import GovernancePage from "@/pages/app/governanca";
 import GovernanceDetailPage from "@/pages/app/governanca/[id]";
@@ -20,8 +26,6 @@ import AdminDashboardPage from "@/pages/app/admin/index";
 import ProductKnowledgeAdminPage from "@/pages/app/admin/base-conhecimento";
 import LegislacoesPage from "@/pages/app/qualidade/legislacoes";
 import LegislationDetailPage from "@/pages/app/qualidade/legislacoes/[id]";
-import ColaboradoresPage from "@/pages/app/qualidade/colaboradores";
-import ColaboradorDetailPage from "@/pages/app/qualidade/colaboradores/[id]";
 import DocumentacaoPage from "@/pages/app/qualidade/documentacao";
 import DocumentDetailPage from "@/pages/app/qualidade/documentacao/[id]";
 import AcceptInvitePage from "@/pages/accept-invite";
@@ -49,29 +53,35 @@ function AdminPages() {
 function AppPages() {
   return (
     <Switch>
-      <Route path="/organizacao" component={OrganizacaoPage} />
-      <Route path="/organizacao/unidades" component={OrganizacaoPage} />
+      <Route path="/organizacao" component={OrganizacaoOverviewPage} />
+      <Route path="/organizacao/colaboradores" component={OrganizacaoEmployeesPage} />
+      <Route path="/organizacao/colaboradores/:id" component={OrganizacaoEmployeeDetailPage} />
+      <Route path="/organizacao/unidades" component={OrganizacaoUnitsPage} />
       <Route path="/organizacao/unidades/:id" component={UnitDetailPage} />
+      <Route path="/organizacao/departamentos" component={OrganizacaoDepartmentsPage} />
+      <Route path="/organizacao/cargos" component={OrganizacaoPositionsPage} />
+      <Route path="/organizacao/usuarios" component={OrganizacaoUsersPage} />
       <Route path="/governanca/planejamento" component={GovernancePage} />
       <Route path="/governanca/planejamento/:id" component={GovernanceDetailPage} />
       <Route path="/governanca/riscos-oportunidades" component={GovernanceRiskOpportunityPage} />
       <Route path="/qualidade/legislacoes" component={LegislacoesPage} />
       <Route path="/qualidade/legislacoes/:id" component={LegislationDetailPage} />
-      <Route path="/qualidade/colaboradores" component={ColaboradoresPage} />
-      <Route path="/qualidade/colaboradores/:id" component={ColaboradorDetailPage} />
       <Route path="/qualidade/documentacao" component={DocumentacaoPage} />
       <Route path="/qualidade/documentacao/:id" component={DocumentDetailPage} />
       <Route path="/app" component={AppIndex} />
-      <Route path="/app/organizacao" component={OrganizacaoPage} />
-      <Route path="/app/organizacao/unidades" component={OrganizacaoPage} />
+      <Route path="/app/organizacao" component={OrganizacaoOverviewPage} />
+      <Route path="/app/organizacao/colaboradores" component={OrganizacaoEmployeesPage} />
+      <Route path="/app/organizacao/colaboradores/:id" component={OrganizacaoEmployeeDetailPage} />
+      <Route path="/app/organizacao/unidades" component={OrganizacaoUnitsPage} />
       <Route path="/app/organizacao/unidades/:id" component={UnitDetailPage} />
+      <Route path="/app/organizacao/departamentos" component={OrganizacaoDepartmentsPage} />
+      <Route path="/app/organizacao/cargos" component={OrganizacaoPositionsPage} />
+      <Route path="/app/organizacao/usuarios" component={OrganizacaoUsersPage} />
       <Route path="/app/governanca/planejamento" component={GovernancePage} />
       <Route path="/app/governanca/planejamento/:id" component={GovernanceDetailPage} />
       <Route path="/app/governanca/riscos-oportunidades" component={GovernanceRiskOpportunityPage} />
       <Route path="/app/qualidade/legislacoes" component={LegislacoesPage} />
       <Route path="/app/qualidade/legislacoes/:id" component={LegislationDetailPage} />
-      <Route path="/app/qualidade/colaboradores" component={ColaboradoresPage} />
-      <Route path="/app/qualidade/colaboradores/:id" component={ColaboradorDetailPage} />
       <Route path="/app/qualidade/documentacao" component={DocumentacaoPage} />
       <Route path="/app/qualidade/documentacao/:id" component={DocumentDetailPage} />
       <Route component={NotFound} />

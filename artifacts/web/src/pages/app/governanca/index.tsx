@@ -7,7 +7,6 @@ import {
   usePageSubtitle,
   usePageTitle,
 } from "@/contexts/LayoutContext";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -33,7 +32,6 @@ import {
   FileSpreadsheet,
   Landmark,
   Plus,
-  ShieldAlert,
 } from "lucide-react";
 
 export default function GovernancePage() {
@@ -177,82 +175,23 @@ export default function GovernancePage() {
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">
               Plano Vigente
             </h3>
-            <div className="grid grid-cols-4 gap-x-8 gap-y-6">
-              <div>
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
-                  Título
-                </p>
-                <p className="text-[14px] text-foreground font-medium">
-                  {currentPlan.title}
-                </p>
-                <Badge variant="secondary" className="mt-2">
-                  {GOVERNANCE_STATUS_LABELS[currentPlan.status] ||
-                    currentPlan.status}
-                </Badge>
-              </div>
-              <div>
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
-                  Próxima Revisão
-                </p>
-                <p className="text-[14px] text-foreground">
-                  {formatGovernanceDate(currentPlan.nextReviewAt)}
-                </p>
-                <p className="mt-1 text-[12px] text-muted-foreground">
-                  Frequência: {currentPlan.reviewFrequencyMonths} meses
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
-                  Pendências
-                </p>
-                <div className="flex items-center gap-2">
-                  <p className="text-[14px] text-foreground">
-                    {currentPlan.complianceIssues.length}
-                  </p>
-                  {currentPlan.complianceIssues.length > 0 && (
-                    <ShieldAlert className="h-3.5 w-3.5 text-amber-500" />
-                  )}
-                </div>
-                <p className="mt-1 text-[12px] text-muted-foreground">
-                  SWOT: {currentPlan.metrics.swotCount} · Objetivos:{" "}
-                  {currentPlan.metrics.objectiveCount}
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1.5">
-                  Ações Abertas
-                </p>
-                <p className="text-[14px] text-foreground">
-                  {currentPlan.metrics.openActionCount}
-                </p>
-                <p className="mt-1 text-[12px] text-muted-foreground">
-                  Em atraso: {currentPlan.metrics.overdueActionCount}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">
-              Resumo
-            </h3>
             <button
               type="button"
               onClick={() =>
                 navigate(`/governanca/planejamento/${currentPlan.id}`)
               }
-              className="w-full text-left group flex items-center justify-between gap-4 py-4 border-b border-border/40 hover:bg-muted/20 -mx-2 px-2 rounded-lg transition-colors"
+              className="group -mx-2 flex w-full items-center justify-between gap-4 rounded-lg border-b border-border/40 px-2 py-4 text-left transition-colors hover:bg-muted/20"
             >
               <div>
                 <p className="text-[14px] font-medium text-foreground">
                   {currentPlan.title}
                 </p>
-                <p className="mt-1 text-[13px] text-muted-foreground leading-relaxed">
+                <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
                   {currentPlan.executiveSummary ||
                     "Abra o plano para consolidar contexto, SWOT, partes interessadas e evidências formais."}
                 </p>
               </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-foreground shrink-0 transition-colors" />
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-foreground" />
             </button>
           </div>
 

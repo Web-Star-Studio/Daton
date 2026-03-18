@@ -72,7 +72,12 @@ import {
   type UpdateUserRoleBodyRole,
 } from "@workspace/api-client-react";
 
-type Tab = "visao-geral" | "unidades" | "departamentos" | "cargos" | "usuarios";
+export type OrganizationSection =
+  | "visao-geral"
+  | "unidades"
+  | "departamentos"
+  | "cargos"
+  | "usuarios";
 
 type UnitFormData = {
   name: string;
@@ -165,13 +170,19 @@ const emptyInviteForm: InviteFormData = {
   modules: [],
 };
 
-export default function OrganizacaoPage() {
+type OrganizacaoPageProps = {
+  section?: OrganizationSection;
+} & Record<string, unknown>;
+
+export default function OrganizacaoPage({
+  section = "visao-geral",
+}: OrganizacaoPageProps = {}) {
   const { organization, user: currentUser, login } = useAuth();
-  const { isOrgAdmin, canWriteModule, hasModuleAccess } = usePermissions();
+  const { isOrgAdmin, canWriteModule } = usePermissions();
   const orgId = organization?.id;
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
-  const [activeTab, setActiveTab] = useState<Tab>("visao-geral");
+  const activeTab = section;
 
   const { data: units, isLoading: unitsLoading } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
@@ -632,21 +643,6 @@ export default function OrganizacaoPage() {
   ]);
   useHeaderActions(headerActions);
 
-  const allTabs: { key: Tab; label: string; module?: AppModule }[] = [
-    { key: "visao-geral", label: "Visão Geral" },
-    { key: "unidades", label: "Unidades", module: "units" },
-    { key: "departamentos", label: "Departamentos", module: "departments" },
-    { key: "cargos", label: "Cargos", module: "positions" },
-    ...(isOrgAdmin ? [{ key: "usuarios" as const, label: "Usuários" }] : []),
-  ];
-  const tabs = allTabs.filter((t) => !t.module || hasModuleAccess(t.module));
-
-  useEffect(() => {
-    if (!tabs.some((tab) => tab.key === activeTab)) {
-      setActiveTab("visao-geral");
-    }
-  }, [activeTab, tabs]);
-
   if (!orgId) return null;
 
   const onUnitSubmit = async (data: UnitFormData) => {
@@ -725,28 +721,6 @@ export default function OrganizacaoPage() {
 
   return (
     <>
-      <div className="mb-6">
-        <nav className="flex items-center gap-6 border-b border-border">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => {
-                setActiveTab(tab.key);
-                setSelectedInviteIds(new Set());
-              }}
-              className={cn(
-                "relative pb-2.5 text-[13px] font-medium transition-colors duration-200 cursor-pointer hover:text-foreground",
-                activeTab === tab.key
-                  ? "text-foreground font-semibold after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:bg-foreground after:rounded-full"
-                  : "text-muted-foreground",
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
-
       {activeTab === "visao-geral" && (
         <div className="space-y-10">
           {/* Dados Cadastrais */}
