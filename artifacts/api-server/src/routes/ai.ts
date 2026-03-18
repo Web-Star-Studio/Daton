@@ -21,6 +21,12 @@ function parseConversationId(value: string | string[] | undefined): number | nul
   return convId;
 }
 
+function buildConversationTitle(input: string): string {
+  const normalized = input.replace(/\s+/g, " ").trim();
+  if (!normalized) return "Nova conversa";
+  return normalized.length > 60 ? `${normalized.slice(0, 57)}...` : normalized;
+}
+
 async function executeReadOnlyQuery(sql: string, orgId: number): Promise<{ rows: Record<string, unknown>[]; error?: string }> {
   const sanitized = sql.replace(/\$ORG_ID/g, String(orgId));
 
@@ -110,6 +116,33 @@ router.get("/ai/conversations/:convId/messages", requireAuth, async (req: Reques
   res.json(msgs);
 });
 
+router.delete("/ai/conversations/:convId", requireAuth, async (req: Request, res: Response) => {
+  const { userId, organizationId } = req.auth!;
+  const convId = parseConversationId(req.params.convId);
+
+  if (convId === null) {
+    res.status(400).json({ error: "ID de conversa inválido" });
+    return;
+  }
+
+  const [conv] = await db
+    .select()
+    .from(conversations)
+    .where(and(
+      eq(conversations.id, convId),
+      eq(conversations.userId, userId),
+      eq(conversations.organizationId, organizationId),
+    ));
+
+  if (!conv) {
+    res.status(404).json({ error: "Conversa não encontrada" });
+    return;
+  }
+
+  await db.delete(conversations).where(eq(conversations.id, convId));
+  res.sendStatus(204);
+});
+
 router.post("/ai/conversations/:convId/messages", requireAuth, async (req: Request, res: Response) => {
   const { userId, organizationId } = req.auth!;
   const convId = parseConversationId(req.params.convId);
@@ -150,6 +183,17 @@ router.post("/ai/conversations/:convId/messages", requireAuth, async (req: Reque
     .from(messages)
     .where(eq(messages.conversationId, convId))
     .orderBy(messages.createdAt);
+
+  if (
+    history.length === 1 &&
+    history[0]?.role === "user" &&
+    (conv.title === "Nova conversa" || conv.title === "Chat")
+  ) {
+    await db
+      .update(conversations)
+      .set({ title: buildConversationTitle(userMessage) })
+      .where(eq(conversations.id, convId));
+  }
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
