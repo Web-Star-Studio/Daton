@@ -42,6 +42,7 @@ import type {
   EmployeeProfileItemAttachment,
   EmployeeTraining,
   EmployeeAwareness,
+  EmployeeDetail,
   LinkedUnit,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -50,6 +51,7 @@ import { EmployeeProfileItemDialog } from "@/components/employees/employee-profi
 import { ProfileItemAttachmentsField } from "@/components/employees/profile-item-form-fields";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
@@ -1558,6 +1560,198 @@ export default function ColaboradorDetailPage() {
           <ConscientizacaoTab awareness={employee.awareness || []} orgId={orgId} empId={empId} editable={canWriteEmployees} createOpen={awarenessCreateOpen} onCreateOpenChange={setAwarenessCreateOpen} />
         )}
       </div>
+
+      <Dialog
+        open={editModalOpen}
+        onOpenChange={(open) => {
+          setEditModalOpen(open);
+          if (!open) setEditStep(0);
+        }}
+        title="Editar Colaborador"
+        description={["Informações pessoais", "Informações profissionais"][editStep]}
+        size="lg"
+      >
+        {employee && (
+          <EditEmployeeModal
+            employee={employee}
+            positions={positions}
+            departments={departments}
+            step={editStep}
+            onStepChange={setEditStep}
+            onSave={async (data) => {
+              await updateMutation.mutateAsync({ orgId: orgId!, empId, data });
+              invalidate();
+              queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey(orgId!) });
+              setEditModalOpen(false);
+              setEditStep(0);
+            }}
+            onCancel={() => { setEditModalOpen(false); setEditStep(0); }}
+            isPending={updateMutation.isPending}
+          />
+        )}
+      </Dialog>
+    </>
+  );
+}
+
+function EditEmployeeModal({
+  employee,
+  positions,
+  departments,
+  step,
+  onStepChange,
+  onSave,
+  onCancel,
+  isPending,
+}: {
+  employee: EmployeeDetail;
+  positions: Array<{ name: string }>;
+  departments: Array<{ name: string }>;
+  step: number;
+  onStepChange: (s: number) => void;
+  onSave: (data: Record<string, unknown>) => Promise<void>;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  const [form, setForm] = useState({
+    name: employee.name || "",
+    cpf: employee.cpf || "",
+    email: employee.email || "",
+    phone: employee.phone || "",
+    position: employee.position || "",
+    department: employee.department || "",
+    contractType: employee.contractType || "clt",
+    status: employee.status || "active",
+    admissionDate: employee.admissionDate || "",
+    terminationDate: employee.terminationDate || "",
+  });
+
+  const update = (key: string, val: string) => setForm((prev) => ({ ...prev, [key]: val }));
+
+  const handleSubmit = async () => {
+    await onSave({
+      name: form.name.trim(),
+      cpf: form.cpf.trim() || null,
+      email: form.email.trim() || null,
+      phone: form.phone.trim() || null,
+      position: form.position || null,
+      department: form.department || null,
+      contractType: form.contractType,
+      status: form.status,
+      admissionDate: form.admissionDate || null,
+      terminationDate: form.terminationDate || null,
+    });
+  };
+
+  const steps = ["Pessoal", "Profissional"];
+
+  return (
+    <>
+      <div className="flex items-center gap-1 mb-5">
+        {steps.map((label, i) => (
+          <React.Fragment key={label}>
+            {i > 0 && <div className="h-px flex-1 bg-border" />}
+            <button
+              type="button"
+              onClick={() => onStepChange(i)}
+              className={cn(
+                "text-[11px] font-medium px-2.5 py-1 rounded-full transition-colors whitespace-nowrap cursor-pointer",
+                step === i
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          </React.Fragment>
+        ))}
+      </div>
+
+      {step === 0 && (
+        <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+          <div>
+            <Label>Nome completo *</Label>
+            <Input value={form.name} onChange={(e) => update("name", e.target.value)} className="mt-1" />
+          </div>
+          <div>
+            <Label>CPF</Label>
+            <Input value={form.cpf} onChange={(e) => update("cpf", e.target.value)} className="mt-1" placeholder="000.000.000-00" />
+          </div>
+          <div>
+            <Label>E-mail</Label>
+            <Input value={form.email} onChange={(e) => update("email", e.target.value)} className="mt-1" type="email" />
+          </div>
+          <div>
+            <Label>Telefone</Label>
+            <Input value={form.phone} onChange={(e) => update("phone", e.target.value)} className="mt-1" />
+          </div>
+        </div>
+      )}
+
+      {step === 1 && (
+        <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+          <div>
+            <Label>Cargo</Label>
+            <Select value={form.position} onChange={(e) => update("position", e.target.value)} className="mt-1">
+              <option value="">Selecionar cargo</option>
+              {positions.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+            </Select>
+          </div>
+          <div>
+            <Label>Departamento</Label>
+            <Select value={form.department} onChange={(e) => update("department", e.target.value)} className="mt-1">
+              <option value="">Selecionar departamento</option>
+              {departments.map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
+            </Select>
+          </div>
+          <div>
+            <Label>Tipo de Contrato</Label>
+            <Select value={form.contractType} onChange={(e) => update("contractType", e.target.value)} className="mt-1">
+              <option value="clt">CLT</option>
+              <option value="pj">PJ</option>
+              <option value="intern">Estagiário</option>
+              <option value="temporary">Temporário</option>
+            </Select>
+          </div>
+          <div>
+            <Label>Status</Label>
+            <Select value={form.status} onChange={(e) => update("status", e.target.value)} className="mt-1">
+              <option value="active">Ativo</option>
+              <option value="inactive">Inativo</option>
+              <option value="on_leave">Afastado</option>
+            </Select>
+          </div>
+          <div>
+            <Label>Data de Admissão *</Label>
+            <Input value={form.admissionDate} onChange={(e) => update("admissionDate", e.target.value)} className="mt-1" type="date" />
+          </div>
+          <div>
+            <Label>Data de Desligamento</Label>
+            <Input value={form.terminationDate} onChange={(e) => update("terminationDate", e.target.value)} className="mt-1" type="date" />
+          </div>
+        </div>
+      )}
+
+      <DialogFooter>
+        {step > 0 ? (
+          <Button type="button" variant="outline" size="sm" onClick={() => onStepChange(step - 1)}>
+            Anterior
+          </Button>
+        ) : (
+          <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+            Cancelar
+          </Button>
+        )}
+        {step < steps.length - 1 ? (
+          <Button type="button" size="sm" onClick={() => onStepChange(step + 1)}>
+            Próximo
+          </Button>
+        ) : (
+          <Button type="button" size="sm" onClick={handleSubmit} isLoading={isPending} disabled={!form.name.trim()}>
+            Salvar
+          </Button>
+        )}
+      </DialogFooter>
     </>
   );
 }
