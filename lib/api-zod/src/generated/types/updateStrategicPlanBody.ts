@@ -32,5 +32,6 @@ export interface UpdateStrategicPlanBody {
   legacyMethodology?: string | null;
   legacyIndicatorsNotes?: string | null;
   legacyRevisionHistory?: StrategicPlanLegacyRevisionEntry[] | null;
+  reviewerIds?: number[];
   importedWorkbookName?: string | null;
 }

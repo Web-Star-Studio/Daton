@@ -142,6 +142,13 @@ type ProfileItemAttachmentInput = {
   objectPath: string;
 };
 
+type EmployeeRecordAttachmentInput = {
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+};
+
 type ProfileItemInput = {
   title: string;
   description?: string | null;
@@ -167,6 +174,8 @@ type ProfileItemAttachmentRow = {
   objectPath: string;
   uploadedAt: Date | string;
 };
+
+const EMPLOYEE_RECORD_ATTACHMENT_MIME_PATTERN = /^(application\/pdf|image\/.+)$/i;
 
 function sanitizeEmployeePayload(payload: Record<string, unknown>) {
   const sanitized: Record<string, unknown> = { ...payload };
@@ -305,6 +314,80 @@ async function validateProfileItemAttachments(
   }
 
   return null;
+}
+
+function sanitizeEmployeeRecordAttachments(
+  attachments: EmployeeRecordAttachmentInput[] | undefined,
+): EmployeeRecordAttachmentInput[] | undefined {
+  if (!attachments?.length) return undefined;
+
+  return attachments.map((attachment) => ({
+    fileName: attachment.fileName.trim(),
+    fileSize: attachment.fileSize,
+    contentType: attachment.contentType.trim(),
+    objectPath: attachment.objectPath.trim(),
+  }));
+}
+
+async function validateEmployeeRecordAttachments(
+  attachments: EmployeeRecordAttachmentInput[] | undefined,
+): Promise<string | null> {
+  if (!attachments?.length) return null;
+
+  if (attachments.length > MAX_PROFILE_ITEM_ATTACHMENTS) {
+    return `Cada registro permite no máximo ${MAX_PROFILE_ITEM_ATTACHMENTS} anexos`;
+  }
+
+  for (const attachment of attachments) {
+    if (!EMPLOYEE_RECORD_ATTACHMENT_MIME_PATTERN.test(attachment.contentType)) {
+      return "Anexo inválido: apenas arquivos PDF ou imagem são permitidos";
+    }
+
+    const validationError = await validateProfileItemAttachment(attachment);
+    if (validationError) return validationError;
+  }
+
+  return null;
+}
+
+function formatEmployeeRecordAttachments(
+  attachments: EmployeeRecordAttachmentInput[] | null | undefined,
+) {
+  return Array.isArray(attachments) ? attachments : [];
+}
+
+function formatCompetencyRecord(
+  competency: typeof employeeCompetenciesTable.$inferSelect,
+) {
+  return {
+    ...competency,
+    attachments: formatEmployeeRecordAttachments(competency.attachments),
+    createdAt: competency.createdAt instanceof Date ? competency.createdAt.toISOString() : competency.createdAt,
+    updatedAt: competency.updatedAt instanceof Date ? competency.updatedAt.toISOString() : competency.updatedAt,
+  };
+}
+
+function formatTrainingRecord(
+  training: typeof employeeTrainingsTable.$inferSelect,
+) {
+  return {
+    ...training,
+    attachments: formatEmployeeRecordAttachments(training.attachments),
+    status: deriveTrainingStatus(training.status, training.expirationDate),
+    createdAt: training.createdAt instanceof Date ? training.createdAt.toISOString() : training.createdAt,
+    updatedAt: training.updatedAt instanceof Date ? training.updatedAt.toISOString() : training.updatedAt,
+  };
+}
+
+function formatAwarenessRecord(
+  awareness: typeof employeeAwarenessTable.$inferSelect,
+) {
+  return {
+    ...awareness,
+    attachments: formatEmployeeRecordAttachments(awareness.attachments),
+    createdAt: awareness.createdAt instanceof Date ? awareness.createdAt.toISOString() : awareness.createdAt,
+    updatedAt: awareness.updatedAt instanceof Date ? awareness.updatedAt.toISOString() : awareness.updatedAt,
+  };
 }
 
 async function validateProfileItemInputs(items: ProfileItemInput[] | undefined): Promise<string | null> {
@@ -625,22 +708,9 @@ router.get("/organizations/:orgId/employees/:empId", requireAuth, async (req, re
   res.json({
     ...formatEmployee(rows[0]),
     units: linkedUnits,
-    competencies: competencies.map(c => ({
-      ...c,
-      createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
-      updatedAt: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
-    })),
-    trainings: trainings.map(t => ({
-      ...t,
-      status: deriveTrainingStatus(t.status, t.expirationDate),
-      createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
-      updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
-    })),
-    awareness: awareness.map(a => ({
-      ...a,
-      createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt,
-      updatedAt: a.updatedAt instanceof Date ? a.updatedAt.toISOString() : a.updatedAt,
-    })),
+    competencies: competencies.map(formatCompetencyRecord),
+    trainings: trainings.map(formatTrainingRecord),
+    awareness: awareness.map(formatAwarenessRecord),
     professionalExperiences: profileItems.professionalExperiences,
     educationCertifications: profileItems.educationCertifications,
   });
@@ -702,7 +772,7 @@ router.get("/organizations/:orgId/employees/:empId/competencies", requireAuth, a
   if (!emp) { res.status(404).json({ error: "Colaborador não encontrado" }); return; }
 
   const rows = await db.select().from(employeeCompetenciesTable).where(eq(employeeCompetenciesTable.employeeId, params.data.empId)).orderBy(employeeCompetenciesTable.name);
-  res.json(rows);
+  res.json(rows.map(formatCompetencyRecord));
 });
 
 router.post("/organizations/:orgId/employees/:empId/competencies", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
@@ -716,12 +786,17 @@ router.post("/organizations/:orgId/employees/:empId/competencies", requireAuth, 
   const body = CreateCompetencyBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
+  const attachments = sanitizeEmployeeRecordAttachments(body.data.attachments);
+  const attachmentValidationError = await validateEmployeeRecordAttachments(attachments);
+  if (attachmentValidationError) { res.status(400).json({ error: attachmentValidationError }); return; }
+
   const [comp] = await db.insert(employeeCompetenciesTable).values({
     ...body.data,
+    attachments: attachments || [],
     employeeId: params.data.empId,
   }).returning();
 
-  res.status(201).json(comp);
+  res.status(201).json(formatCompetencyRecord(comp));
 });
 
 router.patch("/organizations/:orgId/employees/:empId/competencies/:compId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
@@ -733,13 +808,22 @@ router.patch("/organizations/:orgId/employees/:empId/competencies/:compId", requ
   const body = UpdateCompetencyBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
+  const attachments = body.data.attachments === undefined
+    ? undefined
+    : sanitizeEmployeeRecordAttachments(body.data.attachments);
+  const attachmentValidationError = await validateEmployeeRecordAttachments(attachments);
+  if (attachmentValidationError) { res.status(400).json({ error: attachmentValidationError }); return; }
+
   const [comp] = await db.update(employeeCompetenciesTable)
-    .set(body.data)
+    .set({
+      ...body.data,
+      ...(attachments !== undefined ? { attachments } : {}),
+    })
     .where(and(eq(employeeCompetenciesTable.id, params.data.compId), eq(employeeCompetenciesTable.employeeId, params.data.empId)))
     .returning();
 
   if (!comp) { res.status(404).json({ error: "Competência não encontrada" }); return; }
-  res.json(comp);
+  res.json(formatCompetencyRecord(comp));
 });
 
 router.delete("/organizations/:orgId/employees/:empId/competencies/:compId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
@@ -765,12 +849,7 @@ router.get("/organizations/:orgId/employees/:empId/trainings", requireAuth, asyn
   if (!emp) { res.status(404).json({ error: "Colaborador não encontrado" }); return; }
 
   const rows = await db.select().from(employeeTrainingsTable).where(eq(employeeTrainingsTable.employeeId, params.data.empId)).orderBy(employeeTrainingsTable.createdAt);
-  res.json(rows.map(t => ({
-    ...t,
-    status: deriveTrainingStatus(t.status, t.expirationDate),
-    createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
-    updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
-  })));
+  res.json(rows.map(formatTrainingRecord));
 });
 
 router.post("/organizations/:orgId/employees/:empId/trainings", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
@@ -784,12 +863,17 @@ router.post("/organizations/:orgId/employees/:empId/trainings", requireAuth, req
   const body = CreateTrainingBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
+  const attachments = sanitizeEmployeeRecordAttachments(body.data.attachments);
+  const attachmentValidationError = await validateEmployeeRecordAttachments(attachments);
+  if (attachmentValidationError) { res.status(400).json({ error: attachmentValidationError }); return; }
+
   const [training] = await db.insert(employeeTrainingsTable).values({
     ...body.data,
+    attachments: attachments || [],
     employeeId: params.data.empId,
   }).returning();
 
-  res.status(201).json(training);
+  res.status(201).json(formatTrainingRecord(training));
 });
 
 router.patch("/organizations/:orgId/employees/:empId/trainings/:trainId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
@@ -801,13 +885,22 @@ router.patch("/organizations/:orgId/employees/:empId/trainings/:trainId", requir
   const body = UpdateTrainingBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
+  const attachments = body.data.attachments === undefined
+    ? undefined
+    : sanitizeEmployeeRecordAttachments(body.data.attachments);
+  const attachmentValidationError = await validateEmployeeRecordAttachments(attachments);
+  if (attachmentValidationError) { res.status(400).json({ error: attachmentValidationError }); return; }
+
   const [training] = await db.update(employeeTrainingsTable)
-    .set(body.data)
+    .set({
+      ...body.data,
+      ...(attachments !== undefined ? { attachments } : {}),
+    })
     .where(and(eq(employeeTrainingsTable.id, params.data.trainId), eq(employeeTrainingsTable.employeeId, params.data.empId)))
     .returning();
 
   if (!training) { res.status(404).json({ error: "Treinamento não encontrado" }); return; }
-  res.json(training);
+  res.json(formatTrainingRecord(training));
 });
 
 router.delete("/organizations/:orgId/employees/:empId/trainings/:trainId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
@@ -833,7 +926,7 @@ router.get("/organizations/:orgId/employees/:empId/awareness", requireAuth, asyn
   if (!emp) { res.status(404).json({ error: "Colaborador não encontrado" }); return; }
 
   const rows = await db.select().from(employeeAwarenessTable).where(eq(employeeAwarenessTable.employeeId, params.data.empId)).orderBy(employeeAwarenessTable.date);
-  res.json(rows);
+  res.json(rows.map(formatAwarenessRecord));
 });
 
 router.post("/organizations/:orgId/employees/:empId/awareness", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
@@ -847,12 +940,17 @@ router.post("/organizations/:orgId/employees/:empId/awareness", requireAuth, req
   const body = CreateAwarenessBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
+  const attachments = sanitizeEmployeeRecordAttachments(body.data.attachments);
+  const attachmentValidationError = await validateEmployeeRecordAttachments(attachments);
+  if (attachmentValidationError) { res.status(400).json({ error: attachmentValidationError }); return; }
+
   const [record] = await db.insert(employeeAwarenessTable).values({
     ...body.data,
+    attachments: attachments || [],
     employeeId: params.data.empId,
   }).returning();
 
-  res.status(201).json(record);
+  res.status(201).json(formatAwarenessRecord(record));
 });
 
 router.patch("/organizations/:orgId/employees/:empId/awareness/:awaId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
@@ -864,13 +962,22 @@ router.patch("/organizations/:orgId/employees/:empId/awareness/:awaId", requireA
   const body = UpdateAwarenessBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
+  const attachments = body.data.attachments === undefined
+    ? undefined
+    : sanitizeEmployeeRecordAttachments(body.data.attachments);
+  const attachmentValidationError = await validateEmployeeRecordAttachments(attachments);
+  if (attachmentValidationError) { res.status(400).json({ error: attachmentValidationError }); return; }
+
   const [record] = await db.update(employeeAwarenessTable)
-    .set(body.data)
+    .set({
+      ...body.data,
+      ...(attachments !== undefined ? { attachments } : {}),
+    })
     .where(and(eq(employeeAwarenessTable.id, params.data.awaId), eq(employeeAwarenessTable.employeeId, params.data.empId)))
     .returning();
 
   if (!record) { res.status(404).json({ error: "Registro não encontrado" }); return; }
-  res.json(record);
+  res.json(formatAwarenessRecord(record));
 });
 
 router.delete("/organizations/:orgId/employees/:empId/awareness/:awaId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {

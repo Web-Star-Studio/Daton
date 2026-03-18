@@ -19,6 +19,7 @@ import { NotificationsPanel } from "@/components/notifications/NotificationsPane
 import { getListNotificationsQueryKey, useListNotifications } from "@workspace/api-client-react";
 
 const datonLogo = "/images/daton-logo.png";
+const appBg = "/images/bg-auth.png";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, organization } = useAuth();
@@ -144,10 +145,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const showGovernanca = hasModuleAccess("governance");
 
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden p-2.5 gap-2.5">
+    <div
+      className="flex h-screen w-full overflow-hidden gap-2.5 bg-cover bg-center bg-no-repeat p-2.5"
+      style={{
+        backgroundImage: `linear-gradient(rgba(248, 250, 252, 0.46), rgba(248, 250, 252, 0.46)), url(${appBg})`,
+      }}
+    >
       <aside 
         className={cn(
-          "flex flex-col bg-white rounded-2xl border border-border/60 shadow-sm transition-all duration-300 z-20 shrink-0",
+          "z-20 flex shrink-0 flex-col rounded-2xl border border-border/60 bg-white/80 shadow-sm backdrop-blur-md transition-all duration-300",
           isSidebarOpen ? "w-[228px]" : "w-14"
         )}
       >
@@ -237,7 +243,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
           {qualidadePopover && showQualidade && (
             <div
-              className="fixed z-[100] min-w-[180px] bg-white border border-border/60 rounded-xl shadow-lg py-2 px-1.5 animate-[popoverIn_150ms_cubic-bezier(0.16,1,0.3,1)]"
+              className="fixed z-[100] min-w-[180px] rounded-xl border border-border/60 bg-white/88 px-1.5 py-2 shadow-lg backdrop-blur-md animate-[popoverIn_150ms_cubic-bezier(0.16,1,0.3,1)]"
               style={{ top: popoverPos.top, left: popoverPos.left }}
               onMouseEnter={() => {
                 if (popoverTimeoutRef.current) clearTimeout(popoverTimeoutRef.current);
@@ -267,7 +273,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
           {governancaPopover && showGovernanca && (
             <div
-              className="fixed z-[100] min-w-[180px] bg-white border border-border/60 rounded-xl shadow-lg py-2 px-1.5 animate-[popoverIn_150ms_cubic-bezier(0.16,1,0.3,1)]"
+              className="fixed z-[100] min-w-[180px] rounded-xl border border-border/60 bg-white/88 px-1.5 py-2 shadow-lg backdrop-blur-md animate-[popoverIn_150ms_cubic-bezier(0.16,1,0.3,1)]"
               style={{ top: govPopoverPos.top, left: govPopoverPos.left }}
               onMouseEnter={() => {
                 if (govPopoverTimeoutRef.current) clearTimeout(govPopoverTimeoutRef.current);
@@ -319,8 +325,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
-        <header className="h-14 flex items-center justify-between px-6 border-b border-border/40 sticky top-0 z-10">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/60 bg-white/78 shadow-sm backdrop-blur-md">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border/40 bg-white/42 px-6 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(!isSidebarOpen)}

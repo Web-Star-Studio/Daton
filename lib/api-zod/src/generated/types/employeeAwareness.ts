@@ -5,6 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
 
 export interface EmployeeAwareness {
   id: number;
@@ -14,6 +15,7 @@ export interface EmployeeAwareness {
   date: string;
   verificationMethod?: string | null;
   result?: string | null;
+  attachments: EmployeeRecordAttachment[];
   createdAt?: string;
   updatedAt?: string;
 }

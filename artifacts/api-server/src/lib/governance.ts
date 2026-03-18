@@ -13,6 +13,7 @@ import {
   strategicPlanRiskOpportunityEffectivenessReviewsTable,
   strategicPlanRiskOpportunityItemsTable,
   strategicPlanRevisionsTable,
+  strategicPlanReviewersTable,
   strategicPlansTable,
   strategicPlanSwotItemsTable,
   unitsTable,
@@ -26,6 +27,7 @@ import { ObjectStorageService } from "./objectStorage";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const objectStorageService = new ObjectStorageService();
+type GovernanceMutationExecutor = Pick<typeof db, "insert" | "update" | "select">;
 
 export interface StrategicPlanSummaryMetrics {
   swotCount: number;
@@ -988,6 +990,7 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
     actions,
     riskOpportunityItems,
     revisions,
+    reviewerRows,
   ] = await Promise.all([
     db
       .select()
@@ -1044,6 +1047,7 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
       .select({
         id: strategicPlanRevisionsTable.id,
         planId: strategicPlanRevisionsTable.planId,
+        reviewCycle: strategicPlanRevisionsTable.reviewCycle,
         revisionNumber: strategicPlanRevisionsTable.revisionNumber,
         revisionDate: strategicPlanRevisionsTable.revisionDate,
         reason: strategicPlanRevisionsTable.reason,
@@ -1058,6 +1062,23 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
       .leftJoin(usersTable, eq(strategicPlanRevisionsTable.approvedById, usersTable.id))
       .where(eq(strategicPlanRevisionsTable.planId, planId))
       .orderBy(desc(strategicPlanRevisionsTable.revisionNumber)),
+    db
+      .select({
+        id: strategicPlanReviewersTable.id,
+        planId: strategicPlanReviewersTable.planId,
+        userId: strategicPlanReviewersTable.userId,
+        reviewCycle: strategicPlanReviewersTable.reviewCycle,
+        status: strategicPlanReviewersTable.status,
+        readAt: strategicPlanReviewersTable.readAt,
+        decidedAt: strategicPlanReviewersTable.decidedAt,
+        comment: strategicPlanReviewersTable.comment,
+        createdAt: strategicPlanReviewersTable.createdAt,
+        name: usersTable.name,
+      })
+      .from(strategicPlanReviewersTable)
+      .innerJoin(usersTable, eq(strategicPlanReviewersTable.userId, usersTable.id))
+      .where(eq(strategicPlanReviewersTable.planId, planId))
+      .orderBy(desc(strategicPlanReviewersTable.reviewCycle), usersTable.name),
   ]);
 
   const actionIds = actions.map((action) => action.id);
@@ -1093,6 +1114,7 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
         item.coOwnerUserId,
       ]),
       ...effectivenessReviews.map((review) => review.reviewedById),
+      ...(plan.reviewerIds || []),
     ].filter((value): value is number => typeof value === "number"),
   );
   const unitIds = uniqueNumbers(
@@ -1171,6 +1193,20 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
     createdAt: isoDate(review.createdAt),
   }));
 
+  const currentReviewCycle = reviewerRows[0]?.reviewCycle ?? null;
+  const reviewersWithIso = reviewerRows.map((reviewer) => ({
+    id: reviewer.id,
+    planId: reviewer.planId,
+    userId: reviewer.userId,
+    name: reviewer.name,
+    reviewCycle: reviewer.reviewCycle,
+    status: reviewer.status,
+    readAt: isoDate(reviewer.readAt),
+    decidedAt: isoDate(reviewer.decidedAt),
+    comment: reviewer.comment || null,
+    createdAt: isoDate(reviewer.createdAt),
+  }));
+
   const riskOpportunityItemsWithIso = riskOpportunityItems.map((item) => {
     const linkedActions = actionsWithUnits.filter(
       (action) => action.riskOpportunityItemId === item.id,
@@ -1215,6 +1251,9 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
     ...item,
     revisionDate: isoDate(item.revisionDate),
     createdAt: isoDate(item.createdAt),
+    reviewers: reviewersWithIso.filter(
+      (reviewer) => reviewer.reviewCycle === item.reviewCycle,
+    ),
   }));
 
   const metrics = buildStrategicPlanMetrics({
@@ -1237,6 +1276,8 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
 
   return {
     ...plan,
+    reviewerIds: plan.reviewerIds || [],
+    currentReviewCycle,
     createdAt: isoDate(plan.createdAt),
     updatedAt: isoDate(plan.updatedAt),
     submittedAt: isoDate(plan.submittedAt),
@@ -1249,6 +1290,12 @@ export async function getStrategicPlanDetail(planId: number, organizationId: num
     objectives: objectivesWithIso,
     actions: actionsWithUnits,
     riskOpportunityItems: riskOpportunityItemsWithIso,
+    reviewers:
+      currentReviewCycle == null
+        ? []
+        : reviewersWithIso.filter(
+            (reviewer) => reviewer.reviewCycle === currentReviewCycle,
+          ),
     revisions: revisionsWithIso,
     metrics,
     complianceIssues,
@@ -1259,6 +1306,7 @@ export async function createStrategicPlanEvidenceDocument({
   plan,
   approvedById,
   detail,
+  executor = db,
 }: {
   plan: {
     organizationId: number;
@@ -1273,6 +1321,7 @@ export async function createStrategicPlanEvidenceDocument({
   };
   approvedById: number;
   detail: Awaited<ReturnType<typeof getStrategicPlanDetail>>;
+  executor?: GovernanceMutationExecutor;
 }): Promise<number> {
   const revisionNumber = ((detail?.activeRevisionNumber as number | undefined) || 0) + 1;
   const lines = [
@@ -1332,7 +1381,7 @@ export async function createStrategicPlanEvidenceDocument({
     ],
   );
 
-  const [document] = await db
+  const [document] = await executor
     .insert(documentsTable)
     .values({
       organizationId: plan.organizationId,
@@ -1348,7 +1397,7 @@ export async function createStrategicPlanEvidenceDocument({
     .returning();
 
   if (impactedUnitIds.length > 0) {
-    await db.insert(documentUnitsTable).values(
+    await executor.insert(documentUnitsTable).values(
       impactedUnitIds.map((unitId) => ({
         documentId: document.id,
         unitId,
@@ -1356,7 +1405,7 @@ export async function createStrategicPlanEvidenceDocument({
     );
   }
 
-  await db.insert(documentAttachmentsTable).values({
+  await executor.insert(documentAttachmentsTable).values({
     documentId: document.id,
     versionNumber: 1,
     fileName: `planejamento-estrategico-revisao-${revisionNumber}.pdf`,
@@ -1366,7 +1415,7 @@ export async function createStrategicPlanEvidenceDocument({
     uploadedById: approvedById,
   });
 
-  await db.insert(documentVersionsTable).values({
+  await executor.insert(documentVersionsTable).values({
     documentId: document.id,
     versionNumber: 1,
     changeDescription: `Documento gerado automaticamente a partir da aprovação do plano estratégico (revisão ${revisionNumber}).`,
@@ -1380,46 +1429,54 @@ export async function createStrategicPlanEvidenceDocument({
 export async function createStrategicPlanRevision({
   planId,
   approvedById,
+  reviewCycle,
   reason,
   changeSummary,
+  detail,
+  executor = db,
 }: {
   planId: number;
   approvedById: number;
+  reviewCycle: number;
   reason?: string | null;
   changeSummary?: string | null;
+  detail?: Awaited<ReturnType<typeof getStrategicPlanDetail>>;
+  executor?: GovernanceMutationExecutor;
 }) {
-  const detail = await getStrategicPlanDetail(
+  const resolvedDetail = detail ?? await getStrategicPlanDetail(
     planId,
     (
-      await db
+      await executor
         .select({ organizationId: strategicPlansTable.organizationId })
         .from(strategicPlansTable)
         .where(eq(strategicPlansTable.id, planId))
     )[0]!.organizationId,
   );
 
-  if (!detail) {
+  if (!resolvedDetail) {
     throw new Error("Strategic plan not found");
   }
 
   const evidenceDocumentId = await createStrategicPlanEvidenceDocument({
-    plan: detail,
+    plan: resolvedDetail,
     approvedById,
-    detail,
+    detail: resolvedDetail,
+    executor,
   });
 
-  const revisionNumber = detail.activeRevisionNumber + 1;
+  const revisionNumber = resolvedDetail.activeRevisionNumber + 1;
   const snapshot = {
     generatedAt: new Date().toISOString(),
-    plan: detail,
+    plan: resolvedDetail,
   };
 
-  const [revision] = await db
+  const [revision] = await executor
     .insert(strategicPlanRevisionsTable)
     .values({
       planId,
+      reviewCycle,
       revisionNumber,
-      reason: reason || detail.reviewReason || null,
+      reason: reason || resolvedDetail.reviewReason || null,
       changeSummary: changeSummary || null,
       approvedById,
       evidenceDocumentId,
@@ -1427,17 +1484,28 @@ export async function createStrategicPlanRevision({
     })
     .returning();
 
-  await db
+  await executor
     .update(strategicPlansTable)
     .set({
       activeRevisionNumber: revisionNumber,
       approvedAt: new Date(),
-      nextReviewAt: addMonths(new Date(), detail.reviewFrequencyMonths || 12),
+      nextReviewAt: addMonths(new Date(), resolvedDetail.reviewFrequencyMonths || 12),
       reminderFlags: {},
     })
     .where(eq(strategicPlansTable.id, planId));
 
   return revision;
+}
+
+export async function getLatestStrategicPlanReviewCycle(planId: number) {
+  const [reviewer] = await db
+    .select({ reviewCycle: strategicPlanReviewersTable.reviewCycle })
+    .from(strategicPlanReviewersTable)
+    .where(eq(strategicPlanReviewersTable.planId, planId))
+    .orderBy(desc(strategicPlanReviewersTable.reviewCycle))
+    .limit(1);
+
+  return reviewer?.reviewCycle ?? 0;
 }
 
 export function isEditableStatus(status: string): boolean {

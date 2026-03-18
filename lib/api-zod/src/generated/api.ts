@@ -1375,6 +1375,19 @@ export const getEmployeeResponseTwoCompetenciesItemRequiredLevelMax = 5;
 export const getEmployeeResponseTwoCompetenciesItemAcquiredLevelMin = 0;
 export const getEmployeeResponseTwoCompetenciesItemAcquiredLevelMax = 5;
 
+export const getEmployeeResponseTwoCompetenciesItemAttachmentsItemFileSizeMax = 20971520;
+
+export const getEmployeeResponseTwoCompetenciesItemAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const getEmployeeResponseTwoTrainingsItemAttachmentsItemFileSizeMax = 20971520;
+
+export const getEmployeeResponseTwoTrainingsItemAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const getEmployeeResponseTwoAwarenessItemAttachmentsItemFileSizeMax = 20971520;
+
+export const getEmployeeResponseTwoAwarenessItemAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
 export const GetEmployeeResponse = zod
   .object({
     id: zod.number(),
@@ -1421,6 +1434,22 @@ export const GetEmployeeResponse = zod
               .min(getEmployeeResponseTwoCompetenciesItemAcquiredLevelMin)
               .max(getEmployeeResponseTwoCompetenciesItemAcquiredLevelMax),
             evidence: zod.string().nullish(),
+            attachments: zod.array(
+              zod.object({
+                fileName: zod.string(),
+                fileSize: zod
+                  .number()
+                  .max(
+                    getEmployeeResponseTwoCompetenciesItemAttachmentsItemFileSizeMax,
+                  ),
+                contentType: zod.string(),
+                objectPath: zod
+                  .string()
+                  .regex(
+                    getEmployeeResponseTwoCompetenciesItemAttachmentsItemObjectPathRegExp,
+                  ),
+              }),
+            ),
             createdAt: zod.string().datetime({}).optional(),
             updatedAt: zod.string().datetime({}).optional(),
           }),
@@ -1438,6 +1467,22 @@ export const GetEmployeeResponse = zod
             completionDate: zod.string().nullish(),
             expirationDate: zod.string().nullish(),
             status: zod.enum(["pendente", "concluido", "vencido"]),
+            attachments: zod.array(
+              zod.object({
+                fileName: zod.string(),
+                fileSize: zod
+                  .number()
+                  .max(
+                    getEmployeeResponseTwoTrainingsItemAttachmentsItemFileSizeMax,
+                  ),
+                contentType: zod.string(),
+                objectPath: zod
+                  .string()
+                  .regex(
+                    getEmployeeResponseTwoTrainingsItemAttachmentsItemObjectPathRegExp,
+                  ),
+              }),
+            ),
             createdAt: zod.string().datetime({}).optional(),
             updatedAt: zod.string().datetime({}).optional(),
           }),
@@ -1453,6 +1498,22 @@ export const GetEmployeeResponse = zod
             date: zod.string(),
             verificationMethod: zod.string().nullish(),
             result: zod.string().nullish(),
+            attachments: zod.array(
+              zod.object({
+                fileName: zod.string(),
+                fileSize: zod
+                  .number()
+                  .max(
+                    getEmployeeResponseTwoAwarenessItemAttachmentsItemFileSizeMax,
+                  ),
+                contentType: zod.string(),
+                objectPath: zod
+                  .string()
+                  .regex(
+                    getEmployeeResponseTwoAwarenessItemAttachmentsItemObjectPathRegExp,
+                  ),
+              }),
+            ),
             createdAt: zod.string().datetime({}).optional(),
             updatedAt: zod.string().datetime({}).optional(),
           }),
@@ -1578,6 +1639,11 @@ export const listCompetenciesResponseRequiredLevelMax = 5;
 export const listCompetenciesResponseAcquiredLevelMin = 0;
 export const listCompetenciesResponseAcquiredLevelMax = 5;
 
+export const listCompetenciesResponseAttachmentsItemFileSizeMax = 20971520;
+
+export const listCompetenciesResponseAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
 export const ListCompetenciesResponseItem = zod.object({
   id: zod.number(),
   employeeId: zod.number(),
@@ -1593,6 +1659,18 @@ export const ListCompetenciesResponseItem = zod.object({
     .min(listCompetenciesResponseAcquiredLevelMin)
     .max(listCompetenciesResponseAcquiredLevelMax),
   evidence: zod.string().nullish(),
+  attachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(listCompetenciesResponseAttachmentsItemFileSizeMax),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(listCompetenciesResponseAttachmentsItemObjectPathRegExp),
+    }),
+  ),
   createdAt: zod.string().datetime({}).optional(),
   updatedAt: zod.string().datetime({}).optional(),
 });
@@ -1612,6 +1690,13 @@ export const createCompetencyBodyRequiredLevelMax = 5;
 export const createCompetencyBodyAcquiredLevelMin = 0;
 export const createCompetencyBodyAcquiredLevelMax = 5;
 
+export const createCompetencyBodyAttachmentsItemFileSizeMax = 20971520;
+
+export const createCompetencyBodyAttachmentsItemObjectPathRegExp = new RegExp(
+  "^\/objects\/uploads\/.+",
+);
+export const createCompetencyBodyAttachmentsMax = 10;
+
 export const CreateCompetencyBody = zod.object({
   name: zod.string(),
   description: zod.string().optional(),
@@ -1627,6 +1712,21 @@ export const CreateCompetencyBody = zod.object({
     .max(createCompetencyBodyAcquiredLevelMax)
     .optional(),
   evidence: zod.string().optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(createCompetencyBodyAttachmentsItemFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(createCompetencyBodyAttachmentsItemObjectPathRegExp),
+      }),
+    )
+    .max(createCompetencyBodyAttachmentsMax)
+    .optional(),
 });
 
 /**
@@ -1644,6 +1744,13 @@ export const updateCompetencyBodyRequiredLevelMax = 5;
 export const updateCompetencyBodyAcquiredLevelMin = 0;
 export const updateCompetencyBodyAcquiredLevelMax = 5;
 
+export const updateCompetencyBodyAttachmentsItemFileSizeMax = 20971520;
+
+export const updateCompetencyBodyAttachmentsItemObjectPathRegExp = new RegExp(
+  "^\/objects\/uploads\/.+",
+);
+export const updateCompetencyBodyAttachmentsMax = 10;
+
 export const UpdateCompetencyBody = zod.object({
   name: zod.string().optional(),
   description: zod.string().optional(),
@@ -1659,6 +1766,21 @@ export const UpdateCompetencyBody = zod.object({
     .max(updateCompetencyBodyAcquiredLevelMax)
     .optional(),
   evidence: zod.string().optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(updateCompetencyBodyAttachmentsItemFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(updateCompetencyBodyAttachmentsItemObjectPathRegExp),
+      }),
+    )
+    .max(updateCompetencyBodyAttachmentsMax)
+    .optional(),
 });
 
 export const updateCompetencyResponseRequiredLevelMin = 0;
@@ -1666,6 +1788,11 @@ export const updateCompetencyResponseRequiredLevelMax = 5;
 
 export const updateCompetencyResponseAcquiredLevelMin = 0;
 export const updateCompetencyResponseAcquiredLevelMax = 5;
+
+export const updateCompetencyResponseAttachmentsItemFileSizeMax = 20971520;
+
+export const updateCompetencyResponseAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
 
 export const UpdateCompetencyResponse = zod.object({
   id: zod.number(),
@@ -1682,6 +1809,18 @@ export const UpdateCompetencyResponse = zod.object({
     .min(updateCompetencyResponseAcquiredLevelMin)
     .max(updateCompetencyResponseAcquiredLevelMax),
   evidence: zod.string().nullish(),
+  attachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(updateCompetencyResponseAttachmentsItemFileSizeMax),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(updateCompetencyResponseAttachmentsItemObjectPathRegExp),
+    }),
+  ),
   createdAt: zod.string().datetime({}).optional(),
   updatedAt: zod.string().datetime({}).optional(),
 });
@@ -1703,6 +1842,12 @@ export const ListTrainingsParams = zod.object({
   empId: zod.coerce.number(),
 });
 
+export const listTrainingsResponseAttachmentsItemFileSizeMax = 20971520;
+
+export const listTrainingsResponseAttachmentsItemObjectPathRegExp = new RegExp(
+  "^\/objects\/uploads\/.+",
+);
+
 export const ListTrainingsResponseItem = zod.object({
   id: zod.number(),
   employeeId: zod.number(),
@@ -1713,6 +1858,18 @@ export const ListTrainingsResponseItem = zod.object({
   completionDate: zod.string().nullish(),
   expirationDate: zod.string().nullish(),
   status: zod.enum(["pendente", "concluido", "vencido"]),
+  attachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(listTrainingsResponseAttachmentsItemFileSizeMax),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(listTrainingsResponseAttachmentsItemObjectPathRegExp),
+    }),
+  ),
   createdAt: zod.string().datetime({}).optional(),
   updatedAt: zod.string().datetime({}).optional(),
 });
@@ -1726,6 +1883,13 @@ export const CreateTrainingParams = zod.object({
   empId: zod.coerce.number(),
 });
 
+export const createTrainingBodyAttachmentsItemFileSizeMax = 20971520;
+
+export const createTrainingBodyAttachmentsItemObjectPathRegExp = new RegExp(
+  "^\/objects\/uploads\/.+",
+);
+export const createTrainingBodyAttachmentsMax = 10;
+
 export const CreateTrainingBody = zod.object({
   title: zod.string(),
   description: zod.string().optional(),
@@ -1734,6 +1898,21 @@ export const CreateTrainingBody = zod.object({
   completionDate: zod.string().optional(),
   expirationDate: zod.string().optional(),
   status: zod.enum(["pendente", "concluido", "vencido"]).optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(createTrainingBodyAttachmentsItemFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(createTrainingBodyAttachmentsItemObjectPathRegExp),
+      }),
+    )
+    .max(createTrainingBodyAttachmentsMax)
+    .optional(),
 });
 
 /**
@@ -1745,6 +1924,13 @@ export const UpdateTrainingParams = zod.object({
   trainId: zod.coerce.number(),
 });
 
+export const updateTrainingBodyAttachmentsItemFileSizeMax = 20971520;
+
+export const updateTrainingBodyAttachmentsItemObjectPathRegExp = new RegExp(
+  "^\/objects\/uploads\/.+",
+);
+export const updateTrainingBodyAttachmentsMax = 10;
+
 export const UpdateTrainingBody = zod.object({
   title: zod.string().optional(),
   description: zod.string().optional(),
@@ -1753,7 +1939,28 @@ export const UpdateTrainingBody = zod.object({
   completionDate: zod.string().optional(),
   expirationDate: zod.string().optional(),
   status: zod.enum(["pendente", "concluido", "vencido"]).optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(updateTrainingBodyAttachmentsItemFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(updateTrainingBodyAttachmentsItemObjectPathRegExp),
+      }),
+    )
+    .max(updateTrainingBodyAttachmentsMax)
+    .optional(),
 });
+
+export const updateTrainingResponseAttachmentsItemFileSizeMax = 20971520;
+
+export const updateTrainingResponseAttachmentsItemObjectPathRegExp = new RegExp(
+  "^\/objects\/uploads\/.+",
+);
 
 export const UpdateTrainingResponse = zod.object({
   id: zod.number(),
@@ -1765,6 +1972,18 @@ export const UpdateTrainingResponse = zod.object({
   completionDate: zod.string().nullish(),
   expirationDate: zod.string().nullish(),
   status: zod.enum(["pendente", "concluido", "vencido"]),
+  attachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(updateTrainingResponseAttachmentsItemFileSizeMax),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(updateTrainingResponseAttachmentsItemObjectPathRegExp),
+    }),
+  ),
   createdAt: zod.string().datetime({}).optional(),
   updatedAt: zod.string().datetime({}).optional(),
 });
@@ -1786,6 +2005,12 @@ export const ListAwarenessParams = zod.object({
   empId: zod.coerce.number(),
 });
 
+export const listAwarenessResponseAttachmentsItemFileSizeMax = 20971520;
+
+export const listAwarenessResponseAttachmentsItemObjectPathRegExp = new RegExp(
+  "^\/objects\/uploads\/.+",
+);
+
 export const ListAwarenessResponseItem = zod.object({
   id: zod.number(),
   employeeId: zod.number(),
@@ -1794,6 +2019,18 @@ export const ListAwarenessResponseItem = zod.object({
   date: zod.string(),
   verificationMethod: zod.string().nullish(),
   result: zod.string().nullish(),
+  attachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(listAwarenessResponseAttachmentsItemFileSizeMax),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(listAwarenessResponseAttachmentsItemObjectPathRegExp),
+    }),
+  ),
   createdAt: zod.string().datetime({}).optional(),
   updatedAt: zod.string().datetime({}).optional(),
 });
@@ -1807,12 +2044,34 @@ export const CreateAwarenessParams = zod.object({
   empId: zod.coerce.number(),
 });
 
+export const createAwarenessBodyAttachmentsItemFileSizeMax = 20971520;
+
+export const createAwarenessBodyAttachmentsItemObjectPathRegExp = new RegExp(
+  "^\/objects\/uploads\/.+",
+);
+export const createAwarenessBodyAttachmentsMax = 10;
+
 export const CreateAwarenessBody = zod.object({
   topic: zod.string(),
   description: zod.string().optional(),
   date: zod.string(),
   verificationMethod: zod.string().optional(),
   result: zod.string().optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(createAwarenessBodyAttachmentsItemFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(createAwarenessBodyAttachmentsItemObjectPathRegExp),
+      }),
+    )
+    .max(createAwarenessBodyAttachmentsMax)
+    .optional(),
 });
 
 /**
@@ -1824,13 +2083,40 @@ export const UpdateAwarenessParams = zod.object({
   awaId: zod.coerce.number(),
 });
 
+export const updateAwarenessBodyAttachmentsItemFileSizeMax = 20971520;
+
+export const updateAwarenessBodyAttachmentsItemObjectPathRegExp = new RegExp(
+  "^\/objects\/uploads\/.+",
+);
+export const updateAwarenessBodyAttachmentsMax = 10;
+
 export const UpdateAwarenessBody = zod.object({
   topic: zod.string().optional(),
   description: zod.string().optional(),
   date: zod.string().optional(),
   verificationMethod: zod.string().optional(),
   result: zod.string().optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(updateAwarenessBodyAttachmentsItemFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(updateAwarenessBodyAttachmentsItemObjectPathRegExp),
+      }),
+    )
+    .max(updateAwarenessBodyAttachmentsMax)
+    .optional(),
 });
+
+export const updateAwarenessResponseAttachmentsItemFileSizeMax = 20971520;
+
+export const updateAwarenessResponseAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
 
 export const UpdateAwarenessResponse = zod.object({
   id: zod.number(),
@@ -1840,6 +2126,18 @@ export const UpdateAwarenessResponse = zod.object({
   date: zod.string(),
   verificationMethod: zod.string().nullish(),
   result: zod.string().nullish(),
+  attachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(updateAwarenessResponseAttachmentsItemFileSizeMax),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(updateAwarenessResponseAttachmentsItemObjectPathRegExp),
+    }),
+  ),
   createdAt: zod.string().datetime({}).optional(),
   updatedAt: zod.string().datetime({}).optional(),
 });
@@ -3298,6 +3596,7 @@ export const CreateStrategicPlanBody = zod.object({
       }),
     )
     .nullish(),
+  reviewerIds: zod.array(zod.number()).optional(),
   importedWorkbookName: zod.string().nullish(),
 });
 
@@ -3530,6 +3829,8 @@ export const GetStrategicPlanResponse = zod.object({
       }),
     )
     .nullish(),
+  reviewerIds: zod.array(zod.number()),
+  currentReviewCycle: zod.number().nullish(),
   importedWorkbookName: zod.string().nullish(),
   activeRevisionNumber: zod.number(),
   createdAt: zod.string().nullish(),
@@ -3751,10 +4052,25 @@ export const GetStrategicPlanResponse = zod.object({
       updatedAt: zod.string().nullish(),
     }),
   ),
+  reviewers: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      userId: zod.number(),
+      name: zod.string(),
+      reviewCycle: zod.number(),
+      status: zod.enum(["pending", "approved", "rejected"]),
+      readAt: zod.string().nullish(),
+      decidedAt: zod.string().nullish(),
+      comment: zod.string().nullish(),
+      createdAt: zod.string().nullish(),
+    }),
+  ),
   revisions: zod.array(
     zod.object({
       id: zod.number(),
       planId: zod.number(),
+      reviewCycle: zod.number(),
       revisionNumber: zod.number(),
       revisionDate: zod.string().nullish(),
       reason: zod.string().nullish(),
@@ -3764,6 +4080,22 @@ export const GetStrategicPlanResponse = zod.object({
       evidenceDocumentId: zod.number().nullish(),
       snapshot: zod.record(zod.string(), zod.unknown()).nullish(),
       createdAt: zod.string().nullish(),
+      reviewers: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            planId: zod.number(),
+            userId: zod.number(),
+            name: zod.string(),
+            reviewCycle: zod.number(),
+            status: zod.enum(["pending", "approved", "rejected"]),
+            readAt: zod.string().nullish(),
+            decidedAt: zod.string().nullish(),
+            comment: zod.string().nullish(),
+            createdAt: zod.string().nullish(),
+          }),
+        )
+        .optional(),
     }),
   ),
   metrics: zod.object({
@@ -3827,6 +4159,7 @@ export const UpdateStrategicPlanBody = zod.object({
       }),
     )
     .nullish(),
+  reviewerIds: zod.array(zod.number()).optional(),
   importedWorkbookName: zod.string().nullish(),
 });
 
@@ -3874,6 +4207,8 @@ export const UpdateStrategicPlanResponse = zod.object({
       }),
     )
     .nullish(),
+  reviewerIds: zod.array(zod.number()),
+  currentReviewCycle: zod.number().nullish(),
   importedWorkbookName: zod.string().nullish(),
   activeRevisionNumber: zod.number(),
   createdAt: zod.string().nullish(),
@@ -4095,10 +4430,25 @@ export const UpdateStrategicPlanResponse = zod.object({
       updatedAt: zod.string().nullish(),
     }),
   ),
+  reviewers: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      userId: zod.number(),
+      name: zod.string(),
+      reviewCycle: zod.number(),
+      status: zod.enum(["pending", "approved", "rejected"]),
+      readAt: zod.string().nullish(),
+      decidedAt: zod.string().nullish(),
+      comment: zod.string().nullish(),
+      createdAt: zod.string().nullish(),
+    }),
+  ),
   revisions: zod.array(
     zod.object({
       id: zod.number(),
       planId: zod.number(),
+      reviewCycle: zod.number(),
       revisionNumber: zod.number(),
       revisionDate: zod.string().nullish(),
       reason: zod.string().nullish(),
@@ -4108,6 +4458,22 @@ export const UpdateStrategicPlanResponse = zod.object({
       evidenceDocumentId: zod.number().nullish(),
       snapshot: zod.record(zod.string(), zod.unknown()).nullish(),
       createdAt: zod.string().nullish(),
+      reviewers: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            planId: zod.number(),
+            userId: zod.number(),
+            name: zod.string(),
+            reviewCycle: zod.number(),
+            status: zod.enum(["pending", "approved", "rejected"]),
+            readAt: zod.string().nullish(),
+            decidedAt: zod.string().nullish(),
+            comment: zod.string().nullish(),
+            createdAt: zod.string().nullish(),
+          }),
+        )
+        .optional(),
     }),
   ),
   metrics: zod.object({
@@ -4190,6 +4556,7 @@ export const ImportStrategicPlanBody = zod.object({
         }),
       )
       .nullish(),
+    reviewerIds: zod.array(zod.number()).optional(),
     importedWorkbookName: zod.string().nullish(),
   }),
   swotItems: zod.array(
@@ -4331,6 +4698,8 @@ export const ImportStrategicPlanResponse = zod.object({
       }),
     )
     .nullish(),
+  reviewerIds: zod.array(zod.number()),
+  currentReviewCycle: zod.number().nullish(),
   importedWorkbookName: zod.string().nullish(),
   activeRevisionNumber: zod.number(),
   createdAt: zod.string().nullish(),
@@ -4552,10 +4921,25 @@ export const ImportStrategicPlanResponse = zod.object({
       updatedAt: zod.string().nullish(),
     }),
   ),
+  reviewers: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      userId: zod.number(),
+      name: zod.string(),
+      reviewCycle: zod.number(),
+      status: zod.enum(["pending", "approved", "rejected"]),
+      readAt: zod.string().nullish(),
+      decidedAt: zod.string().nullish(),
+      comment: zod.string().nullish(),
+      createdAt: zod.string().nullish(),
+    }),
+  ),
   revisions: zod.array(
     zod.object({
       id: zod.number(),
       planId: zod.number(),
+      reviewCycle: zod.number(),
       revisionNumber: zod.number(),
       revisionDate: zod.string().nullish(),
       reason: zod.string().nullish(),
@@ -4565,6 +4949,22 @@ export const ImportStrategicPlanResponse = zod.object({
       evidenceDocumentId: zod.number().nullish(),
       snapshot: zod.record(zod.string(), zod.unknown()).nullish(),
       createdAt: zod.string().nullish(),
+      reviewers: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            planId: zod.number(),
+            userId: zod.number(),
+            name: zod.string(),
+            reviewCycle: zod.number(),
+            status: zod.enum(["pending", "approved", "rejected"]),
+            readAt: zod.string().nullish(),
+            decidedAt: zod.string().nullish(),
+            comment: zod.string().nullish(),
+            createdAt: zod.string().nullish(),
+          }),
+        )
+        .optional(),
     }),
   ),
   metrics: zod.object({
@@ -4636,6 +5036,8 @@ export const SubmitStrategicPlanResponse = zod.object({
       }),
     )
     .nullish(),
+  reviewerIds: zod.array(zod.number()),
+  currentReviewCycle: zod.number().nullish(),
   importedWorkbookName: zod.string().nullish(),
   activeRevisionNumber: zod.number(),
   createdAt: zod.string().nullish(),
@@ -4857,10 +5259,25 @@ export const SubmitStrategicPlanResponse = zod.object({
       updatedAt: zod.string().nullish(),
     }),
   ),
+  reviewers: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      userId: zod.number(),
+      name: zod.string(),
+      reviewCycle: zod.number(),
+      status: zod.enum(["pending", "approved", "rejected"]),
+      readAt: zod.string().nullish(),
+      decidedAt: zod.string().nullish(),
+      comment: zod.string().nullish(),
+      createdAt: zod.string().nullish(),
+    }),
+  ),
   revisions: zod.array(
     zod.object({
       id: zod.number(),
       planId: zod.number(),
+      reviewCycle: zod.number(),
       revisionNumber: zod.number(),
       revisionDate: zod.string().nullish(),
       reason: zod.string().nullish(),
@@ -4870,6 +5287,364 @@ export const SubmitStrategicPlanResponse = zod.object({
       evidenceDocumentId: zod.number().nullish(),
       snapshot: zod.record(zod.string(), zod.unknown()).nullish(),
       createdAt: zod.string().nullish(),
+      reviewers: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            planId: zod.number(),
+            userId: zod.number(),
+            name: zod.string(),
+            reviewCycle: zod.number(),
+            status: zod.enum(["pending", "approved", "rejected"]),
+            readAt: zod.string().nullish(),
+            decidedAt: zod.string().nullish(),
+            comment: zod.string().nullish(),
+            createdAt: zod.string().nullish(),
+          }),
+        )
+        .optional(),
+    }),
+  ),
+  metrics: zod.object({
+    swotCount: zod.number(),
+    actionCount: zod.number(),
+    interestedPartyCount: zod.number(),
+    objectiveCount: zod.number(),
+    riskOpportunityCount: zod.number(),
+    openActionCount: zod.number(),
+    overdueActionCount: zod.number(),
+    openRiskOpportunityCount: zod.number(),
+    overdueRiskOpportunityCount: zod.number(),
+    actionsByStatus: zod.record(zod.string(), zod.number()),
+    riskOpportunitiesByStatus: zod.record(zod.string(), zod.number()),
+    riskOpportunitiesByType: zod.record(zod.string(), zod.number()),
+  }),
+  complianceIssues: zod.array(zod.string()),
+});
+
+/**
+ * @summary Acknowledge reading of a strategic plan review
+ */
+export const AcknowledgeStrategicPlanReviewReadParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const acknowledgeStrategicPlanReviewReadResponseRiskOpportunityItemsItemLikelihoodMax = 4;
+
+export const acknowledgeStrategicPlanReviewReadResponseRiskOpportunityItemsItemImpactMax = 4;
+
+export const AcknowledgeStrategicPlanReviewReadResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  title: zod.string(),
+  status: zod.enum([
+    "draft",
+    "in_review",
+    "approved",
+    "rejected",
+    "overdue",
+    "archived",
+  ]),
+  standards: zod.array(zod.string()),
+  executiveSummary: zod.string().nullish(),
+  reviewFrequencyMonths: zod.number(),
+  nextReviewAt: zod.string().nullish(),
+  reviewReason: zod.string().nullish(),
+  climateChangeRelevant: zod.boolean().nullish(),
+  climateChangeJustification: zod.string().nullish(),
+  technicalScope: zod.string().nullish(),
+  geographicScope: zod.string().nullish(),
+  policy: zod.string().nullish(),
+  mission: zod.string().nullish(),
+  vision: zod.string().nullish(),
+  values: zod.string().nullish(),
+  strategicConclusion: zod.string().nullish(),
+  methodologyNotes: zod.string().nullish(),
+  legacyMethodology: zod.string().nullish(),
+  legacyIndicatorsNotes: zod.string().nullish(),
+  legacyRevisionHistory: zod
+    .array(
+      zod.object({
+        date: zod.string().nullish(),
+        reason: zod.string().nullish(),
+        changedItem: zod.string().nullish(),
+        revision: zod.string().nullish(),
+        changedBy: zod.string().nullish(),
+      }),
+    )
+    .nullish(),
+  reviewerIds: zod.array(zod.number()),
+  currentReviewCycle: zod.number().nullish(),
+  importedWorkbookName: zod.string().nullish(),
+  activeRevisionNumber: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+  submittedAt: zod.string().nullish(),
+  approvedAt: zod.string().nullish(),
+  rejectedAt: zod.string().nullish(),
+  archivedAt: zod.string().nullish(),
+  swotItems: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      domain: zod.enum(["sgq", "sga", "sgsv", "esg", "governance"]),
+      matrixLabel: zod.string().nullish(),
+      swotType: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+      environment: zod.enum(["internal", "external"]),
+      perspective: zod.string().nullish(),
+      description: zod.string(),
+      performance: zod.number().nullish(),
+      relevance: zod.number().nullish(),
+      result: zod.number().nullish(),
+      treatmentDecision: zod.string().nullish(),
+      linkedObjectiveCode: zod.string().nullish(),
+      linkedObjectiveLabel: zod.string().nullish(),
+      importedActionReference: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  interestedParties: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      name: zod.string(),
+      expectedRequirements: zod.string().nullish(),
+      roleInCompany: zod.string().nullish(),
+      roleSummary: zod.string().nullish(),
+      relevantToManagementSystem: zod.boolean().nullish(),
+      legalRequirementApplicable: zod.boolean().nullish(),
+      monitoringMethod: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  objectives: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      code: zod.string(),
+      systemDomain: zod.string().nullish(),
+      description: zod.string(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  actions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      swotItemId: zod.number().nullish(),
+      objectiveId: zod.number().nullish(),
+      riskOpportunityItemId: zod.number().nullish(),
+      responsibleUserId: zod.number().nullish(),
+      responsibleUserName: zod.string().nullish(),
+      secondaryResponsibleUserId: zod.number().nullish(),
+      secondaryResponsibleUserName: zod.string().nullish(),
+      dueDate: zod.string().nullish(),
+      rescheduledDueDate: zod.string().nullish(),
+      rescheduleReason: zod.string().nullish(),
+      completedAt: zod.string().nullish(),
+      completionNotes: zod.string().nullish(),
+      status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+      units: zod.array(
+        zod.object({
+          id: zod.number(),
+          name: zod.string(),
+        }),
+      ),
+    }),
+  ),
+  riskOpportunityItems: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      type: zod.enum(["risk", "opportunity"]),
+      sourceType: zod.enum([
+        "swot",
+        "audit",
+        "meeting",
+        "legislation",
+        "incident",
+        "internal_strategy",
+        "other",
+      ]),
+      sourceReference: zod.string().nullish(),
+      title: zod.string(),
+      description: zod.string(),
+      ownerUserId: zod.number().nullish(),
+      ownerUserName: zod.string().nullish(),
+      coOwnerUserId: zod.number().nullish(),
+      coOwnerUserName: zod.string().nullish(),
+      unitId: zod.number().nullish(),
+      unitName: zod.string().nullish(),
+      objectiveId: zod.number().nullish(),
+      swotItemId: zod.number().nullish(),
+      likelihood: zod
+        .number()
+        .min(1)
+        .max(
+          acknowledgeStrategicPlanReviewReadResponseRiskOpportunityItemsItemLikelihoodMax,
+        )
+        .nullish(),
+      impact: zod
+        .number()
+        .min(1)
+        .max(
+          acknowledgeStrategicPlanReviewReadResponseRiskOpportunityItemsItemImpactMax,
+        )
+        .nullish(),
+      score: zod
+        .number()
+        .nullish()
+        .describe("Derived by the server from likelihood x impact."),
+      priority: zod
+        .enum(["na", "low", "medium", "high", "critical"])
+        .describe("Derived by the server from the calculated score."),
+      responseStrategy: zod
+        .enum([
+          "mitigate",
+          "eliminate",
+          "accept",
+          "monitor",
+          "exploit",
+          "enhance",
+          "share",
+          "avoid",
+          "other",
+        ])
+        .nullish(),
+      nextReviewAt: zod.string().nullish(),
+      status: zod.enum([
+        "identified",
+        "assessed",
+        "responding",
+        "awaiting_effectiveness",
+        "effective",
+        "ineffective",
+        "continuous",
+        "canceled",
+      ]),
+      existingControls: zod.string().nullish(),
+      expectedEffect: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      latestEffectivenessResult: zod
+        .enum(["effective", "ineffective"])
+        .nullish(),
+      latestEffectivenessReview: zod
+        .object({
+          id: zod.number(),
+          riskOpportunityItemId: zod.number(),
+          reviewedById: zod.number(),
+          reviewedByName: zod.string().nullish(),
+          result: zod.enum(["effective", "ineffective"]),
+          comment: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+        })
+        .optional(),
+      effectivenessReviews: zod.array(
+        zod.object({
+          id: zod.number(),
+          riskOpportunityItemId: zod.number(),
+          reviewedById: zod.number(),
+          reviewedByName: zod.string().nullish(),
+          result: zod.enum(["effective", "ineffective"]),
+          comment: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+        }),
+      ),
+      actions: zod.array(
+        zod.object({
+          id: zod.number(),
+          planId: zod.number(),
+          title: zod.string(),
+          description: zod.string().nullish(),
+          swotItemId: zod.number().nullish(),
+          objectiveId: zod.number().nullish(),
+          riskOpportunityItemId: zod.number().nullish(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          secondaryResponsibleUserId: zod.number().nullish(),
+          secondaryResponsibleUserName: zod.string().nullish(),
+          dueDate: zod.string().nullish(),
+          rescheduledDueDate: zod.string().nullish(),
+          rescheduleReason: zod.string().nullish(),
+          completedAt: zod.string().nullish(),
+          completionNotes: zod.string().nullish(),
+          status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+          notes: zod.string().nullish(),
+          sortOrder: zod.number(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+          units: zod.array(
+            zod.object({
+              id: zod.number(),
+              name: zod.string(),
+            }),
+          ),
+        }),
+      ),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  reviewers: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      userId: zod.number(),
+      name: zod.string(),
+      reviewCycle: zod.number(),
+      status: zod.enum(["pending", "approved", "rejected"]),
+      readAt: zod.string().nullish(),
+      decidedAt: zod.string().nullish(),
+      comment: zod.string().nullish(),
+      createdAt: zod.string().nullish(),
+    }),
+  ),
+  revisions: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      reviewCycle: zod.number(),
+      revisionNumber: zod.number(),
+      revisionDate: zod.string().nullish(),
+      reason: zod.string().nullish(),
+      changeSummary: zod.string().nullish(),
+      approvedById: zod.number().nullish(),
+      approvedByName: zod.string().nullish(),
+      evidenceDocumentId: zod.number().nullish(),
+      snapshot: zod.record(zod.string(), zod.unknown()).nullish(),
+      createdAt: zod.string().nullish(),
+      reviewers: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            planId: zod.number(),
+            userId: zod.number(),
+            name: zod.string(),
+            reviewCycle: zod.number(),
+            status: zod.enum(["pending", "approved", "rejected"]),
+            readAt: zod.string().nullish(),
+            decidedAt: zod.string().nullish(),
+            comment: zod.string().nullish(),
+            createdAt: zod.string().nullish(),
+          }),
+        )
+        .optional(),
     }),
   ),
   metrics: zod.object({
@@ -4900,6 +5675,7 @@ export const ApproveStrategicPlanParams = zod.object({
 export const ApproveStrategicPlanBody = zod.object({
   reviewReason: zod.string().nullish(),
   changeSummary: zod.string().nullish(),
+  comment: zod.string().nullish(),
 });
 
 export const approveStrategicPlanResponseRiskOpportunityItemsItemLikelihoodMax = 4;
@@ -4946,6 +5722,8 @@ export const ApproveStrategicPlanResponse = zod.object({
       }),
     )
     .nullish(),
+  reviewerIds: zod.array(zod.number()),
+  currentReviewCycle: zod.number().nullish(),
   importedWorkbookName: zod.string().nullish(),
   activeRevisionNumber: zod.number(),
   createdAt: zod.string().nullish(),
@@ -5167,10 +5945,25 @@ export const ApproveStrategicPlanResponse = zod.object({
       updatedAt: zod.string().nullish(),
     }),
   ),
+  reviewers: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      userId: zod.number(),
+      name: zod.string(),
+      reviewCycle: zod.number(),
+      status: zod.enum(["pending", "approved", "rejected"]),
+      readAt: zod.string().nullish(),
+      decidedAt: zod.string().nullish(),
+      comment: zod.string().nullish(),
+      createdAt: zod.string().nullish(),
+    }),
+  ),
   revisions: zod.array(
     zod.object({
       id: zod.number(),
       planId: zod.number(),
+      reviewCycle: zod.number(),
       revisionNumber: zod.number(),
       revisionDate: zod.string().nullish(),
       reason: zod.string().nullish(),
@@ -5180,6 +5973,22 @@ export const ApproveStrategicPlanResponse = zod.object({
       evidenceDocumentId: zod.number().nullish(),
       snapshot: zod.record(zod.string(), zod.unknown()).nullish(),
       createdAt: zod.string().nullish(),
+      reviewers: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            planId: zod.number(),
+            userId: zod.number(),
+            name: zod.string(),
+            reviewCycle: zod.number(),
+            status: zod.enum(["pending", "approved", "rejected"]),
+            readAt: zod.string().nullish(),
+            decidedAt: zod.string().nullish(),
+            comment: zod.string().nullish(),
+            createdAt: zod.string().nullish(),
+          }),
+        )
+        .optional(),
     }),
   ),
   metrics: zod.object({
@@ -5210,6 +6019,7 @@ export const RejectStrategicPlanParams = zod.object({
 export const RejectStrategicPlanBody = zod.object({
   reviewReason: zod.string().nullish(),
   changeSummary: zod.string().nullish(),
+  comment: zod.string().nullish(),
 });
 
 export const rejectStrategicPlanResponseRiskOpportunityItemsItemLikelihoodMax = 4;
@@ -5256,6 +6066,8 @@ export const RejectStrategicPlanResponse = zod.object({
       }),
     )
     .nullish(),
+  reviewerIds: zod.array(zod.number()),
+  currentReviewCycle: zod.number().nullish(),
   importedWorkbookName: zod.string().nullish(),
   activeRevisionNumber: zod.number(),
   createdAt: zod.string().nullish(),
@@ -5477,10 +6289,25 @@ export const RejectStrategicPlanResponse = zod.object({
       updatedAt: zod.string().nullish(),
     }),
   ),
+  reviewers: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      userId: zod.number(),
+      name: zod.string(),
+      reviewCycle: zod.number(),
+      status: zod.enum(["pending", "approved", "rejected"]),
+      readAt: zod.string().nullish(),
+      decidedAt: zod.string().nullish(),
+      comment: zod.string().nullish(),
+      createdAt: zod.string().nullish(),
+    }),
+  ),
   revisions: zod.array(
     zod.object({
       id: zod.number(),
       planId: zod.number(),
+      reviewCycle: zod.number(),
       revisionNumber: zod.number(),
       revisionDate: zod.string().nullish(),
       reason: zod.string().nullish(),
@@ -5490,6 +6317,22 @@ export const RejectStrategicPlanResponse = zod.object({
       evidenceDocumentId: zod.number().nullish(),
       snapshot: zod.record(zod.string(), zod.unknown()).nullish(),
       createdAt: zod.string().nullish(),
+      reviewers: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            planId: zod.number(),
+            userId: zod.number(),
+            name: zod.string(),
+            reviewCycle: zod.number(),
+            status: zod.enum(["pending", "approved", "rejected"]),
+            readAt: zod.string().nullish(),
+            decidedAt: zod.string().nullish(),
+            comment: zod.string().nullish(),
+            createdAt: zod.string().nullish(),
+          }),
+        )
+        .optional(),
     }),
   ),
   metrics: zod.object({
@@ -5561,6 +6404,8 @@ export const ReopenStrategicPlanResponse = zod.object({
       }),
     )
     .nullish(),
+  reviewerIds: zod.array(zod.number()),
+  currentReviewCycle: zod.number().nullish(),
   importedWorkbookName: zod.string().nullish(),
   activeRevisionNumber: zod.number(),
   createdAt: zod.string().nullish(),
@@ -5782,10 +6627,25 @@ export const ReopenStrategicPlanResponse = zod.object({
       updatedAt: zod.string().nullish(),
     }),
   ),
+  reviewers: zod.array(
+    zod.object({
+      id: zod.number(),
+      planId: zod.number(),
+      userId: zod.number(),
+      name: zod.string(),
+      reviewCycle: zod.number(),
+      status: zod.enum(["pending", "approved", "rejected"]),
+      readAt: zod.string().nullish(),
+      decidedAt: zod.string().nullish(),
+      comment: zod.string().nullish(),
+      createdAt: zod.string().nullish(),
+    }),
+  ),
   revisions: zod.array(
     zod.object({
       id: zod.number(),
       planId: zod.number(),
+      reviewCycle: zod.number(),
       revisionNumber: zod.number(),
       revisionDate: zod.string().nullish(),
       reason: zod.string().nullish(),
@@ -5795,6 +6655,22 @@ export const ReopenStrategicPlanResponse = zod.object({
       evidenceDocumentId: zod.number().nullish(),
       snapshot: zod.record(zod.string(), zod.unknown()).nullish(),
       createdAt: zod.string().nullish(),
+      reviewers: zod
+        .array(
+          zod.object({
+            id: zod.number(),
+            planId: zod.number(),
+            userId: zod.number(),
+            name: zod.string(),
+            reviewCycle: zod.number(),
+            status: zod.enum(["pending", "approved", "rejected"]),
+            readAt: zod.string().nullish(),
+            decidedAt: zod.string().nullish(),
+            comment: zod.string().nullish(),
+            createdAt: zod.string().nullish(),
+          }),
+        )
+        .optional(),
     }),
   ),
   metrics: zod.object({

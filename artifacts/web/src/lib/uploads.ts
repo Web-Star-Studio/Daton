@@ -3,6 +3,7 @@ import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
 export const MAX_DIRECT_UPLOAD_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 export const MAX_PROFILE_ITEM_ATTACHMENTS = 10;
 export const PROFILE_ITEM_ATTACHMENT_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.txt,.csv";
+export const EMPLOYEE_RECORD_ATTACHMENT_ACCEPT = ".pdf,.png,.jpg,.jpeg,.gif,.webp";
 
 export type UploadedFileRef = {
   fileName: string;

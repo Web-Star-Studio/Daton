@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateTrainingBodyStatus } from "./createTrainingBodyStatus";
+import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
 
 export interface CreateTrainingBody {
   title: string;
@@ -15,4 +16,6 @@ export interface CreateTrainingBody {
   completionDate?: string;
   expirationDate?: string;
   status?: CreateTrainingBodyStatus;
+  /** @maxItems 10 */
+  attachments?: EmployeeRecordAttachment[];
 }

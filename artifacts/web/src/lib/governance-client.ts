@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  acknowledgeStrategicPlanReviewRead,
   approveStrategicPlan,
   createStrategicPlan,
   createStrategicPlanAction,
@@ -49,6 +50,7 @@ import {
   type StrategicPlanLegacyRevisionEntry,
   type StrategicPlanListItem,
   type StrategicPlanObjective,
+  type StrategicPlanReviewer,
   type StrategicPlanReviewBody,
   type StrategicPlanSummaryMetrics,
   type StrategicPlanSwotItem,
@@ -77,6 +79,7 @@ export type GovernanceRiskOpportunityListEntry = GovernanceRiskOpportunityListIt
 export type GovernanceRiskOpportunityEffectivenessReview =
   StrategicPlanRiskOpportunityEffectivenessReview;
 export type GovernanceExportResponse = StrategicPlanExportResponse;
+export type GovernanceReviewer = StrategicPlanReviewer;
 export type GovernanceSwotBody = CreateStrategicPlanSwotItemBody;
 export type GovernanceInterestedPartyBody = CreateStrategicPlanInterestedPartyBody;
 export type GovernanceObjectiveBody = CreateStrategicPlanObjectiveBody;
@@ -195,6 +198,19 @@ export function useGovernanceWorkflowAction(
           return reopenStrategicPlan(orgId || 0, planId || 0);
       }
     },
+    onSuccess: invalidate,
+  });
+}
+
+export function useGovernanceReviewReadAction(
+  orgId: number | undefined,
+  planId: number | undefined,
+) {
+  const invalidate = useInvalidateGovernance(orgId, planId);
+
+  return useMutation({
+    mutationFn: () =>
+      acknowledgeStrategicPlanReviewRead(orgId || 0, planId || 0),
     onSuccess: invalidate,
   });
 }

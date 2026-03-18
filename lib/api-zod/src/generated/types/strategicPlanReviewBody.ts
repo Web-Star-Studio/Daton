@@ -9,4 +9,5 @@
 export interface StrategicPlanReviewBody {
   reviewReason?: string | null;
   changeSummary?: string | null;
+  comment?: string | null;
 }

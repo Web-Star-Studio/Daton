@@ -1224,7 +1224,7 @@ export default function OrganizacaoPage() {
                   </tr>
                 )}
                 {departments?.map((dept) => {
-                  const deptUnitNames = (dept.unitIds || [])
+                  const deptUnits = (dept.unitIds || [])
                     .map((uid: number) => units?.find((u) => u.id === uid))
                     .filter(Boolean);
                   return (
@@ -1249,9 +1249,11 @@ export default function OrganizacaoPage() {
                       <td className="px-4 py-3 text-[13px] text-muted-foreground">{dept.description || "—"}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
-                          {deptUnitNames.length === 0 && <span className="text-[13px] text-muted-foreground">—</span>}
-                          {deptUnitNames.map((u) => (
-                            <Badge key={u!.id} variant="secondary" className="text-[11px]">{u!.name}</Badge>
+                          {deptUnits.length === 0 && <span className="text-[13px] text-muted-foreground">—</span>}
+                          {deptUnits.map((u) => (
+                            <Badge key={u!.id} variant="secondary" className="text-[11px]">
+                              {u!.code || u!.name}
+                            </Badge>
                           ))}
                         </div>
                       </td>
@@ -1829,9 +1831,29 @@ export default function OrganizacaoPage() {
           {units && units.length > 0 && (
             <div className="mt-5">
               <Label>Unidades</Label>
-              <p className="text-xs text-muted-foreground mb-2">
-                Selecione as unidades onde este departamento está presente.
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-muted-foreground">
+                  Selecione as unidades onde este departamento está presente.
+                </p>
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline cursor-pointer"
+                  onClick={() => {
+                    const currentIds = deptForm.getValues("unitIds") || [];
+                    const allIds = units.map((u) => u.id);
+                    const allSelected = allIds.every((id) => currentIds.includes(id));
+                    deptForm.setValue("unitIds", allSelected ? [] : allIds);
+                  }}
+                >
+                  {(() => {
+                    const currentIds = deptForm.watch("unitIds") || [];
+                    const allIds = units.map((u) => u.id);
+                    return allIds.every((id) => currentIds.includes(id))
+                      ? "Desmarcar todas"
+                      : "Selecionar todas";
+                  })()}
+                </button>
+              </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-1 max-h-48 overflow-y-auto border border-border/60 rounded-lg p-3">
                 {units.map((unit) => {
                   const selectedIds = deptForm.watch("unitIds") || [];

@@ -9095,6 +9095,100 @@ export const useSubmitStrategicPlan = <
 };
 
 /**
+ * @summary Acknowledge reading of a strategic plan review
+ */
+export const getAcknowledgeStrategicPlanReviewReadUrl = (
+  orgId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/read`;
+};
+
+export const acknowledgeStrategicPlanReviewRead = async (
+  orgId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<StrategicPlanDetail> => {
+  return customFetch<StrategicPlanDetail>(
+    getAcknowledgeStrategicPlanReviewReadUrl(orgId, planId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAcknowledgeStrategicPlanReviewReadMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acknowledgeStrategicPlanReviewRead>>,
+    TError,
+    { orgId: number; planId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof acknowledgeStrategicPlanReviewRead>>,
+  TError,
+  { orgId: number; planId: number },
+  TContext
+> => {
+  const mutationKey = ["acknowledgeStrategicPlanReviewRead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof acknowledgeStrategicPlanReviewRead>>,
+    { orgId: number; planId: number }
+  > = (props) => {
+    const { orgId, planId } = props ?? {};
+
+    return acknowledgeStrategicPlanReviewRead(orgId, planId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AcknowledgeStrategicPlanReviewReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof acknowledgeStrategicPlanReviewRead>>
+>;
+
+export type AcknowledgeStrategicPlanReviewReadMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Acknowledge reading of a strategic plan review
+ */
+export const useAcknowledgeStrategicPlanReviewRead = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acknowledgeStrategicPlanReviewRead>>,
+    TError,
+    { orgId: number; planId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof acknowledgeStrategicPlanReviewRead>>,
+  TError,
+  { orgId: number; planId: number },
+  TContext
+> => {
+  return useMutation(
+    getAcknowledgeStrategicPlanReviewReadMutationOptions(options),
+  );
+};
+
+/**
  * @summary Approve a strategic plan
  */
 export const getApproveStrategicPlanUrl = (orgId: number, planId: number) => {

@@ -9,6 +9,7 @@ import type { StrategicPlanAction } from "./strategicPlanAction";
 import type { StrategicPlanInterestedParty } from "./strategicPlanInterestedParty";
 import type { StrategicPlanLegacyRevisionEntry } from "./strategicPlanLegacyRevisionEntry";
 import type { StrategicPlanObjective } from "./strategicPlanObjective";
+import type { StrategicPlanReviewer } from "./strategicPlanReviewer";
 import type { StrategicPlanRevision } from "./strategicPlanRevision";
 import type { StrategicPlanRiskOpportunityItem } from "./strategicPlanRiskOpportunityItem";
 import type { StrategicPlanStatus } from "./strategicPlanStatus";
@@ -38,6 +39,8 @@ export interface StrategicPlanDetail {
   legacyMethodology?: string | null;
   legacyIndicatorsNotes?: string | null;
   legacyRevisionHistory?: StrategicPlanLegacyRevisionEntry[] | null;
+  reviewerIds: number[];
+  currentReviewCycle?: number | null;
   importedWorkbookName?: string | null;
   activeRevisionNumber: number;
   createdAt?: string | null;
@@ -51,6 +54,7 @@ export interface StrategicPlanDetail {
   objectives: StrategicPlanObjective[];
   actions: StrategicPlanAction[];
   riskOpportunityItems: StrategicPlanRiskOpportunityItem[];
+  reviewers: StrategicPlanReviewer[];
   revisions: StrategicPlanRevision[];
   metrics: StrategicPlanSummaryMetrics;
   complianceIssues: string[];

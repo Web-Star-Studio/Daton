@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateCompetencyBodyType } from "./createCompetencyBodyType";
+import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
 
 export interface CreateCompetencyBody {
   name: string;
@@ -22,4 +23,6 @@ export interface CreateCompetencyBody {
    */
   acquiredLevel?: number;
   evidence?: string;
+  /** @maxItems 10 */
+  attachments?: EmployeeRecordAttachment[];
 }

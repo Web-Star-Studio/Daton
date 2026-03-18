@@ -78,6 +78,11 @@ export type StrategicPlanRiskOpportunityEffectivenessResult =
   | "effective"
   | "ineffective";
 
+export type StrategicPlanReviewerStatus =
+  | "pending"
+  | "approved"
+  | "rejected";
+
 export interface StrategicPlanReminderFlags {
   d30?: boolean;
   d7?: boolean;
@@ -122,6 +127,7 @@ export const strategicPlansTable = pgTable("strategic_plans", {
     .$type<StrategicPlanReminderFlags>()
     .notNull()
     .default({}),
+  reviewerIds: integer("reviewer_ids").array().notNull().default([]),
   activeRevisionNumber: integer("active_revision_number").notNull().default(0),
   importedWorkbookName: text("imported_workbook_name"),
   createdById: integer("created_by_id")
@@ -344,6 +350,7 @@ export const strategicPlanRevisionsTable = pgTable("strategic_plan_revisions", {
   planId: integer("plan_id")
     .notNull()
     .references(() => strategicPlansTable.id, { onDelete: "cascade" }),
+  reviewCycle: integer("review_cycle").notNull().default(1),
   revisionNumber: integer("revision_number").notNull(),
   revisionDate: timestamp("revision_date", { withTimezone: true }).notNull().defaultNow(),
   reason: text("reason"),
@@ -358,6 +365,35 @@ export const strategicPlanRevisionsTable = pgTable("strategic_plan_revisions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const strategicPlanReviewersTable = pgTable(
+  "strategic_plan_reviewers",
+  {
+    id: serial("id").primaryKey(),
+    planId: integer("plan_id")
+      .notNull()
+      .references(() => strategicPlansTable.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => usersTable.id),
+    reviewCycle: integer("review_cycle").notNull().default(1),
+    status: text("status")
+      .notNull()
+      .default("pending")
+      .$type<StrategicPlanReviewerStatus>(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    comment: text("comment"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueReviewerPerCycle: unique("strategic_plan_reviewer_cycle_unique").on(
+      table.planId,
+      table.userId,
+      table.reviewCycle,
+    ),
+  }),
+);
+
 export type StrategicPlan = typeof strategicPlansTable.$inferSelect;
 export type StrategicPlanSwotItem = typeof strategicPlanSwotItemsTable.$inferSelect;
 export type StrategicPlanInterestedParty =
@@ -370,3 +406,4 @@ export type StrategicPlanRiskOpportunityItem =
 export type StrategicPlanRiskOpportunityEffectivenessReview =
   typeof strategicPlanRiskOpportunityEffectivenessReviewsTable.$inferSelect;
 export type StrategicPlanRevision = typeof strategicPlanRevisionsTable.$inferSelect;
+export type StrategicPlanReviewer = typeof strategicPlanReviewersTable.$inferSelect;

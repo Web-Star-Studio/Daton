@@ -1,8 +1,16 @@
-import { pgTable, text, serial, timestamp, integer, date } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { pgTable, text, serial, timestamp, integer, date, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
 import { unitsTable } from "./units";
+
+export type EmployeeRecordAttachment = {
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+};
 
 export const employeesTable = pgTable("employees", {
   id: serial("id").primaryKey(),
@@ -51,6 +59,7 @@ export const employeeCompetenciesTable = pgTable("employee_competencies", {
   requiredLevel: integer("required_level").notNull().default(1),
   acquiredLevel: integer("acquired_level").notNull().default(0),
   evidence: text("evidence"),
+  attachments: jsonb("attachments").$type<EmployeeRecordAttachment[]>().notNull().default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
@@ -65,6 +74,7 @@ export const employeeTrainingsTable = pgTable("employee_trainings", {
   completionDate: date("completion_date"),
   expirationDate: date("expiration_date"),
   status: text("status").notNull().default("pendente"),
+  attachments: jsonb("attachments").$type<EmployeeRecordAttachment[]>().notNull().default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
@@ -77,6 +87,7 @@ export const employeeAwarenessTable = pgTable("employee_awareness_records", {
   date: date("date").notNull(),
   verificationMethod: text("verification_method"),
   result: text("result"),
+  attachments: jsonb("attachments").$type<EmployeeRecordAttachment[]>().notNull().default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

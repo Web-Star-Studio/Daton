@@ -349,7 +349,7 @@ export function ChatPanel({
   return (
     <div
       className={cn(
-        "w-[620px] max-w-[calc(100vw-2rem)] flex-shrink-0 bg-white rounded-2xl border border-border/60 shadow-sm flex h-full overflow-hidden",
+        "flex h-full w-[620px] max-w-[calc(100vw-2rem)] flex-shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-white/76 shadow-sm backdrop-blur-md",
         isOpen
           ? "animate-[chatSlideIn_250ms_ease-in-out_forwards]"
           : "animate-[chatSlideOut_250ms_ease-in-out_forwards]",
@@ -358,7 +358,7 @@ export function ChatPanel({
     >
       <aside
         className={cn(
-          "border-r border-border/60 bg-secondary/20 flex flex-col shrink-0 transition-[width] duration-200",
+          "flex shrink-0 flex-col border-r border-border/60 bg-white/34 backdrop-blur-md transition-[width] duration-200",
           isConversationSidebarCollapsed ? "w-12" : "w-[200px]",
         )}
       >
@@ -434,8 +434,8 @@ export function ChatPanel({
                     className={cn(
                       "w-full text-left rounded-xl px-3 py-2.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
                       active
-                        ? "bg-white border border-border/60 shadow-sm"
-                        : "hover:bg-white/80",
+                        ? "border border-border/60 bg-white/68 shadow-sm backdrop-blur-sm"
+                        : "hover:bg-white/42",
                     )}
                   >
                   <div className="flex items-start gap-2">
@@ -468,7 +468,7 @@ export function ChatPanel({
       </aside>
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <div className="h-14 flex items-center justify-between px-4 border-b border-border/60 flex-shrink-0">
+        <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-border/60 bg-white/28 px-4 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <span className="text-[13px] font-semibold">Daton AI</span>
             {isStreaming && (
@@ -518,10 +518,10 @@ export function ChatPanel({
                 className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed ${
+                  className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed backdrop-blur-sm ${
                     msg.role === "user"
                       ? "bg-primary text-white"
-                      : "bg-secondary/60 text-foreground"
+                      : "bg-white/46 text-foreground"
                   }`}
                 >
                   {msg.role === "assistant" ? (
@@ -551,7 +551,7 @@ export function ChatPanel({
               onKeyDown={handleKeyDown}
               placeholder="Pergunte sobre seus dados..."
               disabled={isStreaming}
-              className="flex-1 text-[13px] bg-secondary/40 border-none rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 disabled:opacity-50"
+              className="flex-1 rounded-xl border-none bg-white/42 px-3.5 py-2.5 text-[13px] outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
             />
             <button
               onClick={sendMessage}
@@ -613,7 +613,7 @@ function AssistantMessage({
       )}
 
       {hasSources && (
-        <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-2">
+        <div className="rounded-xl border border-border/60 bg-white/38 px-3 py-2 backdrop-blur-sm">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             Fontes
           </p>

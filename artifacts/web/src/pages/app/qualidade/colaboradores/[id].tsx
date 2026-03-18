@@ -38,6 +38,7 @@ import type {
   CreateTrainingBodyStatus,
   UpdateTrainingBodyStatus,
   EmployeeCompetency,
+  EmployeeRecordAttachment,
   EmployeeProfileItem,
   EmployeeProfileItemAttachment,
   EmployeeTraining,
@@ -58,6 +59,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   uploadFilesToStorage,
   validateProfileItemUploadSelection,
+  EMPLOYEE_RECORD_ATTACHMENT_ACCEPT,
   type UploadedFileRef,
 } from "@/lib/uploads";
 import { cn } from "@/lib/utils";
@@ -119,6 +121,156 @@ type EmployeeProfileItemForm = {
   description: string;
 };
 
+function OverviewSectionTitle({
+  title,
+  action,
+}: {
+  title: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-5 flex items-center justify-between gap-3">
+      <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-[0.12em]">
+        {title}
+      </h3>
+      {action}
+    </div>
+  );
+}
+
+function DialogStepTabs({
+  steps,
+  step,
+  onStepChange,
+}: {
+  steps: string[];
+  step: number;
+  onStepChange: (step: number) => void;
+}) {
+  return (
+    <div className="mb-5 flex items-center gap-1">
+      {steps.map((label, index) => (
+        <React.Fragment key={label}>
+          {index > 0 && <div className="h-px flex-1 bg-border" />}
+          <button
+            type="button"
+            onClick={() => onStepChange(index)}
+            className={cn(
+              "cursor-pointer whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors",
+              step === index
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {label}
+          </button>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+function DialogStepFooter({
+  step,
+  totalSteps,
+  onBack,
+  onCancel,
+  onNext,
+  onSubmit,
+  submitLabel,
+  isPending,
+  disabled,
+}: {
+  step: number;
+  totalSteps: number;
+  onBack: () => void;
+  onCancel: () => void;
+  onNext: () => void;
+  onSubmit: () => void;
+  submitLabel: string;
+  isPending?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <DialogFooter>
+      {step > 0 ? (
+        <Button type="button" variant="outline" size="sm" onClick={onBack}>
+          Anterior
+        </Button>
+      ) : (
+        <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+          Cancelar
+        </Button>
+      )}
+      {step < totalSteps - 1 ? (
+        <Button type="button" size="sm" onClick={onNext}>
+          Próximo
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          size="sm"
+          onClick={onSubmit}
+          isLoading={isPending}
+          disabled={disabled}
+        >
+          {submitLabel}
+        </Button>
+      )}
+    </DialogFooter>
+  );
+}
+
+async function uploadEmployeeRecordFiles(
+  files: FileList | null,
+  existingCount: number,
+  onSuccess: (uploads: UploadedFileRef[]) => void,
+  onSettled: () => void,
+) {
+  if (!files?.length) {
+    onSettled();
+    return;
+  }
+
+  const selectedFiles = Array.from(files);
+  const validationError = validateProfileItemUploadSelection(selectedFiles, existingCount);
+  if (validationError) {
+    toast({
+      title: "Limite de anexos excedido",
+      description: validationError,
+      variant: "destructive",
+    });
+    onSettled();
+    return;
+  }
+
+  try {
+    const uploadedFiles = await uploadFilesToStorage(selectedFiles);
+    onSuccess(uploadedFiles);
+  } catch (error) {
+    toast({
+      title: "Falha ao enviar anexo",
+      description: error instanceof Error ? error.message : "Não foi possível enviar o arquivo.",
+      variant: "destructive",
+    });
+  } finally {
+    onSettled();
+  }
+}
+
+function mapRecordAttachmentItems(
+  attachments: Array<EmployeeRecordAttachment | UploadedFileRef> | undefined,
+  onRemove?: (objectPath: string) => void,
+) {
+  return (attachments || []).map((attachment) => ({
+    id: attachment.objectPath,
+    fileName: attachment.fileName,
+    fileSize: attachment.fileSize,
+    objectPath: attachment.objectPath,
+    onRemove: onRemove ? () => onRemove(attachment.objectPath) : undefined,
+  }));
+}
+
 function InlineField({
   label,
   value,
@@ -149,17 +301,17 @@ function InlineField({
   };
 
   return (
-    <div className="group py-2.5 border-b border-border/40 last:border-0">
-      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+    <div className="min-w-0">
+      <Label className="mb-1.5 block text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
         {label}
       </Label>
       {editing ? (
-        <div className="flex items-center gap-1.5 mt-1">
+        <div className="mt-1 flex items-center gap-1.5">
           {type === "select" && options ? (
             <select
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              className="flex-1 h-8 rounded border border-input bg-background px-2 text-[13px]"
+              className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-[13px]"
             >
               {options.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -171,14 +323,14 @@ function InlineField({
             <Textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              className="flex-1 text-[13px] min-h-[60px]"
+              className="min-h-[88px] flex-1 text-[13px]"
             />
           ) : (
             <Input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               type={type}
-              className="flex-1 h-8 text-[13px]"
+              className="h-9 flex-1 text-[13px]"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === "Enter") save();
@@ -194,21 +346,27 @@ function InlineField({
           </button>
         </div>
       ) : (
-        <div
-          className={cn("flex items-center gap-1 mt-1 group/field", editable ? "cursor-pointer" : "")}
+        <button
+          type="button"
+          className={cn(
+            "group/field mt-1 flex items-start gap-1 text-left",
+            editable ? "cursor-pointer" : "cursor-default",
+          )}
           onClick={() => {
             if (!editable) return;
             setDraft(String(value ?? ""));
             setEditing(true);
           }}
         >
-          <span className="text-[13px] text-foreground">
+          <span className="break-words text-[14px] text-foreground">
             {type === "select" && options
               ? options.find((o) => o.value === String(value))?.label || String(value ?? "—")
               : value || "—"}
           </span>
-          {editable && <Pencil className="h-3 w-3 text-muted-foreground/0 group-hover/field:text-muted-foreground/50 transition-colors" />}
-        </div>
+          {editable && (
+            <Pencil className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/0 transition-colors group-hover/field:text-muted-foreground/50" />
+          )}
+        </button>
       )}
     </div>
   );
@@ -453,28 +611,29 @@ function EmployeeProfileItemsSection({
   };
 
   return (
-    <div className="space-y-3 py-2.5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-          {items.length === 0 && <p className="mt-1 text-xs text-muted-foreground">{emptyText}</p>}
-        </div>
-        {editable && (
-          <Button size="sm" variant="outline" onClick={openCreate}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Item
-          </Button>
-        )}
-      </div>
+    <div>
+      <OverviewSectionTitle
+        title={title}
+        action={
+          editable ? (
+            <Button size="sm" variant="outline" onClick={openCreate}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Item
+            </Button>
+          ) : undefined
+        }
+      />
+
+      <p className="mb-4 text-[13px] text-muted-foreground">{emptyText}</p>
 
       {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+        <p className="rounded-xl border border-dashed border-border px-4 py-5 text-sm text-muted-foreground">
           Nenhum item cadastrado.
         </p>
       ) : (
         <div className="space-y-2">
           {items.map((item) => (
-            <div key={item.id} className="rounded-lg border border-border/60 bg-secondary/20 p-3">
+            <div key={item.id} className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground">{item.title}</p>
@@ -651,34 +810,43 @@ function LinkedUnitsSection({
   };
 
   return (
-    <div className="py-2.5 border-b border-border/40">
-      <div className="flex items-center justify-between mb-1">
-        <p className="text-xs font-semibold text-muted-foreground">Unidades</p>
-        {editable && availableUnits.length > 0 && (
-          <button onClick={() => setShowAdd(!showAdd)} className="text-[11px] text-primary hover:underline cursor-pointer">
-            + Vincular
-          </button>
-        )}
-      </div>
+    <div>
+      <OverviewSectionTitle
+        title="Unidades"
+        action={
+          editable && availableUnits.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setShowAdd(!showAdd)}
+              className="cursor-pointer text-[11px] font-medium text-primary hover:underline"
+            >
+              {showAdd ? "Cancelar vínculo" : "+ Vincular"}
+            </button>
+          ) : undefined
+        }
+      />
       {linkedUnits.length === 0 && !showAdd && (
-        <p className="text-[13px] text-muted-foreground/50">Nenhuma unidade vinculada</p>
+        <p className="text-[14px] text-muted-foreground">Nenhuma unidade vinculada</p>
       )}
-      <div className="flex flex-wrap gap-1.5 mt-1">
+      <div className="mt-1 flex flex-wrap gap-2">
         {linkedUnits.map((u) => (
-          <span key={u.id} className="inline-flex items-center gap-1 text-[12px] px-2 py-0.5 rounded-full bg-secondary text-foreground border border-border/60">
+          <span
+            key={u.id}
+            className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/40 px-3 py-1 text-[12px] text-foreground"
+          >
             {u.name}
-            {editable && <button onClick={() => handleUnlink(u.id)} className="text-muted-foreground/40 hover:text-red-500 cursor-pointer">
+            {editable && <button onClick={() => handleUnlink(u.id)} className="cursor-pointer text-muted-foreground/40 hover:text-red-500">
               <X className="h-3 w-3" />
             </button>}
           </span>
         ))}
       </div>
       {editable && showAdd && (
-        <div className="flex items-center gap-2 mt-2">
+        <div className="mt-4 flex items-center gap-2">
           <select
             value={selectedUnit}
             onChange={(e) => setSelectedUnit(e.target.value)}
-            className="flex h-8 flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs"
+            className="h-9 flex-1 rounded-md border border-input bg-background px-3 py-2 text-[13px]"
           >
             <option value="">Selecionar unidade...</option>
             {availableUnits.map((u) => (
@@ -703,26 +871,49 @@ type CompetencyForm = {
   evidence: string;
 };
 
-function CompetencyFormFields({ form, setForm }: { form: CompetencyForm; setForm: (f: CompetencyForm) => void }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-xs font-semibold text-muted-foreground">Nome *</Label>
-        <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1" placeholder="Ex: Gestão de Resíduos" />
-      </div>
-      <div>
-        <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-        <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" rows={2} />
-      </div>
-      <div className="grid grid-cols-3 gap-3">
+function CompetencyFormStep({
+  form,
+  setForm,
+  step,
+  attachments,
+  onUpload,
+  onRemoveAttachment,
+  uploading = false,
+}: {
+  form: CompetencyForm;
+  setForm: (f: CompetencyForm) => void;
+  step: number;
+  attachments: Array<EmployeeRecordAttachment | UploadedFileRef>;
+  onUpload?: (files: FileList | null) => void;
+  onRemoveAttachment?: (objectPath: string) => void;
+  uploading?: boolean;
+}) {
+  if (step === 0) {
+    return (
+      <div className="grid gap-5 md:grid-cols-2">
+        <div className="md:col-span-2">
+          <Label className="text-xs font-semibold text-muted-foreground">Nome *</Label>
+          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1" placeholder="Ex: Gestão de Resíduos" />
+        </div>
         <div>
           <Label className="text-xs font-semibold text-muted-foreground">Tipo</Label>
-          <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as CreateCompetencyBodyType })} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+          <Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as CreateCompetencyBodyType })} className="mt-1 h-10 text-[13px]">
             <option value={CreateCompetencyBodyTypeValues.formacao}>Formação</option>
             <option value={CreateCompetencyBodyTypeValues.experiencia}>Experiência</option>
             <option value={CreateCompetencyBodyTypeValues.habilidade}>Habilidade</option>
-          </select>
+          </Select>
         </div>
+        <div className="md:col-span-2">
+          <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
+          <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" rows={4} />
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 1) {
+    return (
+      <div className="grid gap-5 md:grid-cols-2">
         <div>
           <Label className="text-xs font-semibold text-muted-foreground">Nível Requerido</Label>
           <Input type="number" min={0} max={5} value={form.requiredLevel} onChange={(e) => setForm({ ...form, requiredLevel: Number(e.target.value) })} className="mt-1" />
@@ -732,10 +923,159 @@ function CompetencyFormFields({ form, setForm }: { form: CompetencyForm; setForm
           <Input type="number" min={0} max={5} value={form.acquiredLevel} onChange={(e) => setForm({ ...form, acquiredLevel: Number(e.target.value) })} className="mt-1" />
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
       <div>
         <Label className="text-xs font-semibold text-muted-foreground">Evidência</Label>
         <Input value={form.evidence} onChange={(e) => setForm({ ...form, evidence: e.target.value })} className="mt-1" placeholder="Ex: Certificado XYZ" />
       </div>
+      <ProfileItemAttachmentsField
+        attachments={mapRecordAttachmentItems(attachments, onRemoveAttachment)}
+        onUpload={onUpload}
+        uploading={uploading}
+        emptyText="Adicione PDF ou imagem para validar a competência."
+        accept={EMPLOYEE_RECORD_ATTACHMENT_ACCEPT}
+      />
+    </div>
+  );
+}
+
+function TrainingFormStep({
+  form,
+  setForm,
+  step,
+  attachments,
+  onUpload,
+  onRemoveAttachment,
+  uploading = false,
+}: {
+  form: TrainingForm;
+  setForm: (f: TrainingForm) => void;
+  step: number;
+  attachments: Array<EmployeeRecordAttachment | UploadedFileRef>;
+  onUpload?: (files: FileList | null) => void;
+  onRemoveAttachment?: (objectPath: string) => void;
+  uploading?: boolean;
+}) {
+  if (step === 0) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Título *</Label>
+          <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-1" placeholder="Ex: NR-12 Segurança" />
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
+          <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" rows={4} />
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 1) {
+    return (
+      <div className="grid gap-5 md:grid-cols-2">
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Instituição</Label>
+          <Input value={form.institution} onChange={(e) => setForm({ ...form, institution: e.target.value })} className="mt-1" />
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Carga Horária (h)</Label>
+          <Input type="number" value={form.workloadHours} onChange={(e) => setForm({ ...form, workloadHours: Number(e.target.value) })} className="mt-1" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-5 md:grid-cols-3">
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Status</Label>
+          <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as CreateTrainingBodyStatus })} className="mt-1 h-10 text-[13px]">
+            <option value={CreateTrainingBodyStatusValues.pendente}>Pendente</option>
+            <option value={CreateTrainingBodyStatusValues.concluido}>Concluído</option>
+            <option value={CreateTrainingBodyStatusValues.vencido}>Vencido</option>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Data Conclusão</Label>
+          <Input type="date" value={form.completionDate} onChange={(e) => setForm({ ...form, completionDate: e.target.value })} className="mt-1" />
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Validade</Label>
+          <Input type="date" value={form.expirationDate} onChange={(e) => setForm({ ...form, expirationDate: e.target.value })} className="mt-1" />
+        </div>
+      </div>
+      <ProfileItemAttachmentsField
+        attachments={mapRecordAttachmentItems(attachments, onRemoveAttachment)}
+        onUpload={onUpload}
+        uploading={uploading}
+        emptyText="Adicione PDF ou imagem para validar o treinamento."
+        accept={EMPLOYEE_RECORD_ATTACHMENT_ACCEPT}
+      />
+    </div>
+  );
+}
+
+function AwarenessFormStep({
+  form,
+  setForm,
+  step,
+  attachments,
+  onUpload,
+  onRemoveAttachment,
+  uploading = false,
+}: {
+  form: AwarenessForm;
+  setForm: (f: AwarenessForm) => void;
+  step: number;
+  attachments: Array<EmployeeRecordAttachment | UploadedFileRef>;
+  onUpload?: (files: FileList | null) => void;
+  onRemoveAttachment?: (objectPath: string) => void;
+  uploading?: boolean;
+}) {
+  if (step === 0) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Tema *</Label>
+          <Input value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} className="mt-1" placeholder="Ex: Política da Qualidade" />
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
+          <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" rows={4} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-5 md:grid-cols-3">
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Data *</Label>
+          <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="mt-1" />
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Método de Verificação</Label>
+          <Input value={form.verificationMethod} onChange={(e) => setForm({ ...form, verificationMethod: e.target.value })} className="mt-1" placeholder="Ex: Questionário" />
+        </div>
+        <div>
+          <Label className="text-xs font-semibold text-muted-foreground">Resultado</Label>
+          <Input value={form.result} onChange={(e) => setForm({ ...form, result: e.target.value })} className="mt-1" placeholder="Ex: Aprovado" />
+        </div>
+      </div>
+      <ProfileItemAttachmentsField
+        attachments={mapRecordAttachmentItems(attachments, onRemoveAttachment)}
+        onUpload={onUpload}
+        uploading={uploading}
+        emptyText="Adicione PDF ou imagem para validar o registro."
+        accept={EMPLOYEE_RECORD_ATTACHMENT_ACCEPT}
+      />
     </div>
   );
 }
@@ -760,24 +1100,55 @@ function CompetenciasTab({
   const isCreateOpen = onCreateOpenChange ? createOpen : internalCreateOpen;
   const setCreateOpen = onCreateOpenChange || setInternalCreateOpen;
   const [editingComp, setEditingComp] = useState<EmployeeCompetency | null>(null);
+  const [createStep, setCreateStep] = useState(0);
+  const [editStep, setEditStep] = useState(0);
+  const [createAttachments, setCreateAttachments] = useState<UploadedFileRef[]>([]);
+  const [editingAttachments, setEditingAttachments] = useState<EmployeeRecordAttachment[]>([]);
+  const [isUploadingCreateAttachments, setIsUploadingCreateAttachments] = useState(false);
+  const [isUploadingEditAttachments, setIsUploadingEditAttachments] = useState(false);
   const createMutation = useCreateCompetency();
   const updateMutation = useUpdateCompetency();
   const deleteMutation = useDeleteCompetency();
+  const steps = ["Básico", "Níveis", "Evidência"];
+  const descriptions = ["Informações básicas", "Níveis de competência", "Registro de evidência"];
 
   const emptyForm: CompetencyForm = { name: "", description: "", type: "formacao", requiredLevel: 3, acquiredLevel: 0, evidence: "" };
   const [form, setForm] = useState<CompetencyForm>(emptyForm);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId, empId) });
 
-  const handleCreate = async () => {
-    await createMutation.mutateAsync({ orgId, empId, data: form });
-    invalidate();
+  const closeCreateDialog = () => {
     setCreateOpen(false);
+    setCreateStep(0);
     setForm(emptyForm);
+    setCreateAttachments([]);
+    setIsUploadingCreateAttachments(false);
+  };
+
+  const closeEditDialog = () => {
+    setEditingComp(null);
+    setEditStep(0);
+    setForm(emptyForm);
+    setEditingAttachments([]);
+    setIsUploadingEditAttachments(false);
+  };
+
+  const handleCreate = async () => {
+    await createMutation.mutateAsync({
+      orgId,
+      empId,
+      data: {
+        ...form,
+        attachments: createAttachments.length > 0 ? createAttachments : undefined,
+      },
+    });
+    invalidate();
+    closeCreateDialog();
   };
 
   const openEdit = (comp: EmployeeCompetency) => {
     setEditingComp(comp);
+    setEditStep(0);
     setForm({
       name: comp.name,
       description: comp.description || "",
@@ -786,6 +1157,7 @@ function CompetenciasTab({
       acquiredLevel: comp.acquiredLevel,
       evidence: comp.evidence || "",
     });
+    setEditingAttachments(comp.attachments || []);
   };
 
   const handleUpdate = async () => {
@@ -799,11 +1171,11 @@ function CompetenciasTab({
         requiredLevel: form.requiredLevel,
         acquiredLevel: form.acquiredLevel,
         evidence: form.evidence || undefined,
+        attachments: editingAttachments,
       },
     });
     invalidate();
-    setEditingComp(null);
-    setForm(emptyForm);
+    closeEditDialog();
   };
 
   const handleDelete = async (compId: number) => {
@@ -826,6 +1198,9 @@ function CompetenciasTab({
         <div className="space-y-2">
           {competencies.map((comp) => (
             <div key={comp.id} className="bg-white border border-border/60 rounded-xl px-4 py-3">
+              {(() => {
+                const compAttachments = comp.attachments || [];
+                return (
               <div className="flex items-start justify-between">
                 <div className={cn("flex-1", editable ? "cursor-pointer" : "")} onClick={() => editable && openEdit(comp)}>
                   <div className="flex items-center gap-2">
@@ -861,6 +1236,15 @@ function CompetenciasTab({
                       <span className="font-medium">Evidência:</span> {comp.evidence}
                     </p>
                   )}
+                  {compAttachments.length > 0 && (
+                    <div className="mt-3">
+                      <ProfileItemAttachmentsField
+                        attachments={mapRecordAttachmentItems(compAttachments)}
+                        emptyText=""
+                        accept={EMPLOYEE_RECORD_ATTACHMENT_ACCEPT}
+                      />
+                    </div>
+                  )}
                 </div>
                 {editable && <div className="flex items-center gap-1">
                   <button onClick={(e) => { e.stopPropagation(); openEdit(comp); }} className="p-1.5 text-muted-foreground/40 hover:text-primary transition-colors cursor-pointer">
@@ -871,29 +1255,96 @@ function CompetenciasTab({
                   </button>
                 </div>}
               </div>
+                );
+              })()}
             </div>
           ))}
         </div>
       )}
 
-      <Dialog open={editable && isCreateOpen} onOpenChange={setCreateOpen} title="Nova Competência" size="lg">
-        <CompetencyFormFields form={form} setForm={setForm} />
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-          <Button size="sm" onClick={handleCreate} disabled={!form.name || createMutation.isPending}>
-            {createMutation.isPending ? "Salvando..." : "Salvar"}
-          </Button>
-        </DialogFooter>
+      <Dialog
+        open={editable && isCreateOpen}
+        onOpenChange={(open) => {
+          if (!open) closeCreateDialog();
+          else setCreateOpen(true);
+        }}
+        title="Nova Competência"
+        description={descriptions[createStep]}
+        size="lg"
+      >
+        <DialogStepTabs steps={steps} step={createStep} onStepChange={setCreateStep} />
+        <CompetencyFormStep
+          form={form}
+          setForm={setForm}
+          step={createStep}
+          attachments={createAttachments}
+          onUpload={(files) => {
+            setIsUploadingCreateAttachments(true);
+            void uploadEmployeeRecordFiles(
+              files,
+              createAttachments.length,
+              (uploads) => setCreateAttachments((current) => [...current, ...uploads]),
+              () => setIsUploadingCreateAttachments(false),
+            );
+          }}
+          onRemoveAttachment={(objectPath) => {
+            setCreateAttachments((current) => current.filter((attachment) => attachment.objectPath !== objectPath));
+          }}
+          uploading={isUploadingCreateAttachments}
+        />
+        <DialogStepFooter
+          step={createStep}
+          totalSteps={steps.length}
+          onBack={() => setCreateStep((current) => current - 1)}
+          onCancel={closeCreateDialog}
+          onNext={() => setCreateStep((current) => current + 1)}
+          onSubmit={handleCreate}
+          submitLabel="Salvar"
+          isPending={createMutation.isPending}
+          disabled={!form.name}
+        />
       </Dialog>
 
-      <Dialog open={editable && !!editingComp} onOpenChange={(open) => { if (!open) { setEditingComp(null); setForm(emptyForm); } }} title="Editar Competência" size="lg">
-        <CompetencyFormFields form={form} setForm={setForm} />
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => { setEditingComp(null); setForm(emptyForm); }}>Cancelar</Button>
-          <Button size="sm" onClick={handleUpdate} disabled={!form.name || updateMutation.isPending}>
-            {updateMutation.isPending ? "Salvando..." : "Atualizar"}
-          </Button>
-        </DialogFooter>
+      <Dialog
+        open={editable && !!editingComp}
+        onOpenChange={(open) => {
+          if (!open) closeEditDialog();
+        }}
+        title="Editar Competência"
+        description={descriptions[editStep]}
+        size="lg"
+      >
+        <DialogStepTabs steps={steps} step={editStep} onStepChange={setEditStep} />
+        <CompetencyFormStep
+          form={form}
+          setForm={setForm}
+          step={editStep}
+          attachments={editingAttachments}
+          onUpload={(files) => {
+            setIsUploadingEditAttachments(true);
+            void uploadEmployeeRecordFiles(
+              files,
+              editingAttachments.length,
+              (uploads) => setEditingAttachments((current) => [...current, ...uploads]),
+              () => setIsUploadingEditAttachments(false),
+            );
+          }}
+          onRemoveAttachment={(objectPath) => {
+            setEditingAttachments((current) => current.filter((attachment) => attachment.objectPath !== objectPath));
+          }}
+          uploading={isUploadingEditAttachments}
+        />
+        <DialogStepFooter
+          step={editStep}
+          totalSteps={steps.length}
+          onBack={() => setEditStep((current) => current - 1)}
+          onCancel={closeEditDialog}
+          onNext={() => setEditStep((current) => current + 1)}
+          onSubmit={handleUpdate}
+          submitLabel="Atualizar"
+          isPending={updateMutation.isPending}
+          disabled={!form.name}
+        />
       </Dialog>
     </div>
   );
@@ -909,49 +1360,6 @@ type TrainingForm = {
   status: CreateTrainingBodyStatus;
 };
 type AwarenessForm = { topic: string; description: string; date: string; verificationMethod: string; result: string };
-
-function TrainingFormFields({ form, setForm }: { form: TrainingForm; setForm: (f: TrainingForm) => void }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-xs font-semibold text-muted-foreground">Título *</Label>
-        <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-1" placeholder="Ex: NR-12 Segurança" />
-      </div>
-      <div>
-        <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-        <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" rows={2} />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label className="text-xs font-semibold text-muted-foreground">Instituição</Label>
-          <Input value={form.institution} onChange={(e) => setForm({ ...form, institution: e.target.value })} className="mt-1" />
-        </div>
-        <div>
-          <Label className="text-xs font-semibold text-muted-foreground">Carga Horária (h)</Label>
-          <Input type="number" value={form.workloadHours} onChange={(e) => setForm({ ...form, workloadHours: Number(e.target.value) })} className="mt-1" />
-        </div>
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <Label className="text-xs font-semibold text-muted-foreground">Status</Label>
-          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as CreateTrainingBodyStatus })} className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-            <option value={CreateTrainingBodyStatusValues.pendente}>Pendente</option>
-            <option value={CreateTrainingBodyStatusValues.concluido}>Concluído</option>
-            <option value={CreateTrainingBodyStatusValues.vencido}>Vencido</option>
-          </select>
-        </div>
-        <div>
-          <Label className="text-xs font-semibold text-muted-foreground">Data Conclusão</Label>
-          <Input type="date" value={form.completionDate} onChange={(e) => setForm({ ...form, completionDate: e.target.value })} className="mt-1" />
-        </div>
-        <div>
-          <Label className="text-xs font-semibold text-muted-foreground">Validade</Label>
-          <Input type="date" value={form.expirationDate} onChange={(e) => setForm({ ...form, expirationDate: e.target.value })} className="mt-1" />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function TreinamentosTab({
   trainings,
@@ -973,9 +1381,17 @@ function TreinamentosTab({
   const isCreateOpen = onCreateOpenChange ? createOpen : internalCreateOpen;
   const setCreateOpen = onCreateOpenChange || setInternalCreateOpen;
   const [editingTraining, setEditingTraining] = useState<EmployeeTraining | null>(null);
+  const [createStep, setCreateStep] = useState(0);
+  const [editStep, setEditStep] = useState(0);
+  const [createAttachments, setCreateAttachments] = useState<UploadedFileRef[]>([]);
+  const [editingAttachments, setEditingAttachments] = useState<EmployeeRecordAttachment[]>([]);
+  const [isUploadingCreateAttachments, setIsUploadingCreateAttachments] = useState(false);
+  const [isUploadingEditAttachments, setIsUploadingEditAttachments] = useState(false);
   const createMutation = useCreateTraining();
   const deleteMutation = useDeleteTraining();
   const updateMutation = useUpdateTraining();
+  const steps = ["Básico", "Instituição", "Status"];
+  const descriptions = ["Informações básicas", "Instituição e carga horária", "Status e prazos"];
 
   const emptyForm: TrainingForm = {
     title: "",
@@ -990,6 +1406,22 @@ function TreinamentosTab({
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId, empId) });
 
+  const closeCreateDialog = () => {
+    setCreateOpen(false);
+    setCreateStep(0);
+    setForm(emptyForm);
+    setCreateAttachments([]);
+    setIsUploadingCreateAttachments(false);
+  };
+
+  const closeEditDialog = () => {
+    setEditingTraining(null);
+    setEditStep(0);
+    setForm(emptyForm);
+    setEditingAttachments([]);
+    setIsUploadingEditAttachments(false);
+  };
+
   const handleCreate = async () => {
     await createMutation.mutateAsync({
       orgId,
@@ -999,15 +1431,16 @@ function TreinamentosTab({
         workloadHours: form.workloadHours || undefined,
         completionDate: form.completionDate || undefined,
         expirationDate: form.expirationDate || undefined,
+        attachments: createAttachments.length > 0 ? createAttachments : undefined,
       },
     });
     invalidate();
-    setCreateOpen(false);
-    setForm(emptyForm);
+    closeCreateDialog();
   };
 
   const openEdit = (t: EmployeeTraining) => {
     setEditingTraining(t);
+    setEditStep(0);
     setForm({
       title: t.title,
       description: t.description || "",
@@ -1017,6 +1450,7 @@ function TreinamentosTab({
       expirationDate: t.expirationDate || "",
       status: t.status,
     });
+    setEditingAttachments(t.attachments || []);
   };
 
   const handleUpdate = async () => {
@@ -1033,11 +1467,11 @@ function TreinamentosTab({
         completionDate: form.completionDate || undefined,
         expirationDate: form.expirationDate || undefined,
         status: form.status as UpdateTrainingBodyStatus,
+        attachments: editingAttachments,
       },
     });
     invalidate();
-    setEditingTraining(null);
-    setForm(emptyForm);
+    closeEditDialog();
   };
 
   const handleDelete = async (trainId: number) => {
@@ -1060,6 +1494,9 @@ function TreinamentosTab({
         <div className="space-y-2">
           {trainings.map((t) => (
             <div key={t.id} className="bg-white border border-border/60 rounded-xl px-4 py-3">
+              {(() => {
+                const trainingAttachments = t.attachments || [];
+                return (
               <div className="flex items-start justify-between">
                 <div className={cn("flex-1", editable ? "cursor-pointer" : "")} onClick={() => editable && openEdit(t)}>
                   <div className="flex items-center gap-2">
@@ -1075,6 +1512,15 @@ function TreinamentosTab({
                     {t.completionDate && <span>Concluído: {t.completionDate}</span>}
                     {t.expirationDate && <span>Validade: {t.expirationDate}</span>}
                   </div>
+                  {trainingAttachments.length > 0 && (
+                    <div className="mt-3">
+                      <ProfileItemAttachmentsField
+                        attachments={mapRecordAttachmentItems(trainingAttachments)}
+                        emptyText=""
+                        accept={EMPLOYEE_RECORD_ATTACHMENT_ACCEPT}
+                      />
+                    </div>
+                  )}
                 </div>
                 {editable && <div className="flex items-center gap-1">
                   <button onClick={() => openEdit(t)} className="p-1.5 text-muted-foreground/40 hover:text-primary transition-colors cursor-pointer">
@@ -1085,59 +1531,97 @@ function TreinamentosTab({
                   </button>
                 </div>}
               </div>
+                );
+              })()}
             </div>
           ))}
         </div>
       )}
 
-      <Dialog open={editable && isCreateOpen} onOpenChange={setCreateOpen} title="Novo Treinamento" size="lg">
-        <TrainingFormFields form={form} setForm={setForm} />
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-          <Button size="sm" onClick={handleCreate} disabled={!form.title || createMutation.isPending}>
-            {createMutation.isPending ? "Salvando..." : "Salvar"}
-          </Button>
-        </DialogFooter>
+      <Dialog
+        open={editable && isCreateOpen}
+        onOpenChange={(open) => {
+          if (!open) closeCreateDialog();
+          else setCreateOpen(true);
+        }}
+        title="Novo Treinamento"
+        description={descriptions[createStep]}
+        size="lg"
+      >
+        <DialogStepTabs steps={steps} step={createStep} onStepChange={setCreateStep} />
+        <TrainingFormStep
+          form={form}
+          setForm={setForm}
+          step={createStep}
+          attachments={createAttachments}
+          onUpload={(files) => {
+            setIsUploadingCreateAttachments(true);
+            void uploadEmployeeRecordFiles(
+              files,
+              createAttachments.length,
+              (uploads) => setCreateAttachments((current) => [...current, ...uploads]),
+              () => setIsUploadingCreateAttachments(false),
+            );
+          }}
+          onRemoveAttachment={(objectPath) => {
+            setCreateAttachments((current) => current.filter((attachment) => attachment.objectPath !== objectPath));
+          }}
+          uploading={isUploadingCreateAttachments}
+        />
+        <DialogStepFooter
+          step={createStep}
+          totalSteps={steps.length}
+          onBack={() => setCreateStep((current) => current - 1)}
+          onCancel={closeCreateDialog}
+          onNext={() => setCreateStep((current) => current + 1)}
+          onSubmit={handleCreate}
+          submitLabel="Salvar"
+          isPending={createMutation.isPending}
+          disabled={!form.title}
+        />
       </Dialog>
 
-      <Dialog open={editable && !!editingTraining} onOpenChange={(open) => { if (!open) { setEditingTraining(null); setForm(emptyForm); } }} title="Editar Treinamento" size="lg">
-        <TrainingFormFields form={form} setForm={setForm} />
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => { setEditingTraining(null); setForm(emptyForm); }}>Cancelar</Button>
-          <Button size="sm" onClick={handleUpdate} disabled={!form.title || updateMutation.isPending}>
-            {updateMutation.isPending ? "Salvando..." : "Atualizar"}
-          </Button>
-        </DialogFooter>
+      <Dialog
+        open={editable && !!editingTraining}
+        onOpenChange={(open) => {
+          if (!open) closeEditDialog();
+        }}
+        title="Editar Treinamento"
+        description={descriptions[editStep]}
+        size="lg"
+      >
+        <DialogStepTabs steps={steps} step={editStep} onStepChange={setEditStep} />
+        <TrainingFormStep
+          form={form}
+          setForm={setForm}
+          step={editStep}
+          attachments={editingAttachments}
+          onUpload={(files) => {
+            setIsUploadingEditAttachments(true);
+            void uploadEmployeeRecordFiles(
+              files,
+              editingAttachments.length,
+              (uploads) => setEditingAttachments((current) => [...current, ...uploads]),
+              () => setIsUploadingEditAttachments(false),
+            );
+          }}
+          onRemoveAttachment={(objectPath) => {
+            setEditingAttachments((current) => current.filter((attachment) => attachment.objectPath !== objectPath));
+          }}
+          uploading={isUploadingEditAttachments}
+        />
+        <DialogStepFooter
+          step={editStep}
+          totalSteps={steps.length}
+          onBack={() => setEditStep((current) => current - 1)}
+          onCancel={closeEditDialog}
+          onNext={() => setEditStep((current) => current + 1)}
+          onSubmit={handleUpdate}
+          submitLabel="Atualizar"
+          isPending={updateMutation.isPending}
+          disabled={!form.title}
+        />
       </Dialog>
-    </div>
-  );
-}
-
-function AwarenessFormFields({ form, setForm }: { form: AwarenessForm; setForm: (f: AwarenessForm) => void }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-xs font-semibold text-muted-foreground">Tema *</Label>
-        <Input value={form.topic} onChange={(e) => setForm({ ...form, topic: e.target.value })} className="mt-1" placeholder="Ex: Política da Qualidade" />
-      </div>
-      <div>
-        <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-        <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1" rows={2} />
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <Label className="text-xs font-semibold text-muted-foreground">Data *</Label>
-          <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="mt-1" />
-        </div>
-        <div>
-          <Label className="text-xs font-semibold text-muted-foreground">Método de Verificação</Label>
-          <Input value={form.verificationMethod} onChange={(e) => setForm({ ...form, verificationMethod: e.target.value })} className="mt-1" placeholder="Ex: Questionário" />
-        </div>
-        <div>
-          <Label className="text-xs font-semibold text-muted-foreground">Resultado</Label>
-          <Input value={form.result} onChange={(e) => setForm({ ...form, result: e.target.value })} className="mt-1" placeholder="Ex: Aprovado" />
-        </div>
-      </div>
     </div>
   );
 }
@@ -1162,24 +1646,55 @@ function ConscientizacaoTab({
   const isCreateOpen = onCreateOpenChange ? createOpen : internalCreateOpen;
   const setCreateOpen = onCreateOpenChange || setInternalCreateOpen;
   const [editingAwareness, setEditingAwareness] = useState<EmployeeAwareness | null>(null);
+  const [createStep, setCreateStep] = useState(0);
+  const [editStep, setEditStep] = useState(0);
+  const [createAttachments, setCreateAttachments] = useState<UploadedFileRef[]>([]);
+  const [editingAttachments, setEditingAttachments] = useState<EmployeeRecordAttachment[]>([]);
+  const [isUploadingCreateAttachments, setIsUploadingCreateAttachments] = useState(false);
+  const [isUploadingEditAttachments, setIsUploadingEditAttachments] = useState(false);
   const createMutation = useCreateAwareness();
   const deleteMutation = useDeleteAwareness();
   const updateMutation = useUpdateAwareness();
+  const steps = ["Básico", "Verificação"];
+  const descriptions = ["Informações básicas", "Data, verificação e resultado"];
 
   const emptyForm = { topic: "", description: "", date: new Date().toISOString().split("T")[0], verificationMethod: "", result: "" };
   const [form, setForm] = useState(emptyForm);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId, empId) });
 
-  const handleCreate = async () => {
-    await createMutation.mutateAsync({ orgId, empId, data: form });
-    invalidate();
+  const closeCreateDialog = () => {
     setCreateOpen(false);
+    setCreateStep(0);
     setForm(emptyForm);
+    setCreateAttachments([]);
+    setIsUploadingCreateAttachments(false);
+  };
+
+  const closeEditDialog = () => {
+    setEditingAwareness(null);
+    setEditStep(0);
+    setForm(emptyForm);
+    setEditingAttachments([]);
+    setIsUploadingEditAttachments(false);
+  };
+
+  const handleCreate = async () => {
+    await createMutation.mutateAsync({
+      orgId,
+      empId,
+      data: {
+        ...form,
+        attachments: createAttachments.length > 0 ? createAttachments : undefined,
+      },
+    });
+    invalidate();
+    closeCreateDialog();
   };
 
   const openEdit = (a: EmployeeAwareness) => {
     setEditingAwareness(a);
+    setEditStep(0);
     setForm({
       topic: a.topic,
       description: a.description || "",
@@ -1187,6 +1702,7 @@ function ConscientizacaoTab({
       verificationMethod: a.verificationMethod || "",
       result: a.result || "",
     });
+    setEditingAttachments(a.attachments || []);
   };
 
   const handleUpdate = async () => {
@@ -1201,11 +1717,11 @@ function ConscientizacaoTab({
         date: form.date,
         verificationMethod: form.verificationMethod || undefined,
         result: form.result || undefined,
+        attachments: editingAttachments,
       },
     });
     invalidate();
-    setEditingAwareness(null);
-    setForm(emptyForm);
+    closeEditDialog();
   };
 
   const handleDelete = async (awaId: number) => {
@@ -1228,6 +1744,9 @@ function ConscientizacaoTab({
         <div className="space-y-2">
           {awareness.map((a) => (
             <div key={a.id} className="bg-white border border-border/60 rounded-xl px-4 py-3">
+              {(() => {
+                const awarenessAttachments = a.attachments || [];
+                return (
               <div className="flex items-start justify-between">
                 <div className={cn("flex-1", editable ? "cursor-pointer" : "")} onClick={() => editable && openEdit(a)}>
                   <p className="text-[13px] font-medium text-foreground">{a.topic}</p>
@@ -1237,6 +1756,15 @@ function ConscientizacaoTab({
                     {a.verificationMethod && <span>Método: {a.verificationMethod}</span>}
                     {a.result && <span>Resultado: {a.result}</span>}
                   </div>
+                  {awarenessAttachments.length > 0 && (
+                    <div className="mt-3">
+                      <ProfileItemAttachmentsField
+                        attachments={mapRecordAttachmentItems(awarenessAttachments)}
+                        emptyText=""
+                        accept={EMPLOYEE_RECORD_ATTACHMENT_ACCEPT}
+                      />
+                    </div>
+                  )}
                 </div>
                 {editable && <div className="flex items-center gap-1">
                   <button onClick={() => openEdit(a)} className="p-1.5 text-muted-foreground/40 hover:text-primary transition-colors cursor-pointer">
@@ -1247,29 +1775,96 @@ function ConscientizacaoTab({
                   </button>
                 </div>}
               </div>
+                );
+              })()}
             </div>
           ))}
         </div>
       )}
 
-      <Dialog open={editable && isCreateOpen} onOpenChange={setCreateOpen} title="Novo Registro de Conscientização" size="lg">
-        <AwarenessFormFields form={form} setForm={setForm} />
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-          <Button size="sm" onClick={handleCreate} disabled={!form.topic || !form.date || createMutation.isPending}>
-            {createMutation.isPending ? "Salvando..." : "Salvar"}
-          </Button>
-        </DialogFooter>
+      <Dialog
+        open={editable && isCreateOpen}
+        onOpenChange={(open) => {
+          if (!open) closeCreateDialog();
+          else setCreateOpen(true);
+        }}
+        title="Novo Registro de Conscientização"
+        description={descriptions[createStep]}
+        size="lg"
+      >
+        <DialogStepTabs steps={steps} step={createStep} onStepChange={setCreateStep} />
+        <AwarenessFormStep
+          form={form}
+          setForm={setForm}
+          step={createStep}
+          attachments={createAttachments}
+          onUpload={(files) => {
+            setIsUploadingCreateAttachments(true);
+            void uploadEmployeeRecordFiles(
+              files,
+              createAttachments.length,
+              (uploads) => setCreateAttachments((current) => [...current, ...uploads]),
+              () => setIsUploadingCreateAttachments(false),
+            );
+          }}
+          onRemoveAttachment={(objectPath) => {
+            setCreateAttachments((current) => current.filter((attachment) => attachment.objectPath !== objectPath));
+          }}
+          uploading={isUploadingCreateAttachments}
+        />
+        <DialogStepFooter
+          step={createStep}
+          totalSteps={steps.length}
+          onBack={() => setCreateStep((current) => current - 1)}
+          onCancel={closeCreateDialog}
+          onNext={() => setCreateStep((current) => current + 1)}
+          onSubmit={handleCreate}
+          submitLabel="Salvar"
+          isPending={createMutation.isPending}
+          disabled={!form.topic || !form.date}
+        />
       </Dialog>
 
-      <Dialog open={editable && !!editingAwareness} onOpenChange={(open) => { if (!open) { setEditingAwareness(null); setForm(emptyForm); } }} title="Editar Registro de Conscientização" size="lg">
-        <AwarenessFormFields form={form} setForm={setForm} />
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => { setEditingAwareness(null); setForm(emptyForm); }}>Cancelar</Button>
-          <Button size="sm" onClick={handleUpdate} disabled={!form.topic || !form.date || updateMutation.isPending}>
-            {updateMutation.isPending ? "Salvando..." : "Atualizar"}
-          </Button>
-        </DialogFooter>
+      <Dialog
+        open={editable && !!editingAwareness}
+        onOpenChange={(open) => {
+          if (!open) closeEditDialog();
+        }}
+        title="Editar Registro de Conscientização"
+        description={descriptions[editStep]}
+        size="lg"
+      >
+        <DialogStepTabs steps={steps} step={editStep} onStepChange={setEditStep} />
+        <AwarenessFormStep
+          form={form}
+          setForm={setForm}
+          step={editStep}
+          attachments={editingAttachments}
+          onUpload={(files) => {
+            setIsUploadingEditAttachments(true);
+            void uploadEmployeeRecordFiles(
+              files,
+              editingAttachments.length,
+              (uploads) => setEditingAttachments((current) => [...current, ...uploads]),
+              () => setIsUploadingEditAttachments(false),
+            );
+          }}
+          onRemoveAttachment={(objectPath) => {
+            setEditingAttachments((current) => current.filter((attachment) => attachment.objectPath !== objectPath));
+          }}
+          uploading={isUploadingEditAttachments}
+        />
+        <DialogStepFooter
+          step={editStep}
+          totalSteps={steps.length}
+          onBack={() => setEditStep((current) => current - 1)}
+          onCancel={closeEditDialog}
+          onNext={() => setEditStep((current) => current + 1)}
+          onSubmit={handleUpdate}
+          submitLabel="Atualizar"
+          isPending={updateMutation.isPending}
+          disabled={!form.topic || !form.date}
+        />
       </Dialog>
     </div>
   );
@@ -1425,8 +2020,8 @@ export default function ColaboradorDetailPage() {
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="mb-1">
+      <div className="space-y-10">
+        <div className="mb-3">
           <div className="flex items-center gap-6 border-b border-border">
             {tabs.map((tab) => (
               <button
@@ -1452,99 +2047,103 @@ export default function ColaboradorDetailPage() {
         </div>
 
         {activeTab === "dados" && (
-          <div className="grid grid-cols-2 gap-8">
-            <div className="bg-white border border-border/60 rounded-xl p-5">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                Informações Pessoais
-              </h3>
-              <InlineField label="Nome completo *" value={employee.name} fieldKey="name" editable={canWriteEmployees} onSave={handleFieldSave} />
-              <InlineField label="CPF" value={employee.cpf} fieldKey="cpf" editable={canWriteEmployees} onSave={handleFieldSave} />
-              <InlineField label="E-mail" value={employee.email} fieldKey="email" editable={canWriteEmployees} onSave={handleFieldSave} />
-              <InlineField label="Telefone" value={employee.phone} fieldKey="phone" editable={canWriteEmployees} onSave={handleFieldSave} />
+          <div className="space-y-10">
+            <div>
+              <OverviewSectionTitle title="Informações Pessoais" />
+              <div className="grid gap-x-8 gap-y-6 md:grid-cols-2 xl:grid-cols-3">
+                <InlineField label="Nome completo *" value={employee.name} fieldKey="name" editable={canWriteEmployees} onSave={handleFieldSave} />
+                <InlineField label="CPF" value={employee.cpf} fieldKey="cpf" editable={canWriteEmployees} onSave={handleFieldSave} />
+                <InlineField label="E-mail" value={employee.email} fieldKey="email" editable={canWriteEmployees} onSave={handleFieldSave} />
+                <InlineField label="Telefone" value={employee.phone} fieldKey="phone" editable={canWriteEmployees} onSave={handleFieldSave} />
+              </div>
             </div>
-            <div className="bg-white border border-border/60 rounded-xl p-5">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                Informações Profissionais
-              </h3>
-              <InlineField
-                label="Cargo"
-                value={employee.position}
-                fieldKey="position"
-                type="select"
-                options={[
-                  { value: "", label: "Selecionar cargo" },
-                  ...positions.map((position) => ({ value: position.name, label: position.name })),
-                ]}
-                editable={canWriteEmployees}
-                onSave={handleFieldSave}
-              />
-              <InlineField
-                label="Departamento"
-                value={employee.department}
-                fieldKey="department"
-                type="select"
-                options={[
-                  { value: "", label: "Selecionar departamento" },
-                  ...departments.map((department) => ({ value: department.name, label: department.name })),
-                ]}
-                editable={canWriteEmployees}
-                onSave={handleFieldSave}
-              />
-              <EmployeeProfileItemsSection
-                title="Experiências profissionais"
-                emptyText="Liste experiências anteriores e adicione anexos quando necessário."
-                category="professional_experience"
-                items={(employee.professionalExperiences || []) as EmployeeProfileItemRecord[]}
-                orgId={orgId}
-                empId={empId}
-                editable={canWriteEmployees}
-              />
-              <EmployeeProfileItemsSection
-                title="Educação e certificações"
-                emptyText="Liste formações, cursos e certificações com anexos opcionais."
-                category="education_certification"
-                items={(employee.educationCertifications || []) as EmployeeProfileItemRecord[]}
-                orgId={orgId}
-                empId={empId}
-                editable={canWriteEmployees}
-              />
-              <LinkedUnitsSection
-                linkedUnits={employee.units || []}
-                allUnits={units}
-                orgId={orgId}
-                empId={empId}
-                editable={canWriteEmployees}
-              />
-              <InlineField
-                label="Tipo de Contrato"
-                value={employee.contractType}
-                fieldKey="contractType"
-                type="select"
-                options={[
-                  { value: "clt", label: "CLT" },
-                  { value: "pj", label: "PJ" },
-                  { value: "intern", label: "Estagiário" },
-                  { value: "temporary", label: "Temporário" },
-                ]}
-                editable={canWriteEmployees}
-                onSave={handleFieldSave}
-              />
-              <InlineField
-                label="Status"
-                value={employee.status}
-                fieldKey="status"
-                type="select"
-                options={[
-                  { value: "active", label: "Ativo" },
-                  { value: "inactive", label: "Inativo" },
-                  { value: "on_leave", label: "Afastado" },
-                ]}
-                editable={canWriteEmployees}
-                onSave={handleFieldSave}
-              />
-              <InlineField label="Data de Admissão *" value={employee.admissionDate} fieldKey="admissionDate" type="date" editable={canWriteEmployees} onSave={handleFieldSave} />
-              <InlineField label="Data de Desligamento" value={employee.terminationDate} fieldKey="terminationDate" type="date" editable={canWriteEmployees} onSave={handleFieldSave} />
+
+            <div>
+              <OverviewSectionTitle title="Informações Profissionais" />
+              <div className="grid gap-x-8 gap-y-6 md:grid-cols-2 xl:grid-cols-3">
+                <InlineField
+                  label="Cargo"
+                  value={employee.position}
+                  fieldKey="position"
+                  type="select"
+                  options={[
+                    { value: "", label: "Selecionar cargo" },
+                    ...positions.map((position) => ({ value: position.name, label: position.name })),
+                  ]}
+                  editable={canWriteEmployees}
+                  onSave={handleFieldSave}
+                />
+                <InlineField
+                  label="Departamento"
+                  value={employee.department}
+                  fieldKey="department"
+                  type="select"
+                  options={[
+                    { value: "", label: "Selecionar departamento" },
+                    ...departments.map((department) => ({ value: department.name, label: department.name })),
+                  ]}
+                  editable={canWriteEmployees}
+                  onSave={handleFieldSave}
+                />
+                <InlineField
+                  label="Tipo de Contrato"
+                  value={employee.contractType}
+                  fieldKey="contractType"
+                  type="select"
+                  options={[
+                    { value: "clt", label: "CLT" },
+                    { value: "pj", label: "PJ" },
+                    { value: "intern", label: "Estagiário" },
+                    { value: "temporary", label: "Temporário" },
+                  ]}
+                  editable={canWriteEmployees}
+                  onSave={handleFieldSave}
+                />
+                <InlineField
+                  label="Status"
+                  value={employee.status}
+                  fieldKey="status"
+                  type="select"
+                  options={[
+                    { value: "active", label: "Ativo" },
+                    { value: "inactive", label: "Inativo" },
+                    { value: "on_leave", label: "Afastado" },
+                  ]}
+                  editable={canWriteEmployees}
+                  onSave={handleFieldSave}
+                />
+                <InlineField label="Data de Admissão *" value={employee.admissionDate} fieldKey="admissionDate" type="date" editable={canWriteEmployees} onSave={handleFieldSave} />
+                <InlineField label="Data de Desligamento" value={employee.terminationDate} fieldKey="terminationDate" type="date" editable={canWriteEmployees} onSave={handleFieldSave} />
+              </div>
             </div>
+
+            <EmployeeProfileItemsSection
+              title="Experiências profissionais"
+              emptyText="Liste experiências anteriores e adicione anexos quando necessário."
+              category="professional_experience"
+              items={(employee.professionalExperiences || []) as EmployeeProfileItemRecord[]}
+              orgId={orgId}
+              empId={empId}
+              editable={canWriteEmployees}
+            />
+
+            <EmployeeProfileItemsSection
+              title="Educação e certificações"
+              emptyText="Liste formações, cursos e certificações com anexos opcionais."
+              category="education_certification"
+              items={(employee.educationCertifications || []) as EmployeeProfileItemRecord[]}
+              orgId={orgId}
+              empId={empId}
+              editable={canWriteEmployees}
+            />
+
+            <LinkedUnitsSection
+              linkedUnits={employee.units || []}
+              allUnits={units}
+              orgId={orgId}
+              empId={empId}
+              editable={canWriteEmployees}
+            />
           </div>
         )}
 

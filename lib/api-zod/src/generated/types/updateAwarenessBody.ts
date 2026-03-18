@@ -5,6 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
 
 export interface UpdateAwarenessBody {
   topic?: string;
@@ -12,4 +13,6 @@ export interface UpdateAwarenessBody {
   date?: string;
   verificationMethod?: string;
   result?: string;
+  /** @maxItems 10 */
+  attachments?: EmployeeRecordAttachment[];
 }

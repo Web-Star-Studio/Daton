@@ -5,6 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
 import type { UpdateCompetencyBodyType } from "./updateCompetencyBodyType";
 
 export interface UpdateCompetencyBody {
@@ -22,4 +23,6 @@ export interface UpdateCompetencyBody {
    */
   acquiredLevel?: number;
   evidence?: string;
+  /** @maxItems 10 */
+  attachments?: EmployeeRecordAttachment[];
 }

@@ -5,6 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
 import type { EmployeeTrainingStatus } from "./employeeTrainingStatus";
 
 export interface EmployeeTraining {
@@ -17,6 +18,7 @@ export interface EmployeeTraining {
   completionDate?: string | null;
   expirationDate?: string | null;
   status: EmployeeTrainingStatus;
+  attachments: EmployeeRecordAttachment[];
   createdAt?: string;
   updatedAt?: string;
 }

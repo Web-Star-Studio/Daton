@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -27,6 +28,7 @@ import {
   fetchGovernanceExport,
   useGovernanceCrudMutation,
   useGovernancePlan,
+  useGovernanceReviewReadAction,
   useGovernanceRiskOpportunityEffectivenessReview,
   useGovernanceWorkflowAction,
   useImportGovernancePlan,
@@ -40,6 +42,7 @@ import {
   type GovernancePlanBody,
   type GovernanceRiskOpportunityBody,
   type GovernanceRiskOpportunityEffectivenessReviewBody,
+  type GovernanceReviewer,
   type GovernanceRiskOpportunityItem,
   type GovernanceSwotItem,
   type GovernanceSwotBody,
@@ -103,6 +106,7 @@ const governancePlanSchema = z.object({
   legacyMethodology: z.string().nullable().optional(),
   legacyIndicatorsNotes: z.string().nullable().optional(),
   legacyRevisionHistory: z.array(z.any()).nullable().optional(),
+  reviewerIds: z.array(z.number()).default([]),
   importedWorkbookName: z.string().nullable().optional(),
 });
 
@@ -345,6 +349,183 @@ function getRiskTypeLabel(type: GovernanceRiskOpportunityItem["type"]) {
   return type === "risk" ? "Risco" : "Oportunidade";
 }
 
+function getSwotTypeLabel(type: GovernanceSwotItem["swotType"]) {
+  switch (type) {
+    case "strength":
+      return "Força";
+    case "weakness":
+      return "Fraqueza";
+    case "opportunity":
+      return "Oportunidade";
+    case "threat":
+      return "Ameaça";
+    default:
+      return type;
+  }
+}
+
+const GOVERNANCE_IMPORT_EXAMPLE_HEADERS = [
+  "secao",
+  "origem_na_planilha_xlsx",
+  "campo",
+  "exemplo",
+  "como_preencher",
+];
+
+const GOVERNANCE_IMPORT_EXAMPLE_ROWS = [
+  [
+    "Plano",
+    "CAPA!B13",
+    "titulo",
+    "TRANSPORTES GABARDO LTDA.",
+    "Título principal do planejamento estratégico.",
+  ],
+  [
+    "Plano",
+    "B)DIRECIONAMENTO ESTRATÉGICO SV!B65",
+    "resumo_executivo",
+    "Contexto interno e externo consolidado para o ciclo 2026.",
+    "Resumo executivo do plano. Se N65 existir, ela complementa a conclusão estratégica.",
+  ],
+  [
+    "Plano",
+    "C) ESCOPO POLíTICA OBJETIVOS!B4",
+    "escopo_tecnico",
+    "Transporte rodoviário de cargas e apoio operacional.",
+    "Descreve o escopo técnico coberto pelo sistema de gestão.",
+  ],
+  [
+    "Plano",
+    "C) ESCOPO POLíTICA OBJETIVOS!B6",
+    "escopo_geografico",
+    "Pernambuco, Bahia e Sergipe.",
+    "Regiões ou unidades atendidas pelo plano.",
+  ],
+  [
+    "Plano",
+    "C) ESCOPO POLíTICA OBJETIVOS!B12",
+    "politica",
+    "Atender requisitos legais, clientes e melhoria contínua.",
+    "Texto da política corporativa aplicável ao planejamento.",
+  ],
+  [
+    "Plano",
+    "C) ESCOPO POLíTICA OBJETIVOS!B25",
+    "missao",
+    "Entregar operações seguras, confiáveis e sustentáveis.",
+    "Missão da organização.",
+  ],
+  [
+    "Plano",
+    "C) ESCOPO POLíTICA OBJETIVOS!B27",
+    "visao",
+    "Ser referência regional em transporte integrado.",
+    "Visão da organização.",
+  ],
+  [
+    "Plano",
+    "C) ESCOPO POLíTICA OBJETIVOS!B29",
+    "valores",
+    "Segurança, ética, disciplina operacional e respeito às pessoas.",
+    "Valores institucionais.",
+  ],
+  [
+    "Historico de revisoes",
+    "Histórico de Revisões!B:F",
+    "data, motivo, item_alterado, revisao, alterado_por",
+    "15/02/2026 | Inclusão de novos objetivos | Objetivos | 03 | Qualidade",
+    "Cada linha representa uma revisão. A data pode estar em dd/mm/aaaa ou yyyy-mm-dd.",
+  ],
+  [
+    "SWOT SGI",
+    "A) SWOT SGI!C:P",
+    "descricao, tipo_fator, ambiente, dominio, desempenho, relevancia, resultado, tratamento, ref_acao, cod_objetivo, nome_objetivo",
+    "Alta experiência da equipe | Força | Interno | SGQ | 4 | 4 | 16 | Manter padrão | AC-01 | O1 | Melhorar eficiência operacional",
+    "Tipos aceitos: Força, Fraqueza, Oportunidade, Ameaça. Ambiente: Interno ou Externo.",
+  ],
+  [
+    "SWOT SGA",
+    "A2) SWOT SGA!B:H",
+    "descricao, resultado, objetivo_relacionado, correlacao, referencia_acao",
+    "Consumo elevado de diesel | 9 | O2 | Relacionado ao indicador ambiental | AC-02",
+    "A aba separa forças, fraquezas, oportunidades e ameaças por blocos na coluna B.",
+  ],
+  [
+    "Partes interessadas",
+    "B) PARTES INTERESSADAS!C:I",
+    "nome, requisitos, papel_na_empresa, resumo_papel, relevante_sgi, requisito_legal, monitoramento",
+    "Clientes | Entregas no prazo | Contratante | Parte central da operação | Sim | Não | Pesquisa de satisfação trimestral",
+    "Para os campos booleanos, usar Sim ou Não.",
+  ],
+  [
+    "Objetivos estrategicos",
+    "C) ESCOPO POLíTICA OBJETIVOS!B16:D22",
+    "dominio_sistema, codigo_objetivo, descricao_objetivo",
+    "SGQ | O1 | Melhorar eficiência operacional em 10%",
+    "A descrição pode começar com código como O1) Texto. O importador separa o código automaticamente.",
+  ],
+  [
+    "Notas de objetivos",
+    "D) INDICADORES E OBJETIVOS!A:C",
+    "codigo_objetivo, nota_indicador",
+    "O1 | Indicador acompanhado mensalmente pela diretoria.",
+    "As notas complementam os objetivos quando a aba existir.",
+  ],
+];
+
+function escapeCsvCell(value: string) {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+function downloadGovernanceImportExampleCsv() {
+  const csvContent = [
+    GOVERNANCE_IMPORT_EXAMPLE_HEADERS.map(escapeCsvCell).join(";"),
+    ...GOVERNANCE_IMPORT_EXAMPLE_ROWS.map((row) =>
+      row.map(escapeCsvCell).join(";"),
+    ),
+  ].join("\n");
+
+  const blob = new Blob([`\uFEFF${csvContent}`], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "modelo-importacao-planejamento-estrategico.csv";
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  window.URL.revokeObjectURL(url);
+}
+
+function toggleMultiSelectValue(selected: number[], value: number) {
+  return selected.includes(value)
+    ? selected.filter((item) => item !== value)
+    : [...selected, value];
+}
+
+function getReviewerStatusLabel(status: GovernanceReviewer["status"]) {
+  switch (status) {
+    case "approved":
+      return "Aprovado";
+    case "rejected":
+      return "Rejeitado";
+    default:
+      return "Pendente";
+  }
+}
+
+function getReviewerStatusTone(status: GovernanceReviewer["status"]) {
+  switch (status) {
+    case "approved":
+      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    case "rejected":
+      return "bg-red-100 text-red-800 border-red-200";
+    default:
+      return "bg-amber-100 text-amber-800 border-amber-200";
+  }
+}
+
 function getRiskStatusLabel(status: GovernanceRiskOpportunityItem["status"]) {
   switch (status) {
     case "identified":
@@ -421,7 +602,7 @@ function getRiskResponseStrategyLabel(
 export default function GovernanceDetailPage() {
   const params = useParams<{ id: string }>();
   const planId = Number(params.id);
-  const { organization } = useAuth();
+  const { organization, user } = useAuth();
   const { canWriteModule, isOrgAdmin } = usePermissions();
   const orgId = organization?.id;
   const [location, navigate] = useLocation();
@@ -432,6 +613,7 @@ export default function GovernanceDetailPage() {
   const updatePlanMutation = useUpdateGovernancePlan(orgId, planId);
   const importPlanMutation = useImportGovernancePlan(orgId, planId);
   const submitMutation = useGovernanceWorkflowAction(orgId, planId, "submit");
+  const reviewReadMutation = useGovernanceReviewReadAction(orgId, planId);
   const approveMutation = useGovernanceWorkflowAction(orgId, planId, "approve");
   const rejectMutation = useGovernanceWorkflowAction(orgId, planId, "reject");
   const reopenMutation = useGovernanceWorkflowAction(orgId, planId, "reopen");
@@ -500,6 +682,8 @@ export default function GovernanceDetailPage() {
   );
   const [riskDeletingId, setRiskDeletingId] = useState<number | null>(null);
   const [actionDeletingId, setActionDeletingId] = useState<number | null>(null);
+  const [reviewDecisionDialogOpen, setReviewDecisionDialogOpen] = useState(false);
+  const [reviewDecisionComment, setReviewDecisionComment] = useState("");
   const [riskTypeFilter, setRiskTypeFilter] = useState<string>("all");
   const [riskStatusFilter, setRiskStatusFilter] = useState<string>("all");
   const [riskPriorityFilter, setRiskPriorityFilter] = useState<string>("all");
@@ -528,6 +712,7 @@ export default function GovernanceDetailPage() {
       legacyMethodology: "",
       legacyIndicatorsNotes: "",
       legacyRevisionHistory: [],
+      reviewerIds: [],
       importedWorkbookName: "",
     },
   });
@@ -559,6 +744,7 @@ export default function GovernanceDetailPage() {
     canWriteModule("governance") &&
     !!plan &&
     ["draft", "rejected"].includes(plan.status);
+  const configuredReviewerIds = planForm.watch("reviewerIds") || [];
   const actionUnitIds = actionForm.watch("unitIds");
   const riskLikelihood = riskOpportunityForm.watch("likelihood");
   const riskImpact = riskOpportunityForm.watch("impact");
@@ -592,6 +778,7 @@ export default function GovernanceDetailPage() {
         legacyMethodology: plan.legacyMethodology || "",
         legacyIndicatorsNotes: plan.legacyIndicatorsNotes || "",
         legacyRevisionHistory: plan.legacyRevisionHistory || [],
+        reviewerIds: plan.reviewerIds || [],
         importedWorkbookName: plan.importedWorkbookName || "",
       });
     }
@@ -789,6 +976,79 @@ export default function GovernanceDetailPage() {
           error instanceof Error
             ? error.message
             : "Nenhuma evidência formal foi encontrada.",
+      });
+    }
+  };
+
+  const handleAcknowledgeReviewRead = async () => {
+    try {
+      await reviewReadMutation.mutateAsync();
+      toast({
+        title: "Leitura registrada",
+        description: "Sua leitura da revisão foi registrada com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Falha ao registrar leitura",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível acusar a leitura da revisão.",
+      });
+    }
+  };
+
+  const handleApproveReview = async () => {
+    try {
+      const currentPlanForm = planForm.getValues();
+      await approveMutation.mutateAsync({
+        reviewReason: currentPlanForm.reviewReason || plan?.reviewReason || null,
+        comment: null,
+      });
+      toast({
+        title: "Aprovação registrada",
+        description: "Seu parecer favorável foi registrado para esta revisão.",
+      });
+    } catch (error) {
+      toast({
+        title: "Falha ao aprovar revisão",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível aprovar a revisão.",
+      });
+    }
+  };
+
+  const handleRejectReview = async () => {
+    if (!reviewDecisionComment.trim()) {
+      toast({
+        title: "Justificativa obrigatória",
+        description:
+          "Explique o motivo da rejeição e as alterações sugeridas antes de continuar.",
+      });
+      return;
+    }
+
+    try {
+      const currentPlanForm = planForm.getValues();
+      await rejectMutation.mutateAsync({
+        reviewReason: currentPlanForm.reviewReason || plan?.reviewReason || null,
+        comment: reviewDecisionComment.trim(),
+      });
+      setReviewDecisionDialogOpen(false);
+      setReviewDecisionComment("");
+      toast({
+        title: "Rejeição registrada",
+        description: "Sua rejeição foi registrada com a justificativa informada.",
+      });
+    } catch (error) {
+      toast({
+        title: "Falha ao rejeitar revisão",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível rejeitar a revisão.",
       });
     }
   };
@@ -1150,10 +1410,69 @@ export default function GovernanceDetailPage() {
       ? riskLikelihood * riskImpact
       : null;
 
+  const currentReviewers = plan?.reviewers ?? [];
+  const currentReviewer =
+    currentReviewers.find((reviewer) => reviewer.userId === user?.id) || null;
+  const reviewApprovedCount = currentReviewers.filter(
+    (reviewer) => reviewer.status === "approved",
+  ).length;
+  const reviewRejectedCount = currentReviewers.filter(
+    (reviewer) => reviewer.status === "rejected",
+  ).length;
+  const reviewPendingCount = currentReviewers.filter(
+    (reviewer) => reviewer.status === "pending",
+  ).length;
   const latestEvidenceDocumentId = plan?.revisions?.[0]?.evidenceDocumentId;
+  const activeTabHeaderAction = canEdit
+    ? (() => {
+        switch (activeTab) {
+          case "overview":
+            return (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate(`${riskRegisterBase}?planId=${plan.id}`)}
+              >
+                Abrir registro deste plano
+              </Button>
+            );
+          case "swot":
+            return (
+              <Button size="sm" onClick={() => openSwotDialog()}>
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Novo item
+              </Button>
+            );
+          case "interested":
+            return (
+              <Button size="sm" onClick={() => openPartyDialog()}>
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Nova parte
+              </Button>
+            );
+          case "objectives":
+            return (
+              <Button size="sm" onClick={() => openObjectiveDialog()}>
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Novo objetivo
+              </Button>
+            );
+          case "actions":
+            return (
+              <Button size="sm" onClick={() => openActionDialog()}>
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Nova ação
+              </Button>
+            );
+          default:
+            return null;
+        }
+      })()
+    : null;
 
   useHeaderActions(
     <div className="flex items-center gap-2">
+      {activeTabHeaderAction}
       {canEdit && (
         <>
           <Button
@@ -1180,27 +1499,6 @@ export default function GovernanceDetailPage() {
           >
             <Send className="h-3.5 w-3.5 mr-1.5" />
             Enviar para revisão
-          </Button>
-        </>
-      )}
-      {plan?.status === "in_review" && isOrgAdmin && (
-        <>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleWorkflow("reject")}
-            isLoading={rejectMutation.isPending}
-          >
-            <XCircle className="h-3.5 w-3.5 mr-1.5" />
-            Rejeitar
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => handleWorkflow("approve")}
-            isLoading={approveMutation.isPending}
-          >
-            <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-            Aprovar
           </Button>
         </>
       )}
@@ -1517,21 +1815,13 @@ export default function GovernanceDetailPage() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-2">
-                  Registro ISO 6.1
-                </h3>
-                <p className="text-[13px] text-muted-foreground">
-                  O cadastro operacional de riscos e oportunidades agora fica no registro dedicado de Governança.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => navigate(`${riskRegisterBase}?planId=${plan.id}`)}
-              >
-                Abrir registro deste plano
-              </Button>
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-2">
+                Registro ISO 6.1
+              </h3>
+              <p className="text-[13px] text-muted-foreground">
+                O cadastro operacional de riscos e oportunidades agora fica no registro dedicado de Governança.
+              </p>
             </div>
             <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
@@ -1703,21 +1993,13 @@ export default function GovernanceDetailPage() {
 
       {activeTab === "swot" && (
         <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">
-                Matriz SWOT
-              </h3>
-              <p className="mt-1.5 text-[13px] text-muted-foreground">
-                Itens de contexto interno e externo com decisão de tratamento.
-              </p>
-            </div>
-            {canEdit && (
-              <Button size="sm" onClick={() => openSwotDialog()}>
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Novo item
-              </Button>
-            )}
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+              Matriz SWOT
+            </h3>
+            <p className="mt-1.5 text-[13px] text-muted-foreground">
+              Itens de contexto interno e externo com decisão de tratamento.
+            </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-[13px]">
@@ -1756,7 +2038,7 @@ export default function GovernanceDetailPage() {
                       {item.domain.toUpperCase()}
                     </td>
                     <td className="px-3 py-3 text-foreground">
-                      {item.swotType}
+                      {getSwotTypeLabel(item.swotType)}
                     </td>
                     <td className="px-3 py-3 text-foreground">
                       {item.description}
@@ -1820,21 +2102,13 @@ export default function GovernanceDetailPage() {
 
       {activeTab === "interested" && (
         <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">
-                Partes Interessadas
-              </h3>
-              <p className="mt-1.5 text-[13px] text-muted-foreground">
-                Requisitos relevantes ao contexto do sistema de gestão.
-              </p>
-            </div>
-            {canEdit && (
-              <Button size="sm" onClick={() => openPartyDialog()}>
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Nova parte
-              </Button>
-            )}
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+              Partes Interessadas
+            </h3>
+            <p className="mt-1.5 text-[13px] text-muted-foreground">
+              Requisitos relevantes ao contexto do sistema de gestão.
+            </p>
           </div>
           <div className="space-y-px">
             {plan.interestedParties.map((item) => (
@@ -1886,21 +2160,13 @@ export default function GovernanceDetailPage() {
 
       {activeTab === "objectives" && (
         <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">
-                Objetivos Estratégicos
-              </h3>
-              <p className="mt-1.5 text-[13px] text-muted-foreground">
-                Objetivos vinculados ao contexto e aos desdobramentos do plano.
-              </p>
-            </div>
-            {canEdit && (
-              <Button size="sm" onClick={() => openObjectiveDialog()}>
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Novo objetivo
-              </Button>
-            )}
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+              Objetivos Estratégicos
+            </h3>
+            <p className="mt-1.5 text-[13px] text-muted-foreground">
+              Objetivos vinculados ao contexto e aos desdobramentos do plano.
+            </p>
           </div>
           <div className="space-y-px">
             {plan.objectives.map((item) => (
@@ -2304,21 +2570,13 @@ export default function GovernanceDetailPage() {
 
       {activeTab === "actions" && (
         <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">
-                Ações
-              </h3>
-              <p className="mt-1.5 text-[13px] text-muted-foreground">
-                Desdobramentos por unidade, responsáveis e prazos.
-              </p>
-            </div>
-            {canEdit && (
-              <Button size="sm" onClick={() => openActionDialog()}>
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Nova ação
-              </Button>
-            )}
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+              Ações
+            </h3>
+            <p className="mt-1.5 text-[13px] text-muted-foreground">
+              Desdobramentos por unidade, responsáveis e prazos.
+            </p>
           </div>
           <div className="space-y-px">
             {plan.actions.map((item) => (
@@ -2389,8 +2647,213 @@ export default function GovernanceDetailPage() {
               Revisões e Evidências
             </h3>
             <p className="mt-1.5 text-[13px] text-muted-foreground">
-              Histórico formal de aprovação, snapshots e evidência documental.
+              Configure os revisores, acompanhe leituras/aprovações e consulte o
+              histórico formal de revisões aprovadas.
             </p>
+          </div>
+
+          <div className="rounded-2xl border border-border/60 bg-background p-5 space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h4 className="text-sm font-semibold">Revisores da revisão</h4>
+                <p className="mt-1 text-[13px] text-muted-foreground">
+                  Selecione quem precisa acusar leitura e registrar aprovação ou
+                  rejeição desta revisão.
+                </p>
+              </div>
+              {canEdit && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSavePlan}
+                  isLoading={updatePlanMutation.isPending}
+                >
+                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                  Salvar revisores
+                </Button>
+              )}
+            </div>
+
+            {canEdit ? (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {users.length === 0 ? (
+                  <p className="text-[13px] text-muted-foreground">
+                    Nenhum usuário disponível para revisão.
+                  </p>
+                ) : (
+                  users.map((option) => {
+                    const checked = configuredReviewerIds.includes(option.id);
+                    return (
+                      <label
+                        key={option.id}
+                        className="flex items-start gap-3 rounded-xl border border-border/60 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/30"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={() =>
+                            planForm.setValue(
+                              "reviewerIds",
+                              toggleMultiSelectValue(configuredReviewerIds, option.id),
+                              { shouldDirty: true },
+                            )
+                          }
+                        />
+                        <span className="text-sm leading-5">{option.name}</span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {configuredReviewerIds.length === 0 ? (
+                  <p className="text-[13px] text-muted-foreground">
+                    Nenhum revisor configurado.
+                  </p>
+                ) : (
+                  configuredReviewerIds.map((reviewerId) => {
+                    const reviewerName =
+                      users.find((option) => option.id === reviewerId)?.name ||
+                      `Usuário #${reviewerId}`;
+                    return (
+                      <span
+                        key={reviewerId}
+                        className="inline-flex items-center rounded-full border border-border bg-secondary/40 px-3 py-1 text-[12px] font-medium"
+                      >
+                        {reviewerName}
+                      </span>
+                    );
+                  })
+                )}
+              </div>
+            )}
+
+            {!canEdit && plan.status === "in_review" && (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl bg-muted/30 px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Aprovados
+                  </p>
+                  <p className="mt-1 text-lg font-semibold">
+                    {reviewApprovedCount}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-muted/30 px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Rejeitados
+                  </p>
+                  <p className="mt-1 text-lg font-semibold">
+                    {reviewRejectedCount}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-muted/30 px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Pendentes
+                  </p>
+                  <p className="mt-1 text-lg font-semibold">
+                    {reviewPendingCount}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {currentReviewers.length > 0 && (
+              <div className="space-y-3">
+                <div>
+                  <h4 className="text-sm font-semibold">Ciclo atual de revisão</h4>
+                  <p className="mt-1 text-[13px] text-muted-foreground">
+                    Cada revisor deve acusar a leitura antes de aprovar ou
+                    rejeitar. A revisão só sai de pendente quando todos
+                    registrarem decisão.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  {currentReviewers.map((reviewer) => (
+                    <div
+                      key={reviewer.id}
+                      className="rounded-xl border border-border/60 px-4 py-4"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold">
+                              {reviewer.name}
+                            </p>
+                            <Badge
+                              variant="outline"
+                              className={getReviewerStatusTone(reviewer.status)}
+                            >
+                              {getReviewerStatusLabel(reviewer.status)}
+                            </Badge>
+                            {reviewer.readAt ? (
+                              <span className="text-[12px] text-muted-foreground">
+                                Leitura em{" "}
+                                {formatGovernanceDate(reviewer.readAt, true)}
+                              </span>
+                            ) : (
+                              <span className="text-[12px] text-muted-foreground">
+                                Leitura pendente
+                              </span>
+                            )}
+                          </div>
+                          {reviewer.decidedAt && (
+                            <p className="mt-1 text-[13px] text-muted-foreground">
+                              Parecer registrado em{" "}
+                              {formatGovernanceDate(reviewer.decidedAt, true)}
+                            </p>
+                          )}
+                          {reviewer.comment && (
+                            <p className="mt-2 text-[13px] text-muted-foreground">
+                              {reviewer.comment}
+                            </p>
+                          )}
+                        </div>
+
+                        {currentReviewer?.id === reviewer.id &&
+                          reviewer.status === "pending" && (
+                            <div className="flex flex-wrap gap-2">
+                              {!reviewer.readAt ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleAcknowledgeReviewRead}
+                                  isLoading={reviewReadMutation.isPending}
+                                >
+                                  Registrar leitura
+                                </Button>
+                              ) : (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleApproveReview}
+                                    isLoading={approveMutation.isPending}
+                                  >
+                                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                                    Aprovar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      setReviewDecisionDialogOpen(true)
+                                    }
+                                    isLoading={rejectMutation.isPending}
+                                  >
+                                    <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                                    Rejeitar
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-px">
@@ -2417,6 +2880,14 @@ export default function GovernanceDetailPage() {
                       Motivo: {revision.reason || "—"} · Aprovado por:{" "}
                       {revision.approvedByName || "—"}
                     </p>
+                    {(revision.reviewers?.length || 0) > 0 && (
+                      <p className="mt-1 text-[13px] text-muted-foreground">
+                        Revisores:{" "}
+                        {(revision.reviewers || [])
+                          .map((reviewer) => reviewer.name)
+                          .join(", ")}
+                      </p>
+                    )}
                     {revision.changeSummary && (
                       <p className="mt-1 text-[13px] text-muted-foreground">
                         {revision.changeSummary}
@@ -2444,6 +2915,45 @@ export default function GovernanceDetailPage() {
       )}
 
       <Dialog
+        open={reviewDecisionDialogOpen}
+        onOpenChange={(open) => {
+          setReviewDecisionDialogOpen(open);
+          if (!open) setReviewDecisionComment("");
+        }}
+        title="Rejeitar revisão"
+        description="Explique o motivo da rejeição e sugira as alterações necessárias para nova submissão."
+      >
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="review-rejection-comment">
+              Justificativa da rejeição
+            </Label>
+            <Textarea
+              id="review-rejection-comment"
+              className="mt-2 min-h-[140px]"
+              value={reviewDecisionComment}
+              onChange={(event) => setReviewDecisionComment(event.target.value)}
+              placeholder="Descreva o que precisa ser ajustado para que a revisão possa ser aprovada."
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setReviewDecisionDialogOpen(false);
+              setReviewDecisionComment("");
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button onClick={handleRejectReview} isLoading={rejectMutation.isPending}>
+            Confirmar rejeição
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog
         open={importOpen}
         onOpenChange={setImportOpen}
         title="Reimportar planilha"
@@ -2451,6 +2961,32 @@ export default function GovernanceDetailPage() {
         size="lg"
       >
         <div className="space-y-4">
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold">
+                  Modelo CSV com campos explicados
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Baixe um exemplo com as colunas, origem dos dados e instruções
+                  de preenchimento para montar ou revisar a planilha fonte.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  A importação automática continua usando arquivo{" "}
+                  <strong>.xlsx</strong> com as abas esperadas pelo sistema.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={downloadGovernanceImportExampleCsv}
+                className="shrink-0"
+              >
+                <FileText className="mr-1.5 h-3.5 w-3.5" />
+                Baixar CSV modelo
+              </Button>
+            </div>
+          </div>
           <Input
             type="file"
             accept=".xlsx,.xls"

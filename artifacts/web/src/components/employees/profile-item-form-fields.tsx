@@ -28,6 +28,7 @@ type ProfileItemAttachmentsFieldProps = {
   uploading?: boolean;
   disabled?: boolean;
   emptyText?: string;
+  accept?: string;
 };
 
 export function ProfileItemAttachmentsField({
@@ -36,6 +37,7 @@ export function ProfileItemAttachmentsField({
   uploading = false,
   disabled = false,
   emptyText = "Nenhum anexo adicionado.",
+  accept = PROFILE_ITEM_ATTACHMENT_ACCEPT,
 }: ProfileItemAttachmentsFieldProps) {
   const canUpload = Boolean(onUpload) && attachments.length < MAX_PROFILE_ITEM_ATTACHMENTS;
 
@@ -87,7 +89,7 @@ export function ProfileItemAttachmentsField({
               type="file"
               multiple
               className="hidden"
-              accept={PROFILE_ITEM_ATTACHMENT_ACCEPT}
+              accept={accept}
               onChange={(event) => {
                 onUpload?.(event.target.files);
                 event.target.value = "";

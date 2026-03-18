@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   documentAttachmentsTable,
@@ -8,12 +8,19 @@ import {
   strategicPlanInterestedPartiesTable,
   strategicPlanObjectivesTable,
   strategicPlanRevisionsTable,
+  strategicPlanReviewersTable,
   strategicPlansTable,
   strategicPlanSwotItemsTable,
+  usersTable,
 } from "@workspace/db";
-import { requireRole, requireWriteAccess } from "../../middlewares/auth";
+import {
+  requireModuleAccess,
+  requireRole,
+  requireWriteAccess,
+} from "../../middlewares/auth";
 import {
   createStrategicPlanRevision,
+  getLatestStrategicPlanReviewCycle,
   getStrategicPlanDetail,
   isEditableStatus,
   listGovernanceRiskOpportunityItems,
@@ -28,6 +35,7 @@ import {
   riskOpportunityListQuerySchema,
   reviewBodySchema,
   validateActionReferences,
+  validatePlanReviewerIds,
 } from "./shared";
 
 const router: IRouter = Router();
@@ -80,6 +88,17 @@ router.post(
       return;
     }
 
+    const reviewerIds = Array.from(new Set(body.data.reviewerIds || []));
+    const reviewerValidationError = await validatePlanReviewerIds({
+      executor: db,
+      orgId: params.orgId,
+      reviewerIds,
+    });
+    if (reviewerValidationError) {
+      res.status(400).json({ error: reviewerValidationError });
+      return;
+    }
+
     const [plan] = await db
       .insert(strategicPlansTable)
       .values({
@@ -106,6 +125,7 @@ router.post(
         legacyMethodology: body.data.legacyMethodology ?? null,
         legacyIndicatorsNotes: body.data.legacyIndicatorsNotes ?? null,
         legacyRevisionHistory: body.data.legacyRevisionHistory ?? [],
+        reviewerIds,
         importedWorkbookName: body.data.importedWorkbookName ?? null,
         createdById: req.auth!.userId,
         updatedById: req.auth!.userId,
@@ -149,12 +169,32 @@ router.patch(
       return;
     }
 
+    const reviewerIds =
+      body.data.reviewerIds === undefined
+        ? undefined
+        : Array.from(new Set(body.data.reviewerIds));
+    if (reviewerIds) {
+      const reviewerValidationError = await validatePlanReviewerIds({
+        executor: db,
+        orgId: params.orgId,
+        reviewerIds,
+      });
+      if (reviewerValidationError) {
+        res.status(400).json({ error: reviewerValidationError });
+        return;
+      }
+    }
+
     const updateData: Record<string, unknown> = {
       updatedById: req.auth!.userId,
     };
 
     for (const [key, value] of Object.entries(body.data)) {
       if (value === undefined) continue;
+      if (key === "reviewerIds") {
+        updateData[key] = reviewerIds || [];
+        continue;
+      }
       updateData[key] = key === "nextReviewAt" ? (value ? new Date(value as string) : null) : value;
     }
 
@@ -181,6 +221,19 @@ router.post(
     if (!plan) return;
     if (!isEditableStatus(plan.status)) {
       res.status(400).json({ error: "A importação só pode sobrescrever um plano em rascunho ou rejeitado" });
+      return;
+    }
+
+    const reviewerIds = Array.from(
+      new Set(body.data.plan.reviewerIds ?? plan.reviewerIds ?? []),
+    );
+    const reviewerValidationError = await validatePlanReviewerIds({
+      executor: db,
+      orgId: params.orgId,
+      reviewerIds,
+    });
+    if (reviewerValidationError) {
+      res.status(400).json({ error: reviewerValidationError });
       return;
     }
 
@@ -211,6 +264,7 @@ router.post(
             legacyMethodology: body.data.plan.legacyMethodology ?? null,
             legacyIndicatorsNotes: body.data.plan.legacyIndicatorsNotes ?? null,
             legacyRevisionHistory: body.data.plan.legacyRevisionHistory ?? [],
+            reviewerIds,
             importedWorkbookName: body.data.workbookName ?? body.data.plan.importedWorkbookName ?? null,
             updatedById: req.auth!.userId,
           })
@@ -359,16 +413,96 @@ router.post("/organizations/:orgId/governance/strategic-plans/:planId/submit", r
     return;
   }
 
-  await db.update(strategicPlansTable).set({
-    status: "in_review",
-    submittedAt: new Date(),
-    updatedById: req.auth!.userId,
-  }).where(eq(strategicPlansTable.id, plan.id));
+  const reviewerIds = Array.from(new Set(plan.reviewerIds || []));
+  if (reviewerIds.length === 0) {
+    res.status(400).json({ error: "Selecione ao menos um revisor antes de enviar para revisão" });
+    return;
+  }
+
+  const reviewerValidationError = await validatePlanReviewerIds({
+    executor: db,
+    orgId: params.orgId,
+    reviewerIds,
+  });
+  if (reviewerValidationError) {
+    res.status(400).json({ error: reviewerValidationError });
+    return;
+  }
+
+  const newReviewCycle = (await getLatestStrategicPlanReviewCycle(plan.id)) + 1;
+
+  await db.transaction(async (tx) => {
+    await tx.update(strategicPlansTable).set({
+      status: "in_review",
+      submittedAt: new Date(),
+      approvedAt: null,
+      rejectedAt: null,
+      updatedById: req.auth!.userId,
+    }).where(eq(strategicPlansTable.id, plan.id));
+
+    await tx.insert(strategicPlanReviewersTable).values(
+      reviewerIds.map((userId) => ({
+        planId: plan.id,
+        userId,
+        reviewCycle: newReviewCycle,
+        status: "pending" as const,
+      })),
+    );
+  });
 
   res.json(await getStrategicPlanDetail(plan.id, params.orgId));
 });
 
-router.post("/organizations/:orgId/governance/strategic-plans/:planId/approve", requireRole("org_admin"), async (req, res): Promise<void> => {
+router.post(
+  "/organizations/:orgId/governance/strategic-plans/:planId/read",
+  requireModuleAccess("governance"),
+  async (req, res): Promise<void> => {
+    const params = parseGovernanceParams(req.params, req.auth!.organizationId, res, {
+      requirePlanId: true,
+    });
+    if (!params?.planId) return;
+
+    const plan = await getPlanOrThrow(params.planId, params.orgId, res);
+    if (!plan) return;
+    if (plan.status !== "in_review") {
+      res.status(400).json({ error: "Somente planos em revisão podem registrar leitura" });
+      return;
+    }
+
+    const currentReviewCycle = await getLatestStrategicPlanReviewCycle(plan.id);
+    if (!currentReviewCycle) {
+      res.status(400).json({ error: "Nenhum ciclo de revisão ativo foi encontrado" });
+      return;
+    }
+
+    const [reviewer] = await db
+      .select()
+      .from(strategicPlanReviewersTable)
+      .where(
+        and(
+          eq(strategicPlanReviewersTable.planId, plan.id),
+          eq(strategicPlanReviewersTable.userId, req.auth!.userId),
+          eq(strategicPlanReviewersTable.reviewCycle, currentReviewCycle),
+        ),
+      );
+
+    if (!reviewer) {
+      res.status(403).json({ error: "Você não é um revisor deste ciclo" });
+      return;
+    }
+
+    if (!reviewer.readAt) {
+      await db
+        .update(strategicPlanReviewersTable)
+        .set({ readAt: new Date() })
+        .where(eq(strategicPlanReviewersTable.id, reviewer.id));
+    }
+
+    res.json(await getStrategicPlanDetail(plan.id, params.orgId));
+  },
+);
+
+router.post("/organizations/:orgId/governance/strategic-plans/:planId/approve", requireModuleAccess("governance"), async (req, res): Promise<void> => {
   const params = parseGovernanceParams(req.params, req.auth!.organizationId, res, { requirePlanId: true });
   if (!params?.planId) return;
 
@@ -398,23 +532,124 @@ router.post("/organizations/:orgId/governance/strategic-plans/:planId/approve", 
     return;
   }
 
-  await createStrategicPlanRevision({
-    planId: plan.id,
-    approvedById: req.auth!.userId,
-    reason: body.data.reviewReason ?? plan.reviewReason ?? null,
-    changeSummary: body.data.changeSummary ?? null,
-  });
+  const currentReviewCycle = await getLatestStrategicPlanReviewCycle(plan.id);
+  if (!currentReviewCycle) {
+    res.status(400).json({ error: "Nenhum ciclo de revisão ativo foi encontrado" });
+    return;
+  }
 
-  await db.update(strategicPlansTable).set({
-    status: "approved",
-    rejectedAt: null,
-    updatedById: req.auth!.userId,
-  }).where(eq(strategicPlansTable.id, plan.id));
+  const [reviewer] = await db
+    .select()
+    .from(strategicPlanReviewersTable)
+    .where(
+      and(
+        eq(strategicPlanReviewersTable.planId, plan.id),
+        eq(strategicPlanReviewersTable.userId, req.auth!.userId),
+        eq(strategicPlanReviewersTable.reviewCycle, currentReviewCycle),
+        eq(strategicPlanReviewersTable.status, "pending"),
+      ),
+    );
+
+  if (!reviewer) {
+    res.status(403).json({ error: "Você não é um revisor pendente deste ciclo" });
+    return;
+  }
+
+  if (!reviewer.readAt) {
+    res.status(400).json({ error: "Acuse a leitura antes de aprovar a revisão" });
+    return;
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select ${strategicPlansTable.id} from ${strategicPlansTable} where ${strategicPlansTable.id} = ${plan.id} for update`,
+      );
+
+      const updatedReviewer = await tx
+        .update(strategicPlanReviewersTable)
+        .set({
+          status: "approved",
+          decidedAt: new Date(),
+          comment: body.data.comment ?? null,
+        })
+        .where(
+          and(
+            eq(strategicPlanReviewersTable.id, reviewer.id),
+            eq(strategicPlanReviewersTable.status, "pending"),
+          ),
+        )
+        .returning({ id: strategicPlanReviewersTable.id });
+
+      if (updatedReviewer.length === 0) {
+        throw new Error("reviewer_already_decided");
+      }
+
+      const cycleReviewers = await tx
+        .select({
+          status: strategicPlanReviewersTable.status,
+          comment: strategicPlanReviewersTable.comment,
+          name: usersTable.name,
+        })
+        .from(strategicPlanReviewersTable)
+        .innerJoin(usersTable, eq(strategicPlanReviewersTable.userId, usersTable.id))
+        .where(
+          and(
+            eq(strategicPlanReviewersTable.planId, plan.id),
+            eq(strategicPlanReviewersTable.reviewCycle, currentReviewCycle),
+          ),
+        );
+
+      const pendingReviewers = cycleReviewers.filter((item) => item.status === "pending");
+      if (pendingReviewers.length > 0) {
+        return;
+      }
+
+      const rejectedReviewers = cycleReviewers.filter((item) => item.status === "rejected");
+      if (rejectedReviewers.length === 0) {
+        await createStrategicPlanRevision({
+          planId: plan.id,
+          approvedById: req.auth!.userId,
+          reviewCycle: currentReviewCycle,
+          reason: body.data.reviewReason ?? plan.reviewReason ?? null,
+          changeSummary: body.data.changeSummary ?? null,
+          detail,
+          executor: tx,
+        });
+
+        await tx.update(strategicPlansTable).set({
+          status: "approved",
+          rejectedAt: null,
+          updatedById: req.auth!.userId,
+        }).where(eq(strategicPlansTable.id, plan.id));
+        return;
+      }
+
+      const rejectionSummary = rejectedReviewers
+        .map((item) => `${item.name}: ${item.comment || "sem justificativa"}`)
+        .join(" | ");
+
+      await tx.update(strategicPlansTable).set({
+        status: "rejected",
+        reviewReason:
+          body.data.reviewReason ?? rejectionSummary ?? plan.reviewReason ?? null,
+        rejectedAt: new Date(),
+        approvedAt: null,
+        updatedById: req.auth!.userId,
+      }).where(eq(strategicPlansTable.id, plan.id));
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "reviewer_already_decided") {
+      res.status(409).json({ error: "Este parecer já foi registrado anteriormente" });
+      return;
+    }
+    throw error;
+  }
 
   res.json(await getStrategicPlanDetail(plan.id, params.orgId));
 });
 
-router.post("/organizations/:orgId/governance/strategic-plans/:planId/reject", requireRole("org_admin"), async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/governance/strategic-plans/:planId/reject", requireModuleAccess("governance"), async (req, res): Promise<void> => {
   const params = parseGovernanceParams(req.params, req.auth!.organizationId, res, { requirePlanId: true });
   if (!params?.planId) return;
 
@@ -431,12 +666,105 @@ router.post("/organizations/:orgId/governance/strategic-plans/:planId/reject", r
     return;
   }
 
-  await db.update(strategicPlansTable).set({
-    status: "rejected",
-    reviewReason: body.data.reviewReason ?? plan.reviewReason ?? null,
-    rejectedAt: new Date(),
-    updatedById: req.auth!.userId,
-  }).where(eq(strategicPlansTable.id, plan.id));
+  if (!body.data.comment) {
+    res.status(400).json({ error: "Informe o motivo da rejeição e as alterações sugeridas" });
+    return;
+  }
+
+  const currentReviewCycle = await getLatestStrategicPlanReviewCycle(plan.id);
+  if (!currentReviewCycle) {
+    res.status(400).json({ error: "Nenhum ciclo de revisão ativo foi encontrado" });
+    return;
+  }
+
+  const [reviewer] = await db
+    .select()
+    .from(strategicPlanReviewersTable)
+    .where(
+      and(
+        eq(strategicPlanReviewersTable.planId, plan.id),
+        eq(strategicPlanReviewersTable.userId, req.auth!.userId),
+        eq(strategicPlanReviewersTable.reviewCycle, currentReviewCycle),
+        eq(strategicPlanReviewersTable.status, "pending"),
+      ),
+    );
+
+  if (!reviewer) {
+    res.status(403).json({ error: "Você não é um revisor pendente deste ciclo" });
+    return;
+  }
+
+  if (!reviewer.readAt) {
+    res.status(400).json({ error: "Acuse a leitura antes de rejeitar a revisão" });
+    return;
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select ${strategicPlansTable.id} from ${strategicPlansTable} where ${strategicPlansTable.id} = ${plan.id} for update`,
+      );
+
+      const updatedReviewer = await tx
+        .update(strategicPlanReviewersTable)
+        .set({
+          status: "rejected",
+          decidedAt: new Date(),
+          comment: body.data.comment,
+        })
+        .where(
+          and(
+            eq(strategicPlanReviewersTable.id, reviewer.id),
+            eq(strategicPlanReviewersTable.status, "pending"),
+          ),
+        )
+        .returning({ id: strategicPlanReviewersTable.id });
+
+      if (updatedReviewer.length === 0) {
+        throw new Error("reviewer_already_decided");
+      }
+
+      const cycleReviewers = await tx
+        .select({
+          status: strategicPlanReviewersTable.status,
+          comment: strategicPlanReviewersTable.comment,
+          name: usersTable.name,
+        })
+        .from(strategicPlanReviewersTable)
+        .innerJoin(usersTable, eq(strategicPlanReviewersTable.userId, usersTable.id))
+        .where(
+          and(
+            eq(strategicPlanReviewersTable.planId, plan.id),
+            eq(strategicPlanReviewersTable.reviewCycle, currentReviewCycle),
+          ),
+        );
+
+      const pendingReviewers = cycleReviewers.filter((item) => item.status === "pending");
+      if (pendingReviewers.length > 0) {
+        return;
+      }
+
+      const rejectedReviewers = cycleReviewers.filter((item) => item.status === "rejected");
+      const rejectionSummary = rejectedReviewers
+        .map((item) => `${item.name}: ${item.comment || "sem justificativa"}`)
+        .join(" | ");
+
+      await tx.update(strategicPlansTable).set({
+        status: "rejected",
+        reviewReason:
+          body.data.reviewReason ?? rejectionSummary ?? plan.reviewReason ?? null,
+        rejectedAt: new Date(),
+        approvedAt: null,
+        updatedById: req.auth!.userId,
+      }).where(eq(strategicPlansTable.id, plan.id));
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "reviewer_already_decided") {
+      res.status(409).json({ error: "Este parecer já foi registrado anteriormente" });
+      return;
+    }
+    throw error;
+  }
 
   res.json(await getStrategicPlanDetail(plan.id, params.orgId));
 });

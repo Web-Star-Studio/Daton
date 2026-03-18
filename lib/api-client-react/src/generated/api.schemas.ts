@@ -674,6 +674,15 @@ export interface EmployeeProfileItemAttachment {
   uploadedAt: string;
 }
 
+export interface EmployeeRecordAttachment {
+  fileName: string;
+  /** @maximum 20971520 */
+  fileSize: number;
+  contentType: string;
+  /** @pattern ^/objects/uploads/.+ */
+  objectPath: string;
+}
+
 export type EmployeeProfileItemCategory =
   (typeof EmployeeProfileItemCategory)[keyof typeof EmployeeProfileItemCategory];
 
@@ -719,6 +728,7 @@ export interface EmployeeCompetency {
    */
   acquiredLevel: number;
   evidence?: string | null;
+  attachments: EmployeeRecordAttachment[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -742,6 +752,7 @@ export interface EmployeeTraining {
   completionDate?: string | null;
   expirationDate?: string | null;
   status: EmployeeTrainingStatus;
+  attachments: EmployeeRecordAttachment[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -754,6 +765,7 @@ export interface EmployeeAwareness {
   date: string;
   verificationMethod?: string | null;
   result?: string | null;
+  attachments: EmployeeRecordAttachment[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -929,6 +941,8 @@ export interface CreateCompetencyBody {
    */
   acquiredLevel?: number;
   evidence?: string;
+  /** @maxItems 10 */
+  attachments?: EmployeeRecordAttachment[];
 }
 
 export type CreateTrainingBodyStatus =
@@ -948,6 +962,8 @@ export interface CreateTrainingBody {
   completionDate?: string;
   expirationDate?: string;
   status?: CreateTrainingBodyStatus;
+  /** @maxItems 10 */
+  attachments?: EmployeeRecordAttachment[];
 }
 
 export interface CreateAwarenessBody {
@@ -956,6 +972,8 @@ export interface CreateAwarenessBody {
   date: string;
   verificationMethod?: string;
   result?: string;
+  /** @maxItems 10 */
+  attachments?: EmployeeRecordAttachment[];
 }
 
 export type UpdateCompetencyBodyType =
@@ -982,6 +1000,8 @@ export interface UpdateCompetencyBody {
    */
   acquiredLevel?: number;
   evidence?: string;
+  /** @maxItems 10 */
+  attachments?: EmployeeRecordAttachment[];
 }
 
 export type UpdateTrainingBodyStatus =
@@ -1001,6 +1021,8 @@ export interface UpdateTrainingBody {
   completionDate?: string;
   expirationDate?: string;
   status?: UpdateTrainingBodyStatus;
+  /** @maxItems 10 */
+  attachments?: EmployeeRecordAttachment[];
 }
 
 export interface UpdateAwarenessBody {
@@ -1009,6 +1031,8 @@ export interface UpdateAwarenessBody {
   date?: string;
   verificationMethod?: string;
   result?: string;
+  /** @maxItems 10 */
+  attachments?: EmployeeRecordAttachment[];
 }
 
 export interface Department {
@@ -1410,9 +1434,32 @@ export type GovernanceRiskOpportunityListItem =
 
 export type StrategicPlanRevisionSnapshot = { [key: string]: unknown } | null;
 
+export type StrategicPlanReviewerStatus =
+  (typeof StrategicPlanReviewerStatus)[keyof typeof StrategicPlanReviewerStatus];
+
+export const StrategicPlanReviewerStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export interface StrategicPlanReviewer {
+  id: number;
+  planId: number;
+  userId: number;
+  name: string;
+  reviewCycle: number;
+  status: StrategicPlanReviewerStatus;
+  readAt?: string | null;
+  decidedAt?: string | null;
+  comment?: string | null;
+  createdAt?: string | null;
+}
+
 export interface StrategicPlanRevision {
   id: number;
   planId: number;
+  reviewCycle: number;
   revisionNumber: number;
   revisionDate?: string | null;
   reason?: string | null;
@@ -1422,6 +1469,7 @@ export interface StrategicPlanRevision {
   evidenceDocumentId?: number | null;
   snapshot?: StrategicPlanRevisionSnapshot;
   createdAt?: string | null;
+  reviewers?: StrategicPlanReviewer[];
 }
 
 export interface StrategicPlanListItem {
@@ -1464,6 +1512,8 @@ export interface StrategicPlanDetail {
   legacyMethodology?: string | null;
   legacyIndicatorsNotes?: string | null;
   legacyRevisionHistory?: StrategicPlanLegacyRevisionEntry[] | null;
+  reviewerIds: number[];
+  currentReviewCycle?: number | null;
   importedWorkbookName?: string | null;
   activeRevisionNumber: number;
   createdAt?: string | null;
@@ -1477,6 +1527,7 @@ export interface StrategicPlanDetail {
   objectives: StrategicPlanObjective[];
   actions: StrategicPlanAction[];
   riskOpportunityItems: StrategicPlanRiskOpportunityItem[];
+  reviewers: StrategicPlanReviewer[];
   revisions: StrategicPlanRevision[];
   metrics: StrategicPlanSummaryMetrics;
   complianceIssues: string[];
@@ -1507,6 +1558,7 @@ export interface CreateStrategicPlanBody {
   legacyMethodology?: string | null;
   legacyIndicatorsNotes?: string | null;
   legacyRevisionHistory?: StrategicPlanLegacyRevisionEntry[] | null;
+  reviewerIds?: number[];
   importedWorkbookName?: string | null;
 }
 
@@ -1535,12 +1587,14 @@ export interface UpdateStrategicPlanBody {
   legacyMethodology?: string | null;
   legacyIndicatorsNotes?: string | null;
   legacyRevisionHistory?: StrategicPlanLegacyRevisionEntry[] | null;
+  reviewerIds?: number[];
   importedWorkbookName?: string | null;
 }
 
 export interface StrategicPlanReviewBody {
   reviewReason?: string | null;
   changeSummary?: string | null;
+  comment?: string | null;
 }
 
 export interface CreateStrategicPlanSwotItemBody {

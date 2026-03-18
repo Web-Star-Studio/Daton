@@ -5,11 +5,13 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { StrategicPlanReviewer } from "./strategicPlanReviewer";
 import type { StrategicPlanRevisionSnapshot } from "./strategicPlanRevisionSnapshot";
 
 export interface StrategicPlanRevision {
   id: number;
   planId: number;
+  reviewCycle: number;
   revisionNumber: number;
   revisionDate?: string | null;
   reason?: string | null;
@@ -19,4 +21,5 @@ export interface StrategicPlanRevision {
   evidenceDocumentId?: number | null;
   snapshot?: StrategicPlanRevisionSnapshot;
   createdAt?: string | null;
+  reviewers?: StrategicPlanReviewer[];
 }

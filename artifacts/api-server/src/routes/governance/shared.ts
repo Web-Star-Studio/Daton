@@ -50,6 +50,7 @@ export const planBodySchema = z.object({
     .nullable()
     .optional(),
   importedWorkbookName: z.string().nullable().optional(),
+  reviewerIds: z.array(z.number().int().positive()).optional(),
 });
 
 export const createPlanBodySchema = planBodySchema.extend({
@@ -244,6 +245,7 @@ export const importBodySchema = z.object({
 export const reviewBodySchema = z.object({
   reviewReason: z.string().nullable().optional(),
   changeSummary: z.string().nullable().optional(),
+  comment: z.string().trim().nullable().optional(),
 });
 
 export function parseGovernanceParams(
@@ -444,6 +446,29 @@ export async function validateRiskOpportunityReferences({
       .from(unitsTable)
       .where(and(eq(unitsTable.organizationId, orgId), eq(unitsTable.id, unitId)));
     if (!unit) return "Unidade vinculada não pertence à organização";
+  }
+
+  return null;
+}
+
+export async function validatePlanReviewerIds({
+  executor,
+  orgId,
+  reviewerIds,
+}: {
+  executor: SelectExecutor;
+  orgId: number;
+  reviewerIds: number[];
+}) {
+  if (reviewerIds.length === 0) return null;
+
+  const users = await executor
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(and(eq(usersTable.organizationId, orgId), inArray(usersTable.id, reviewerIds)));
+
+  if (users.length !== reviewerIds.length) {
+    return "Um ou mais revisores não pertencem à organização";
   }
 
   return null;

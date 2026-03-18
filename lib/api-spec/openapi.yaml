@@ -2698,6 +2698,48 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /organizations/{orgId}/governance/strategic-plans/{planId}/read:
+    post:
+      operationId: acknowledgeStrategicPlanReviewRead
+      tags: [governance]
+      summary: Acknowledge reading of a strategic plan review
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Strategic plan review read acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicPlanDetail"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /organizations/{orgId}/governance/strategic-plans/{planId}/approve:
     post:
       operationId: approveStrategicPlan
@@ -4769,6 +4811,25 @@ components:
         - objectPath
         - uploadedAt
 
+    EmployeeRecordAttachment:
+      type: object
+      properties:
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+          maximum: 20971520
+        contentType:
+          type: string
+        objectPath:
+          type: string
+          pattern: "^/objects/uploads/.+"
+      required:
+        - fileName
+        - fileSize
+        - contentType
+        - objectPath
+
     EmployeeProfileItem:
       type: object
       properties:
@@ -4829,6 +4890,10 @@ components:
         evidence:
           type: string
           nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
         createdAt:
           type: string
           format: date-time
@@ -4842,6 +4907,7 @@ components:
         - type
         - requiredLevel
         - acquiredLevel
+        - attachments
 
     EmployeeTraining:
       type: object
@@ -4870,6 +4936,10 @@ components:
         status:
           type: string
           enum: [pendente, concluido, vencido]
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
         createdAt:
           type: string
           format: date-time
@@ -4881,6 +4951,7 @@ components:
         - employeeId
         - title
         - status
+        - attachments
 
     EmployeeAwareness:
       type: object
@@ -4902,6 +4973,10 @@ components:
         result:
           type: string
           nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
         createdAt:
           type: string
           format: date-time
@@ -4913,6 +4988,7 @@ components:
         - employeeId
         - topic
         - date
+        - attachments
 
     PaginatedEmployees:
       type: object
@@ -5159,6 +5235,11 @@ components:
           maximum: 5
         evidence:
           type: string
+        attachments:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
       required:
         - name
 
@@ -5180,6 +5261,11 @@ components:
         status:
           type: string
           enum: [pendente, concluido, vencido]
+        attachments:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
       required:
         - title
 
@@ -5196,6 +5282,11 @@ components:
           type: string
         result:
           type: string
+        attachments:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
       required:
         - topic
         - date
@@ -5220,6 +5311,11 @@ components:
           maximum: 5
         evidence:
           type: string
+        attachments:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
 
     UpdateTrainingBody:
       type: object
@@ -5239,6 +5335,11 @@ components:
         status:
           type: string
           enum: [pendente, concluido, vencido]
+        attachments:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
 
     UpdateAwarenessBody:
       type: object
@@ -5253,6 +5354,11 @@ components:
           type: string
         result:
           type: string
+        attachments:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
 
     Department:
       type: object
@@ -5941,6 +6047,8 @@ components:
           type: integer
         planId:
           type: integer
+        reviewCycle:
+          type: integer
         revisionNumber:
           type: integer
         revisionDate:
@@ -5968,10 +6076,51 @@ components:
         createdAt:
           type: string
           nullable: true
+        reviewers:
+          type: array
+          items:
+            $ref: "#/components/schemas/StrategicPlanReviewer"
       required:
         - id
         - planId
+        - reviewCycle
         - revisionNumber
+
+    StrategicPlanReviewer:
+      type: object
+      properties:
+        id:
+          type: integer
+        planId:
+          type: integer
+        userId:
+          type: integer
+        name:
+          type: string
+        reviewCycle:
+          type: integer
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        readAt:
+          type: string
+          nullable: true
+        decidedAt:
+          type: string
+          nullable: true
+        comment:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - planId
+        - userId
+        - name
+        - reviewCycle
+        - status
 
     StrategicPlanListItem:
       type: object
@@ -6091,6 +6240,13 @@ components:
           nullable: true
           items:
             $ref: "#/components/schemas/StrategicPlanLegacyRevisionEntry"
+        reviewerIds:
+          type: array
+          items:
+            type: integer
+        currentReviewCycle:
+          type: integer
+          nullable: true
         importedWorkbookName:
           type: string
           nullable: true
@@ -6134,6 +6290,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/StrategicPlanRiskOpportunityItem"
+        reviewers:
+          type: array
+          items:
+            $ref: "#/components/schemas/StrategicPlanReviewer"
         revisions:
           type: array
           items:
@@ -6152,11 +6312,13 @@ components:
         - standards
         - reviewFrequencyMonths
         - activeRevisionNumber
+        - reviewerIds
         - swotItems
         - interestedParties
         - objectives
         - actions
         - riskOpportunityItems
+        - reviewers
         - revisions
         - metrics
         - complianceIssues
@@ -6226,6 +6388,10 @@ components:
           nullable: true
           items:
             $ref: "#/components/schemas/StrategicPlanLegacyRevisionEntry"
+        reviewerIds:
+          type: array
+          items:
+            type: integer
         importedWorkbookName:
           type: string
           nullable: true
@@ -6297,6 +6463,10 @@ components:
           nullable: true
           items:
             $ref: "#/components/schemas/StrategicPlanLegacyRevisionEntry"
+        reviewerIds:
+          type: array
+          items:
+            type: integer
         importedWorkbookName:
           type: string
           nullable: true
@@ -6308,6 +6478,9 @@ components:
           type: string
           nullable: true
         changeSummary:
+          type: string
+          nullable: true
+        comment:
           type: string
           nullable: true
 

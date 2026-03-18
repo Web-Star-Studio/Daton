@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EmployeeCompetencyType } from "./employeeCompetencyType";
+import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
 
 export interface EmployeeCompetency {
   id: number;
@@ -24,6 +25,7 @@ export interface EmployeeCompetency {
    */
   acquiredLevel: number;
   evidence?: string | null;
+  attachments: EmployeeRecordAttachment[];
   createdAt?: string;
   updatedAt?: string;
 }
