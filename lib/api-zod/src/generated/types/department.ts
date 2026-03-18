@@ -11,6 +11,7 @@ export interface Department {
   organizationId?: number;
   name: string;
   description?: string | null;
+  unitIds?: number[];
   createdAt?: string;
   updatedAt?: string;
 }

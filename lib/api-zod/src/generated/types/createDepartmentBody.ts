@@ -9,4 +9,5 @@
 export interface CreateDepartmentBody {
   name: string;
   description?: string;
+  unitIds?: number[];
 }

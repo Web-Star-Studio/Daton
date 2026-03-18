@@ -5266,6 +5266,10 @@ components:
         description:
           type: string
           nullable: true
+        unitIds:
+          type: array
+          items:
+            type: integer
         createdAt:
           type: string
         updatedAt:
@@ -5281,6 +5285,10 @@ components:
           type: string
         description:
           type: string
+        unitIds:
+          type: array
+          items:
+            type: integer
       required:
         - name
 
@@ -5291,6 +5299,10 @@ components:
           type: string
         description:
           type: string
+        unitIds:
+          type: array
+          items:
+            type: integer
 
     Position:
       type: object

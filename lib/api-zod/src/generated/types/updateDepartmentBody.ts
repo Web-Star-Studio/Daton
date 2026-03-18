@@ -9,4 +9,5 @@
 export interface UpdateDepartmentBody {
   name?: string;
   description?: string;
+  unitIds?: number[];
 }

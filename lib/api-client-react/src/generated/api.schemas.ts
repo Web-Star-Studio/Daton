@@ -1016,6 +1016,7 @@ export interface Department {
   organizationId?: number;
   name: string;
   description?: string | null;
+  unitIds?: number[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1023,11 +1024,13 @@ export interface Department {
 export interface CreateDepartmentBody {
   name: string;
   description?: string;
+  unitIds?: number[];
 }
 
 export interface UpdateDepartmentBody {
   name?: string;
   description?: string;
+  unitIds?: number[];
 }
 
 export interface Position {

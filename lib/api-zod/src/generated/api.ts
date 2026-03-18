@@ -1999,6 +1999,7 @@ export const ListDepartmentsResponseItem = zod.object({
   organizationId: zod.number().optional(),
   name: zod.string(),
   description: zod.string().nullish(),
+  unitIds: zod.array(zod.number()).optional(),
   createdAt: zod.string().optional(),
   updatedAt: zod.string().optional(),
 });
@@ -2014,6 +2015,7 @@ export const CreateDepartmentParams = zod.object({
 export const CreateDepartmentBody = zod.object({
   name: zod.string(),
   description: zod.string().optional(),
+  unitIds: zod.array(zod.number()).optional(),
 });
 
 /**
@@ -2027,6 +2029,7 @@ export const UpdateDepartmentParams = zod.object({
 export const UpdateDepartmentBody = zod.object({
   name: zod.string().optional(),
   description: zod.string().optional(),
+  unitIds: zod.array(zod.number()).optional(),
 });
 
 export const UpdateDepartmentResponse = zod.object({
@@ -2034,6 +2037,7 @@ export const UpdateDepartmentResponse = zod.object({
   organizationId: zod.number().optional(),
   name: zod.string(),
   description: zod.string().nullish(),
+  unitIds: zod.array(zod.number()).optional(),
   createdAt: zod.string().optional(),
   updatedAt: zod.string().optional(),
 });

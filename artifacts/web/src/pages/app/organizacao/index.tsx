@@ -95,6 +95,12 @@ type SimpleFormData = {
   description: string;
 };
 
+type DepartmentFormData = {
+  name: string;
+  description: string;
+  unitIds: number[];
+};
+
 type PositionFormData = {
   name: string;
   description: string;
@@ -265,8 +271,8 @@ export default function OrganizacaoPage() {
   const deleteDeptMut = useDeleteDepartment();
   const [deptDialogOpen, setDeptDialogOpen] = useState(false);
   const [editingDeptId, setEditingDeptId] = useState<number | null>(null);
-  const deptForm = useForm<SimpleFormData>({
-    defaultValues: { name: "", description: "" },
+  const deptForm = useForm<DepartmentFormData>({
+    defaultValues: { name: "", description: "", unitIds: [] },
   });
 
   const { data: positions, isLoading: posLoading } = useListPositions(orgId!, {
@@ -483,7 +489,7 @@ export default function OrganizacaoPage() {
             size="sm"
             onClick={() => {
               setEditingDeptId(null);
-              deptForm.reset({ name: "", description: "" });
+              deptForm.reset({ name: "", description: "", unitIds: [] });
               setDeptDialogOpen(true);
             }}
           >
@@ -670,18 +676,16 @@ export default function OrganizacaoPage() {
     queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey(orgId) });
   };
 
-  const onDeptSubmit = async (data: SimpleFormData) => {
+  const onDeptSubmit = async (data: DepartmentFormData) => {
+    const payload = {
+      name: data.name,
+      description: data.description || undefined,
+      unitIds: data.unitIds,
+    };
     if (editingDeptId) {
-      await updateDeptMut.mutateAsync({
-        orgId,
-        deptId: editingDeptId,
-        data: { name: data.name, description: data.description || undefined },
-      });
+      await updateDeptMut.mutateAsync({ orgId, deptId: editingDeptId, data: payload });
     } else {
-      await createDeptMut.mutateAsync({
-        orgId,
-        data: { name: data.name, description: data.description || undefined },
-      });
+      await createDeptMut.mutateAsync({ orgId, data: payload });
     }
     queryClient.invalidateQueries({
       queryKey: getListDepartmentsQueryKey(orgId),
@@ -1197,27 +1201,65 @@ export default function OrganizacaoPage() {
       )}
 
       {activeTab === "departamentos" && (
-        <SimpleTable
-          items={departments}
-          isLoading={deptsLoading}
-          entityName="departamento"
-          canWrite={canWriteModule("departments")}
-          onEdit={(item) => {
-            setEditingDeptId(item.id);
-            deptForm.reset({
-              name: item.name,
-              description: item.description || "",
-            });
-            setDeptDialogOpen(true);
-          }}
-          onDelete={async (id) => {
-            if (!confirm("Tem certeza que deseja remover?")) return;
-            await deleteDeptMut.mutateAsync({ orgId, deptId: id });
-            queryClient.invalidateQueries({
-              queryKey: getListDepartmentsQueryKey(orgId),
-            });
-          }}
-        />
+        deptsLoading ? (
+          <div className="text-center py-12 text-muted-foreground text-[13px]">Carregando...</div>
+        ) : (
+          <div className="overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border/60">
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Nome</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Descrição</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Unidades</th>
+                </tr>
+              </thead>
+              <tbody>
+                {departments?.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-12 text-center text-muted-foreground text-[13px]">
+                      Nenhum departamento cadastrado.
+                    </td>
+                  </tr>
+                )}
+                {departments?.map((dept) => {
+                  const deptUnitNames = (dept.unitIds || [])
+                    .map((uid: number) => units?.find((u) => u.id === uid))
+                    .filter(Boolean);
+                  return (
+                    <tr
+                      key={dept.id}
+                      className={cn(
+                        "border-b border-border/40 last:border-0 transition-colors",
+                        canWriteModule("departments") ? "hover:bg-secondary/30 cursor-pointer" : "",
+                      )}
+                      onClick={() => {
+                        if (!canWriteModule("departments")) return;
+                        setEditingDeptId(dept.id);
+                        deptForm.reset({
+                          name: dept.name,
+                          description: dept.description || "",
+                          unitIds: dept.unitIds || [],
+                        });
+                        setDeptDialogOpen(true);
+                      }}
+                    >
+                      <td className="px-4 py-3 text-[13px] font-medium text-foreground">{dept.name}</td>
+                      <td className="px-4 py-3 text-[13px] text-muted-foreground">{dept.description || "—"}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {deptUnitNames.length === 0 && <span className="text-[13px] text-muted-foreground">—</span>}
+                          {deptUnitNames.map((u) => (
+                            <Badge key={u!.id} variant="secondary" className="text-[11px]">{u!.name}</Badge>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
 
       {activeTab === "cargos" &&
@@ -1762,6 +1804,7 @@ export default function OrganizacaoPage() {
         onOpenChange={setDeptDialogOpen}
         title={editingDeptId ? "Editar Departamento" : "Novo Departamento"}
         description="Defina os departamentos da organização."
+        size="lg"
       >
         <form onSubmit={deptForm.handleSubmit(onDeptSubmit)}>
           <div className="grid grid-cols-2 gap-x-8 gap-y-5">
@@ -1780,6 +1823,43 @@ export default function OrganizacaoPage() {
               />
             </div>
           </div>
+          {units && units.length > 0 && (
+            <div className="mt-5">
+              <Label>Unidades</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Selecione as unidades onde este departamento está presente.
+              </p>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1 max-h-48 overflow-y-auto border border-border/60 rounded-lg p-3">
+                {units.map((unit) => {
+                  const selectedIds = deptForm.watch("unitIds") || [];
+                  const isChecked = selectedIds.includes(unit.id);
+                  return (
+                    <label
+                      key={unit.id}
+                      className="flex items-center gap-2 text-[13px] cursor-pointer py-1.5 hover:text-foreground transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const current = deptForm.getValues("unitIds") || [];
+                          deptForm.setValue(
+                            "unitIds",
+                            e.target.checked
+                              ? [...current, unit.id]
+                              : current.filter((id) => id !== unit.id),
+                          );
+                        }}
+                        className="rounded border-border text-primary cursor-pointer"
+                      />
+                      <span className="truncate">{unit.name}</span>
+                      <Badge variant="secondary" className="text-[9px] ml-auto shrink-0">{unit.type}</Badge>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button
               type="button"
