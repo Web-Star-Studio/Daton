@@ -5020,7 +5020,6 @@ components:
           enum: [active, inactive, on_leave]
       required:
         - name
-        - cpf
         - admissionDate
 
     UpdateEmployeeBody:

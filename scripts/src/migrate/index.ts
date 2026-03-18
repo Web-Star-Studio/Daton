@@ -18,7 +18,23 @@ const dryRun = args.includes("--dry-run");
 const force = args.includes("--force");
 const verbose = args.includes("--verbose");
 
-const options = { dryRun, verbose };
+function getFlagValue(flag: string): string | undefined {
+  const idx = args.indexOf(flag);
+  if (idx === -1 || idx + 1 >= args.length) return undefined;
+  return args[idx + 1];
+}
+
+const companyId = getFlagValue("--company-id");
+
+if (!companyId) {
+  console.error("Error: --company-id <uuid> is required.");
+  console.error(
+    "\nUsage:\n  pnpm --filter @workspace/scripts migrate --company-id <uuid> [--dry-run] [--verbose] [--force]",
+  );
+  process.exit(1);
+}
+
+const options = { dryRun, verbose, companyId };
 
 async function confirmDeletion(): Promise<boolean> {
   if (force) return true;
@@ -26,9 +42,8 @@ async function confirmDeletion(): Promise<boolean> {
 
   return new Promise((resolve) => {
     process.stdout.write(
-      "\n⚠ This will DELETE existing migrated data in the target database.\n" +
-      "  Tables affected: employee_trainings, employee_competencies, employee_profile_items,\n" +
-      "  employees, positions, departments, units, organizations\n\n" +
+      `\n⚠ This will INSERT data for company ${companyId} into the target database.\n` +
+      "  No existing data will be deleted.\n\n" +
       "  Continue? (yes/no): ",
     );
     process.stdin.setEncoding("utf-8");
@@ -38,69 +53,6 @@ async function confirmDeletion(): Promise<boolean> {
     });
     process.stdin.resume();
   });
-}
-
-async function cleanTargetTables(): Promise<void> {
-  console.log("\n--- Cleaning target tables (reverse dependency order) ---");
-
-  // Check if any users reference organizations (safety check)
-  const userCheck = await db.execute(
-    sql`SELECT COUNT(*) as count FROM users WHERE organization_id IS NOT NULL`,
-  );
-  const userCount = Number((userCheck.rows[0] as any)?.count ?? 0);
-  if (userCount > 0) {
-    console.log(`  ⚠ Found ${userCount} users with organization references.`);
-    console.log("  Users will NOT be deleted (they are managed separately).");
-    console.log("  Organizations referenced by users will be preserved.\n");
-  }
-
-  // Delete in reverse dependency order (children first)
-  const tables = [
-    "employee_trainings",
-    "employee_competencies",
-    "employee_profile_items",
-    "employees",
-    "positions",
-    "departments",
-    "units",
-  ];
-
-  for (const table of tables) {
-    const result = await db.execute(sql.raw(`DELETE FROM ${table}`));
-    console.log(`  Deleted from ${table}: ${(result as any).rowCount ?? 0} rows`);
-  }
-
-  // Only delete organizations not referenced by users
-  if (userCount > 0) {
-    const result = await db.execute(
-      sql`DELETE FROM organizations WHERE id NOT IN (SELECT DISTINCT organization_id FROM users WHERE organization_id IS NOT NULL)`,
-    );
-    console.log(`  Deleted from organizations: ${(result as any).rowCount ?? 0} rows (preserved ${userCount} user-linked orgs)`);
-  } else {
-    const result = await db.execute(sql.raw(`DELETE FROM organizations`));
-    console.log(`  Deleted from organizations: ${(result as any).rowCount ?? 0} rows`);
-  }
-
-  // Reset sequences
-  const sequences = [
-    "organizations_id_seq",
-    "units_id_seq",
-    "departments_id_seq",
-    "positions_id_seq",
-    "employees_id_seq",
-    "employee_profile_items_id_seq",
-    "employee_competencies_id_seq",
-    "employee_trainings_id_seq",
-  ];
-
-  for (const seq of sequences) {
-    try {
-      await db.execute(sql.raw(`ALTER SEQUENCE ${seq} RESTART`));
-    } catch {
-      // Sequence may not exist if table was never populated
-    }
-  }
-  console.log("  Sequences reset.");
 }
 
 async function testConnections(): Promise<void> {
@@ -125,24 +77,38 @@ async function testConnections(): Promise<void> {
   }
 }
 
+async function verifyCompanyExists(): Promise<void> {
+  const result = await sourcePool.query(
+    `SELECT id, name FROM companies WHERE id = $1`,
+    [companyId],
+  );
+  if (result.rows.length === 0) {
+    console.error(`\n✗ Company ${companyId} not found in source database.`);
+    process.exit(1);
+  }
+  console.log(`  Source company: "${result.rows[0].name}" (${companyId})`);
+}
+
 async function main(): Promise<void> {
   console.log("========================================");
   console.log("  Daton v1 → v2 Data Migration");
+  console.log("  (single company mode)");
   console.log("========================================");
+  console.log(`  Company: ${companyId}`);
   if (dryRun) console.log("  Mode: DRY RUN (no changes will be made)");
   if (verbose) console.log("  Verbose output enabled");
   console.log("");
 
   await testConnections();
+  await verifyCompanyExists();
 
-  // Confirm before destructive operations
+  // Confirm before operations
   if (!dryRun) {
     const confirmed = await confirmDeletion();
     if (!confirmed) {
       console.log("Migration cancelled.");
       process.exit(0);
     }
-    await cleanTargetTables();
   }
 
   // ID maps

@@ -329,7 +329,7 @@ export default function ColaboradoresPage() {
 
     const payload: CreateEmployeeBody = {
       name: data.name.trim(),
-      cpf: data.cpf.trim(),
+      ...(data.cpf ? { cpf: data.cpf.trim() } : {}),
       admissionDate: data.admissionDate,
       contractType: data.contractType || "clt",
       ...(data.email ? { email: data.email } : {}),
@@ -584,10 +584,9 @@ export default function ColaboradoresPage() {
         <form onSubmit={handleSubmit(onCreateSubmit)}>
           <div className="grid grid-cols-2 gap-x-8 gap-y-5">
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">CPF *</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">CPF</Label>
               <Input
                 {...register("cpf", {
-                  required: "CPF é obrigatório",
                   setValueAs: toRequiredString,
                   onChange: (event) => {
                     event.target.value = formatCpfInput(event.target.value);

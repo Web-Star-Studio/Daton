@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useParams, Link } from "wouter";
-import { usePageTitle } from "@/contexts/LayoutContext";
+import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import {
   useGetEmployee,
@@ -107,7 +107,6 @@ const COMPETENCY_TYPE_LABELS: Record<string, string> = {
 
 const REQUIRED_EMPLOYEE_FIELDS: Record<string, string> = {
   name: "Nome completo",
-  cpf: "CPF",
   admissionDate: "Data de admissão",
 };
 
@@ -744,14 +743,20 @@ function CompetenciasTab({
   orgId,
   empId,
   editable = true,
+  createOpen = false,
+  onCreateOpenChange,
 }: {
   competencies: EmployeeCompetency[];
   orgId: number;
   empId: number;
   editable?: boolean;
+  createOpen?: boolean;
+  onCreateOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const [isCreateOpen, setCreateOpen] = useState(false);
+  const [internalCreateOpen, setInternalCreateOpen] = useState(false);
+  const isCreateOpen = onCreateOpenChange ? createOpen : internalCreateOpen;
+  const setCreateOpen = onCreateOpenChange || setInternalCreateOpen;
   const [editingComp, setEditingComp] = useState<EmployeeCompetency | null>(null);
   const createMutation = useCreateCompetency();
   const updateMutation = useUpdateCompetency();
@@ -806,15 +811,9 @@ function CompetenciasTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          Competências necessárias e adquiridas conforme ISO 9001:2015 §7.2
-        </p>
-        {editable && <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
-          <Plus className="h-3.5 w-3.5 mr-1.5" />
-          Competência
-        </Button>}
-      </div>
+      <p className="text-xs text-muted-foreground">
+        Competências necessárias e adquiridas conforme ISO 9001:2015 §7.2
+      </p>
 
       {competencies.length === 0 ? (
         <div className="text-center py-12">
@@ -875,7 +874,7 @@ function CompetenciasTab({
         </div>
       )}
 
-      <Dialog open={editable && isCreateOpen} onOpenChange={setCreateOpen} title="Nova Competência">
+      <Dialog open={editable && isCreateOpen} onOpenChange={setCreateOpen} title="Nova Competência" size="lg">
         <CompetencyFormFields form={form} setForm={setForm} />
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
@@ -885,7 +884,7 @@ function CompetenciasTab({
         </DialogFooter>
       </Dialog>
 
-      <Dialog open={editable && !!editingComp} onOpenChange={(open) => { if (!open) { setEditingComp(null); setForm(emptyForm); } }} title="Editar Competência">
+      <Dialog open={editable && !!editingComp} onOpenChange={(open) => { if (!open) { setEditingComp(null); setForm(emptyForm); } }} title="Editar Competência" size="lg">
         <CompetencyFormFields form={form} setForm={setForm} />
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => { setEditingComp(null); setForm(emptyForm); }}>Cancelar</Button>
@@ -957,14 +956,20 @@ function TreinamentosTab({
   orgId,
   empId,
   editable = true,
+  createOpen = false,
+  onCreateOpenChange,
 }: {
   trainings: EmployeeTraining[];
   orgId: number;
   empId: number;
   editable?: boolean;
+  createOpen?: boolean;
+  onCreateOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const [isCreateOpen, setCreateOpen] = useState(false);
+  const [internalCreateOpen, setInternalCreateOpen] = useState(false);
+  const isCreateOpen = onCreateOpenChange ? createOpen : internalCreateOpen;
+  const setCreateOpen = onCreateOpenChange || setInternalCreateOpen;
   const [editingTraining, setEditingTraining] = useState<EmployeeTraining | null>(null);
   const createMutation = useCreateTraining();
   const deleteMutation = useDeleteTraining();
@@ -1040,15 +1045,9 @@ function TreinamentosTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          Registro de treinamentos conforme ISO 9001:2015 §7.2
-        </p>
-        {editable && <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
-          <Plus className="h-3.5 w-3.5 mr-1.5" />
-          Treinamento
-        </Button>}
-      </div>
+      <p className="text-xs text-muted-foreground">
+        Registro de treinamentos conforme ISO 9001:2015 §7.2
+      </p>
 
       {trainings.length === 0 ? (
         <div className="text-center py-12">
@@ -1089,7 +1088,7 @@ function TreinamentosTab({
         </div>
       )}
 
-      <Dialog open={editable && isCreateOpen} onOpenChange={setCreateOpen} title="Novo Treinamento">
+      <Dialog open={editable && isCreateOpen} onOpenChange={setCreateOpen} title="Novo Treinamento" size="lg">
         <TrainingFormFields form={form} setForm={setForm} />
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
@@ -1099,7 +1098,7 @@ function TreinamentosTab({
         </DialogFooter>
       </Dialog>
 
-      <Dialog open={editable && !!editingTraining} onOpenChange={(open) => { if (!open) { setEditingTraining(null); setForm(emptyForm); } }} title="Editar Treinamento">
+      <Dialog open={editable && !!editingTraining} onOpenChange={(open) => { if (!open) { setEditingTraining(null); setForm(emptyForm); } }} title="Editar Treinamento" size="lg">
         <TrainingFormFields form={form} setForm={setForm} />
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => { setEditingTraining(null); setForm(emptyForm); }}>Cancelar</Button>
@@ -1146,14 +1145,20 @@ function ConscientizacaoTab({
   orgId,
   empId,
   editable = true,
+  createOpen = false,
+  onCreateOpenChange,
 }: {
   awareness: EmployeeAwareness[];
   orgId: number;
   empId: number;
   editable?: boolean;
+  createOpen?: boolean;
+  onCreateOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const [isCreateOpen, setCreateOpen] = useState(false);
+  const [internalCreateOpen, setInternalCreateOpen] = useState(false);
+  const isCreateOpen = onCreateOpenChange ? createOpen : internalCreateOpen;
+  const setCreateOpen = onCreateOpenChange || setInternalCreateOpen;
   const [editingAwareness, setEditingAwareness] = useState<EmployeeAwareness | null>(null);
   const createMutation = useCreateAwareness();
   const deleteMutation = useDeleteAwareness();
@@ -1208,15 +1213,9 @@ function ConscientizacaoTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          Registros de conscientização conforme ISO 9001:2015 §7.3
-        </p>
-        {editable && <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
-          <Plus className="h-3.5 w-3.5 mr-1.5" />
-          Registro
-        </Button>}
-      </div>
+      <p className="text-xs text-muted-foreground">
+        Registros de conscientização conforme ISO 9001:2015 §7.3
+      </p>
 
       {awareness.length === 0 ? (
         <div className="text-center py-12">
@@ -1251,7 +1250,7 @@ function ConscientizacaoTab({
         </div>
       )}
 
-      <Dialog open={editable && isCreateOpen} onOpenChange={setCreateOpen} title="Novo Registro de Conscientização">
+      <Dialog open={editable && isCreateOpen} onOpenChange={setCreateOpen} title="Novo Registro de Conscientização" size="lg">
         <AwarenessFormFields form={form} setForm={setForm} />
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)}>Cancelar</Button>
@@ -1261,7 +1260,7 @@ function ConscientizacaoTab({
         </DialogFooter>
       </Dialog>
 
-      <Dialog open={editable && !!editingAwareness} onOpenChange={(open) => { if (!open) { setEditingAwareness(null); setForm(emptyForm); } }} title="Editar Registro de Conscientização">
+      <Dialog open={editable && !!editingAwareness} onOpenChange={(open) => { if (!open) { setEditingAwareness(null); setForm(emptyForm); } }} title="Editar Registro de Conscientização" size="lg">
         <AwarenessFormFields form={form} setForm={setForm} />
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => { setEditingAwareness(null); setForm(emptyForm); }}>Cancelar</Button>
@@ -1296,6 +1295,11 @@ export default function ColaboradorDetailPage() {
   });
   const updateMutation = useUpdateEmployee();
   const deleteMutation = useDeleteEmployee();
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editStep, setEditStep] = useState(0);
+  const [compCreateOpen, setCompCreateOpen] = useState(false);
+  const [trainingCreateOpen, setTrainingCreateOpen] = useState(false);
+  const [awarenessCreateOpen, setAwarenessCreateOpen] = useState(false);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId!, empId) });
 
@@ -1333,6 +1337,64 @@ export default function ColaboradorDetailPage() {
 
   usePageTitle(employee?.name);
 
+  const headerActions = React.useMemo(() => {
+    if (!employee) return null;
+
+    const addButton = canWriteEmployees ? (() => {
+      switch (activeTab) {
+        case "competencias":
+          return (
+            <Button size="sm" onClick={() => setCompCreateOpen(true)}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Nova Competência
+            </Button>
+          );
+        case "treinamentos":
+          return (
+            <Button size="sm" onClick={() => setTrainingCreateOpen(true)}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Novo Treinamento
+            </Button>
+          );
+        case "conscientizacao":
+          return (
+            <Button size="sm" onClick={() => setAwarenessCreateOpen(true)}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Novo Registro
+            </Button>
+          );
+        default:
+          return null;
+      }
+    })() : null;
+
+    return (
+      <div className="flex items-center gap-2">
+        <Link href="/qualidade/colaboradores">
+          <Button variant="outline" size="sm" className="cursor-pointer">
+            <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+            Voltar
+          </Button>
+        </Link>
+        {canWriteEmployees && (
+          <>
+            <Button variant="outline" size="sm" onClick={() => setEditModalOpen(true)}>
+              <Pencil className="h-3.5 w-3.5 mr-1.5" />
+              Editar
+            </Button>
+            <Button variant="outline" size="sm" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={handleArchive}>
+              <Archive className="h-3.5 w-3.5 mr-1.5" />
+              Arquivar
+            </Button>
+          </>
+        )}
+        {addButton}
+      </div>
+    );
+  }, [employee, canWriteEmployees, handleArchive, activeTab]);
+
+  useHeaderActions(headerActions);
+
   if (!orgId) return null;
 
   if (isLoading) {
@@ -1362,26 +1424,6 @@ export default function ColaboradorDetailPage() {
   return (
     <>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/qualidade/colaboradores">
-              <button className="p-1.5 rounded-lg hover:bg-secondary/60 text-muted-foreground transition-colors cursor-pointer">
-                <ArrowLeft className="h-4 w-4" />
-              </button>
-            </Link>
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">{employee.name}</h1>
-              <p className="text-[13px] text-muted-foreground mt-0.5">
-                {employee.position || "Sem cargo"} {employee.department ? `· ${employee.department}` : ""}
-              </p>
-            </div>
-          </div>
-          {canWriteEmployees && <Button variant="outline" size="sm" className="text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={handleArchive}>
-            <Archive className="h-3.5 w-3.5 mr-1.5" />
-            Arquivar
-          </Button>}
-        </div>
-
         <div className="mb-1">
           <div className="flex items-center gap-6 border-b border-border">
             {tabs.map((tab) => (
@@ -1414,7 +1456,7 @@ export default function ColaboradorDetailPage() {
                 Informações Pessoais
               </h3>
               <InlineField label="Nome completo *" value={employee.name} fieldKey="name" editable={canWriteEmployees} onSave={handleFieldSave} />
-              <InlineField label="CPF *" value={employee.cpf} fieldKey="cpf" editable={canWriteEmployees} onSave={handleFieldSave} />
+              <InlineField label="CPF" value={employee.cpf} fieldKey="cpf" editable={canWriteEmployees} onSave={handleFieldSave} />
               <InlineField label="E-mail" value={employee.email} fieldKey="email" editable={canWriteEmployees} onSave={handleFieldSave} />
               <InlineField label="Telefone" value={employee.phone} fieldKey="phone" editable={canWriteEmployees} onSave={handleFieldSave} />
             </div>
@@ -1505,15 +1547,15 @@ export default function ColaboradorDetailPage() {
         )}
 
         {activeTab === "competencias" && (
-          <CompetenciasTab competencies={employee.competencies || []} orgId={orgId} empId={empId} editable={canWriteEmployees} />
+          <CompetenciasTab competencies={employee.competencies || []} orgId={orgId} empId={empId} editable={canWriteEmployees} createOpen={compCreateOpen} onCreateOpenChange={setCompCreateOpen} />
         )}
 
         {activeTab === "treinamentos" && (
-          <TreinamentosTab trainings={employee.trainings || []} orgId={orgId} empId={empId} editable={canWriteEmployees} />
+          <TreinamentosTab trainings={employee.trainings || []} orgId={orgId} empId={empId} editable={canWriteEmployees} createOpen={trainingCreateOpen} onCreateOpenChange={setTrainingCreateOpen} />
         )}
 
         {activeTab === "conscientizacao" && (
-          <ConscientizacaoTab awareness={employee.awareness || []} orgId={orgId} empId={empId} editable={canWriteEmployees} />
+          <ConscientizacaoTab awareness={employee.awareness || []} orgId={orgId} empId={empId} editable={canWriteEmployees} createOpen={awarenessCreateOpen} onCreateOpenChange={setAwarenessCreateOpen} />
         )}
       </div>
     </>

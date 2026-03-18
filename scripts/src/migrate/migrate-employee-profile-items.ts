@@ -51,19 +51,29 @@ function buildExperienceDescription(e: V1Experience): string | null {
 
 export async function migrateEmployeeProfileItems(
   employeeMap: IdMap,
-  options: { dryRun: boolean; verbose: boolean },
+  options: { dryRun: boolean; verbose: boolean; companyId: string },
 ): Promise<void> {
   console.log("\n--- Migrating employee profile items ---");
 
-  // Education
+  // Education — filter by company via employees table
   const educations = await sourceQuery<V1Education>(
-    `SELECT id, employee_id, course_name, institution_name, field_of_study, education_type, grade, certificate_number, created_at FROM employee_education ORDER BY created_at`,
+    `SELECT ee.id, ee.employee_id, ee.course_name, ee.institution_name, ee.field_of_study, ee.education_type, ee.grade, ee.certificate_number, ee.created_at
+     FROM employee_education ee
+     JOIN employees e ON e.id = ee.employee_id
+     WHERE e.company_id = $1
+     ORDER BY ee.created_at`,
+    [options.companyId],
   );
   console.log(`  Found ${educations.length} education records in source`);
 
-  // Experiences
+  // Experiences — filter by company via employees table
   const experiences = await sourceQuery<V1Experience>(
-    `SELECT id, employee_id, position_title, company_name, department, start_date, end_date, description, created_at FROM employee_experiences ORDER BY created_at`,
+    `SELECT ex.id, ex.employee_id, ex.position_title, ex.company_name, ex.department, ex.start_date, ex.end_date, ex.description, ex.created_at
+     FROM employee_experiences ex
+     JOIN employees e ON e.id = ex.employee_id
+     WHERE e.company_id = $1
+     ORDER BY ex.created_at`,
+    [options.companyId],
   );
   console.log(`  Found ${experiences.length} experience records in source`);
 

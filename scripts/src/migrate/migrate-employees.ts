@@ -29,12 +29,13 @@ export async function migrateEmployees(
   companyMap: IdMap,
   branchMap: IdMap,
   employeeMap: IdMap,
-  options: { dryRun: boolean; verbose: boolean },
+  options: { dryRun: boolean; verbose: boolean; companyId: string },
 ): Promise<void> {
   console.log("\n--- Migrating employees ---");
 
   const employees = await sourceQuery<V1Employee>(
-    `SELECT id, company_id, branch_id, full_name, email, phone, cpf, department, position, hire_date, termination_date, employment_type, status, created_at FROM employees ORDER BY created_at`,
+    `SELECT id, company_id, branch_id, full_name, email, phone, cpf, department, position, hire_date, termination_date, employment_type, status, created_at FROM employees WHERE company_id = $1 ORDER BY created_at`,
+    [options.companyId],
   );
   console.log(`  Found ${employees.length} employees in source`);
 
@@ -48,6 +49,7 @@ export async function migrateEmployees(
 
       if (options.dryRun) {
         if (options.verbose) console.log(`  [DRY RUN] Would insert employee: ${e.full_name}`);
+        employeeMap.set(e.id, -1);
         migrated++;
         continue;
       }

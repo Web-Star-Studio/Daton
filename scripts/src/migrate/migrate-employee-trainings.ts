@@ -21,17 +21,20 @@ interface V1EmployeeTraining {
 
 export async function migrateEmployeeTrainings(
   employeeMap: IdMap,
-  options: { dryRun: boolean; verbose: boolean },
+  options: { dryRun: boolean; verbose: boolean; companyId: string },
 ): Promise<void> {
   console.log("\n--- Migrating employee trainings ---");
 
   const trainings = await sourceQuery<V1EmployeeTraining>(
     `SELECT
       et.id, et.employee_id, et.training_program_id, et.completion_date, et.expiration_date, et.status, et.created_at,
-      tp.name AS program_name, tp.description AS program_description, tp.trainer, tp.duration_hours
+      tp.name AS program_name, tp.description AS program_description, et.trainer, tp.duration_hours
     FROM employee_trainings et
     JOIN training_programs tp ON tp.id = et.training_program_id
+    JOIN employees e ON e.id = et.employee_id
+    WHERE e.company_id = $1
     ORDER BY et.created_at`,
+    [options.companyId],
   );
   console.log(`  Found ${trainings.length} employee trainings in source`);
 
@@ -58,7 +61,7 @@ export async function migrateEmployeeTrainings(
         title: t.program_name,
         description: t.program_description,
         institution: t.trainer,
-        workloadHours: t.duration_hours,
+        workloadHours: t.duration_hours != null ? Math.round(t.duration_hours) : null,
         completionDate: formatDate(t.completion_date),
         expirationDate: formatDate(t.expiration_date),
         status: transformTrainingStatus(t.status),

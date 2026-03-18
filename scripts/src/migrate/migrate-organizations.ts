@@ -17,12 +17,13 @@ interface V1Company {
 
 export async function migrateOrganizations(
   companyMap: IdMap,
-  options: { dryRun: boolean; verbose: boolean },
+  options: { dryRun: boolean; verbose: boolean; companyId: string },
 ): Promise<void> {
   console.log("\n--- Migrating organizations ---");
 
   const companies = await sourceQuery<V1Company>(
-    `SELECT id, name, cnpj, created_at, sector, legal_structure, governance_model, headquarters_address FROM companies ORDER BY created_at`,
+    `SELECT id, name, cnpj, created_at, sector, legal_structure, governance_model, headquarters_address FROM companies WHERE id = $1`,
+    [options.companyId],
   );
   console.log(`  Found ${companies.length} companies in source`);
 
@@ -36,6 +37,7 @@ export async function migrateOrganizations(
 
       if (options.dryRun) {
         if (options.verbose) console.log(`  [DRY RUN] Would insert org: ${c.name}`);
+        companyMap.set(c.id, -1);
         migrated++;
         continue;
       }

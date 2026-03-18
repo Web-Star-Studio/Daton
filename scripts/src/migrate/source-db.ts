@@ -13,7 +13,7 @@ export const sourcePool = new Pool({
 });
 
 /** Run a query against the v1 Supabase source database */
-export async function sourceQuery<T>(sql: string): Promise<T[]> {
-  const result = await sourcePool.query(sql);
+export async function sourceQuery<T>(sql: string, params?: unknown[]): Promise<T[]> {
+  const result = await sourcePool.query(sql, params);
   return result.rows as T[];
 }

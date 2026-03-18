@@ -7,7 +7,9 @@
     "hello": "tsx ./src/hello.ts",
     "seed": "tsx ./src/seed.ts",
     "create-platform-admin": "tsx ./src/create-platform-admin.ts",
+    "create-org-admin": "tsx ./src/create-org-admin.ts",
     "migrate": "tsx ./src/migrate/index.ts",
+    "backfill-trainings": "tsx ./src/migrate/backfill-trainings.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

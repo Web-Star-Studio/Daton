@@ -18,12 +18,13 @@ interface V1Position {
 
 export async function migratePositions(
   companyMap: IdMap,
-  options: { dryRun: boolean; verbose: boolean },
+  options: { dryRun: boolean; verbose: boolean; companyId: string },
 ): Promise<void> {
   console.log("\n--- Migrating positions ---");
 
   const positions = await sourceQuery<V1Position>(
-    `SELECT id, company_id, title, description, required_education_level, required_experience_years, requirements, responsibilities, created_at FROM positions ORDER BY created_at`,
+    `SELECT id, company_id, title, description, required_education_level, required_experience_years, requirements, responsibilities, created_at FROM positions WHERE company_id = $1 ORDER BY created_at`,
+    [options.companyId],
   );
   console.log(`  Found ${positions.length} positions in source`);
 

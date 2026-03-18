@@ -20,17 +20,20 @@ interface V1CompetencyAssessment {
 
 export async function migrateEmployeeCompetencies(
   employeeMap: IdMap,
-  options: { dryRun: boolean; verbose: boolean },
+  options: { dryRun: boolean; verbose: boolean; companyId: string },
 ): Promise<void> {
   console.log("\n--- Migrating employee competencies ---");
 
   const assessments = await sourceQuery<V1CompetencyAssessment>(
     `SELECT
       a.id, a.employee_id, a.competency_id, a.current_level, a.target_level, a.development_plan, a.created_at,
-      m.name AS competency_name, m.description AS competency_description, m.category AS competency_category
+      m.competency_name, m.description AS competency_description, m.competency_category
     FROM employee_competency_assessments a
     JOIN competency_matrix m ON m.id = a.competency_id
+    JOIN employees e ON e.id = a.employee_id
+    WHERE e.company_id = $1
     ORDER BY a.created_at`,
+    [options.companyId],
   );
   console.log(`  Found ${assessments.length} competency assessments in source`);
 

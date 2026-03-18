@@ -13,12 +13,13 @@ interface V1Department {
 
 export async function migrateDepartments(
   companyMap: IdMap,
-  options: { dryRun: boolean; verbose: boolean },
+  options: { dryRun: boolean; verbose: boolean; companyId: string },
 ): Promise<void> {
   console.log("\n--- Migrating departments ---");
 
   const departments = await sourceQuery<V1Department>(
-    `SELECT id, company_id, name, description, created_at FROM departments ORDER BY created_at`,
+    `SELECT id, company_id, name, description, created_at FROM departments WHERE company_id = $1 ORDER BY created_at`,
+    [options.companyId],
   );
   console.log(`  Found ${departments.length} departments in source`);
 

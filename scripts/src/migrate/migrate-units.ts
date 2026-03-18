@@ -26,12 +26,13 @@ interface V1Branch {
 export async function migrateUnits(
   companyMap: IdMap,
   branchMap: IdMap,
-  options: { dryRun: boolean; verbose: boolean },
+  options: { dryRun: boolean; verbose: boolean; companyId: string },
 ): Promise<void> {
   console.log("\n--- Migrating units ---");
 
   const branches = await sourceQuery<V1Branch>(
-    `SELECT id, company_id, name, code, address, street_number, neighborhood, city, state, country, phone, cep, cnpj, is_headquarters, status, created_at FROM branches ORDER BY created_at`,
+    `SELECT id, company_id, name, code, address, street_number, neighborhood, city, state, country, phone, cep, cnpj, is_headquarters, status, created_at FROM branches WHERE company_id = $1 ORDER BY created_at`,
+    [options.companyId],
   );
   console.log(`  Found ${branches.length} branches in source`);
 
@@ -44,6 +45,7 @@ export async function migrateUnits(
 
       if (options.dryRun) {
         if (options.verbose) console.log(`  [DRY RUN] Would insert unit: ${b.name}`);
+        branchMap.set(b.id, -1);
         migrated++;
         continue;
       }

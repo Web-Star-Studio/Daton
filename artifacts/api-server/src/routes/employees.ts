@@ -119,7 +119,6 @@ function formatEmployee(e: EmployeeRow) {
 
 const EMPLOYEE_REQUIRED_FIELD_LABELS = {
   name: "Nome completo",
-  cpf: "CPF",
   admissionDate: "Data de admissão",
 } as const;
 

@@ -1295,7 +1295,7 @@ export const createEmployeeBodyEducationCertificationsItemAttachmentsMax = 10;
 
 export const CreateEmployeeBody = zod.object({
   name: zod.string().min(1),
-  cpf: zod.string().min(1),
+  cpf: zod.string().min(1).optional(),
   email: zod.string().email().optional(),
   phone: zod.string().optional(),
   position: zod.string().optional(),

@@ -23,6 +23,9 @@ import {
   Eye,
   Settings2,
   RotateCcw,
+  Search,
+  ChevronRight,
+  Building2,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
@@ -187,6 +190,69 @@ export default function OrganizacaoPage() {
       phone: "",
     },
   });
+
+  // Units search, filters, selection
+  const [unitSearch, setUnitSearch] = useState("");
+  const [unitTypeFilter, setUnitTypeFilter] = useState("");
+  const [unitStatusFilter, setUnitStatusFilter] = useState("");
+  const [selectedUnitIds, setSelectedUnitIds] = useState<Set<number>>(new Set());
+  const [isDeletingUnits, setIsDeletingUnits] = useState(false);
+  const [confirmDeleteUnitsOpen, setConfirmDeleteUnitsOpen] = useState(false);
+
+  const sortedFilteredUnits = useMemo(() => {
+    if (!units) return [];
+    let filtered = [...units];
+    if (unitSearch) {
+      const q = unitSearch.toLowerCase();
+      filtered = filtered.filter(
+        (u) =>
+          u.name.toLowerCase().includes(q) ||
+          (u.code && u.code.toLowerCase().includes(q)),
+      );
+    }
+    if (unitTypeFilter) filtered = filtered.filter((u) => u.type === unitTypeFilter);
+    if (unitStatusFilter) filtered = filtered.filter((u) => u.status === unitStatusFilter);
+    // Sede always first
+    filtered.sort((a, b) => {
+      if (a.type === "sede" && b.type !== "sede") return -1;
+      if (a.type !== "sede" && b.type === "sede") return 1;
+      return 0;
+    });
+    return filtered;
+  }, [units, unitSearch, unitTypeFilter, unitStatusFilter]);
+
+  const allUnitIds = useMemo(() => sortedFilteredUnits.map((u) => u.id), [sortedFilteredUnits]);
+  const allUnitsSelected = allUnitIds.length > 0 && allUnitIds.every((id) => selectedUnitIds.has(id));
+
+  const toggleAllUnits = () => {
+    if (allUnitsSelected) setSelectedUnitIds(new Set());
+    else setSelectedUnitIds(new Set(allUnitIds));
+  };
+
+  const toggleOneUnit = (id: number) => {
+    setSelectedUnitIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const executeBulkDeleteUnits = async () => {
+    setIsDeletingUnits(true);
+    try {
+      for (const id of selectedUnitIds) {
+        try { await deleteUnitMut.mutateAsync({ orgId: orgId!, unitId: id }); } catch {}
+      }
+      queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey(orgId!) });
+      setSelectedUnitIds(new Set());
+    } finally {
+      setIsDeletingUnits(false);
+      setConfirmDeleteUnitsOpen(false);
+    }
+  };
+
+  useEffect(() => { setSelectedUnitIds(new Set()); }, [unitSearch, unitTypeFilter, unitStatusFilter]);
 
   const { data: departments, isLoading: deptsLoading } = useListDepartments(
     orgId!,
@@ -388,6 +454,22 @@ export default function OrganizacaoPage() {
         );
       case "unidades":
         if (!canWriteModule("units")) return null;
+        if (selectedUnitIds.size > 0) {
+          return (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground mr-1">
+                {selectedUnitIds.size} selecionada{selectedUnitIds.size > 1 ? "s" : ""}
+              </span>
+              <Button size="sm" variant="destructive" onClick={() => setConfirmDeleteUnitsOpen(true)} isLoading={isDeletingUnits}>
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                Excluir ({selectedUnitIds.size})
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setSelectedUnitIds(new Set())}>
+                Cancelar
+              </Button>
+            </div>
+          );
+        }
         return (
           <Button size="sm" onClick={() => setUnitDialogOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1.5" />
@@ -528,6 +610,7 @@ export default function OrganizacaoPage() {
     deleteInviteMut.isPending,
     invitationsData,
     isEditingOrg,
+    isDeletingUnits,
     isOrgAdmin,
     login,
     navigate,
@@ -537,6 +620,7 @@ export default function OrganizacaoPage() {
     resetOnboardingMut,
     revokeInviteMut.isPending,
     selectedInviteIds,
+    selectedUnitIds,
   ]);
   useHeaderActions(headerActions);
 
@@ -984,57 +1068,132 @@ export default function OrganizacaoPage() {
       )}
 
       {activeTab === "unidades" && (
-        <>
-          {unitsLoading ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Carregando unidades...
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
+              <Input
+                placeholder="Buscar por nome ou código..."
+                value={unitSearch}
+                onChange={(e) => setUnitSearch(e.target.value)}
+                className="pl-9 h-9 text-[13px]"
+              />
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {units?.map((unit) => (
-                <div
-                  key={unit.id}
-                  onClick={() => navigate(`/organizacao/unidades/${unit.id}`)}
-                  className="bg-card border border-border rounded-xl p-5 hover:shadow-sm transition-shadow group cursor-pointer"
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="text-[15px] font-semibold text-foreground">
-                      {unit.name}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={unit.type === "sede" ? "default" : "secondary"}
-                        className="uppercase text-[10px]"
-                      >
-                        {unit.type}
-                      </Badge>
-                      {canWriteModule("units") && (
-                        <button
-                          onClick={(e) => handleDeleteUnit(e, unit.id)}
-                          className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-[13px] text-muted-foreground">
-                    {unit.city && unit.state
-                      ? `${unit.city}, ${unit.state}`
-                      : "Endereço não informado"}
-                  </p>
-                </div>
-              ))}
-              {units?.length === 0 && (
-                <div className="col-span-full text-center py-12 bg-card rounded-xl border border-dashed border-border">
-                  <p className="text-muted-foreground text-[13px]">
-                    Nenhuma unidade cadastrada.
-                  </p>
-                </div>
+            <Select
+              value={unitTypeFilter}
+              onChange={(e) => setUnitTypeFilter(e.target.value)}
+              className="h-9 text-[13px] w-36"
+            >
+              <option value="">Todos os tipos</option>
+              <option value="sede">Sede</option>
+              <option value="filial">Filial</option>
+            </Select>
+            <Select
+              value={unitStatusFilter}
+              onChange={(e) => setUnitStatusFilter(e.target.value)}
+              className="h-9 text-[13px] w-36"
+            >
+              <option value="">Todos os status</option>
+              <option value="ativa">Ativa</option>
+              <option value="inativa">Inativa</option>
+            </Select>
+          </div>
+
+          {unitsLoading ? (
+            <div className="text-center py-16 text-[13px] text-muted-foreground">Carregando unidades...</div>
+          ) : sortedFilteredUnits.length === 0 ? (
+            <div className="text-center py-16">
+              <Building2 className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-[13px] text-muted-foreground">Nenhuma unidade encontrada</p>
+              {canWriteModule("units") && !unitSearch && !unitTypeFilter && !unitStatusFilter && (
+                <Button size="sm" variant="outline" className="mt-4" onClick={() => setUnitDialogOpen(true)}>
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Adicionar Unidade
+                </Button>
               )}
             </div>
+          ) : (
+            <div className="overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border/60">
+                    <th className="px-3 py-2.5 w-10">
+                      <input
+                        type="checkbox"
+                        checked={allUnitsSelected}
+                        onChange={toggleAllUnits}
+                        className="rounded border-border text-primary cursor-pointer"
+                        disabled={!canWriteModule("units") || sortedFilteredUnits.length === 0}
+                      />
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Nome</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Código</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Localização</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Tipo</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Status</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedFilteredUnits.map((unit) => {
+                    const isSelected = selectedUnitIds.has(unit.id);
+                    return (
+                      <tr
+                        key={unit.id}
+                        className={cn(
+                          "border-b border-border/40 last:border-0 transition-colors",
+                          isSelected ? "bg-primary/5" : "hover:bg-secondary/30",
+                        )}
+                      >
+                        <td className="px-3 py-3 w-10">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleOneUnit(unit.id)}
+                            className="rounded border-border text-primary cursor-pointer"
+                            disabled={!canWriteModule("units")}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            onClick={() => navigate(`/organizacao/unidades/${unit.id}`)}
+                            className="text-[13px] font-medium text-foreground hover:text-primary transition-colors cursor-pointer"
+                          >
+                            {unit.name}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{unit.code || "—"}</td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                          {unit.city && unit.state ? `${unit.city}, ${unit.state}` : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant={unit.type === "sede" ? "default" : "secondary"} className="uppercase text-[10px]">
+                            {unit.type}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={cn(
+                            "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border",
+                            unit.status === "ativa"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-gray-50 text-gray-500 border-gray-200",
+                          )}>
+                            {unit.status === "ativa" ? "Ativa" : "Inativa"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span onClick={() => navigate(`/organizacao/unidades/${unit.id}`)} className="cursor-pointer">
+                            <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
-        </>
+        </div>
       )}
 
       {activeTab === "departamentos" && (
@@ -1120,11 +1279,6 @@ export default function OrganizacaoPage() {
                       <div className="text-[13px] font-medium text-foreground">
                         {pos.name}
                       </div>
-                      {pos.description && (
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {pos.description}
-                        </div>
-                      )}
                     </td>
                     <td className="px-6 py-4 text-[13px] text-muted-foreground">
                       {pos.education || "—"}
@@ -1593,6 +1747,16 @@ export default function OrganizacaoPage() {
         </form>
       </Dialog>
 
+      <Dialog open={confirmDeleteUnitsOpen} onOpenChange={setConfirmDeleteUnitsOpen} title="Confirmar Exclusão">
+        <p className="text-sm text-muted-foreground mt-2">
+          Tem certeza que deseja excluir {selectedUnitIds.size} unidade{selectedUnitIds.size > 1 ? "s" : ""}?
+        </p>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setConfirmDeleteUnitsOpen(false)}>Cancelar</Button>
+          <Button type="button" variant="destructive" size="sm" onClick={executeBulkDeleteUnits} isLoading={isDeletingUnits}>Excluir</Button>
+        </DialogFooter>
+      </Dialog>
+
       <Dialog
         open={deptDialogOpen}
         onOpenChange={setDeptDialogOpen}
@@ -1641,7 +1805,7 @@ export default function OrganizacaoPage() {
         onOpenChange={setPosDialogOpen}
         title={editingPosId ? "Editar Cargo" : "Novo Cargo"}
         description="Defina os cargos e requisitos da organização."
-        size="lg"
+        size="xl"
       >
         <form onSubmit={posForm.handleSubmit(onPosSubmit)}>
           <div className="grid grid-cols-2 gap-x-8 gap-y-5">
@@ -1668,9 +1832,10 @@ export default function OrganizacaoPage() {
             </div>
             <div>
               <Label>Descrição</Label>
-              <Input
+              <Textarea
                 {...posForm.register("description")}
                 placeholder="Descrição do cargo"
+                rows={4}
               />
             </div>
             <div className="col-span-2">
@@ -1678,7 +1843,7 @@ export default function OrganizacaoPage() {
               <Textarea
                 {...posForm.register("requirements")}
                 placeholder="Requisitos do cargo"
-                rows={2}
+                rows={4}
               />
             </div>
             <div className="col-span-2">
@@ -1686,7 +1851,7 @@ export default function OrganizacaoPage() {
               <Textarea
                 {...posForm.register("responsibilities")}
                 placeholder="Responsabilidades do cargo"
-                rows={2}
+                rows={4}
               />
             </div>
           </div>

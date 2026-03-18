@@ -13,7 +13,7 @@ export interface CreateEmployeeBody {
   /** @minLength 1 */
   name: string;
   /** @minLength 1 */
-  cpf: string;
+  cpf?: string;
   email?: string;
   phone?: string;
   position?: string;
