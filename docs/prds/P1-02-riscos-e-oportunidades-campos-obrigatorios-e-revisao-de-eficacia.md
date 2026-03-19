@@ -55,7 +55,7 @@ O sistema deriva estados operacionais a partir da combinação dos dados:
 Regras importantes:
 
 - Sem owner, likelihood, impact ou responseStrategy, o item segue incompleto para fins de aprovação do plano.
-- Estratégias de resposta diferentes de `monitor` e `accept` normalmente exigem ação vinculada.
+- Toda `responseStrategy` diferente de `monitor` e `accept` exige ação vinculada para fins de aprovação do plano.
 - Item com ações abertas tende a aparecer como `responding`.
 - Item sem ações abertas, mas já tratado, pode ir para `awaiting_effectiveness`.
 - Revisão de eficácia pode levar o item a `effective` ou `ineffective`.

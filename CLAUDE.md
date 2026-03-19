@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Daton is a quality management and compliance platform (ISO 9001:2015 focused). It is a **pnpm workspace monorepo** with applications in `artifacts/` and shared libraries in `lib/`.
+Daton is an ESG, quality management and compliance platform (ISO 9001:2015 focused). It is a **pnpm workspace monorepo** with applications in `artifacts/` and shared libraries in `lib/`.
 
 **Language:** TypeScript throughout. **Package manager:** pnpm (enforced; yarn/npm blocked).
 
@@ -21,6 +21,8 @@ Daton is a quality management and compliance platform (ISO 9001:2015 focused). I
 - `lib/integrations-openai-ai-react` — OpenAI integration (React hooks)
 - `lib/object-storage-web` — Uppy-based S3/R2 file upload wrapper
 - `scripts/` — Seed data and utility scripts
+- `docs/prds` — Feature implementation plans (Product Requirement Documents)
+- `docs/references` — Document references about the system's specs and requirements
 
 ## Common Commands
 
@@ -105,3 +107,10 @@ The OpenAPI spec at `lib/api-spec/openapi.yaml` is the **single source of truth*
 **Email:** `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
 **AI:** `AI_INTEGRATIONS_OPENAI_API_KEY`, `AI_INTEGRATIONS_OPENAI_BASE_URL`
 **Frontend (build-time):** `VITE_API_BASE_URL`
+
+
+## User Preferences
+
+- I prefer iterative development, focusing on one feature or bug fix at a time. Please explain your thought process and proposed changes clearly before implementation. I value clean, readable code and comprehensive tests.
+- Never stage, commit or push without being explicitly asked for
+- Never start dev servers (frontend or backend) without being explicitly asked for

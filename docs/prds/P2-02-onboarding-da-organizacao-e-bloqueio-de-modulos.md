@@ -40,7 +40,7 @@ Os estados principais são:
 Regras importantes:
 
 - O registro inicial pode criar a organização com onboarding pendente.
-- Enquanto a organização estiver em `pending`, a maior parte da aplicação fica bloqueada para usuários comuns.
+- Enquanto a organização estiver em `pending`, os módulos operacionais de Organização, Governança, Documentação e Qualidade ficam bloqueados para usuários comuns.
 - Concluir onboarding salva perfil da empresa e dados fiscais.
 - Concluir ou reiniciar onboarding incrementa `authVersion`, invalidando tokens antigos.
 
