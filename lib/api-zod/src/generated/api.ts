@@ -2788,6 +2788,14 @@ export const ListDocumentVersionsResponse = zod.array(
 );
 
 /**
+ * @summary Reset document version history
+ */
+export const ResetDocumentVersionsParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+/**
  * @summary Add attachment to document
  */
 export const AddDocumentAttachmentParams = zod.object({

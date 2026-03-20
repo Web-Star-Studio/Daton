@@ -303,6 +303,9 @@ export default function OrganizacaoPage({
   const createPosMut = useCreatePosition();
   const updatePosMut = useUpdatePosition();
   const deletePosMut = useDeletePosition();
+  const [selectedPosIds, setSelectedPosIds] = useState<Set<number>>(new Set());
+  const [isDeletingPositions, setIsDeletingPositions] = useState(false);
+  const [confirmDeletePosOpen, setConfirmDeletePosOpen] = useState(false);
   const [posDialogOpen, setPosDialogOpen] = useState(false);
   const [editingPosId, setEditingPosId] = useState<number | null>(null);
   const [posStep, setPosStep] = useState(0);
@@ -326,6 +329,37 @@ export default function OrganizacaoPage({
   const [posPendingFile, setPosPendingFile] = useState<File | null>(null);
   const [posParsedData, setPosParsedData] = useState<CreatePositionBody[]>([]);
   const [posConflictStrategy, setPosConflictStrategy] = useState<"skip" | "update">("skip");
+
+  const allPosIds = useMemo(() => (positions ?? []).map((p) => p.id), [positions]);
+  const allPosSelected = allPosIds.length > 0 && allPosIds.every((id) => selectedPosIds.has(id));
+
+  const toggleAllPositions = () => {
+    if (allPosSelected) setSelectedPosIds(new Set());
+    else setSelectedPosIds(new Set(allPosIds));
+  };
+
+  const toggleOnePosition = (id: number) => {
+    setSelectedPosIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const executeBulkDeletePositions = async () => {
+    setIsDeletingPositions(true);
+    try {
+      for (const id of selectedPosIds) {
+        try { await deletePosMut.mutateAsync({ orgId: orgId!, posId: id }); } catch {}
+      }
+      queryClient.invalidateQueries({ queryKey: getListPositionsQueryKey(orgId!) });
+      setSelectedPosIds(new Set());
+    } finally {
+      setIsDeletingPositions(false);
+      setConfirmDeletePosOpen(false);
+    }
+  };
 
   const { data: orgData } = useGetOrganization(orgId!, {
     query: { queryKey: getGetOrganizationQueryKey(orgId!), enabled: !!orgId },
@@ -533,6 +567,22 @@ export default function OrganizacaoPage({
         );
       case "cargos":
         if (!canWriteModule("positions")) return null;
+        if (selectedPosIds.size > 0) {
+          return (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground mr-1">
+                {selectedPosIds.size} selecionado{selectedPosIds.size > 1 ? "s" : ""}
+              </span>
+              <Button size="sm" variant="destructive" onClick={() => setConfirmDeletePosOpen(true)} isLoading={isDeletingPositions}>
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                Excluir ({selectedPosIds.size})
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setSelectedPosIds(new Set())}>
+                Cancelar
+              </Button>
+            </div>
+          );
+        }
         return (
           <div className="flex items-center gap-2">
             <Button
@@ -1396,6 +1446,17 @@ export default function OrganizacaoPage({
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
+                  {canWriteModule("positions") && (
+                    <th className="px-3 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={allPosSelected}
+                        onChange={toggleAllPositions}
+                        className="rounded border-border text-primary cursor-pointer"
+                        disabled={!positions || positions.length === 0}
+                      />
+                    </th>
+                  )}
                   <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Título
                   </th>
@@ -1411,53 +1472,67 @@ export default function OrganizacaoPage({
                 {positions?.length === 0 && (
                   <tr>
                     <td
-                      colSpan={3}
+                      colSpan={canWriteModule("positions") ? 4 : 3}
                       className="px-6 py-12 text-center text-muted-foreground text-[13px]"
                     >
                       Nenhum cargo cadastrado.
                     </td>
                   </tr>
                 )}
-                {positions?.map((pos) => (
-                  <tr
-                    key={pos.id}
-                    className={cn(
-                      "transition-colors",
-                      canWriteModule("positions")
-                        ? "hover:bg-muted/50 cursor-pointer"
-                        : "",
-                    )}
-                    onClick={() => {
-                      if (!canWriteModule("positions")) return;
-                      setEditingPosId(pos.id);
-                      posForm.reset({
-                        name: pos.name,
-                        description: pos.description || "",
-                        education: pos.education || "",
-                        experience: pos.experience || "",
-                        requirements: pos.requirements || "",
-                        responsibilities: pos.responsibilities || "",
-                        level: pos.level || "",
-                        minSalary: pos.minSalary ? String(pos.minSalary) : "",
-                        maxSalary: pos.maxSalary ? String(pos.maxSalary) : "",
-                      });
-                      setPosStep(0);
-                      setPosDialogOpen(true);
-                    }}
-                  >
-                    <td className="px-6 py-4">
-                      <div className="text-[13px] font-medium text-foreground">
-                        {pos.name}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-[13px] text-muted-foreground">
-                      {pos.education || "—"}
-                    </td>
-                    <td className="px-6 py-4 text-[13px] text-muted-foreground">
-                      {pos.experience || "—"}
-                    </td>
-                  </tr>
-                ))}
+                {positions?.map((pos) => {
+                  const isSelected = selectedPosIds.has(pos.id);
+                  return (
+                    <tr
+                      key={pos.id}
+                      className={cn(
+                        "transition-colors",
+                        isSelected ? "bg-primary/5" : "",
+                        canWriteModule("positions")
+                          ? "hover:bg-muted/50 cursor-pointer"
+                          : "",
+                      )}
+                      onClick={() => {
+                        if (!canWriteModule("positions")) return;
+                        setEditingPosId(pos.id);
+                        posForm.reset({
+                          name: pos.name,
+                          description: pos.description || "",
+                          education: pos.education || "",
+                          experience: pos.experience || "",
+                          requirements: pos.requirements || "",
+                          responsibilities: pos.responsibilities || "",
+                          level: pos.level || "",
+                          minSalary: pos.minSalary ? String(pos.minSalary) : "",
+                          maxSalary: pos.maxSalary ? String(pos.maxSalary) : "",
+                        });
+                        setPosStep(0);
+                        setPosDialogOpen(true);
+                      }}
+                    >
+                      {canWriteModule("positions") && (
+                        <td className="px-3 py-4 w-10" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleOnePosition(pos.id)}
+                            className="rounded border-border text-primary cursor-pointer"
+                          />
+                        </td>
+                      )}
+                      <td className="px-6 py-4">
+                        <div className="text-[13px] font-medium text-foreground">
+                          {pos.name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-[13px] text-muted-foreground">
+                        {pos.education || "—"}
+                      </td>
+                      <td className="px-6 py-4 text-[13px] text-muted-foreground">
+                        {pos.experience || "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1924,6 +1999,16 @@ export default function OrganizacaoPage({
         <DialogFooter>
           <Button type="button" variant="outline" size="sm" onClick={() => setConfirmDeleteUnitsOpen(false)}>Cancelar</Button>
           <Button type="button" variant="destructive" size="sm" onClick={executeBulkDeleteUnits} isLoading={isDeletingUnits}>Excluir</Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog open={confirmDeletePosOpen} onOpenChange={setConfirmDeletePosOpen} title="Confirmar Exclusão">
+        <p className="text-sm text-muted-foreground mt-2">
+          Tem certeza que deseja excluir {selectedPosIds.size} cargo{selectedPosIds.size > 1 ? "s" : ""}?
+        </p>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={() => setConfirmDeletePosOpen(false)}>Cancelar</Button>
+          <Button type="button" variant="destructive" size="sm" onClick={executeBulkDeletePositions} isLoading={isDeletingPositions}>Excluir</Button>
         </DialogFooter>
       </Dialog>
 

@@ -6695,6 +6695,91 @@ export function useListDocumentVersions<
 }
 
 /**
+ * @summary Reset document version history
+ */
+export const getResetDocumentVersionsUrl = (orgId: number, docId: number) => {
+  return `/api/organizations/${orgId}/documents/${docId}/versions`;
+};
+
+export const resetDocumentVersions = async (
+  orgId: number,
+  docId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getResetDocumentVersionsUrl(orgId, docId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getResetDocumentVersionsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetDocumentVersions>>,
+    TError,
+    { orgId: number; docId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resetDocumentVersions>>,
+  TError,
+  { orgId: number; docId: number },
+  TContext
+> => {
+  const mutationKey = ["resetDocumentVersions"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resetDocumentVersions>>,
+    { orgId: number; docId: number }
+  > = (props) => {
+    const { orgId, docId } = props ?? {};
+
+    return resetDocumentVersions(orgId, docId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResetDocumentVersionsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resetDocumentVersions>>
+>;
+
+export type ResetDocumentVersionsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reset document version history
+ */
+export const useResetDocumentVersions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetDocumentVersions>>,
+    TError,
+    { orgId: number; docId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resetDocumentVersions>>,
+  TError,
+  { orgId: number; docId: number },
+  TContext
+> => {
+  return useMutation(getResetDocumentVersionsMutationOptions(options));
+};
+
+/**
  * @summary Add attachment to document
  */
 export const getAddDocumentAttachmentUrl = (orgId: number, docId: number) => {

@@ -11,6 +11,8 @@ import {
   useRejectDocument,
   useAcknowledgeDocument,
   useAddDocumentAttachment,
+  useDeleteDocumentAttachment,
+  useResetDocumentVersions,
   useDeleteDocument,
   useListUnits,
   useListUserOptions,
@@ -49,6 +51,7 @@ import {
   GitBranch,
   Paperclip,
   Trash2,
+  RotateCcw,
   Eye,
   Pencil,
   Save,
@@ -203,6 +206,8 @@ export default function DocumentDetailPage() {
   const rejectMut = useRejectDocument();
   const acknowledgeMut = useAcknowledgeDocument();
   const addAttachmentMut = useAddDocumentAttachment();
+  const deleteAttachmentMut = useDeleteDocumentAttachment();
+  const resetVersionsMut = useResetDocumentVersions();
   const deleteMut = useDeleteDocument();
 
   const invalidate = () =>
@@ -962,6 +967,26 @@ export default function DocumentDetailPage() {
                       <Download className="h-3.5 w-3.5 mr-1.5" />
                       Baixar
                     </Button>
+                    {canEdit && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={async () => {
+                          if (!orgId) return;
+                          if (!confirm(`Deseja remover o anexo "${att.fileName}"?`)) return;
+                          await deleteAttachmentMut.mutateAsync({
+                            orgId,
+                            docId,
+                            attachId: att.id,
+                          });
+                          invalidate();
+                        }}
+                        disabled={deleteAttachmentMut.isPending}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -972,7 +997,26 @@ export default function DocumentDetailPage() {
 
       {activeTab === "versions" && (
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold">Histórico de Versões</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Histórico de Versões</h3>
+            {canEdit && doc.versions && doc.versions.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={async () => {
+                  if (!orgId) return;
+                  if (!confirm("Deseja resetar todo o histórico de versões? Esta ação não pode ser desfeita.")) return;
+                  await resetVersionsMut.mutateAsync({ orgId, docId });
+                  invalidate();
+                }}
+                disabled={resetVersionsMut.isPending}
+              >
+                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                Resetar Histórico
+              </Button>
+            )}
+          </div>
           {!doc.versions || doc.versions.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">
               Nenhuma versão registrada.

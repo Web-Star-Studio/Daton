@@ -718,6 +718,31 @@ router.get("/organizations/:orgId/documents/:docId/versions", requireAuth, async
   })));
 });
 
+router.delete("/organizations/:orgId/documents/:docId/versions", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = ListDocumentVersionsParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const [doc] = await db.select({
+    id: documentsTable.id,
+    status: documentsTable.status,
+  }).from(documentsTable)
+    .where(and(eq(documentsTable.id, params.data.docId), eq(documentsTable.organizationId, params.data.orgId)));
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
+  if (doc.status !== "draft" && doc.status !== "rejected") {
+    res.status(400).json({ error: "O histórico de versões só pode ser resetado em documentos em rascunho ou rejeitados" });
+    return;
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.delete(documentVersionsTable).where(eq(documentVersionsTable.documentId, params.data.docId));
+    await tx.update(documentsTable).set({ currentVersion: 0 }).where(eq(documentsTable.id, params.data.docId));
+  });
+
+  res.sendStatus(204);
+});
+
 router.post("/organizations/:orgId/documents/:docId/attachments", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = AddDocumentAttachmentParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }

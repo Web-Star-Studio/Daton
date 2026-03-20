@@ -1831,6 +1831,24 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/DocumentVersion"
+    delete:
+      operationId: resetDocumentVersions
+      tags: [documents]
+      summary: Reset document version history
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Version history reset
 
   /organizations/{orgId}/documents/{docId}/attachments:
     post:
