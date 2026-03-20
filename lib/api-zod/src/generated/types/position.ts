@@ -15,6 +15,9 @@ export interface Position {
   experience?: string | null;
   requirements?: string | null;
   responsibilities?: string | null;
+  level?: string | null;
+  minSalary?: number | null;
+  maxSalary?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }

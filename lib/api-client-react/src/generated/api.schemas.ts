@@ -1066,6 +1066,9 @@ export interface Position {
   experience?: string | null;
   requirements?: string | null;
   responsibilities?: string | null;
+  level?: string | null;
+  minSalary?: number | null;
+  maxSalary?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1077,6 +1080,9 @@ export interface CreatePositionBody {
   experience?: string;
   requirements?: string;
   responsibilities?: string;
+  level?: string;
+  minSalary?: number;
+  maxSalary?: number;
 }
 
 export interface UpdatePositionBody {
@@ -1086,6 +1092,26 @@ export interface UpdatePositionBody {
   experience?: string;
   requirements?: string;
   responsibilities?: string;
+  level?: string;
+  minSalary?: number;
+  maxSalary?: number;
+}
+
+/**
+ * How to handle positions that already exist (matched by name)
+ */
+export type ImportPositionsBodyConflictStrategy =
+  (typeof ImportPositionsBodyConflictStrategy)[keyof typeof ImportPositionsBodyConflictStrategy];
+
+export const ImportPositionsBodyConflictStrategy = {
+  skip: "skip",
+  update: "update",
+} as const;
+
+export interface ImportPositionsBody {
+  positions: CreatePositionBody[];
+  /** How to handle positions that already exist (matched by name) */
+  conflictStrategy?: ImportPositionsBodyConflictStrategy;
 }
 
 export interface OrgUser {
@@ -1097,10 +1123,20 @@ export interface OrgUser {
   modules: AppModule[];
 }
 
+export type UserOptionRole =
+  (typeof UserOptionRole)[keyof typeof UserOptionRole];
+
+export const UserOptionRole = {
+  org_admin: "org_admin",
+  operator: "operator",
+  analyst: "analyst",
+} as const;
+
 export interface UserOption {
   id: number;
   name: string;
   email: string;
+  role: UserOptionRole;
 }
 
 export type CreateOrgUserBodyRole =
@@ -1874,6 +1910,7 @@ export interface CreateDocumentBody {
   title: string;
   type: CreateDocumentBodyType;
   validityDate?: string;
+  elaboratorId: number;
   unitIds?: number[];
   approverIds: number[];
   recipientIds?: number[];
@@ -1885,6 +1922,7 @@ export interface UpdateDocumentBody {
   title?: string;
   type?: string;
   validityDate?: string;
+  elaboratorId?: number;
   unitIds?: number[];
   approverIds?: number[];
   recipientIds?: number[];

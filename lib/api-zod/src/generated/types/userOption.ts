@@ -5,9 +5,11 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { UserOptionRole } from "./userOptionRole";
 
 export interface UserOption {
   id: number;
   name: string;
   email: string;
+  role: UserOptionRole;
 }

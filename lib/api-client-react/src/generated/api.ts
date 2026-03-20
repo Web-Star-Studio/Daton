@@ -63,6 +63,7 @@ import type {
   GovernanceRiskOpportunityListItem,
   HealthStatus,
   ImportLegislationsBody,
+  ImportPositionsBody,
   ImportResult,
   ImportStrategicPlanBody,
   InvitationResponse,
@@ -5866,6 +5867,93 @@ export const useCreatePosition = <
   TContext
 > => {
   return useMutation(getCreatePositionMutationOptions(options));
+};
+
+/**
+ * @summary Import positions from spreadsheet
+ */
+export const getImportPositionsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/positions/import`;
+};
+
+export const importPositions = async (
+  orgId: number,
+  importPositionsBody: ImportPositionsBody,
+  options?: RequestInit,
+): Promise<ImportResult> => {
+  return customFetch<ImportResult>(getImportPositionsUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(importPositionsBody),
+  });
+};
+
+export const getImportPositionsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importPositions>>,
+    TError,
+    { orgId: number; data: BodyType<ImportPositionsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importPositions>>,
+  TError,
+  { orgId: number; data: BodyType<ImportPositionsBody> },
+  TContext
+> => {
+  const mutationKey = ["importPositions"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importPositions>>,
+    { orgId: number; data: BodyType<ImportPositionsBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return importPositions(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportPositionsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importPositions>>
+>;
+export type ImportPositionsMutationBody = BodyType<ImportPositionsBody>;
+export type ImportPositionsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Import positions from spreadsheet
+ */
+export const useImportPositions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importPositions>>,
+    TError,
+    { orgId: number; data: BodyType<ImportPositionsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importPositions>>,
+  TError,
+  { orgId: number; data: BodyType<ImportPositionsBody> },
+  TContext
+> => {
+  return useMutation(getImportPositionsMutationOptions(options));
 };
 
 /**

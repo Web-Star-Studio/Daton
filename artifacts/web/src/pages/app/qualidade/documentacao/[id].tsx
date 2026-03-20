@@ -129,6 +129,7 @@ interface EditFormState {
   title: string;
   type: string;
   validityDate: string;
+  elaboratorId: number;
   unitIds: number[];
   approverIds: number[];
   recipientIds: number[];
@@ -189,6 +190,10 @@ export default function DocumentDetailPage() {
     },
   );
   const orgUsers = allUsers ?? [];
+  const eligibleElaborators = orgUsers.filter(
+    (option: UserOption) =>
+      option.role === "org_admin" || option.role === "operator",
+  );
 
   usePageTitle(doc?.title);
 
@@ -223,7 +228,10 @@ export default function DocumentDetailPage() {
     (doc?.status === "draft" || doc?.status === "rejected");
   const canSubmitForReview =
     canWriteDocuments &&
-    doc?.createdById === user?.id &&
+    ((doc?.elaborators?.some((elaborator: OrgUser) => elaborator.id === user?.id) ??
+      false) ||
+      ((!doc?.elaborators || doc.elaborators.length === 0) &&
+        doc?.createdById === user?.id)) &&
     (doc?.status === "draft" || doc?.status === "rejected");
 
   const handleSubmitForReview = async () => {
@@ -277,6 +285,7 @@ export default function DocumentDetailPage() {
                       title: editForm.title,
                       type: editForm.type,
                       validityDate: editForm.validityDate || undefined,
+                      elaboratorId: editForm.elaboratorId,
                       unitIds: editForm.unitIds,
                       approverIds: editForm.approverIds,
                       recipientIds: editForm.recipientIds,
@@ -307,6 +316,8 @@ export default function DocumentDetailPage() {
                     title: doc.title,
                     type: doc.type,
                     validityDate: doc.validityDate ?? "",
+                    elaboratorId:
+                      doc.elaborators?.[0]?.id ?? doc.createdById ?? 0,
                     unitIds:
                       doc.units
                         ?.map((u: DocumentDetailUnitsItem) => u.id!)
@@ -739,9 +750,23 @@ export default function DocumentDetailPage() {
 
           <div>
             <Label>Elaborador</Label>
-            <div className="mt-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-              {doc.createdByName || "—"}
-            </div>
+            <Select
+              className="mt-2"
+              value={String(editForm.elaboratorId || "")}
+              onChange={(e) =>
+                setEditForm({
+                  ...editForm,
+                  elaboratorId: Number(e.target.value),
+                })
+              }
+            >
+              <option value="">Selecione</option>
+              {eligibleElaborators.map((option: UserOption) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </Select>
           </div>
 
           <div>

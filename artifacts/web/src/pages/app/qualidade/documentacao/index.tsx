@@ -85,6 +85,10 @@ const createDocumentSchema = z.object({
     "outro",
   ]),
   validityDate: z.string().min(1, "Data de validade é obrigatória"),
+  elaboratorId: z.coerce
+    .number()
+    .int()
+    .positive("Selecione um elaborador"),
   unitIds: z.array(z.number()),
   approverIds: z.array(z.number()).min(1, "Selecione ao menos um aprovador"),
   recipientIds: z
@@ -518,6 +522,7 @@ function CreateDocumentModal({
       title: "",
       type: "manual",
       validityDate: new Date().toISOString().split("T")[0],
+      elaboratorId: 0,
       unitIds: [],
       approverIds: [],
       recipientIds: [],
@@ -526,6 +531,7 @@ function CreateDocumentModal({
   });
 
   const unitIds = watch("unitIds");
+  const elaboratorId = watch("elaboratorId");
   const approverIds = watch("approverIds");
   const recipientIds = watch("recipientIds");
   const referenceIds = watch("referenceIds");
@@ -541,6 +547,25 @@ function CreateDocumentModal({
     },
   });
   const availableUsers = orgUsers ?? [];
+  const eligibleElaborators = availableUsers.filter(
+    (option: UserOption) =>
+      option.role === "org_admin" || option.role === "operator",
+  );
+
+  useEffect(() => {
+    if (!open || eligibleElaborators.length === 0) return;
+
+    const preferredElaboratorId =
+      eligibleElaborators.find((option) => option.id === user?.id)?.id ??
+      eligibleElaborators[0]?.id ??
+      0;
+
+    if (!eligibleElaborators.some((option) => option.id === elaboratorId)) {
+      setValue("elaboratorId", preferredElaboratorId, {
+        shouldValidate: true,
+      });
+    }
+  }, [open, eligibleElaborators, elaboratorId, setValue, user?.id]);
 
   const { data: existingDocs } = useListDocuments(
     orgId!,
@@ -559,6 +584,7 @@ function CreateDocumentModal({
     if (!val) {
       reset();
       setUploadedFiles([]);
+      setValue("elaboratorId", 0);
     }
     onOpenChange(val);
   };
@@ -635,6 +661,7 @@ function CreateDocumentModal({
           title: data.title.trim(),
           type: data.type,
           validityDate: data.validityDate || undefined,
+          elaboratorId: data.elaboratorId,
           unitIds: data.unitIds.length > 0 ? data.unitIds : undefined,
           approverIds: data.approverIds,
           recipientIds:
@@ -694,6 +721,16 @@ function CreateDocumentModal({
               }))}
               selected={unitIds}
               onToggle={(id) => toggleMultiSelect("unitIds", unitIds, id)}
+              onToggleAll={() =>
+                setValue(
+                  "unitIds",
+                  unitIds.length === (units || []).length
+                    ? []
+                    : (units || []).map((unit) => unit.id),
+                  { shouldValidate: true },
+                )
+              }
+              selectAllLabel="Selecionar todas as filiais"
             />
           </div>
         </div>
@@ -701,9 +738,27 @@ function CreateDocumentModal({
         <div className="grid grid-cols-2 gap-6">
           <div>
             <Label>Elaborador</Label>
-            <div className="mt-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-              {user?.name || "Você"}
-            </div>
+            <Select
+              className="mt-2"
+              value={elaboratorId ? String(elaboratorId) : ""}
+              onChange={(e) =>
+                setValue("elaboratorId", Number(e.target.value), {
+                  shouldValidate: true,
+                })
+              }
+            >
+              <option value="">Selecione</option>
+              {eligibleElaborators.map((option: UserOption) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </Select>
+            {errors.elaboratorId && (
+              <p className="text-xs text-red-500 mt-1">
+                {errors.elaboratorId.message}
+              </p>
+            )}
           </div>
           <div>
             <Label>Aprovado por *</Label>
@@ -847,14 +902,19 @@ function MultiSelectDropdown({
   options,
   selected,
   onToggle,
+  onToggleAll,
   placeholder,
+  selectAllLabel,
 }: {
   options: { value: number; label: string }[];
   selected: number[];
   onToggle: (id: number) => void;
+  onToggleAll?: () => void;
   placeholder: string;
+  selectAllLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const allSelected = options.length > 0 && selected.length === options.length;
 
   const selectedLabels = options
     .filter((o) => selected.includes(o.value))
@@ -902,20 +962,35 @@ function MultiSelectDropdown({
                 Nenhuma opção disponível
               </div>
             ) : (
-              options.map((opt) => (
-                <label
-                  key={opt.value}
-                  className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 cursor-pointer transition-colors"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(opt.value)}
-                    onChange={() => onToggle(opt.value)}
-                    className="rounded border-border text-primary"
-                  />
-                  <span className="truncate">{opt.label}</span>
-                </label>
-              ))
+              <>
+                {onToggleAll && (
+                  <label className="flex items-center gap-2 px-3 py-2 text-sm font-medium border-b border-border/50 hover:bg-muted/50 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={() => onToggleAll()}
+                      className="rounded border-border text-primary"
+                    />
+                    <span className="truncate">
+                      {selectAllLabel || "Selecionar todas"}
+                    </span>
+                  </label>
+                )}
+                {options.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 cursor-pointer transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(opt.value)}
+                      onChange={() => onToggle(opt.value)}
+                      className="rounded border-border text-primary"
+                    />
+                    <span className="truncate">{opt.label}</span>
+                  </label>
+                ))}
+              </>
             )}
           </div>
         </>

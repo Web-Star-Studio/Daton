@@ -2364,6 +2364,9 @@ export const ListPositionsResponseItem = zod.object({
   experience: zod.string().nullish(),
   requirements: zod.string().nullish(),
   responsibilities: zod.string().nullish(),
+  level: zod.string().nullish(),
+  minSalary: zod.number().nullish(),
+  maxSalary: zod.number().nullish(),
   createdAt: zod.string().optional(),
   updatedAt: zod.string().optional(),
 });
@@ -2383,6 +2386,36 @@ export const CreatePositionBody = zod.object({
   experience: zod.string().optional(),
   requirements: zod.string().optional(),
   responsibilities: zod.string().optional(),
+  level: zod.string().optional(),
+  minSalary: zod.number().optional(),
+  maxSalary: zod.number().optional(),
+});
+
+/**
+ * @summary Import positions from spreadsheet
+ */
+export const ImportPositionsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ImportPositionsBody = zod.object({
+  positions: zod.array(
+    zod.object({
+      name: zod.string(),
+      description: zod.string().optional(),
+      education: zod.string().optional(),
+      experience: zod.string().optional(),
+      requirements: zod.string().optional(),
+      responsibilities: zod.string().optional(),
+      level: zod.string().optional(),
+      minSalary: zod.number().optional(),
+      maxSalary: zod.number().optional(),
+    }),
+  ),
+  conflictStrategy: zod
+    .enum(["skip", "update"])
+    .optional()
+    .describe("How to handle positions that already exist (matched by name)"),
 });
 
 /**
@@ -2400,6 +2433,9 @@ export const UpdatePositionBody = zod.object({
   experience: zod.string().optional(),
   requirements: zod.string().optional(),
   responsibilities: zod.string().optional(),
+  level: zod.string().optional(),
+  minSalary: zod.number().optional(),
+  maxSalary: zod.number().optional(),
 });
 
 export const UpdatePositionResponse = zod.object({
@@ -2411,6 +2447,9 @@ export const UpdatePositionResponse = zod.object({
   experience: zod.string().nullish(),
   requirements: zod.string().nullish(),
   responsibilities: zod.string().nullish(),
+  level: zod.string().nullish(),
+  minSalary: zod.number().nullish(),
+  maxSalary: zod.number().nullish(),
   createdAt: zod.string().optional(),
   updatedAt: zod.string().optional(),
 });
@@ -2472,6 +2511,7 @@ export const CreateDocumentBody = zod.object({
     "outro",
   ]),
   validityDate: zod.string().optional(),
+  elaboratorId: zod.number(),
   unitIds: zod.array(zod.number()).optional(),
   approverIds: zod.array(zod.number()),
   recipientIds: zod.array(zod.number()).optional(),
@@ -2610,6 +2650,7 @@ export const UpdateDocumentBody = zod.object({
   title: zod.string().optional(),
   type: zod.string().optional(),
   validityDate: zod.string().optional(),
+  elaboratorId: zod.number().optional(),
   unitIds: zod.array(zod.number()).optional(),
   approverIds: zod.array(zod.number()).optional(),
   recipientIds: zod.array(zod.number()).optional(),
@@ -3363,6 +3404,7 @@ export const ListUserOptionsResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
   email: zod.string(),
+  role: zod.enum(["org_admin", "operator", "analyst"]),
 });
 export const ListUserOptionsResponse = zod.array(ListUserOptionsResponseItem);
 

@@ -26,7 +26,12 @@ import {
   Search,
   ChevronRight,
   Building2,
+  Upload,
+  FileText,
+  RefreshCw,
+  SkipForward,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -51,6 +56,7 @@ import {
   useCreatePosition,
   useDeletePosition,
   useUpdatePosition,
+  useImportPositions,
   getListPositionsQueryKey,
   useGetOrganization,
   useUpdateOrganization,
@@ -70,6 +76,8 @@ import {
   type CreateUnitBody,
   type CreateUnitBodyType,
   type UpdateUserRoleBodyRole,
+  type ImportResult,
+  type CreatePositionBody,
 } from "@workspace/api-client-react";
 
 export type OrganizationSection =
@@ -113,6 +121,9 @@ type PositionFormData = {
   experience: string;
   requirements: string;
   responsibilities: string;
+  level: string;
+  minSalary: string;
+  maxSalary: string;
 };
 
 type OrgUserModule = AppModule;
@@ -302,8 +313,19 @@ export default function OrganizacaoPage({
     experience: "",
     requirements: "",
     responsibilities: "",
+    level: "",
+    minSalary: "",
+    maxSalary: "",
   };
   const posForm = useForm<PositionFormData>({ defaultValues: emptyPosForm });
+  const importPosMut = useImportPositions();
+  const [posImportOpen, setPosImportOpen] = useState(false);
+  const [posImportStep, setPosImportStep] = useState<1 | 2>(1);
+  const [posImportResult, setPosImportResult] = useState<ImportResult | null>(null);
+  const [posImportPreview, setPosImportPreview] = useState<{ total: number; newCount: number; existingCount: number; existingNames: string[] } | null>(null);
+  const [posPendingFile, setPosPendingFile] = useState<File | null>(null);
+  const [posParsedData, setPosParsedData] = useState<CreatePositionBody[]>([]);
+  const [posConflictStrategy, setPosConflictStrategy] = useState<"skip" | "update">("skip");
 
   const { data: orgData } = useGetOrganization(orgId!, {
     query: { queryKey: getGetOrganizationQueryKey(orgId!), enabled: !!orgId },
@@ -512,18 +534,28 @@ export default function OrganizacaoPage({
       case "cargos":
         if (!canWriteModule("positions")) return null;
         return (
-          <Button
-            size="sm"
-            onClick={() => {
-              setEditingPosId(null);
-              posForm.reset(emptyPosForm);
-              setPosStep(0);
-              setPosDialogOpen(true);
-            }}
-          >
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Novo Cargo
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPosImportOpen(true)}
+            >
+              <Upload className="h-3.5 w-3.5 mr-1.5" />
+              Importar
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditingPosId(null);
+                posForm.reset(emptyPosForm);
+                setPosStep(0);
+                setPosDialogOpen(true);
+              }}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Novo Cargo
+            </Button>
+          </div>
         );
       case "usuarios":
         if (!isOrgAdmin) return null;
@@ -701,6 +733,9 @@ export default function OrganizacaoPage({
       experience: data.experience || undefined,
       requirements: data.requirements || undefined,
       responsibilities: data.responsibilities || undefined,
+      level: data.level || undefined,
+      minSalary: data.minSalary ? parseInt(data.minSalary, 10) : undefined,
+      maxSalary: data.maxSalary ? parseInt(data.maxSalary, 10) : undefined,
     };
     if (editingPosId) {
       await updatePosMut.mutateAsync({
@@ -717,6 +752,117 @@ export default function OrganizacaoPage({
     setPosDialogOpen(false);
     setEditingPosId(null);
     posForm.reset();
+  };
+
+  // --- Position import helpers ---
+  const POSITION_COLUMN_MAP: Record<string, string> = {
+    titulo: "name",
+    título: "name",
+    nome: "name",
+    descricao: "description",
+    descrição: "description",
+    "escolaridade exigida": "education",
+    escolaridade: "education",
+    "experiência (anos)": "experience",
+    "experiencia (anos)": "experience",
+    experiência: "experience",
+    experiencia: "experience",
+    requisitos: "requirements",
+    responsabilidades: "responsibilities",
+    nivel: "level",
+    nível: "level",
+    "salário mínimo": "minSalary",
+    "salario minimo": "minSalary",
+    "salário máximo": "maxSalary",
+    "salario maximo": "maxSalary",
+  };
+
+  function parsePositionXlsx(data: ArrayBuffer): CreatePositionBody[] {
+    const workbook = XLSX.read(data, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
+    const results: CreatePositionBody[] = [];
+
+    for (const row of rows) {
+      const mapped: Record<string, unknown> = {};
+      for (const [rawCol, rawVal] of Object.entries(row)) {
+        const normalized = rawCol.trim().toLowerCase();
+        const fieldName = POSITION_COLUMN_MAP[normalized];
+        if (fieldName && rawVal != null && String(rawVal).trim() !== "") {
+          mapped[fieldName] = rawVal;
+        }
+      }
+      const name = String(mapped.name || "").trim();
+      if (!name) continue;
+
+      const requirements = mapped.requirements
+        ? String(mapped.requirements).split(/[;\n]/).map((s: string) => s.trim()).filter(Boolean).join("\n")
+        : undefined;
+
+      results.push({
+        name,
+        description: mapped.description ? String(mapped.description).trim() : undefined,
+        education: mapped.education ? String(mapped.education).trim() : undefined,
+        experience: mapped.experience ? String(mapped.experience).trim() : undefined,
+        requirements,
+        responsibilities: mapped.responsibilities ? String(mapped.responsibilities).trim() : undefined,
+        level: mapped.level ? String(mapped.level).trim() : undefined,
+        minSalary: mapped.minSalary ? parseInt(String(mapped.minSalary), 10) || undefined : undefined,
+        maxSalary: mapped.maxSalary ? parseInt(String(mapped.maxSalary), 10) || undefined : undefined,
+      });
+    }
+    return results;
+  }
+
+  function analyzePositionImport(parsed: CreatePositionBody[], existing: { name: string }[]) {
+    const existingSet = new Set(existing.map((p) => p.name.trim().toLowerCase()));
+    const existingNames: string[] = [];
+    let newCount = 0;
+    let existingCount = 0;
+    for (const p of parsed) {
+      if (existingSet.has(p.name.trim().toLowerCase())) {
+        existingCount++;
+        if (existingNames.length < 10) existingNames.push(p.name);
+      } else {
+        newCount++;
+      }
+    }
+    return { total: parsed.length, newCount, existingCount, existingNames };
+  }
+
+  const onPosFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const data = ev.target?.result as ArrayBuffer;
+      const parsed = parsePositionXlsx(data);
+      setPosParsedData(parsed);
+      const preview = analyzePositionImport(parsed, positions || []);
+      setPosImportPreview(preview);
+      setPosPendingFile(file);
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const onConfirmPosImport = async () => {
+    if (!orgId || posParsedData.length === 0) return;
+    const result = await importPosMut.mutateAsync({
+      orgId,
+      data: { positions: posParsedData, conflictStrategy: posConflictStrategy },
+    });
+    setPosImportResult(result as ImportResult);
+    queryClient.invalidateQueries({ queryKey: getListPositionsQueryKey(orgId) });
+  };
+
+  const resetPosImport = () => {
+    setPosImportResult(null);
+    setPosImportPreview(null);
+    setPosPendingFile(null);
+    setPosParsedData([]);
+    setPosConflictStrategy("skip");
+    setPosImportStep(1);
+    setPosImportOpen(false);
   };
 
   return (
@@ -1291,6 +1437,9 @@ export default function OrganizacaoPage({
                         experience: pos.experience || "",
                         requirements: pos.requirements || "",
                         responsibilities: pos.responsibilities || "",
+                        level: pos.level || "",
+                        minSalary: pos.minSalary ? String(pos.minSalary) : "",
+                        maxSalary: pos.maxSalary ? String(pos.maxSalary) : "",
                       });
                       setPosStep(0);
                       setPosDialogOpen(true);
@@ -1883,12 +2032,12 @@ export default function OrganizacaoPage({
         open={posDialogOpen}
         onOpenChange={setPosDialogOpen}
         title={editingPosId ? "Editar Cargo" : "Novo Cargo"}
-        description={["Informações básicas", "Descrição do cargo", "Requisitos", "Responsabilidades"][posStep]}
+        description={["Informações básicas", "Descrição do cargo", "Requisitos", "Responsabilidades", "Informações adicionais"][posStep]}
         size="lg"
       >
         <form onSubmit={posForm.handleSubmit(onPosSubmit)}>
           <div className="flex items-center gap-1 mb-5">
-            {["Básico", "Descrição", "Requisitos", "Responsabilidades"].map((label, i) => (
+            {["Básico", "Descrição", "Requisitos", "Responsabilidades", "Adicional"].map((label, i) => (
               <React.Fragment key={label}>
                 {i > 0 && <div className="h-px flex-1 bg-border" />}
                 <button
@@ -1969,6 +2118,34 @@ export default function OrganizacaoPage({
             </div>
           )}
 
+          {posStep === 4 && (
+            <div className="grid grid-cols-3 gap-x-8 gap-y-5">
+              <div>
+                <Label>Nível</Label>
+                <Input
+                  {...posForm.register("level")}
+                  placeholder="Ex: Operacional, Gerencial"
+                />
+              </div>
+              <div>
+                <Label>Salário Mínimo</Label>
+                <Input
+                  {...posForm.register("minSalary")}
+                  type="number"
+                  placeholder="Ex: 2500"
+                />
+              </div>
+              <div>
+                <Label>Salário Máximo</Label>
+                <Input
+                  {...posForm.register("maxSalary")}
+                  type="number"
+                  placeholder="Ex: 5000"
+                />
+              </div>
+            </div>
+          )}
+
           <DialogFooter>
             {posStep > 0 ? (
               <Button type="button" variant="outline" size="sm" onClick={() => setPosStep(posStep - 1)}>
@@ -1979,7 +2156,7 @@ export default function OrganizacaoPage({
                 Cancelar
               </Button>
             )}
-            {posStep < 3 ? (
+            {posStep < 4 ? (
               <Button type="button" size="sm" onClick={() => setPosStep(posStep + 1)}>
                 Próximo
               </Button>
@@ -1994,6 +2171,160 @@ export default function OrganizacaoPage({
             )}
           </DialogFooter>
         </form>
+      </Dialog>
+
+      <Dialog
+        open={posImportOpen}
+        onOpenChange={(open) => { if (!open) resetPosImport(); else setPosImportOpen(true); }}
+        title="Importar Cargos"
+        description="Importe cargos a partir de uma planilha Excel"
+        size="lg"
+      >
+        <div className="space-y-4">
+          {posImportResult ? (
+            <div className="space-y-4 text-center py-4">
+              <p className="text-lg font-semibold text-foreground">Importação concluída</p>
+              <div className="grid grid-cols-4 gap-3 text-center text-[13px]">
+                <div>
+                  <p className="text-xl font-bold text-emerald-600">{posImportResult.created}</p>
+                  <p className="text-muted-foreground">criados</p>
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-blue-600">{posImportResult.updated}</p>
+                  <p className="text-muted-foreground">atualizados</p>
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-gray-500">{posImportResult.skipped}</p>
+                  <p className="text-muted-foreground">ignorados</p>
+                </div>
+                {(posImportResult.errors ?? 0) > 0 && (
+                  <div>
+                    <p className="text-xl font-bold text-red-600">{posImportResult.errors}</p>
+                    <p className="text-red-600">erros</p>
+                  </div>
+                )}
+              </div>
+              {posImportResult.errorDetails && posImportResult.errorDetails.length > 0 && (
+                <div className="text-left bg-red-50 border border-red-200 rounded-lg p-3 text-[12px] max-h-40 overflow-y-auto space-y-1">
+                  <p className="font-semibold text-red-700 mb-1">Detalhes dos erros:</p>
+                  {posImportResult.errorDetails.map((ed, i) => (
+                    <p key={i} className="text-red-600">
+                      <strong>Linha {(ed.index ?? 0) + 1}:</strong> {ed.title} — {ed.error}
+                    </p>
+                  ))}
+                </div>
+              )}
+              <div className="text-center">
+                <Button onClick={resetPosImport} className="mt-1">Fechar</Button>
+              </div>
+            </div>
+          ) : posImportStep === 1 ? (
+            <>
+              <div className="border-2 border-dashed border-border rounded-xl p-6 text-center bg-secondary/30">
+                <FileText className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
+                <p className="text-muted-foreground mb-3">
+                  Anexe um arquivo <strong>.xlsx</strong> ou <strong>.csv</strong>
+                </p>
+                <Input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  className="max-w-[280px] mx-auto block"
+                  onChange={onPosFileSelected}
+                  disabled={importPosMut.isPending}
+                />
+              </div>
+              {posPendingFile && (
+                <p className="text-[13px] text-muted-foreground text-center">
+                  Arquivo selecionado: <strong>{posPendingFile.name}</strong>
+                </p>
+              )}
+              <DialogFooter>
+                <Button type="button" variant="outline" size="sm" onClick={resetPosImport}>Cancelar</Button>
+                <Button size="sm" onClick={() => setPosImportStep(2)} disabled={!posPendingFile || !posImportPreview}>
+                  Continuar
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <div className="space-y-3">
+                <div className="bg-secondary/50 border border-border rounded-xl p-4">
+                  <p className="font-medium text-foreground mb-3">Análise da planilha</p>
+                  <div className="grid grid-cols-2 gap-3 text-center text-[13px]">
+                    <div>
+                      <p className="text-xl font-bold text-emerald-600">{posImportPreview?.newCount ?? 0}</p>
+                      <p className="text-muted-foreground">novos</p>
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-amber-600">{posImportPreview?.existingCount ?? 0}</p>
+                      <p className="text-muted-foreground">já cadastrados</p>
+                    </div>
+                  </div>
+                </div>
+
+                {posImportPreview && posImportPreview.existingCount > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[13px] font-medium text-foreground">
+                      {posImportPreview.existingCount} cargos já existem (identificados pelo nome). O que fazer com eles?
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setPosConflictStrategy("skip")}
+                        className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer ${
+                          posConflictStrategy === "skip" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/30"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <SkipForward className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-medium text-[13px]">Ignorar</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">Manter os dados atuais sem alteração</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPosConflictStrategy("update")}
+                        className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer ${
+                          posConflictStrategy === "update" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/30"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <RefreshCw className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-medium text-[13px]">Atualizar</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">Sobrescrever com os dados da planilha</p>
+                      </button>
+                    </div>
+                    {posImportPreview.existingNames.length > 0 && (
+                      <details className="text-[12px] text-muted-foreground">
+                        <summary className="cursor-pointer hover:text-foreground">
+                          Ver exemplos de cargos já cadastrados ({posImportPreview.existingCount > 10 ? `mostrando 10 de ${posImportPreview.existingCount}` : posImportPreview.existingCount})
+                        </summary>
+                        <ul className="mt-1 space-y-0.5 pl-4 list-disc">
+                          {posImportPreview.existingNames.map((name, i) => (
+                            <li key={i}>{name}</li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" size="sm" onClick={() => setPosImportStep(1)}>Voltar</Button>
+                <Button
+                  size="sm"
+                  onClick={onConfirmPosImport}
+                  disabled={!posPendingFile || !posImportPreview || posImportPreview.total === 0 || importPosMut.isPending}
+                  isLoading={importPosMut.isPending}
+                >
+                  Importar ({posImportPreview?.total || 0})
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </div>
       </Dialog>
 
       <Dialog

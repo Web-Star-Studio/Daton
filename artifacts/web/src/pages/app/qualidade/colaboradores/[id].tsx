@@ -45,7 +45,14 @@ import type {
   EmployeeAwareness,
   EmployeeDetail,
   LinkedUnit,
+  Position,
 } from "@workspace/api-client-react";
+import {
+  findPositionByName,
+  getRequirementsList,
+  matchRequirementsToCompetencies,
+  type ComplianceItem,
+} from "@/lib/position-requirements";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { EmployeeProfileItemDialog } from "@/components/employees/employee-profile-item-dialog";
@@ -75,6 +82,10 @@ import {
   Lightbulb,
   User,
   Archive,
+  CheckCircle2,
+  XCircle,
+  Building2,
+  AlertTriangle,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -1087,6 +1098,8 @@ function CompetenciasTab({
   editable = true,
   createOpen = false,
   onCreateOpenChange,
+  employeePosition,
+  positions,
 }: {
   competencies: EmployeeCompetency[];
   orgId: number;
@@ -1094,6 +1107,8 @@ function CompetenciasTab({
   editable?: boolean;
   createOpen?: boolean;
   onCreateOpenChange?: (open: boolean) => void;
+  employeePosition?: string | null;
+  positions?: Position[];
 }) {
   const queryClient = useQueryClient();
   const [internalCreateOpen, setInternalCreateOpen] = useState(false);
@@ -1106,6 +1121,7 @@ function CompetenciasTab({
   const [editingAttachments, setEditingAttachments] = useState<EmployeeRecordAttachment[]>([]);
   const [isUploadingCreateAttachments, setIsUploadingCreateAttachments] = useState(false);
   const [isUploadingEditAttachments, setIsUploadingEditAttachments] = useState(false);
+  const [prefillName, setPrefillName] = useState("");
   const createMutation = useCreateCompetency();
   const updateMutation = useUpdateCompetency();
   const deleteMutation = useDeleteCompetency();
@@ -1115,6 +1131,14 @@ function CompetenciasTab({
   const emptyForm: CompetencyForm = { name: "", description: "", type: "formacao", requiredLevel: 3, acquiredLevel: 0, evidence: "" };
   const [form, setForm] = useState<CompetencyForm>(emptyForm);
 
+  // Compliance matching
+  const matchedPosition = positions ? findPositionByName(positions, employeePosition) : null;
+  const requirementsList = matchedPosition ? getRequirementsList(matchedPosition.requirements) : [];
+  const complianceItems = requirementsList.length > 0 ? matchRequirementsToCompetencies(requirementsList, competencies) : [];
+  const matchedCount = complianceItems.filter((c) => c.matched).length;
+  const totalReqs = complianceItems.length;
+  const compliancePercent = totalReqs > 0 ? Math.round((matchedCount / totalReqs) * 100) : 0;
+
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getGetEmployeeQueryKey(orgId, empId) });
 
   const closeCreateDialog = () => {
@@ -1123,6 +1147,15 @@ function CompetenciasTab({
     setForm(emptyForm);
     setCreateAttachments([]);
     setIsUploadingCreateAttachments(false);
+    setPrefillName("");
+  };
+
+  const openCreateFromRequirement = (requirementName: string) => {
+    setPrefillName(requirementName);
+    setForm({ ...emptyForm, name: requirementName });
+    setCreateStep(0);
+    setCreateAttachments([]);
+    setCreateOpen(true);
   };
 
   const closeEditDialog = () => {
@@ -1189,7 +1222,103 @@ function CompetenciasTab({
         Competências necessárias e adquiridas conforme ISO 9001:2015 §7.2
       </p>
 
-      {competencies.length === 0 ? (
+      {/* Compliance section */}
+      {employeePosition && matchedPosition && totalReqs > 0 && (
+        <div className="bg-muted/30 border border-border/60 rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-[13px] font-semibold text-foreground uppercase tracking-wide">
+                Conformidade do Cargo
+              </h3>
+            </div>
+            <span className="text-xs text-muted-foreground font-medium">
+              {matchedPosition.name}
+            </span>
+          </div>
+
+          {/* Progress bar */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">
+                {matchedCount}/{totalReqs} requisitos atendidos
+              </span>
+              <span className={cn(
+                "font-semibold",
+                compliancePercent >= 80 ? "text-emerald-600" : compliancePercent >= 50 ? "text-amber-600" : "text-red-600",
+              )}>
+                {compliancePercent}%
+              </span>
+            </div>
+            <div className="h-2 bg-secondary rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-500",
+                  compliancePercent >= 80 ? "bg-emerald-500" : compliancePercent >= 50 ? "bg-amber-500" : "bg-red-500",
+                )}
+                style={{ width: `${compliancePercent}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Requirement items */}
+          <div className="space-y-1.5">
+            {complianceItems.map((item, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  "flex items-center justify-between px-3 py-2 rounded-lg text-[12px]",
+                  item.matched ? "bg-emerald-50 border border-emerald-200/60" : "bg-red-50 border border-red-200/60",
+                )}
+              >
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  {item.matched ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  ) : (
+                    <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                  )}
+                  <span className={cn("truncate", item.matched ? "text-emerald-900" : "text-red-900")}>
+                    {item.requirement}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  {item.matched && item.competency && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-emerald-700">
+                        Nível: {item.competency.acquiredLevel}/{item.competency.requiredLevel}
+                      </span>
+                      {(item.competency.acquiredLevel ?? 0) < (item.competency.requiredLevel ?? 0) && (
+                        <span className="text-[10px] font-semibold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">
+                          Gap
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {!item.matched && editable && (
+                    <button
+                      type="button"
+                      onClick={() => openCreateFromRequirement(item.requirement)}
+                      className="flex items-center gap-1 text-[11px] font-medium text-red-700 hover:text-red-900 transition-colors cursor-pointer"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Adicionar
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {employeePosition && matchedPosition && totalReqs === 0 && (
+        <div className="bg-muted/20 border border-border/40 rounded-xl p-4 flex items-center gap-2 text-xs text-muted-foreground">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span>O cargo <strong>{matchedPosition.name}</strong> não possui requisitos definidos.</span>
+        </div>
+      )}
+
+      {competencies.length === 0 && totalReqs === 0 ? (
         <div className="text-center py-12">
           <Award className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
           <p className="text-[13px] text-muted-foreground">Nenhuma competência registrada</p>
@@ -2148,7 +2277,7 @@ export default function ColaboradorDetailPage() {
         )}
 
         {activeTab === "competencias" && (
-          <CompetenciasTab competencies={employee.competencies || []} orgId={orgId} empId={empId} editable={canWriteEmployees} createOpen={compCreateOpen} onCreateOpenChange={setCompCreateOpen} />
+          <CompetenciasTab competencies={employee.competencies || []} orgId={orgId} empId={empId} editable={canWriteEmployees} createOpen={compCreateOpen} onCreateOpenChange={setCompCreateOpen} employeePosition={employee.position} positions={positions} />
         )}
 
         {activeTab === "treinamentos" && (

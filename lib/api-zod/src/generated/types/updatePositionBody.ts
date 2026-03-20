@@ -13,4 +13,7 @@ export interface UpdatePositionBody {
   experience?: string;
   requirements?: string;
   responsibilities?: string;
+  level?: string;
+  minSalary?: number;
+  maxSalary?: number;
 }
