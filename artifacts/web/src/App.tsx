@@ -15,7 +15,6 @@ import OrganizacaoOverviewPage from "@/pages/app/organizacao/visao-geral";
 import OrganizacaoUnitsPage from "@/pages/app/organizacao/unidades";
 import OrganizacaoDepartmentsPage from "@/pages/app/organizacao/departamentos";
 import OrganizacaoPositionsPage from "@/pages/app/organizacao/cargos";
-import OrganizacaoUsersPage from "@/pages/app/organizacao/usuarios";
 import OrganizacaoEmployeesPage from "@/pages/app/organizacao/colaboradores";
 import OrganizacaoEmployeeDetailPage from "@/pages/app/organizacao/colaboradores/[id]";
 import UnitDetailPage from "@/pages/app/organizacao/unidades/[id]";
@@ -28,6 +27,8 @@ import LegislacoesPage from "@/pages/app/qualidade/legislacoes";
 import LegislationDetailPage from "@/pages/app/qualidade/legislacoes/[id]";
 import DocumentacaoPage from "@/pages/app/qualidade/documentacao";
 import DocumentDetailPage from "@/pages/app/qualidade/documentacao/[id]";
+import ProfileSettingsPage from "@/pages/app/configuracoes/perfil";
+import SystemSettingsPage from "@/pages/app/configuracoes/sistema";
 import AcceptInvitePage from "@/pages/accept-invite";
 import NotFound from "@/pages/not-found";
 
@@ -60,7 +61,6 @@ function AppPages() {
       <Route path="/organizacao/unidades/:id" component={UnitDetailPage} />
       <Route path="/organizacao/departamentos" component={OrganizacaoDepartmentsPage} />
       <Route path="/organizacao/cargos" component={OrganizacaoPositionsPage} />
-      <Route path="/organizacao/usuarios" component={OrganizacaoUsersPage} />
       <Route path="/governanca/planejamento" component={GovernancePage} />
       <Route path="/governanca/planejamento/:id" component={GovernanceDetailPage} />
       <Route path="/governanca/riscos-oportunidades" component={GovernanceRiskOpportunityPage} />
@@ -68,6 +68,8 @@ function AppPages() {
       <Route path="/qualidade/legislacoes/:id" component={LegislationDetailPage} />
       <Route path="/qualidade/documentacao" component={DocumentacaoPage} />
       <Route path="/qualidade/documentacao/:id" component={DocumentDetailPage} />
+      <Route path="/configuracoes/perfil" component={ProfileSettingsPage} />
+      <Route path="/configuracoes/sistema" component={SystemSettingsPage} />
       <Route path="/app" component={AppIndex} />
       <Route path="/app/organizacao" component={OrganizacaoOverviewPage} />
       <Route path="/app/organizacao/colaboradores" component={OrganizacaoEmployeesPage} />
@@ -76,7 +78,6 @@ function AppPages() {
       <Route path="/app/organizacao/unidades/:id" component={UnitDetailPage} />
       <Route path="/app/organizacao/departamentos" component={OrganizacaoDepartmentsPage} />
       <Route path="/app/organizacao/cargos" component={OrganizacaoPositionsPage} />
-      <Route path="/app/organizacao/usuarios" component={OrganizacaoUsersPage} />
       <Route path="/app/governanca/planejamento" component={GovernancePage} />
       <Route path="/app/governanca/planejamento/:id" component={GovernanceDetailPage} />
       <Route path="/app/governanca/riscos-oportunidades" component={GovernanceRiskOpportunityPage} />
@@ -84,6 +85,8 @@ function AppPages() {
       <Route path="/app/qualidade/legislacoes/:id" component={LegislationDetailPage} />
       <Route path="/app/qualidade/documentacao" component={DocumentacaoPage} />
       <Route path="/app/qualidade/documentacao/:id" component={DocumentDetailPage} />
+      <Route path="/app/configuracoes/perfil" component={ProfileSettingsPage} />
+      <Route path="/app/configuracoes/sistema" component={SystemSettingsPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -97,7 +100,8 @@ function Router() {
     location.startsWith("/app") ||
     location.startsWith("/organizacao") ||
     location.startsWith("/governanca") ||
-    location.startsWith("/qualidade");
+    location.startsWith("/qualidade") ||
+    location.startsWith("/configuracoes");
   const isAppRoute = isAdminRoute || isOrgRoute;
   const isAuthRoute = location === "/" || location.startsWith("/auth");
   const isOnboardingRoute = location.startsWith("/onboarding/organizacao");

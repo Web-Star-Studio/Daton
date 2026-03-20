@@ -18,3 +18,18 @@ export function formatDate(dateString: string | null | undefined) {
     return dateString;
   }
 }
+
+export function formatFirstAndLastName(name: string | null | undefined) {
+  if (!name) return "";
+
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length <= 1) {
+    return parts[0] ?? "";
+  }
+
+  return `${parts[0]} ${parts[parts.length - 1]}`;
+}

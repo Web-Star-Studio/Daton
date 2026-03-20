@@ -33,6 +33,20 @@ export interface LoginBody {
   password: string;
 }
 
+export interface UpdateMeBody {
+  /** @minLength 1 */
+  name: string;
+  email: string;
+}
+
+export interface UpdateMyPasswordBody {
+  currentPassword: string;
+  /** @minLength 6 */
+  newPassword: string;
+  /** @minLength 6 */
+  confirmPassword: string;
+}
+
 export interface User {
   id: number;
   name: string;

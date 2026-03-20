@@ -11,7 +11,7 @@ import {
   Bell,
   Sparkles,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatFirstAndLastName } from "@/lib/utils";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
 
@@ -44,6 +44,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   };
 
   const breadcrumbs = getBreadcrumbs();
+  const displayName = formatFirstAndLastName(user?.name);
 
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden p-2.5 gap-2.5">
@@ -97,7 +98,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               </div>
               {isSidebarOpen && (
                 <span className="text-[13px] text-muted-foreground truncate">
-                  {user?.name}
+                  {displayName}
                 </span>
               )}
             </div>

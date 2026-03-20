@@ -11,9 +11,10 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Scale,
+  Settings,
   Sparkles,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatFirstAndLastName } from "@/lib/utils";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
 import { getListNotificationsQueryKey, useListNotifications } from "@workspace/api-client-react";
@@ -37,7 +38,7 @@ type NavLink = {
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, organization } = useAuth();
-  const { hasModuleAccess, isOrgAdmin } = usePermissions();
+  const { hasModuleAccess } = usePermissions();
   const [location, navigate] = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isChatOpen, setChatOpen] = useState(false);
@@ -45,15 +46,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [organizacaoPopover, setOrganizacaoPopover] = useState(false);
   const [qualidadePopover, setQualidadePopover] = useState(false);
   const [governancaPopover, setGovernancaPopover] = useState(false);
+  const [configuracoesPopover, setConfiguracoesPopover] = useState(false);
   const [orgPopoverPos, setOrgPopoverPos] = useState({ top: 0, left: 0 });
   const [qualidadePopoverPos, setQualidadePopoverPos] = useState({ top: 0, left: 0 });
   const [governancaPopoverPos, setGovernancaPopoverPos] = useState({ top: 0, left: 0 });
+  const [configuracoesPopoverPos, setConfiguracoesPopoverPos] = useState({ top: 0, left: 0 });
   const organizacaoRef = useRef<HTMLDivElement>(null);
   const qualidadeRef = useRef<HTMLDivElement>(null);
   const governancaRef = useRef<HTMLDivElement>(null);
+  const configuracoesRef = useRef<HTMLDivElement>(null);
   const organizacaoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qualidadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const governancaTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const configuracoesTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { headerActions, pageTitle } = useLayoutState();
   const orgId = organization?.id;
   const { data: notifData } = useListNotifications(orgId!, {
@@ -66,6 +71,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const unreadNotifCount = notifData?.unreadCount ?? 0;
   const normalizedLocation =
     location === "/app" ? "/organizacao" : location.replace(/^\/app(?=\/|$)/, "");
+  const displayName = formatFirstAndLastName(user?.name);
 
   useEffect(() => {
     return () => {
@@ -80,6 +86,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       if (governancaTimeoutRef.current) {
         clearTimeout(governancaTimeoutRef.current);
         governancaTimeoutRef.current = null;
+      }
+      if (configuracoesTimeoutRef.current) {
+        clearTimeout(configuracoesTimeoutRef.current);
+        configuracoesTimeoutRef.current = null;
       }
     };
   }, []);
@@ -104,10 +114,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (normalizedLocation.startsWith("/organizacao/usuarios") && !isOrgAdmin) {
-      navigate("/organizacao");
-    }
-  }, [hasModuleAccess, isOrgAdmin, navigate, normalizedLocation]);
+  }, [hasModuleAccess, navigate, normalizedLocation]);
 
   const isActive = (path: string) => normalizedLocation.startsWith(path);
   const isNavLinkActive = (href: string) =>
@@ -153,8 +160,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         });
       } else if (normalizedLocation.startsWith("/organizacao/cargos")) {
         crumbs.push({ label: "Cargos", href: "/organizacao/cargos" });
-      } else if (normalizedLocation.startsWith("/organizacao/usuarios")) {
-        crumbs.push({ label: "Usuários", href: "/organizacao/usuarios" });
       }
     } else if (normalizedLocation.startsWith("/governanca")) {
       crumbs.push({ label: "Governança" });
@@ -172,6 +177,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         if (pageTitle && normalizedLocation !== "/governanca/planejamento") {
           crumbs.push({ label: pageTitle });
         }
+      }
+    } else if (normalizedLocation.startsWith("/configuracoes")) {
+      crumbs.push({ label: "Configurações" });
+
+      if (normalizedLocation.startsWith("/configuracoes/perfil")) {
+        crumbs.push({ label: "Ajustes de perfil" });
+      } else if (normalizedLocation.startsWith("/configuracoes/sistema")) {
+        crumbs.push({ label: "Ajustes do sistema" });
       }
     }
 
@@ -194,7 +207,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     ...(hasModuleAccess("positions")
       ? [{ href: "/organizacao/cargos", label: "Cargos" }]
       : []),
-    ...(isOrgAdmin ? [{ href: "/organizacao/usuarios", label: "Usuários" }] : []),
   ];
 
   const qualidadeLinks: NavLink[] = [
@@ -207,6 +219,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const governancaLinks: NavLink[] = [
     { href: "/governanca/planejamento", label: "Planejamento" },
     { href: "/governanca/riscos-oportunidades", label: "Riscos e Oportunidades" },
+  ];
+
+  const configuracoesLinks: NavLink[] = [
+    { href: "/configuracoes/perfil", label: "Ajustes de perfil" },
+    { href: "/configuracoes/sistema", label: "Ajustes do sistema" },
   ];
 
   const showQualidade = qualidadeLinks.length > 0;
@@ -449,7 +466,56 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </div>
 
-        <div className="px-2.5 py-3">
+        <div className="space-y-1 px-2.5 pb-3">
+          <div
+            ref={configuracoesRef}
+            onMouseEnter={() =>
+              openPopover(
+                configuracoesRef,
+                setConfiguracoesPopoverPos,
+                setConfiguracoesPopover,
+                configuracoesTimeoutRef,
+              )
+            }
+            onMouseLeave={() =>
+              closePopover(setConfiguracoesPopover, configuracoesTimeoutRef)
+            }
+          >
+            <Link
+              href={configuracoesLinks[0].href}
+              className={cn(
+                "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+                isActive("/configuracoes")
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <div className="flex items-center">
+                <Settings
+                  className={cn(
+                    "h-[18px] w-[18px] shrink-0",
+                    isSidebarOpen && "mr-2.5",
+                  )}
+                />
+                {isSidebarOpen && <span>Configurações</span>}
+              </div>
+              {isSidebarOpen && (
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+              )}
+            </Link>
+          </div>
+
+          {renderPopover(
+            "Configurações",
+            configuracoesLinks,
+            configuracoesPopover,
+            setConfiguracoesPopover,
+            configuracoesPopoverPos,
+            configuracoesTimeoutRef,
+          )}
+        </div>
+
+        <div className="border-t border-border/40 px-2.5 py-3">
           <div
             className={cn(
               "flex items-center",
@@ -462,7 +528,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
               {isSidebarOpen && (
                 <span className="truncate text-[13px] text-muted-foreground">
-                  {user?.name}
+                  {displayName}
                 </span>
               )}
             </div>

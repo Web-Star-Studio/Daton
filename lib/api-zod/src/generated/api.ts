@@ -157,6 +157,129 @@ export const GetMeResponse = zod.object({
 });
 
 /**
+ * @summary Update current user profile
+ */
+
+export const UpdateMeBody = zod.object({
+  name: zod.string().min(1),
+  email: zod.string().email(),
+});
+
+export const UpdateMeResponse = zod.object({
+  user: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    email: zod.string(),
+    organizationId: zod.number(),
+    role: zod.string(),
+    createdAt: zod.string().datetime({}),
+  }),
+  organization: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    tradeName: zod.string().nullish(),
+    legalIdentifier: zod.string().nullish(),
+    openingDate: zod.string().nullish(),
+    taxRegime: zod.string().nullish(),
+    primaryCnae: zod.string().nullish(),
+    stateRegistration: zod.string().nullish(),
+    municipalRegistration: zod.string().nullish(),
+    statusOperacional: zod.string().nullish(),
+    onboardingStatus: zod.enum(["pending", "completed", "skipped"]).optional(),
+    onboardingData: zod
+      .object({
+        companyProfile: zod.object({
+          sector: zod.enum([
+            "manufacturing",
+            "agro",
+            "food_beverage",
+            "mining",
+            "oil_gas",
+            "energy",
+            "chemical",
+            "pulp_paper",
+            "steel",
+            "logistics",
+            "financial",
+            "telecom",
+            "public",
+            "pharma_cosmetics",
+            "automotive",
+            "technology",
+            "consumer_goods",
+            "utilities",
+            "healthcare",
+            "education",
+            "retail",
+            "construction",
+            "services",
+            "other",
+          ]),
+          customSector: zod.string().nullish(),
+          size: zod.enum([
+            "micro",
+            "small",
+            "medium",
+            "large",
+            "xlarge",
+            "enterprise",
+          ]),
+          goals: zod.array(
+            zod.enum([
+              "emissions_reduction",
+              "environmental_compliance",
+              "health_safety",
+              "energy_efficiency",
+              "water_management",
+              "waste_reduction",
+              "sustainability",
+              "quality",
+              "compliance",
+              "performance",
+              "innovation",
+              "cost_reduction",
+            ]),
+          ),
+          maturityLevel: zod.enum(["beginner", "intermediate", "advanced"]),
+          currentChallenges: zod.array(zod.string()),
+        }),
+      })
+      .optional(),
+    onboardingCompletedAt: zod.string().datetime({}).nullish(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  }),
+  modules: zod.array(
+    zod.enum([
+      "documents",
+      "legislations",
+      "employees",
+      "units",
+      "departments",
+      "positions",
+      "governance",
+    ]),
+  ),
+});
+
+/**
+ * @summary Update current user password
+ */
+export const updateMyPasswordBodyNewPasswordMin = 6;
+
+export const updateMyPasswordBodyConfirmPasswordMin = 6;
+
+export const UpdateMyPasswordBody = zod.object({
+  currentPassword: zod.string(),
+  newPassword: zod.string().min(updateMyPasswordBodyNewPasswordMin),
+  confirmPassword: zod.string().min(updateMyPasswordBodyConfirmPasswordMin),
+});
+
+export const UpdateMyPasswordResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
  * @summary Get organization details
  */
 export const GetOrganizationParams = zod.object({

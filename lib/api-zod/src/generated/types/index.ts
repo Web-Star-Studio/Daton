@@ -182,6 +182,8 @@ export * from "./updateEmployeeBodyContractType";
 export * from "./updateEmployeeBodyStatus";
 export * from "./updateEmployeeProfileItemBody";
 export * from "./updateLegislationBody";
+export * from "./updateMeBody";
+export * from "./updateMyPasswordBody";
 export * from "./updateOrganizationBody";
 export * from "./updatePositionBody";
 export * from "./updateStrategicPlanActionBody";
