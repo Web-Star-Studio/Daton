@@ -145,7 +145,7 @@ type InviteFormData = {
 
 const ROLE_LABELS: Record<string, string> = {
   platform_admin: "Admin Plataforma",
-  org_admin: "Admin Organização",
+  org_admin: "Administrador",
   operator: "Operador",
   analyst: "Analista",
 };
@@ -2484,7 +2484,7 @@ export default function OrganizacaoPage({
                   setInviteError("");
                 }}
               >
-                <option value="org_admin">Admin Organização</option>
+                <option value="org_admin">Administrador</option>
                 <option value="operator">Operador</option>
                 <option value="analyst">Analista</option>
               </Select>
@@ -2660,7 +2660,7 @@ export default function OrganizacaoPage({
               <div>
                 <Label>Cargo</Label>
                 <Select {...createUserForm.register("role")}>
-                  <option value="org_admin">Admin Organização</option>
+                  <option value="org_admin">Administrador</option>
                   <option value="operator">Operador</option>
                   <option value="analyst">Analista</option>
                 </Select>
