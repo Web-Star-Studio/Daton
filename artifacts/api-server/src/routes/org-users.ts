@@ -92,7 +92,7 @@ router.post("/organizations/:orgId/users",
     try {
       const createdUser = await db.transaction(async (tx) => {
         const [user] = await tx.insert(usersTable).values({
-          name,
+          name: name.toUpperCase(),
           email,
           passwordHash,
           organizationId: orgId,

@@ -5,6 +5,7 @@ import {
   ListNotificationsParams,
   MarkNotificationReadParams,
   MarkAllNotificationsReadParams,
+  ClearAllNotificationsParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 
@@ -72,6 +73,20 @@ router.post("/organizations/:orgId/notifications/read-all", requireAuth, async (
     ));
 
   res.json({ message: "Todas as notificações marcadas como lidas" });
+});
+
+router.post("/organizations/:orgId/notifications/clear", requireAuth, async (req, res): Promise<void> => {
+  const params = ClearAllNotificationsParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  await db.delete(notificationsTable)
+    .where(and(
+      eq(notificationsTable.organizationId, params.data.orgId),
+      eq(notificationsTable.userId, req.auth!.userId),
+    ));
+
+  res.sendStatus(204);
 });
 
 export default router;

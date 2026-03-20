@@ -1676,6 +1676,34 @@ paths:
         "204":
           description: Position deleted
 
+  /organizations/{orgId}/positions/bulk-delete:
+    post:
+      operationId: bulkDeletePositions
+      tags: [organizations]
+      summary: Delete multiple positions at once
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkDeletePositionsBody"
+      responses:
+        "200":
+          description: Bulk delete result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: integer
+
   /organizations/{orgId}/documents:
     get:
       operationId: listDocuments
@@ -2142,6 +2170,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
+
+  /organizations/{orgId}/notifications/clear:
+    post:
+      operationId: clearAllNotifications
+      tags: [notifications]
+      summary: Delete all notifications for current user
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: All notifications cleared
 
   /organizations/{orgId}/users:
     get:
@@ -5592,6 +5635,16 @@ components:
           description: How to handle positions that already exist (matched by name)
       required:
         - positions
+
+    BulkDeletePositionsBody:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+      required:
+        - ids
 
     AppModule:
       type: string

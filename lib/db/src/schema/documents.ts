@@ -57,7 +57,7 @@ export const documentRecipientsTable = pgTable("document_recipients", {
 export const documentReferencesTable = pgTable("document_references", {
   id: serial("id").primaryKey(),
   documentId: integer("document_id").notNull().references(() => documentsTable.id, { onDelete: "cascade" }),
-  referencedDocumentId: integer("referenced_document_id").notNull().references(() => documentsTable.id),
+  referencedDocumentId: integer("referenced_document_id").notNull().references(() => documentsTable.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

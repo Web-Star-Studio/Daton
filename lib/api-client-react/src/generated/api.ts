@@ -23,6 +23,8 @@ import type {
   ApproveDocumentBody,
   AssignLegislationBody,
   AuthResponse,
+  BulkDeletePositions200,
+  BulkDeletePositionsBody,
   CompleteOrganizationOnboardingBody,
   ComplianceTag,
   CreateAwarenessBody,
@@ -6130,6 +6132,93 @@ export const useDeletePosition = <
 };
 
 /**
+ * @summary Delete multiple positions at once
+ */
+export const getBulkDeletePositionsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/positions/bulk-delete`;
+};
+
+export const bulkDeletePositions = async (
+  orgId: number,
+  bulkDeletePositionsBody: BulkDeletePositionsBody,
+  options?: RequestInit,
+): Promise<BulkDeletePositions200> => {
+  return customFetch<BulkDeletePositions200>(getBulkDeletePositionsUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(bulkDeletePositionsBody),
+  });
+};
+
+export const getBulkDeletePositionsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkDeletePositions>>,
+    TError,
+    { orgId: number; data: BodyType<BulkDeletePositionsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bulkDeletePositions>>,
+  TError,
+  { orgId: number; data: BodyType<BulkDeletePositionsBody> },
+  TContext
+> => {
+  const mutationKey = ["bulkDeletePositions"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bulkDeletePositions>>,
+    { orgId: number; data: BodyType<BulkDeletePositionsBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return bulkDeletePositions(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BulkDeletePositionsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bulkDeletePositions>>
+>;
+export type BulkDeletePositionsMutationBody = BodyType<BulkDeletePositionsBody>;
+export type BulkDeletePositionsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete multiple positions at once
+ */
+export const useBulkDeletePositions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkDeletePositions>>,
+    TError,
+    { orgId: number; data: BodyType<BulkDeletePositionsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bulkDeletePositions>>,
+  TError,
+  { orgId: number; data: BodyType<BulkDeletePositionsBody> },
+  TContext
+> => {
+  return useMutation(getBulkDeletePositionsMutationOptions(options));
+};
+
+/**
  * @summary List documents
  */
 export const getListDocumentsUrl = (
@@ -7808,6 +7897,90 @@ export const useMarkAllNotificationsRead = <
   TContext
 > => {
   return useMutation(getMarkAllNotificationsReadMutationOptions(options));
+};
+
+/**
+ * @summary Delete all notifications for current user
+ */
+export const getClearAllNotificationsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/notifications/clear`;
+};
+
+export const clearAllNotifications = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getClearAllNotificationsUrl(orgId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getClearAllNotificationsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearAllNotifications>>,
+    TError,
+    { orgId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof clearAllNotifications>>,
+  TError,
+  { orgId: number },
+  TContext
+> => {
+  const mutationKey = ["clearAllNotifications"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof clearAllNotifications>>,
+    { orgId: number }
+  > = (props) => {
+    const { orgId } = props ?? {};
+
+    return clearAllNotifications(orgId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClearAllNotificationsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof clearAllNotifications>>
+>;
+
+export type ClearAllNotificationsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete all notifications for current user
+ */
+export const useClearAllNotifications = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearAllNotifications>>,
+    TError,
+    { orgId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof clearAllNotifications>>,
+  TError,
+  { orgId: number },
+  TContext
+> => {
+  return useMutation(getClearAllNotificationsMutationOptions(options));
 };
 
 /**

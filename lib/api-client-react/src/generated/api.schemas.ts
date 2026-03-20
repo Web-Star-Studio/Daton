@@ -1114,6 +1114,10 @@ export interface ImportPositionsBody {
   conflictStrategy?: ImportPositionsBodyConflictStrategy;
 }
 
+export interface BulkDeletePositionsBody {
+  ids: number[];
+}
+
 export interface OrgUser {
   id: number;
   name: string;
@@ -2044,6 +2048,10 @@ export type LinkEmployeeUnit201 = {
   id?: number;
   employeeId?: number;
   unitId?: number;
+};
+
+export type BulkDeletePositions200 = {
+  deleted?: number;
 };
 
 export type ListDocumentsParams = {

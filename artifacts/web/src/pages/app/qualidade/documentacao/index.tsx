@@ -214,16 +214,22 @@ export default function DocumentacaoPage() {
 
   const executeBulkDelete = async () => {
     setIsDeleting(true);
+    let errors = 0;
     try {
       for (const id of selectedDeletable) {
         try {
           await deleteDocMut.mutateAsync({ orgId: orgId!, docId: id });
-        } catch {}
+        } catch {
+          errors++;
+        }
       }
       queryClient.invalidateQueries({
         queryKey: getListDocumentsQueryKey(orgId!),
       });
       setSelectedIds(new Set());
+      if (errors > 0) {
+        alert(`${errors} documento(s) não puderam ser excluídos. Verifique se estão em rascunho ou rejeitados.`);
+      }
     } finally {
       setIsDeleting(false);
       setConfirmDeleteOpen(false);

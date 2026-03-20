@@ -2463,6 +2463,21 @@ export const DeletePositionParams = zod.object({
 });
 
 /**
+ * @summary Delete multiple positions at once
+ */
+export const BulkDeletePositionsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const BulkDeletePositionsBody = zod.object({
+  ids: zod.array(zod.number()),
+});
+
+export const BulkDeletePositionsResponse = zod.object({
+  deleted: zod.number().optional(),
+});
+
+/**
  * @summary List documents
  */
 export const ListDocumentsParams = zod.object({
@@ -3342,6 +3357,13 @@ export const MarkAllNotificationsReadParams = zod.object({
 
 export const MarkAllNotificationsReadResponse = zod.object({
   message: zod.string(),
+});
+
+/**
+ * @summary Delete all notifications for current user
+ */
+export const ClearAllNotificationsParams = zod.object({
+  orgId: zod.coerce.number(),
 });
 
 /**

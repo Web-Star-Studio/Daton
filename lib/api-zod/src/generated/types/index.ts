@@ -14,6 +14,8 @@ export * from "./approveDocumentBody";
 export * from "./assignLegislationBody";
 export * from "./assignLegislationBodyComplianceStatus";
 export * from "./authResponse";
+export * from "./bulkDeletePositions200";
+export * from "./bulkDeletePositionsBody";
 export * from "./completeOrganizationOnboardingBody";
 export * from "./completeOrganizationOnboardingFiscalRegistration";
 export * from "./complianceTag";

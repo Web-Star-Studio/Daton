@@ -1,10 +1,12 @@
 import { Router, type IRouter } from "express";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db, positionsTable } from "@workspace/db";
 import {
   CreatePositionBody,
   CreatePositionParams,
   DeletePositionParams,
+  BulkDeletePositionsParams,
+  BulkDeletePositionsBody,
   ImportPositionsBody,
   ImportPositionsParams,
   ListPositionsParams,
@@ -181,6 +183,24 @@ router.post("/organizations/:orgId/positions/import", requireAuth, requireWriteA
     total: body.data.positions.length,
     errorDetails,
   });
+});
+
+router.post("/organizations/:orgId/positions/bulk-delete", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = BulkDeletePositionsParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = BulkDeletePositionsBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const deleted = await db.delete(positionsTable)
+    .where(and(
+      eq(positionsTable.organizationId, params.data.orgId),
+      inArray(positionsTable.id, body.data.ids),
+    ))
+    .returning({ id: positionsTable.id });
+
+  res.json({ deleted: deleted.length });
 });
 
 router.delete("/organizations/:orgId/positions/:posId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {

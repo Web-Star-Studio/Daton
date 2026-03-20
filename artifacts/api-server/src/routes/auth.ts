@@ -58,7 +58,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }).returning();
 
   const [user] = await db.insert(usersTable).values({
-    name: adminFullName,
+    name: adminFullName.toUpperCase(),
     email: adminEmail,
     passwordHash,
     organizationId: org.id,

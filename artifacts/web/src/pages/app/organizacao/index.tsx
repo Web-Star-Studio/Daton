@@ -55,6 +55,7 @@ import {
   useListPositions,
   useCreatePosition,
   useDeletePosition,
+  useBulkDeletePositions,
   useUpdatePosition,
   useImportPositions,
   getListPositionsQueryKey,
@@ -303,6 +304,7 @@ export default function OrganizacaoPage({
   const createPosMut = useCreatePosition();
   const updatePosMut = useUpdatePosition();
   const deletePosMut = useDeletePosition();
+  const bulkDeletePosMut = useBulkDeletePositions();
   const [selectedPosIds, setSelectedPosIds] = useState<Set<number>>(new Set());
   const [isDeletingPositions, setIsDeletingPositions] = useState(false);
   const [confirmDeletePosOpen, setConfirmDeletePosOpen] = useState(false);
@@ -350,9 +352,10 @@ export default function OrganizacaoPage({
   const executeBulkDeletePositions = async () => {
     setIsDeletingPositions(true);
     try {
-      for (const id of selectedPosIds) {
-        try { await deletePosMut.mutateAsync({ orgId: orgId!, posId: id }); } catch {}
-      }
+      await bulkDeletePosMut.mutateAsync({
+        orgId: orgId!,
+        data: { ids: Array.from(selectedPosIds) },
+      });
       queryClient.invalidateQueries({ queryKey: getListPositionsQueryKey(orgId!) });
       setSelectedPosIds(new Set());
     } finally {

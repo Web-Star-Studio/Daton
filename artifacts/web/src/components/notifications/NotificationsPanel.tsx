@@ -7,6 +7,7 @@ import {
   useListNotifications,
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
+  useClearAllNotifications,
   getListNotificationsQueryKey,
 } from "@workspace/api-client-react";
 import type { NotificationItem } from "@workspace/api-client-react";
@@ -57,12 +58,19 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
 
   const markReadMut = useMarkNotificationRead();
   const markAllReadMut = useMarkAllNotificationsRead();
+  const clearAllMut = useClearAllNotifications();
 
   const lastEvent = notifications.length > 0 ? notifications[0].createdAt : null;
 
   const handleMarkAllRead = async () => {
     if (!orgId) return;
     await markAllReadMut.mutateAsync({ orgId });
+    queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey(orgId) });
+  };
+
+  const handleClearAll = async () => {
+    if (!orgId) return;
+    await clearAllMut.mutateAsync({ orgId });
     queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey(orgId) });
   };
 
@@ -165,6 +173,13 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
             <span className="text-[11px] text-muted-foreground">
               Último evento em {formatDate(lastEvent)}
             </span>
+            <button
+              onClick={handleClearAll}
+              disabled={clearAllMut.isPending}
+              className="px-3 py-1 rounded-lg text-red-500 text-[12px] font-medium hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {clearAllMut.isPending ? "Limpando..." : "Limpar tudo"}
+            </button>
           </div>
         )}
       </div>

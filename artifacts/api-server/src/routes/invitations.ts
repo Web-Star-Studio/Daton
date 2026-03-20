@@ -373,7 +373,7 @@ router.post("/invitations/accept/:token", async (req, res): Promise<void> => {
       const passwordHash = await bcrypt.hash(password, 10);
 
       const [user] = await tx.insert(usersTable).values({
-        name,
+        name: name.toUpperCase(),
         email: invitation.email,
         passwordHash,
         organizationId: invitation.organizationId,
