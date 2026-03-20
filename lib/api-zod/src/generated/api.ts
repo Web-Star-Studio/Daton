@@ -2442,7 +2442,9 @@ export const ListDocumentsResponseItem = zod.object({
   title: zod.string(),
   type: zod.string(),
   status: zod.string(),
-  currentVersion: zod.number(),
+  currentVersion: zod
+    .number()
+    .describe("0 indicates the document has no approved formal version yet."),
   validityDate: zod.string().nullish(),
   createdByName: zod.string().optional(),
   createdAt: zod.string(),
@@ -2471,7 +2473,6 @@ export const CreateDocumentBody = zod.object({
   ]),
   validityDate: zod.string().optional(),
   unitIds: zod.array(zod.number()).optional(),
-  elaboratorIds: zod.array(zod.number()).optional(),
   approverIds: zod.array(zod.number()),
   recipientIds: zod.array(zod.number()).optional(),
   referenceIds: zod.array(zod.number()).optional(),
@@ -2598,7 +2599,7 @@ export const GetDocumentResponse = zod.object({
 });
 
 /**
- * @summary Update document (creates new version)
+ * @summary Update document draft
  */
 export const UpdateDocumentParams = zod.object({
   orgId: zod.coerce.number(),
@@ -2610,11 +2611,9 @@ export const UpdateDocumentBody = zod.object({
   type: zod.string().optional(),
   validityDate: zod.string().optional(),
   unitIds: zod.array(zod.number()).optional(),
-  elaboratorIds: zod.array(zod.number()).optional(),
   approverIds: zod.array(zod.number()).optional(),
   recipientIds: zod.array(zod.number()).optional(),
   referenceIds: zod.array(zod.number()).optional(),
-  changeDescription: zod.string().optional(),
 });
 
 export const UpdateDocumentResponse = zod.object({
@@ -2763,6 +2762,19 @@ export const AddDocumentAttachmentBody = zod.object({
 });
 
 /**
+ * @summary View or download document attachment file
+ */
+export const GetDocumentAttachmentFileParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+  attachId: zod.coerce.number(),
+});
+
+export const GetDocumentAttachmentFileQueryParams = zod.object({
+  disposition: zod.enum(["inline", "attachment"]).optional(),
+});
+
+/**
  * @summary Delete document attachment
  */
 export const DeleteDocumentAttachmentParams = zod.object({
@@ -2777,6 +2789,10 @@ export const DeleteDocumentAttachmentParams = zod.object({
 export const SubmitDocumentForReviewParams = zod.object({
   orgId: zod.coerce.number(),
   docId: zod.coerce.number(),
+});
+
+export const SubmitDocumentForReviewBody = zod.object({
+  changeDescription: zod.string().min(1),
 });
 
 export const SubmitDocumentForReviewResponse = zod.object({

@@ -1,3 +1,4 @@
+import { Readable } from "stream";
 import { Router, type IRouter } from "express";
 import { eq, and, ilike, or, desc, inArray, sql, max } from "drizzle-orm";
 import {
@@ -23,6 +24,7 @@ import {
   UpdateDocumentParams,
   UpdateDocumentBody,
   SubmitDocumentForReviewParams,
+  SubmitDocumentForReviewBody,
   ApproveDocumentParams,
   ApproveDocumentBody,
   RejectDocumentParams,
@@ -36,8 +38,10 @@ import {
   DeleteDocumentParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireModuleAccess, requireWriteAccess } from "../middlewares/auth";
+import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage";
 
 const router: IRouter = Router();
+const objectStorageService = new ObjectStorageService();
 
 async function validateOrgUsers(userIds: number[], orgId: number): Promise<boolean> {
   if (userIds.length === 0) return true;
@@ -73,7 +77,11 @@ async function createNotification(orgId: number, userId: number, type: string, t
 }
 
 async function getDocumentParticipantUserIds(docId: number): Promise<number[]> {
-  const [elaborators, approvers, recipients] = await Promise.all([
+  const [doc, elaborators, approvers, recipients] = await Promise.all([
+    db
+      .select({ createdById: documentsTable.createdById })
+      .from(documentsTable)
+      .where(eq(documentsTable.id, docId)),
     db
       .selectDistinct({ userId: documentElaboratorsTable.userId })
       .from(documentElaboratorsTable)
@@ -89,6 +97,7 @@ async function getDocumentParticipantUserIds(docId: number): Promise<number[]> {
   ]);
 
   return [...new Set([
+    ...doc.map((row) => row.createdById),
     ...elaborators.map((row) => row.userId),
     ...approvers.map((row) => row.userId),
     ...recipients.map((row) => row.userId),
@@ -96,7 +105,11 @@ async function getDocumentParticipantUserIds(docId: number): Promise<number[]> {
 }
 
 async function getDocumentReviewStakeholderUserIds(docId: number): Promise<number[]> {
-  const [elaborators, approvers] = await Promise.all([
+  const [doc, elaborators, approvers] = await Promise.all([
+    db
+      .select({ createdById: documentsTable.createdById })
+      .from(documentsTable)
+      .where(eq(documentsTable.id, docId)),
     db
       .selectDistinct({ userId: documentElaboratorsTable.userId })
       .from(documentElaboratorsTable)
@@ -108,6 +121,7 @@ async function getDocumentReviewStakeholderUserIds(docId: number): Promise<numbe
   ]);
 
   return [...new Set([
+    ...doc.map((row) => row.createdById),
     ...elaborators.map((row) => row.userId),
     ...approvers.map((row) => row.userId),
   ])];
@@ -192,9 +206,11 @@ async function getDocumentDetail(docId: number, orgId: number) {
     type: documentsTable.type,
     status: documentsTable.status,
     currentVersion: documentsTable.currentVersion,
+    pendingVersionDescription: documentsTable.pendingVersionDescription,
     validityDate: documentsTable.validityDate,
     createdById: documentsTable.createdById,
     createdByName: usersTable.name,
+    createdByEmail: usersTable.email,
     createdAt: documentsTable.createdAt,
     updatedAt: documentsTable.updatedAt,
   })
@@ -208,11 +224,6 @@ async function getDocumentDetail(docId: number, orgId: number) {
     .from(documentUnitsTable)
     .innerJoin(unitsTable, eq(documentUnitsTable.unitId, unitsTable.id))
     .where(eq(documentUnitsTable.documentId, docId));
-
-  const elaboratorRows = await db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email })
-    .from(documentElaboratorsTable)
-    .innerJoin(usersTable, eq(documentElaboratorsTable.userId, usersTable.id))
-    .where(eq(documentElaboratorsTable.documentId, docId));
 
   const maxCycleResult = await db.select({ maxCycle: sql<number>`COALESCE(MAX(${documentApproversTable.approvalCycle}), 1)` })
     .from(documentApproversTable)
@@ -285,7 +296,13 @@ async function getDocumentDetail(docId: number, orgId: number) {
     createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt,
     updatedAt: doc.updatedAt instanceof Date ? doc.updatedAt.toISOString() : doc.updatedAt,
     units: unitRows,
-    elaborators: elaboratorRows,
+    elaborators: doc.createdById
+      ? [{
+        id: doc.createdById,
+        name: doc.createdByName,
+        email: doc.createdByEmail,
+      }]
+      : [],
     approvers: approverRows.map(a => ({
       ...a,
       approvedAt: a.approvedAt instanceof Date ? a.approvedAt.toISOString() : a.approvedAt,
@@ -381,7 +398,6 @@ router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess(
   const orgId = params.data.orgId;
 
   const allUserIds = [...new Set([
-    ...(body.data.elaboratorIds || []),
     ...(body.data.approverIds || []),
     ...(body.data.recipientIds || []),
   ])];
@@ -405,7 +421,7 @@ router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess(
     validityDate: body.data.validityDate || null,
     createdById: userId,
     status: "draft",
-    currentVersion: 1,
+    currentVersion: 0,
   }).returning();
 
   if (body.data.unitIds?.length) {
@@ -414,11 +430,7 @@ router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess(
     );
   }
 
-  if (body.data.elaboratorIds?.length) {
-    await db.insert(documentElaboratorsTable).values(
-      body.data.elaboratorIds.map(uid => ({ documentId: doc.id, userId: uid }))
-    );
-  }
+  await db.insert(documentElaboratorsTable).values({ documentId: doc.id, userId });
 
   if (body.data.approverIds?.length) {
     await db.insert(documentApproversTable).values(
@@ -451,14 +463,6 @@ router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess(
       }))
     );
   }
-
-  await db.insert(documentVersionsTable).values({
-    documentId: doc.id,
-    versionNumber: 1,
-    changeDescription: "Documento criado",
-    changedById: userId,
-    changedFields: "all",
-  });
 
   const detail = await getDocumentDetail(doc.id, orgId);
   res.status(201).json(detail);
@@ -497,7 +501,6 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
   }
 
   const allUserIds = [...new Set([
-    ...(body.data.elaboratorIds || []),
     ...(body.data.approverIds || []),
     ...(body.data.recipientIds || []),
   ])];
@@ -514,24 +517,17 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
     return;
   }
 
-  const changedFields: string[] = [];
   const updates: Record<string, unknown> = {};
 
   if (body.data.title && body.data.title !== existing.title) {
     updates.title = body.data.title;
-    changedFields.push("título");
   }
   if (body.data.type && body.data.type !== existing.type) {
     updates.type = body.data.type;
-    changedFields.push("tipo");
   }
   if (body.data.validityDate !== undefined) {
     updates.validityDate = body.data.validityDate || null;
-    changedFields.push("data de validade");
   }
-
-  const newVersion = existing.currentVersion + 1;
-  updates.currentVersion = newVersion;
 
   await db.update(documentsTable).set(updates).where(eq(documentsTable.id, docId));
 
@@ -540,15 +536,6 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
     if (body.data.unitIds.length) {
       await db.insert(documentUnitsTable).values(body.data.unitIds.map(uid => ({ documentId: docId, unitId: uid })));
     }
-    changedFields.push("filiais");
-  }
-
-  if (body.data.elaboratorIds) {
-    await db.delete(documentElaboratorsTable).where(eq(documentElaboratorsTable.documentId, docId));
-    if (body.data.elaboratorIds.length) {
-      await db.insert(documentElaboratorsTable).values(body.data.elaboratorIds.map(uid => ({ documentId: docId, userId: uid })));
-    }
-    changedFields.push("elaboradores");
   }
 
   if (body.data.approverIds) {
@@ -556,7 +543,6 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
     if (body.data.approverIds.length) {
       await db.insert(documentApproversTable).values(body.data.approverIds.map(uid => ({ documentId: docId, userId: uid })));
     }
-    changedFields.push("aprovadores");
   }
 
   if (body.data.recipientIds) {
@@ -564,7 +550,6 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
     if (body.data.recipientIds.length) {
       await db.insert(documentRecipientsTable).values(body.data.recipientIds.map(uid => ({ documentId: docId, userId: uid })));
     }
-    changedFields.push("destinatários");
   }
 
   if (body.data.referenceIds) {
@@ -572,17 +557,7 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
     if (body.data.referenceIds.length) {
       await db.insert(documentReferencesTable).values(body.data.referenceIds.map(refId => ({ documentId: docId, referencedDocumentId: refId })));
     }
-    changedFields.push("referências");
   }
-
-  const changeDesc = body.data.changeDescription || `Alterações: ${changedFields.join(", ") || "metadados"}`;
-  await db.insert(documentVersionsTable).values({
-    documentId: docId,
-    versionNumber: newVersion,
-    changeDescription: changeDesc,
-    changedById: userId,
-    changedFields: changedFields.join(", ") || null,
-  });
 
   const detail = await getDocumentDetail(docId, orgId);
   await notifyDocumentParticipants({
@@ -591,7 +566,7 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
     actorUserId: userId,
     type: "document_updated",
     title: "Documento atualizado",
-    description: `O documento "${detail?.title || existing.title}" recebeu uma nova revisão: ${changeDesc}.`,
+    description: `O documento "${detail?.title || existing.title}" foi atualizado em rascunho.`,
   });
   res.json(detail);
 });
@@ -659,27 +634,16 @@ router.post("/organizations/:orgId/documents/:docId/attachments", requireAuth, r
   }
 
   const userId = req.auth!.userId;
-  const newVersion = doc.currentVersion + 1;
 
   const [att] = await db.insert(documentAttachmentsTable).values({
     documentId: doc.id,
-    versionNumber: newVersion,
+    versionNumber: doc.currentVersion + 1,
     fileName: body.data.fileName,
     fileSize: body.data.fileSize,
     contentType: body.data.contentType,
     objectPath: body.data.objectPath,
     uploadedById: userId,
   }).returning();
-
-  await db.update(documentsTable).set({ currentVersion: newVersion }).where(eq(documentsTable.id, doc.id));
-
-  await db.insert(documentVersionsTable).values({
-    documentId: doc.id,
-    versionNumber: newVersion,
-    changeDescription: `Anexo adicionado: ${body.data.fileName}`,
-    changedById: userId,
-    changedFields: "anexos",
-  });
 
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
@@ -719,7 +683,6 @@ router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", re
   }
 
   const userId = req.auth!.userId;
-  const newVersion = doc.currentVersion + 1;
   let deletedAttachment: typeof documentAttachmentsTable.$inferSelect;
 
   try {
@@ -732,19 +695,6 @@ router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", re
       if (!attachment) {
         throw new Error("DOCUMENT_ATTACHMENT_NOT_FOUND");
       }
-
-      await tx
-        .update(documentsTable)
-        .set({ currentVersion: newVersion })
-        .where(eq(documentsTable.id, doc.id));
-
-      await tx.insert(documentVersionsTable).values({
-        documentId: doc.id,
-        versionNumber: newVersion,
-        changeDescription: `Anexo removido: ${attachment.fileName}`,
-        changedById: userId,
-        changedFields: "anexos",
-      });
 
       return attachment;
     });
@@ -771,10 +721,69 @@ router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", re
   res.sendStatus(204);
 });
 
+router.get("/organizations/:orgId/documents/:docId/attachments/:attachId/file", requireAuth, async (req, res): Promise<void> => {
+  const params = DeleteDocumentAttachmentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const [attachment] = await db.select({
+    id: documentAttachmentsTable.id,
+    fileName: documentAttachmentsTable.fileName,
+    contentType: documentAttachmentsTable.contentType,
+    objectPath: documentAttachmentsTable.objectPath,
+  })
+    .from(documentAttachmentsTable)
+    .innerJoin(documentsTable, eq(documentAttachmentsTable.documentId, documentsTable.id))
+    .where(and(
+      eq(documentAttachmentsTable.id, params.data.attachId),
+      eq(documentAttachmentsTable.documentId, params.data.docId),
+      eq(documentsTable.organizationId, params.data.orgId),
+    ));
+
+  if (!attachment) {
+    res.status(404).json({ error: "Anexo não encontrado" });
+    return;
+  }
+
+  try {
+    const objectFile = await objectStorageService.getObjectEntityFile(attachment.objectPath);
+    const response = await objectStorageService.downloadObject(objectFile);
+    const disposition = req.query.disposition === "attachment" ? "attachment" : "inline";
+
+    res.status(response.status);
+    response.headers.forEach((value, key) => res.setHeader(key, value));
+    res.setHeader(
+      "Content-Disposition",
+      `${disposition}; filename*=UTF-8''${encodeURIComponent(attachment.fileName)}`,
+    );
+    if (!res.getHeader("Content-Type") && attachment.contentType) {
+      res.setHeader("Content-Type", attachment.contentType);
+    }
+
+    if (response.body) {
+      const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
+      nodeStream.pipe(res);
+      return;
+    }
+
+    res.end();
+  } catch (error) {
+    if (error instanceof ObjectNotFoundError) {
+      res.status(404).json({ error: "Arquivo do anexo não encontrado" });
+      return;
+    }
+    console.error("Error serving document attachment:", error);
+    res.status(500).json({ error: "Falha ao servir anexo" });
+  }
+});
+
 router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = SubmitDocumentForReviewParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = SubmitDocumentForReviewBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
   const orgId = params.data.orgId;
   const docId = params.data.docId;
@@ -785,6 +794,10 @@ router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, requir
 
   if (doc.status !== "draft" && doc.status !== "rejected") {
     res.status(400).json({ error: "Documento não pode ser submetido neste estado" });
+    return;
+  }
+  if (doc.createdById !== req.auth!.userId) {
+    res.status(403).json({ error: "Apenas o criador do documento pode enviar para revisão" });
     return;
   }
 
@@ -811,15 +824,12 @@ router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, requir
     });
   }
 
-  await db.update(documentsTable).set({ status: "in_review" }).where(eq(documentsTable.id, docId));
-
-  await db.insert(documentVersionsTable).values({
-    documentId: docId,
-    versionNumber: doc.currentVersion,
-    changeDescription: doc.status === "rejected" ? "Documento reenviado para revisão" : "Documento enviado para revisão",
-    changedById: req.auth!.userId,
-    changedFields: "status:in_review",
-  });
+  await db.update(documentsTable)
+    .set({
+      status: "in_review",
+      pendingVersionDescription: body.data.changeDescription.trim(),
+    })
+    .where(eq(documentsTable.id, docId));
 
   await notifyUsers({
     orgId,
@@ -872,14 +882,6 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
       .set({ status: "approved", approvedAt: new Date(), comment: approvalComment })
       .where(eq(documentApproversTable.id, approver.id));
 
-    await tx.insert(documentVersionsTable).values({
-      documentId: docId,
-      versionNumber: doc.currentVersion,
-      changeDescription: "Aprovado por usuário",
-      changedById: userId,
-      changedFields: "approval:approved",
-    });
-
     const pendingApprovers = await tx.select().from(documentApproversTable)
       .where(and(
         eq(documentApproversTable.documentId, docId),
@@ -890,37 +892,39 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
     if (pendingApprovers.length > 0) {
       return {
         fullyApproved: false,
+        newVersion: null as number | null,
         distributedToUserIds: [] as number[],
       };
     }
 
-    await tx.update(documentsTable).set({ status: "approved" }).where(eq(documentsTable.id, docId));
+    const newVersion = doc.currentVersion + 1;
+    const nextStatus = (await tx.select({ userId: documentRecipientsTable.userId }).from(documentRecipientsTable)
+      .where(eq(documentRecipientsTable.documentId, docId))).length > 0
+      ? "distributed"
+      : "approved";
+
+    await tx.update(documentsTable)
+      .set({
+        status: nextStatus,
+        currentVersion: newVersion,
+        pendingVersionDescription: null,
+      })
+      .where(eq(documentsTable.id, docId));
 
     await tx.insert(documentVersionsTable).values({
       documentId: docId,
-      versionNumber: doc.currentVersion,
-      changeDescription: "Documento aprovado por todos os aprovadores",
+      versionNumber: newVersion,
+      changeDescription: doc.pendingVersionDescription?.trim() || `Versão ${newVersion} aprovada`,
       changedById: userId,
-      changedFields: "status:approved",
+      changedFields: "version_approved",
     });
 
     const recipients = await tx.select({ userId: documentRecipientsTable.userId }).from(documentRecipientsTable)
       .where(eq(documentRecipientsTable.documentId, docId));
 
-    if (recipients.length > 0) {
-      await tx.update(documentsTable).set({ status: "distributed" }).where(eq(documentsTable.id, docId));
-
-      await tx.insert(documentVersionsTable).values({
-        documentId: docId,
-        versionNumber: doc.currentVersion,
-        changeDescription: "Documento distribuído automaticamente aos destinatários",
-        changedById: userId,
-        changedFields: "status:distributed",
-      });
-    }
-
     return {
       fullyApproved: true,
+      newVersion,
       distributedToUserIds: recipients.map((recipient) => recipient.userId),
     };
   });
@@ -941,7 +945,7 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
       actorUserId: userId,
       type: "document_approved",
       title: "Documento aprovado",
-      description: `O documento "${doc.title}" foi aprovado por todos os aprovadores.`,
+      description: `O documento "${doc.title}" foi aprovado por todos os aprovadores e formalizou a versão ${approvalResult.newVersion}.`,
     });
 
     if (approvalResult.distributedToUserIds.length > 0) {
@@ -1000,14 +1004,6 @@ router.post("/organizations/:orgId/documents/:docId/reject", requireAuth, requir
 
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
-  await db.insert(documentVersionsTable).values({
-    documentId: docId,
-    versionNumber: doc.currentVersion,
-    changeDescription: `Rejeitado por ${userName?.name || "aprovador"}: ${body.data.comment}`,
-    changedById: userId,
-    changedFields: "status:rejected",
-  });
-
   await notifyDocumentParticipants({
     orgId,
     docId,
@@ -1040,14 +1036,6 @@ router.post("/organizations/:orgId/documents/:docId/distribute", requireAuth, re
       .update(documentsTable)
       .set({ status: "distributed" })
       .where(eq(documentsTable.id, docId));
-
-    await tx.insert(documentVersionsTable).values({
-      documentId: docId,
-      versionNumber: doc.currentVersion,
-      changeDescription: "Documento distribuído manualmente aos destinatários",
-      changedById: actorUserId,
-      changedFields: "status:distributed",
-    });
 
     return tx
       .select({ userId: documentRecipientsTable.userId })
@@ -1093,14 +1081,6 @@ router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, a
     .where(eq(documentRecipientsTable.id, recipient.id));
 
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
-
-  await db.insert(documentVersionsTable).values({
-    documentId: docId,
-    versionNumber: doc.currentVersion,
-    changeDescription: `Recebimento confirmado por ${userName?.name || "destinatário"}`,
-    changedById: userId,
-    changedFields: "acknowledgment",
-  });
 
   const acknowledgmentAudience = await getDocumentReviewStakeholderUserIds(docId);
   await notifyUsers({

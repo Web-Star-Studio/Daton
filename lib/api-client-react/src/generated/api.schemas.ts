@@ -1772,6 +1772,7 @@ export interface DocumentSummary {
   title: string;
   type: string;
   status: string;
+  /** 0 indicates the document has no approved formal version yet. */
   currentVersion: number;
   validityDate?: string | null;
   createdByName?: string;
@@ -1874,7 +1875,6 @@ export interface CreateDocumentBody {
   type: CreateDocumentBodyType;
   validityDate?: string;
   unitIds?: number[];
-  elaboratorIds?: number[];
   approverIds: number[];
   recipientIds?: number[];
   referenceIds?: number[];
@@ -1886,11 +1886,14 @@ export interface UpdateDocumentBody {
   type?: string;
   validityDate?: string;
   unitIds?: number[];
-  elaboratorIds?: number[];
   approverIds?: number[];
   recipientIds?: number[];
   referenceIds?: number[];
-  changeDescription?: string;
+}
+
+export interface SubmitDocumentForReviewBody {
+  /** @minLength 1 */
+  changeDescription: string;
 }
 
 export interface AddDocumentAttachmentBody {
@@ -2011,6 +2014,18 @@ export type ListDocumentsParams = {
   status?: string;
   unitId?: number;
 };
+
+export type GetDocumentAttachmentFileParams = {
+  disposition?: GetDocumentAttachmentFileDisposition;
+};
+
+export type GetDocumentAttachmentFileDisposition =
+  (typeof GetDocumentAttachmentFileDisposition)[keyof typeof GetDocumentAttachmentFileDisposition];
+
+export const GetDocumentAttachmentFileDisposition = {
+  inline: "inline",
+  attachment: "attachment",
+} as const;
 
 export type ListNotifications200 = {
   notifications?: NotificationItem[];

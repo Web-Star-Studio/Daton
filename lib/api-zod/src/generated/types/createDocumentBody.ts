@@ -13,7 +13,6 @@ export interface CreateDocumentBody {
   type: CreateDocumentBodyType;
   validityDate?: string;
   unitIds?: number[];
-  elaboratorIds?: number[];
   approverIds: number[];
   recipientIds?: number[];
   referenceIds?: number[];

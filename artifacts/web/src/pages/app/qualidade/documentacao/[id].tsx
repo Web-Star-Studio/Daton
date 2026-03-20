@@ -35,11 +35,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
-import { resolveApiUrl } from "@/lib/api";
+import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
 import {
   ArrowLeft,
   FileText,
   Upload,
+  Download,
   Clock,
   CheckCircle,
   XCircle,
@@ -119,16 +120,19 @@ function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatVersionLabel(version: number | null | undefined) {
+  if (!version || version <= 0) return "Sem versão aprovada";
+  return `v${version}`;
+}
+
 interface EditFormState {
   title: string;
   type: string;
   validityDate: string;
   unitIds: number[];
-  elaboratorIds: number[];
   approverIds: number[];
   recipientIds: number[];
   referenceIds: number[];
-  changeDescription: string;
 }
 
 export default function DocumentDetailPage() {
@@ -148,6 +152,11 @@ export default function DocumentDetailPage() {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [submitDialog, setSubmitDialog] = useState(false);
+  const [submitChangeDescription, setSubmitChangeDescription] = useState("");
+  const [attachmentActionKey, setAttachmentActionKey] = useState<
+    string | null
+  >(null);
   const [editForm, setEditForm] = useState<EditFormState | null>(null);
 
   const { data: doc, isLoading } = useGetDocument(orgId!, docId, {
@@ -212,10 +221,20 @@ export default function DocumentDetailPage() {
   const canEdit =
     canWriteDocuments &&
     (doc?.status === "draft" || doc?.status === "rejected");
+  const canSubmitForReview =
+    canWriteDocuments &&
+    doc?.createdById === user?.id &&
+    (doc?.status === "draft" || doc?.status === "rejected");
 
   const handleSubmitForReview = async () => {
-    if (!orgId) return;
-    await submitMut.mutateAsync({ orgId, docId });
+    if (!orgId || !submitChangeDescription.trim()) return;
+    await submitMut.mutateAsync({
+      orgId,
+      docId,
+      data: { changeDescription: submitChangeDescription.trim() },
+    });
+    setSubmitDialog(false);
+    setSubmitChangeDescription("");
     invalidate();
   };
 
@@ -249,8 +268,7 @@ export default function DocumentDetailPage() {
             <Button
               size="sm"
               onClick={() => {
-                if (!orgId || !editForm || !editForm.changeDescription.trim())
-                  return;
+                if (!orgId || !editForm) return;
                 updateMut
                   .mutateAsync({
                     orgId,
@@ -260,11 +278,9 @@ export default function DocumentDetailPage() {
                       type: editForm.type,
                       validityDate: editForm.validityDate || undefined,
                       unitIds: editForm.unitIds,
-                      elaboratorIds: editForm.elaboratorIds,
                       approverIds: editForm.approverIds,
                       recipientIds: editForm.recipientIds,
                       referenceIds: editForm.referenceIds,
-                      changeDescription: editForm.changeDescription,
                     },
                   })
                   .then(() => {
@@ -274,7 +290,7 @@ export default function DocumentDetailPage() {
                   });
               }}
               isLoading={updateMut.isPending}
-              disabled={!editForm?.changeDescription?.trim()}
+              disabled={!editForm?.title?.trim()}
             >
               <Save className="h-3.5 w-3.5 mr-1.5" /> Salvar
             </Button>
@@ -295,10 +311,6 @@ export default function DocumentDetailPage() {
                       doc.units
                         ?.map((u: DocumentDetailUnitsItem) => u.id!)
                         .filter(Boolean) ?? [],
-                    elaboratorIds:
-                      doc.elaborators
-                        ?.map((e: OrgUser) => e.id!)
-                        .filter(Boolean) ?? [],
                     approverIds:
                       doc.approvers
                         ?.map((a: DocumentDetailApproversItem) => a.userId!)
@@ -314,7 +326,6 @@ export default function DocumentDetailPage() {
                             ref.documentId!,
                         )
                         .filter(Boolean) ?? [],
-                    changeDescription: "",
                   });
                   setIsEditing(true);
                 }}
@@ -322,20 +333,24 @@ export default function DocumentDetailPage() {
                 <Pencil className="h-3.5 w-3.5 mr-1.5" /> Editar
               </Button>
             )}
-            {doc.status === "draft" && (
+            {canSubmitForReview && doc.status === "draft" && (
               <Button
                 size="sm"
-                onClick={handleSubmitForReview}
-                isLoading={submitMut.isPending}
+                onClick={() => {
+                  setSubmitChangeDescription("");
+                  setSubmitDialog(true);
+                }}
               >
                 <Send className="h-3.5 w-3.5 mr-1.5" /> Enviar para Revisão
               </Button>
             )}
-            {doc.status === "rejected" && (
+            {canSubmitForReview && doc.status === "rejected" && (
               <Button
                 size="sm"
-                onClick={handleSubmitForReview}
-                isLoading={submitMut.isPending}
+                onClick={() => {
+                  setSubmitChangeDescription("");
+                  setSubmitDialog(true);
+                }}
               >
                 <Send className="h-3.5 w-3.5 mr-1.5" /> Reenviar para Revisão
               </Button>
@@ -377,61 +392,6 @@ export default function DocumentDetailPage() {
     ) : null,
   );
 
-  const startEditing = () => {
-    if (!doc) return;
-    setEditForm({
-      title: doc.title,
-      type: doc.type,
-      validityDate: doc.validityDate ?? "",
-      unitIds:
-        doc.units?.map((u: DocumentDetailUnitsItem) => u.id!).filter(Boolean) ??
-        [],
-      elaboratorIds:
-        doc.elaborators?.map((e: OrgUser) => e.id!).filter(Boolean) ?? [],
-      approverIds:
-        doc.approvers
-          ?.map((a: DocumentDetailApproversItem) => a.userId!)
-          .filter(Boolean) ?? [],
-      recipientIds:
-        doc.recipients
-          ?.map((r: DocumentDetailRecipientsItem) => r.userId!)
-          .filter(Boolean) ?? [],
-      referenceIds:
-        doc.references
-          ?.map((ref: DocumentDetailReferencesItem) => ref.documentId!)
-          .filter(Boolean) ?? [],
-      changeDescription: "",
-    });
-    setIsEditing(true);
-  };
-
-  const cancelEditing = () => {
-    setIsEditing(false);
-    setEditForm(null);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!orgId || !editForm || !editForm.changeDescription.trim()) return;
-    await updateMut.mutateAsync({
-      orgId,
-      docId,
-      data: {
-        title: editForm.title,
-        type: editForm.type,
-        validityDate: editForm.validityDate || undefined,
-        unitIds: editForm.unitIds,
-        elaboratorIds: editForm.elaboratorIds,
-        approverIds: editForm.approverIds,
-        recipientIds: editForm.recipientIds,
-        referenceIds: editForm.referenceIds,
-        changeDescription: editForm.changeDescription,
-      },
-    });
-    setIsEditing(false);
-    setEditForm(null);
-    invalidate();
-  };
-
   const handleReject = async () => {
     if (!orgId || !rejectComment.trim()) return;
     await rejectMut.mutateAsync({
@@ -448,6 +408,51 @@ export default function DocumentDetailPage() {
     if (!orgId) return;
     await deleteMut.mutateAsync({ orgId, docId });
     navigate("/qualidade/documentacao");
+  };
+
+  const handleAttachmentAction = async (
+    attachment: DocumentAttachment,
+    disposition: "inline" | "attachment",
+  ) => {
+    if (!orgId || !attachment.id) return;
+    const actionKey = `${attachment.id}:${disposition}`;
+    setAttachmentActionKey(actionKey);
+
+    try {
+      const response = await fetch(
+        resolveApiUrl(
+          `/api/organizations/${orgId}/documents/${docId}/attachments/${attachment.id}/file?disposition=${disposition}`,
+        ),
+        {
+          headers: getAuthHeaders(),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+
+      if (disposition === "inline") {
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+      } else {
+        link.download = attachment.fileName;
+      }
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    } catch (error) {
+      console.error("Attachment fetch failed:", error);
+    } finally {
+      setAttachmentActionKey(null);
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -554,7 +559,7 @@ export default function DocumentDetailPage() {
         </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <span>{TYPE_LABELS[doc.type] || doc.type}</span>
-          <span>v{doc.currentVersion}</span>
+          <span>{formatVersionLabel(doc.currentVersion)}</span>
           <span>Criado por {doc.createdByName}</span>
           <span>Validade: {formatDate(doc.validityDate)}</span>
         </div>
@@ -584,7 +589,10 @@ export default function DocumentDetailPage() {
             <InfoField label="Tipo" value={TYPE_LABELS[doc.type] || doc.type} />
           </div>
           <div className="grid grid-cols-2 gap-6">
-            <InfoField label="Versão Atual" value={`v${doc.currentVersion}`} />
+            <InfoField
+              label="Versão Atual"
+              value={formatVersionLabel(doc.currentVersion)}
+            />
             <InfoField
               label="Data de Validade"
               value={formatDate(doc.validityDate)}
@@ -622,7 +630,7 @@ export default function DocumentDetailPage() {
           {doc.elaborators && doc.elaborators.length > 0 && (
             <div>
               <Label className="text-muted-foreground text-xs uppercase tracking-wider">
-                Elaboradores
+                Elaborador
               </Label>
               <div className="flex flex-wrap gap-2 mt-2">
                 {doc.elaborators.map((e: OrgUser) => (
@@ -730,30 +738,9 @@ export default function DocumentDetailPage() {
           </div>
 
           <div>
-            <Label>Elaboradores</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {orgUsers.map((u: UserOption) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() =>
-                    setEditForm({
-                      ...editForm,
-                      elaboratorIds: toggleMultiSelect(
-                        editForm.elaboratorIds,
-                        u.id,
-                      ),
-                    })
-                  }
-                  className={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
-                    editForm.elaboratorIds.includes(u.id)
-                      ? "bg-foreground text-background"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {u.name}
-                </button>
-              ))}
+            <Label>Elaborador</Label>
+            <div className="mt-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+              {doc.createdByName || "—"}
             </div>
           </div>
 
@@ -843,30 +830,44 @@ export default function DocumentDetailPage() {
             </div>
           </div>
 
-          <div>
-            <Label>Descrição da Alteração *</Label>
-            <Input
-              className="mt-2"
-              placeholder="Descreva o que foi alterado nesta versão..."
-              value={editForm.changeDescription}
-              onChange={(e) =>
-                setEditForm({ ...editForm, changeDescription: e.target.value })
-              }
-            />
-          </div>
-
           <div className="flex items-center gap-3 pt-2">
             <Button
               size="sm"
-              onClick={handleSaveEdit}
+              onClick={() => {
+                if (!orgId || !editForm) return;
+                updateMut
+                  .mutateAsync({
+                    orgId,
+                    docId,
+                    data: {
+                      title: editForm.title,
+                      type: editForm.type,
+                      validityDate: editForm.validityDate || undefined,
+                      unitIds: editForm.unitIds,
+                      approverIds: editForm.approverIds,
+                      recipientIds: editForm.recipientIds,
+                      referenceIds: editForm.referenceIds,
+                    },
+                  })
+                  .then(() => {
+                    setIsEditing(false);
+                    setEditForm(null);
+                    invalidate();
+                  });
+              }}
               isLoading={updateMut.isPending}
-              disabled={
-                !editForm.title.trim() || !editForm.changeDescription.trim()
-              }
+              disabled={!editForm.title.trim()}
             >
               <Save className="h-3.5 w-3.5 mr-1.5" /> Salvar Alterações
             </Button>
-            <Button size="sm" variant="outline" onClick={cancelEditing}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setIsEditing(false);
+                setEditForm(null);
+              }}
+            >
               <X className="h-3.5 w-3.5 mr-1.5" /> Cancelar
             </Button>
           </div>
@@ -916,6 +917,26 @@ export default function DocumentDetailPage() {
                         {formatDateTime(att.uploadedAt)}
                       </p>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleAttachmentAction(att, "inline")}
+                      disabled={attachmentActionKey === `${att.id}:inline`}
+                    >
+                      <Eye className="h-3.5 w-3.5 mr-1.5" />
+                      Visualizar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleAttachmentAction(att, "attachment")}
+                      disabled={attachmentActionKey === `${att.id}:attachment`}
+                    >
+                      <Download className="h-3.5 w-3.5 mr-1.5" />
+                      Baixar
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -1105,6 +1126,52 @@ export default function DocumentDetailPage() {
           </div>
         </div>
       )}
+
+      <Dialog
+        open={submitDialog}
+        onOpenChange={(open) => {
+          setSubmitDialog(open);
+          if (!open) setSubmitChangeDescription("");
+        }}
+        title={
+          doc.currentVersion > 0
+            ? "Enviar nova versão para revisão"
+            : "Enviar primeira versão para revisão"
+        }
+        description="Descreva a mudança que será formalizada quando todos os aprovadores concluírem a aprovação."
+      >
+        <div className="space-y-4">
+          <div>
+            <Label>Descrição da versão *</Label>
+            <Input
+              className="mt-2"
+              placeholder="Ex.: Atualização do fluxo de aprovação e anexos do procedimento."
+              value={submitChangeDescription}
+              onChange={(e) => setSubmitChangeDescription(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSubmitDialog(false);
+                setSubmitChangeDescription("");
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSubmitForReview}
+              disabled={!submitChangeDescription.trim()}
+              isLoading={submitMut.isPending}
+            >
+              Enviar para Revisão
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
 
       <Dialog
         open={rejectDialog}

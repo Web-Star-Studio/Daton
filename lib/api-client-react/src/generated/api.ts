@@ -58,6 +58,7 @@ import type {
   EmployeeProfileItemAttachment,
   EmployeeTraining,
   ErrorResponse,
+  GetDocumentAttachmentFileParams,
   GetUnitQuestionnaireResponses200,
   GovernanceRiskOpportunityListItem,
   HealthStatus,
@@ -97,6 +98,7 @@ import type {
   StrategicPlanReviewBody,
   StrategicPlanRiskOpportunityItem,
   StrategicPlanSwotItem,
+  SubmitDocumentForReviewBody,
   SubmitQuestionnaireResponse,
   SuccessResponse,
   Unit,
@@ -6330,7 +6332,7 @@ export function useGetDocument<
 }
 
 /**
- * @summary Update document (creates new version)
+ * @summary Update document draft
  */
 export const getUpdateDocumentUrl = (orgId: number, docId: number) => {
   return `/api/organizations/${orgId}/documents/${docId}`;
@@ -6395,7 +6397,7 @@ export type UpdateDocumentMutationBody = BodyType<UpdateDocumentBody>;
 export type UpdateDocumentMutationError = ErrorType<unknown>;
 
 /**
- * @summary Update document (creates new version)
+ * @summary Update document draft
  */
 export const useUpdateDocument = <
   TError = ErrorType<unknown>,
@@ -6697,6 +6699,142 @@ export const useAddDocumentAttachment = <
 };
 
 /**
+ * @summary View or download document attachment file
+ */
+export const getGetDocumentAttachmentFileUrl = (
+  orgId: number,
+  docId: number,
+  attachId: number,
+  params?: GetDocumentAttachmentFileParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/documents/${docId}/attachments/${attachId}?${stringifiedParams}`
+    : `/api/organizations/${orgId}/documents/${docId}/attachments/${attachId}`;
+};
+
+export const getDocumentAttachmentFile = async (
+  orgId: number,
+  docId: number,
+  attachId: number,
+  params?: GetDocumentAttachmentFileParams,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(
+    getGetDocumentAttachmentFileUrl(orgId, docId, attachId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetDocumentAttachmentFileQueryKey = (
+  orgId: number,
+  docId: number,
+  attachId: number,
+  params?: GetDocumentAttachmentFileParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/documents/${docId}/attachments/${attachId}`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetDocumentAttachmentFileQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDocumentAttachmentFile>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  docId: number,
+  attachId: number,
+  params?: GetDocumentAttachmentFileParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDocumentAttachmentFile>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetDocumentAttachmentFileQueryKey(orgId, docId, attachId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getDocumentAttachmentFile>>
+  > = ({ signal }) =>
+    getDocumentAttachmentFile(orgId, docId, attachId, params, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && docId && attachId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDocumentAttachmentFile>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDocumentAttachmentFileQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDocumentAttachmentFile>>
+>;
+export type GetDocumentAttachmentFileQueryError = ErrorType<unknown>;
+
+/**
+ * @summary View or download document attachment file
+ */
+
+export function useGetDocumentAttachmentFile<
+  TData = Awaited<ReturnType<typeof getDocumentAttachmentFile>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  docId: number,
+  attachId: number,
+  params?: GetDocumentAttachmentFileParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDocumentAttachmentFile>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDocumentAttachmentFileQueryOptions(
+    orgId,
+    docId,
+    attachId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Delete document attachment
  */
 export const getDeleteDocumentAttachmentUrl = (
@@ -6799,6 +6937,7 @@ export const getSubmitDocumentForReviewUrl = (orgId: number, docId: number) => {
 export const submitDocumentForReview = async (
   orgId: number,
   docId: number,
+  submitDocumentForReviewBody: SubmitDocumentForReviewBody,
   options?: RequestInit,
 ): Promise<DocumentDetail> => {
   return customFetch<DocumentDetail>(
@@ -6806,6 +6945,8 @@ export const submitDocumentForReview = async (
     {
       ...options,
       method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(submitDocumentForReviewBody),
     },
   );
 };
@@ -6817,14 +6958,18 @@ export const getSubmitDocumentForReviewMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof submitDocumentForReview>>,
     TError,
-    { orgId: number; docId: number },
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<SubmitDocumentForReviewBody>;
+    },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof submitDocumentForReview>>,
   TError,
-  { orgId: number; docId: number },
+  { orgId: number; docId: number; data: BodyType<SubmitDocumentForReviewBody> },
   TContext
 > => {
   const mutationKey = ["submitDocumentForReview"];
@@ -6838,11 +6983,15 @@ export const getSubmitDocumentForReviewMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof submitDocumentForReview>>,
-    { orgId: number; docId: number }
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<SubmitDocumentForReviewBody>;
+    }
   > = (props) => {
-    const { orgId, docId } = props ?? {};
+    const { orgId, docId, data } = props ?? {};
 
-    return submitDocumentForReview(orgId, docId, requestOptions);
+    return submitDocumentForReview(orgId, docId, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -6851,7 +7000,8 @@ export const getSubmitDocumentForReviewMutationOptions = <
 export type SubmitDocumentForReviewMutationResult = NonNullable<
   Awaited<ReturnType<typeof submitDocumentForReview>>
 >;
-
+export type SubmitDocumentForReviewMutationBody =
+  BodyType<SubmitDocumentForReviewBody>;
 export type SubmitDocumentForReviewMutationError = ErrorType<unknown>;
 
 /**
@@ -6864,14 +7014,18 @@ export const useSubmitDocumentForReview = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof submitDocumentForReview>>,
     TError,
-    { orgId: number; docId: number },
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<SubmitDocumentForReviewBody>;
+    },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof submitDocumentForReview>>,
   TError,
-  { orgId: number; docId: number },
+  { orgId: number; docId: number; data: BodyType<SubmitDocumentForReviewBody> },
   TContext
 > => {
   return useMutation(getSubmitDocumentForReviewMutationOptions(options));

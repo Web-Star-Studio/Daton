@@ -11,6 +11,7 @@ export interface DocumentSummary {
   title: string;
   type: string;
   status: string;
+  /** 0 indicates the document has no approved formal version yet. */
   currentVersion: number;
   validityDate?: string | null;
   createdByName?: string;

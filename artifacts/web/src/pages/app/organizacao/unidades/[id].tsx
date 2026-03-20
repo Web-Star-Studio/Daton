@@ -16,8 +16,211 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { ArrowLeft, Pencil, Save, X, ClipboardList } from "lucide-react";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+import { ArrowLeft, ClipboardList, Pencil } from "lucide-react";
 import { QuestionnaireModal } from "@/components/questionnaire/QuestionnaireModal";
+
+type UnitFormData = {
+  name: string;
+  code: string;
+  type: UpdateUnitBodyType;
+  cnpj: string;
+  status: "ativa" | "inativa";
+  cep: string;
+  address: string;
+  streetNumber: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  country: string;
+  phone: string;
+};
+
+type UnitLike = Partial<{
+  name: string | null;
+  code: string | null;
+  type: UpdateUnitBodyType | null;
+  cnpj: string | null;
+  status: "ativa" | "inativa" | null;
+  cep: string | null;
+  address: string | null;
+  streetNumber: string | null;
+  neighborhood: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  phone: string | null;
+}>;
+
+const editSteps = ["Identidade", "Operação", "Endereço"];
+const editStepDescriptions = [
+  "Defina os dados principais que identificam a unidade na organização.",
+  "Ajuste o status operacional e os canais de contato da unidade.",
+  "Revise o endereço completo antes de salvar as alterações.",
+];
+
+function getUnitFormData(unit?: UnitLike | null): UnitFormData {
+  return {
+    name: unit?.name || "",
+    code: unit?.code || "",
+    type: unit?.type || "filial",
+    cnpj: unit?.cnpj || "",
+    status: unit?.status || "ativa",
+    cep: unit?.cep || "",
+    address: unit?.address || "",
+    streetNumber: unit?.streetNumber || "",
+    neighborhood: unit?.neighborhood || "",
+    city: unit?.city || "",
+    state: unit?.state || "",
+    country: unit?.country || "Brasil",
+    phone: unit?.phone || "",
+  };
+}
+
+function DialogStepTabs({
+  steps,
+  step,
+  onStepChange,
+}: {
+  steps: string[];
+  step: number;
+  onStepChange: (step: number) => void;
+}) {
+  return (
+    <div className="mb-6 flex items-center gap-1">
+      {steps.map((label, index) => (
+        <React.Fragment key={label}>
+          {index > 0 && <div className="h-px flex-1 bg-border/80" />}
+          <button
+            type="button"
+            onClick={() => onStepChange(index)}
+            className={cn(
+              "cursor-pointer whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors",
+              step === index
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {label}
+          </button>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+function DialogStepFooter({
+  step,
+  totalSteps,
+  onBack,
+  onCancel,
+  onNext,
+  onSubmit,
+  isPending,
+  disabled,
+}: {
+  step: number;
+  totalSteps: number;
+  onBack: () => void;
+  onCancel: () => void;
+  onNext: () => void;
+  onSubmit: () => void;
+  isPending?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <DialogFooter>
+      {step > 0 ? (
+        <Button type="button" variant="outline" size="sm" onClick={onBack}>
+          Anterior
+        </Button>
+      ) : (
+        <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+          Cancelar
+        </Button>
+      )}
+      {step < totalSteps - 1 ? (
+        <Button type="button" size="sm" onClick={onNext} disabled={disabled}>
+          Próximo
+        </Button>
+      ) : (
+        <Button type="button" size="sm" onClick={onSubmit} isLoading={isPending} disabled={disabled}>
+          Salvar alterações
+        </Button>
+      )}
+    </DialogFooter>
+  );
+}
+
+function DisplayField({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value?: string;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+        {label}
+      </p>
+      <p className="text-[14px] font-medium text-foreground min-h-[20px]">
+        {value || <span className="text-muted-foreground">—</span>}
+      </p>
+    </div>
+  );
+}
+
+function EditField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </Label>
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+
+function EditSelectField({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </Label>
+      <Select value={value} onChange={(e) => onChange(e.target.value)} className="border border-border rounded-xl px-3">
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
+    </div>
+  );
+}
 
 export default function UnitDetailPage() {
   const params = useParams<{ id: string }>();
@@ -34,28 +237,13 @@ export default function UnitDetailPage() {
   });
   const updateMut = useUpdateUnit();
 
-  const [editing, setEditing] = useState(false);
-  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editStep, setEditStep] = useState(0);
+  const [formData, setFormData] = useState<UnitFormData>(getUnitFormData());
   const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
 
   useEffect(() => {
-    if (unit) {
-      setFormData({
-        name: unit.name || "",
-        code: unit.code || "",
-        type: unit.type || "filial",
-        cnpj: unit.cnpj || "",
-        status: unit.status || "ativa",
-        cep: unit.cep || "",
-        address: unit.address || "",
-        streetNumber: unit.streetNumber || "",
-        neighborhood: unit.neighborhood || "",
-        city: unit.city || "",
-        state: unit.state || "",
-        country: unit.country || "Brasil",
-        phone: unit.phone || "",
-      });
-    }
+    setFormData(getUnitFormData(unit));
   }, [unit]);
 
   const handleSave = async () => {
@@ -78,43 +266,37 @@ export default function UnitDetailPage() {
     await updateMut.mutateAsync({ orgId, unitId, data: body });
     queryClient.invalidateQueries({ queryKey: getGetUnitQueryKey(orgId, unitId) });
     queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey(orgId) });
-    setEditing(false);
+    setEditModalOpen(false);
+    setEditStep(0);
   };
 
-  const handleCancel = () => {
-    if (unit) {
-      setFormData({
-        name: unit.name || "",
-        code: unit.code || "",
-        type: unit.type || "filial",
-        cnpj: unit.cnpj || "",
-        status: unit.status || "ativa",
-        cep: unit.cep || "",
-        address: unit.address || "",
-        streetNumber: unit.streetNumber || "",
-        neighborhood: unit.neighborhood || "",
-        city: unit.city || "",
-        state: unit.state || "",
-        country: unit.country || "Brasil",
-        phone: unit.phone || "",
-      });
-    }
-    setEditing(false);
+  const openEditModal = () => {
+    setFormData(getUnitFormData(unit));
+    setEditStep(0);
+    setEditModalOpen(true);
   };
 
-  const updateField = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const closeEditModal = () => {
+    setFormData(getUnitFormData(unit));
+    setEditStep(0);
+    setEditModalOpen(false);
   };
 
+  const updateField = <K extends keyof UnitFormData>(field: K, value: UnitFormData[K]) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const unitView = getUnitFormData(unit);
   const typeLabel =
-    formData.type === "sede" ? "Sede" : formData.type === "filial" ? "Filial" : "—";
+    unitView.type === "sede" ? "Sede" : unitView.type === "filial" ? "Filial" : "—";
   const statusLabel =
-    formData.status === "ativa" ? "Ativa" : formData.status === "inativa" ? "Inativa" : "—";
-  const locationLine = [formData.city, formData.state, formData.country]
+    unitView.status === "ativa" ? "Ativa" : unitView.status === "inativa" ? "Inativa" : "—";
+  const locationLine = [unitView.city, unitView.state, unitView.country]
     .filter(Boolean)
     .join(", ");
-  const addressLine = [formData.address, formData.streetNumber].filter(Boolean).join(", ");
-  const neighborhoodLine = formData.neighborhood || "";
+  const addressLine = [unitView.address, unitView.streetNumber].filter(Boolean).join(", ");
+  const neighborhoodLine = unitView.neighborhood || "";
+  const canAdvance = editStep === 0 ? Boolean(formData.name.trim()) : true;
 
   usePageTitle(unit?.name);
   useHeaderActions(
@@ -128,76 +310,14 @@ export default function UnitDetailPage() {
         {canWriteUnits && <Button variant="secondary" size="sm" onClick={() => setQuestionnaireOpen(true)}>
           <ClipboardList className="w-4 h-4 mr-1" /> Questionário de Compliance
         </Button>}
-        {editing ? (
-          <>
-            <Button variant="ghost" size="sm" onClick={handleCancel}>
-              <X className="w-4 h-4 mr-1" /> Cancelar
-            </Button>
-            <Button size="sm" onClick={handleSave} isLoading={updateMut.isPending}>
-              <Save className="w-4 h-4 mr-1" /> Salvar
-            </Button>
-          </>
-        ) : (
-          canWriteUnits && <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
-            <Pencil className="w-4 h-4 mr-1" /> Editar
-          </Button>
-        )}
+        {canWriteUnits && <Button variant="secondary" size="sm" onClick={openEditModal}>
+          <Pencil className="w-4 h-4 mr-1" /> Editar
+        </Button>}
       </div>
     ) : null
   );
 
   if (isLoading || !unit) return <div className="p-8 text-center text-muted-foreground">Carregando...</div>;
-
-  const Field = ({
-    label,
-    field,
-    placeholder,
-    disabled,
-    className,
-  }: {
-    label: string;
-    field: string;
-    placeholder?: string;
-    disabled?: boolean;
-    className?: string;
-  }) => (
-    <div>
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-        {label}
-      </p>
-      {editing && !disabled ? (
-        <Input
-          value={formData[field] || ""}
-          onChange={e => updateField(field, e.target.value)}
-          placeholder={placeholder}
-          className={className}
-        />
-      ) : (
-        <p className="text-[14px] font-medium text-foreground min-h-[20px]">
-          {formData[field] || <span className="text-muted-foreground">—</span>}
-        </p>
-      )}
-    </div>
-  );
-
-  const SelectField = ({ label, field, options }: { label: string; field: string; options: { value: string; label: string }[] }) => (
-    <div>
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-        {label}
-      </p>
-      {editing ? (
-        <Select value={formData[field] || ""} onChange={e => updateField(field, e.target.value)}>
-          {options.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </Select>
-      ) : (
-        <p className="text-[14px] font-medium text-foreground">
-          {options.find(o => o.value === formData[field])?.label || formData[field]}
-        </p>
-      )}
-    </div>
-  );
 
   return (
     <>
@@ -213,9 +333,9 @@ export default function UnitDetailPage() {
                 <div className="absolute bottom-5 left-5 bg-white/95 backdrop-blur rounded-2xl shadow-sm border border-white/70 p-5 max-w-md">
                   <div className="flex items-center gap-2.5 mb-2">
                     <p className="text-[18px] font-semibold text-foreground">
-                      {formData.name || "Unidade sem nome"}
+                      {unitView.name || "Unidade sem nome"}
                     </p>
-                    <Badge variant={formData.type === "sede" ? "default" : "secondary"} className="uppercase text-[10px]">
+                    <Badge variant={unitView.type === "sede" ? "default" : "secondary"} className="uppercase text-[10px]">
                       {typeLabel}
                     </Badge>
                   </div>
@@ -227,7 +347,7 @@ export default function UnitDetailPage() {
                     {neighborhoodLine ? ` • ${neighborhoodLine}` : ""}
                   </p>
                   <div className="flex items-center gap-2 mt-4">
-                    <span className={`inline-block h-2 w-2 rounded-full ${formData.status === "ativa" ? "bg-emerald-500" : "bg-slate-400"}`} />
+                    <span className={`inline-block h-2 w-2 rounded-full ${unitView.status === "ativa" ? "bg-emerald-500" : "bg-slate-400"}`} />
                     <span className="text-[13px] font-medium text-foreground">{statusLabel}</span>
                   </div>
                 </div>
@@ -240,12 +360,12 @@ export default function UnitDetailPage() {
               Dados Cadastrais
             </h3>
             <div className="grid grid-cols-1 gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
-              <Field label="Nome" field="name" placeholder="Nome da unidade" />
-              <Field label="Código" field="code" placeholder="FIL-001" />
-              <SelectField label="Tipo" field="type" options={[{ value: "sede", label: "Sede" }, { value: "filial", label: "Filial" }]} />
-              <Field label="CNPJ" field="cnpj" placeholder="00.000.000/0000-00" />
-              <SelectField label="Status Operacional" field="status" options={[{ value: "ativa", label: "Ativa" }, { value: "inativa", label: "Inativa" }]} />
-              <Field label="Telefone" field="phone" placeholder="(00) 0000-0000" />
+              <DisplayField label="Nome" value={unitView.name} />
+              <DisplayField label="Código" value={unitView.code} />
+              <DisplayField label="Tipo" value={typeLabel} />
+              <DisplayField label="CNPJ" value={unitView.cnpj} />
+              <DisplayField label="Status Operacional" value={statusLabel} />
+              <DisplayField label="Telefone" value={unitView.phone} />
             </div>
           </div>
 
@@ -254,19 +374,168 @@ export default function UnitDetailPage() {
               Endereço
             </h3>
             <div className="grid grid-cols-1 gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
-              <Field label="CEP" field="cep" placeholder="00000-000" />
-              <div className="md:col-span-2">
-                <Field label="Endereço" field="address" placeholder="Rua, Avenida..." />
-              </div>
-              <Field label="Número" field="streetNumber" placeholder="100" />
-              <Field label="Bairro" field="neighborhood" placeholder="Centro" />
-              <Field label="Cidade" field="city" placeholder="São Paulo" />
-              <Field label="Estado (UF)" field="state" placeholder="SP" />
-              <Field label="País" field="country" placeholder="Brasil" />
+              <DisplayField label="CEP" value={unitView.cep} />
+              <DisplayField label="Endereço" value={unitView.address} className="md:col-span-2" />
+              <DisplayField label="Número" value={unitView.streetNumber} />
+              <DisplayField label="Bairro" value={unitView.neighborhood} />
+              <DisplayField label="Cidade" value={unitView.city} />
+              <DisplayField label="Estado (UF)" value={unitView.state} />
+              <DisplayField label="País" value={unitView.country} />
             </div>
           </div>
         </section>
       </div>
+
+      <Dialog
+        open={canWriteUnits && editModalOpen}
+        onOpenChange={(open) => {
+          if (!open) closeEditModal();
+        }}
+        title="Editar unidade"
+        description={editStepDescriptions[editStep]}
+        size="lg"
+      >
+        <DialogStepTabs steps={editSteps} step={editStep} onStepChange={setEditStep} />
+
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-border/60 bg-muted/30 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Resumo da edição
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <p className="text-[16px] font-semibold text-foreground">
+                {formData.name || "Nova configuração da unidade"}
+              </p>
+              <Badge variant={formData.type === "sede" ? "default" : "secondary"} className="uppercase text-[10px]">
+                {formData.type === "sede" ? "Sede" : "Filial"}
+              </Badge>
+              <Badge variant="outline" className="uppercase text-[10px]">
+                {formData.status === "ativa" ? "Ativa" : "Inativa"}
+              </Badge>
+            </div>
+            <p className="mt-2 text-[13px] text-muted-foreground">
+              {[
+                [formData.address, formData.streetNumber].filter(Boolean).join(", "),
+                [formData.city, formData.state].filter(Boolean).join(", "),
+              ]
+                .filter(Boolean)
+                .join(" • ") || "Complete as etapas para revisar os dados antes de salvar."}
+            </p>
+          </div>
+
+          {editStep === 0 && (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <EditField
+                label="Nome da unidade"
+                value={formData.name}
+                onChange={(value) => updateField("name", value)}
+                placeholder="Transportes Gabardo LTDA"
+              />
+              <EditField
+                label="Código"
+                value={formData.code}
+                onChange={(value) => updateField("code", value)}
+                placeholder="POA"
+              />
+              <EditSelectField
+                label="Tipo"
+                value={formData.type}
+                onChange={(value) => updateField("type", value as UpdateUnitBodyType)}
+                options={[
+                  { value: "sede", label: "Sede" },
+                  { value: "filial", label: "Filial" },
+                ]}
+              />
+              <EditField
+                label="CNPJ"
+                value={formData.cnpj}
+                onChange={(value) => updateField("cnpj", value)}
+                placeholder="00.000.000/0000-00"
+              />
+            </div>
+          )}
+
+          {editStep === 1 && (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <EditSelectField
+                label="Status operacional"
+                value={formData.status}
+                onChange={(value) => updateField("status", value as "ativa" | "inativa")}
+                options={[
+                  { value: "ativa", label: "Ativa" },
+                  { value: "inativa", label: "Inativa" },
+                ]}
+              />
+              <EditField
+                label="Telefone"
+                value={formData.phone}
+                onChange={(value) => updateField("phone", value)}
+                placeholder="(51) 3373-3020"
+              />
+            </div>
+          )}
+
+          {editStep === 2 && (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <EditField
+                label="CEP"
+                value={formData.cep}
+                onChange={(value) => updateField("cep", value)}
+                placeholder="90200-230"
+              />
+              <div className="md:col-span-2">
+                <EditField
+                  label="Endereço"
+                  value={formData.address}
+                  onChange={(value) => updateField("address", value)}
+                  placeholder="Rua, avenida ou rodovia"
+                />
+              </div>
+              <EditField
+                label="Número"
+                value={formData.streetNumber}
+                onChange={(value) => updateField("streetNumber", value)}
+                placeholder="735"
+              />
+              <EditField
+                label="Bairro"
+                value={formData.neighborhood}
+                onChange={(value) => updateField("neighborhood", value)}
+                placeholder="Anchieta"
+              />
+              <EditField
+                label="Cidade"
+                value={formData.city}
+                onChange={(value) => updateField("city", value)}
+                placeholder="Porto Alegre"
+              />
+              <EditField
+                label="Estado (UF)"
+                value={formData.state}
+                onChange={(value) => updateField("state", value)}
+                placeholder="RS"
+              />
+              <EditField
+                label="País"
+                value={formData.country}
+                onChange={(value) => updateField("country", value)}
+                placeholder="Brasil"
+              />
+            </div>
+          )}
+        </div>
+
+        <DialogStepFooter
+          step={editStep}
+          totalSteps={editSteps.length}
+          onBack={() => setEditStep((current) => current - 1)}
+          onCancel={closeEditModal}
+          onNext={() => setEditStep((current) => current + 1)}
+          onSubmit={handleSave}
+          isPending={updateMut.isPending}
+          disabled={!canAdvance}
+        />
+      </Dialog>
 
       <QuestionnaireModal
         isOpen={canWriteUnits && questionnaireOpen}

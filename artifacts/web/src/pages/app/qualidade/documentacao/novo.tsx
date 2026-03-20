@@ -58,7 +58,6 @@ const createDocumentSchema = z.object({
   ]),
   validityDate: z.string().min(1, "Data de validade é obrigatória"),
   unitIds: z.array(z.number()),
-  elaboratorIds: z.array(z.number()).min(1, "Selecione ao menos um elaborador"),
   approverIds: z.array(z.number()).min(1, "Selecione ao menos um aprovador"),
   recipientIds: z
     .array(z.number())
@@ -76,7 +75,7 @@ interface UploadedFile {
 }
 
 export default function NovoDocumentoPage() {
-  const { organization } = useAuth();
+  const { organization, user } = useAuth();
   const orgId = organization?.id;
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
@@ -98,7 +97,6 @@ export default function NovoDocumentoPage() {
       type: "manual",
       validityDate: new Date().toISOString().split("T")[0],
       unitIds: [],
-      elaboratorIds: [],
       approverIds: [],
       recipientIds: [],
       referenceIds: [],
@@ -106,7 +104,6 @@ export default function NovoDocumentoPage() {
   });
 
   const unitIds = watch("unitIds");
-  const elaboratorIds = watch("elaboratorIds");
   const approverIds = watch("approverIds");
   const recipientIds = watch("recipientIds");
   const referenceIds = watch("referenceIds");
@@ -210,8 +207,6 @@ export default function NovoDocumentoPage() {
           type: data.type,
           validityDate: data.validityDate || undefined,
           unitIds: data.unitIds.length > 0 ? data.unitIds : undefined,
-          elaboratorIds:
-            data.elaboratorIds.length > 0 ? data.elaboratorIds : undefined,
           approverIds: data.approverIds,
           recipientIds:
             data.recipientIds.length > 0 ? data.recipientIds : undefined,
@@ -285,23 +280,10 @@ export default function NovoDocumentoPage() {
 
         <div className="grid grid-cols-2 gap-6">
           <div>
-            <Label>Elaborado por *</Label>
-            <MultiSelectDropdown
-              placeholder="Selecione"
-              options={availableUsers.map((u: UserOption) => ({
-                value: u.id,
-                label: u.name,
-              }))}
-              selected={elaboratorIds}
-              onToggle={(id) =>
-                toggleMultiSelect("elaboratorIds", elaboratorIds, id)
-              }
-            />
-            {errors.elaboratorIds && (
-              <p className="text-xs text-red-500 mt-1">
-                {errors.elaboratorIds.message}
-              </p>
-            )}
+            <Label>Elaborador</Label>
+            <div className="mt-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+              {user?.name || "Você"}
+            </div>
           </div>
           <div>
             <Label>Aprovado por *</Label>

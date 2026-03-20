@@ -86,7 +86,6 @@ const createDocumentSchema = z.object({
   ]),
   validityDate: z.string().min(1, "Data de validade é obrigatória"),
   unitIds: z.array(z.number()),
-  elaboratorIds: z.array(z.number()).min(1, "Selecione ao menos um elaborador"),
   approverIds: z.array(z.number()).min(1, "Selecione ao menos um aprovador"),
   recipientIds: z
     .array(z.number())
@@ -116,6 +115,11 @@ function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatVersionLabel(version: number | null | undefined) {
+  if (!version || version <= 0) return "Sem versão aprovada";
+  return `v${version}`;
 }
 
 export default function DocumentacaoPage() {
@@ -414,7 +418,7 @@ export default function DocumentacaoPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
-                        v{doc.currentVersion}
+                        {formatVersionLabel(doc.currentVersion)}
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
                         {formatDate(doc.validityDate)}
@@ -499,6 +503,7 @@ function CreateDocumentModal({
 }) {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const { user } = useAuth();
 
   const {
     register,
@@ -514,7 +519,6 @@ function CreateDocumentModal({
       type: "manual",
       validityDate: new Date().toISOString().split("T")[0],
       unitIds: [],
-      elaboratorIds: [],
       approverIds: [],
       recipientIds: [],
       referenceIds: [],
@@ -522,7 +526,6 @@ function CreateDocumentModal({
   });
 
   const unitIds = watch("unitIds");
-  const elaboratorIds = watch("elaboratorIds");
   const approverIds = watch("approverIds");
   const recipientIds = watch("recipientIds");
   const referenceIds = watch("referenceIds");
@@ -633,8 +636,6 @@ function CreateDocumentModal({
           type: data.type,
           validityDate: data.validityDate || undefined,
           unitIds: data.unitIds.length > 0 ? data.unitIds : undefined,
-          elaboratorIds:
-            data.elaboratorIds.length > 0 ? data.elaboratorIds : undefined,
           approverIds: data.approverIds,
           recipientIds:
             data.recipientIds.length > 0 ? data.recipientIds : undefined,
@@ -699,23 +700,10 @@ function CreateDocumentModal({
 
         <div className="grid grid-cols-2 gap-6">
           <div>
-            <Label>Elaborado por *</Label>
-            <MultiSelectDropdown
-              placeholder="Selecione"
-              options={availableUsers.map((u: UserOption) => ({
-                value: u.id,
-                label: u.name,
-              }))}
-              selected={elaboratorIds}
-              onToggle={(id) =>
-                toggleMultiSelect("elaboratorIds", elaboratorIds, id)
-              }
-            />
-            {errors.elaboratorIds && (
-              <p className="text-xs text-red-500 mt-1">
-                {errors.elaboratorIds.message}
-              </p>
-            )}
+            <Label>Elaborador</Label>
+            <div className="mt-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+              {user?.name || "Você"}
+            </div>
           </div>
           <div>
             <Label>Aprovado por *</Label>

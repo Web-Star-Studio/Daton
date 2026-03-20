@@ -1737,7 +1737,7 @@ paths:
     patch:
       operationId: updateDocument
       tags: [documents]
-      summary: Update document (creates new version)
+      summary: Update document draft
       parameters:
         - name: orgId
           in: path
@@ -1838,6 +1838,39 @@ paths:
                 $ref: "#/components/schemas/DocumentAttachment"
 
   /organizations/{orgId}/documents/{docId}/attachments/{attachId}:
+    get:
+      operationId: getDocumentAttachmentFile
+      tags: [documents]
+      summary: View or download document attachment file
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: attachId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: disposition
+          in: query
+          schema:
+            type: string
+            enum: [inline, attachment]
+      responses:
+        "200":
+          description: Attachment file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
     delete:
       operationId: deleteDocumentAttachment
       tags: [documents]
@@ -1878,6 +1911,12 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitDocumentForReviewBody"
       responses:
         "200":
           description: Document submitted
@@ -6878,6 +6917,7 @@ components:
           type: string
         currentVersion:
           type: integer
+          description: 0 indicates the document has no approved formal version yet.
         validityDate:
           type: string
           nullable: true
@@ -7012,10 +7052,6 @@ components:
           type: array
           items:
             type: integer
-        elaboratorIds:
-          type: array
-          items:
-            type: integer
         approverIds:
           type: array
           items:
@@ -7064,10 +7100,6 @@ components:
           type: array
           items:
             type: integer
-        elaboratorIds:
-          type: array
-          items:
-            type: integer
         approverIds:
           type: array
           items:
@@ -7080,8 +7112,15 @@ components:
           type: array
           items:
             type: integer
+
+    SubmitDocumentForReviewBody:
+      type: object
+      properties:
         changeDescription:
           type: string
+          minLength: 1
+      required:
+        - changeDescription
 
     AddDocumentAttachmentBody:
       type: object
