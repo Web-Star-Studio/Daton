@@ -14,6 +14,7 @@ import {
   documentVersionsTable,
   usersTable,
   unitsTable,
+  employeesTable,
   notificationsTable,
 } from "@workspace/db";
 import {
@@ -71,19 +72,18 @@ async function validateOrgUsers(userIds: number[], orgId: number): Promise<boole
   return rows.length === userIds.length;
 }
 
-async function validateEligibleElaborator(elaboratorId: number, orgId: number): Promise<boolean> {
-  const [user] = await db
-    .select({ id: usersTable.id })
-    .from(usersTable)
+async function validateOrgEmployee(employeeId: number, orgId: number): Promise<boolean> {
+  const [employee] = await db
+    .select({ id: employeesTable.id })
+    .from(employeesTable)
     .where(
       and(
-        eq(usersTable.id, elaboratorId),
-        eq(usersTable.organizationId, orgId),
-        or(eq(usersTable.role, "org_admin"), eq(usersTable.role, "operator")),
+        eq(employeesTable.id, employeeId),
+        eq(employeesTable.organizationId, orgId),
       ),
     );
 
-  return Boolean(user);
+  return Boolean(employee);
 }
 
 async function validateOrgUnits(unitIds: number[], orgId: number): Promise<boolean> {
@@ -112,14 +112,37 @@ async function createNotification(orgId: number, userId: number, type: string, t
   });
 }
 
-async function getDocumentParticipantUserIds(docId: number): Promise<number[]> {
+async function getEmployeeLinkedUserIds(employeeIds: number[], orgId: number): Promise<number[]> {
+  if (employeeIds.length === 0) return [];
+
+  const rows = await db
+    .selectDistinct({ id: usersTable.id })
+    .from(usersTable)
+    .innerJoin(
+      employeesTable,
+      sql`lower(trim(${employeesTable.email})) = lower(trim(${usersTable.email}))`,
+    )
+    .where(
+      and(
+        inArray(employeesTable.id, employeeIds),
+        eq(employeesTable.organizationId, orgId),
+        eq(usersTable.organizationId, orgId),
+        sql`${employeesTable.email} is not null`,
+        sql`${usersTable.email} is not null`,
+      ),
+    );
+
+  return rows.map((row) => row.id);
+}
+
+async function getDocumentParticipantUserIds(docId: number, orgId: number): Promise<number[]> {
   const [doc, elaborators, approvers, recipients] = await Promise.all([
     db
       .select({ createdById: documentsTable.createdById })
       .from(documentsTable)
       .where(eq(documentsTable.id, docId)),
     db
-      .selectDistinct({ userId: documentElaboratorsTable.userId })
+      .selectDistinct({ employeeId: documentElaboratorsTable.employeeId })
       .from(documentElaboratorsTable)
       .where(eq(documentElaboratorsTable.documentId, docId)),
     db
@@ -131,23 +154,27 @@ async function getDocumentParticipantUserIds(docId: number): Promise<number[]> {
       .from(documentRecipientsTable)
       .where(eq(documentRecipientsTable.documentId, docId)),
   ]);
+  const elaboratorUserIds = await getEmployeeLinkedUserIds(
+    elaborators.map((row) => row.employeeId),
+    orgId,
+  );
 
   return [...new Set([
     ...doc.map((row) => row.createdById),
-    ...elaborators.map((row) => row.userId),
+    ...elaboratorUserIds,
     ...approvers.map((row) => row.userId),
     ...recipients.map((row) => row.userId),
   ])];
 }
 
-async function getDocumentReviewStakeholderUserIds(docId: number): Promise<number[]> {
+async function getDocumentReviewStakeholderUserIds(docId: number, orgId: number): Promise<number[]> {
   const [doc, elaborators, approvers] = await Promise.all([
     db
       .select({ createdById: documentsTable.createdById })
       .from(documentsTable)
       .where(eq(documentsTable.id, docId)),
     db
-      .selectDistinct({ userId: documentElaboratorsTable.userId })
+      .selectDistinct({ employeeId: documentElaboratorsTable.employeeId })
       .from(documentElaboratorsTable)
       .where(eq(documentElaboratorsTable.documentId, docId)),
     db
@@ -155,10 +182,14 @@ async function getDocumentReviewStakeholderUserIds(docId: number): Promise<numbe
       .from(documentApproversTable)
       .where(eq(documentApproversTable.documentId, docId)),
   ]);
+  const elaboratorUserIds = await getEmployeeLinkedUserIds(
+    elaborators.map((row) => row.employeeId),
+    orgId,
+  );
 
   return [...new Set([
     ...doc.map((row) => row.createdById),
-    ...elaborators.map((row) => row.userId),
+    ...elaboratorUserIds,
     ...approvers.map((row) => row.userId),
   ])];
 }
@@ -223,7 +254,7 @@ async function notifyDocumentParticipants({
   title: string;
   description: string;
 }): Promise<void> {
-  const participantIds = await getDocumentParticipantUserIds(docId);
+  const participantIds = await getDocumentParticipantUserIds(docId, orgId);
   await notifyUsers({
     orgId,
     userIds: participantIds,
@@ -281,15 +312,26 @@ async function getDocumentDetail(docId: number, orgId: number) {
     .where(eq(documentUnitsTable.documentId, docId));
 
   const elaboratorRows = await db.select({
-    id: usersTable.id,
-    name: usersTable.name,
-    email: usersTable.email,
-    organizationId: usersTable.organizationId,
-    role: usersTable.role,
-    createdAt: usersTable.createdAt,
+    id: employeesTable.id,
+    organizationId: employeesTable.organizationId,
+    unitId: employeesTable.unitId,
+    name: employeesTable.name,
+    cpf: employeesTable.cpf,
+    email: employeesTable.email,
+    phone: employeesTable.phone,
+    position: employeesTable.position,
+    department: employeesTable.department,
+    contractType: employeesTable.contractType,
+    admissionDate: employeesTable.admissionDate,
+    terminationDate: employeesTable.terminationDate,
+    status: employeesTable.status,
+    createdAt: employeesTable.createdAt,
+    updatedAt: employeesTable.updatedAt,
+    unitName: unitsTable.name,
   })
     .from(documentElaboratorsTable)
-    .innerJoin(usersTable, eq(documentElaboratorsTable.userId, usersTable.id))
+    .innerJoin(employeesTable, eq(documentElaboratorsTable.employeeId, employeesTable.id))
+    .leftJoin(unitsTable, eq(employeesTable.unitId, unitsTable.id))
     .where(eq(documentElaboratorsTable.documentId, docId));
 
   const maxCycleResult = await db.select({ maxCycle: sql<number>`COALESCE(MAX(${documentApproversTable.approvalCycle}), 1)` })
@@ -370,16 +412,33 @@ async function getDocumentDetail(docId: number, orgId: number) {
           elaborator.createdAt instanceof Date
             ? elaborator.createdAt.toISOString()
             : elaborator.createdAt,
+        updatedAt:
+          elaborator.updatedAt instanceof Date
+            ? elaborator.updatedAt.toISOString()
+            : elaborator.updatedAt,
       }))
       : doc.createdById
         ? [{
           id: doc.createdById,
-          name: doc.createdByName,
-          email: doc.createdByEmail,
           organizationId: orgId,
-          role: doc.createdByRole ?? "operator",
+          unitId: null,
+          name: doc.createdByName ?? "Usuário da organização",
+          cpf: null,
+          email: doc.createdByEmail ?? null,
+          phone: null,
+          position: null,
+          department: null,
+          contractType: "clt",
+          admissionDate: null,
+          terminationDate: null,
+          status: "active",
+          unitName: null,
           createdAt:
             doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt,
+          updatedAt:
+            doc.updatedAt instanceof Date
+              ? doc.updatedAt.toISOString()
+              : (doc.updatedAt ?? (doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt)),
         }]
         : [],
     approvers: approverRows.map(a => ({
@@ -478,7 +537,6 @@ router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess(
   const elaboratorId = body.data.elaboratorId;
 
   const allUserIds = [...new Set([
-    elaboratorId,
     ...(body.data.approverIds || []),
     ...(body.data.recipientIds || []),
   ])];
@@ -486,8 +544,8 @@ router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess(
     res.status(400).json({ error: "Um ou mais usuários selecionados não pertencem a esta organização" });
     return;
   }
-  if (!(await validateEligibleElaborator(elaboratorId, orgId))) {
-    res.status(400).json({ error: "O elaborador deve ser um usuário da organização com papel de admin ou operador" });
+  if (!(await validateOrgEmployee(elaboratorId, orgId))) {
+    res.status(400).json({ error: "O elaborador deve ser um colaborador da organização" });
     return;
   }
   if (body.data.unitIds?.length && !(await validateOrgUnits(body.data.unitIds, orgId))) {
@@ -515,7 +573,7 @@ router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess(
     );
   }
 
-  await db.insert(documentElaboratorsTable).values({ documentId: doc.id, userId: elaboratorId });
+  await db.insert(documentElaboratorsTable).values({ documentId: doc.id, employeeId: elaboratorId });
 
   if (body.data.approverIds?.length) {
     await db.insert(documentApproversTable).values(
@@ -585,7 +643,6 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
   }
 
   const allUserIds = [...new Set([
-    ...(body.data.elaboratorId ? [body.data.elaboratorId] : []),
     ...(body.data.approverIds || []),
     ...(body.data.recipientIds || []),
   ])];
@@ -601,8 +658,8 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
     res.status(400).json({ error: "Um ou mais documentos referenciados não pertencem a esta organização" });
     return;
   }
-  if (body.data.elaboratorId !== undefined && !(await validateEligibleElaborator(body.data.elaboratorId, orgId))) {
-    res.status(400).json({ error: "O elaborador deve ser um usuário da organização com papel de admin ou operador" });
+  if (body.data.elaboratorId !== undefined && !(await validateOrgEmployee(body.data.elaboratorId, orgId))) {
+    res.status(400).json({ error: "O elaborador deve ser um colaborador da organização" });
     return;
   }
 
@@ -635,7 +692,7 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
         .where(eq(documentElaboratorsTable.documentId, docId));
       await tx.insert(documentElaboratorsTable).values({
         documentId: docId,
-        userId: elaboratorId,
+        employeeId: elaboratorId,
       });
     });
   }
@@ -921,14 +978,9 @@ router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, requir
     res.status(400).json({ error: "Documento não pode ser submetido neste estado" });
     return;
   }
-  const elaborators = await db
-    .select({ userId: documentElaboratorsTable.userId })
-    .from(documentElaboratorsTable)
-    .where(eq(documentElaboratorsTable.documentId, docId));
-  const elaboratorIds = elaborators.length > 0 ? elaborators.map((item) => item.userId) : [doc.createdById];
-
-  if (!elaboratorIds.includes(req.auth!.userId)) {
-    res.status(403).json({ error: "Apenas o elaborador do documento pode enviar para revisão" });
+  // Business rule: any document-writing admin or operator may advance a draft to review.
+  if (req.auth!.role !== "org_admin" && req.auth!.role !== "operator") {
+    res.status(403).json({ error: "Apenas administradores e operadores podem enviar o documento para revisão" });
     return;
   }
 
@@ -1233,7 +1285,7 @@ router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, a
 
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
-  const acknowledgmentAudience = await getDocumentReviewStakeholderUserIds(docId);
+  const acknowledgmentAudience = await getDocumentReviewStakeholderUserIds(docId, orgId);
   await notifyUsers({
     orgId,
     userIds: acknowledgmentAudience,

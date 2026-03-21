@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
@@ -7,6 +7,7 @@ import { z } from "zod";
 import {
   useCreateDocument,
   useListUnits,
+  useListEmployees,
   useListUserOptions,
   useListDocuments,
   getListDocumentsQueryKey,
@@ -16,12 +17,14 @@ import {
 import type { UserOption } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { EmployeeCombobox } from "@/components/employees/employee-combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Upload, X, FileText, ArrowLeft } from "lucide-react";
 import { usePageTitle } from "@/contexts/LayoutContext";
 import { resolveApiUrl } from "@/lib/api";
+import { DOCUMENT_ELABORATOR_PAGE_SIZE } from "@/lib/document-elaborators";
 
 const TYPE_OPTIONS = [
   { value: "manual", label: "Manual" },
@@ -124,26 +127,35 @@ export default function NovoDocumentoPage() {
       enabled: !!orgId,
     },
   });
+  const { data: employeesResult } = useListEmployees(orgId!, {
+    page: 1,
+    pageSize: DOCUMENT_ELABORATOR_PAGE_SIZE,
+  });
   const availableUsers = orgUsers ?? [];
-  const eligibleElaborators = availableUsers.filter(
-    (option: UserOption) =>
-      option.role === "org_admin" || option.role === "operator",
+  const availableEmployees = useMemo(
+    () => employeesResult?.data ?? [],
+    [employeesResult?.data],
   );
 
   useEffect(() => {
-    if (eligibleElaborators.length === 0) return;
+    if (availableEmployees.length === 0) return;
 
     const preferredElaboratorId =
-      eligibleElaborators.find((option) => option.id === user?.id)?.id ??
-      eligibleElaborators[0]?.id ??
+      availableEmployees.find(
+        (employee) =>
+          employee.email &&
+          user?.email &&
+          employee.email.toLowerCase() === user.email.toLowerCase(),
+      )?.id ??
+      availableEmployees[0]?.id ??
       0;
 
-    if (!eligibleElaborators.some((option) => option.id === elaboratorId)) {
+    if (!availableEmployees.some((employee) => employee.id === elaboratorId)) {
       setValue("elaboratorId", preferredElaboratorId, {
         shouldValidate: true,
       });
     }
-  }, [eligibleElaborators, elaboratorId, setValue, user?.id]);
+  }, [availableEmployees, elaboratorId, setValue, user?.email]);
 
   const { data: existingDocs } = useListDocuments(
     orgId!,
@@ -317,22 +329,16 @@ export default function NovoDocumentoPage() {
         <div className="grid grid-cols-2 gap-6">
           <div>
             <Label>Elaborador</Label>
-            <Select
-              className="mt-2"
-              value={elaboratorId ? String(elaboratorId) : ""}
-              onChange={(e) =>
-                setValue("elaboratorId", Number(e.target.value), {
+            <EmployeeCombobox
+              employees={availableEmployees}
+              value={elaboratorId || null}
+              onChange={(nextValue) =>
+                setValue("elaboratorId", nextValue ?? 0, {
                   shouldValidate: true,
                 })
               }
-            >
-              <option value="">Selecione</option>
-              {eligibleElaborators.map((option: UserOption) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
-                </option>
-              ))}
-            </Select>
+              placeholder="Selecione o elaborador"
+            />
             {errors.elaboratorId && (
               <p className="text-xs text-red-500 mt-1">
                 {errors.elaboratorId.message}
@@ -377,7 +383,7 @@ export default function NovoDocumentoPage() {
         <div>
           <Label>Anexo Inicial</Label>
           <div className="mt-2">
-            <label className="flex items-center gap-2 px-4 py-3 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors">
+            <label className="flex cursor-pointer items-center gap-2 px-4 py-3 border border-dashed border-border rounded-lg hover:bg-muted/30 transition-colors">
               <Upload className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
                 {isUploading ? "Enviando..." : "Escolher Arquivo"}

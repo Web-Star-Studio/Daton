@@ -1652,42 +1652,42 @@ async function seed() {
     // ─── 19. Document Elaborators ─────────────────────────────────────────────────
     await db
       .insert(documentElaboratorsTable)
-      .values({ documentId: manualQualidade.id, userId: adminUser.id });
+      .values({ documentId: manualQualidade.id, employeeId: roberto.id });
     await db
       .insert(documentElaboratorsTable)
-      .values({ documentId: manualQualidade.id, userId: operatorUser.id });
+      .values({ documentId: manualQualidade.id, employeeId: juliana.id });
     await db
       .insert(documentElaboratorsTable)
       .values({
         documentId: procedimentoControleDocumentos.id,
-        userId: adminUser.id,
+        employeeId: roberto.id,
       });
     await db
       .insert(documentElaboratorsTable)
       .values({
         documentId: procedimentoAuditoriaInterna.id,
-        userId: adminUser.id,
+        employeeId: juliana.id,
       });
     await db
       .insert(documentElaboratorsTable)
       .values({
         documentId: instrucaoInspecaoRecebimento.id,
-        userId: operatorUser.id,
+        employeeId: marcos.id,
       });
     await db
       .insert(documentElaboratorsTable)
-      .values({ documentId: politicaQualidade.id, userId: adminUser.id });
+      .values({ documentId: politicaQualidade.id, employeeId: roberto.id });
     await db
       .insert(documentElaboratorsTable)
       .values({
         documentId: procedimentoAcaoCorretiva.id,
-        userId: operatorUser.id,
+        employeeId: juliana.id,
       });
     await db
       .insert(documentElaboratorsTable)
       .values({
         documentId: planoGerenciamentoResiduos.id,
-        userId: operator2User.id,
+        employeeId: ricardo.id,
       });
     console.log(`✅ Document elaborators assigned`);
 

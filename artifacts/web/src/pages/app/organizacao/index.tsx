@@ -4,6 +4,7 @@ import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -125,6 +126,8 @@ export default function OrganizacaoPage({
   const createUnitMut = useCreateUnit();
   const deleteUnitMut = useDeleteUnit();
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
+  const [unitStep, setUnitStep] = useState(0);
+  const [maxReachedUnitStep, setMaxReachedUnitStep] = useState(0);
   const unitForm = useForm<UnitFormData>({
     defaultValues: {
       name: "",
@@ -216,6 +219,8 @@ export default function OrganizacaoPage({
   const updateDeptMut = useUpdateDepartment();
   const deleteDeptMut = useDeleteDepartment();
   const [deptDialogOpen, setDeptDialogOpen] = useState(false);
+  const [deptStep, setDeptStep] = useState(0);
+  const [maxReachedDeptStep, setMaxReachedDeptStep] = useState(0);
   const [editingDeptId, setEditingDeptId] = useState<number | null>(null);
   const deptForm = useForm<DepartmentFormData>({
     defaultValues: { name: "", description: "", unitIds: [] },
@@ -405,7 +410,15 @@ export default function OrganizacaoPage({
           );
         }
         return (
-          <Button size="sm" onClick={() => setUnitDialogOpen(true)}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setUnitStep(0);
+              setMaxReachedUnitStep(0);
+              unitForm.reset();
+              setUnitDialogOpen(true);
+            }}
+          >
             <Plus className="h-3.5 w-3.5 mr-1.5" />
             Nova Unidade
           </Button>
@@ -416,6 +429,8 @@ export default function OrganizacaoPage({
           <Button
             size="sm"
             onClick={() => {
+              setDeptStep(0);
+              setMaxReachedDeptStep(0);
               setEditingDeptId(null);
               deptForm.reset({ name: "", description: "", unitIds: [] });
               setDeptDialogOpen(true);
@@ -504,6 +519,8 @@ export default function OrganizacaoPage({
     await createUnitMut.mutateAsync({ orgId, data: body });
     queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey(orgId) });
     setUnitDialogOpen(false);
+    setUnitStep(0);
+    setMaxReachedUnitStep(0);
     unitForm.reset();
   };
 
@@ -529,8 +546,39 @@ export default function OrganizacaoPage({
       queryKey: getListDepartmentsQueryKey(orgId),
     });
     setDeptDialogOpen(false);
+    setDeptStep(0);
+    setMaxReachedDeptStep(0);
     setEditingDeptId(null);
     deptForm.reset();
+  };
+
+  const changeUnitStep = async (targetStep: number) => {
+    const boundedTarget = Math.max(0, Math.min(targetStep, 2));
+
+    if (boundedTarget > unitStep) {
+      const fieldsByStep: Array<Array<keyof UnitFormData>> = [
+        ["name", "code", "type", "status"],
+        ["cnpj", "phone", "country"],
+        ["cep", "address", "streetNumber", "neighborhood", "city", "state"],
+      ];
+      const valid = await unitForm.trigger(fieldsByStep[unitStep]);
+      if (!valid) return;
+    }
+
+    setUnitStep(boundedTarget);
+    setMaxReachedUnitStep((current) => Math.max(current, boundedTarget));
+  };
+
+  const changeDeptStep = async (targetStep: number) => {
+    const boundedTarget = Math.max(0, Math.min(targetStep, 1));
+
+    if (boundedTarget > deptStep) {
+      const valid = await deptForm.trigger(["name", "description"]);
+      if (!valid) return;
+    }
+
+    setDeptStep(boundedTarget);
+    setMaxReachedDeptStep((current) => Math.max(current, boundedTarget));
   };
 
   const onPosSubmit = async (data: PositionFormData) => {
@@ -1040,7 +1088,17 @@ export default function OrganizacaoPage({
               <Building2 className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-[13px] text-muted-foreground">Nenhuma unidade encontrada</p>
               {canWriteModule("units") && !unitSearch && !unitTypeFilter && !unitStatusFilter && (
-                <Button size="sm" variant="outline" className="mt-4" onClick={() => setUnitDialogOpen(true)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => {
+                    setUnitStep(0);
+                    setMaxReachedUnitStep(0);
+                    unitForm.reset();
+                    setUnitDialogOpen(true);
+                  }}
+                >
                   <Plus className="h-3.5 w-3.5 mr-1.5" />
                   Adicionar Unidade
                 </Button>
@@ -1170,6 +1228,8 @@ export default function OrganizacaoPage({
                           description: dept.description || "",
                           unitIds: dept.unitIds || [],
                         });
+                        setDeptStep(0);
+                        setMaxReachedDeptStep(0);
                         setDeptDialogOpen(true);
                       }}
                     >
@@ -1298,117 +1358,181 @@ export default function OrganizacaoPage({
 
       <Dialog
         open={unitDialogOpen}
-        onOpenChange={setUnitDialogOpen}
+        onOpenChange={(open) => {
+          setUnitDialogOpen(open);
+          if (!open) {
+            setUnitStep(0);
+            setMaxReachedUnitStep(0);
+            unitForm.reset();
+          }
+        }}
         title="Nova Unidade"
-        description="Cadastre uma nova unidade organizacional."
+        description={
+          [
+            "Cadastre os dados básicos da unidade.",
+            "Informe os dados de contato e identificação.",
+            "Preencha o endereço da unidade.",
+          ][unitStep]
+        }
         size="lg"
       >
         <form onSubmit={unitForm.handleSubmit(onUnitSubmit)}>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-            <div>
-              <Label htmlFor="unit-name">Nome</Label>
-              <Input
-                id="unit-name"
-                {...unitForm.register("name", { required: true })}
-                placeholder="Ex: Filial Recife"
-              />
+          <DialogStepTabs
+            steps={["Básico", "Contato", "Endereço"]}
+            step={unitStep}
+            onStepChange={(nextStep) => {
+              void changeUnitStep(nextStep);
+            }}
+            maxAccessibleStep={maxReachedUnitStep}
+          />
+
+          {unitStep === 0 && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+              <div>
+                <Label htmlFor="unit-name">Nome</Label>
+                <Input
+                  id="unit-name"
+                  {...unitForm.register("name", { required: true })}
+                  placeholder="Ex: Filial Recife"
+                />
+              </div>
+              <div>
+                <Label htmlFor="unit-code">Código</Label>
+                <Input
+                  id="unit-code"
+                  {...unitForm.register("code")}
+                  placeholder="FIL-001"
+                />
+              </div>
+              <div>
+                <Label htmlFor="unit-type">Tipo</Label>
+                <Select id="unit-type" {...unitForm.register("type")}>
+                  <option value="sede">Sede</option>
+                  <option value="filial">Filial</option>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="unit-status">Status</Label>
+                <Select id="unit-status" {...unitForm.register("status")}>
+                  <option value="ativa">Ativa</option>
+                  <option value="inativa">Inativa</option>
+                </Select>
+              </div>
             </div>
-            <div>
-              <Label htmlFor="unit-code">Código</Label>
-              <Input
-                id="unit-code"
-                {...unitForm.register("code")}
-                placeholder="FIL-001"
-              />
+          )}
+
+          {unitStep === 1 && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+              <div>
+                <Label>CNPJ</Label>
+                <Input
+                  {...unitForm.register("cnpj")}
+                  placeholder="00.000.000/0000-00"
+                />
+              </div>
+              <div>
+                <Label>Telefone</Label>
+                <Input
+                  {...unitForm.register("phone")}
+                  placeholder="(00) 0000-0000"
+                />
+              </div>
+              <div>
+                <Label htmlFor="unit-country">País</Label>
+                <Input
+                  id="unit-country"
+                  {...unitForm.register("country")}
+                  placeholder="Brasil"
+                />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="unit-type">Tipo</Label>
-              <Select id="unit-type" {...unitForm.register("type")}>
-                <option value="sede">Sede</option>
-                <option value="filial">Filial</option>
-              </Select>
+          )}
+
+          {unitStep === 2 && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+              <div>
+                <Label>CEP</Label>
+                <Input {...unitForm.register("cep")} placeholder="00000-000" />
+              </div>
+              <div>
+                <Label>Endereço</Label>
+                <Input
+                  {...unitForm.register("address")}
+                  placeholder="Rua, Avenida..."
+                />
+              </div>
+              <div>
+                <Label>Número</Label>
+                <Input {...unitForm.register("streetNumber")} placeholder="100" />
+              </div>
+              <div>
+                <Label>Bairro</Label>
+                <Input
+                  {...unitForm.register("neighborhood")}
+                  placeholder="Centro"
+                />
+              </div>
+              <div>
+                <Label htmlFor="unit-city">Cidade</Label>
+                <Input
+                  id="unit-city"
+                  {...unitForm.register("city")}
+                  placeholder="São Paulo"
+                />
+              </div>
+              <div>
+                <Label htmlFor="unit-state">Estado (UF)</Label>
+                <Input
+                  id="unit-state"
+                  {...unitForm.register("state")}
+                  placeholder="SP"
+                  maxLength={2}
+                />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="unit-status">Status</Label>
-              <Select id="unit-status" {...unitForm.register("status")}>
-                <option value="ativa">Ativa</option>
-                <option value="inativa">Inativa</option>
-              </Select>
-            </div>
-            <div>
-              <Label>CNPJ</Label>
-              <Input
-                {...unitForm.register("cnpj")}
-                placeholder="00.000.000/0000-00"
-              />
-            </div>
-            <div>
-              <Label>Telefone</Label>
-              <Input
-                {...unitForm.register("phone")}
-                placeholder="(00) 0000-0000"
-              />
-            </div>
-            <div>
-              <Label>CEP</Label>
-              <Input {...unitForm.register("cep")} placeholder="00000-000" />
-            </div>
-            <div>
-              <Label>Endereço</Label>
-              <Input
-                {...unitForm.register("address")}
-                placeholder="Rua, Avenida..."
-              />
-            </div>
-            <div>
-              <Label>Número</Label>
-              <Input {...unitForm.register("streetNumber")} placeholder="100" />
-            </div>
-            <div>
-              <Label>Bairro</Label>
-              <Input
-                {...unitForm.register("neighborhood")}
-                placeholder="Centro"
-              />
-            </div>
-            <div>
-              <Label htmlFor="unit-city">Cidade</Label>
-              <Input
-                id="unit-city"
-                {...unitForm.register("city")}
-                placeholder="São Paulo"
-              />
-            </div>
-            <div>
-              <Label htmlFor="unit-state">Estado (UF)</Label>
-              <Input
-                id="unit-state"
-                {...unitForm.register("state")}
-                placeholder="SP"
-                maxLength={2}
-              />
-            </div>
-            <div>
-              <Label htmlFor="unit-country">País</Label>
-              <Input
-                id="unit-country"
-                {...unitForm.register("country")}
-                placeholder="Brasil"
-              />
-            </div>
-          </div>
+          )}
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setUnitDialogOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" size="sm" isLoading={createUnitMut.isPending}>
-              Salvar
-            </Button>
+            {unitStep > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void changeUnitStep(unitStep - 1);
+                }}
+              >
+                Anterior
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setUnitDialogOpen(false);
+                  setUnitStep(0);
+                  setMaxReachedUnitStep(0);
+                  unitForm.reset();
+                }}
+              >
+                Cancelar
+              </Button>
+            )}
+            {unitStep < 2 ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  void changeUnitStep(unitStep + 1);
+                }}
+              >
+                Próximo
+              </Button>
+            ) : (
+              <Button type="submit" size="sm" isLoading={createUnitMut.isPending}>
+                Salvar
+              </Button>
+            )}
           </DialogFooter>
         </form>
       </Dialog>
@@ -1435,62 +1559,87 @@ export default function OrganizacaoPage({
 
       <Dialog
         open={deptDialogOpen}
-        onOpenChange={setDeptDialogOpen}
+        onOpenChange={(open) => {
+          setDeptDialogOpen(open);
+          if (!open) {
+            setDeptStep(0);
+            setMaxReachedDeptStep(0);
+            setEditingDeptId(null);
+            deptForm.reset({ name: "", description: "", unitIds: [] });
+          }
+        }}
         title={editingDeptId ? "Editar Departamento" : "Novo Departamento"}
-        description="Defina os departamentos da organização."
+        description={
+          [
+            "Defina os dados principais do departamento.",
+            "Selecione as unidades vinculadas ao departamento.",
+          ][deptStep]
+        }
         size="lg"
       >
         <form onSubmit={deptForm.handleSubmit(onDeptSubmit)}>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-            <div>
-              <Label>Nome</Label>
-              <Input
-                {...deptForm.register("name", { required: true })}
-                placeholder="Nome do departamento"
-              />
+          <DialogStepTabs
+            steps={["Básico", "Unidades"]}
+            step={deptStep}
+            onStepChange={(nextStep) => {
+              void changeDeptStep(nextStep);
+            }}
+            maxAccessibleStep={maxReachedDeptStep}
+          />
+
+          {deptStep === 0 && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+              <div>
+                <Label>Nome</Label>
+                <Input
+                  {...deptForm.register("name", { required: true })}
+                  placeholder="Nome do departamento"
+                />
+              </div>
+              <div>
+                <Label>Descrição</Label>
+                <Input
+                  {...deptForm.register("description")}
+                  placeholder="Descrição (opcional)"
+                />
+              </div>
             </div>
-            <div>
-              <Label>Descrição</Label>
-              <Input
-                {...deptForm.register("description")}
-                placeholder="Descrição (opcional)"
-              />
-            </div>
-          </div>
-          {units && units.length > 0 && (
-            <div className="mt-5">
+          )}
+
+          {deptStep === 1 && units && units.length > 0 && (
+            <div className="mt-1">
               <Label>Unidades</Label>
-              <div className="flex items-center justify-between mb-2">
+              <div className="mb-2 flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">
                   Selecione as unidades onde este departamento está presente.
                 </p>
                 <button
                   type="button"
-                  className="text-xs text-primary hover:underline cursor-pointer"
+                  className="cursor-pointer text-xs text-primary hover:underline"
                   onClick={() => {
                     const currentIds = deptForm.getValues("unitIds") || [];
-                    const allIds = units.map((u) => u.id);
+                    const allIds = units.map((unit) => unit.id);
                     const allSelected = allIds.every((id) => currentIds.includes(id));
                     deptForm.setValue("unitIds", allSelected ? [] : allIds);
                   }}
                 >
                   {(() => {
                     const currentIds = deptForm.watch("unitIds") || [];
-                    const allIds = units.map((u) => u.id);
+                    const allIds = units.map((unit) => unit.id);
                     return allIds.every((id) => currentIds.includes(id))
                       ? "Desmarcar todas"
                       : "Selecionar todas";
                   })()}
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1 max-h-48 overflow-y-auto border border-border/60 rounded-lg p-3">
+              <div className="grid max-h-48 grid-cols-2 gap-x-6 gap-y-1 overflow-y-auto rounded-lg border border-border/60 p-3">
                 {units.map((unit) => {
                   const selectedIds = deptForm.watch("unitIds") || [];
                   const isChecked = selectedIds.includes(unit.id);
                   return (
                     <label
                       key={unit.id}
-                      className="flex items-center gap-2 text-[13px] cursor-pointer py-1.5 hover:text-foreground transition-colors"
+                      className="flex cursor-pointer items-center gap-2 py-1.5 text-[13px] transition-colors hover:text-foreground"
                     >
                       <input
                         type="checkbox"
@@ -1504,10 +1653,12 @@ export default function OrganizacaoPage({
                               : current.filter((id) => id !== unit.id),
                           );
                         }}
-                        className="rounded border-border text-primary cursor-pointer"
+                        className="cursor-pointer rounded border-border text-primary"
                       />
                       <span className="truncate">{unit.name}</span>
-                      <Badge variant="secondary" className="text-[9px] ml-auto shrink-0">{unit.type}</Badge>
+                      <Badge variant="secondary" className="ml-auto shrink-0 text-[9px]">
+                        {unit.type}
+                      </Badge>
                     </label>
                   );
                 })}
@@ -1515,21 +1666,52 @@ export default function OrganizacaoPage({
             </div>
           )}
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setDeptDialogOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              isLoading={createDeptMut.isPending || updateDeptMut.isPending}
-            >
-              {editingDeptId ? "Atualizar" : "Salvar"}
-            </Button>
+            {deptStep > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void changeDeptStep(deptStep - 1);
+                }}
+              >
+                Anterior
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setDeptDialogOpen(false);
+                  setDeptStep(0);
+                  setMaxReachedDeptStep(0);
+                  setEditingDeptId(null);
+                  deptForm.reset({ name: "", description: "", unitIds: [] });
+                }}
+              >
+                Cancelar
+              </Button>
+            )}
+            {deptStep < 1 ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  void changeDeptStep(deptStep + 1);
+                }}
+              >
+                Próximo
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                size="sm"
+                isLoading={createDeptMut.isPending || updateDeptMut.isPending}
+              >
+                {editingDeptId ? "Atualizar" : "Salvar"}
+              </Button>
+            )}
           </DialogFooter>
         </form>
       </Dialog>
