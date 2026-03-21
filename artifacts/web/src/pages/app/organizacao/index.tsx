@@ -1343,6 +1343,7 @@ export default function OrganizacaoPage({
             steps={["Básico", "Contato", "Endereço"]}
             step={unitStep}
             onStepChange={setUnitStep}
+            maxAccessibleStep={unitStep}
           />
 
           {unitStep === 0 && (
@@ -1544,6 +1545,7 @@ export default function OrganizacaoPage({
             steps={["Básico", "Unidades"]}
             step={deptStep}
             onStepChange={setDeptStep}
+            maxAccessibleStep={deptStep}
           />
 
           {deptStep === 0 && (

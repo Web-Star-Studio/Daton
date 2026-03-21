@@ -112,12 +112,50 @@ async function createNotification(orgId: number, userId: number, type: string, t
   });
 }
 
-async function getDocumentParticipantUserIds(docId: number): Promise<number[]> {
-  const [doc, approvers, recipients] = await Promise.all([
+async function getEmployeeLinkedUserIds(employeeIds: number[], orgId: number): Promise<number[]> {
+  if (employeeIds.length === 0) return [];
+
+  const employeeRows = await db
+    .select({ email: employeesTable.email })
+    .from(employeesTable)
+    .where(
+      and(
+        inArray(employeesTable.id, employeeIds),
+        eq(employeesTable.organizationId, orgId),
+      ),
+    );
+
+  const employeeEmails = [...new Set(
+    employeeRows
+      .map((row) => row.email?.trim().toLowerCase())
+      .filter((email): email is string => Boolean(email)),
+  )];
+
+  if (employeeEmails.length === 0) return [];
+
+  const userRows = await db
+    .select({ id: usersTable.id, email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.organizationId, orgId));
+
+  return userRows
+    .filter((row) => {
+      const email = row.email?.trim().toLowerCase();
+      return email ? employeeEmails.includes(email) : false;
+    })
+    .map((row) => row.id);
+}
+
+async function getDocumentParticipantUserIds(docId: number, orgId: number): Promise<number[]> {
+  const [doc, elaborators, approvers, recipients] = await Promise.all([
     db
       .select({ createdById: documentsTable.createdById })
       .from(documentsTable)
       .where(eq(documentsTable.id, docId)),
+    db
+      .selectDistinct({ employeeId: documentElaboratorsTable.employeeId })
+      .from(documentElaboratorsTable)
+      .where(eq(documentElaboratorsTable.documentId, docId)),
     db
       .selectDistinct({ userId: documentApproversTable.userId })
       .from(documentApproversTable)
@@ -127,28 +165,42 @@ async function getDocumentParticipantUserIds(docId: number): Promise<number[]> {
       .from(documentRecipientsTable)
       .where(eq(documentRecipientsTable.documentId, docId)),
   ]);
+  const elaboratorUserIds = await getEmployeeLinkedUserIds(
+    elaborators.map((row) => row.employeeId),
+    orgId,
+  );
 
   return [...new Set([
     ...doc.map((row) => row.createdById),
+    ...elaboratorUserIds,
     ...approvers.map((row) => row.userId),
     ...recipients.map((row) => row.userId),
   ])];
 }
 
-async function getDocumentReviewStakeholderUserIds(docId: number): Promise<number[]> {
-  const [doc, approvers] = await Promise.all([
+async function getDocumentReviewStakeholderUserIds(docId: number, orgId: number): Promise<number[]> {
+  const [doc, elaborators, approvers] = await Promise.all([
     db
       .select({ createdById: documentsTable.createdById })
       .from(documentsTable)
       .where(eq(documentsTable.id, docId)),
     db
+      .selectDistinct({ employeeId: documentElaboratorsTable.employeeId })
+      .from(documentElaboratorsTable)
+      .where(eq(documentElaboratorsTable.documentId, docId)),
+    db
       .selectDistinct({ userId: documentApproversTable.userId })
       .from(documentApproversTable)
       .where(eq(documentApproversTable.documentId, docId)),
   ]);
+  const elaboratorUserIds = await getEmployeeLinkedUserIds(
+    elaborators.map((row) => row.employeeId),
+    orgId,
+  );
 
   return [...new Set([
     ...doc.map((row) => row.createdById),
+    ...elaboratorUserIds,
     ...approvers.map((row) => row.userId),
   ])];
 }
@@ -213,7 +265,7 @@ async function notifyDocumentParticipants({
   title: string;
   description: string;
 }): Promise<void> {
-  const participantIds = await getDocumentParticipantUserIds(docId);
+  const participantIds = await getDocumentParticipantUserIds(docId, orgId);
   await notifyUsers({
     orgId,
     userIds: participantIds,
@@ -914,8 +966,9 @@ router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, requir
     res.status(400).json({ error: "Documento não pode ser submetido neste estado" });
     return;
   }
+  // Business rule: any document-writing admin or operator may advance a draft to review.
   if (req.auth!.role !== "org_admin" && req.auth!.role !== "operator") {
-    res.status(403).json({ error: "Apenas org_admin e operator podem enviar o documento para revisão" });
+    res.status(403).json({ error: "Apenas administradores e operadores podem enviar o documento para revisão" });
     return;
   }
 
@@ -1220,7 +1273,7 @@ router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, a
 
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
-  const acknowledgmentAudience = await getDocumentReviewStakeholderUserIds(docId);
+  const acknowledgmentAudience = await getDocumentReviewStakeholderUserIds(docId, orgId);
   await notifyUsers({
     orgId,
     userIds: acknowledgmentAudience,

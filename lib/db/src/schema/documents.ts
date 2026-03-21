@@ -31,6 +31,7 @@ export const documentUnitsTable = pgTable("document_units", {
 export const documentElaboratorsTable = pgTable("document_elaborators", {
   id: serial("id").primaryKey(),
   documentId: integer("document_id").notNull().references(() => documentsTable.id, { onDelete: "cascade" }),
+  // Legacy column name kept as `user_id` to avoid a DB migration in the current rollout.
   employeeId: integer("user_id").notNull().references(() => employeesTable.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

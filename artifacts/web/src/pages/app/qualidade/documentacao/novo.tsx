@@ -46,6 +46,8 @@ const ALLOWED_TYPES = [
   "application/vnd.ms-excel",
 ];
 
+const EMPLOYEE_SELECTOR_PAGE_SIZE = 5000;
+
 const createDocumentSchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),
   type: z.enum([
@@ -127,7 +129,7 @@ export default function NovoDocumentoPage() {
   });
   const { data: employeesResult } = useListEmployees(orgId!, {
     page: 1,
-    pageSize: 500,
+    pageSize: EMPLOYEE_SELECTOR_PAGE_SIZE,
   });
   const availableUsers = orgUsers ?? [];
   const availableEmployees = employeesResult?.data ?? [];
@@ -384,7 +386,7 @@ export default function NovoDocumentoPage() {
         <div>
           <Label>Anexo Inicial</Label>
           <div className="mt-2">
-            <label className="flex items-center gap-2 px-4 py-3 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors">
+            <label className="flex cursor-pointer items-center gap-2 px-4 py-3 border border-dashed border-border rounded-lg hover:bg-muted/30 transition-colors">
               <Upload className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
                 {isUploading ? "Enviando..." : "Escolher Arquivo"}

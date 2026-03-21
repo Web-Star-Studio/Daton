@@ -613,6 +613,7 @@ export default function ColaboradoresPage() {
             steps={["Pessoal", "Profissional", "Histórico"]}
             step={createStep}
             onStepChange={setCreateStep}
+            maxAccessibleStep={createStep}
           />
 
           {createStep === 0 && (

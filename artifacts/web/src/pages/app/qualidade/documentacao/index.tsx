@@ -76,6 +76,8 @@ const ALLOWED_TYPES = [
   "application/vnd.ms-excel",
 ];
 
+const EMPLOYEE_SELECTOR_PAGE_SIZE = 5000;
+
 const createDocumentSchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),
   type: z.enum([
@@ -559,12 +561,12 @@ function CreateDocumentModal({
   });
   const { data: employeesResult } = useListEmployees(
     orgId!,
-    { page: 1, pageSize: 500 },
+    { page: 1, pageSize: EMPLOYEE_SELECTOR_PAGE_SIZE },
     {
       query: {
         queryKey: getListEmployeesQueryKey(orgId!, {
           page: 1,
-          pageSize: 500,
+          pageSize: EMPLOYEE_SELECTOR_PAGE_SIZE,
         }),
         enabled: !!orgId && open,
       },
@@ -742,7 +744,12 @@ function CreateDocumentModal({
       size="lg"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        <DialogStepTabs steps={steps} step={step} onStepChange={setStep} />
+        <DialogStepTabs
+          steps={steps}
+          step={step}
+          onStepChange={setStep}
+          maxAccessibleStep={step}
+        />
 
         {step === 0 && (
           <div className="space-y-5">
@@ -898,7 +905,7 @@ function CreateDocumentModal({
           <div>
             <Label>Anexo Inicial</Label>
             <div className="mt-2">
-              <label className="flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-3 transition-colors hover:bg-muted/30">
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border px-4 py-3 transition-colors hover:bg-muted/30">
                 <Upload className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">
                   {isUploading ? "Enviando..." : "Escolher Arquivo"}

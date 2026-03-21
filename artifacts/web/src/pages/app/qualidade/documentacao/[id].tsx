@@ -97,6 +97,8 @@ const ALLOWED_TYPES = [
   "application/vnd.ms-excel",
 ];
 
+const EMPLOYEE_SELECTOR_PAGE_SIZE = 5000;
+
 function formatDate(d: string | null | undefined) {
   if (!d) return "—";
   try {
@@ -180,12 +182,12 @@ export default function DocumentDetailPage() {
   });
   const { data: employeesResult } = useListEmployees(
     orgId!,
-    { page: 1, pageSize: 500 },
+    { page: 1, pageSize: EMPLOYEE_SELECTOR_PAGE_SIZE },
     {
       query: {
         queryKey: getListEmployeesQueryKey(orgId!, {
           page: 1,
-          pageSize: 500,
+          pageSize: EMPLOYEE_SELECTOR_PAGE_SIZE,
         }),
         enabled: !!orgId && editDialogOpen,
       },
@@ -984,6 +986,7 @@ export default function DocumentDetailPage() {
               steps={["Básico", "Responsáveis", "Escopo"]}
               step={editStep}
               onStepChange={setEditStep}
+              maxAccessibleStep={editStep}
             />
 
             {editStep === 0 && (
