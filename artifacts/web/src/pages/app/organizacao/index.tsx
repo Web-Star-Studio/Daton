@@ -127,6 +127,7 @@ export default function OrganizacaoPage({
   const deleteUnitMut = useDeleteUnit();
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
   const [unitStep, setUnitStep] = useState(0);
+  const [maxReachedUnitStep, setMaxReachedUnitStep] = useState(0);
   const unitForm = useForm<UnitFormData>({
     defaultValues: {
       name: "",
@@ -219,6 +220,7 @@ export default function OrganizacaoPage({
   const deleteDeptMut = useDeleteDepartment();
   const [deptDialogOpen, setDeptDialogOpen] = useState(false);
   const [deptStep, setDeptStep] = useState(0);
+  const [maxReachedDeptStep, setMaxReachedDeptStep] = useState(0);
   const [editingDeptId, setEditingDeptId] = useState<number | null>(null);
   const deptForm = useForm<DepartmentFormData>({
     defaultValues: { name: "", description: "", unitIds: [] },
@@ -412,6 +414,7 @@ export default function OrganizacaoPage({
             size="sm"
             onClick={() => {
               setUnitStep(0);
+              setMaxReachedUnitStep(0);
               unitForm.reset();
               setUnitDialogOpen(true);
             }}
@@ -427,6 +430,7 @@ export default function OrganizacaoPage({
             size="sm"
             onClick={() => {
               setDeptStep(0);
+              setMaxReachedDeptStep(0);
               setEditingDeptId(null);
               deptForm.reset({ name: "", description: "", unitIds: [] });
               setDeptDialogOpen(true);
@@ -516,6 +520,7 @@ export default function OrganizacaoPage({
     queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey(orgId) });
     setUnitDialogOpen(false);
     setUnitStep(0);
+    setMaxReachedUnitStep(0);
     unitForm.reset();
   };
 
@@ -542,8 +547,38 @@ export default function OrganizacaoPage({
     });
     setDeptDialogOpen(false);
     setDeptStep(0);
+    setMaxReachedDeptStep(0);
     setEditingDeptId(null);
     deptForm.reset();
+  };
+
+  const changeUnitStep = async (targetStep: number) => {
+    const boundedTarget = Math.max(0, Math.min(targetStep, 2));
+
+    if (boundedTarget > unitStep) {
+      const fieldsByStep: Array<Array<keyof UnitFormData>> = [
+        ["name", "code", "type", "status"],
+        ["cnpj", "phone", "country"],
+        ["cep", "address", "streetNumber", "neighborhood", "city", "state"],
+      ];
+      const valid = await unitForm.trigger(fieldsByStep[unitStep]);
+      if (!valid) return;
+    }
+
+    setUnitStep(boundedTarget);
+    setMaxReachedUnitStep((current) => Math.max(current, boundedTarget));
+  };
+
+  const changeDeptStep = async (targetStep: number) => {
+    const boundedTarget = Math.max(0, Math.min(targetStep, 1));
+
+    if (boundedTarget > deptStep) {
+      const valid = await deptForm.trigger(["name", "description"]);
+      if (!valid) return;
+    }
+
+    setDeptStep(boundedTarget);
+    setMaxReachedDeptStep((current) => Math.max(current, boundedTarget));
   };
 
   const onPosSubmit = async (data: PositionFormData) => {
@@ -1059,6 +1094,7 @@ export default function OrganizacaoPage({
                   className="mt-4"
                   onClick={() => {
                     setUnitStep(0);
+                    setMaxReachedUnitStep(0);
                     unitForm.reset();
                     setUnitDialogOpen(true);
                   }}
@@ -1193,6 +1229,7 @@ export default function OrganizacaoPage({
                           unitIds: dept.unitIds || [],
                         });
                         setDeptStep(0);
+                        setMaxReachedDeptStep(0);
                         setDeptDialogOpen(true);
                       }}
                     >
@@ -1325,6 +1362,7 @@ export default function OrganizacaoPage({
           setUnitDialogOpen(open);
           if (!open) {
             setUnitStep(0);
+            setMaxReachedUnitStep(0);
             unitForm.reset();
           }
         }}
@@ -1342,8 +1380,10 @@ export default function OrganizacaoPage({
           <DialogStepTabs
             steps={["Básico", "Contato", "Endereço"]}
             step={unitStep}
-            onStepChange={setUnitStep}
-            maxAccessibleStep={unitStep}
+            onStepChange={(nextStep) => {
+              void changeUnitStep(nextStep);
+            }}
+            maxAccessibleStep={maxReachedUnitStep}
           />
 
           {unitStep === 0 && (
@@ -1457,7 +1497,9 @@ export default function OrganizacaoPage({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setUnitStep((current) => Math.max(current - 1, 0))}
+                onClick={() => {
+                  void changeUnitStep(unitStep - 1);
+                }}
               >
                 Anterior
               </Button>
@@ -1469,6 +1511,7 @@ export default function OrganizacaoPage({
                 onClick={() => {
                   setUnitDialogOpen(false);
                   setUnitStep(0);
+                  setMaxReachedUnitStep(0);
                   unitForm.reset();
                 }}
               >
@@ -1479,15 +1522,8 @@ export default function OrganizacaoPage({
               <Button
                 type="button"
                 size="sm"
-                onClick={async () => {
-                  const fieldsByStep: Array<Array<keyof UnitFormData>> = [
-                    ["name", "code", "type", "status"],
-                    ["cnpj", "phone", "country"],
-                    ["cep", "address", "streetNumber", "neighborhood", "city", "state"],
-                  ];
-                  const valid = await unitForm.trigger(fieldsByStep[unitStep]);
-                  if (!valid) return;
-                  setUnitStep((current) => Math.min(current + 1, 2));
+                onClick={() => {
+                  void changeUnitStep(unitStep + 1);
                 }}
               >
                 Próximo
@@ -1527,6 +1563,7 @@ export default function OrganizacaoPage({
           setDeptDialogOpen(open);
           if (!open) {
             setDeptStep(0);
+            setMaxReachedDeptStep(0);
             setEditingDeptId(null);
             deptForm.reset({ name: "", description: "", unitIds: [] });
           }
@@ -1544,8 +1581,10 @@ export default function OrganizacaoPage({
           <DialogStepTabs
             steps={["Básico", "Unidades"]}
             step={deptStep}
-            onStepChange={setDeptStep}
-            maxAccessibleStep={deptStep}
+            onStepChange={(nextStep) => {
+              void changeDeptStep(nextStep);
+            }}
+            maxAccessibleStep={maxReachedDeptStep}
           />
 
           {deptStep === 0 && (
@@ -1632,7 +1671,9 @@ export default function OrganizacaoPage({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setDeptStep((current) => Math.max(current - 1, 0))}
+                onClick={() => {
+                  void changeDeptStep(deptStep - 1);
+                }}
               >
                 Anterior
               </Button>
@@ -1644,6 +1685,7 @@ export default function OrganizacaoPage({
                 onClick={() => {
                   setDeptDialogOpen(false);
                   setDeptStep(0);
+                  setMaxReachedDeptStep(0);
                   setEditingDeptId(null);
                   deptForm.reset({ name: "", description: "", unitIds: [] });
                 }}
@@ -1655,10 +1697,8 @@ export default function OrganizacaoPage({
               <Button
                 type="button"
                 size="sm"
-                onClick={async () => {
-                  const valid = await deptForm.trigger(["name", "description"]);
-                  if (!valid) return;
-                  setDeptStep(1);
+                onClick={() => {
+                  void changeDeptStep(deptStep + 1);
                 }}
               >
                 Próximo

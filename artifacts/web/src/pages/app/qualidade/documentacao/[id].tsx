@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
@@ -41,6 +41,7 @@ import { Select } from "@/components/ui/select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
+import { DOCUMENT_ELABORATOR_PAGE_SIZE } from "@/lib/document-elaborators";
 import {
   ArrowLeft,
   FileText,
@@ -96,8 +97,6 @@ const ALLOWED_TYPES = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-excel",
 ];
-
-const EMPLOYEE_SELECTOR_PAGE_SIZE = 5000;
 
 function formatDate(d: string | null | undefined) {
   if (!d) return "—";
@@ -160,6 +159,7 @@ export default function DocumentDetailPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editStep, setEditStep] = useState(0);
+  const [maxReachedEditStep, setMaxReachedEditStep] = useState(0);
   const [submitDialog, setSubmitDialog] = useState(false);
   const [submitChangeDescription, setSubmitChangeDescription] = useState("");
   const [attachmentActionKey, setAttachmentActionKey] = useState<
@@ -182,12 +182,12 @@ export default function DocumentDetailPage() {
   });
   const { data: employeesResult } = useListEmployees(
     orgId!,
-    { page: 1, pageSize: EMPLOYEE_SELECTOR_PAGE_SIZE },
+    { page: 1, pageSize: DOCUMENT_ELABORATOR_PAGE_SIZE },
     {
       query: {
         queryKey: getListEmployeesQueryKey(orgId!, {
           page: 1,
-          pageSize: EMPLOYEE_SELECTOR_PAGE_SIZE,
+          pageSize: DOCUMENT_ELABORATOR_PAGE_SIZE,
         }),
         enabled: !!orgId && editDialogOpen,
       },
@@ -210,7 +210,10 @@ export default function DocumentDetailPage() {
     },
   );
   const orgUsers = allUsers ?? [];
-  const availableEmployees = employeesResult?.data ?? [];
+  const availableEmployees = useMemo(
+    () => employeesResult?.data ?? [],
+    [employeesResult?.data],
+  );
 
   usePageTitle(doc?.title);
 
@@ -299,13 +302,43 @@ export default function DocumentDetailPage() {
           .filter(Boolean) ?? [],
     });
     setEditStep(0);
+    setMaxReachedEditStep(0);
     setEditDialogOpen(true);
   };
 
   const handleCloseEditDialog = () => {
     setEditDialogOpen(false);
     setEditStep(0);
+    setMaxReachedEditStep(0);
     setEditForm(null);
+  };
+
+  const validateEditStep = (currentStep: number, form: EditFormState) => {
+    if (currentStep === 0) {
+      return form.title.trim().length > 0;
+    }
+
+    if (currentStep === 1) {
+      return (
+        form.elaboratorId > 0 &&
+        form.approverIds.length > 0 &&
+        form.recipientIds.length > 0
+      );
+    }
+
+    return true;
+  };
+
+  const changeEditStep = (targetStep: number) => {
+    if (!editForm) return;
+
+    const boundedTarget = Math.max(0, Math.min(targetStep, 2));
+    if (boundedTarget > editStep && !validateEditStep(editStep, editForm)) {
+      return;
+    }
+
+    setEditStep(boundedTarget);
+    setMaxReachedEditStep((current) => Math.max(current, boundedTarget));
   };
 
   const handleSaveEditDialog = async () => {
@@ -985,8 +1018,8 @@ export default function DocumentDetailPage() {
             <DialogStepTabs
               steps={["Básico", "Responsáveis", "Escopo"]}
               step={editStep}
-              onStepChange={setEditStep}
-              maxAccessibleStep={editStep}
+              onStepChange={changeEditStep}
+              maxAccessibleStep={maxReachedEditStep}
             />
 
             {editStep === 0 && (
@@ -1182,7 +1215,7 @@ export default function DocumentDetailPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setEditStep((current) => Math.max(current - 1, 0))}
+                  onClick={() => changeEditStep(editStep - 1)}
                 >
                   Anterior
                 </Button>
@@ -1200,7 +1233,7 @@ export default function DocumentDetailPage() {
                 <Button
                   type="button"
                   size="sm"
-                  onClick={() => setEditStep((current) => Math.min(current + 1, 2))}
+                  onClick={() => changeEditStep(editStep + 1)}
                   disabled={
                     (editStep === 0 && !editForm.title.trim()) ||
                     (editStep === 1 &&

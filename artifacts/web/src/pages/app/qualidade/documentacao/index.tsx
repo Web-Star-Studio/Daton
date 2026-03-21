@@ -27,6 +27,7 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { Plus, FileText, Upload, X, Trash2 } from "lucide-react";
 import { resolveApiUrl } from "@/lib/api";
+import { DOCUMENT_ELABORATOR_PAGE_SIZE } from "@/lib/document-elaborators";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Rascunho",
@@ -75,8 +76,6 @@ const ALLOWED_TYPES = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-excel",
 ];
-
-const EMPLOYEE_SELECTOR_PAGE_SIZE = 5000;
 
 const createDocumentSchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),
@@ -519,6 +518,7 @@ function CreateDocumentModal({
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [step, setStep] = useState(0);
+  const [maxReachedStep, setMaxReachedStep] = useState(0);
   const { user } = useAuth();
 
   const {
@@ -561,19 +561,22 @@ function CreateDocumentModal({
   });
   const { data: employeesResult } = useListEmployees(
     orgId!,
-    { page: 1, pageSize: EMPLOYEE_SELECTOR_PAGE_SIZE },
+    { page: 1, pageSize: DOCUMENT_ELABORATOR_PAGE_SIZE },
     {
       query: {
         queryKey: getListEmployeesQueryKey(orgId!, {
           page: 1,
-          pageSize: EMPLOYEE_SELECTOR_PAGE_SIZE,
+          pageSize: DOCUMENT_ELABORATOR_PAGE_SIZE,
         }),
         enabled: !!orgId && open,
       },
     },
   );
   const availableUsers = orgUsers ?? [];
-  const availableEmployees = employeesResult?.data ?? [];
+  const availableEmployees = useMemo(
+    () => employeesResult?.data ?? [],
+    [employeesResult?.data],
+  );
 
   useEffect(() => {
     if (!open || availableEmployees.length === 0) return;
@@ -614,6 +617,7 @@ function CreateDocumentModal({
       setUploadedFiles([]);
       setValue("elaboratorId", 0);
       setStep(0);
+      setMaxReachedStep(0);
     }
     onOpenChange(val);
   };
@@ -710,10 +714,12 @@ function CreateDocumentModal({
 
   const steps = ["Básico", "Responsáveis", "Escopo", "Anexos"];
 
-  const goToNextStep = async () => {
+  const validateStep = async (targetStep: number) => {
+    if (targetStep <= step) return true;
+
     if (step === 0) {
       const valid = await trigger(["title", "type", "validityDate"]);
-      if (!valid) return;
+      if (!valid) return false;
     }
 
     if (step === 1) {
@@ -722,10 +728,19 @@ function CreateDocumentModal({
         "approverIds",
         "recipientIds",
       ]);
-      if (!valid) return;
+      if (!valid) return false;
     }
 
-    setStep((current) => Math.min(current + 1, steps.length - 1));
+    return true;
+  };
+
+  const changeStep = async (targetStep: number) => {
+    const boundedTarget = Math.max(0, Math.min(targetStep, steps.length - 1));
+    const valid = await validateStep(boundedTarget);
+    if (!valid) return;
+
+    setStep(boundedTarget);
+    setMaxReachedStep((current) => Math.max(current, boundedTarget));
   };
 
   return (
@@ -747,8 +762,10 @@ function CreateDocumentModal({
         <DialogStepTabs
           steps={steps}
           step={step}
-          onStepChange={setStep}
-          maxAccessibleStep={step}
+          onStepChange={(nextStep) => {
+            void changeStep(nextStep);
+          }}
+          maxAccessibleStep={maxReachedStep}
         />
 
         {step === 0 && (
@@ -959,7 +976,9 @@ function CreateDocumentModal({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setStep((current) => Math.max(current - 1, 0))}
+              onClick={() => {
+                void changeStep(step - 1);
+              }}
             >
               Anterior
             </Button>
@@ -974,7 +993,7 @@ function CreateDocumentModal({
             </Button>
           )}
           {step < steps.length - 1 ? (
-            <Button type="button" size="sm" onClick={() => void goToNextStep()}>
+            <Button type="button" size="sm" onClick={() => void changeStep(step + 1)}>
               Próximo
             </Button>
           ) : (

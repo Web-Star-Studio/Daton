@@ -228,6 +228,7 @@ export default function ColaboradoresPage() {
   const [page, setPage] = useState(1);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [createStep, setCreateStep] = useState(0);
+  const [maxReachedCreateStep, setMaxReachedCreateStep] = useState(0);
   const [professionalExperiences, setProfessionalExperiences] = useState<ProfileDraftItem[]>([]);
   const [educationCertifications, setEducationCertifications] = useState<ProfileDraftItem[]>([]);
 
@@ -315,8 +316,28 @@ export default function ColaboradoresPage() {
   const resetCreateForm = () => {
     reset();
     setCreateStep(0);
+    setMaxReachedCreateStep(0);
     setProfessionalExperiences([]);
     setEducationCertifications([]);
+  };
+
+  const changeCreateStep = async (targetStep: number) => {
+    const boundedTarget = Math.max(0, Math.min(targetStep, 2));
+
+    if (boundedTarget > createStep) {
+      if (createStep === 0) {
+        const valid = await trigger(["cpf", "name", "email", "phone"]);
+        if (!valid) return;
+      }
+
+      if (createStep === 1) {
+        const valid = await trigger(["department", "position", "unitId", "contractType", "admissionDate"]);
+        if (!valid) return;
+      }
+    }
+
+    setCreateStep(boundedTarget);
+    setMaxReachedCreateStep((current) => Math.max(current, boundedTarget));
   };
 
   const onCreateSubmit = async (data: CreateEmployeeBody) => {
@@ -402,6 +423,7 @@ export default function ColaboradoresPage() {
           size="sm"
           onClick={() => {
             setCreateStep(0);
+            setMaxReachedCreateStep(0);
             setCreateOpen(true);
           }}
         >
@@ -487,6 +509,7 @@ export default function ColaboradoresPage() {
                 className="mt-4"
                 onClick={() => {
                   setCreateStep(0);
+                  setMaxReachedCreateStep(0);
                   setCreateOpen(true);
                 }}
               >
@@ -612,8 +635,10 @@ export default function ColaboradoresPage() {
           <DialogStepTabs
             steps={["Pessoal", "Profissional", "Histórico"]}
             step={createStep}
-            onStepChange={setCreateStep}
-            maxAccessibleStep={createStep}
+            onStepChange={(nextStep) => {
+              void changeCreateStep(nextStep);
+            }}
+            maxAccessibleStep={maxReachedCreateStep}
           />
 
           {createStep === 0 && (
@@ -760,7 +785,14 @@ export default function ColaboradoresPage() {
           )}
           <DialogFooter>
             {createStep > 0 ? (
-              <Button type="button" variant="outline" size="sm" onClick={() => setCreateStep((current) => Math.max(current - 1, 0))}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void changeCreateStep(createStep - 1);
+                }}
+              >
                 Anterior
               </Button>
             ) : (
@@ -772,16 +804,8 @@ export default function ColaboradoresPage() {
               <Button
                 type="button"
                 size="sm"
-                onClick={async () => {
-                  if (createStep === 0) {
-                    const valid = await trigger(["cpf", "name", "email", "phone"]);
-                    if (!valid) return;
-                  }
-                  if (createStep === 1) {
-                    const valid = await trigger(["department", "position", "unitId", "contractType", "admissionDate"]);
-                    if (!valid) return;
-                  }
-                  setCreateStep((current) => Math.min(current + 1, 2));
+                onClick={() => {
+                  void changeCreateStep(createStep + 1);
                 }}
               >
                 Próximo

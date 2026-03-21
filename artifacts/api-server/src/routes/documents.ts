@@ -115,35 +115,24 @@ async function createNotification(orgId: number, userId: number, type: string, t
 async function getEmployeeLinkedUserIds(employeeIds: number[], orgId: number): Promise<number[]> {
   if (employeeIds.length === 0) return [];
 
-  const employeeRows = await db
-    .select({ email: employeesTable.email })
-    .from(employeesTable)
+  const rows = await db
+    .selectDistinct({ id: usersTable.id })
+    .from(usersTable)
+    .innerJoin(
+      employeesTable,
+      sql`lower(trim(${employeesTable.email})) = lower(trim(${usersTable.email}))`,
+    )
     .where(
       and(
         inArray(employeesTable.id, employeeIds),
         eq(employeesTable.organizationId, orgId),
+        eq(usersTable.organizationId, orgId),
+        sql`${employeesTable.email} is not null`,
+        sql`${usersTable.email} is not null`,
       ),
     );
 
-  const employeeEmails = [...new Set(
-    employeeRows
-      .map((row) => row.email?.trim().toLowerCase())
-      .filter((email): email is string => Boolean(email)),
-  )];
-
-  if (employeeEmails.length === 0) return [];
-
-  const userRows = await db
-    .select({ id: usersTable.id, email: usersTable.email })
-    .from(usersTable)
-    .where(eq(usersTable.organizationId, orgId));
-
-  return userRows
-    .filter((row) => {
-      const email = row.email?.trim().toLowerCase();
-      return email ? employeeEmails.includes(email) : false;
-    })
-    .map((row) => row.id);
+  return rows.map((row) => row.id);
 }
 
 async function getDocumentParticipantUserIds(docId: number, orgId: number): Promise<number[]> {
@@ -428,6 +417,29 @@ async function getDocumentDetail(docId: number, orgId: number) {
             ? elaborator.updatedAt.toISOString()
             : elaborator.updatedAt,
       }))
+      : doc.createdById
+        ? [{
+          id: doc.createdById,
+          organizationId: orgId,
+          unitId: null,
+          name: doc.createdByName ?? "Usuário da organização",
+          cpf: null,
+          email: doc.createdByEmail ?? null,
+          phone: null,
+          position: null,
+          department: null,
+          contractType: "clt",
+          admissionDate: null,
+          terminationDate: null,
+          status: "active",
+          unitName: null,
+          createdAt:
+            doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt,
+          updatedAt:
+            doc.updatedAt instanceof Date
+              ? doc.updatedAt.toISOString()
+              : (doc.updatedAt ?? (doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt)),
+        }]
         : [],
     approvers: approverRows.map(a => ({
       ...a,

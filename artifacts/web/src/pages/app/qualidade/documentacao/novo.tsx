@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
@@ -23,6 +23,7 @@ import { Select } from "@/components/ui/select";
 import { Upload, X, FileText, ArrowLeft } from "lucide-react";
 import { usePageTitle } from "@/contexts/LayoutContext";
 import { resolveApiUrl } from "@/lib/api";
+import { DOCUMENT_ELABORATOR_PAGE_SIZE } from "@/lib/document-elaborators";
 
 const TYPE_OPTIONS = [
   { value: "manual", label: "Manual" },
@@ -45,8 +46,6 @@ const ALLOWED_TYPES = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-excel",
 ];
-
-const EMPLOYEE_SELECTOR_PAGE_SIZE = 5000;
 
 const createDocumentSchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),
@@ -129,10 +128,13 @@ export default function NovoDocumentoPage() {
   });
   const { data: employeesResult } = useListEmployees(orgId!, {
     page: 1,
-    pageSize: EMPLOYEE_SELECTOR_PAGE_SIZE,
+    pageSize: DOCUMENT_ELABORATOR_PAGE_SIZE,
   });
   const availableUsers = orgUsers ?? [];
-  const availableEmployees = employeesResult?.data ?? [];
+  const availableEmployees = useMemo(
+    () => employeesResult?.data ?? [],
+    [employeesResult?.data],
+  );
 
   useEffect(() => {
     if (availableEmployees.length === 0) return;
