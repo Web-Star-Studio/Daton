@@ -35,6 +35,7 @@ import type {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { EmployeeCombobox } from "@/components/employees/employee-combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -1073,23 +1074,17 @@ export default function DocumentDetailPage() {
               <div className="space-y-5">
                 <div>
                   <Label>Elaborador</Label>
-                  <Select
-                    className="mt-2"
-                    value={String(editForm.elaboratorId || "")}
-                    onChange={(e) =>
+                  <EmployeeCombobox
+                    employees={availableEmployees}
+                    value={editForm.elaboratorId || null}
+                    onChange={(nextValue) =>
                       setEditForm({
                         ...editForm,
-                        elaboratorId: Number(e.target.value),
+                        elaboratorId: nextValue ?? 0,
                       })
                     }
-                  >
-                    <option value="">Selecione</option>
-                    {availableEmployees.map((employee: Employee) => (
-                      <option key={employee.id} value={employee.id}>
-                        {employee.name}
-                      </option>
-                    ))}
-                  </Select>
+                    placeholder="Selecione o elaborador"
+                  />
                 </div>
 
                 <div>

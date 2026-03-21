@@ -14,9 +14,10 @@ import {
   getListUnitsQueryKey,
   getListUserOptionsQueryKey,
 } from "@workspace/api-client-react";
-import type { Employee, UserOption } from "@workspace/api-client-react";
+import type { UserOption } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { EmployeeCombobox } from "@/components/employees/employee-combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -328,22 +329,16 @@ export default function NovoDocumentoPage() {
         <div className="grid grid-cols-2 gap-6">
           <div>
             <Label>Elaborador</Label>
-            <Select
-              className="mt-2"
-              value={elaboratorId ? String(elaboratorId) : ""}
-              onChange={(e) =>
-                setValue("elaboratorId", Number(e.target.value), {
+            <EmployeeCombobox
+              employees={availableEmployees}
+              value={elaboratorId || null}
+              onChange={(nextValue) =>
+                setValue("elaboratorId", nextValue ?? 0, {
                   shouldValidate: true,
                 })
               }
-            >
-              <option value="">Selecione</option>
-              {availableEmployees.map((employee: Employee) => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.name}
-                </option>
-              ))}
-            </Select>
+              placeholder="Selecione o elaborador"
+            />
             {errors.elaboratorId && (
               <p className="text-xs text-red-500 mt-1">
                 {errors.elaboratorId.message}
