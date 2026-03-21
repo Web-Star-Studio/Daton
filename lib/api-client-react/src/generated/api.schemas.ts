@@ -1896,7 +1896,7 @@ export interface DocumentDetail {
   createdAt: string;
   updatedAt?: string;
   units?: DocumentDetailUnitsItem[];
-  elaborators?: OrgUser[];
+  elaborators?: Employee[];
   approvers?: DocumentDetailApproversItem[];
   recipients?: DocumentDetailRecipientsItem[];
   references?: DocumentDetailReferencesItem[];

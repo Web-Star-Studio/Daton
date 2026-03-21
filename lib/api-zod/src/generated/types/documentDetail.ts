@@ -11,7 +11,7 @@ import type { DocumentDetailRecipientsItem } from "./documentDetailRecipientsIte
 import type { DocumentDetailReferencesItem } from "./documentDetailReferencesItem";
 import type { DocumentDetailUnitsItem } from "./documentDetailUnitsItem";
 import type { DocumentVersion } from "./documentVersion";
-import type { OrgUser } from "./orgUser";
+import type { Employee } from "./employee";
 
 export interface DocumentDetail {
   id: number;
@@ -25,7 +25,7 @@ export interface DocumentDetail {
   createdAt: string;
   updatedAt?: string;
   units?: DocumentDetailUnitsItem[];
-  elaborators?: OrgUser[];
+  elaborators?: Employee[];
   approvers?: DocumentDetailApproversItem[];
   recipients?: DocumentDetailRecipientsItem[];
   references?: DocumentDetailReferencesItem[];

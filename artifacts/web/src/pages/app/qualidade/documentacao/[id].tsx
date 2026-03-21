@@ -15,6 +15,8 @@ import {
   useResetDocumentVersions,
   useDeleteDocument,
   useListUnits,
+  useListEmployees,
+  getListEmployeesQueryKey,
   useListUserOptions,
   useListDocuments,
   getListUnitsQueryKey,
@@ -28,7 +30,7 @@ import type {
   DocumentDetailReferencesItem,
   DocumentAttachment,
   DocumentVersion,
-  OrgUser,
+  Employee,
   UserOption,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -37,6 +39,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
 import {
   ArrowLeft,
@@ -54,8 +57,6 @@ import {
   RotateCcw,
   Eye,
   Pencil,
-  Save,
-  X,
 } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -142,7 +143,7 @@ interface EditFormState {
 export default function DocumentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const docId = parseInt(id || "0", 10);
-  const { organization, user } = useAuth();
+  const { organization, user, role } = useAuth();
   const { canWriteModule } = usePermissions();
   const orgId = organization?.id;
   const [, navigate] = useLocation();
@@ -155,7 +156,8 @@ export default function DocumentDetailPage() {
   const [rejectComment, setRejectComment] = useState("");
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editStep, setEditStep] = useState(0);
   const [submitDialog, setSubmitDialog] = useState(false);
   const [submitChangeDescription, setSubmitChangeDescription] = useState("");
   const [attachmentActionKey, setAttachmentActionKey] = useState<
@@ -173,13 +175,26 @@ export default function DocumentDetailPage() {
   const { data: allUnits } = useListUnits(orgId!, {
     query: {
       queryKey: getListUnitsQueryKey(orgId!),
-      enabled: !!orgId && isEditing,
+      enabled: !!orgId && editDialogOpen,
     },
   });
+  const { data: employeesResult } = useListEmployees(
+    orgId!,
+    { page: 1, pageSize: 500 },
+    {
+      query: {
+        queryKey: getListEmployeesQueryKey(orgId!, {
+          page: 1,
+          pageSize: 500,
+        }),
+        enabled: !!orgId && editDialogOpen,
+      },
+    },
+  );
   const { data: allUsers } = useListUserOptions(orgId!, {
     query: {
       queryKey: getListUserOptionsQueryKey(orgId!),
-      enabled: !!orgId && isEditing,
+      enabled: !!orgId && editDialogOpen,
     },
   });
   const { data: allDocs } = useListDocuments(
@@ -188,15 +203,12 @@ export default function DocumentDetailPage() {
     {
       query: {
         queryKey: getListDocumentsQueryKey(orgId!, {}),
-        enabled: !!orgId && isEditing,
+        enabled: !!orgId && editDialogOpen,
       },
     },
   );
   const orgUsers = allUsers ?? [];
-  const eligibleElaborators = orgUsers.filter(
-    (option: UserOption) =>
-      option.role === "org_admin" || option.role === "operator",
-  );
+  const availableEmployees = employeesResult?.data ?? [];
 
   usePageTitle(doc?.title);
 
@@ -233,10 +245,7 @@ export default function DocumentDetailPage() {
     (doc?.status === "draft" || doc?.status === "rejected");
   const canSubmitForReview =
     canWriteDocuments &&
-    ((doc?.elaborators?.some((elaborator: OrgUser) => elaborator.id === user?.id) ??
-      false) ||
-      ((!doc?.elaborators || doc.elaborators.length === 0) &&
-        doc?.createdById === user?.id)) &&
+    (role === "org_admin" || role === "operator") &&
     (doc?.status === "draft" || doc?.status === "rejected");
 
   const handleSubmitForReview = async () => {
@@ -263,146 +272,120 @@ export default function DocumentDetailPage() {
     invalidate();
   };
 
+  const handleOpenEditDialog = () => {
+    if (!doc) return;
+    setEditForm({
+      title: doc.title,
+      type: doc.type,
+      validityDate: doc.validityDate ?? "",
+      elaboratorId: doc.elaborators?.[0]?.id ?? 0,
+      unitIds:
+        doc.units
+          ?.map((u: DocumentDetailUnitsItem) => u.id!)
+          .filter(Boolean) ?? [],
+      approverIds:
+        doc.approvers
+          ?.map((a: DocumentDetailApproversItem) => a.userId!)
+          .filter(Boolean) ?? [],
+      recipientIds:
+        doc.recipients
+          ?.map((r: DocumentDetailRecipientsItem) => r.userId!)
+          .filter(Boolean) ?? [],
+      referenceIds:
+        doc.references
+          ?.map((ref: DocumentDetailReferencesItem) => ref.documentId!)
+          .filter(Boolean) ?? [],
+    });
+    setEditStep(0);
+    setEditDialogOpen(true);
+  };
+
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false);
+    setEditStep(0);
+    setEditForm(null);
+  };
+
+  const handleSaveEditDialog = async () => {
+    if (!orgId || !editForm) return;
+    await updateMut.mutateAsync({
+      orgId,
+      docId,
+      data: {
+        title: editForm.title.trim(),
+        type: editForm.type,
+        validityDate: editForm.validityDate || undefined,
+        elaboratorId: editForm.elaboratorId,
+        unitIds: editForm.unitIds,
+        approverIds: editForm.approverIds,
+        recipientIds: editForm.recipientIds,
+        referenceIds: editForm.referenceIds,
+      },
+    });
+    handleCloseEditDialog();
+    invalidate();
+  };
+
   useHeaderActions(
     doc ? (
       <div className="flex items-center gap-2">
-        {isEditing ? (
-          <>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setIsEditing(false);
-                setEditForm(null);
-              }}
-            >
-              <X className="h-3.5 w-3.5 mr-1.5" /> Cancelar
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                if (!orgId || !editForm) return;
-                updateMut
-                  .mutateAsync({
-                    orgId,
-                    docId,
-                    data: {
-                      title: editForm.title,
-                      type: editForm.type,
-                      validityDate: editForm.validityDate || undefined,
-                      elaboratorId: editForm.elaboratorId,
-                      unitIds: editForm.unitIds,
-                      approverIds: editForm.approverIds,
-                      recipientIds: editForm.recipientIds,
-                      referenceIds: editForm.referenceIds,
-                    },
-                  })
-                  .then(() => {
-                    setIsEditing(false);
-                    setEditForm(null);
-                    invalidate();
-                  });
-              }}
-              isLoading={updateMut.isPending}
-              disabled={!editForm?.title?.trim()}
-            >
-              <Save className="h-3.5 w-3.5 mr-1.5" /> Salvar
-            </Button>
-          </>
-        ) : (
-          <>
-            {canEdit && (
+        {canEdit && (
+          <Button size="sm" variant="outline" onClick={handleOpenEditDialog}>
+            <Pencil className="h-3.5 w-3.5 mr-1.5" /> Editar
+          </Button>
+        )}
+        {canSubmitForReview && doc.status === "draft" && (
+          <Button
+            size="sm"
+            onClick={() => {
+              setSubmitChangeDescription("");
+              setSubmitDialog(true);
+            }}
+          >
+            <Send className="h-3.5 w-3.5 mr-1.5" /> Enviar para Revisão
+          </Button>
+        )}
+        {canSubmitForReview && doc.status === "rejected" && (
+          <Button
+            size="sm"
+            onClick={() => {
+              setSubmitChangeDescription("");
+              setSubmitDialog(true);
+            }}
+          >
+            <Send className="h-3.5 w-3.5 mr-1.5" /> Reenviar para Revisão
+          </Button>
+        )}
+        {canWriteDocuments &&
+          doc.status === "in_review" &&
+          isApprover &&
+          myApproval?.status === "pending" && (
+            <>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  if (!doc) return;
-                  setEditForm({
-                    title: doc.title,
-                    type: doc.type,
-                    validityDate: doc.validityDate ?? "",
-                    elaboratorId:
-                      doc.elaborators?.[0]?.id ?? doc.createdById ?? 0,
-                    unitIds:
-                      doc.units
-                        ?.map((u: DocumentDetailUnitsItem) => u.id!)
-                        .filter(Boolean) ?? [],
-                    approverIds:
-                      doc.approvers
-                        ?.map((a: DocumentDetailApproversItem) => a.userId!)
-                        .filter(Boolean) ?? [],
-                    recipientIds:
-                      doc.recipients
-                        ?.map((r: DocumentDetailRecipientsItem) => r.userId!)
-                        .filter(Boolean) ?? [],
-                    referenceIds:
-                      doc.references
-                        ?.map(
-                          (ref: DocumentDetailReferencesItem) =>
-                            ref.documentId!,
-                        )
-                        .filter(Boolean) ?? [],
-                  });
-                  setIsEditing(true);
-                }}
+                onClick={() => setRejectDialog(true)}
               >
-                <Pencil className="h-3.5 w-3.5 mr-1.5" /> Editar
+                <XCircle className="h-3.5 w-3.5 mr-1.5" /> Rejeitar
               </Button>
-            )}
-            {canSubmitForReview && doc.status === "draft" && (
               <Button
                 size="sm"
-                onClick={() => {
-                  setSubmitChangeDescription("");
-                  setSubmitDialog(true);
-                }}
+                onClick={handleApprove}
+                isLoading={approveMut.isPending}
               >
-                <Send className="h-3.5 w-3.5 mr-1.5" /> Enviar para Revisão
+                <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Aprovar
               </Button>
-            )}
-            {canSubmitForReview && doc.status === "rejected" && (
-              <Button
-                size="sm"
-                onClick={() => {
-                  setSubmitChangeDescription("");
-                  setSubmitDialog(true);
-                }}
-              >
-                <Send className="h-3.5 w-3.5 mr-1.5" /> Reenviar para Revisão
-              </Button>
-            )}
-            {canWriteDocuments &&
-              doc.status === "in_review" &&
-              isApprover &&
-              myApproval?.status === "pending" && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setRejectDialog(true)}
-                  >
-                    <XCircle className="h-3.5 w-3.5 mr-1.5" /> Rejeitar
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleApprove}
-                    isLoading={approveMut.isPending}
-                  >
-                    <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Aprovar
-                  </Button>
-                </>
-              )}
-            {doc.status === "draft" && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setDeleteDialog(true)}
-                className="text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Excluir
-              </Button>
-            )}
-          </>
+            </>
+          )}
+        {doc.status === "draft" && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setDeleteDialog(true)}
+            className="text-red-600 hover:text-red-700"
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Excluir
+          </Button>
         )}
       </div>
     ) : null,
@@ -598,7 +581,7 @@ export default function DocumentDetailPage() {
         ))}
       </div>
 
-      {activeTab === "info" && !isEditing && (
+      {activeTab === "info" && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-6">
             <InfoField label="Título" value={doc.title} />
@@ -649,7 +632,7 @@ export default function DocumentDetailPage() {
                 Elaborador
               </Label>
               <div className="flex flex-wrap gap-2 mt-2">
-                {doc.elaborators.map((e: OrgUser) => (
+                {doc.elaborators.map((e: Employee) => (
                   <span
                     key={e.id}
                     className="px-2.5 py-1 bg-muted/50 rounded-md text-sm"
@@ -681,226 +664,6 @@ export default function DocumentDetailPage() {
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {activeTab === "info" && isEditing && editForm && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <Label>Título *</Label>
-              <Input
-                className="mt-2"
-                value={editForm.title}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, title: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label>Tipo *</Label>
-              <Select
-                className="mt-2"
-                value={editForm.type}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, type: e.target.value })
-                }
-              >
-                {Object.entries(TYPE_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <Label>Data de Validade</Label>
-              <Input
-                type="date"
-                className="mt-2"
-                value={editForm.validityDate}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, validityDate: e.target.value })
-                }
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label>Filiais</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {allUnits?.map((u) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() =>
-                    setEditForm({
-                      ...editForm,
-                      unitIds: toggleMultiSelect(editForm.unitIds, u.id),
-                    })
-                  }
-                  className={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
-                    editForm.unitIds.includes(u.id)
-                      ? "bg-foreground text-background"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {u.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <Label>Elaborador</Label>
-            <Select
-              className="mt-2"
-              value={String(editForm.elaboratorId || "")}
-              onChange={(e) =>
-                setEditForm({
-                  ...editForm,
-                  elaboratorId: Number(e.target.value),
-                })
-              }
-            >
-              <option value="">Selecione</option>
-              {eligibleElaborators.map((option: UserOption) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <div>
-            <Label>Aprovadores</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {orgUsers.map((u: UserOption) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() =>
-                    setEditForm({
-                      ...editForm,
-                      approverIds: toggleMultiSelect(
-                        editForm.approverIds,
-                        u.id,
-                      ),
-                    })
-                  }
-                  className={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
-                    editForm.approverIds.includes(u.id)
-                      ? "bg-foreground text-background"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {u.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <Label>Destinatários</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {orgUsers.map((u: UserOption) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() =>
-                    setEditForm({
-                      ...editForm,
-                      recipientIds: toggleMultiSelect(
-                        editForm.recipientIds,
-                        u.id,
-                      ),
-                    })
-                  }
-                  className={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
-                    editForm.recipientIds.includes(u.id)
-                      ? "bg-foreground text-background"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {u.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <Label>Referências</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {allDocs
-                ?.filter((d) => d.id !== docId)
-                .map((d) => (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() =>
-                      setEditForm({
-                        ...editForm,
-                        referenceIds: toggleMultiSelect(
-                          editForm.referenceIds,
-                          d.id,
-                        ),
-                      })
-                    }
-                    className={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
-                      editForm.referenceIds.includes(d.id)
-                        ? "bg-blue-600 text-white"
-                        : "bg-blue-50 text-blue-700 hover:bg-blue-100"
-                    }`}
-                  >
-                    {d.title}
-                  </button>
-                ))}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 pt-2">
-            <Button
-              size="sm"
-              onClick={() => {
-                if (!orgId || !editForm) return;
-                updateMut
-                  .mutateAsync({
-                    orgId,
-                    docId,
-                    data: {
-                      title: editForm.title,
-                      type: editForm.type,
-                      validityDate: editForm.validityDate || undefined,
-                      unitIds: editForm.unitIds,
-                      approverIds: editForm.approverIds,
-                      recipientIds: editForm.recipientIds,
-                      referenceIds: editForm.referenceIds,
-                    },
-                  })
-                  .then(() => {
-                    setIsEditing(false);
-                    setEditForm(null);
-                    invalidate();
-                  });
-              }}
-              isLoading={updateMut.isPending}
-              disabled={!editForm.title.trim()}
-            >
-              <Save className="h-3.5 w-3.5 mr-1.5" /> Salvar Alterações
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setIsEditing(false);
-                setEditForm(null);
-              }}
-            >
-              <X className="h-3.5 w-3.5 mr-1.5" /> Cancelar
-            </Button>
-          </div>
         </div>
       )}
 
@@ -1195,6 +958,276 @@ export default function DocumentDetailPage() {
           </div>
         </div>
       )}
+
+      <Dialog
+        open={editDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCloseEditDialog();
+            return;
+          }
+          setEditDialogOpen(true);
+        }}
+        title="Editar Documento"
+        description={
+          [
+            "Atualize os dados principais do documento.",
+            "Defina colaborador, aprovadores e destinatários.",
+            "Associe unidades e documentos de referência.",
+          ][editStep]
+        }
+        size="lg"
+      >
+        {editForm && (
+          <div className="space-y-5">
+            <DialogStepTabs
+              steps={["Básico", "Responsáveis", "Escopo"]}
+              step={editStep}
+              onStepChange={setEditStep}
+            />
+
+            {editStep === 0 && (
+              <div className="space-y-5">
+                <div>
+                  <Label>Título *</Label>
+                  <Input
+                    className="mt-2"
+                    value={editForm.title}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, title: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <Label>Tipo *</Label>
+                    <Select
+                      className="mt-2"
+                      value={editForm.type}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, type: e.target.value })
+                      }
+                    >
+                      {Object.entries(TYPE_LABELS).map(([key, value]) => (
+                        <option key={key} value={key}>
+                          {value}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Data de Validade</Label>
+                    <Input
+                      type="date"
+                      className="mt-2"
+                      value={editForm.validityDate}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          validityDate: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {editStep === 1 && (
+              <div className="space-y-5">
+                <div>
+                  <Label>Elaborador</Label>
+                  <Select
+                    className="mt-2"
+                    value={String(editForm.elaboratorId || "")}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        elaboratorId: Number(e.target.value),
+                      })
+                    }
+                  >
+                    <option value="">Selecione</option>
+                    {availableEmployees.map((employee: Employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Aprovadores</Label>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {orgUsers.map((option: UserOption) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() =>
+                          setEditForm({
+                            ...editForm,
+                            approverIds: toggleMultiSelect(
+                              editForm.approverIds,
+                              option.id,
+                            ),
+                          })
+                        }
+                        className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                          editForm.approverIds.includes(option.id)
+                            ? "bg-foreground text-background"
+                            : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {option.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Destinatários</Label>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {orgUsers.map((option: UserOption) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() =>
+                          setEditForm({
+                            ...editForm,
+                            recipientIds: toggleMultiSelect(
+                              editForm.recipientIds,
+                              option.id,
+                            ),
+                          })
+                        }
+                        className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                          editForm.recipientIds.includes(option.id)
+                            ? "bg-foreground text-background"
+                            : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {option.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {editStep === 2 && (
+              <div className="space-y-5">
+                <div>
+                  <Label>Filiais</Label>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {allUnits?.map((unit) => (
+                      <button
+                        key={unit.id}
+                        type="button"
+                        onClick={() =>
+                          setEditForm({
+                            ...editForm,
+                            unitIds: toggleMultiSelect(editForm.unitIds, unit.id),
+                          })
+                        }
+                        className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                          editForm.unitIds.includes(unit.id)
+                            ? "bg-foreground text-background"
+                            : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {unit.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Referências</Label>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {allDocs
+                      ?.filter((item) => item.id !== docId)
+                      .map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() =>
+                            setEditForm({
+                              ...editForm,
+                              referenceIds: toggleMultiSelect(
+                                editForm.referenceIds,
+                                item.id,
+                              ),
+                            })
+                          }
+                          className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                            editForm.referenceIds.includes(item.id)
+                              ? "bg-blue-600 text-white"
+                              : "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                          }`}
+                        >
+                          {item.title}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              {editStep > 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditStep((current) => Math.max(current - 1, 0))}
+                >
+                  Anterior
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCloseEditDialog}
+                >
+                  Cancelar
+                </Button>
+              )}
+              {editStep < 2 ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setEditStep((current) => Math.min(current + 1, 2))}
+                  disabled={
+                    (editStep === 0 && !editForm.title.trim()) ||
+                    (editStep === 1 &&
+                      (editForm.elaboratorId <= 0 ||
+                        editForm.approverIds.length === 0 ||
+                        editForm.recipientIds.length === 0))
+                  }
+                >
+                  Próximo
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void handleSaveEditDialog()}
+                  isLoading={updateMut.isPending}
+                  disabled={
+                    !editForm.title.trim() ||
+                    editForm.elaboratorId <= 0 ||
+                    editForm.approverIds.length === 0 ||
+                    editForm.recipientIds.length === 0
+                  }
+                >
+                  Salvar Alterações
+                </Button>
+              )}
+            </DialogFooter>
+          </div>
+        )}
+      </Dialog>
 
       <Dialog
         open={submitDialog}

@@ -10,18 +10,21 @@ import {
   getListDocumentsQueryKey,
   useListUnits,
   getListUnitsQueryKey,
+  useListEmployees,
+  getListEmployeesQueryKey,
   useCreateDocument,
   useDeleteDocument,
   useListUserOptions,
   getListUserOptionsQueryKey,
 } from "@workspace/api-client-react";
-import type { UserOption } from "@workspace/api-client-react";
+import type { Employee, UserOption } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { Plus, FileText, Upload, X, Trash2 } from "lucide-react";
 import { resolveApiUrl } from "@/lib/api";
 
@@ -513,6 +516,7 @@ function CreateDocumentModal({
 }) {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [step, setStep] = useState(0);
   const { user } = useAuth();
 
   const {
@@ -521,6 +525,7 @@ function CreateDocumentModal({
     watch,
     setValue,
     reset,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<CreateDocumentFormData>({
     resolver: zodResolver(createDocumentSchema),
@@ -552,26 +557,41 @@ function CreateDocumentModal({
       enabled: !!orgId && open,
     },
   });
-  const availableUsers = orgUsers ?? [];
-  const eligibleElaborators = availableUsers.filter(
-    (option: UserOption) =>
-      option.role === "org_admin" || option.role === "operator",
+  const { data: employeesResult } = useListEmployees(
+    orgId!,
+    { page: 1, pageSize: 500 },
+    {
+      query: {
+        queryKey: getListEmployeesQueryKey(orgId!, {
+          page: 1,
+          pageSize: 500,
+        }),
+        enabled: !!orgId && open,
+      },
+    },
   );
+  const availableUsers = orgUsers ?? [];
+  const availableEmployees = employeesResult?.data ?? [];
 
   useEffect(() => {
-    if (!open || eligibleElaborators.length === 0) return;
+    if (!open || availableEmployees.length === 0) return;
 
     const preferredElaboratorId =
-      eligibleElaborators.find((option) => option.id === user?.id)?.id ??
-      eligibleElaborators[0]?.id ??
+      availableEmployees.find(
+        (employee) =>
+          employee.email &&
+          user?.email &&
+          employee.email.toLowerCase() === user.email.toLowerCase(),
+      )?.id ??
+      availableEmployees[0]?.id ??
       0;
 
-    if (!eligibleElaborators.some((option) => option.id === elaboratorId)) {
+    if (!availableEmployees.some((employee) => employee.id === elaboratorId)) {
       setValue("elaboratorId", preferredElaboratorId, {
         shouldValidate: true,
       });
     }
-  }, [open, eligibleElaborators, elaboratorId, setValue, user?.id]);
+  }, [open, availableEmployees, elaboratorId, setValue, user?.email]);
 
   const { data: existingDocs } = useListDocuments(
     orgId!,
@@ -591,6 +611,7 @@ function CreateDocumentModal({
       reset();
       setUploadedFiles([]);
       setValue("elaboratorId", 0);
+      setStep(0);
     }
     onOpenChange(val);
   };
@@ -685,219 +706,275 @@ function CreateDocumentModal({
     }
   };
 
+  const steps = ["Básico", "Responsáveis", "Escopo", "Anexos"];
+
+  const goToNextStep = async () => {
+    if (step === 0) {
+      const valid = await trigger(["title", "type", "validityDate"]);
+      if (!valid) return;
+    }
+
+    if (step === 1) {
+      const valid = await trigger([
+        "elaboratorId",
+        "approverIds",
+        "recipientIds",
+      ]);
+      if (!valid) return;
+    }
+
+    setStep((current) => Math.min(current + 1, steps.length - 1));
+  };
+
   return (
     <Dialog
       open={open}
       onOpenChange={handleClose}
       title="Novo Documento"
-      description="Preencha os campos para criar um novo documento."
+      description={
+        [
+          "Defina os dados principais do documento.",
+          "Selecione colaborador, aprovadores e destinatários.",
+          "Associe unidades e referências relacionadas.",
+          "Adicione os anexos iniciais antes de salvar.",
+        ][step]
+      }
       size="lg"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        <div>
-          <Label>Título do Documento *</Label>
-          <Input
-            placeholder="Ex.: Manual da Qualidade"
-            className="mt-2"
-            {...register("title")}
-          />
-          {errors.title && (
-            <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>
-          )}
-        </div>
+        <DialogStepTabs steps={steps} step={step} onStepChange={setStep} />
 
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            <Label>Tipo</Label>
-            <Select {...register("type")} className="mt-2">
-              {TYPE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label>Filial</Label>
-            <MultiSelectDropdown
-              placeholder="Selecione"
-              options={(units || []).map((u) => ({
-                value: u.id,
-                label: u.name,
-              }))}
-              selected={unitIds}
-              onToggle={(id) => toggleMultiSelect("unitIds", unitIds, id)}
-              onToggleAll={() =>
-                setValue(
-                  "unitIds",
-                  unitIds.length === (units || []).length
-                    ? []
-                    : (units || []).map((unit) => unit.id),
-                  { shouldValidate: true },
-                )
-              }
-              selectAllLabel="Selecionar todas as filiais"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            <Label>Elaborador</Label>
-            <Select
-              className="mt-2"
-              value={elaboratorId ? String(elaboratorId) : ""}
-              onChange={(e) =>
-                setValue("elaboratorId", Number(e.target.value), {
-                  shouldValidate: true,
-                })
-              }
-            >
-              <option value="">Selecione</option>
-              {eligibleElaborators.map((option: UserOption) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
-                </option>
-              ))}
-            </Select>
-            {errors.elaboratorId && (
-              <p className="text-xs text-red-500 mt-1">
-                {errors.elaboratorId.message}
-              </p>
-            )}
-          </div>
-          <div>
-            <Label>Aprovado por *</Label>
-            <MultiSelectDropdown
-              placeholder="Selecione"
-              options={availableUsers.map((u: UserOption) => ({
-                value: u.id,
-                label: u.name,
-              }))}
-              selected={approverIds}
-              onToggle={(id) =>
-                toggleMultiSelect("approverIds", approverIds, id)
-              }
-            />
-            {errors.approverIds && (
-              <p className="text-xs text-red-500 mt-1">
-                {errors.approverIds.message}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <Label>Data de Validade *</Label>
-          <Input
-            type="date"
-            className="mt-2 w-64"
-            {...register("validityDate")}
-          />
-          {errors.validityDate && (
-            <p className="text-xs text-red-500 mt-1">
-              {errors.validityDate.message}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <Label>Anexo Inicial</Label>
-          <div className="mt-2">
-            <label className="flex items-center gap-2 px-4 py-3 border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors">
-              <Upload className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                {isUploading ? "Enviando..." : "Escolher Arquivo"}
-              </span>
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.docx,.csv,.xlsx,.xls"
-                className="hidden"
-                onChange={handleFileUpload}
-                disabled={isUploading}
+        {step === 0 && (
+          <div className="space-y-5">
+            <div>
+              <Label>Título do Documento *</Label>
+              <Input
+                placeholder="Ex.: Manual da Qualidade"
+                className="mt-2"
+                {...register("title")}
               />
-              {uploadedFiles.length === 0 && (
-                <span className="text-sm text-muted-foreground/50 ml-2">
-                  nenhum arquivo selecionado
-                </span>
+              {errors.title && (
+                <p className="mt-1 text-xs text-red-500">{errors.title.message}</p>
               )}
-            </label>
-            {uploadedFiles.length > 0 && (
-              <div className="mt-2 space-y-1">
-                {uploadedFiles.map((f, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between px-3 py-2 bg-muted/30 rounded-lg text-sm"
-                  >
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="truncate">{f.fileName}</span>
-                      <span className="text-muted-foreground text-xs">
-                        ({formatFileSize(f.fileSize)})
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(i)}
-                      className="p-1 hover:bg-muted rounded cursor-pointer"
-                    >
-                      <X className="h-3.5 w-3.5 text-muted-foreground" />
-                    </button>
-                  </div>
-                ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <Label>Tipo</Label>
+                <Select {...register("type")} className="mt-2">
+                  {TYPE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </Select>
               </div>
-            )}
+              <div>
+                <Label>Data de Validade *</Label>
+                <Input type="date" className="mt-2" {...register("validityDate")} />
+                {errors.validityDate && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.validityDate.message}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
-        <div>
-          <Label>Destinatários (protocolo de recebimento) *</Label>
-          <MultiSelectDropdown
-            placeholder="Selecionar destinatários"
-            options={availableUsers.map((u: UserOption) => ({
-              value: u.id,
-              label: u.name,
-            }))}
-            selected={recipientIds}
-            onToggle={(id) =>
-              toggleMultiSelect("recipientIds", recipientIds, id)
-            }
-          />
-          {errors.recipientIds && (
-            <p className="text-xs text-red-500 mt-1">
-              {errors.recipientIds.message}
-            </p>
-          )}
-        </div>
+        {step === 1 && (
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <Label>Elaborador</Label>
+                <Select
+                  className="mt-2"
+                  value={elaboratorId ? String(elaboratorId) : ""}
+                  onChange={(e) =>
+                    setValue("elaboratorId", Number(e.target.value), {
+                      shouldValidate: true,
+                    })
+                  }
+                >
+                  <option value="">Selecione</option>
+                  {availableEmployees.map((employee: Employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.name}
+                    </option>
+                  ))}
+                </Select>
+                {errors.elaboratorId && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.elaboratorId.message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label>Aprovado por *</Label>
+                <MultiSelectDropdown
+                  placeholder="Selecione"
+                  options={availableUsers.map((u: UserOption) => ({
+                    value: u.id,
+                    label: u.name,
+                  }))}
+                  selected={approverIds}
+                  onToggle={(id) =>
+                    toggleMultiSelect("approverIds", approverIds, id)
+                  }
+                />
+                {errors.approverIds && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.approverIds.message}
+                  </p>
+                )}
+              </div>
+            </div>
 
-        <div>
-          <Label>Referências a outros documentos</Label>
-          <MultiSelectDropdown
-            placeholder="Selecionar documentos referenciados"
-            options={(existingDocs || []).map((d) => ({
-              value: d.id,
-              label: d.title,
-            }))}
-            selected={referenceIds}
-            onToggle={(id) =>
-              toggleMultiSelect("referenceIds", referenceIds, id)
-            }
-          />
-        </div>
+            <div>
+              <Label>Destinatários (protocolo de recebimento) *</Label>
+              <MultiSelectDropdown
+                placeholder="Selecionar destinatários"
+                options={availableUsers.map((u: UserOption) => ({
+                  value: u.id,
+                  label: u.name,
+                }))}
+                selected={recipientIds}
+                onToggle={(id) =>
+                  toggleMultiSelect("recipientIds", recipientIds, id)
+                }
+              />
+              {errors.recipientIds && (
+                <p className="mt-1 text-xs text-red-500">
+                  {errors.recipientIds.message}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-5">
+            <div>
+              <Label>Filial</Label>
+              <MultiSelectDropdown
+                placeholder="Selecione"
+                options={(units || []).map((u) => ({
+                  value: u.id,
+                  label: u.name,
+                }))}
+                selected={unitIds}
+                onToggle={(id) => toggleMultiSelect("unitIds", unitIds, id)}
+                onToggleAll={() =>
+                  setValue(
+                    "unitIds",
+                    unitIds.length === (units || []).length
+                      ? []
+                      : (units || []).map((unit) => unit.id),
+                    { shouldValidate: true },
+                  )
+                }
+                selectAllLabel="Selecionar todas as filiais"
+              />
+            </div>
+
+            <div>
+              <Label>Referências a outros documentos</Label>
+              <MultiSelectDropdown
+                placeholder="Selecionar documentos referenciados"
+                options={(existingDocs || []).map((d) => ({
+                  value: d.id,
+                  label: d.title,
+                }))}
+                selected={referenceIds}
+                onToggle={(id) =>
+                  toggleMultiSelect("referenceIds", referenceIds, id)
+                }
+              />
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div>
+            <Label>Anexo Inicial</Label>
+            <div className="mt-2">
+              <label className="flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-3 transition-colors hover:bg-muted/30">
+                <Upload className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  {isUploading ? "Enviando..." : "Escolher Arquivo"}
+                </span>
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.docx,.csv,.xlsx,.xls"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  disabled={isUploading}
+                />
+                {uploadedFiles.length === 0 && (
+                  <span className="ml-2 text-sm text-muted-foreground/50">
+                    nenhum arquivo selecionado
+                  </span>
+                )}
+              </label>
+              {uploadedFiles.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {uploadedFiles.map((f, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="truncate">{f.fileName}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({formatFileSize(f.fileSize)})
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(i)}
+                        className="cursor-pointer rounded p-1 hover:bg-muted"
+                      >
+                        <X className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => handleClose(false)}
-          >
-            Cancelar
-          </Button>
-          <Button type="submit" size="sm" isLoading={isSubmitting}>
-            Salvar Documento
-          </Button>
+          {step > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setStep((current) => Math.max(current - 1, 0))}
+            >
+              Anterior
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleClose(false)}
+            >
+              Cancelar
+            </Button>
+          )}
+          {step < steps.length - 1 ? (
+            <Button type="button" size="sm" onClick={() => void goToNextStep()}>
+              Próximo
+            </Button>
+          ) : (
+            <Button type="submit" size="sm" isLoading={isSubmitting}>
+              Salvar Documento
+            </Button>
+          )}
         </DialogFooter>
       </form>
     </Dialog>

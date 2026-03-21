@@ -1,6 +1,7 @@
 import { pgTable, text, serial, timestamp, integer, date } from "drizzle-orm/pg-core";
 import { organizationsTable } from "./organizations";
 import { usersTable } from "./users";
+import { employeesTable } from "./employees";
 
 export const documentsTable = pgTable("documents", {
   id: serial("id").primaryKey(),
@@ -30,7 +31,7 @@ export const documentUnitsTable = pgTable("document_units", {
 export const documentElaboratorsTable = pgTable("document_elaborators", {
   id: serial("id").primaryKey(),
   documentId: integer("document_id").notNull().references(() => documentsTable.id, { onDelete: "cascade" }),
-  userId: integer("user_id").notNull().references(() => usersTable.id),
+  employeeId: integer("user_id").notNull().references(() => employeesTable.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

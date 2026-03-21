@@ -7,13 +7,14 @@ import { z } from "zod";
 import {
   useCreateDocument,
   useListUnits,
+  useListEmployees,
   useListUserOptions,
   useListDocuments,
   getListDocumentsQueryKey,
   getListUnitsQueryKey,
   getListUserOptionsQueryKey,
 } from "@workspace/api-client-react";
-import type { UserOption } from "@workspace/api-client-react";
+import type { Employee, UserOption } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -124,26 +125,32 @@ export default function NovoDocumentoPage() {
       enabled: !!orgId,
     },
   });
+  const { data: employeesResult } = useListEmployees(orgId!, {
+    page: 1,
+    pageSize: 500,
+  });
   const availableUsers = orgUsers ?? [];
-  const eligibleElaborators = availableUsers.filter(
-    (option: UserOption) =>
-      option.role === "org_admin" || option.role === "operator",
-  );
+  const availableEmployees = employeesResult?.data ?? [];
 
   useEffect(() => {
-    if (eligibleElaborators.length === 0) return;
+    if (availableEmployees.length === 0) return;
 
     const preferredElaboratorId =
-      eligibleElaborators.find((option) => option.id === user?.id)?.id ??
-      eligibleElaborators[0]?.id ??
+      availableEmployees.find(
+        (employee) =>
+          employee.email &&
+          user?.email &&
+          employee.email.toLowerCase() === user.email.toLowerCase(),
+      )?.id ??
+      availableEmployees[0]?.id ??
       0;
 
-    if (!eligibleElaborators.some((option) => option.id === elaboratorId)) {
+    if (!availableEmployees.some((employee) => employee.id === elaboratorId)) {
       setValue("elaboratorId", preferredElaboratorId, {
         shouldValidate: true,
       });
     }
-  }, [eligibleElaborators, elaboratorId, setValue, user?.id]);
+  }, [availableEmployees, elaboratorId, setValue, user?.email]);
 
   const { data: existingDocs } = useListDocuments(
     orgId!,
@@ -327,9 +334,9 @@ export default function NovoDocumentoPage() {
               }
             >
               <option value="">Selecione</option>
-              {eligibleElaborators.map((option: UserOption) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
+              {availableEmployees.map((employee: Employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.name}
                 </option>
               ))}
             </Select>

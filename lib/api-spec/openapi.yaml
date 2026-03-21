@@ -7198,7 +7198,7 @@ components:
         elaborators:
           type: array
           items:
-            $ref: "#/components/schemas/OrgUser"
+            $ref: "#/components/schemas/Employee"
         approvers:
           type: array
           items:

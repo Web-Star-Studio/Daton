@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { ProfileItemAttachmentsField } from "@/components/employees/profile-item-form-fields";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -226,6 +227,7 @@ export default function ColaboradoresPage() {
   const [positionFilter, setPositionFilter] = useState("");
   const [page, setPage] = useState(1);
   const [isCreateOpen, setCreateOpen] = useState(false);
+  const [createStep, setCreateStep] = useState(0);
   const [professionalExperiences, setProfessionalExperiences] = useState<ProfileDraftItem[]>([]);
   const [educationCertifications, setEducationCertifications] = useState<ProfileDraftItem[]>([]);
 
@@ -255,6 +257,7 @@ export default function ColaboradoresPage() {
     register,
     handleSubmit,
     reset,
+    trigger,
     formState: { errors },
   } = useForm<CreateEmployeeBody>({
     defaultValues: {
@@ -311,6 +314,7 @@ export default function ColaboradoresPage() {
 
   const resetCreateForm = () => {
     reset();
+    setCreateStep(0);
     setProfessionalExperiences([]);
     setEducationCertifications([]);
   };
@@ -394,7 +398,13 @@ export default function ColaboradoresPage() {
     }
     return (
       canWriteEmployees ? (
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Button
+          size="sm"
+          onClick={() => {
+            setCreateStep(0);
+            setCreateOpen(true);
+          }}
+        >
           <Plus className="h-3.5 w-3.5 mr-1.5" />
           Novo Colaborador
         </Button>
@@ -471,7 +481,15 @@ export default function ColaboradoresPage() {
             <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-[13px] text-muted-foreground">Nenhum colaborador encontrado</p>
             {canWriteModule("employees") && (
-              <Button size="sm" variant="outline" className="mt-4" onClick={() => setCreateOpen(true)}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-4"
+                onClick={() => {
+                  setCreateStep(0);
+                  setCreateOpen(true);
+                }}
+              >
                 <Plus className="h-3.5 w-3.5 mr-1.5" />
                 Adicionar Colaborador
               </Button>
@@ -576,142 +594,202 @@ export default function ColaboradoresPage() {
 
       <Dialog
         open={isCreateOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) resetCreateForm();
+        }}
         title="Novo colaborador"
-        description="Cadastre um novo colaborador na base da organização."
+        description={
+          [
+            "Cadastre os dados pessoais do colaborador.",
+            "Defina vínculo, cargo e unidade principal.",
+            "Registre experiências e certificações iniciais.",
+          ][createStep]
+        }
         size="lg"
       >
         <form onSubmit={handleSubmit(onCreateSubmit)}>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">CPF</Label>
-              <Input
-                {...register("cpf", {
-                  setValueAs: toRequiredString,
-                  onChange: (event) => {
-                    event.target.value = formatCpfInput(event.target.value);
-                  },
-                })}
-                className="mt-1"
-                placeholder="000.000.000-00"
-                inputMode="numeric"
-                maxLength={14}
+          <DialogStepTabs
+            steps={["Pessoal", "Profissional", "Histórico"]}
+            step={createStep}
+            onStepChange={setCreateStep}
+          />
+
+          {createStep === 0 && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">CPF</Label>
+                <Input
+                  {...register("cpf", {
+                    setValueAs: toRequiredString,
+                    onChange: (event) => {
+                      event.target.value = formatCpfInput(event.target.value);
+                    },
+                  })}
+                  className="mt-1"
+                  placeholder="000.000.000-00"
+                  inputMode="numeric"
+                  maxLength={14}
+                />
+                {errors.cpf && <p className="mt-1.5 text-xs text-destructive">{errors.cpf.message}</p>}
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">Nome completo *</Label>
+                <Input
+                  {...register("name", {
+                    required: "Nome completo é obrigatório",
+                    setValueAs: toRequiredString,
+                  })}
+                  className="mt-1"
+                  placeholder="Nome completo do funcionário"
+                />
+                {errors.name && <p className="mt-1.5 text-xs text-destructive">{errors.name.message}</p>}
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">E-mail</Label>
+                <Input
+                  {...register("email", {
+                    setValueAs: toOptionalString,
+                  })}
+                  className="mt-1"
+                  type="email"
+                  placeholder="email@empresa.com"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">Telefone</Label>
+                <Input
+                  {...register("phone", {
+                    setValueAs: toOptionalString,
+                  })}
+                  className="mt-1"
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+            </div>
+          )}
+
+          {createStep === 1 && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">Departamento</Label>
+                <Select
+                  {...register("department", {
+                    setValueAs: (value) => value || undefined,
+                  })}
+                  className="mt-1 h-10 text-[13px]"
+                >
+                  <option value="">Selecionar departamento</option>
+                  {departments.map((department) => (
+                    <option key={department.id} value={department.name}>
+                      {department.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">Cargo</Label>
+                <Select
+                  {...register("position", {
+                    setValueAs: (value) => value || undefined,
+                  })}
+                  className="mt-1 h-10 text-[13px]"
+                >
+                  <option value="">Selecionar cargo</option>
+                  {positions.map((position) => (
+                    <option key={position.id} value={position.name}>
+                      {position.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">Unidade</Label>
+                <Select
+                  {...register("unitId", { setValueAs: (v) => v ? Number(v) : undefined })}
+                  className="mt-1 h-10 text-[13px]"
+                >
+                  <option value="">Selecionar unidade</option>
+                  {units.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">Tipo de contrato</Label>
+                <select {...register("contractType")} className="mt-1 flex h-10 w-full appearance-none border-b border-input bg-transparent px-0 py-2 text-[13px] transition-colors cursor-pointer focus:border-foreground focus:outline-none">
+                  <option value="clt">CLT</option>
+                  <option value="pj">PJ</option>
+                  <option value="intern">Estagiário</option>
+                  <option value="temporary">Temporário</option>
+                </select>
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">Data de admissão *</Label>
+                <Input
+                  {...register("admissionDate", {
+                    required: "Data de admissão é obrigatória",
+                    setValueAs: toRequiredString,
+                  })}
+                  className="mt-1"
+                  type="date"
+                />
+                {errors.admissionDate && <p className="mt-1.5 text-xs text-destructive">{errors.admissionDate.message}</p>}
+              </div>
+            </div>
+          )}
+
+          {createStep === 2 && (
+            <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+              <ProfileDraftListSection
+                label="Experiências profissionais"
+                emptyText="Adicione uma lista de experiências com anexos opcionais."
+                items={professionalExperiences}
+                onChange={setProfessionalExperiences}
               />
-              {errors.cpf && <p className="mt-1.5 text-xs text-destructive">{errors.cpf.message}</p>}
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Nome completo *</Label>
-              <Input
-                {...register("name", {
-                  required: "Nome completo é obrigatório",
-                  setValueAs: toRequiredString,
-                })}
-                className="mt-1"
-                placeholder="Nome completo do funcionário"
-              />
-              {errors.name && <p className="mt-1.5 text-xs text-destructive">{errors.name.message}</p>}
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">E-mail</Label>
-              <Input
-                {...register("email", {
-                  setValueAs: toOptionalString,
-                })}
-                className="mt-1"
-                type="email"
-                placeholder="email@empresa.com"
+              <ProfileDraftListSection
+                label="Educação e certificações"
+                emptyText="Adicione formação, cursos e certificados com anexos opcionais."
+                items={educationCertifications}
+                onChange={setEducationCertifications}
               />
             </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Telefone</Label>
-              <Input
-                {...register("phone", {
-                  setValueAs: toOptionalString,
-                })}
-                className="mt-1"
-                placeholder="(00) 00000-0000"
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Departamento</Label>
-              <Select
-                {...register("department", {
-                  setValueAs: (value) => value || undefined,
-                })}
-                className="mt-1 h-10 text-[13px]"
-              >
-                <option value="">Selecionar departamento</option>
-                {departments.map((department) => (
-                  <option key={department.id} value={department.name}>
-                    {department.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Cargo</Label>
-              <Select
-                {...register("position", {
-                  setValueAs: (value) => value || undefined,
-                })}
-                className="mt-1 h-10 text-[13px]"
-              >
-                <option value="">Selecionar cargo</option>
-                {positions.map((position) => (
-                  <option key={position.id} value={position.name}>
-                    {position.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <ProfileDraftListSection
-              label="Experiências profissionais"
-              emptyText="Adicione uma lista de experiências com anexos opcionais."
-              items={professionalExperiences}
-              onChange={setProfessionalExperiences}
-            />
-            <ProfileDraftListSection
-              label="Educação e certificações"
-              emptyText="Adicione formação, cursos e certificados com anexos opcionais."
-              items={educationCertifications}
-              onChange={setEducationCertifications}
-            />
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Unidade</Label>
-              <Select {...register("unitId", { setValueAs: (v) => v ? Number(v) : undefined })} className="mt-1 h-10 text-[13px]">
-                <option value="">Selecionar unidade</option>
-                {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Tipo de contrato</Label>
-              <select {...register("contractType")} className="mt-1 flex h-10 w-full border-b border-input bg-transparent px-0 py-2 text-[13px] focus:outline-none focus:border-foreground transition-colors cursor-pointer appearance-none">
-                <option value="clt">CLT</option>
-                <option value="pj">PJ</option>
-                <option value="intern">Estagiário</option>
-                <option value="temporary">Temporário</option>
-              </select>
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Data de admissão *</Label>
-              <Input
-                {...register("admissionDate", {
-                  required: "Data de admissão é obrigatória",
-                  setValueAs: toRequiredString,
-                })}
-                className="mt-1"
-                type="date"
-              />
-              {errors.admissionDate && <p className="mt-1.5 text-xs text-destructive">{errors.admissionDate.message}</p>}
-            </div>
-          </div>
+          )}
           <DialogFooter>
-            <Button type="button" variant="outline" size="sm" onClick={() => { setCreateOpen(false); resetCreateForm(); }}>
-              Cancelar
-            </Button>
-            <Button type="submit" size="sm" disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Criando..." : "Criar colaborador"}
-            </Button>
+            {createStep > 0 ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setCreateStep((current) => Math.max(current - 1, 0))}>
+                Anterior
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" size="sm" onClick={() => { setCreateOpen(false); resetCreateForm(); }}>
+                Cancelar
+              </Button>
+            )}
+            {createStep < 2 ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={async () => {
+                  if (createStep === 0) {
+                    const valid = await trigger(["cpf", "name", "email", "phone"]);
+                    if (!valid) return;
+                  }
+                  if (createStep === 1) {
+                    const valid = await trigger(["department", "position", "unitId", "contractType", "admissionDate"]);
+                    if (!valid) return;
+                  }
+                  setCreateStep((current) => Math.min(current + 1, 2));
+                }}
+              >
+                Próximo
+              </Button>
+            ) : (
+              <Button type="submit" size="sm" disabled={createMutation.isPending}>
+                {createMutation.isPending ? "Criando..." : "Criar colaborador"}
+              </Button>
+            )}
           </DialogFooter>
         </form>
       </Dialog>
