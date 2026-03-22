@@ -530,7 +530,7 @@ export default function SupplierDetailPage() {
   );
 
   if (detailQuery.isLoading || !profileForm) {
-    return <div className="text-sm text-muted-foreground">Carregando fornecedor...</div>;
+    return <div className="text-sm text-muted-foreground">Carregando fornecedor…</div>;
   }
 
   if (!detail) {
@@ -540,12 +540,12 @@ export default function SupplierDetailPage() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-border/60 p-5">
+        <Card className="border-border/60 p-6">
           <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Status</p>
           <p className="mt-3 text-2xl font-semibold">{statusLabel(detail.status)}</p>
           <p className="mt-2 text-sm text-muted-foreground">Criticidade {detail.criticality}</p>
         </Card>
-        <Card className="border-border/60 p-5">
+        <Card className="border-border/60 p-6">
           <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">AVA1</p>
           <p className="mt-3 text-2xl font-semibold">
             {detail.documentCompliancePercentage === null ? "—" : `${detail.documentCompliancePercentage}%`}
@@ -554,12 +554,12 @@ export default function SupplierDetailPage() {
             {detail.documentReviewStatus || "Sem parecer"}
           </p>
         </Card>
-        <Card className="border-border/60 p-5">
+        <Card className="border-border/60 p-6">
           <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Homologação</p>
           <p className="mt-3 text-2xl font-semibold">{detail.qualificationReviews.length}</p>
           <p className="mt-2 text-sm text-muted-foreground">Válida até {formatDate(detail.qualifiedUntil)}</p>
         </Card>
-        <Card className="border-border/60 p-5">
+        <Card className="border-border/60 p-6">
           <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Falhas</p>
           <p className="mt-3 text-2xl font-semibold">{detail.failures.length}</p>
           <p className="mt-2 text-sm text-muted-foreground">Registro operacional do fornecedor</p>
@@ -579,9 +579,9 @@ export default function SupplierDetailPage() {
 
         <TabsContent value="cadastro">
           <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-            <Card className="border-border/60 p-5">
+            <Card className="border-border/60 p-6">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Cadastro mestre</h2>
+                <h2 className="text-xl font-semibold tracking-tight">Cadastro mestre</h2>
                 {canManageGeneral ? (
                   <Button onClick={() => updateSupplierMutation.mutate()} isLoading={updateSupplierMutation.isPending}>
                     <Save className="mr-2 h-4 w-4" />
@@ -673,6 +673,7 @@ export default function SupplierDetailPage() {
                 <div>
                   <Label>E-mail</Label>
                   <Input
+                    type="email"
                     value={profileForm.email}
                     onChange={(event) => updateProfileForm((current) => ({ ...current, email: event.target.value }))}
                     disabled={!canManageGeneral}
@@ -681,6 +682,7 @@ export default function SupplierDetailPage() {
                 <div>
                   <Label>Telefone</Label>
                   <Input
+                    type="tel"
                     value={profileForm.phone}
                     onChange={(event) => updateProfileForm((current) => ({ ...current, phone: event.target.value }))}
                     disabled={!canManageGeneral}
@@ -689,6 +691,7 @@ export default function SupplierDetailPage() {
                 <div>
                   <Label>Website</Label>
                   <Input
+                    type="url"
                     value={profileForm.website}
                     onChange={(event) => updateProfileForm((current) => ({ ...current, website: event.target.value }))}
                     disabled={!canManageGeneral}
@@ -807,9 +810,9 @@ export default function SupplierDetailPage() {
               </div>
             </Card>
 
-            <Card className="border-border/60 p-5">
+            <Card className="border-border/60 p-6">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Produtos e serviços</h2>
+                <h2 className="text-xl font-semibold tracking-tight">Produtos e serviços</h2>
                 <Badge variant="secondary">{detail.offerings.length} item(ns)</Badge>
               </div>
               <div className="space-y-3">
@@ -883,9 +886,9 @@ export default function SupplierDetailPage() {
 
         <TabsContent value="documentos">
           <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
-            <Card className="border-border/60 p-5">
+            <Card className="border-border/60 p-6">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Submissões documentais</h2>
+                <h2 className="text-xl font-semibold tracking-tight">Submissões documentais</h2>
                 <Badge variant="secondary">{detail.documents.submissions.length}</Badge>
               </div>
               <div className="space-y-3">
@@ -961,9 +964,9 @@ export default function SupplierDetailPage() {
               ) : null}
             </Card>
 
-            <Card className="border-border/60 p-5">
+            <Card className="border-border/60 p-6">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Avaliação documental</h2>
+                <h2 className="text-xl font-semibold tracking-tight">Avaliação documental</h2>
                 <Badge variant="secondary">{detail.documents.reviews.length}</Badge>
               </div>
               <div className="space-y-3">
@@ -1010,9 +1013,9 @@ export default function SupplierDetailPage() {
         </TabsContent>
 
         <TabsContent value="homologacao">
-          <Card className="border-border/60 p-5">
+          <Card className="border-border/60 p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Homologação e qualificação</h2>
+              <h2 className="text-xl font-semibold tracking-tight">Homologação e qualificação</h2>
               <Badge variant="secondary">{detail.qualificationReviews.length} revisão(ões)</Badge>
             </div>
             <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
@@ -1077,9 +1080,9 @@ export default function SupplierDetailPage() {
 
         <TabsContent value="requisitos">
           <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
-            <Card className="border-border/60 p-5">
+            <Card className="border-border/60 p-6">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Comunicações registradas</h2>
+                <h2 className="text-xl font-semibold tracking-tight">Comunicações registradas</h2>
                 <Badge variant="secondary">{detail.requirements.communications.length}</Badge>
               </div>
               <div className="space-y-3">
@@ -1100,8 +1103,8 @@ export default function SupplierDetailPage() {
             </Card>
 
             {canManageGeneral ? (
-              <Card className="border-border/60 p-5">
-                <h2 className="mb-4 text-lg font-semibold">Vincular requisito</h2>
+              <Card className="border-border/60 p-6">
+                <h2 className="mb-4 text-xl font-semibold tracking-tight">Vincular requisito</h2>
                 <div className="space-y-3">
                   <Select
                     value={communicationForm.templateId}
@@ -1139,9 +1142,9 @@ export default function SupplierDetailPage() {
 
         <TabsContent value="desempenho">
           <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
-            <Card className="border-border/60 p-5">
+            <Card className="border-border/60 p-6">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Avaliações AVA2</h2>
+                <h2 className="text-xl font-semibold tracking-tight">Avaliações AVA2</h2>
                 <Badge variant="secondary">{detail.performanceReviews.length}</Badge>
               </div>
               <div className="space-y-3">
@@ -1160,8 +1163,8 @@ export default function SupplierDetailPage() {
             </Card>
 
             {canManageGeneral ? (
-              <Card className="border-border/60 p-5">
-                <h2 className="mb-4 text-lg font-semibold">Nova avaliação</h2>
+              <Card className="border-border/60 p-6">
+                <h2 className="mb-4 text-xl font-semibold tracking-tight">Nova avaliação</h2>
                 <div className="space-y-3">
                   <Select
                     value={performanceForm.offeringId}
@@ -1262,9 +1265,9 @@ export default function SupplierDetailPage() {
 
         <TabsContent value="recebimentos">
           <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
-            <Card className="border-border/60 p-5">
+            <Card className="border-border/60 p-6">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Recebimentos</h2>
+                <h2 className="text-xl font-semibold tracking-tight">Recebimentos</h2>
                 <Badge variant="secondary">{detail.receiptChecks.length}</Badge>
               </div>
               <div className="space-y-3">
@@ -1284,8 +1287,8 @@ export default function SupplierDetailPage() {
             </Card>
 
             {canManageReceipts ? (
-              <Card className="border-border/60 p-5">
-                <h2 className="mb-4 text-lg font-semibold">Novo recebimento</h2>
+              <Card className="border-border/60 p-6">
+                <h2 className="mb-4 text-xl font-semibold tracking-tight">Novo recebimento</h2>
                 <div className="space-y-3">
                   <Select
                     value={receiptForm.offeringId}
@@ -1391,10 +1394,10 @@ export default function SupplierDetailPage() {
 
         <TabsContent value="historico">
           <div className="grid gap-6 xl:grid-cols-2">
-            <Card className="border-border/60 p-5">
+            <Card className="border-border/60 p-6">
               <div className="mb-4 flex items-center gap-2">
                 <History className="h-4 w-4 text-muted-foreground" />
-                <h2 className="text-lg font-semibold">Falhas registradas</h2>
+                <h2 className="text-xl font-semibold tracking-tight">Falhas registradas</h2>
               </div>
               <div className="space-y-3">
                 {detail.failures.map((failure) => (
@@ -1447,7 +1450,7 @@ export default function SupplierDetailPage() {
               ) : null}
             </Card>
 
-            <Card className="border-border/60 p-5">
+            <Card className="border-border/60 p-6">
               <div className="mb-4 grid gap-3 md:grid-cols-3">
                 <div className="rounded-xl border border-border/60 p-3">
                   <div className="flex items-center gap-2 text-sm font-medium">

@@ -8,17 +8,25 @@ import {
   getListUnitsQueryKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
 import {
-  buildSupplierListPath,
   createSupplier,
   createSupplierCategory,
   createSupplierDocumentRequirement,
@@ -34,7 +42,7 @@ import {
   type SupplierListItem,
   type SupplierType,
 } from "@/lib/suppliers-client";
-import { Plus, Settings2, FileStack, ShieldCheck, Tags } from "lucide-react";
+import { Plus, Settings2, FileStack, ShieldCheck, Tags, Package2 } from "lucide-react";
 
 type SupplierFormState = {
   personType: "pj" | "pf";
@@ -80,7 +88,7 @@ function SummaryCard({
   subtitle: string;
 }) {
   return (
-    <Card className="border-border/60 p-5">
+    <Card className="border-border/60 p-6">
       <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{title}</p>
       <p className="mt-3 text-3xl font-semibold tracking-tight">{value}</p>
       <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
@@ -107,6 +115,24 @@ function statusLabel(status: string) {
     inactive: "Inativo",
   };
   return labels[status] || status;
+}
+
+function statusBadgeVariant(status: string): "secondary" | "success" | "warning" | "destructive" | "outline" {
+  switch (status) {
+    case "approved":
+      return "success";
+    case "pending_qualification":
+    case "restricted":
+      return "warning";
+    case "blocked":
+      return "destructive";
+    case "draft":
+    case "inactive":
+    case "expired":
+      return "outline";
+    default:
+      return "secondary";
+  }
 }
 
 export default function SuppliersPage() {
@@ -281,10 +307,10 @@ export default function SuppliersPage() {
       types
         .filter((type) => type.status !== "inactive")
         .map((type) => ({
-        value: type.id,
-        label: type.name,
-        keywords: [type.description || "", type.status],
-      })),
+          value: type.id,
+          label: type.name,
+          keywords: [type.description || "", type.status],
+        })),
     [types],
   );
   const unitOptions = useMemo(
@@ -340,7 +366,7 @@ export default function SuppliersPage() {
         <SummaryCard title="AVA1 apto" value={summary.withDocumentReview} subtitle="Com avaliação documental apta." />
       </div>
 
-      <Card className="border-border/60 p-5">
+      <Card className="border-border/60 p-6">
         <div className="grid gap-4 lg:grid-cols-5">
           <div className="lg:col-span-2">
             <Label htmlFor="supplier-search">Buscar</Label>
@@ -348,7 +374,7 @@ export default function SuppliersPage() {
               id="supplier-search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Nome, identificador ou razão social"
+              placeholder="Nome, identificador ou razão social…"
             />
           </div>
           <div>
@@ -433,12 +459,12 @@ export default function SuppliersPage() {
       </Card>
 
       <Card className="border-border/60 overflow-hidden">
-        <div className="border-b border-border/60 px-5 py-4">
+        <CardHeader className="border-b border-border/60">
           <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold">Base de fornecedores</h2>
-              <p className="text-sm text-muted-foreground">
-                {suppliers.length} registro(s) carregado(s) em {buildSupplierListPath(orgId || 0, supplierFilters)}.
+            <div className="space-y-1">
+              <CardTitle>Base de Fornecedores</CardTitle>
+              <p className="text-[13px] text-muted-foreground">
+                {suppliers.length} fornecedor(es) encontrado(s) com os filtros atuais.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -448,72 +474,86 @@ export default function SuppliersPage() {
               <Badge variant="secondary">{templates.length} templates</Badge>
             </div>
           </div>
-        </div>
+        </CardHeader>
 
-        {suppliersQuery.isLoading ? (
-          <div className="px-5 py-10 text-sm text-muted-foreground">Carregando fornecedores...</div>
-        ) : suppliers.length === 0 ? (
-          <div className="px-5 py-10 text-sm text-muted-foreground">
-            Nenhum fornecedor encontrado com os filtros atuais.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-muted/30 text-left text-muted-foreground">
-                <tr>
-                  <th className="px-5 py-3 font-medium">Fornecedor</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium">Categoria / Tipo</th>
-                  <th className="px-5 py-3 font-medium">Unidades</th>
-                  <th className="px-5 py-3 font-medium">AVA1</th>
-                  <th className="px-5 py-3 font-medium">Última revisão</th>
-                </tr>
-              </thead>
-              <tbody>
+        <CardContent className="p-0">
+          {suppliersQuery.isLoading ? (
+            <div className="px-6 py-10 text-sm text-muted-foreground">Carregando fornecedores…</div>
+          ) : suppliers.length === 0 ? (
+            <div className="p-6">
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Package2 className="h-5 w-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>Nenhum Fornecedor Encontrado</EmptyTitle>
+                  <EmptyDescription>
+                    Ajuste os filtros ou crie o primeiro fornecedor desta organização.
+                  </EmptyDescription>
+                </EmptyHeader>
+                {canManageSuppliers ? (
+                  <EmptyContent>
+                    <Button onClick={() => setSupplierDialogOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Criar Fornecedor
+                    </Button>
+                  </EmptyContent>
+                ) : null}
+              </Empty>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="px-6 py-3">Fornecedor</TableHead>
+                  <TableHead className="px-6 py-3">Status</TableHead>
+                  <TableHead className="px-6 py-3">Categoria / Tipo</TableHead>
+                  <TableHead className="px-6 py-3">Unidades</TableHead>
+                  <TableHead className="px-6 py-3">AVA1</TableHead>
+                  <TableHead className="px-6 py-3">Última Revisão</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {suppliers.map((supplier) => (
-                  <tr
+                  <TableRow
                     key={supplier.id}
-                    className="cursor-pointer border-t border-border/50 hover:bg-muted/20"
+                    className="cursor-pointer"
                     onClick={() => navigate(`/app/qualidade/fornecedores/${supplier.id}`)}
                   >
-                    <td className="px-5 py-4">
+                    <TableCell className="px-6 py-4">
                       <div className="font-medium">{supplier.tradeName || supplier.legalName}</div>
                       <div className="text-muted-foreground">{supplier.legalIdentifier}</div>
-                    </td>
-                    <td className="px-5 py-4">
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
                       <div className="flex flex-col gap-2">
-                        <Badge variant="secondary">{statusLabel(supplier.status)}</Badge>
-                        <span className="text-xs text-muted-foreground">
-                          Criticidade {supplier.criticality}
-                        </span>
+                        <Badge variant={statusBadgeVariant(supplier.status)}>{statusLabel(supplier.status)}</Badge>
+                        <span className="text-xs text-muted-foreground">Criticidade {supplier.criticality}</span>
                       </div>
-                    </td>
-                    <td className="px-5 py-4">
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
                       <div>{supplier.category?.name || "Sem categoria"}</div>
                       <div className="text-xs text-muted-foreground">
                         {supplier.types.map((type) => type.name).join(", ") || "Sem tipo"}
                       </div>
-                    </td>
-                    <td className="px-5 py-4 text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="px-6 py-4 text-muted-foreground">
                       {supplier.units.map((unit) => unit.name).join(", ") || "Sem vínculo"}
-                    </td>
-                    <td className="px-5 py-4">
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
                       <div>{formatCompliance(supplier)}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {supplier.documentReviewStatus || "Sem parecer"}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4 text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">{supplier.documentReviewStatus || "Sem parecer"}</div>
+                    </TableCell>
+                    <TableCell className="px-6 py-4 text-muted-foreground">
                       {supplier.latestQualification?.createdAt
                         ? new Date(supplier.latestQualification.createdAt).toLocaleDateString("pt-BR")
                         : "—"}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
       </Card>
 
       <Dialog
@@ -614,6 +654,7 @@ export default function SuppliersPage() {
             <Label htmlFor="supplier-phone">Telefone</Label>
             <Input
               id="supplier-phone"
+              type="tel"
               value={supplierForm.phone}
               onChange={(event) => setSupplierForm((current) => ({ ...current, phone: event.target.value }))}
             />
