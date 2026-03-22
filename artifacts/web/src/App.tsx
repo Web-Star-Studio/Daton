@@ -28,6 +28,8 @@ import LegislacoesPage from "@/pages/app/qualidade/legislacoes";
 import LegislationDetailPage from "@/pages/app/qualidade/legislacoes/[id]";
 import DocumentacaoPage from "@/pages/app/qualidade/documentacao";
 import DocumentDetailPage from "@/pages/app/qualidade/documentacao/[id]";
+import SuppliersPage from "@/pages/app/qualidade/fornecedores";
+import SupplierDetailPage from "@/pages/app/qualidade/fornecedores/[id]";
 import ProfileSettingsPage from "@/pages/app/configuracoes/perfil";
 import SystemSettingsPage from "@/pages/app/configuracoes/sistema";
 import AcceptInvitePage from "@/pages/accept-invite";
@@ -69,6 +71,8 @@ function AppPages() {
       <Route path="/qualidade/legislacoes/:id" component={LegislationDetailPage} />
       <Route path="/qualidade/documentacao" component={DocumentacaoPage} />
       <Route path="/qualidade/documentacao/:id" component={DocumentDetailPage} />
+      <Route path="/qualidade/fornecedores" component={SuppliersPage} />
+      <Route path="/qualidade/fornecedores/:id" component={SupplierDetailPage} />
       <Route path="/configuracoes/perfil" component={ProfileSettingsPage} />
       <Route path="/configuracoes/sistema" component={SystemSettingsPage} />
       <Route path="/app" component={AppIndex} />
@@ -86,6 +90,8 @@ function AppPages() {
       <Route path="/app/qualidade/legislacoes/:id" component={LegislationDetailPage} />
       <Route path="/app/qualidade/documentacao" component={DocumentacaoPage} />
       <Route path="/app/qualidade/documentacao/:id" component={DocumentDetailPage} />
+      <Route path="/app/qualidade/fornecedores" component={SuppliersPage} />
+      <Route path="/app/qualidade/fornecedores/:id" component={SupplierDetailPage} />
       <Route path="/app/configuracoes/perfil" component={ProfileSettingsPage} />
       <Route path="/app/configuracoes/sistema" component={SystemSettingsPage} />
       <Route component={NotFound} />

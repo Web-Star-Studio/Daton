@@ -29,7 +29,8 @@ type AppModule =
   | "units"
   | "departments"
   | "positions"
-  | "governance";
+  | "governance"
+  | "suppliers";
 
 type NavLink = {
   href: string;
@@ -115,6 +116,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const moduleByPath: Array<{ prefix: string; module: AppModule }> = [
       { prefix: "/qualidade/legislacoes", module: "legislations" },
+      { prefix: "/qualidade/fornecedores", module: "suppliers" },
       { prefix: "/organizacao/colaboradores", module: "employees" },
       { prefix: "/organizacao/unidades", module: "units" },
       { prefix: "/organizacao/departamentos", module: "departments" },
@@ -152,6 +154,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       } else if (normalizedLocation.startsWith("/qualidade/documentacao")) {
         crumbs.push({ label: "Documentação", href: "/qualidade/documentacao" });
         if (pageTitle && normalizedLocation !== "/qualidade/documentacao") {
+          crumbs.push({ label: pageTitle });
+        }
+      } else if (normalizedLocation.startsWith("/qualidade/fornecedores")) {
+        crumbs.push({ label: "Fornecedores", href: "/qualidade/fornecedores" });
+        if (pageTitle && normalizedLocation !== "/qualidade/fornecedores") {
           crumbs.push({ label: pageTitle });
         }
       }
@@ -230,6 +237,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const qualidadeLinks: NavLink[] = [
     ...(hasModuleAccess("legislations")
       ? [{ href: "/qualidade/legislacoes", label: "Legislações" }]
+      : []),
+    ...(hasModuleAccess("suppliers")
+      ? [{ href: "/qualidade/fornecedores", label: "Fornecedores" }]
       : []),
     { href: "/qualidade/documentacao", label: "Documentação" },
   ];

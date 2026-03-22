@@ -19,6 +19,7 @@ import notificationsRouter from "./notifications";
 import invitationsRouter from "./invitations";
 import orgUsersRouter from "./org-users";
 import productKnowledgeRouter from "./product-knowledge";
+import suppliersRouter from "./suppliers";
 const router: IRouter = Router();
 
 router.use(healthRouter);
@@ -42,5 +43,6 @@ router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("departm
 router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("positions"), positionsRouter);
 router.use(requireAuth, requireCompletedOnboarding, documentsRouter);
 router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("governance"), governanceRouter);
+router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("suppliers"), suppliersRouter);
 
 export default router;

@@ -38,6 +38,8 @@ tags:
     description: In-app notifications
   - name: governance
     description: Strategic planning governance (ISO 9001:2015 §4.1)
+  - name: suppliers
+    description: Supplier management and external provider control (ISO 9001:2015 §8.4 / §8.6)
 
 paths:
   /healthz:
@@ -5737,7 +5739,7 @@ components:
 
     AppModule:
       type: string
-      enum: [documents, legislations, employees, units, departments, positions, governance]
+      enum: [documents, legislations, employees, units, departments, positions, governance, suppliers]
 
     OrgUser:
       type: object

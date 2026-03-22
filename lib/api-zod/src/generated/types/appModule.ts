@@ -16,4 +16,5 @@ export const AppModule = {
   departments: "departments",
   positions: "positions",
   governance: "governance",
+  suppliers: "suppliers",
 } as const;

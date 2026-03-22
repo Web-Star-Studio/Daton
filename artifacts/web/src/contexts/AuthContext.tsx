@@ -10,7 +10,8 @@ type AppModule =
   | "units"
   | "departments"
   | "positions"
-  | "governance";
+  | "governance"
+  | "suppliers";
 
 interface AuthContextType {
   user: User | null;
