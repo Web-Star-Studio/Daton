@@ -815,7 +815,7 @@ export default function DocumentDetailPage() {
             <div className="relative pl-6 border-l-2 border-border/40 space-y-6">
               {doc.versions.map((v: DocumentVersion) => (
                 <div key={v.id} className="relative">
-                  <div className="absolute -left-[29px] top-1 w-4 h-4 rounded-full bg-white border-2 border-foreground/20 flex items-center justify-center">
+                  <div className="absolute -left-[29px] top-1 w-4 h-4 rounded-full bg-card border-2 border-foreground/20 flex items-center justify-center">
                     <div className="w-1.5 h-1.5 rounded-full bg-foreground/40" />
                   </div>
                   <div>
@@ -1003,7 +1003,7 @@ export default function DocumentDetailPage() {
             "Associe unidades e documentos de referência.",
           ][editStep]
         }
-        size="lg"
+        size="xl"
       >
         {editForm && (
           <div className="space-y-5">

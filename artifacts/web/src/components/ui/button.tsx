@@ -13,9 +13,9 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const baseStyles = "inline-flex items-center justify-center whitespace-nowrap rounded-lg font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 cursor-pointer active:scale-[0.97]";
     
     const variants = {
-      default: "bg-[#007AFF] text-white text-[13px] hover:bg-[#0066DD]",
-      secondary: "bg-white text-foreground text-[13px] border border-border hover:bg-gray-50",
-      outline: "bg-white text-foreground text-[13px] border border-border hover:bg-gray-50",
+      default: "bg-primary text-primary-foreground text-[13px] hover:bg-primary/90",
+      secondary: "bg-card text-foreground text-[13px] border border-border hover:bg-secondary",
+      outline: "bg-card text-foreground text-[13px] border border-border hover:bg-secondary",
       ghost: "text-[13px] text-muted-foreground hover:bg-secondary hover:text-foreground",
       destructive: "bg-destructive text-destructive-foreground text-[13px] hover:bg-destructive/90",
       link: "text-primary text-[13px] underline-offset-4 hover:underline",

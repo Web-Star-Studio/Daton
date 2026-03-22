@@ -297,7 +297,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
     return (
       <div
-        className="fixed z-[100] min-w-[190px] max-h-[calc(100vh-16px)] overflow-y-auto rounded-xl border border-border/60 bg-white px-1.5 py-2 shadow-lg animate-[popoverIn_150ms_cubic-bezier(0.16,1,0.3,1)]"
+        className="fixed z-[100] min-w-[190px] max-h-[calc(100vh-16px)] overflow-y-auto rounded-xl border border-border/60 bg-popover px-1.5 py-2 shadow-lg animate-[popoverIn_150ms_cubic-bezier(0.16,1,0.3,1)]"
         style={{
           left: position.left,
           top: position.top,
@@ -334,14 +334,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className="flex h-screen w-full overflow-hidden gap-2.5 bg-cover bg-center bg-no-repeat p-2.5"
+      className="app-bg-overlay flex h-screen w-full overflow-hidden gap-2.5 bg-cover bg-center bg-no-repeat p-2.5"
       style={{
-        backgroundImage: `linear-gradient(rgba(248, 250, 252, 0.46), rgba(248, 250, 252, 0.46)), url(${appBg})`,
+        ["--app-bg-url" as string]: `url(${appBg})`,
       }}
     >
       <aside
         className={cn(
-          "z-20 flex shrink-0 flex-col rounded-2xl border border-border/60 bg-white/80 shadow-sm backdrop-blur-md transition-all duration-300",
+          "z-20 flex shrink-0 flex-col rounded-2xl border border-border/60 bg-card/80 shadow-sm backdrop-blur-md transition-all duration-300",
           isSidebarOpen ? "w-[228px]" : "w-14",
         )}
       >
@@ -350,7 +350,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             src={datonLogo}
             alt="Daton"
             className={cn(
-              "object-contain transition-all duration-300",
+              "object-contain transition-all duration-300 dark:invert",
               isSidebarOpen ? "h-6" : "h-4",
             )}
           />
@@ -520,23 +520,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Link
               href={configuracoesLinks[0].href}
               className={cn(
-                "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+                "flex h-10 w-full items-center justify-between rounded-lg px-2.5 text-[13px] leading-none transition-colors cursor-pointer",
                 isActive("/configuracoes")
                   ? "bg-muted/50 text-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <div className="flex items-center">
+              <div className="flex h-full items-center">
                 <Settings
                   className={cn(
                     "h-[18px] w-[18px] shrink-0",
                       isSidebarOpen && "mr-2.5",
                     )}
                   />
-                {isSidebarOpen && <span>Ajustes</span>}
+                {isSidebarOpen && <span className="block leading-none">Ajustes</span>}
               </div>
               {isSidebarOpen && (
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
               )}
             </Link>
           </div>
@@ -581,8 +581,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/60 bg-white/78 shadow-sm backdrop-blur-md">
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border/40 bg-white/42 px-6 backdrop-blur-md">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/78 shadow-sm backdrop-blur-md">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border/40 bg-card/42 px-6 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(!isSidebarOpen)}

@@ -222,7 +222,7 @@ function TagEditor({
         {tags.map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#007AFF]/10 text-[#007AFF]"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-primary/10 text-primary"
           >
             {tag}
             {editable && (

@@ -333,7 +333,7 @@ export default function OnboardingOrganizationPage() {
                         key={step.key}
                         className={cn(
                           "h-1.5 rounded-full transition-colors",
-                          isActive ? "bg-[#007AFF]" : "bg-secondary",
+                          isActive ? "bg-primary" : "bg-secondary",
                         )}
                       />
                     );
@@ -447,7 +447,7 @@ export default function OnboardingOrganizationPage() {
                                 className={cn(
                                   "cursor-pointer rounded-2xl border px-4 py-4 text-left transition-colors",
                                   checked
-                                    ? "border-[#007AFF] bg-[#007AFF] text-white"
+                                    ? "border-primary bg-primary text-primary-foreground"
                                     : "border-border bg-background text-foreground hover:border-foreground/15",
                                 )}
                               >
@@ -485,7 +485,7 @@ export default function OnboardingOrganizationPage() {
                                 className={cn(
                                   "flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-4 transition-colors",
                                   checked
-                                    ? "border-[#007AFF] bg-[#007AFF] text-white"
+                                    ? "border-primary bg-primary text-primary-foreground"
                                     : "border-border bg-background hover:border-foreground/15",
                                 )}
                               >
@@ -494,7 +494,7 @@ export default function OnboardingOrganizationPage() {
                                   onCheckedChange={(next) =>
                                     toggleGoal(option.value, next === true)
                                   }
-                                  className="mt-0.5 border-white/60 data-[state=checked]:border-white data-[state=checked]:bg-white data-[state=checked]:text-[#007AFF]"
+                                  className="mt-0.5 border-white/60 data-[state=checked]:border-white data-[state=checked]:bg-white data-[state=checked]:text-primary"
                                 />
                                 <span
                                   className={cn(
@@ -535,7 +535,7 @@ export default function OnboardingOrganizationPage() {
                                 className={cn(
                                   "cursor-pointer rounded-2xl border px-4 py-4 text-left transition-colors",
                                   checked
-                                    ? "border-[#007AFF] bg-[#007AFF] text-white"
+                                    ? "border-primary bg-primary text-primary-foreground"
                                     : "border-border bg-background text-foreground hover:border-foreground/15",
                                 )}
                               >

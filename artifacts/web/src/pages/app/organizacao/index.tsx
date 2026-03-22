@@ -1021,7 +1021,7 @@ export default function OrganizacaoPage({
               </h3>
               <div className="bg-muted/30 rounded-xl overflow-hidden">
                 <div className="bg-gradient-to-br from-slate-200 to-slate-300 h-40 relative">
-                  <div className="absolute bottom-4 left-4 bg-white rounded-xl shadow-sm p-4 max-w-xs">
+                  <div className="absolute bottom-4 left-4 bg-card rounded-xl shadow-sm p-4 max-w-xs">
                     <p className="text-[14px] font-semibold text-foreground">
                       {sede.name}
                     </p>

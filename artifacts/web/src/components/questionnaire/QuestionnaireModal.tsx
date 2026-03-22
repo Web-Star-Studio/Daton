@@ -172,7 +172,7 @@ export function QuestionnaireModal({ isOpen, onClose, orgId, unitId, unitName }:
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[200] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px] animate-[overlayIn_200ms_ease-out]" onClick={handleClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-[960px] max-w-[95vw] max-h-[90vh] flex flex-col overflow-hidden animate-[modalIn_250ms_cubic-bezier(0.16,1,0.3,1)]">
+      <div className="relative bg-card rounded-2xl shadow-2xl w-[960px] max-w-[95vw] max-h-[90vh] flex flex-col overflow-hidden animate-[modalIn_250ms_cubic-bezier(0.16,1,0.3,1)]">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/60">
           <div className="flex items-center gap-3">
             <div>
@@ -224,8 +224,8 @@ export function QuestionnaireModal({ isOpen, onClose, orgId, unitId, unitName }:
                     onClick={() => changeTheme(index)}
                     className={`w-full text-left px-4 py-3 transition-colors cursor-pointer ${
                       isActive
-                        ? "bg-white border-r-2 border-primary"
-                        : "hover:bg-white/60"
+                        ? "bg-card border-r-2 border-primary"
+                        : "hover:bg-card/60"
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -275,7 +275,7 @@ export function QuestionnaireModal({ isOpen, onClose, orgId, unitId, unitName }:
                 )}
               </div>
 
-              <div className="flex-shrink-0 border-t border-border/60 px-8 py-4 flex items-center justify-between bg-white">
+              <div className="flex-shrink-0 border-t border-border/60 px-8 py-4 flex items-center justify-between bg-card">
                 <Button
                   variant="ghost"
                   onClick={() => changeTheme(Math.max(0, activeThemeIndex - 1))}

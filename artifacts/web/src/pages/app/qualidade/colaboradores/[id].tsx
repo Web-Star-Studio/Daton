@@ -1326,7 +1326,7 @@ function CompetenciasTab({
       ) : (
         <div className="space-y-2">
           {competencies.map((comp) => (
-            <div key={comp.id} className="bg-white border border-border/60 rounded-xl px-4 py-3">
+            <div key={comp.id} className="bg-card border border-border/60 rounded-xl px-4 py-3">
               {(() => {
                 const compAttachments = comp.attachments || [];
                 return (
@@ -1622,7 +1622,7 @@ function TreinamentosTab({
       ) : (
         <div className="space-y-2">
           {trainings.map((t) => (
-            <div key={t.id} className="bg-white border border-border/60 rounded-xl px-4 py-3">
+            <div key={t.id} className="bg-card border border-border/60 rounded-xl px-4 py-3">
               {(() => {
                 const trainingAttachments = t.attachments || [];
                 return (
@@ -1872,7 +1872,7 @@ function ConscientizacaoTab({
       ) : (
         <div className="space-y-2">
           {awareness.map((a) => (
-            <div key={a.id} className="bg-white border border-border/60 rounded-xl px-4 py-3">
+            <div key={a.id} className="bg-card border border-border/60 rounded-xl px-4 py-3">
               {(() => {
                 const awarenessAttachments = a.attachments || [];
                 return (

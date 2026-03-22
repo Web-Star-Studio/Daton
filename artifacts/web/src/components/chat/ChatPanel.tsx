@@ -349,7 +349,7 @@ export function ChatPanel({
   return (
     <div
       className={cn(
-        "flex h-full w-[480px] max-w-[calc(100vw-2rem)] flex-shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-white/76 shadow-sm backdrop-blur-md",
+        "flex h-full w-[480px] max-w-[calc(100vw-2rem)] flex-shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-card/76 shadow-sm backdrop-blur-md",
         isOpen
           ? "animate-[chatSlideIn_250ms_ease-in-out_forwards]"
           : "animate-[chatSlideOut_250ms_ease-in-out_forwards]",
@@ -358,7 +358,7 @@ export function ChatPanel({
     >
       <aside
         className={cn(
-          "flex shrink-0 flex-col border-r border-border/60 bg-white/34 backdrop-blur-md transition-[width] duration-200",
+          "flex shrink-0 flex-col border-r border-border/60 bg-card/34 backdrop-blur-md transition-[width] duration-200",
           isConversationSidebarCollapsed ? "w-12" : "w-[200px]",
         )}
       >
@@ -434,8 +434,8 @@ export function ChatPanel({
                     className={cn(
                       "w-full text-left rounded-xl px-3 py-2.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
                       active
-                        ? "border border-border/60 bg-white/68 shadow-sm backdrop-blur-sm"
-                        : "hover:bg-white/42",
+                        ? "border border-border/60 bg-card/68 shadow-sm backdrop-blur-sm"
+                        : "hover:bg-card/42",
                     )}
                   >
                   <div className="flex items-start gap-2">
@@ -468,7 +468,7 @@ export function ChatPanel({
       </aside>
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-border/60 bg-white/28 px-4 backdrop-blur-sm">
+        <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-border/60 bg-card/28 px-4 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <span className="text-[13px] font-semibold">Daton AI</span>
             {isStreaming && (
@@ -520,8 +520,8 @@ export function ChatPanel({
                 <div
                   className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed backdrop-blur-sm ${
                     msg.role === "user"
-                      ? "bg-primary text-white"
-                      : "bg-white/46 text-foreground"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-card/46 text-foreground"
                   }`}
                 >
                   {msg.role === "assistant" ? (
@@ -551,12 +551,12 @@ export function ChatPanel({
               onKeyDown={handleKeyDown}
               placeholder="Pergunte sobre seus dados..."
               disabled={isStreaming}
-              className="flex-1 rounded-xl border-none bg-white/42 px-3.5 py-2.5 text-[13px] outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+              className="flex-1 rounded-xl border-none bg-card/42 px-3.5 py-2.5 text-[13px] outline-none placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
             />
             <button
               onClick={sendMessage}
               disabled={!input.trim() || isStreaming}
-              className="p-2.5 rounded-xl bg-primary text-white hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               {isStreaming ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -613,7 +613,7 @@ function AssistantMessage({
       )}
 
       {hasSources && (
-        <div className="rounded-xl border border-border/60 bg-white/38 px-3 py-2 backdrop-blur-sm">
+        <div className="rounded-xl border border-border/60 bg-card/38 px-3 py-2 backdrop-blur-sm">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             Fontes
           </p>

@@ -442,19 +442,19 @@ export default function ColaboradoresPage() {
     <>
       <div className="space-y-6">
         <div className="grid grid-cols-4 gap-4">
-          <div className="bg-white border border-border/60 rounded-xl px-4 py-3">
+          <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
             <p className="text-xs font-medium text-muted-foreground">Total</p>
             <p className="text-xl font-semibold text-foreground mt-0.5">{stats.total}</p>
           </div>
-          <div className="bg-white border border-border/60 rounded-xl px-4 py-3">
+          <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
             <p className="text-xs font-medium text-muted-foreground">Ativos</p>
             <p className="text-xl font-semibold text-emerald-600 mt-0.5">{stats.active}</p>
           </div>
-          <div className="bg-white border border-border/60 rounded-xl px-4 py-3">
+          <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
             <p className="text-xs font-medium text-muted-foreground">Inativos</p>
             <p className="text-xl font-semibold text-gray-500 mt-0.5">{stats.inactive}</p>
           </div>
-          <div className="bg-white border border-border/60 rounded-xl px-4 py-3">
+          <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
             <p className="text-xs font-medium text-muted-foreground">Afastados</p>
             <p className="text-xl font-semibold text-amber-600 mt-0.5">{stats.onLeave}</p>
           </div>

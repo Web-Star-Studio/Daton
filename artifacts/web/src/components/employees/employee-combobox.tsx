@@ -64,7 +64,7 @@ export function EmployeeCombobox({
             aria-label="Selecionar colaborador"
             disabled={disabled}
             className={cn(
-              "min-h-10 flex-1 justify-between border-border px-3 py-2 text-left font-normal",
+              "min-h-10 flex-1 justify-between border-border bg-popover px-3 py-2 text-left font-normal hover:bg-popover",
               !selectedEmployee && "text-muted-foreground",
             )}
           >
@@ -89,11 +89,13 @@ export function EmployeeCombobox({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-[var(--radix-popover-trigger-width)] min-w-[320px] p-0"
+          sideOffset={6}
+          collisionPadding={16}
+          className="w-[var(--radix-popover-trigger-width)] min-w-[320px] max-w-[min(40rem,calc(100vw-2rem))] overflow-hidden rounded-xl border-border bg-popover p-0 shadow-xl"
         >
           <CommandPrimitive
             loop
-            className="overflow-hidden rounded-md"
+            className="overflow-hidden rounded-xl bg-popover"
             filter={(itemValue, search, keywords) => {
               const haystack = normalizeSearch(
                 [itemValue, ...(keywords ?? [])].join(" "),
@@ -102,7 +104,7 @@ export function EmployeeCombobox({
               return term.length === 0 || haystack.includes(term) ? 1 : 0;
             }}
           >
-            <div className="flex items-center gap-2 border-b border-border px-3">
+            <div className="flex items-center gap-2 border-b border-border bg-popover px-3">
               <Search className="h-4 w-4 shrink-0 text-muted-foreground/60" />
               <CommandPrimitive.Input
                 placeholder={searchPlaceholder}
@@ -164,7 +166,7 @@ export function EmployeeCombobox({
           size="icon"
           aria-label="Limpar colaborador selecionado"
           onClick={() => onChange(null)}
-          className="h-10 w-10 shrink-0 border-border"
+          className="h-10 w-10 shrink-0 border-border bg-popover hover:bg-popover"
         >
           <X className="h-4 w-4" />
         </Button>

@@ -50,7 +50,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen w-full bg-background overflow-hidden p-2.5 gap-2.5">
       <aside
         className={cn(
-          "flex flex-col bg-white rounded-2xl border border-border/60 shadow-sm transition-all duration-300 z-20 shrink-0",
+          "flex flex-col bg-card rounded-2xl border border-border/60 shadow-sm transition-all duration-300 z-20 shrink-0",
           isSidebarOpen ? "w-[228px]" : "w-14"
         )}
       >
@@ -59,7 +59,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             src={datonLogo}
             alt="Daton"
             className={cn(
-              "object-contain transition-all duration-300",
+              "object-contain transition-all duration-300 dark:invert",
               isSidebarOpen ? "h-6" : "h-4"
             )}
           />
@@ -115,7 +115,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 bg-white rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+      <main className="flex-1 flex flex-col min-w-0 bg-card rounded-2xl border border-border/60 shadow-sm overflow-hidden">
         <header className="h-14 flex items-center justify-between px-6 border-b border-border/40 sticky top-0 z-10">
           <div className="flex items-center gap-3">
             <button

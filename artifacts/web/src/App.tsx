@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
 
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -177,14 +178,16 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </AuthProvider>
-    </QueryClientProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </AuthProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

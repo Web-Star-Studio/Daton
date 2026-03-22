@@ -330,7 +330,7 @@ export default function UnitDetailPage() {
             <div className="bg-muted/30 rounded-2xl overflow-hidden border border-border/50">
               <div className="relative h-44 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-300">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.75),transparent_45%)]" />
-                <div className="absolute bottom-5 left-5 bg-white/95 backdrop-blur rounded-2xl shadow-sm border border-white/70 p-5 max-w-md">
+                <div className="absolute bottom-5 left-5 bg-card/95 backdrop-blur rounded-2xl shadow-sm border border-card/70 p-5 max-w-md">
                   <div className="flex items-center gap-2.5 mb-2">
                     <p className="text-[18px] font-semibold text-foreground">
                       {unitView.name || "Unidade sem nome"}

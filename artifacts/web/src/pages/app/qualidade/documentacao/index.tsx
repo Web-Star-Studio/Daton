@@ -758,7 +758,7 @@ function CreateDocumentModal({
           "Adicione os anexos iniciais antes de salvar.",
         ][step]
       }
-      size="lg"
+      size="xl"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <DialogStepTabs

@@ -126,7 +126,7 @@ export default function AuthPage() {
         </div>
       </div>
 
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-white">
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-card">
         <div className="w-full max-w-[520px] px-8 py-12">
           {isLogin ? (
             <>
@@ -194,7 +194,7 @@ export default function AuthPage() {
                 <button
                   type="submit"
                   disabled={loginMutation.isPending}
-                  className="w-full bg-[#007AFF] text-white text-[13px] font-medium py-3 rounded-lg hover:bg-[#0066DD] transition-colors disabled:opacity-50 cursor-pointer"
+                  className="w-full bg-primary text-primary-foreground text-[13px] font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {loginMutation.isPending ? "Entrando..." : "Entrar no Daton"}
                 </button>
@@ -397,7 +397,7 @@ export default function AuthPage() {
                 <button
                   type="submit"
                   disabled={registerMutation.isPending}
-                  className="w-full bg-[#007AFF] text-white text-[13px] font-medium py-3 rounded-lg hover:bg-[#0066DD] transition-colors disabled:opacity-50 cursor-pointer"
+                  className="w-full bg-primary text-primary-foreground text-[13px] font-medium py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {registerMutation.isPending
                     ? "Criando..."

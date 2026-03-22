@@ -52,7 +52,7 @@ export default function ProfileSettingsPage() {
 
   return (
     <div className="space-y-8">
-      <section className="rounded-2xl border border-border/60 bg-white/70 p-6 shadow-sm">
+      <section className="rounded-2xl border border-border/60 bg-card/70 p-6 shadow-sm">
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-foreground">Perfil</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -129,7 +129,7 @@ export default function ProfileSettingsPage() {
         </form>
       </section>
 
-      <section className="rounded-2xl border border-border/60 bg-white/70 p-6 shadow-sm">
+      <section className="rounded-2xl border border-border/60 bg-card/70 p-6 shadow-sm">
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-foreground">Segurança</h2>
           <p className="mt-1 text-sm text-muted-foreground">
