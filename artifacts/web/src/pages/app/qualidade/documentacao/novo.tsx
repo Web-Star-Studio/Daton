@@ -21,7 +21,8 @@ import { EmployeeCombobox } from "@/components/employees/employee-combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Upload, X, FileText, ArrowLeft } from "lucide-react";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
+import { Upload, X, FileText } from "lucide-react";
 import { usePageTitle } from "@/contexts/LayoutContext";
 import { resolveApiUrl } from "@/lib/api";
 import { DOCUMENT_ELABORATOR_PAGE_SIZE } from "@/lib/document-elaborators";
@@ -270,14 +271,6 @@ export default function NovoDocumentoPage() {
 
   return (
     <div className="max-w-3xl">
-      <button
-        onClick={() => navigate("/qualidade/documentacao")}
-        className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 cursor-pointer"
-      >
-        <ArrowLeft className="h-4 w-4 mr-1.5" />
-        Voltar para Documentação
-      </button>
-
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div>
           <Label>Título do Documento *</Label>
@@ -304,8 +297,10 @@ export default function NovoDocumentoPage() {
           </div>
           <div>
             <Label>Filial</Label>
-            <MultiSelectDropdown
+            <SearchableMultiSelect
               placeholder="Selecione"
+              searchPlaceholder="Buscar filial..."
+              emptyMessage="Nenhuma filial encontrada."
               options={(units || []).map((u) => ({
                 value: u.id,
                 label: u.name,
@@ -346,12 +341,15 @@ export default function NovoDocumentoPage() {
             )}
           </div>
           <div>
-            <Label>Aprovado por *</Label>
-            <MultiSelectDropdown
+            <Label>Aprovadores *</Label>
+            <SearchableMultiSelect
               placeholder="Selecione"
+              searchPlaceholder="Buscar aprovador..."
+              emptyMessage="Nenhum aprovador encontrado."
               options={availableUsers.map((u: UserOption) => ({
                 value: u.id,
                 label: u.name,
+                keywords: [u.email],
               }))}
               selected={approverIds}
               onToggle={(id) =>
@@ -432,11 +430,14 @@ export default function NovoDocumentoPage() {
 
         <div>
           <Label>Destinatários (protocolo de recebimento) *</Label>
-          <MultiSelectDropdown
+          <SearchableMultiSelect
             placeholder="Selecionar destinatários"
+            searchPlaceholder="Buscar destinatário..."
+            emptyMessage="Nenhum destinatário encontrado."
             options={availableUsers.map((u: UserOption) => ({
               value: u.id,
               label: u.name,
+              keywords: [u.email],
             }))}
             selected={recipientIds}
             onToggle={(id) =>
@@ -452,8 +453,10 @@ export default function NovoDocumentoPage() {
 
         <div>
           <Label>Referências a outros documentos</Label>
-          <MultiSelectDropdown
+          <SearchableMultiSelect
             placeholder="Selecionar documentos referenciados"
+            searchPlaceholder="Buscar documento de referência..."
+            emptyMessage="Nenhum documento encontrado."
             options={(existingDocs || []).map((d) => ({
               value: d.id,
               label: d.title,
@@ -479,104 +482,6 @@ export default function NovoDocumentoPage() {
           </Button>
         </div>
       </form>
-    </div>
-  );
-}
-
-function MultiSelectDropdown({
-  options,
-  selected,
-  onToggle,
-  onToggleAll,
-  placeholder,
-  selectAllLabel,
-}: {
-  options: { value: number; label: string }[];
-  selected: number[];
-  onToggle: (id: number) => void;
-  onToggleAll?: () => void;
-  placeholder: string;
-  selectAllLabel?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const allSelected = options.length > 0 && selected.length === options.length;
-
-  const selectedLabels = options
-    .filter((o) => selected.includes(o.value))
-    .map((o) => o.label);
-
-  return (
-    <div className="relative mt-2">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex items-center justify-between w-full h-9 border-0 border-b border-border bg-transparent px-0 py-2 text-sm text-left cursor-pointer focus:outline-none focus:border-foreground transition-colors"
-      >
-        <span
-          className={
-            selectedLabels.length > 0
-              ? "text-foreground truncate"
-              : "text-muted-foreground/50"
-          }
-        >
-          {selectedLabels.length > 0 ? selectedLabels.join(", ") : placeholder}
-        </span>
-        <svg
-          className="h-4 w-4 text-muted-foreground shrink-0"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto bg-white border border-border/60 rounded-xl shadow-lg py-1">
-            {options.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-muted-foreground">
-                Nenhuma opção disponível
-              </div>
-            ) : (
-              <>
-                {onToggleAll && (
-                  <label className="flex items-center gap-2 px-3 py-2 text-sm font-medium border-b border-border/50 hover:bg-muted/50 cursor-pointer transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={() => onToggleAll()}
-                      className="rounded border-border text-primary"
-                    />
-                    <span className="truncate">
-                      {selectAllLabel || "Selecionar todas"}
-                    </span>
-                  </label>
-                )}
-                {options.map((opt) => (
-                  <label
-                    key={opt.value}
-                    className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 cursor-pointer transition-colors"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(opt.value)}
-                      onChange={() => onToggle(opt.value)}
-                      className="rounded border-border text-primary"
-                    />
-                    <span className="truncate">{opt.label}</span>
-                  </label>
-                ))}
-              </>
-            )}
-          </div>
-        </>
-      )}
     </div>
   );
 }

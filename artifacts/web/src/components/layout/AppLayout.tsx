@@ -36,6 +36,12 @@ type NavLink = {
   label: string;
 };
 
+type PopoverPosition = {
+  left: number;
+  top?: number;
+  bottom?: number;
+};
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, organization } = useAuth();
   const { hasModuleAccess } = usePermissions();
@@ -47,10 +53,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [qualidadePopover, setQualidadePopover] = useState(false);
   const [governancaPopover, setGovernancaPopover] = useState(false);
   const [configuracoesPopover, setConfiguracoesPopover] = useState(false);
-  const [orgPopoverPos, setOrgPopoverPos] = useState({ top: 0, left: 0 });
-  const [qualidadePopoverPos, setQualidadePopoverPos] = useState({ top: 0, left: 0 });
-  const [governancaPopoverPos, setGovernancaPopoverPos] = useState({ top: 0, left: 0 });
-  const [configuracoesPopoverPos, setConfiguracoesPopoverPos] = useState({ top: 0, left: 0 });
+  const [orgPopoverPos, setOrgPopoverPos] = useState<PopoverPosition>({
+    top: 0,
+    left: 0,
+  });
+  const [qualidadePopoverPos, setQualidadePopoverPos] = useState<PopoverPosition>({
+    top: 0,
+    left: 0,
+  });
+  const [governancaPopoverPos, setGovernancaPopoverPos] = useState<PopoverPosition>({
+    top: 0,
+    left: 0,
+  });
+  const [configuracoesPopoverPos, setConfiguracoesPopoverPos] = useState<PopoverPosition>({
+    left: 0,
+    bottom: 0,
+  });
   const organizacaoRef = useRef<HTMLDivElement>(null);
   const qualidadeRef = useRef<HTMLDivElement>(null);
   const governancaRef = useRef<HTMLDivElement>(null);
@@ -222,8 +240,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   ];
 
   const configuracoesLinks: NavLink[] = [
-    { href: "/configuracoes/perfil", label: "Ajustes de perfil" },
-    { href: "/configuracoes/sistema", label: "Ajustes do sistema" },
+    { href: "/configuracoes/perfil", label: "Perfil" },
+    { href: "/configuracoes/sistema", label: "Sistema" },
   ];
 
   const showQualidade = qualidadeLinks.length > 0;
@@ -231,9 +249,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const openPopover = (
     ref: React.RefObject<HTMLDivElement | null>,
-    setPos: React.Dispatch<React.SetStateAction<{ top: number; left: number }>>,
+    setPos: React.Dispatch<React.SetStateAction<PopoverPosition>>,
     setOpen: React.Dispatch<React.SetStateAction<boolean>>,
     timeoutRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>,
+    preferredSide: "down" | "up" = "down",
   ) => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -241,7 +260,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
     if (ref.current) {
       const rect = ref.current.getBoundingClientRect();
-      setPos({ top: rect.top, left: rect.right + 6 });
+      const left = rect.right + 6;
+
+      if (preferredSide === "up") {
+        setPos({
+          left,
+          bottom: window.innerHeight - rect.bottom,
+        });
+      } else {
+        setPos({
+          left,
+          top: rect.top,
+        });
+      }
     }
 
     setOpen(true);
@@ -259,15 +290,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     links: NavLink[],
     isOpen: boolean,
     setOpen: React.Dispatch<React.SetStateAction<boolean>>,
-    position: { top: number; left: number },
+    position: PopoverPosition,
     timeoutRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>,
   ) => {
     if (!isOpen) return null;
 
     return (
       <div
-        className="fixed z-[100] min-w-[190px] rounded-xl border border-border/60 bg-white px-1.5 py-2 shadow-lg animate-[popoverIn_150ms_cubic-bezier(0.16,1,0.3,1)]"
-        style={{ top: position.top, left: position.left }}
+        className="fixed z-[100] min-w-[190px] max-h-[calc(100vh-16px)] overflow-y-auto rounded-xl border border-border/60 bg-white px-1.5 py-2 shadow-lg animate-[popoverIn_150ms_cubic-bezier(0.16,1,0.3,1)]"
+        style={{
+          left: position.left,
+          top: position.top,
+          bottom: position.bottom,
+        }}
         onMouseEnter={() => {
           if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
@@ -475,6 +510,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 setConfiguracoesPopoverPos,
                 setConfiguracoesPopover,
                 configuracoesTimeoutRef,
+                "up",
               )
             }
             onMouseLeave={() =>
@@ -486,7 +522,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               className={cn(
                 "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
                 isActive("/configuracoes")
-                  ? "font-medium text-foreground"
+                  ? "bg-muted/50 text-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -494,10 +530,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <Settings
                   className={cn(
                     "h-[18px] w-[18px] shrink-0",
-                    isSidebarOpen && "mr-2.5",
-                  )}
-                />
-                {isSidebarOpen && <span>Configurações</span>}
+                      isSidebarOpen && "mr-2.5",
+                    )}
+                  />
+                {isSidebarOpen && <span>Ajustes</span>}
               </div>
               {isSidebarOpen && (
                 <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
@@ -506,7 +542,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           {renderPopover(
-            "Configurações",
+            "Ajustes",
             configuracoesLinks,
             configuracoesPopover,
             setConfiguracoesPopover,
@@ -619,7 +655,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         <div className="flex-1 overflow-auto p-8">
-          <div key={location} className="mx-auto max-w-6xl animate-fade-in-up">
+          <div
+            key={location}
+            className="mx-auto w-full max-w-6xl lg:w-[90%] lg:max-w-[1440px] animate-fade-in-up"
+          >
             {children}
           </div>
         </div>

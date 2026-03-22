@@ -30,7 +30,6 @@ import type {
   DocumentDetailReferencesItem,
   DocumentAttachment,
   DocumentVersion,
-  Employee,
   UserOption,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -39,12 +38,12 @@ import { EmployeeCombobox } from "@/components/employees/employee-combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
 import { DOCUMENT_ELABORATOR_PAGE_SIZE } from "@/lib/document-elaborators";
 import {
-  ArrowLeft,
   FileText,
   Upload,
   Download,
@@ -575,14 +574,6 @@ export default function DocumentDetailPage() {
 
   return (
     <div>
-      <button
-        onClick={() => navigate("/qualidade/documentacao")}
-        className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 cursor-pointer"
-      >
-        <ArrowLeft className="h-4 w-4 mr-1.5" />
-        Voltar para Documentação
-      </button>
-
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <h1 className="text-xl font-semibold">{doc.title}</h1>
@@ -668,7 +659,7 @@ export default function DocumentDetailPage() {
                 Elaborador
               </Label>
               <div className="flex flex-wrap gap-2 mt-2">
-                {doc.elaborators.map((e: Employee) => (
+                {doc.elaborators.map((e) => (
                   <span
                     key={e.id}
                     className="px-2.5 py-1 bg-muted/50 rounded-md text-sm"
@@ -1089,58 +1080,50 @@ export default function DocumentDetailPage() {
 
                 <div>
                   <Label>Aprovadores</Label>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {orgUsers.map((option: UserOption) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() =>
-                          setEditForm({
-                            ...editForm,
-                            approverIds: toggleMultiSelect(
-                              editForm.approverIds,
-                              option.id,
-                            ),
-                          })
-                        }
-                        className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                          editForm.approverIds.includes(option.id)
-                            ? "bg-foreground text-background"
-                            : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {option.name}
-                      </button>
-                    ))}
-                  </div>
+                  <SearchableMultiSelect
+                    placeholder="Selecione aprovadores"
+                    searchPlaceholder="Buscar aprovador..."
+                    emptyMessage="Nenhum aprovador encontrado."
+                    options={orgUsers.map((option: UserOption) => ({
+                      value: option.id,
+                      label: option.name,
+                      keywords: [option.email],
+                    }))}
+                    selected={editForm.approverIds}
+                    onToggle={(id) =>
+                      setEditForm({
+                        ...editForm,
+                        approverIds: toggleMultiSelect(
+                          editForm.approverIds,
+                          id,
+                        ),
+                      })
+                    }
+                  />
                 </div>
 
                 <div>
                   <Label>Destinatários</Label>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {orgUsers.map((option: UserOption) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() =>
-                          setEditForm({
-                            ...editForm,
-                            recipientIds: toggleMultiSelect(
-                              editForm.recipientIds,
-                              option.id,
-                            ),
-                          })
-                        }
-                        className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                          editForm.recipientIds.includes(option.id)
-                            ? "bg-foreground text-background"
-                            : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {option.name}
-                      </button>
-                    ))}
-                  </div>
+                  <SearchableMultiSelect
+                    placeholder="Selecione destinatários"
+                    searchPlaceholder="Buscar destinatário..."
+                    emptyMessage="Nenhum destinatário encontrado."
+                    options={orgUsers.map((option: UserOption) => ({
+                      value: option.id,
+                      label: option.name,
+                      keywords: [option.email],
+                    }))}
+                    selected={editForm.recipientIds}
+                    onToggle={(id) =>
+                      setEditForm({
+                        ...editForm,
+                        recipientIds: toggleMultiSelect(
+                          editForm.recipientIds,
+                          id,
+                        ),
+                      })
+                    }
+                  />
                 </div>
               </div>
             )}
@@ -1149,57 +1132,57 @@ export default function DocumentDetailPage() {
               <div className="space-y-5">
                 <div>
                   <Label>Filiais</Label>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {allUnits?.map((unit) => (
-                      <button
-                        key={unit.id}
-                        type="button"
-                        onClick={() =>
-                          setEditForm({
-                            ...editForm,
-                            unitIds: toggleMultiSelect(editForm.unitIds, unit.id),
-                          })
-                        }
-                        className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                          editForm.unitIds.includes(unit.id)
-                            ? "bg-foreground text-background"
-                            : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {unit.name}
-                      </button>
-                    ))}
-                  </div>
+                  <SearchableMultiSelect
+                    placeholder="Selecione filiais"
+                    searchPlaceholder="Buscar filial..."
+                    emptyMessage="Nenhuma filial encontrada."
+                    options={(allUnits || []).map((unit) => ({
+                      value: unit.id,
+                      label: unit.name,
+                    }))}
+                    selected={editForm.unitIds}
+                    onToggle={(id) =>
+                      setEditForm({
+                        ...editForm,
+                        unitIds: toggleMultiSelect(editForm.unitIds, id),
+                      })
+                    }
+                    onToggleAll={() =>
+                      setEditForm({
+                        ...editForm,
+                        unitIds:
+                          editForm.unitIds.length === (allUnits || []).length
+                            ? []
+                            : (allUnits || []).map((unit) => unit.id),
+                      })
+                    }
+                    selectAllLabel="Selecionar todas as filiais"
+                  />
                 </div>
 
                 <div>
                   <Label>Referências</Label>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {allDocs
-                      ?.filter((item) => item.id !== docId)
-                      .map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() =>
-                            setEditForm({
-                              ...editForm,
-                              referenceIds: toggleMultiSelect(
-                                editForm.referenceIds,
-                                item.id,
-                              ),
-                            })
-                          }
-                          className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                            editForm.referenceIds.includes(item.id)
-                              ? "bg-blue-600 text-white"
-                              : "bg-blue-50 text-blue-700 hover:bg-blue-100"
-                          }`}
-                        >
-                          {item.title}
-                        </button>
-                      ))}
-                  </div>
+                  <SearchableMultiSelect
+                    placeholder="Selecione documentos de referência"
+                    searchPlaceholder="Buscar documento de referência..."
+                    emptyMessage="Nenhum documento encontrado."
+                    options={(allDocs || [])
+                      .filter((item) => item.id !== docId)
+                      .map((item) => ({
+                        value: item.id,
+                        label: item.title,
+                      }))}
+                    selected={editForm.referenceIds}
+                    onToggle={(id) =>
+                      setEditForm({
+                        ...editForm,
+                        referenceIds: toggleMultiSelect(
+                          editForm.referenceIds,
+                          id,
+                        ),
+                      })
+                    }
+                  />
                 </div>
               </div>
             )}
