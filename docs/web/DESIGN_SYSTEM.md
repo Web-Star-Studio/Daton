@@ -1810,6 +1810,179 @@ All custom animations are defined in `src/index.css`.
 - Include title and brief description
 - Auto-dismiss after delay
 
+### 4.8 Listing Page Layout
+
+**Pattern:** Compact summary cards → inline filters → raw table → empty state. No Card wrappers around filters or tables.
+
+Reference implementations: `colaboradores/index.tsx`, `documentacao/index.tsx`, `fornecedores/index.tsx`.
+
+#### Summary Cards
+
+Compact stat cards at the top of the page. Use semantic colors for values.
+
+```tsx
+<div className="grid grid-cols-4 gap-4">
+  <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
+    <p className="text-xs font-medium text-muted-foreground">Label</p>
+    <p className="text-xl font-semibold text-emerald-600 mt-0.5">25</p>
+  </div>
+  {/* ... more cards */}
+</div>
+```
+
+| Element | Style |
+|---------|-------|
+| Container | `bg-card border border-border/60 rounded-xl px-4 py-3` |
+| Label | `text-xs font-medium text-muted-foreground` |
+| Value | `text-xl font-semibold mt-0.5` |
+| Value (positive) | `text-emerald-600` |
+| Value (warning) | `text-amber-600` |
+| Value (danger) | `text-red-600` |
+| Value (neutral) | `text-foreground` or `text-gray-500` |
+
+**Do NOT use** the `Card` / `CardContent` / `CardHeader` components for summary cards. Use plain `div` with the styles above.
+
+#### Inline Filters
+
+Filters sit directly on the page — **never wrapped in a Card**. Use `flex flex-wrap` for responsive layout.
+
+```tsx
+<div className="flex flex-wrap gap-6 items-end">
+  <div className="flex-1 min-w-[200px]">
+    <Label>Buscar</Label>
+    <Input placeholder="..." className="mt-2" />
+  </div>
+  <div className="w-40">
+    <Label>Status</Label>
+    <Select className="mt-2">...</Select>
+  </div>
+</div>
+```
+
+| Element | Style |
+|---------|-------|
+| Container | `flex flex-wrap gap-6 items-end` |
+| Search field | `flex-1 min-w-[200px]` |
+| Filter field | `w-40` or `w-44` |
+| Label | Standard `<Label>` component |
+| Input/Select gap | `className="mt-2"` below label |
+
+**Alternative compact style** (colaboradores): `flex items-center gap-3` with `h-9 text-[13px]` on inputs.
+
+#### Data Table
+
+Tables are **not** wrapped in a Card. Use a raw `<table>` element directly on the page.
+
+```tsx
+<div className="overflow-hidden">
+  <table className="w-full">
+    <thead>
+      <tr className="border-b border-border/60">
+        <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+          Column
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr className="border-b border-border/40 last:border-0 transition-colors hover:bg-secondary/30 cursor-pointer">
+        <td className="px-4 py-3">
+          <p className="text-[13px] font-medium text-foreground">Primary text</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Secondary text</p>
+        </td>
+        <td className="px-4 py-3">
+          <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+```
+
+| Element | Style |
+|---------|-------|
+| Header row | `border-b border-border/60` |
+| Header cell | `text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground` |
+| Body row | `border-b border-border/40 last:border-0 transition-colors hover:bg-secondary/30 cursor-pointer` |
+| Body row (selected) | `bg-primary/5` |
+| Body cell | `px-4 py-3` |
+| Primary text | `text-[13px] font-medium text-foreground` |
+| Secondary text | `text-xs text-muted-foreground mt-0.5` |
+| Navigation arrow | `<ChevronRight className="h-4 w-4 text-muted-foreground/40" />` in last column |
+| Status badge | `inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border` with semantic color classes |
+
+**Optional:** Row checkboxes for bulk selection (see colaboradores and documentacao for implementation).
+
+#### Empty State (Listing)
+
+When the table has no results, use a simple centered layout — **not** the `<Empty>` compound component.
+
+```tsx
+<div className="text-center py-16">
+  <Icon className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+  <p className="text-[13px] text-muted-foreground">Nenhum item encontrado</p>
+  <p className="text-xs text-muted-foreground/70 mt-1">Descritivo adicional.</p>
+  <Button size="sm" className="mt-4">
+    <Plus className="h-3.5 w-3.5 mr-1.5" /> Criar Item
+  </Button>
+</div>
+```
+
+#### Create/Edit Dialogs (Multi-step)
+
+Registration and creation dialogs **must** use `DialogStepTabs` for multi-step wizards.
+
+```tsx
+<Dialog
+  open={isOpen}
+  onOpenChange={setOpen}
+  title="Novo Item"
+  description={stepDescriptions[currentStep]}
+  size="lg"
+>
+  <DialogStepTabs
+    steps={["Básico", "Detalhes", "Revisão"]}
+    step={currentStep}
+    onStepChange={changeStep}
+    maxAccessibleStep={maxReachedStep}
+  />
+
+  {currentStep === 0 && (
+    <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground">Campo *</Label>
+        <Input className="mt-1" placeholder="..." />
+      </div>
+    </div>
+  )}
+
+  <DialogFooter>
+    {currentStep > 0 ? (
+      <Button variant="outline" onClick={() => changeStep(currentStep - 1)}>
+        Anterior
+      </Button>
+    ) : (
+      <Button variant="outline" onClick={close}>Cancelar</Button>
+    )}
+    {currentStep < lastStep ? (
+      <Button onClick={() => changeStep(currentStep + 1)}>Próximo</Button>
+    ) : (
+      <Button onClick={submit} isLoading={isPending}>Criar</Button>
+    )}
+  </DialogFooter>
+</Dialog>
+```
+
+| Element | Style |
+|---------|-------|
+| Dialog size | `size="lg"` for multi-step, `size="md"` for simple dialogs |
+| Step tabs | `<DialogStepTabs>` with `maxAccessibleStep` for progressive disclosure |
+| Field grid | `grid grid-cols-2 gap-x-8 gap-y-5` |
+| Label | `text-xs font-semibold text-muted-foreground` |
+| Input gap | `className="mt-1"` below label |
+| Footer buttons | "Cancelar"/"Anterior" (outline) + "Próximo"/"Criar" (primary) |
+
+**Simple dialogs** (e.g., creating a category or type) do NOT need `DialogStepTabs` — use a single-step layout with `space-y-5` or `grid grid-cols-1 gap-y-5`.
+
 ---
 
 ## 5. Accessibility
