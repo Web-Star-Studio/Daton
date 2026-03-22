@@ -25,6 +25,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  FieldSet,
+  FieldGroup,
+  Field,
+  FieldLabel,
+  FieldContent,
+} from "@/components/ui/field";
 import { toast } from "@/hooks/use-toast";
 import {
   createSupplier,
@@ -88,10 +95,12 @@ function SummaryCard({
   subtitle: string;
 }) {
   return (
-    <Card className="border-border/60 p-6">
-      <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{title}</p>
-      <p className="mt-3 text-3xl font-semibold tracking-tight">{value}</p>
-      <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
+    <Card>
+      <CardContent className="pt-6">
+        <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{title}</p>
+        <p className="mt-3 text-3xl font-semibold tracking-tight">{value}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
+      </CardContent>
     </Card>
   );
 }
@@ -366,99 +375,113 @@ export default function SuppliersPage() {
         <SummaryCard title="AVA1 apto" value={summary.withDocumentReview} subtitle="Com avaliação documental apta." />
       </div>
 
-      <Card className="border-border/60 p-6">
-        <div className="grid gap-4 lg:grid-cols-5">
-          <div className="lg:col-span-2">
-            <Label htmlFor="supplier-search">Buscar</Label>
-            <Input
-              id="supplier-search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Nome, identificador ou razão social…"
-            />
-          </div>
-          <div>
-            <Label htmlFor="supplier-status">Status</Label>
-            <Select
-              id="supplier-status"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-            >
-              <option value="">Todos</option>
-              <option value="draft">Rascunho</option>
-              <option value="pending_qualification">Pendente</option>
-              <option value="approved">Aprovado</option>
-              <option value="restricted">Restrito</option>
-              <option value="blocked">Bloqueado</option>
-              <option value="expired">Vencido</option>
-              <option value="inactive">Inativo</option>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="supplier-category-filter">Categoria</Label>
-            <Select
-              id="supplier-category-filter"
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
-            >
-              <option value="">Todas</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="supplier-type-filter">Tipo</Label>
-            <Select
-              id="supplier-type-filter"
-              value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value)}
-            >
-              <option value="">Todos</option>
-              {types.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-        </div>
-        <div className="mt-4 grid gap-4 lg:grid-cols-5">
-          <div>
-            <Label htmlFor="supplier-unit-filter">Unidade</Label>
-            <Select
-              id="supplier-unit-filter"
-              value={unitFilter}
-              onChange={(event) => setUnitFilter(event.target.value)}
-            >
-              <option value="">Todas</option>
-              {units.map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="lg:col-span-4 flex items-end justify-end">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSearch("");
-                setStatusFilter("");
-                setCategoryFilter("");
-                setTypeFilter("");
-                setUnitFilter("");
-              }}
-            >
-              Limpar filtros
-            </Button>
-          </div>
-        </div>
+      <Card>
+        <CardContent className="pt-6">
+          <FieldGroup>
+            <div className="grid gap-4 lg:grid-cols-5">
+              <Field className="lg:col-span-2">
+                <FieldLabel htmlFor="supplier-search">Buscar</FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="supplier-search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Nome, identificador ou razão social…"
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="supplier-status">Status</FieldLabel>
+                <FieldContent>
+                  <Select
+                    id="supplier-status"
+                    value={statusFilter}
+                    onChange={(event) => setStatusFilter(event.target.value)}
+                  >
+                    <option value="">Todos</option>
+                    <option value="draft">Rascunho</option>
+                    <option value="pending_qualification">Pendente</option>
+                    <option value="approved">Aprovado</option>
+                    <option value="restricted">Restrito</option>
+                    <option value="blocked">Bloqueado</option>
+                    <option value="expired">Vencido</option>
+                    <option value="inactive">Inativo</option>
+                  </Select>
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="supplier-category-filter">Categoria</FieldLabel>
+                <FieldContent>
+                  <Select
+                    id="supplier-category-filter"
+                    value={categoryFilter}
+                    onChange={(event) => setCategoryFilter(event.target.value)}
+                  >
+                    <option value="">Todas</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </Select>
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="supplier-type-filter">Tipo</FieldLabel>
+                <FieldContent>
+                  <Select
+                    id="supplier-type-filter"
+                    value={typeFilter}
+                    onChange={(event) => setTypeFilter(event.target.value)}
+                  >
+                    <option value="">Todos</option>
+                    {types.map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type.name}
+                      </option>
+                    ))}
+                  </Select>
+                </FieldContent>
+              </Field>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-5">
+              <Field>
+                <FieldLabel htmlFor="supplier-unit-filter">Unidade</FieldLabel>
+                <FieldContent>
+                  <Select
+                    id="supplier-unit-filter"
+                    value={unitFilter}
+                    onChange={(event) => setUnitFilter(event.target.value)}
+                  >
+                    <option value="">Todas</option>
+                    {units.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.name}
+                      </option>
+                    ))}
+                  </Select>
+                </FieldContent>
+              </Field>
+              <div className="lg:col-span-4 flex items-end justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearch("");
+                    setStatusFilter("");
+                    setCategoryFilter("");
+                    setTypeFilter("");
+                    setUnitFilter("");
+                  }}
+                >
+                  Limpar filtros
+                </Button>
+              </div>
+            </div>
+          </FieldGroup>
+        </CardContent>
       </Card>
 
-      <Card className="border-border/60 overflow-hidden">
+      <Card className="overflow-hidden">
         <CardHeader className="border-b border-border/60">
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-1">
@@ -505,12 +528,12 @@ export default function SuppliersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="px-6 py-3">Fornecedor</TableHead>
-                  <TableHead className="px-6 py-3">Status</TableHead>
-                  <TableHead className="px-6 py-3">Categoria / Tipo</TableHead>
-                  <TableHead className="px-6 py-3">Unidades</TableHead>
-                  <TableHead className="px-6 py-3">AVA1</TableHead>
-                  <TableHead className="px-6 py-3">Última Revisão</TableHead>
+                  <TableHead>Fornecedor</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Categoria / Tipo</TableHead>
+                  <TableHead>Unidades</TableHead>
+                  <TableHead>AVA1</TableHead>
+                  <TableHead>Última Revisão</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -520,30 +543,30 @@ export default function SuppliersPage() {
                     className="cursor-pointer"
                     onClick={() => navigate(`/app/qualidade/fornecedores/${supplier.id}`)}
                   >
-                    <TableCell className="px-6 py-4">
+                    <TableCell>
                       <div className="font-medium">{supplier.tradeName || supplier.legalName}</div>
                       <div className="text-muted-foreground">{supplier.legalIdentifier}</div>
                     </TableCell>
-                    <TableCell className="px-6 py-4">
+                    <TableCell>
                       <div className="flex flex-col gap-2">
                         <Badge variant={statusBadgeVariant(supplier.status)}>{statusLabel(supplier.status)}</Badge>
                         <span className="text-xs text-muted-foreground">Criticidade {supplier.criticality}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="px-6 py-4">
+                    <TableCell>
                       <div>{supplier.category?.name || "Sem categoria"}</div>
                       <div className="text-xs text-muted-foreground">
                         {supplier.types.map((type) => type.name).join(", ") || "Sem tipo"}
                       </div>
                     </TableCell>
-                    <TableCell className="px-6 py-4 text-muted-foreground">
+                    <TableCell className="text-muted-foreground">
                       {supplier.units.map((unit) => unit.name).join(", ") || "Sem vínculo"}
                     </TableCell>
-                    <TableCell className="px-6 py-4">
+                    <TableCell>
                       <div>{formatCompliance(supplier)}</div>
                       <div className="text-xs text-muted-foreground">{supplier.documentReviewStatus || "Sem parecer"}</div>
                     </TableCell>
-                    <TableCell className="px-6 py-4 text-muted-foreground">
+                    <TableCell className="text-muted-foreground">
                       {supplier.latestQualification?.createdAt
                         ? new Date(supplier.latestQualification.createdAt).toLocaleDateString("pt-BR")
                         : "—"}
@@ -563,168 +586,200 @@ export default function SuppliersPage() {
         description="Crie o cadastro mestre com classificação, unidades e tipos."
         size="xl"
       >
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <Label htmlFor="supplier-person-type">Tipo de pessoa</Label>
-            <Select
-              id="supplier-person-type"
-              value={supplierForm.personType}
-              onChange={(event) => setSupplierForm((current) => ({ ...current, personType: event.target.value as "pj" | "pf" }))}
-            >
-              <option value="pj">Pessoa jurídica</option>
-              <option value="pf">Pessoa física</option>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="supplier-identifier">{supplierForm.personType === "pj" ? "CNPJ" : "CPF"}</Label>
-            <Input
-              id="supplier-identifier"
-              value={supplierForm.legalIdentifier}
-              onChange={(event) => setSupplierForm((current) => ({ ...current, legalIdentifier: event.target.value }))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="supplier-legal-name">{supplierForm.personType === "pj" ? "Razão social" : "Nome completo"}</Label>
-            <Input
-              id="supplier-legal-name"
-              value={supplierForm.legalName}
-              onChange={(event) => setSupplierForm((current) => ({ ...current, legalName: event.target.value }))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="supplier-trade-name">Nome fantasia</Label>
-            <Input
-              id="supplier-trade-name"
-              value={supplierForm.tradeName}
-              onChange={(event) => setSupplierForm((current) => ({ ...current, tradeName: event.target.value }))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="supplier-category">Categoria</Label>
-            <Select
-              id="supplier-category"
-              value={supplierForm.categoryId}
-              onChange={(event) => setSupplierForm((current) => ({ ...current, categoryId: event.target.value }))}
-            >
-              <option value="">Sem categoria</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="supplier-status-input">Status inicial</Label>
-            <Select
-              id="supplier-status-input"
-              value={supplierForm.status}
-              onChange={(event) => setSupplierForm((current) => ({ ...current, status: event.target.value }))}
-            >
-              <option value="draft">Rascunho</option>
-              <option value="pending_qualification">Pendente</option>
-              <option value="approved">Aprovado</option>
-              <option value="restricted">Restrito</option>
-              <option value="blocked">Bloqueado</option>
-              <option value="inactive">Inativo</option>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="supplier-criticality">Criticidade</Label>
-            <Select
-              id="supplier-criticality"
-              value={supplierForm.criticality}
-              onChange={(event) => setSupplierForm((current) => ({ ...current, criticality: event.target.value }))}
-            >
-              <option value="low">Baixa</option>
-              <option value="medium">Média</option>
-              <option value="high">Alta</option>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="supplier-email">E-mail</Label>
-            <Input
-              id="supplier-email"
-              type="email"
-              value={supplierForm.email}
-              onChange={(event) => setSupplierForm((current) => ({ ...current, email: event.target.value }))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="supplier-phone">Telefone</Label>
-            <Input
-              id="supplier-phone"
-              type="tel"
-              value={supplierForm.phone}
-              onChange={(event) => setSupplierForm((current) => ({ ...current, phone: event.target.value }))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="supplier-city">Cidade</Label>
-            <Input
-              id="supplier-city"
-              value={supplierForm.city}
-              onChange={(event) => setSupplierForm((current) => ({ ...current, city: event.target.value }))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="supplier-state">UF</Label>
-            <Input
-              id="supplier-state"
-              value={supplierForm.state}
-              onChange={(event) => setSupplierForm((current) => ({ ...current, state: event.target.value }))}
-            />
-          </div>
-        </div>
+        <FieldSet>
+          <FieldGroup>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="supplier-person-type">Tipo de pessoa</FieldLabel>
+                <FieldContent>
+                  <Select
+                    id="supplier-person-type"
+                    value={supplierForm.personType}
+                    onChange={(event) => setSupplierForm((current) => ({ ...current, personType: event.target.value as "pj" | "pf" }))}
+                  >
+                    <option value="pj">Pessoa jurídica</option>
+                    <option value="pf">Pessoa física</option>
+                  </Select>
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="supplier-identifier">{supplierForm.personType === "pj" ? "CNPJ" : "CPF"}</FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="supplier-identifier"
+                    value={supplierForm.legalIdentifier}
+                    onChange={(event) => setSupplierForm((current) => ({ ...current, legalIdentifier: event.target.value }))}
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="supplier-legal-name">{supplierForm.personType === "pj" ? "Razão social" : "Nome completo"}</FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="supplier-legal-name"
+                    value={supplierForm.legalName}
+                    onChange={(event) => setSupplierForm((current) => ({ ...current, legalName: event.target.value }))}
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="supplier-trade-name">Nome fantasia</FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="supplier-trade-name"
+                    value={supplierForm.tradeName}
+                    onChange={(event) => setSupplierForm((current) => ({ ...current, tradeName: event.target.value }))}
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="supplier-category">Categoria</FieldLabel>
+                <FieldContent>
+                  <Select
+                    id="supplier-category"
+                    value={supplierForm.categoryId}
+                    onChange={(event) => setSupplierForm((current) => ({ ...current, categoryId: event.target.value }))}
+                  >
+                    <option value="">Sem categoria</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </Select>
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="supplier-status-input">Status inicial</FieldLabel>
+                <FieldContent>
+                  <Select
+                    id="supplier-status-input"
+                    value={supplierForm.status}
+                    onChange={(event) => setSupplierForm((current) => ({ ...current, status: event.target.value }))}
+                  >
+                    <option value="draft">Rascunho</option>
+                    <option value="pending_qualification">Pendente</option>
+                    <option value="approved">Aprovado</option>
+                    <option value="restricted">Restrito</option>
+                    <option value="blocked">Bloqueado</option>
+                    <option value="inactive">Inativo</option>
+                  </Select>
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="supplier-criticality">Criticidade</FieldLabel>
+                <FieldContent>
+                  <Select
+                    id="supplier-criticality"
+                    value={supplierForm.criticality}
+                    onChange={(event) => setSupplierForm((current) => ({ ...current, criticality: event.target.value }))}
+                  >
+                    <option value="low">Baixa</option>
+                    <option value="medium">Média</option>
+                    <option value="high">Alta</option>
+                  </Select>
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="supplier-email">E-mail</FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="supplier-email"
+                    type="email"
+                    value={supplierForm.email}
+                    onChange={(event) => setSupplierForm((current) => ({ ...current, email: event.target.value }))}
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="supplier-phone">Telefone</FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="supplier-phone"
+                    type="tel"
+                    value={supplierForm.phone}
+                    onChange={(event) => setSupplierForm((current) => ({ ...current, phone: event.target.value }))}
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="supplier-city">Cidade</FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="supplier-city"
+                    value={supplierForm.city}
+                    onChange={(event) => setSupplierForm((current) => ({ ...current, city: event.target.value }))}
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="supplier-state">UF</FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="supplier-state"
+                    value={supplierForm.state}
+                    onChange={(event) => setSupplierForm((current) => ({ ...current, state: event.target.value }))}
+                  />
+                </FieldContent>
+              </Field>
+            </div>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <div>
-            <Label>Unidades vinculadas</Label>
-            <SearchableMultiSelect
-              options={unitOptions}
-              selected={supplierForm.unitIds}
-              onToggle={(id) =>
-                setSupplierForm((current) => ({
-                  ...current,
-                  unitIds: current.unitIds.includes(id)
-                    ? current.unitIds.filter((value) => value !== id)
-                    : [...current.unitIds, id],
-                }))
-              }
-              placeholder="Selecione as unidades"
-              searchPlaceholder="Buscar unidade"
-              emptyMessage="Nenhuma unidade encontrada."
-            />
-          </div>
-          <div>
-            <Label>Tipos de fornecedor</Label>
-            <SearchableMultiSelect
-              options={typeOptions}
-              selected={supplierForm.typeIds}
-              onToggle={(id) =>
-                setSupplierForm((current) => ({
-                  ...current,
-                  typeIds: current.typeIds.includes(id)
-                    ? current.typeIds.filter((value) => value !== id)
-                    : [...current.typeIds, id],
-                }))
-              }
-              placeholder="Selecione os tipos"
-              searchPlaceholder="Buscar tipo"
-              emptyMessage="Nenhum tipo encontrado."
-            />
-          </div>
-        </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field>
+                <FieldLabel>Unidades vinculadas</FieldLabel>
+                <FieldContent>
+                  <SearchableMultiSelect
+                    options={unitOptions}
+                    selected={supplierForm.unitIds}
+                    onToggle={(id) =>
+                      setSupplierForm((current) => ({
+                        ...current,
+                        unitIds: current.unitIds.includes(id)
+                          ? current.unitIds.filter((value) => value !== id)
+                          : [...current.unitIds, id],
+                      }))
+                    }
+                    placeholder="Selecione as unidades"
+                    searchPlaceholder="Buscar unidade"
+                    emptyMessage="Nenhuma unidade encontrada."
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel>Tipos de fornecedor</FieldLabel>
+                <FieldContent>
+                  <SearchableMultiSelect
+                    options={typeOptions}
+                    selected={supplierForm.typeIds}
+                    onToggle={(id) =>
+                      setSupplierForm((current) => ({
+                        ...current,
+                        typeIds: current.typeIds.includes(id)
+                          ? current.typeIds.filter((value) => value !== id)
+                          : [...current.typeIds, id],
+                      }))
+                    }
+                    placeholder="Selecione os tipos"
+                    searchPlaceholder="Buscar tipo"
+                    emptyMessage="Nenhum tipo encontrado."
+                  />
+                </FieldContent>
+              </Field>
+            </div>
 
-        <div className="mt-4">
-          <Label htmlFor="supplier-notes">Observações</Label>
-          <Textarea
-            id="supplier-notes"
-            value={supplierForm.notes}
-            onChange={(event) => setSupplierForm((current) => ({ ...current, notes: event.target.value }))}
-            rows={4}
-          />
-        </div>
+            <Field>
+              <FieldLabel htmlFor="supplier-notes">Observações</FieldLabel>
+              <FieldContent>
+                <Textarea
+                  id="supplier-notes"
+                  value={supplierForm.notes}
+                  onChange={(event) => setSupplierForm((current) => ({ ...current, notes: event.target.value }))}
+                  rows={4}
+                />
+              </FieldContent>
+            </Field>
+          </FieldGroup>
+        </FieldSet>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => setSupplierDialogOpen(false)}>
@@ -757,24 +812,30 @@ export default function SuppliersPage() {
       </Dialog>
 
       <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen} title="Nova categoria" size="md">
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="supplier-category-name">Nome</Label>
-            <Input
-              id="supplier-category-name"
-              value={categoryForm.name}
-              onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="supplier-category-description">Descrição</Label>
-            <Textarea
-              id="supplier-category-description"
-              value={categoryForm.description}
-              onChange={(event) => setCategoryForm((current) => ({ ...current, description: event.target.value }))}
-            />
-          </div>
-        </div>
+        <FieldSet>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="supplier-category-name">Nome</FieldLabel>
+              <FieldContent>
+                <Input
+                  id="supplier-category-name"
+                  value={categoryForm.name}
+                  onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))}
+                />
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="supplier-category-description">Descrição</FieldLabel>
+              <FieldContent>
+                <Textarea
+                  id="supplier-category-description"
+                  value={categoryForm.description}
+                  onChange={(event) => setCategoryForm((current) => ({ ...current, description: event.target.value }))}
+                />
+              </FieldContent>
+            </Field>
+          </FieldGroup>
+        </FieldSet>
         <DialogFooter>
           <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>Cancelar</Button>
           <Button onClick={() => createCategoryMutation.mutate()} isLoading={createCategoryMutation.isPending}>
@@ -784,54 +845,64 @@ export default function SuppliersPage() {
       </Dialog>
 
       <Dialog open={typeDialogOpen} onOpenChange={setTypeDialogOpen} title="Novo tipo" size="md">
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="supplier-type-name">Nome</Label>
-            <Input
-              id="supplier-type-name"
-              value={typeForm.name}
-              onChange={(event) => setTypeForm((current) => ({ ...current, name: event.target.value }))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="supplier-type-category">Categoria</Label>
-            <Select
-              id="supplier-type-category"
-              value={typeForm.categoryId}
-              onChange={(event) => setTypeForm((current) => ({ ...current, categoryId: event.target.value }))}
-            >
-              <option value="">Sem categoria</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="supplier-type-parent">Tipo pai</Label>
-            <Select
-              id="supplier-type-parent"
-              value={typeForm.parentTypeId}
-              onChange={(event) => setTypeForm((current) => ({ ...current, parentTypeId: event.target.value }))}
-            >
-              <option value="">Sem hierarquia</option>
-              {types.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="supplier-type-description">Descrição</Label>
-            <Textarea
-              id="supplier-type-description"
-              value={typeForm.description}
-              onChange={(event) => setTypeForm((current) => ({ ...current, description: event.target.value }))}
-            />
-          </div>
-        </div>
+        <FieldSet>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="supplier-type-name">Nome</FieldLabel>
+              <FieldContent>
+                <Input
+                  id="supplier-type-name"
+                  value={typeForm.name}
+                  onChange={(event) => setTypeForm((current) => ({ ...current, name: event.target.value }))}
+                />
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="supplier-type-category">Categoria</FieldLabel>
+              <FieldContent>
+                <Select
+                  id="supplier-type-category"
+                  value={typeForm.categoryId}
+                  onChange={(event) => setTypeForm((current) => ({ ...current, categoryId: event.target.value }))}
+                >
+                  <option value="">Sem categoria</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </Select>
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="supplier-type-parent">Tipo pai</FieldLabel>
+              <FieldContent>
+                <Select
+                  id="supplier-type-parent"
+                  value={typeForm.parentTypeId}
+                  onChange={(event) => setTypeForm((current) => ({ ...current, parentTypeId: event.target.value }))}
+                >
+                  <option value="">Sem hierarquia</option>
+                  {types.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </Select>
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="supplier-type-description">Descrição</FieldLabel>
+              <FieldContent>
+                <Textarea
+                  id="supplier-type-description"
+                  value={typeForm.description}
+                  onChange={(event) => setTypeForm((current) => ({ ...current, description: event.target.value }))}
+                />
+              </FieldContent>
+            </Field>
+          </FieldGroup>
+        </FieldSet>
         <DialogFooter>
           <Button variant="outline" onClick={() => setTypeDialogOpen(false)}>Cancelar</Button>
           <Button onClick={() => createTypeMutation.mutate()} isLoading={createTypeMutation.isPending}>
@@ -841,67 +912,79 @@ export default function SuppliersPage() {
       </Dialog>
 
       <Dialog open={requirementDialogOpen} onOpenChange={setRequirementDialogOpen} title="Novo requisito documental" size="md">
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="supplier-requirement-name">Nome</Label>
-            <Input
-              id="supplier-requirement-name"
-              value={requirementForm.name}
-              onChange={(event) => setRequirementForm((current) => ({ ...current, name: event.target.value }))}
-            />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="supplier-requirement-weight">Peso</Label>
-              <Input
-                id="supplier-requirement-weight"
-                type="number"
-                min={1}
-                max={5}
-                value={requirementForm.weight}
-                onChange={(event) => setRequirementForm((current) => ({ ...current, weight: event.target.value }))}
-              />
+        <FieldSet>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="supplier-requirement-name">Nome</FieldLabel>
+              <FieldContent>
+                <Input
+                  id="supplier-requirement-name"
+                  value={requirementForm.name}
+                  onChange={(event) => setRequirementForm((current) => ({ ...current, name: event.target.value }))}
+                />
+              </FieldContent>
+            </Field>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="supplier-requirement-weight">Peso</FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="supplier-requirement-weight"
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={requirementForm.weight}
+                    onChange={(event) => setRequirementForm((current) => ({ ...current, weight: event.target.value }))}
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="supplier-requirement-category">Categoria</FieldLabel>
+                <FieldContent>
+                  <Select
+                    id="supplier-requirement-category"
+                    value={requirementForm.categoryId}
+                    onChange={(event) => setRequirementForm((current) => ({ ...current, categoryId: event.target.value }))}
+                  >
+                    <option value="">Sem categoria</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </Select>
+                </FieldContent>
+              </Field>
             </div>
-            <div>
-              <Label htmlFor="supplier-requirement-category">Categoria</Label>
-              <Select
-                id="supplier-requirement-category"
-                value={requirementForm.categoryId}
-                onChange={(event) => setRequirementForm((current) => ({ ...current, categoryId: event.target.value }))}
-              >
-                <option value="">Sem categoria</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="supplier-requirement-type">Tipo</Label>
-            <Select
-              id="supplier-requirement-type"
-              value={requirementForm.typeId}
-              onChange={(event) => setRequirementForm((current) => ({ ...current, typeId: event.target.value }))}
-            >
-              <option value="">Sem tipo</option>
-              {types.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="supplier-requirement-description">Descrição</Label>
-            <Textarea
-              id="supplier-requirement-description"
-              value={requirementForm.description}
-              onChange={(event) => setRequirementForm((current) => ({ ...current, description: event.target.value }))}
-            />
-          </div>
-        </div>
+            <Field>
+              <FieldLabel htmlFor="supplier-requirement-type">Tipo</FieldLabel>
+              <FieldContent>
+                <Select
+                  id="supplier-requirement-type"
+                  value={requirementForm.typeId}
+                  onChange={(event) => setRequirementForm((current) => ({ ...current, typeId: event.target.value }))}
+                >
+                  <option value="">Sem tipo</option>
+                  {types.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </Select>
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="supplier-requirement-description">Descrição</FieldLabel>
+              <FieldContent>
+                <Textarea
+                  id="supplier-requirement-description"
+                  value={requirementForm.description}
+                  onChange={(event) => setRequirementForm((current) => ({ ...current, description: event.target.value }))}
+                />
+              </FieldContent>
+            </Field>
+          </FieldGroup>
+        </FieldSet>
         <DialogFooter>
           <Button variant="outline" onClick={() => setRequirementDialogOpen(false)}>Cancelar</Button>
           <Button onClick={() => createRequirementMutation.mutate()} isLoading={createRequirementMutation.isPending}>
@@ -911,65 +994,77 @@ export default function SuppliersPage() {
       </Dialog>
 
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen} title="Novo template de requisito" size="lg">
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="supplier-template-title">Título</Label>
-            <Input
-              id="supplier-template-title"
-              value={templateForm.title}
-              onChange={(event) => setTemplateForm((current) => ({ ...current, title: event.target.value }))}
-            />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="supplier-template-category">Categoria</Label>
-              <Select
-                id="supplier-template-category"
-                value={templateForm.categoryId}
-                onChange={(event) => setTemplateForm((current) => ({ ...current, categoryId: event.target.value }))}
-              >
-                <option value="">Sem categoria</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </Select>
+        <FieldSet>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="supplier-template-title">Título</FieldLabel>
+              <FieldContent>
+                <Input
+                  id="supplier-template-title"
+                  value={templateForm.title}
+                  onChange={(event) => setTemplateForm((current) => ({ ...current, title: event.target.value }))}
+                />
+              </FieldContent>
+            </Field>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="supplier-template-category">Categoria</FieldLabel>
+                <FieldContent>
+                  <Select
+                    id="supplier-template-category"
+                    value={templateForm.categoryId}
+                    onChange={(event) => setTemplateForm((current) => ({ ...current, categoryId: event.target.value }))}
+                  >
+                    <option value="">Sem categoria</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </Select>
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="supplier-template-type">Tipo</FieldLabel>
+                <FieldContent>
+                  <Select
+                    id="supplier-template-type"
+                    value={templateForm.typeId}
+                    onChange={(event) => setTemplateForm((current) => ({ ...current, typeId: event.target.value }))}
+                  >
+                    <option value="">Sem tipo</option>
+                    {types.map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type.name}
+                      </option>
+                    ))}
+                  </Select>
+                </FieldContent>
+              </Field>
             </div>
-            <div>
-              <Label htmlFor="supplier-template-type">Tipo</Label>
-              <Select
-                id="supplier-template-type"
-                value={templateForm.typeId}
-                onChange={(event) => setTemplateForm((current) => ({ ...current, typeId: event.target.value }))}
-              >
-                <option value="">Sem tipo</option>
-                {types.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="supplier-template-content">Conteúdo</Label>
-            <Textarea
-              id="supplier-template-content"
-              rows={8}
-              value={templateForm.content}
-              onChange={(event) => setTemplateForm((current) => ({ ...current, content: event.target.value }))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="supplier-template-summary">Resumo da mudança</Label>
-            <Input
-              id="supplier-template-summary"
-              value={templateForm.changeSummary}
-              onChange={(event) => setTemplateForm((current) => ({ ...current, changeSummary: event.target.value }))}
-            />
-          </div>
-        </div>
+            <Field>
+              <FieldLabel htmlFor="supplier-template-content">Conteúdo</FieldLabel>
+              <FieldContent>
+                <Textarea
+                  id="supplier-template-content"
+                  rows={8}
+                  value={templateForm.content}
+                  onChange={(event) => setTemplateForm((current) => ({ ...current, content: event.target.value }))}
+                />
+              </FieldContent>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="supplier-template-summary">Resumo da mudança</FieldLabel>
+              <FieldContent>
+                <Input
+                  id="supplier-template-summary"
+                  value={templateForm.changeSummary}
+                  onChange={(event) => setTemplateForm((current) => ({ ...current, changeSummary: event.target.value }))}
+                />
+              </FieldContent>
+            </Field>
+          </FieldGroup>
+        </FieldSet>
         <DialogFooter>
           <Button variant="outline" onClick={() => setTemplateDialogOpen(false)}>Cancelar</Button>
           <Button onClick={() => createTemplateMutation.mutate()} isLoading={createTemplateMutation.isPending}>
