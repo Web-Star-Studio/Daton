@@ -539,13 +539,27 @@ router.get("/organizations/:orgId/employees", requireAuth, async (req, res): Pro
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
   const query = ListEmployeesQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: query.error.message });
+    return;
+  }
+
   const conditions = [eq(employeesTable.organizationId, params.data.orgId)];
 
-  if (query.success && query.data.search) {
-    const s = `%${query.data.search}%`;
-    conditions.push(or(ilike(employeesTable.name, s), ilike(employeesTable.cpf, s))!);
+  const normalizedSearch = query.data.search?.trim();
+  if (normalizedSearch) {
+    const s = `%${normalizedSearch}%`;
+    conditions.push(
+      or(
+        ilike(employeesTable.name, s),
+        ilike(employeesTable.email, s),
+        ilike(employeesTable.cpf, s),
+        ilike(employeesTable.department, s),
+        ilike(employeesTable.position, s),
+      )!,
+    );
   }
-  if (query.success && query.data.unitId) {
+  if (query.data.unitId) {
     const targetUnitId = query.data.unitId;
     conditions.push(
       or(
@@ -561,15 +575,15 @@ router.get("/organizations/:orgId/employees", requireAuth, async (req, res): Pro
       )!
     );
   }
-  if (query.success && query.data.position) {
+  if (query.data.position) {
     conditions.push(eq(employeesTable.position, query.data.position));
   }
-  if (query.success && query.data.status) {
+  if (query.data.status) {
     conditions.push(eq(employeesTable.status, query.data.status));
   }
 
-  const page = (query.success && query.data.page) || 1;
-  const pageSize = (query.success && query.data.pageSize) || 25;
+  const page = query.data.page || 1;
+  const pageSize = query.data.pageSize || 25;
   const offset = (page - 1) * pageSize;
 
   const whereClause = and(...conditions);

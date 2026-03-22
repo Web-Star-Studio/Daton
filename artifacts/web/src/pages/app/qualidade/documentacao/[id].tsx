@@ -15,8 +15,6 @@ import {
   useResetDocumentVersions,
   useDeleteDocument,
   useListUnits,
-  useListEmployees,
-  getListEmployeesQueryKey,
   useListUserOptions,
   useListDocuments,
   getListUnitsQueryKey,
@@ -42,7 +40,7 @@ import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
-import { DOCUMENT_ELABORATOR_PAGE_SIZE } from "@/lib/document-elaborators";
+import { useDocumentElaboratorPicker } from "@/hooks/use-document-elaborator-picker";
 import {
   FileText,
   Upload,
@@ -180,19 +178,6 @@ export default function DocumentDetailPage() {
       enabled: !!orgId && editDialogOpen,
     },
   });
-  const { data: employeesResult } = useListEmployees(
-    orgId!,
-    { page: 1, pageSize: DOCUMENT_ELABORATOR_PAGE_SIZE },
-    {
-      query: {
-        queryKey: getListEmployeesQueryKey(orgId!, {
-          page: 1,
-          pageSize: DOCUMENT_ELABORATOR_PAGE_SIZE,
-        }),
-        enabled: !!orgId && editDialogOpen,
-      },
-    },
-  );
   const { data: allUsers } = useListUserOptions(orgId!, {
     query: {
       queryKey: getListUserOptionsQueryKey(orgId!),
@@ -210,10 +195,22 @@ export default function DocumentDetailPage() {
     },
   );
   const orgUsers = allUsers ?? [];
-  const availableEmployees = useMemo(
-    () => employeesResult?.data ?? [],
-    [employeesResult?.data],
-  );
+  const elaboratorPicker = useDocumentElaboratorPicker({
+    orgId,
+    selectedEmployeeId: editForm?.elaboratorId ?? null,
+    userEmail: user?.email,
+    enabled: !!orgId && editDialogOpen,
+    onAutoSelect: (employeeId) => {
+      setEditForm((current) =>
+        current
+          ? {
+              ...current,
+              elaboratorId: employeeId,
+            }
+          : current,
+      );
+    },
+  });
 
   usePageTitle(doc?.title);
 
@@ -307,6 +304,7 @@ export default function DocumentDetailPage() {
   };
 
   const handleCloseEditDialog = () => {
+    elaboratorPicker.setOpen(false);
     setEditDialogOpen(false);
     setEditStep(0);
     setMaxReachedEditStep(0);
@@ -1066,8 +1064,13 @@ export default function DocumentDetailPage() {
                 <div>
                   <Label>Elaborador</Label>
                   <EmployeeCombobox
-                    employees={availableEmployees}
                     value={editForm.elaboratorId || null}
+                    selectedEmployee={elaboratorPicker.selectedEmployee}
+                    options={elaboratorPicker.options}
+                    searchValue={elaboratorPicker.searchValue}
+                    onSearchChange={elaboratorPicker.setSearchValue}
+                    isLoading={elaboratorPicker.isLoading}
+                    onOpenChange={elaboratorPicker.setOpen}
                     onChange={(nextValue) =>
                       setEditForm({
                         ...editForm,

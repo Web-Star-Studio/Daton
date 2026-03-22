@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
@@ -7,7 +7,6 @@ import { z } from "zod";
 import {
   useCreateDocument,
   useListUnits,
-  useListEmployees,
   useListUserOptions,
   useListDocuments,
   getListDocumentsQueryKey,
@@ -25,7 +24,7 @@ import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Upload, X, FileText } from "lucide-react";
 import { usePageTitle } from "@/contexts/LayoutContext";
 import { resolveApiUrl } from "@/lib/api";
-import { DOCUMENT_ELABORATOR_PAGE_SIZE } from "@/lib/document-elaborators";
+import { useDocumentElaboratorPicker } from "@/hooks/use-document-elaborator-picker";
 
 const TYPE_OPTIONS = [
   { value: "manual", label: "Manual" },
@@ -128,35 +127,18 @@ export default function NovoDocumentoPage() {
       enabled: !!orgId,
     },
   });
-  const { data: employeesResult } = useListEmployees(orgId!, {
-    page: 1,
-    pageSize: DOCUMENT_ELABORATOR_PAGE_SIZE,
-  });
   const availableUsers = orgUsers ?? [];
-  const availableEmployees = useMemo(
-    () => employeesResult?.data ?? [],
-    [employeesResult?.data],
-  );
-
-  useEffect(() => {
-    if (availableEmployees.length === 0) return;
-
-    const preferredElaboratorId =
-      availableEmployees.find(
-        (employee) =>
-          employee.email &&
-          user?.email &&
-          employee.email.toLowerCase() === user.email.toLowerCase(),
-      )?.id ??
-      availableEmployees[0]?.id ??
-      0;
-
-    if (!availableEmployees.some((employee) => employee.id === elaboratorId)) {
-      setValue("elaboratorId", preferredElaboratorId, {
+  const elaboratorPicker = useDocumentElaboratorPicker({
+    orgId,
+    selectedEmployeeId: elaboratorId || null,
+    userEmail: user?.email,
+    enabled: !!orgId,
+    onAutoSelect: (employeeId) => {
+      setValue("elaboratorId", employeeId, {
         shouldValidate: true,
       });
-    }
-  }, [availableEmployees, elaboratorId, setValue, user?.email]);
+    },
+  });
 
   const { data: existingDocs } = useListDocuments(
     orgId!,
@@ -325,8 +307,13 @@ export default function NovoDocumentoPage() {
           <div>
             <Label>Elaborador</Label>
             <EmployeeCombobox
-              employees={availableEmployees}
               value={elaboratorId || null}
+              selectedEmployee={elaboratorPicker.selectedEmployee}
+              options={elaboratorPicker.options}
+              searchValue={elaboratorPicker.searchValue}
+              onSearchChange={elaboratorPicker.setSearchValue}
+              isLoading={elaboratorPicker.isLoading}
+              onOpenChange={elaboratorPicker.setOpen}
               onChange={(nextValue) =>
                 setValue("elaboratorId", nextValue ?? 0, {
                   shouldValidate: true,

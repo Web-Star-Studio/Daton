@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Command as CommandPrimitive } from "cmdk";
 import type { Employee } from "@workspace/api-client-react";
 import { Check, ChevronsUpDown, Search, X } from "lucide-react";
@@ -7,12 +7,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 
 type EmployeeComboboxProps = {
-  employees: Employee[];
+  options: Employee[];
   value: number | null | undefined;
+  selectedEmployee: Employee | null;
+  searchValue: string;
+  onSearchChange: (value: string) => void;
   onChange: (value: number | null) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   emptyMessage?: string;
+  isLoading?: boolean;
+  onOpenChange?: (open: boolean) => void;
   disabled?: boolean;
   className?: string;
 };
@@ -34,27 +39,32 @@ function getEmployeeMeta(employee: Employee) {
 }
 
 export function EmployeeCombobox({
-  employees,
+  options,
   value,
+  selectedEmployee,
+  searchValue,
+  onSearchChange,
   onChange,
   placeholder = "Selecione um colaborador",
   searchPlaceholder = "Buscar colaborador...",
   emptyMessage = "Nenhum colaborador encontrado.",
+  isLoading = false,
+  onOpenChange,
   disabled = false,
   className,
 }: EmployeeComboboxProps) {
   const [open, setOpen] = useState(false);
 
-  const selectedEmployee = useMemo(
-    () => employees.find((employee) => employee.id === value) ?? null,
-    [employees, value],
-  );
-
   const selectedMeta = selectedEmployee ? getEmployeeMeta(selectedEmployee) : "";
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    onOpenChange?.(nextOpen);
+  };
 
   return (
     <div className={cn("mt-2 flex items-start gap-2", className)}>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button
             type="button"
@@ -108,16 +118,23 @@ export function EmployeeCombobox({
               <Search className="h-4 w-4 shrink-0 text-muted-foreground/60" />
               <CommandPrimitive.Input
                 placeholder={searchPlaceholder}
+                value={searchValue}
+                onValueChange={onSearchChange}
                 className="h-11 w-full border-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground/70"
               />
             </div>
             <CommandPrimitive.List className="max-h-72 overflow-y-auto p-1">
+              {isLoading ? (
+                <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  Carregando colaboradores...
+                </div>
+              ) : null}
               <CommandPrimitive.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
-                {emptyMessage}
+                {isLoading ? "Carregando colaboradores..." : emptyMessage}
               </CommandPrimitive.Empty>
-              {employees.map((employee) => {
+              {options.map((employee) => {
                 const meta = getEmployeeMeta(employee);
-                const isSelected = employee.id === selectedEmployee?.id;
+                const isSelected = employee.id === value;
 
                 return (
                   <CommandPrimitive.Item
@@ -131,7 +148,7 @@ export function EmployeeCombobox({
                     ]}
                     onSelect={() => {
                       onChange(employee.id);
-                      setOpen(false);
+                      handleOpenChange(false);
                     }}
                     className="flex cursor-pointer items-start gap-3 rounded-md px-3 py-2 text-left outline-none data-[selected=true]:bg-muted"
                   >

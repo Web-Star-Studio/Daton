@@ -71,21 +71,25 @@ router.get("/organizations/:orgId/legislations", requireAuth, async (req, res): 
   }
 
   const query = ListLegislationsQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: query.error.message });
+    return;
+  }
 
   const conditions = [eq(legislationsTable.organizationId, params.data.orgId)];
 
-  if (query.success && query.data.search) {
+  if (query.data.search) {
     conditions.push(ilike(legislationsTable.title, `%${query.data.search}%`));
   }
-  if (query.success && query.data.level) {
+  if (query.data.level) {
     conditions.push(eq(legislationsTable.level, query.data.level));
   }
 
-  const unitIdParam = req.query.unitId ? parseInt(String(req.query.unitId)) : undefined;
+  const unitIdParam = query.data.unitId;
   let unitTagValues: string[] = [];
   let filteringByUnit = false;
 
-  if (unitIdParam && !isNaN(unitIdParam)) {
+  if (unitIdParam) {
     filteringByUnit = true;
     const unitCheck = await db.select().from(unitsTable).where(and(eq(unitsTable.id, unitIdParam), eq(unitsTable.organizationId, params.data.orgId)));
     if (unitCheck.length === 0) {

@@ -468,19 +468,24 @@ router.get("/organizations/:orgId/documents", requireAuth, async (req, res): Pro
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
   const query = ListDocumentsQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: query.error.message });
+    return;
+  }
+
   const conditions = [eq(documentsTable.organizationId, params.data.orgId)];
 
-  if (query.success && query.data.search) {
+  if (query.data.search) {
     conditions.push(ilike(documentsTable.title, `%${query.data.search}%`));
   }
-  if (query.success && query.data.type) {
+  if (query.data.type) {
     conditions.push(eq(documentsTable.type, query.data.type));
   }
-  if (query.success && query.data.status) {
+  if (query.data.status) {
     conditions.push(eq(documentsTable.status, query.data.status));
   }
 
-  if (query.success && query.data.unitId) {
+  if (query.data.unitId) {
     const unitDocIds = await db.select({ documentId: documentUnitsTable.documentId })
       .from(documentUnitsTable)
       .where(eq(documentUnitsTable.unitId, query.data.unitId));

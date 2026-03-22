@@ -10,8 +10,6 @@ import {
   getListDocumentsQueryKey,
   useListUnits,
   getListUnitsQueryKey,
-  useListEmployees,
-  getListEmployeesQueryKey,
   useCreateDocument,
   useDeleteDocument,
   useListUserOptions,
@@ -29,7 +27,7 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { Plus, FileText, Upload, X, Trash2 } from "lucide-react";
 import { resolveApiUrl } from "@/lib/api";
-import { DOCUMENT_ELABORATOR_PAGE_SIZE } from "@/lib/document-elaborators";
+import { useDocumentElaboratorPicker } from "@/hooks/use-document-elaborator-picker";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Rascunho",
@@ -561,44 +559,18 @@ function CreateDocumentModal({
       enabled: !!orgId && open,
     },
   });
-  const { data: employeesResult } = useListEmployees(
-    orgId!,
-    { page: 1, pageSize: DOCUMENT_ELABORATOR_PAGE_SIZE },
-    {
-      query: {
-        queryKey: getListEmployeesQueryKey(orgId!, {
-          page: 1,
-          pageSize: DOCUMENT_ELABORATOR_PAGE_SIZE,
-        }),
-        enabled: !!orgId && open,
-      },
-    },
-  );
   const availableUsers = orgUsers ?? [];
-  const availableEmployees = useMemo(
-    () => employeesResult?.data ?? [],
-    [employeesResult?.data],
-  );
-
-  useEffect(() => {
-    if (!open || availableEmployees.length === 0) return;
-
-    const preferredElaboratorId =
-      availableEmployees.find(
-        (employee) =>
-          employee.email &&
-          user?.email &&
-          employee.email.toLowerCase() === user.email.toLowerCase(),
-      )?.id ??
-      availableEmployees[0]?.id ??
-      0;
-
-    if (!availableEmployees.some((employee) => employee.id === elaboratorId)) {
-      setValue("elaboratorId", preferredElaboratorId, {
+  const elaboratorPicker = useDocumentElaboratorPicker({
+    orgId,
+    selectedEmployeeId: elaboratorId || null,
+    userEmail: user?.email,
+    enabled: !!orgId && open,
+    onAutoSelect: (employeeId) => {
+      setValue("elaboratorId", employeeId, {
         shouldValidate: true,
       });
-    }
-  }, [open, availableEmployees, elaboratorId, setValue, user?.email]);
+    },
+  });
 
   const { data: existingDocs } = useListDocuments(
     orgId!,
@@ -618,6 +590,7 @@ function CreateDocumentModal({
       reset();
       setUploadedFiles([]);
       setValue("elaboratorId", 0);
+      elaboratorPicker.setOpen(false);
       setStep(0);
       setMaxReachedStep(0);
     }
@@ -814,8 +787,13 @@ function CreateDocumentModal({
               <div>
                 <Label>Elaborador</Label>
                 <EmployeeCombobox
-                  employees={availableEmployees}
                   value={elaboratorId || null}
+                  selectedEmployee={elaboratorPicker.selectedEmployee}
+                  options={elaboratorPicker.options}
+                  searchValue={elaboratorPicker.searchValue}
+                  onSearchChange={elaboratorPicker.setSearchValue}
+                  isLoading={elaboratorPicker.isLoading}
+                  onOpenChange={elaboratorPicker.setOpen}
                   onChange={(nextValue) =>
                     setValue("elaboratorId", nextValue ?? 0, {
                       shouldValidate: true,
