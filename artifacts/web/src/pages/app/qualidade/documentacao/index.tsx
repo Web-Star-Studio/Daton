@@ -12,10 +12,7 @@ import {
   getListUnitsQueryKey,
   useCreateDocument,
   useDeleteDocument,
-  useListUserOptions,
-  getListUserOptionsQueryKey,
 } from "@workspace/api-client-react";
-import type { UserOption } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +24,8 @@ import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { Plus, FileText, Upload, X, Trash2 } from "lucide-react";
 import { resolveApiUrl } from "@/lib/api";
 import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
+import { useUserMultiPicker } from "@/hooks/use-user-multi-picker";
+import { useDocumentMultiPicker } from "@/hooks/use-document-multi-picker";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Rascunho",
@@ -547,29 +546,26 @@ function CreateDocumentModal({
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId && open },
   });
 
-  const { data: orgUsers } = useListUserOptions(orgId!, {
-    query: {
-      queryKey: getListUserOptionsQueryKey(orgId!),
-      enabled: !!orgId && open,
-    },
-  });
-  const availableUsers = orgUsers ?? [];
   const elaboratorPicker = useEmployeeMultiPicker({
     orgId,
     selectedIds: elaboratorIds,
     enabled: !!orgId && open,
   });
-
-  const { data: existingDocs } = useListDocuments(
-    orgId!,
-    {},
-    {
-      query: {
-        queryKey: getListDocumentsQueryKey(orgId!),
-        enabled: !!orgId && open,
-      },
-    },
-  );
+  const approverPicker = useUserMultiPicker({
+    orgId,
+    selectedIds: approverIds,
+    enabled: !!orgId && open,
+  });
+  const recipientPicker = useUserMultiPicker({
+    orgId,
+    selectedIds: recipientIds,
+    enabled: !!orgId && open,
+  });
+  const referencePicker = useDocumentMultiPicker({
+    orgId,
+    selectedIds: referenceIds,
+    enabled: !!orgId && open,
+  });
 
   const createMut = useCreateDocument();
 
@@ -799,7 +795,7 @@ function CreateDocumentModal({
                   placeholder="Selecione"
                   searchPlaceholder="Buscar aprovador..."
                   emptyMessage="Nenhum aprovador encontrado."
-                  options={availableUsers.map((u: UserOption) => ({
+                  options={approverPicker.options.map((u) => ({
                     value: u.id,
                     label: u.name,
                     keywords: [u.email],
@@ -808,6 +804,7 @@ function CreateDocumentModal({
                   onToggle={(id) =>
                     toggleMultiSelect("approverIds", approverIds, id)
                   }
+                  onSearchValueChange={approverPicker.setSearchValue}
                 />
                 {errors.approverIds && (
                   <p className="mt-1 text-xs text-red-500">
@@ -823,7 +820,7 @@ function CreateDocumentModal({
                 placeholder="Selecionar destinatários"
                 searchPlaceholder="Buscar destinatário..."
                 emptyMessage="Nenhum destinatário encontrado."
-                options={availableUsers.map((u: UserOption) => ({
+                options={recipientPicker.options.map((u) => ({
                   value: u.id,
                   label: u.name,
                   keywords: [u.email],
@@ -832,6 +829,7 @@ function CreateDocumentModal({
                 onToggle={(id) =>
                   toggleMultiSelect("recipientIds", recipientIds, id)
                 }
+                onSearchValueChange={recipientPicker.setSearchValue}
               />
               {errors.recipientIds && (
                 <p className="mt-1 text-xs text-red-500">
@@ -875,7 +873,7 @@ function CreateDocumentModal({
                 placeholder="Selecionar documentos referenciados"
                 searchPlaceholder="Buscar documento de referência..."
                 emptyMessage="Nenhum documento encontrado."
-                options={(existingDocs || []).map((d) => ({
+                options={referencePicker.options.map((d) => ({
                   value: d.id,
                   label: d.title,
                 }))}
@@ -883,6 +881,7 @@ function CreateDocumentModal({
                 onToggle={(id) =>
                   toggleMultiSelect("referenceIds", referenceIds, id)
                 }
+                onSearchValueChange={referencePicker.setSearchValue}
               />
             </div>
           </div>

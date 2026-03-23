@@ -15,11 +15,7 @@ import {
   useResetDocumentVersions,
   useDeleteDocument,
   useListUnits,
-  useListUserOptions,
-  useListDocuments,
   getListUnitsQueryKey,
-  getListUserOptionsQueryKey,
-  getListDocumentsQueryKey,
 } from "@workspace/api-client-react";
 import type {
   DocumentDetailUnitsItem,
@@ -28,7 +24,6 @@ import type {
   DocumentDetailReferencesItem,
   DocumentAttachment,
   DocumentVersion,
-  UserOption,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -40,6 +35,8 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
 import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
+import { useUserMultiPicker } from "@/hooks/use-user-multi-picker";
+import { useDocumentMultiPicker } from "@/hooks/use-document-multi-picker";
 import {
   FileText,
   Upload,
@@ -177,23 +174,6 @@ export default function DocumentDetailPage() {
       enabled: !!orgId && editDialogOpen,
     },
   });
-  const { data: allUsers } = useListUserOptions(orgId!, {
-    query: {
-      queryKey: getListUserOptionsQueryKey(orgId!),
-      enabled: !!orgId && editDialogOpen,
-    },
-  });
-  const { data: allDocs } = useListDocuments(
-    orgId!,
-    {},
-    {
-      query: {
-        queryKey: getListDocumentsQueryKey(orgId!, {}),
-        enabled: !!orgId && editDialogOpen,
-      },
-    },
-  );
-  const orgUsers = allUsers ?? [];
   const elaboratorPicker = useEmployeeMultiPicker({
     orgId,
     selectedIds: editForm?.elaboratorIds ?? [],
@@ -202,6 +182,36 @@ export default function DocumentDetailPage() {
       id: e.id!,
       name: e.name!,
       email: e.email,
+    })),
+  });
+  const approverPicker = useUserMultiPicker({
+    orgId,
+    selectedIds: editForm?.approverIds ?? [],
+    enabled: !!orgId && editDialogOpen,
+    initialUsers: doc?.approvers?.map((a: DocumentDetailApproversItem) => ({
+      id: a.userId!,
+      name: a.name!,
+      email: "",
+    })),
+  });
+  const recipientPicker = useUserMultiPicker({
+    orgId,
+    selectedIds: editForm?.recipientIds ?? [],
+    enabled: !!orgId && editDialogOpen,
+    initialUsers: doc?.recipients?.map((r: DocumentDetailRecipientsItem) => ({
+      id: r.userId!,
+      name: r.name!,
+      email: "",
+    })),
+  });
+  const referencePicker = useDocumentMultiPicker({
+    orgId,
+    selectedIds: editForm?.referenceIds ?? [],
+    enabled: !!orgId && editDialogOpen,
+    excludeIds: [docId],
+    initialDocuments: doc?.references?.map((ref: DocumentDetailReferencesItem) => ({
+      id: ref.documentId!,
+      title: ref.title!,
     })),
   });
 
@@ -1084,10 +1094,10 @@ export default function DocumentDetailPage() {
                     placeholder="Selecione aprovadores"
                     searchPlaceholder="Buscar aprovador..."
                     emptyMessage="Nenhum aprovador encontrado."
-                    options={orgUsers.map((option: UserOption) => ({
-                      value: option.id,
-                      label: option.name,
-                      keywords: [option.email],
+                    options={approverPicker.options.map((u) => ({
+                      value: u.id,
+                      label: u.name,
+                      keywords: [u.email],
                     }))}
                     selected={editForm.approverIds}
                     onToggle={(id) =>
@@ -1099,6 +1109,7 @@ export default function DocumentDetailPage() {
                         ),
                       })
                     }
+                    onSearchValueChange={approverPicker.setSearchValue}
                   />
                 </div>
 
@@ -1108,10 +1119,10 @@ export default function DocumentDetailPage() {
                     placeholder="Selecione destinatários"
                     searchPlaceholder="Buscar destinatário..."
                     emptyMessage="Nenhum destinatário encontrado."
-                    options={orgUsers.map((option: UserOption) => ({
-                      value: option.id,
-                      label: option.name,
-                      keywords: [option.email],
+                    options={recipientPicker.options.map((u) => ({
+                      value: u.id,
+                      label: u.name,
+                      keywords: [u.email],
                     }))}
                     selected={editForm.recipientIds}
                     onToggle={(id) =>
@@ -1123,6 +1134,7 @@ export default function DocumentDetailPage() {
                         ),
                       })
                     }
+                    onSearchValueChange={recipientPicker.setSearchValue}
                   />
                 </div>
               </div>
@@ -1166,11 +1178,9 @@ export default function DocumentDetailPage() {
                     placeholder="Selecione documentos de referência"
                     searchPlaceholder="Buscar documento de referência..."
                     emptyMessage="Nenhum documento encontrado."
-                    options={(allDocs || [])
-                      .filter((item) => item.id !== docId)
-                      .map((item) => ({
-                        value: item.id,
-                        label: item.title,
+                    options={referencePicker.options.map((d) => ({
+                        value: d.id,
+                        label: d.title,
                       }))}
                     selected={editForm.referenceIds}
                     onToggle={(id) =>
@@ -1182,6 +1192,7 @@ export default function DocumentDetailPage() {
                         ),
                       })
                     }
+                    onSearchValueChange={referencePicker.setSearchValue}
                   />
                 </div>
               </div>

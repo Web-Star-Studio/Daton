@@ -646,7 +646,7 @@ export default function GovernanceDetailPage() {
   const { data: units = [] } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
   });
-  const { data: users = [] } = useListUserOptions(orgId!, {
+  const { data: users = [] } = useListUserOptions(orgId!, {}, {
     query: { queryKey: getListUserOptionsQueryKey(orgId!), enabled: !!orgId },
   });
 
