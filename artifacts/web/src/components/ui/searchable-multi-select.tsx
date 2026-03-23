@@ -27,6 +27,8 @@ type SearchableMultiSelectProps = {
   disabled?: boolean;
   className?: string;
   renderSummary?: (selectedOptions: SearchableMultiSelectOption[]) => ReactNode;
+  /** When provided, disables client-side filtering and delegates search to the parent. */
+  onSearchValueChange?: (value: string) => void;
 };
 
 function normalizeSearch(value: string) {
@@ -60,8 +62,16 @@ export function SearchableMultiSelect({
   disabled = false,
   className,
   renderSummary,
+  onSearchValueChange,
 }: SearchableMultiSelectProps) {
   const [open, setOpen] = useState(false);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen && onSearchValueChange) {
+      onSearchValueChange("");
+    }
+  };
 
   const selectedOptions = useMemo(
     () => options.filter((option) => selected.includes(option.value)),
@@ -76,7 +86,7 @@ export function SearchableMultiSelect({
 
   return (
     <div className={cn("mt-2", className)}>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button
             type="button"
@@ -104,18 +114,25 @@ export function SearchableMultiSelect({
           <CommandPrimitive
             loop
             className="overflow-hidden rounded-xl bg-popover"
-            filter={(itemValue, search, keywords) => {
-              const haystack = normalizeSearch(
-                [itemValue, ...(keywords ?? [])].join(" "),
-              );
-              const term = normalizeSearch(search);
-              return term.length === 0 || haystack.includes(term) ? 1 : 0;
-            }}
+            filter={
+              onSearchValueChange
+                ? () => 1
+                : (itemValue, search, keywords) => {
+                    const haystack = normalizeSearch(
+                      [itemValue, ...(keywords ?? [])].join(" "),
+                    );
+                    const term = normalizeSearch(search);
+                    return term.length === 0 || haystack.includes(term)
+                      ? 1
+                      : 0;
+                  }
+            }
           >
             <div className="flex items-center gap-2 border-b border-border bg-popover px-3">
               <Search className="h-4 w-4 shrink-0 text-muted-foreground/60" />
               <CommandPrimitive.Input
                 placeholder={searchPlaceholder}
+                onValueChange={onSearchValueChange}
                 className="h-11 w-full border-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground/70"
               />
             </div>

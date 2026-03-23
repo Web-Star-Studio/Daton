@@ -2609,11 +2609,19 @@ export const ListDocumentsParams = zod.object({
   orgId: zod.coerce.number(),
 });
 
+export const listDocumentsQueryPageSizeMax = 100;
+
 export const ListDocumentsQueryParams = zod.object({
   search: zod.coerce.string().optional(),
   type: zod.coerce.string().optional(),
   status: zod.coerce.string().optional(),
   unitId: zod.coerce.number().optional(),
+  page: zod.coerce.number().min(1).optional(),
+  pageSize: zod.coerce
+    .number()
+    .min(1)
+    .max(listDocumentsQueryPageSizeMax)
+    .optional(),
 });
 
 export const ListDocumentsResponseItem = zod.object({
@@ -2651,7 +2659,7 @@ export const CreateDocumentBody = zod.object({
     "outro",
   ]),
   validityDate: zod.string().optional(),
-  elaboratorId: zod.number(),
+  elaboratorIds: zod.array(zod.number()).min(1),
   unitIds: zod.array(zod.number()).optional(),
   approverIds: zod.array(zod.number()),
   recipientIds: zod.array(zod.number()).optional(),
@@ -2790,7 +2798,7 @@ export const UpdateDocumentBody = zod.object({
   title: zod.string().optional(),
   type: zod.string().optional(),
   validityDate: zod.string().optional(),
-  elaboratorId: zod.number().optional(),
+  elaboratorIds: zod.array(zod.number()).optional(),
   unitIds: zod.array(zod.number()).optional(),
   approverIds: zod.array(zod.number()).optional(),
   recipientIds: zod.array(zod.number()).optional(),
@@ -3555,6 +3563,18 @@ export const CreateOrgUserBody = zod.object({
  */
 export const ListUserOptionsParams = zod.object({
   orgId: zod.coerce.number(),
+});
+
+export const listUserOptionsQueryPageSizeMax = 100;
+
+export const ListUserOptionsQueryParams = zod.object({
+  search: zod.coerce.string().optional(),
+  page: zod.coerce.number().min(1).optional(),
+  pageSize: zod.coerce
+    .number()
+    .min(1)
+    .max(listUserOptionsQueryPageSizeMax)
+    .optional(),
 });
 
 export const ListUserOptionsResponseItem = zod.object({

@@ -1793,6 +1793,17 @@ paths:
           in: query
           schema:
             type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
       responses:
         "200":
           description: List of documents
@@ -2320,6 +2331,21 @@ paths:
           required: true
           schema:
             type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
       responses:
         "200":
           description: List of basic users
@@ -7274,8 +7300,12 @@ components:
           enum: [manual, procedimento, instrucao, formulario, registro, politica, outro]
         validityDate:
           type: string
-        elaboratorId:
-          type: integer
+        elaboratorIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: integer
         unitIds:
           type: array
           items:
@@ -7313,7 +7343,7 @@ components:
       required:
         - title
         - type
-        - elaboratorId
+        - elaboratorIds
         - approverIds
 
     UpdateDocumentBody:
@@ -7325,8 +7355,11 @@ components:
           type: string
         validityDate:
           type: string
-        elaboratorId:
-          type: integer
+        elaboratorIds:
+          type: array
+          uniqueItems: true
+          items:
+            type: integer
         unitIds:
           type: array
           items:

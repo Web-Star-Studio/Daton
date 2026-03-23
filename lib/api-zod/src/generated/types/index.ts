@@ -105,6 +105,7 @@ export * from "./listLegislationsLevel";
 export * from "./listLegislationsParams";
 export * from "./listNotifications200";
 export * from "./listOrgUsers200";
+export * from "./listUserOptionsParams";
 export * from "./loginBody";
 export * from "./meResponse";
 export * from "./messageResponse";

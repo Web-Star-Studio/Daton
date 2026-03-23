@@ -16,7 +16,6 @@ import {
 import type { UserOption } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { EmployeeCombobox } from "@/components/employees/employee-combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -24,7 +23,7 @@ import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Upload, X, FileText } from "lucide-react";
 import { usePageTitle } from "@/contexts/LayoutContext";
 import { resolveApiUrl } from "@/lib/api";
-import { useDocumentElaboratorPicker } from "@/hooks/use-document-elaborator-picker";
+import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
 
 const TYPE_OPTIONS = [
   { value: "manual", label: "Manual" },
@@ -60,10 +59,7 @@ const createDocumentSchema = z.object({
     "outro",
   ]),
   validityDate: z.string().min(1, "Data de validade é obrigatória"),
-  elaboratorId: z.coerce
-    .number()
-    .int()
-    .positive("Selecione um elaborador"),
+  elaboratorIds: z.array(z.number()).min(1, "Selecione ao menos um elaborador"),
   unitIds: z.array(z.number()),
   approverIds: z.array(z.number()).min(1, "Selecione ao menos um aprovador"),
   recipientIds: z
@@ -82,7 +78,7 @@ interface UploadedFile {
 }
 
 export default function NovoDocumentoPage() {
-  const { organization, user } = useAuth();
+  const { organization } = useAuth();
   const orgId = organization?.id;
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
@@ -103,7 +99,7 @@ export default function NovoDocumentoPage() {
       title: "",
       type: "manual",
       validityDate: new Date().toISOString().split("T")[0],
-      elaboratorId: 0,
+      elaboratorIds: [],
       unitIds: [],
       approverIds: [],
       recipientIds: [],
@@ -112,7 +108,7 @@ export default function NovoDocumentoPage() {
   });
 
   const unitIds = watch("unitIds");
-  const elaboratorId = watch("elaboratorId");
+  const elaboratorIds = watch("elaboratorIds");
   const approverIds = watch("approverIds");
   const recipientIds = watch("recipientIds");
   const referenceIds = watch("referenceIds");
@@ -128,16 +124,10 @@ export default function NovoDocumentoPage() {
     },
   });
   const availableUsers = orgUsers ?? [];
-  const elaboratorPicker = useDocumentElaboratorPicker({
+  const elaboratorPicker = useEmployeeMultiPicker({
     orgId,
-    selectedEmployeeId: elaboratorId || null,
-    userEmail: user?.email,
+    selectedIds: elaboratorIds,
     enabled: !!orgId,
-    onAutoSelect: (employeeId) => {
-      setValue("elaboratorId", employeeId, {
-        shouldValidate: true,
-      });
-    },
   });
 
   const { data: existingDocs } = useListDocuments(
@@ -226,7 +216,7 @@ export default function NovoDocumentoPage() {
           title: data.title.trim(),
           type: data.type,
           validityDate: data.validityDate || undefined,
-          elaboratorId: data.elaboratorId,
+          elaboratorIds: data.elaboratorIds,
           unitIds: data.unitIds.length > 0 ? data.unitIds : undefined,
           approverIds: data.approverIds,
           recipientIds:
@@ -305,25 +295,25 @@ export default function NovoDocumentoPage() {
 
         <div className="grid grid-cols-2 gap-6">
           <div>
-            <Label>Elaborador</Label>
-            <EmployeeCombobox
-              value={elaboratorId || null}
-              selectedEmployee={elaboratorPicker.selectedEmployee}
-              options={elaboratorPicker.options}
-              searchValue={elaboratorPicker.searchValue}
-              onSearchChange={elaboratorPicker.setSearchValue}
-              isLoading={elaboratorPicker.isLoading}
-              onOpenChange={elaboratorPicker.setOpen}
-              onChange={(nextValue) =>
-                setValue("elaboratorId", nextValue ?? 0, {
-                  shouldValidate: true,
-                })
+            <Label>Elaboradores *</Label>
+            <SearchableMultiSelect
+              placeholder="Selecione"
+              searchPlaceholder="Buscar colaborador..."
+              emptyMessage="Nenhum colaborador encontrado."
+              options={elaboratorPicker.options.map((e) => ({
+                value: e.id,
+                label: e.name,
+                keywords: [e.email ?? ""],
+              }))}
+              selected={elaboratorIds}
+              onToggle={(id) =>
+                toggleMultiSelect("elaboratorIds", elaboratorIds, id)
               }
-              placeholder="Selecione o elaborador"
+              onSearchValueChange={elaboratorPicker.setSearchValue}
             />
-            {errors.elaboratorId && (
+            {errors.elaboratorIds && (
               <p className="text-xs text-red-500 mt-1">
-                {errors.elaboratorId.message}
+                {errors.elaboratorIds.message}
               </p>
             )}
           </div>

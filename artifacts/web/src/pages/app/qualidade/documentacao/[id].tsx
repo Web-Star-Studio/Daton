@@ -32,7 +32,6 @@ import type {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { EmployeeCombobox } from "@/components/employees/employee-combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -40,7 +39,7 @@ import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
-import { useDocumentElaboratorPicker } from "@/hooks/use-document-elaborator-picker";
+import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
 import {
   FileText,
   Upload,
@@ -132,7 +131,7 @@ interface EditFormState {
   title: string;
   type: string;
   validityDate: string;
-  elaboratorId: number;
+  elaboratorIds: number[];
   unitIds: number[];
   approverIds: number[];
   recipientIds: number[];
@@ -195,21 +194,15 @@ export default function DocumentDetailPage() {
     },
   );
   const orgUsers = allUsers ?? [];
-  const elaboratorPicker = useDocumentElaboratorPicker({
+  const elaboratorPicker = useEmployeeMultiPicker({
     orgId,
-    selectedEmployeeId: editForm?.elaboratorId ?? null,
-    userEmail: user?.email,
+    selectedIds: editForm?.elaboratorIds ?? [],
     enabled: !!orgId && editDialogOpen,
-    onAutoSelect: (employeeId) => {
-      setEditForm((current) =>
-        current
-          ? {
-              ...current,
-              elaboratorId: employeeId,
-            }
-          : current,
-      );
-    },
+    initialEmployees: doc?.elaborators?.map((e) => ({
+      id: e.id!,
+      name: e.name!,
+      email: e.email,
+    })),
   });
 
   usePageTitle(doc?.title);
@@ -280,7 +273,7 @@ export default function DocumentDetailPage() {
       title: doc.title,
       type: doc.type,
       validityDate: doc.validityDate ?? "",
-      elaboratorId: doc.elaborators?.[0]?.id ?? 0,
+      elaboratorIds: doc.elaborators?.map((e) => e.id).filter(Boolean) as number[] ?? [],
       unitIds:
         doc.units
           ?.map((u: DocumentDetailUnitsItem) => u.id!)
@@ -304,7 +297,6 @@ export default function DocumentDetailPage() {
   };
 
   const handleCloseEditDialog = () => {
-    elaboratorPicker.setOpen(false);
     setEditDialogOpen(false);
     setEditStep(0);
     setMaxReachedEditStep(0);
@@ -318,7 +310,7 @@ export default function DocumentDetailPage() {
 
     if (currentStep === 1) {
       return (
-        form.elaboratorId > 0 &&
+        form.elaboratorIds.length > 0 &&
         form.approverIds.length > 0 &&
         form.recipientIds.length > 0
       );
@@ -348,7 +340,7 @@ export default function DocumentDetailPage() {
         title: editForm.title.trim(),
         type: editForm.type,
         validityDate: editForm.validityDate || undefined,
-        elaboratorId: editForm.elaboratorId,
+        elaboratorIds: editForm.elaboratorIds,
         unitIds: editForm.unitIds,
         approverIds: editForm.approverIds,
         recipientIds: editForm.recipientIds,
@@ -654,7 +646,7 @@ export default function DocumentDetailPage() {
           {doc.elaborators && doc.elaborators.length > 0 && (
             <div>
               <Label className="text-muted-foreground text-xs uppercase tracking-wider">
-                Elaborador
+                Elaboradores
               </Label>
               <div className="flex flex-wrap gap-2 mt-2">
                 {doc.elaborators.map((e) => (
@@ -1062,22 +1054,27 @@ export default function DocumentDetailPage() {
             {editStep === 1 && (
               <div className="space-y-5">
                 <div>
-                  <Label>Elaborador</Label>
-                  <EmployeeCombobox
-                    value={editForm.elaboratorId || null}
-                    selectedEmployee={elaboratorPicker.selectedEmployee}
-                    options={elaboratorPicker.options}
-                    searchValue={elaboratorPicker.searchValue}
-                    onSearchChange={elaboratorPicker.setSearchValue}
-                    isLoading={elaboratorPicker.isLoading}
-                    onOpenChange={elaboratorPicker.setOpen}
-                    onChange={(nextValue) =>
+                  <Label>Elaboradores</Label>
+                  <SearchableMultiSelect
+                    placeholder="Selecione"
+                    searchPlaceholder="Buscar colaborador..."
+                    emptyMessage="Nenhum colaborador encontrado."
+                    options={elaboratorPicker.options.map((e) => ({
+                      value: e.id,
+                      label: e.name,
+                      keywords: [e.email ?? ""],
+                    }))}
+                    selected={editForm.elaboratorIds}
+                    onToggle={(id) =>
                       setEditForm({
                         ...editForm,
-                        elaboratorId: nextValue ?? 0,
+                        elaboratorIds: toggleMultiSelect(
+                          editForm.elaboratorIds,
+                          id,
+                        ),
                       })
                     }
-                    placeholder="Selecione o elaborador"
+                    onSearchValueChange={elaboratorPicker.setSearchValue}
                   />
                 </div>
 
@@ -1218,7 +1215,7 @@ export default function DocumentDetailPage() {
                   disabled={
                     (editStep === 0 && !editForm.title.trim()) ||
                     (editStep === 1 &&
-                      (editForm.elaboratorId <= 0 ||
+                      (editForm.elaboratorIds.length === 0 ||
                         editForm.approverIds.length === 0 ||
                         editForm.recipientIds.length === 0))
                   }
@@ -1233,7 +1230,7 @@ export default function DocumentDetailPage() {
                   isLoading={updateMut.isPending}
                   disabled={
                     !editForm.title.trim() ||
-                    editForm.elaboratorId <= 0 ||
+                    editForm.elaboratorIds.length === 0 ||
                     editForm.approverIds.length === 0 ||
                     editForm.recipientIds.length === 0
                   }

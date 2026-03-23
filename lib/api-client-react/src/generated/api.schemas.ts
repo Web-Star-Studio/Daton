@@ -1929,7 +1929,8 @@ export interface CreateDocumentBody {
   title: string;
   type: CreateDocumentBodyType;
   validityDate?: string;
-  elaboratorId: number;
+  /** @minItems 1 */
+  elaboratorIds: number[];
   unitIds?: number[];
   approverIds: number[];
   recipientIds?: number[];
@@ -1941,7 +1942,7 @@ export interface UpdateDocumentBody {
   title?: string;
   type?: string;
   validityDate?: string;
-  elaboratorId?: number;
+  elaboratorIds?: number[];
   unitIds?: number[];
   approverIds?: number[];
   recipientIds?: number[];
@@ -2074,6 +2075,15 @@ export type ListDocumentsParams = {
   type?: string;
   status?: string;
   unitId?: number;
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  pageSize?: number;
 };
 
 export type GetDocumentAttachmentFileParams = {
@@ -2095,6 +2105,19 @@ export type ListNotifications200 = {
 
 export type ListOrgUsers200 = {
   users: OrgUser[];
+};
+
+export type ListUserOptionsParams = {
+  search?: string;
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  pageSize?: number;
 };
 
 export type UpdateUserRoleBodyRole =

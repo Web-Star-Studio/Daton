@@ -6,11 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListDocumentsParams = {
+export type ListUserOptionsParams = {
   search?: string;
-  type?: string;
-  status?: string;
-  unitId?: number;
   /**
    * @minimum 1
    */

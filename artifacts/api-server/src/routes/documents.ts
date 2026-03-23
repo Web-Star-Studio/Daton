@@ -38,6 +38,7 @@ import {
   AddDocumentAttachmentBody,
   DeleteDocumentAttachmentParams,
   DeleteDocumentParams,
+  ListUserOptionsQueryParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireModuleAccess, requireWriteAccess } from "../middlewares/auth";
 import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage";
@@ -72,18 +73,19 @@ async function validateOrgUsers(userIds: number[], orgId: number): Promise<boole
   return rows.length === userIds.length;
 }
 
-async function validateOrgEmployee(employeeId: number, orgId: number): Promise<boolean> {
-  const [employee] = await db
+async function validateOrgEmployees(employeeIds: number[], orgId: number): Promise<boolean> {
+  if (employeeIds.length === 0) return true;
+  const rows = await db
     .select({ id: employeesTable.id })
     .from(employeesTable)
     .where(
       and(
-        eq(employeesTable.id, employeeId),
+        inArray(employeesTable.id, employeeIds),
         eq(employeesTable.organizationId, orgId),
       ),
     );
 
-  return Boolean(employee);
+  return rows.length === employeeIds.length;
 }
 
 async function validateOrgUnits(unitIds: number[], orgId: number): Promise<boolean> {
@@ -497,7 +499,7 @@ router.get("/organizations/:orgId/documents", requireAuth, async (req, res): Pro
     conditions.push(inArray(documentsTable.id, ids));
   }
 
-  const rows = await db.select({
+  let dbQuery = db.select({
     id: documentsTable.id,
     title: documentsTable.title,
     type: documentsTable.type,
@@ -519,7 +521,15 @@ router.get("/organizations/:orgId/documents", requireAuth, async (req, res): Pro
     .from(documentsTable)
     .leftJoin(usersTable, eq(documentsTable.createdById, usersTable.id))
     .where(and(...conditions))
-    .orderBy(desc(documentsTable.updatedAt));
+    .orderBy(desc(documentsTable.updatedAt))
+    .$dynamic();
+
+  if (query.data.page && query.data.pageSize) {
+    const offset = (query.data.page - 1) * query.data.pageSize;
+    dbQuery = dbQuery.limit(query.data.pageSize).offset(offset);
+  }
+
+  const rows = await dbQuery;
 
   res.json(rows.map(r => ({
     ...r,
@@ -539,7 +549,7 @@ router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess(
 
   const userId = req.auth!.userId;
   const orgId = params.data.orgId;
-  const elaboratorId = body.data.elaboratorId;
+  const elaboratorIds = body.data.elaboratorIds;
 
   const allUserIds = [...new Set([
     ...(body.data.approverIds || []),
@@ -549,8 +559,8 @@ router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess(
     res.status(400).json({ error: "Um ou mais usuários selecionados não pertencem a esta organização" });
     return;
   }
-  if (!(await validateOrgEmployee(elaboratorId, orgId))) {
-    res.status(400).json({ error: "O elaborador deve ser um colaborador da organização" });
+  if (!(await validateOrgEmployees(elaboratorIds, orgId))) {
+    res.status(400).json({ error: "Um ou mais elaboradores não pertencem a esta organização" });
     return;
   }
   if (body.data.unitIds?.length && !(await validateOrgUnits(body.data.unitIds, orgId))) {
@@ -578,7 +588,11 @@ router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess(
     );
   }
 
-  await db.insert(documentElaboratorsTable).values({ documentId: doc.id, employeeId: elaboratorId });
+  if (elaboratorIds.length > 0) {
+    await db.insert(documentElaboratorsTable).values(
+      elaboratorIds.map(employeeId => ({ documentId: doc.id, employeeId }))
+    );
+  }
 
   if (body.data.approverIds?.length) {
     await db.insert(documentApproversTable).values(
@@ -663,8 +677,8 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
     res.status(400).json({ error: "Um ou mais documentos referenciados não pertencem a esta organização" });
     return;
   }
-  if (body.data.elaboratorId !== undefined && !(await validateOrgEmployee(body.data.elaboratorId, orgId))) {
-    res.status(400).json({ error: "O elaborador deve ser um colaborador da organização" });
+  if (body.data.elaboratorIds?.length && !(await validateOrgEmployees(body.data.elaboratorIds, orgId))) {
+    res.status(400).json({ error: "Um ou mais elaboradores não pertencem a esta organização" });
     return;
   }
 
@@ -689,16 +703,16 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
     }
   }
 
-  if (body.data.elaboratorId !== undefined) {
-    const elaboratorId = body.data.elaboratorId;
+  if (body.data.elaboratorIds !== undefined) {
     await db.transaction(async (tx) => {
       await tx
         .delete(documentElaboratorsTable)
         .where(eq(documentElaboratorsTable.documentId, docId));
-      await tx.insert(documentElaboratorsTable).values({
-        documentId: docId,
-        employeeId: elaboratorId,
-      });
+      if (body.data.elaboratorIds!.length > 0) {
+        await tx.insert(documentElaboratorsTable).values(
+          body.data.elaboratorIds!.map(employeeId => ({ documentId: docId, employeeId }))
+        );
+      }
     });
   }
 
@@ -1309,11 +1323,28 @@ router.get("/organizations/:orgId/user-options", requireAuth, requireModuleAcces
   if (isNaN(orgId)) { res.status(400).json({ error: "orgId inválido" }); return; }
   if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
-  const rows = await db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role })
-    .from(usersTable)
-    .where(eq(usersTable.organizationId, orgId))
-    .orderBy(usersTable.name);
+  const queryParams = ListUserOptionsQueryParams.safeParse(req.query);
+  if (!queryParams.success) { res.status(400).json({ error: queryParams.error.message }); return; }
 
+  const conditions = [eq(usersTable.organizationId, orgId)];
+
+  if (queryParams.data.search) {
+    const term = `%${queryParams.data.search}%`;
+    conditions.push(or(ilike(usersTable.name, term), ilike(usersTable.email, term))!);
+  }
+
+  let dbQuery = db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role })
+    .from(usersTable)
+    .where(and(...conditions))
+    .orderBy(usersTable.name)
+    .$dynamic();
+
+  if (queryParams.data.page && queryParams.data.pageSize) {
+    const offset = (queryParams.data.page - 1) * queryParams.data.pageSize;
+    dbQuery = dbQuery.limit(queryParams.data.pageSize).offset(offset);
+  }
+
+  const rows = await dbQuery;
   res.json(rows);
 });
 

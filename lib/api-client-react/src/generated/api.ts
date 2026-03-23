@@ -81,6 +81,7 @@ import type {
   ListLegislationsParams,
   ListNotifications200,
   ListOrgUsers200,
+  ListUserOptionsParams,
   LoginBody,
   MeResponse,
   MessageResponse,
@@ -8334,22 +8335,44 @@ export const useCreateOrgUser = <
 /**
  * @summary List basic user options for document workflows
  */
-export const getListUserOptionsUrl = (orgId: number) => {
-  return `/api/organizations/${orgId}/user-options`;
+export const getListUserOptionsUrl = (
+  orgId: number,
+  params?: ListUserOptionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/user-options?${stringifiedParams}`
+    : `/api/organizations/${orgId}/user-options`;
 };
 
 export const listUserOptions = async (
   orgId: number,
+  params?: ListUserOptionsParams,
   options?: RequestInit,
 ): Promise<UserOption[]> => {
-  return customFetch<UserOption[]>(getListUserOptionsUrl(orgId), {
+  return customFetch<UserOption[]>(getListUserOptionsUrl(orgId, params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getListUserOptionsQueryKey = (orgId: number) => {
-  return [`/api/organizations/${orgId}/user-options`] as const;
+export const getListUserOptionsQueryKey = (
+  orgId: number,
+  params?: ListUserOptionsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/user-options`,
+    ...(params ? [params] : []),
+  ] as const;
 };
 
 export const getListUserOptionsQueryOptions = <
@@ -8357,6 +8380,7 @@ export const getListUserOptionsQueryOptions = <
   TError = ErrorType<ErrorResponse>,
 >(
   orgId: number,
+  params?: ListUserOptionsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listUserOptions>>,
@@ -8368,11 +8392,12 @@ export const getListUserOptionsQueryOptions = <
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListUserOptionsQueryKey(orgId);
+  const queryKey =
+    queryOptions?.queryKey ?? getListUserOptionsQueryKey(orgId, params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof listUserOptions>>> = ({
     signal,
-  }) => listUserOptions(orgId, { signal, ...requestOptions });
+  }) => listUserOptions(orgId, params, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -8400,6 +8425,7 @@ export function useListUserOptions<
   TError = ErrorType<ErrorResponse>,
 >(
   orgId: number,
+  params?: ListUserOptionsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listUserOptions>>,
@@ -8409,7 +8435,7 @@ export function useListUserOptions<
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListUserOptionsQueryOptions(orgId, options);
+  const queryOptions = getListUserOptionsQueryOptions(orgId, params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

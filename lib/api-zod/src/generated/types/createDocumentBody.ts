@@ -12,7 +12,8 @@ export interface CreateDocumentBody {
   title: string;
   type: CreateDocumentBodyType;
   validityDate?: string;
-  elaboratorId: number;
+  /** @minItems 1 */
+  elaboratorIds: number[];
   unitIds?: number[];
   approverIds: number[];
   recipientIds?: number[];

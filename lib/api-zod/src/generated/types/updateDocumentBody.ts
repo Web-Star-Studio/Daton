@@ -10,7 +10,7 @@ export interface UpdateDocumentBody {
   title?: string;
   type?: string;
   validityDate?: string;
-  elaboratorId?: number;
+  elaboratorIds?: number[];
   unitIds?: number[];
   approverIds?: number[];
   recipientIds?: number[];

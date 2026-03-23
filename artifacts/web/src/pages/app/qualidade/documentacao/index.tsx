@@ -18,7 +18,6 @@ import {
 import type { UserOption } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { EmployeeCombobox } from "@/components/employees/employee-combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -27,7 +26,7 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { Plus, FileText, Upload, X, Trash2 } from "lucide-react";
 import { resolveApiUrl } from "@/lib/api";
-import { useDocumentElaboratorPicker } from "@/hooks/use-document-elaborator-picker";
+import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Rascunho",
@@ -89,10 +88,7 @@ const createDocumentSchema = z.object({
     "outro",
   ]),
   validityDate: z.string().min(1, "Data de validade é obrigatória"),
-  elaboratorId: z.coerce
-    .number()
-    .int()
-    .positive("Selecione um elaborador"),
+  elaboratorIds: z.array(z.number()).min(1, "Selecione ao menos um elaborador"),
   unitIds: z.array(z.number()),
   approverIds: z.array(z.number()).min(1, "Selecione ao menos um aprovador"),
   recipientIds: z
@@ -519,8 +515,6 @@ function CreateDocumentModal({
   const [isUploading, setIsUploading] = useState(false);
   const [step, setStep] = useState(0);
   const [maxReachedStep, setMaxReachedStep] = useState(0);
-  const { user } = useAuth();
-
   const {
     register,
     handleSubmit,
@@ -535,7 +529,7 @@ function CreateDocumentModal({
       title: "",
       type: "manual",
       validityDate: new Date().toISOString().split("T")[0],
-      elaboratorId: 0,
+      elaboratorIds: [],
       unitIds: [],
       approverIds: [],
       recipientIds: [],
@@ -544,7 +538,7 @@ function CreateDocumentModal({
   });
 
   const unitIds = watch("unitIds");
-  const elaboratorId = watch("elaboratorId");
+  const elaboratorIds = watch("elaboratorIds");
   const approverIds = watch("approverIds");
   const recipientIds = watch("recipientIds");
   const referenceIds = watch("referenceIds");
@@ -560,16 +554,10 @@ function CreateDocumentModal({
     },
   });
   const availableUsers = orgUsers ?? [];
-  const elaboratorPicker = useDocumentElaboratorPicker({
+  const elaboratorPicker = useEmployeeMultiPicker({
     orgId,
-    selectedEmployeeId: elaboratorId || null,
-    userEmail: user?.email,
+    selectedIds: elaboratorIds,
     enabled: !!orgId && open,
-    onAutoSelect: (employeeId) => {
-      setValue("elaboratorId", employeeId, {
-        shouldValidate: true,
-      });
-    },
   });
 
   const { data: existingDocs } = useListDocuments(
@@ -589,8 +577,6 @@ function CreateDocumentModal({
     if (!val) {
       reset();
       setUploadedFiles([]);
-      setValue("elaboratorId", 0);
-      elaboratorPicker.setOpen(false);
       setStep(0);
       setMaxReachedStep(0);
     }
@@ -669,7 +655,7 @@ function CreateDocumentModal({
           title: data.title.trim(),
           type: data.type,
           validityDate: data.validityDate || undefined,
-          elaboratorId: data.elaboratorId,
+          elaboratorIds: data.elaboratorIds,
           unitIds: data.unitIds.length > 0 ? data.unitIds : undefined,
           approverIds: data.approverIds,
           recipientIds:
@@ -699,7 +685,7 @@ function CreateDocumentModal({
 
     if (step === 1) {
       const valid = await trigger([
-        "elaboratorId",
+        "elaboratorIds",
         "approverIds",
         "recipientIds",
       ]);
@@ -785,25 +771,25 @@ function CreateDocumentModal({
           <div className="space-y-5">
             <div className="grid grid-cols-2 gap-6">
               <div>
-                <Label>Elaborador</Label>
-                <EmployeeCombobox
-                  value={elaboratorId || null}
-                  selectedEmployee={elaboratorPicker.selectedEmployee}
-                  options={elaboratorPicker.options}
-                  searchValue={elaboratorPicker.searchValue}
-                  onSearchChange={elaboratorPicker.setSearchValue}
-                  isLoading={elaboratorPicker.isLoading}
-                  onOpenChange={elaboratorPicker.setOpen}
-                  onChange={(nextValue) =>
-                    setValue("elaboratorId", nextValue ?? 0, {
-                      shouldValidate: true,
-                    })
+                <Label>Elaboradores *</Label>
+                <SearchableMultiSelect
+                  placeholder="Selecione"
+                  searchPlaceholder="Buscar colaborador..."
+                  emptyMessage="Nenhum colaborador encontrado."
+                  options={elaboratorPicker.options.map((e) => ({
+                    value: e.id,
+                    label: e.name,
+                    keywords: [e.email ?? ""],
+                  }))}
+                  selected={elaboratorIds}
+                  onToggle={(id) =>
+                    toggleMultiSelect("elaboratorIds", elaboratorIds, id)
                   }
-                  placeholder="Selecione o elaborador"
+                  onSearchValueChange={elaboratorPicker.setSearchValue}
                 />
-                {errors.elaboratorId && (
+                {errors.elaboratorIds && (
                   <p className="mt-1 text-xs text-red-500">
-                    {errors.elaboratorId.message}
+                    {errors.elaboratorIds.message}
                   </p>
                 )}
               </div>
