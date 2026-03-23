@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "wouter";
+import { Link, useParams } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, usePageSubtitle } from "@/contexts/LayoutContext";
+import { useHeaderActions, usePageTitle, usePageSubtitle } from "@/contexts/LayoutContext";
 import {
   useListUnits,
   useListUserOptions,
@@ -27,6 +27,7 @@ import {
   FieldSeparator,
 } from "@/components/ui/field";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import {
   createSupplierDocumentReview,
   createSupplierDocumentSubmission,
@@ -46,7 +47,19 @@ import {
   type SupplierDetail,
 } from "@/lib/suppliers-client";
 import { EMPLOYEE_RECORD_ATTACHMENT_ACCEPT, formatFileSize, uploadFilesToStorage } from "@/lib/uploads";
-import { CheckCircle2, History, Receipt, ShieldCheck, ClipboardList, Package2, Save, Upload, X } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ClipboardList,
+  FileText,
+  History,
+  Package2,
+  Receipt,
+  Save,
+  ShieldCheck,
+  Upload,
+  X,
+} from "lucide-react";
 
 type SupplierProfileForm = {
   personType: "pj" | "pf";
@@ -69,6 +82,13 @@ type SupplierProfileForm = {
   city: string;
   state: string;
   notes: string;
+};
+
+type SupplierTabConfig = {
+  value: "cadastro" | "documentos" | "homologacao" | "requisitos" | "desempenho" | "recebimentos" | "historico";
+  label: string;
+  icon: typeof ClipboardList;
+  count?: number;
 };
 
 function AttachmentUploader({
@@ -165,6 +185,32 @@ function statusLabel(status: string) {
     inactive: "Inativo",
   };
   return labels[status] || status;
+}
+
+function statusBadgeClass(status: string) {
+  const classes: Record<string, string> = {
+    draft: "border-slate-200 bg-slate-100 text-slate-700",
+    pending_qualification: "border-amber-200 bg-amber-50 text-amber-700",
+    approved: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    restricted: "border-orange-200 bg-orange-50 text-orange-700",
+    blocked: "border-red-200 bg-red-50 text-red-700",
+    expired: "border-rose-200 bg-rose-50 text-rose-700",
+    inactive: "border-zinc-200 bg-zinc-100 text-zinc-700",
+  };
+  return classes[status] || "border-slate-200 bg-slate-100 text-slate-700";
+}
+
+function personTypeLabel(personType: SupplierDetail["personType"]) {
+  return personType === "pj" ? "Pessoa jurídica" : "Pessoa física";
+}
+
+function criticalityLabel(criticality: SupplierDetail["criticality"]) {
+  const labels: Record<SupplierDetail["criticality"], string> = {
+    low: "baixa",
+    medium: "média",
+    high: "alta",
+  };
+  return labels[criticality];
 }
 
 export default function SupplierDetailPage() {
@@ -322,6 +368,8 @@ export default function SupplierDetailPage() {
 
   usePageTitle(detail ? detail.tradeName || detail.legalName : "Fornecedor");
   usePageSubtitle(detail ? `${detail.legalIdentifier} · ${statusLabel(detail.status)}` : undefined);
+
+  const supplierDisplayName = detail ? detail.tradeName || detail.legalName : "Fornecedor";
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: suppliersKeys.detail(orgId!, supplierId) });
@@ -537,22 +585,233 @@ export default function SupplierDetailPage() {
     [detail?.offerings],
   );
 
+  const tabs = useMemo<SupplierTabConfig[]>(
+    () => [
+      { value: "cadastro", label: "Cadastro", icon: ClipboardList },
+      {
+        value: "documentos",
+        label: "Documentos",
+        icon: FileText,
+        count: (detail?.documents.submissions.length || 0) + (detail?.documents.reviews.length || 0),
+      },
+      {
+        value: "homologacao",
+        label: "Homologação",
+        icon: CheckCircle2,
+        count: detail?.qualificationReviews.length || 0,
+      },
+      {
+        value: "requisitos",
+        label: "Requisitos",
+        icon: ShieldCheck,
+        count: detail?.requirements.communications.length || 0,
+      },
+      {
+        value: "desempenho",
+        label: "Desempenho",
+        icon: ClipboardList,
+        count: detail?.performanceReviews.length || 0,
+      },
+      {
+        value: "recebimentos",
+        label: "Recebimentos",
+        icon: Receipt,
+        count: detail?.receiptChecks.length || 0,
+      },
+      {
+        value: "historico",
+        label: "Histórico",
+        icon: History,
+        count: detail?.failures.length || 0,
+      },
+    ],
+    [detail],
+  );
+
+  const headerActions = useMemo(() => {
+    if (!detail) return null;
+
+    const renderActiveTabActions = () => {
+      if (activeTab === "cadastro" && canManageGeneral) {
+        return (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => offeringMutation.mutate()}
+              isLoading={offeringMutation.isPending}
+            >
+              Adicionar item
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => updateSupplierMutation.mutate()}
+              isLoading={updateSupplierMutation.isPending}
+            >
+              <Save className="mr-1.5 h-3.5 w-3.5" />
+              Salvar cadastro
+            </Button>
+          </>
+        );
+      }
+
+      if (activeTab === "documentos" && canManageGeneral) {
+        return (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => documentSubmissionMutation.mutate()}
+              isLoading={documentSubmissionMutation.isPending}
+            >
+              Salvar submissão
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => documentReviewMutation.mutate()}
+              isLoading={documentReviewMutation.isPending}
+            >
+              Registrar AVA1
+            </Button>
+          </>
+        );
+      }
+
+      if (activeTab === "homologacao" && canManageGeneral) {
+        return (
+          <Button
+            size="sm"
+            onClick={() => qualificationMutation.mutate()}
+            isLoading={qualificationMutation.isPending}
+          >
+            Registrar homologação
+          </Button>
+        );
+      }
+
+      if (activeTab === "requisitos" && canManageGeneral) {
+        return (
+          <Button
+            size="sm"
+            onClick={() => communicationMutation.mutate()}
+            isLoading={communicationMutation.isPending}
+          >
+            Registrar comunicação
+          </Button>
+        );
+      }
+
+      if (activeTab === "desempenho" && canManageGeneral) {
+        return (
+          <Button
+            size="sm"
+            onClick={() => performanceMutation.mutate()}
+            isLoading={performanceMutation.isPending}
+          >
+            Registrar AVA2
+          </Button>
+        );
+      }
+
+      if (activeTab === "recebimentos" && canManageReceipts) {
+        return (
+          <Button size="sm" onClick={handleReceiptSubmit} isLoading={receiptMutation.isPending}>
+            Registrar recebimento
+          </Button>
+        );
+      }
+
+      if (activeTab === "historico" && canManageGeneral) {
+        return (
+          <Button
+            size="sm"
+            onClick={() => failureMutation.mutate()}
+            isLoading={failureMutation.isPending}
+          >
+            Registrar falha
+          </Button>
+        );
+      }
+
+      return null;
+    };
+
+    return (
+      <div className="flex items-center gap-2">
+        <Link href="/qualidade/fornecedores">
+          <Button variant="outline" size="sm">
+            <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+            Voltar
+          </Button>
+        </Link>
+        {renderActiveTabActions()}
+      </div>
+    );
+  }, [
+    activeTab,
+    canManageGeneral,
+    canManageReceipts,
+    communicationMutation,
+    detail,
+    documentReviewMutation,
+    documentSubmissionMutation,
+    failureMutation,
+    handleReceiptSubmit,
+    offeringMutation,
+    performanceMutation,
+    qualificationMutation,
+    receiptMutation,
+    updateSupplierMutation,
+  ]);
+
+  useHeaderActions(headerActions);
+
   if (detailQuery.isLoading || !profileForm) {
     return <div className="text-sm text-muted-foreground">Carregando fornecedor…</div>;
   }
 
   if (!detail) {
-    return <div className="text-sm text-muted-foreground">Fornecedor não encontrado.</div>;
+    return (
+      <div className="space-y-4 py-12 text-center">
+        <p className="text-sm text-muted-foreground">Fornecedor não encontrado.</p>
+        <Link href="/qualidade/fornecedores">
+          <Button variant="outline" size="sm">
+            Voltar
+          </Button>
+        </Link>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-xl font-semibold tracking-tight">{supplierDisplayName}</h1>
+          <span
+            className={cn(
+              "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-medium",
+              statusBadgeClass(detail.status),
+            )}
+          >
+            {statusLabel(detail.status)}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+          <span>{personTypeLabel(detail.personType)}</span>
+          <span>{detail.legalIdentifier}</span>
+          <span>{detail.category?.name || "Sem categoria"}</span>
+          <span>Criticidade {criticalityLabel(detail.criticality)}</span>
+          <span>Válido até {formatDate(detail.qualifiedUntil)}</span>
+        </div>
+      </section>
+
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
             <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Status</p>
             <p className="mt-3 text-2xl font-semibold">{statusLabel(detail.status)}</p>
-            <p className="mt-2 text-sm text-muted-foreground">Criticidade {detail.criticality}</p>
+            <p className="mt-2 text-sm text-muted-foreground">Criticidade {criticalityLabel(detail.criticality)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -583,14 +842,18 @@ export default function SupplierDetailPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="cadastro">Cadastro</TabsTrigger>
-          <TabsTrigger value="documentos">Documentos</TabsTrigger>
-          <TabsTrigger value="homologacao">Homologação</TabsTrigger>
-          <TabsTrigger value="requisitos">Requisitos</TabsTrigger>
-          <TabsTrigger value="desempenho">Desempenho</TabsTrigger>
-          <TabsTrigger value="recebimentos">Recebimentos</TabsTrigger>
-          <TabsTrigger value="historico">Histórico</TabsTrigger>
+        <TabsList className="flex-nowrap overflow-x-auto">
+          {tabs.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value} className="flex shrink-0 items-center gap-1.5">
+              <tab.icon className="h-3.5 w-3.5" />
+              {tab.label}
+              {tab.count ? (
+                <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  {tab.count}
+                </span>
+              ) : null}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         {/* ── Cadastro ── */}
@@ -598,15 +861,7 @@ export default function SupplierDetailPage() {
           <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Cadastro mestre</CardTitle>
-                  {canManageGeneral ? (
-                    <Button onClick={() => updateSupplierMutation.mutate()} isLoading={updateSupplierMutation.isPending}>
-                      <Save className="mr-2 h-4 w-4" />
-                      Salvar cadastro
-                    </Button>
-                  ) : null}
-                </div>
+                <CardTitle>Cadastro mestre</CardTitle>
               </CardHeader>
               <CardContent>
                 <FieldSet>
@@ -965,9 +1220,6 @@ export default function SupplierDetailPage() {
                           />
                           <FieldLabel htmlFor="offering-approved-scope">Marcar como escopo aprovado</FieldLabel>
                         </Field>
-                        <Button onClick={() => offeringMutation.mutate()} isLoading={offeringMutation.isPending}>
-                          Adicionar item
-                        </Button>
                       </FieldGroup>
                     </FieldSet>
                   </div>
@@ -1081,9 +1333,6 @@ export default function SupplierDetailPage() {
                           attachments={documentSubmissionForm.attachments}
                           onChange={(attachments) => setDocumentSubmissionForm((current) => ({ ...current, attachments }))}
                         />
-                        <Button onClick={() => documentSubmissionMutation.mutate()} isLoading={documentSubmissionMutation.isPending}>
-                          Salvar submissão
-                        </Button>
                       </FieldGroup>
                     </FieldSet>
                   </div>
@@ -1150,9 +1399,6 @@ export default function SupplierDetailPage() {
                             />
                           </FieldContent>
                         </Field>
-                        <Button onClick={() => documentReviewMutation.mutate()} isLoading={documentReviewMutation.isPending}>
-                          Registrar AVA1
-                        </Button>
                       </FieldGroup>
                     </FieldSet>
                   </div>
@@ -1245,9 +1491,6 @@ export default function SupplierDetailPage() {
                           attachments={qualificationForm.attachments}
                           onChange={(attachments) => setQualificationForm((current) => ({ ...current, attachments }))}
                         />
-                        <Button onClick={() => qualificationMutation.mutate()} isLoading={qualificationMutation.isPending}>
-                          Registrar homologação
-                        </Button>
                       </FieldGroup>
                     </FieldSet>
                   </div>
@@ -1334,9 +1577,6 @@ export default function SupplierDetailPage() {
                           />
                         </FieldContent>
                       </Field>
-                      <Button onClick={() => communicationMutation.mutate()} isLoading={communicationMutation.isPending}>
-                        Registrar comunicação
-                      </Button>
                     </FieldGroup>
                   </FieldSet>
                 </CardContent>
@@ -1518,9 +1758,6 @@ export default function SupplierDetailPage() {
                           />
                         </FieldContent>
                       </Field>
-                      <Button onClick={() => performanceMutation.mutate()} isLoading={performanceMutation.isPending}>
-                        Registrar AVA2
-                      </Button>
                     </FieldGroup>
                   </FieldSet>
                 </CardContent>
@@ -1712,9 +1949,6 @@ export default function SupplierDetailPage() {
                         attachments={receiptForm.attachments}
                         onChange={(attachments) => setReceiptForm((current) => ({ ...current, attachments }))}
                       />
-                      <Button onClick={handleReceiptSubmit} isLoading={receiptMutation.isPending}>
-                        Registrar recebimento
-                      </Button>
                     </FieldGroup>
                   </FieldSet>
                 </CardContent>
@@ -1796,9 +2030,6 @@ export default function SupplierDetailPage() {
                             />
                           </FieldContent>
                         </Field>
-                        <Button onClick={() => failureMutation.mutate()} isLoading={failureMutation.isPending}>
-                          Registrar falha
-                        </Button>
                       </FieldGroup>
                     </FieldSet>
                   </div>

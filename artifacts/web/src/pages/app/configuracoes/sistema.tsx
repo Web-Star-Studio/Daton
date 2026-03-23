@@ -41,7 +41,7 @@ export default function SystemSettingsPage() {
             <div className="mb-2">
               <h2 className="text-lg font-semibold text-foreground">Tema visual</h2>
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                Escolha como o Daton aparece para você. A preferência é salva localmente no navegador.
+                Escolha como o Daton aparece para você. A preferência é salva separadamente para cada usuário neste navegador.
               </p>
             </div>
             <div className="mt-6 grid gap-4 sm:grid-cols-3">

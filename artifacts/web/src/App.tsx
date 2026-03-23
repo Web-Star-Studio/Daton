@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
@@ -43,6 +43,47 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+const LEGACY_THEME_STORAGE_KEY = "theme";
+const ANONYMOUS_THEME_STORAGE_KEY = "daton_theme_anonymous";
+
+function getUserThemeStorageKey(userId: number | string | undefined) {
+  return userId ? `daton_theme_user_${userId}` : ANONYMOUS_THEME_STORAGE_KEY;
+}
+
+function UserScopedThemeProvider({ children }: { children: React.ReactNode }) {
+  const { user, isAuthenticated } = useAuth();
+  const storageKey = getUserThemeStorageKey(user?.id);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const currentStoredTheme = window.localStorage.getItem(storageKey);
+    if (currentStoredTheme) return;
+
+    const legacyStoredTheme = window.localStorage.getItem(LEGACY_THEME_STORAGE_KEY);
+    if (!legacyStoredTheme) return;
+
+    window.localStorage.setItem(storageKey, legacyStoredTheme);
+
+    if (isAuthenticated && user?.id) {
+      window.localStorage.removeItem(LEGACY_THEME_STORAGE_KEY);
+    }
+  }, [isAuthenticated, storageKey, user?.id]);
+
+  return (
+    <ThemeProvider
+      key={storageKey}
+      attribute="class"
+      storageKey={storageKey}
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
+      {children}
+    </ThemeProvider>
+  );
+}
 
 function AdminPages() {
   return (
@@ -184,16 +225,16 @@ function Router() {
 
 function App() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <UserScopedThemeProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <Router />
           </WouterRouter>
           <Toaster />
-        </AuthProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
+        </UserScopedThemeProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
 

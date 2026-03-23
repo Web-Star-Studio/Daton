@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SuppliersPage from "@/pages/app/qualidade/fornecedores";
 import SupplierDetailPage from "@/pages/app/qualidade/fornecedores/[id]";
@@ -9,6 +9,7 @@ const navigateMock = vi.fn();
 const toastMock = vi.fn();
 const createSupplierMock = vi.fn();
 const createSupplierReceiptCheckMock = vi.fn();
+let latestHeaderActions: React.ReactNode = null;
 
 const authState = {
   role: "org_admin" as "org_admin" | "platform_admin" | "operator" | "analyst",
@@ -49,7 +50,9 @@ const supplierDetail = {
 };
 
 vi.mock("@/contexts/LayoutContext", () => ({
-  useHeaderActions: vi.fn(),
+  useHeaderActions: (actions: React.ReactNode) => {
+    latestHeaderActions = actions;
+  },
   usePageTitle: vi.fn(),
   usePageSubtitle: vi.fn(),
 }));
@@ -64,6 +67,9 @@ vi.mock("@/contexts/AuthContext", () => ({
 vi.mock("wouter", () => ({
   useLocation: () => ["/app/qualidade/fornecedores", navigateMock],
   useParams: () => ({ id: "55" }),
+  Link: ({ href, children }: { href: string; children: React.ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
 }));
 
 vi.mock("@/hooks/use-toast", () => ({
@@ -132,6 +138,7 @@ describe("suppliers pages", () => {
     toastMock.mockReset();
     createSupplierMock.mockReset();
     createSupplierReceiptCheckMock.mockReset();
+    latestHeaderActions = null;
     createSupplierMock.mockResolvedValue({ id: 99 });
     createSupplierReceiptCheckMock.mockResolvedValue({ id: 1 });
   });
@@ -167,15 +174,17 @@ describe("suppliers pages", () => {
 
     await screen.findByDisplayValue("Fornecedor Exemplo");
 
-    expect(
-      screen.queryByRole("button", { name: /Salvar cadastro/i }),
-    ).not.toBeInTheDocument();
+    const header = render(<>{latestHeaderActions}</>);
+
+    expect(header.queryByRole("button", { name: /Salvar cadastro/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Recebimentos" }));
 
-    expect(screen.getByRole("button", { name: "Registrar recebimento" })).toBeInTheDocument();
+    header.rerender(<>{latestHeaderActions}</>);
 
-    fireEvent.click(screen.getByRole("button", { name: "Registrar recebimento" }));
+    expect(header.getByRole("button", { name: "Registrar recebimento" })).toBeInTheDocument();
+
+    fireEvent.click(header.getByRole("button", { name: "Registrar recebimento" }));
 
     expect(toastMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -183,6 +192,23 @@ describe("suppliers pages", () => {
       }),
     );
     expect(createSupplierReceiptCheckMock).not.toHaveBeenCalled();
+  });
+
+  it("updates header actions when the active tab changes", async () => {
+    renderWithQueryClient(<SupplierDetailPage />);
+
+    await screen.findByDisplayValue("Fornecedor Exemplo");
+
+    const header = render(<>{latestHeaderActions}</>);
+
+    expect(header.getByRole("button", { name: /Salvar cadastro/i })).toBeInTheDocument();
+    expect(header.getByRole("button", { name: /Adicionar item/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Recebimentos" }));
+    header.rerender(<>{latestHeaderActions}</>);
+
+    expect(header.queryByRole("button", { name: /Salvar cadastro/i })).not.toBeInTheDocument();
+    expect(header.getByRole("button", { name: "Registrar recebimento" })).toBeInTheDocument();
   });
 
   it("keeps the detail page read-only for analysts", async () => {
@@ -194,12 +220,11 @@ describe("suppliers pages", () => {
       expect(screen.getByDisplayValue("Fornecedor Exemplo")).toBeInTheDocument();
     });
 
-    expect(
-      screen.queryByRole("button", { name: /Salvar cadastro/i }),
-    ).not.toBeInTheDocument();
+    const header = render(<>{latestHeaderActions}</>);
+
+    expect(header.queryByRole("button", { name: /Salvar cadastro/i })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Recebimentos" }));
-    expect(
-      screen.queryByRole("button", { name: "Registrar recebimento" }),
-    ).not.toBeInTheDocument();
+    header.rerender(<>{latestHeaderActions}</>);
+    expect(header.queryByRole("button", { name: "Registrar recebimento" })).not.toBeInTheDocument();
   });
 });
