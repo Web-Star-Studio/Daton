@@ -627,6 +627,8 @@ export default function SupplierDetailPage() {
     ],
     [detail],
   );
+  const sectionCardClass = "border-border/60 bg-card/70 shadow-sm";
+  const nestedPanelClass = "rounded-xl border border-border/50 bg-background/40";
 
   const headerActions = useMemo(() => {
     if (!detail) return null;
@@ -807,14 +809,14 @@ export default function SupplierDetailPage() {
       </section>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card className={sectionCardClass}>
           <CardContent className="pt-6">
             <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Status</p>
             <p className="mt-3 text-2xl font-semibold">{statusLabel(detail.status)}</p>
             <p className="mt-2 text-sm text-muted-foreground">Criticidade {criticalityLabel(detail.criticality)}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={sectionCardClass}>
           <CardContent className="pt-6">
             <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">AVA1</p>
             <p className="mt-3 text-2xl font-semibold">
@@ -825,14 +827,14 @@ export default function SupplierDetailPage() {
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={sectionCardClass}>
           <CardContent className="pt-6">
             <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Homologação</p>
             <p className="mt-3 text-2xl font-semibold">{detail.qualificationReviews.length}</p>
             <p className="mt-2 text-sm text-muted-foreground">Válida até {formatDate(detail.qualifiedUntil)}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={sectionCardClass}>
           <CardContent className="pt-6">
             <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Falhas</p>
             <p className="mt-3 text-2xl font-semibold">{detail.failures.length}</p>
@@ -858,8 +860,8 @@ export default function SupplierDetailPage() {
 
         {/* ── Cadastro ── */}
         <TabsContent value="cadastro">
-          <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-            <Card>
+          <div className="grid items-start gap-6 xl:grid-cols-[1.4fr_1fr]">
+            <Card className={sectionCardClass}>
               <CardHeader>
                 <CardTitle>Cadastro mestre</CardTitle>
               </CardHeader>
@@ -1130,7 +1132,7 @@ export default function SupplierDetailPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className={sectionCardClass}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Produtos e serviços</CardTitle>
@@ -1140,7 +1142,7 @@ export default function SupplierDetailPage() {
               <CardContent>
                 <div className="space-y-3">
                   {detail.offerings.map((offering) => (
-                    <div key={offering.id} className="rounded-xl border border-border/60 p-3">
+                    <div key={offering.id} className={cn(nestedPanelClass, "p-3")}>
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <div className="font-medium">{offering.name}</div>
@@ -1231,8 +1233,8 @@ export default function SupplierDetailPage() {
 
         {/* ── Documentos ── */}
         <TabsContent value="documentos">
-          <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
-            <Card>
+          <div className="grid items-start gap-6 xl:grid-cols-[1.2fr_1fr]">
+            <Card className={sectionCardClass}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Submissões documentais</CardTitle>
@@ -1242,7 +1244,7 @@ export default function SupplierDetailPage() {
               <CardContent>
                 <div className="space-y-3">
                   {detail.documents.submissions.map((submission) => (
-                    <div key={submission.id} className="rounded-xl border border-border/60 p-3">
+                    <div key={submission.id} className={cn(nestedPanelClass, "p-3")}>
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <div className="font-medium">{submission.requirementName}</div>
@@ -1340,7 +1342,7 @@ export default function SupplierDetailPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className={sectionCardClass}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Avaliação documental</CardTitle>
@@ -1350,7 +1352,7 @@ export default function SupplierDetailPage() {
               <CardContent>
                 <div className="space-y-3">
                   {detail.documents.reviews.map((review) => (
-                    <div key={review.id} className="rounded-xl border border-border/60 p-3">
+                    <div key={review.id} className={cn(nestedPanelClass, "p-3")}>
                       <div className="flex items-center justify-between gap-3">
                         <div className="font-medium">{review.result === "apt" ? "Apto" : "Não apto"}</div>
                         <Badge variant="secondary">{review.compliancePercentage}%</Badge>
@@ -1410,7 +1412,7 @@ export default function SupplierDetailPage() {
 
         {/* ── Homologação ── */}
         <TabsContent value="homologacao">
-          <Card>
+          <Card className={sectionCardClass}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Homologação e qualificação</CardTitle>
@@ -1418,10 +1420,10 @@ export default function SupplierDetailPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+              <div className="grid items-start gap-4 xl:grid-cols-[1.2fr_1fr]">
                 <div className="space-y-3">
                   {detail.qualificationReviews.map((review) => (
-                    <div key={review.id} className="rounded-xl border border-border/60 p-3">
+                    <div key={review.id} className={cn(nestedPanelClass, "p-3")}>
                       <div className="flex items-center justify-between gap-3">
                         <div className="font-medium">{review.decision}</div>
                         <Badge variant="secondary">{formatDate(review.validUntil)}</Badge>
@@ -1431,7 +1433,7 @@ export default function SupplierDetailPage() {
                   ))}
                 </div>
                 {canManageGeneral ? (
-                  <div className="rounded-xl border border-border/60 p-4">
+                  <div className={cn(nestedPanelClass, "p-4")}>
                     <FieldSet>
                       <FieldGroup>
                         <Field>
@@ -1502,8 +1504,8 @@ export default function SupplierDetailPage() {
 
         {/* ── Requisitos ── */}
         <TabsContent value="requisitos">
-          <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
-            <Card>
+          <div className="grid items-start gap-6 xl:grid-cols-[1.2fr_1fr]">
+            <Card className={sectionCardClass}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Comunicações registradas</CardTitle>
@@ -1513,7 +1515,7 @@ export default function SupplierDetailPage() {
               <CardContent>
                 <div className="space-y-3">
                   {detail.requirements.communications.map((communication) => (
-                    <div key={communication.id} className="rounded-xl border border-border/60 p-3">
+                    <div key={communication.id} className={cn(nestedPanelClass, "p-3")}>
                       <div className="flex items-center justify-between gap-3">
                         <div className="font-medium">
                           {communication.templateTitle} · v{communication.templateVersion}
@@ -1530,7 +1532,7 @@ export default function SupplierDetailPage() {
             </Card>
 
             {canManageGeneral ? (
-              <Card>
+              <Card className={sectionCardClass}>
                 <CardHeader>
                   <CardTitle>Vincular requisito</CardTitle>
                 </CardHeader>
@@ -1587,8 +1589,8 @@ export default function SupplierDetailPage() {
 
         {/* ── Desempenho ── */}
         <TabsContent value="desempenho">
-          <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
-            <Card>
+          <div className="grid items-start gap-6 xl:grid-cols-[1.2fr_1fr]">
+            <Card className={sectionCardClass}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Avaliações AVA2</CardTitle>
@@ -1598,7 +1600,7 @@ export default function SupplierDetailPage() {
               <CardContent>
                 <div className="space-y-3">
                   {detail.performanceReviews.map((review) => (
-                    <div key={review.id} className="rounded-xl border border-border/60 p-3">
+                    <div key={review.id} className={cn(nestedPanelClass, "p-3")}>
                       <div className="flex items-center justify-between gap-3">
                         <div className="font-medium">{review.offeringName || "Escopo geral"}</div>
                         <Badge variant="secondary">{review.finalScore}/10</Badge>
@@ -1613,7 +1615,7 @@ export default function SupplierDetailPage() {
             </Card>
 
             {canManageGeneral ? (
-              <Card>
+              <Card className={sectionCardClass}>
                 <CardHeader>
                   <CardTitle>Nova avaliação</CardTitle>
                 </CardHeader>
@@ -1768,8 +1770,8 @@ export default function SupplierDetailPage() {
 
         {/* ── Recebimentos ── */}
         <TabsContent value="recebimentos">
-          <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
-            <Card>
+          <div className="grid items-start gap-6 xl:grid-cols-[1.2fr_1fr]">
+            <Card className={sectionCardClass}>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Recebimentos</CardTitle>
@@ -1779,7 +1781,7 @@ export default function SupplierDetailPage() {
               <CardContent>
                 <div className="space-y-3">
                   {detail.receiptChecks.map((receipt) => (
-                    <div key={receipt.id} className="rounded-xl border border-border/60 p-3">
+                    <div key={receipt.id} className={cn(nestedPanelClass, "p-3")}>
                       <div className="flex items-center justify-between gap-3">
                         <div className="font-medium">{receipt.description}</div>
                         <Badge variant="secondary">{receipt.outcome}</Badge>
@@ -1795,7 +1797,7 @@ export default function SupplierDetailPage() {
             </Card>
 
             {canManageReceipts ? (
-              <Card>
+              <Card className={sectionCardClass}>
                 <CardHeader>
                   <CardTitle>Novo recebimento</CardTitle>
                 </CardHeader>
@@ -1959,8 +1961,8 @@ export default function SupplierDetailPage() {
 
         {/* ── Histórico ── */}
         <TabsContent value="historico">
-          <div className="grid gap-6 xl:grid-cols-2">
-            <Card>
+          <div className="grid items-start gap-6 xl:grid-cols-[1.2fr_1fr]">
+            <Card className={sectionCardClass}>
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <History className="h-4 w-4 text-muted-foreground" />
@@ -1970,7 +1972,7 @@ export default function SupplierDetailPage() {
               <CardContent>
                 <div className="space-y-3">
                   {detail.failures.map((failure) => (
-                    <div key={failure.id} className="rounded-xl border border-border/60 p-3">
+                    <div key={failure.id} className={cn(nestedPanelClass, "p-3")}>
                       <div className="flex items-center justify-between gap-3">
                         <div className="font-medium">{failure.failureType}</div>
                         <Badge variant="secondary">{failure.severity}</Badge>
@@ -2037,27 +2039,27 @@ export default function SupplierDetailPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className={sectionCardClass}>
               <CardHeader>
                 <CardTitle>Resumo</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3 md:grid-cols-3">
-                  <div className="rounded-xl border border-border/60 p-3">
+                  <div className={cn(nestedPanelClass, "p-3")}>
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <ShieldCheck className="h-4 w-4" />
                       Documentos
                     </div>
                     <p className="mt-2 text-2xl font-semibold">{detail.documents.reviews.length}</p>
                   </div>
-                  <div className="rounded-xl border border-border/60 p-3">
+                  <div className={cn(nestedPanelClass, "p-3")}>
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <ClipboardList className="h-4 w-4" />
                       Avaliações
                     </div>
                     <p className="mt-2 text-2xl font-semibold">{detail.performanceReviews.length}</p>
                   </div>
-                  <div className="rounded-xl border border-border/60 p-3">
+                  <div className={cn(nestedPanelClass, "p-3")}>
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Receipt className="h-4 w-4" />
                       Recebimentos
@@ -2066,7 +2068,7 @@ export default function SupplierDetailPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 space-y-3 rounded-xl border border-border/60 p-4">
+                <div className={cn(nestedPanelClass, "mt-4 space-y-3 p-4")}>
                   <div className="flex items-center gap-2 font-medium">
                     <Package2 className="h-4 w-4" />
                     Linha do tempo resumida
