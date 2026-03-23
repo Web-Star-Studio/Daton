@@ -8,18 +8,30 @@
     "typecheck:libs": "tsc --build",
     "typecheck:e2e": "tsc -p e2e/tsconfig.json --noEmit",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck && pnpm run typecheck:e2e",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:unit:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --project=chromium --headed"
   },
   "private": true,
   "devDependencies": {
+    "@testing-library/dom": "catalog:",
+    "@testing-library/jest-dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
+    "@types/supertest": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "@playwright/test": "^1.58.2",
     "@types/node": "catalog:",
     "@workspace/db": "workspace:*",
     "drizzle-orm": "catalog:",
+    "jsdom": "catalog:",
     "prettier": "^3.8.1",
-    "typescript": "~5.9.2"
+    "supertest": "catalog:",
+    "typescript": "~5.9.2",
+    "vitest": "catalog:"
   },
   "pnpm": {
     "overrides": {}

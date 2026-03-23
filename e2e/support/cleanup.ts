@@ -1,8 +1,33 @@
 import { inArray, like } from "drizzle-orm";
 import {
   db,
+  departmentsTable,
+  departmentUnitsTable,
+  employeeAwarenessTable,
+  employeeCompetenciesTable,
+  employeeProfileItemAttachmentsTable,
+  employeeProfileItemsTable,
+  employeesTable,
+  employeeTrainingsTable,
+  employeeUnitsTable,
   legislationsTable,
   organizationsTable,
+  positionsTable,
+  supplierCategoriesTable,
+  supplierDocumentRequirementsTable,
+  supplierDocumentReviewsTable,
+  supplierDocumentSubmissionsTable,
+  supplierFailuresTable,
+  supplierOfferingsTable,
+  supplierPerformanceReviewsTable,
+  supplierQualificationReviewsTable,
+  supplierReceiptChecksTable,
+  supplierRequirementCommunicationsTable,
+  supplierRequirementTemplatesTable,
+  suppliersTable,
+  supplierTypeLinksTable,
+  supplierTypesTable,
+  supplierUnitsTable,
   strategicPlanActionsTable,
   strategicPlanActionUnitsTable,
   strategicPlanInterestedPartiesTable,
@@ -69,6 +94,56 @@ export async function cleanupTestData(prefix: string) {
       .where(inArray(unitsTable.organizationId, orgIds));
     const unitIds = units.map((unit) => unit.id);
 
+    const departments = await tx
+      .select({ id: departmentsTable.id })
+      .from(departmentsTable)
+      .where(inArray(departmentsTable.organizationId, orgIds));
+    const departmentIds = departments.map((department) => department.id);
+
+    const positions = await tx
+      .select({ id: positionsTable.id })
+      .from(positionsTable)
+      .where(inArray(positionsTable.organizationId, orgIds));
+    const positionIds = positions.map((position) => position.id);
+
+    const employees = await tx
+      .select({ id: employeesTable.id })
+      .from(employeesTable)
+      .where(inArray(employeesTable.organizationId, orgIds));
+    const employeeIds = employees.map((employee) => employee.id);
+
+    const suppliers = await tx
+      .select({ id: suppliersTable.id })
+      .from(suppliersTable)
+      .where(inArray(suppliersTable.organizationId, orgIds));
+    const supplierIds = suppliers.map((supplier) => supplier.id);
+
+    const supplierCategories = await tx
+      .select({ id: supplierCategoriesTable.id })
+      .from(supplierCategoriesTable)
+      .where(inArray(supplierCategoriesTable.organizationId, orgIds));
+    const supplierCategoryIds = supplierCategories.map((category) => category.id);
+
+    const supplierTypes = await tx
+      .select({ id: supplierTypesTable.id })
+      .from(supplierTypesTable)
+      .where(inArray(supplierTypesTable.organizationId, orgIds));
+    const supplierTypeIds = supplierTypes.map((type) => type.id);
+
+    const supplierRequirements = await tx
+      .select({ id: supplierDocumentRequirementsTable.id })
+      .from(supplierDocumentRequirementsTable)
+      .where(inArray(supplierDocumentRequirementsTable.organizationId, orgIds));
+    const supplierRequirementIds = supplierRequirements.map(
+      (requirement) => requirement.id,
+    );
+
+    const supplierTemplates = await tx
+      .select({ id: supplierRequirementTemplatesTable.id })
+      .from(supplierRequirementTemplatesTable)
+      .where(inArray(supplierRequirementTemplatesTable.organizationId, orgIds));
+    const supplierTemplateIds = supplierTemplates.map((template) => template.id);
+
     const legislations = await tx
       .select({ id: legislationsTable.id })
       .from(legislationsTable)
@@ -130,6 +205,133 @@ export async function cleanupTestData(prefix: string) {
       await tx
         .delete(strategicPlansTable)
         .where(inArray(strategicPlansTable.id, planIds));
+    }
+
+    if (employeeIds.length > 0) {
+      const profileItems = await tx
+        .select({ id: employeeProfileItemsTable.id })
+        .from(employeeProfileItemsTable)
+        .where(inArray(employeeProfileItemsTable.employeeId, employeeIds));
+      const profileItemIds = profileItems.map((item) => item.id);
+
+      if (profileItemIds.length > 0) {
+        await tx
+          .delete(employeeProfileItemAttachmentsTable)
+          .where(
+            inArray(employeeProfileItemAttachmentsTable.itemId, profileItemIds),
+          );
+      }
+
+      await tx
+        .delete(employeeProfileItemsTable)
+        .where(inArray(employeeProfileItemsTable.employeeId, employeeIds));
+      await tx
+        .delete(employeeCompetenciesTable)
+        .where(inArray(employeeCompetenciesTable.employeeId, employeeIds));
+      await tx
+        .delete(employeeTrainingsTable)
+        .where(inArray(employeeTrainingsTable.employeeId, employeeIds));
+      await tx
+        .delete(employeeAwarenessTable)
+        .where(inArray(employeeAwarenessTable.employeeId, employeeIds));
+      await tx
+        .delete(employeeUnitsTable)
+        .where(inArray(employeeUnitsTable.employeeId, employeeIds));
+      await tx.delete(employeesTable).where(inArray(employeesTable.id, employeeIds));
+    }
+
+    if (departmentIds.length > 0) {
+      await tx
+        .delete(departmentUnitsTable)
+        .where(inArray(departmentUnitsTable.departmentId, departmentIds));
+      await tx
+        .delete(departmentsTable)
+        .where(inArray(departmentsTable.id, departmentIds));
+    }
+
+    if (positionIds.length > 0) {
+      await tx
+        .delete(positionsTable)
+        .where(inArray(positionsTable.id, positionIds));
+    }
+
+    if (supplierIds.length > 0) {
+      await tx
+        .delete(supplierFailuresTable)
+        .where(inArray(supplierFailuresTable.supplierId, supplierIds));
+      await tx
+        .delete(supplierReceiptChecksTable)
+        .where(inArray(supplierReceiptChecksTable.supplierId, supplierIds));
+      await tx
+        .delete(supplierPerformanceReviewsTable)
+        .where(inArray(supplierPerformanceReviewsTable.supplierId, supplierIds));
+      await tx
+        .delete(supplierQualificationReviewsTable)
+        .where(inArray(supplierQualificationReviewsTable.supplierId, supplierIds));
+      await tx
+        .delete(supplierRequirementCommunicationsTable)
+        .where(inArray(supplierRequirementCommunicationsTable.supplierId, supplierIds));
+      await tx
+        .delete(supplierDocumentReviewsTable)
+        .where(inArray(supplierDocumentReviewsTable.supplierId, supplierIds));
+      await tx
+        .delete(supplierDocumentSubmissionsTable)
+        .where(inArray(supplierDocumentSubmissionsTable.supplierId, supplierIds));
+      await tx
+        .delete(supplierOfferingsTable)
+        .where(inArray(supplierOfferingsTable.supplierId, supplierIds));
+      await tx
+        .delete(supplierTypeLinksTable)
+        .where(inArray(supplierTypeLinksTable.supplierId, supplierIds));
+      await tx
+        .delete(supplierUnitsTable)
+        .where(inArray(supplierUnitsTable.supplierId, supplierIds));
+      await tx.delete(suppliersTable).where(inArray(suppliersTable.id, supplierIds));
+    }
+
+    if (supplierTemplateIds.length > 0) {
+      await tx
+        .delete(supplierRequirementCommunicationsTable)
+        .where(
+          inArray(
+            supplierRequirementCommunicationsTable.templateId,
+            supplierTemplateIds,
+          ),
+        );
+      await tx
+        .delete(supplierRequirementTemplatesTable)
+        .where(inArray(supplierRequirementTemplatesTable.id, supplierTemplateIds));
+    }
+
+    if (supplierRequirementIds.length > 0) {
+      await tx
+        .delete(supplierDocumentSubmissionsTable)
+        .where(
+          inArray(
+            supplierDocumentSubmissionsTable.requirementId,
+            supplierRequirementIds,
+          ),
+        );
+      await tx
+        .delete(supplierDocumentRequirementsTable)
+        .where(
+          inArray(supplierDocumentRequirementsTable.id, supplierRequirementIds),
+        );
+    }
+
+    if (supplierTypeIds.length > 0) {
+      await tx
+        .delete(supplierTypeLinksTable)
+        .where(inArray(supplierTypeLinksTable.typeId, supplierTypeIds));
+      await tx
+        .delete(supplierTypesTable)
+        .where(inArray(supplierTypesTable.id, supplierTypeIds));
+    }
+
+    if (supplierCategoryIds.length > 0) {
+      await tx
+        .delete(supplierCategoriesTable)
+        .where(inArray(supplierCategoriesTable.id, supplierCategoryIds));
     }
 
     if (unitIds.length > 0) {
