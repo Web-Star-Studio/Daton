@@ -1,9 +1,11 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
+import { db, strategicPlansTable } from "@workspace/db";
 import app from "../../src/app";
 import {
   authHeader,
   cleanupTestContext,
+  createEmployee,
   createTestContext,
   createTestUser,
   type TestOrgContext,
@@ -14,6 +16,60 @@ const contexts: TestOrgContext[] = [];
 afterEach(async () => {
   await Promise.all(contexts.splice(0).map((context) => cleanupTestContext(context)));
 });
+
+async function createDocumentForTest(context: TestOrgContext, options?: {
+  type?: "manual" | "politica";
+}) {
+  const employee = await createEmployee(context, {
+    name: `Elaborador ${context.prefix}`,
+  });
+  const reviewer = await createTestUser(context, {
+    role: "analyst",
+    suffix: "critical-reviewer",
+    modules: ["documents"],
+  });
+  const approver = await createTestUser(context, {
+    role: "operator",
+    suffix: "approver",
+    modules: ["documents"],
+  });
+  const recipient = await createTestUser(context, {
+    role: "operator",
+    suffix: "recipient",
+    modules: ["documents"],
+  });
+
+  const response = await request(app)
+    .post(`/api/organizations/${context.organizationId}/documents`)
+    .set(authHeader(context))
+    .send({
+      title: `Documento ${context.prefix}`,
+      type: options?.type ?? "manual",
+      validityDate: "2030-01-01",
+      elaboratorIds: [employee.id],
+      criticalReviewerIds: [reviewer.id],
+      approverIds: [approver.id],
+      recipientIds: [recipient.id],
+    });
+
+  expect(response.status).toBe(201);
+
+  return response.body as { id: number; status: string };
+}
+
+async function createStrategicPlanForTest(context: TestOrgContext) {
+  const [plan] = await db
+    .insert(strategicPlansTable)
+    .values({
+      organizationId: context.organizationId,
+      title: `Plano ${context.prefix}`,
+      createdById: context.userId,
+      updatedById: context.userId,
+    })
+    .returning({ id: strategicPlansTable.id });
+
+  return plan;
+}
 
 describe("governance system routes", () => {
   it("creates SGQ processes, paginates results and records revisions while blocking invalid interactions", async () => {
@@ -73,6 +129,14 @@ describe("governance system routes", () => {
     expect(listed.body.data).toHaveLength(1);
     expect(listed.body.pagination.total).toBe(1);
 
+    const escapedSearch = await request(app)
+      .get(`/api/organizations/${context.organizationId}/governance/sgq-processes`)
+      .query({ page: 1, pageSize: 10, search: "%_Principal" })
+      .set(authHeader(context));
+
+    expect(escapedSearch.status).toBe(200);
+    expect(escapedSearch.body.data).toHaveLength(0);
+
     const selfInteraction = await request(app)
       .patch(`/api/organizations/${context.organizationId}/governance/sgq-processes/${mainProcess.body.id}`)
       .set(authHeader(context))
@@ -127,6 +191,24 @@ describe("governance system routes", () => {
     expect(updated.status).toBe(200);
     expect(updated.body.currentRevisionNumber).toBe(2);
 
+    const noOpUpdate = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/governance/sgq-processes/${mainProcess.body.id}`)
+      .set(authHeader(context))
+      .send({
+        objective: "Executar o fluxo principal revisado",
+        interactions: [
+          {
+            relatedProcessId: supportProcess.body.id,
+            direction: "downstream",
+            notes: "Fluxo revisado",
+          },
+        ],
+        changeSummary: "Sem mudanças materiais",
+      });
+
+    expect(noOpUpdate.status).toBe(200);
+    expect(noOpUpdate.body.currentRevisionNumber).toBe(2);
+
     const revisions = await request(app)
       .get(`/api/organizations/${context.organizationId}/governance/sgq-processes/${mainProcess.body.id}/revisions`)
       .set(authHeader(context));
@@ -160,6 +242,23 @@ describe("governance system routes", () => {
       });
 
     expect(created.status).toBe(201);
+
+    const rejectedCompletedCreate = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/internal-audits`)
+      .set(authHeader(context))
+      .send({
+        title: `Auditoria concluída ${context.prefix}`,
+        scope: "Escopo inválido",
+        criteria: "ISO 9001",
+        periodStart: "2026-01-01",
+        periodEnd: "2026-01-31",
+        auditorUserId: auditor.id,
+        originType: "internal",
+        status: "completed",
+      });
+
+    expect(rejectedCompletedCreate.status).toBe(400);
+    expect(rejectedCompletedCreate.body.error).toContain("não pode ser concluída");
 
     const checklist = await request(app)
       .put(`/api/organizations/${context.organizationId}/governance/internal-audits/${created.body.id}/checklist-items`)
@@ -377,5 +476,169 @@ describe("governance system routes", () => {
 
     expect(completed.status).toBe(200);
     expect(completed.body.status).toBe("completed");
+  });
+
+  it("rejects foreign references when patching management review inputs and outputs", async () => {
+    const context = await createTestContext({
+      seed: "governance-system-review-patch-validation",
+      modules: ["governance", "documents"],
+    });
+    const foreignContext = await createTestContext({
+      seed: "governance-system-review-patch-validation-foreign",
+      modules: ["governance", "documents"],
+    });
+    contexts.push(context, foreignContext);
+
+    const chair = await createTestUser(context, {
+      role: "analyst",
+      suffix: "review-chair",
+      modules: ["governance"],
+    });
+
+    const localProcess = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/sgq-processes`)
+      .set(authHeader(context))
+      .send({
+        name: `Processo local ${context.prefix}`,
+        objective: "Base local da análise crítica",
+        ownerUserId: chair.id,
+        inputs: ["Entrada local"],
+        outputs: ["Saída local"],
+        changeSummary: "Cadastro inicial",
+      });
+
+    expect(localProcess.status).toBe(201);
+
+    const review = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/management-reviews`)
+      .set(authHeader(context))
+      .send({
+        title: `Análise crítica ${context.prefix}`,
+        reviewDate: "2026-02-20",
+        chairUserId: chair.id,
+      });
+
+    expect(review.status).toBe(201);
+
+    const createdInput = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/management-reviews/${review.body.id}/inputs`)
+      .set(authHeader(context))
+      .send({
+        inputType: "process_performance",
+        summary: "Entrada inicial",
+        processId: localProcess.body.id,
+      });
+
+    expect(createdInput.status).toBe(201);
+
+    const createdOutput = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/management-reviews/${review.body.id}/outputs`)
+      .set(authHeader(context))
+      .send({
+        outputType: "action",
+        description: "Saída inicial",
+        responsibleUserId: chair.id,
+        processId: localProcess.body.id,
+        status: "open",
+      });
+
+    expect(createdOutput.status).toBe(201);
+
+    const foreignDocument = await createDocumentForTest(foreignContext, { type: "politica" });
+    const foreignPlan = await createStrategicPlanForTest(foreignContext);
+
+    const foreignAudit = await request(app)
+      .post(`/api/organizations/${foreignContext.organizationId}/governance/internal-audits`)
+      .set(authHeader(foreignContext))
+      .send({
+        title: `Auditoria estrangeira ${foreignContext.prefix}`,
+        scope: "Escopo externo",
+        criteria: "ISO 9001",
+        periodStart: "2026-01-01",
+        periodEnd: "2026-01-31",
+        originType: "internal",
+      });
+
+    expect(foreignAudit.status).toBe(201);
+
+    const foreignProcess = await request(app)
+      .post(`/api/organizations/${foreignContext.organizationId}/governance/sgq-processes`)
+      .set(authHeader(foreignContext))
+      .send({
+        name: `Processo estrangeiro ${foreignContext.prefix}`,
+        objective: "Referência externa",
+        inputs: ["Entrada externa"],
+        outputs: ["Saída externa"],
+        changeSummary: "Cadastro inicial",
+      });
+
+    expect(foreignProcess.status).toBe(201);
+
+    const foreignNc = await request(app)
+      .post(`/api/organizations/${foreignContext.organizationId}/governance/nonconformities`)
+      .set(authHeader(foreignContext))
+      .send({
+        originType: "incident",
+        title: `NC estrangeira ${foreignContext.prefix}`,
+        description: "Registro externo",
+      });
+
+    expect(foreignNc.status).toBe(201);
+
+    const foreignDocumentPatch = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/governance/management-reviews/${review.body.id}/inputs/${createdInput.body.inputs[0].id}`)
+      .set(authHeader(context))
+      .send({ documentId: foreignDocument.id });
+
+    expect(foreignDocumentPatch.status).toBe(400);
+    expect(foreignDocumentPatch.body.error).toContain("Documento inválido");
+
+    const foreignAuditPatch = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/governance/management-reviews/${review.body.id}/inputs/${createdInput.body.inputs[0].id}`)
+      .set(authHeader(context))
+      .send({ auditId: foreignAudit.body.id });
+
+    expect(foreignAuditPatch.status).toBe(400);
+    expect(foreignAuditPatch.body.error).toContain("Auditoria inválida");
+
+    const foreignNcPatch = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/governance/management-reviews/${review.body.id}/inputs/${createdInput.body.inputs[0].id}`)
+      .set(authHeader(context))
+      .send({ nonconformityId: foreignNc.body.id });
+
+    expect(foreignNcPatch.status).toBe(400);
+    expect(foreignNcPatch.body.error).toContain("Não conformidade inválida");
+
+    const foreignPlanPatch = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/governance/management-reviews/${review.body.id}/inputs/${createdInput.body.inputs[0].id}`)
+      .set(authHeader(context))
+      .send({ strategicPlanId: foreignPlan.id });
+
+    expect(foreignPlanPatch.status).toBe(400);
+    expect(foreignPlanPatch.body.error).toContain("Planejamento estratégico inválido");
+
+    const foreignProcessInputPatch = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/governance/management-reviews/${review.body.id}/inputs/${createdInput.body.inputs[0].id}`)
+      .set(authHeader(context))
+      .send({ processId: foreignProcess.body.id });
+
+    expect(foreignProcessInputPatch.status).toBe(400);
+    expect(foreignProcessInputPatch.body.error).toContain("Processo SGQ inválido");
+
+    const foreignProcessOutputPatch = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/governance/management-reviews/${review.body.id}/outputs/${createdOutput.body.outputs[0].id}`)
+      .set(authHeader(context))
+      .send({ processId: foreignProcess.body.id });
+
+    expect(foreignProcessOutputPatch.status).toBe(400);
+    expect(foreignProcessOutputPatch.body.error).toContain("Processo SGQ inválido");
+
+    const foreignNcOutputPatch = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/governance/management-reviews/${review.body.id}/outputs/${createdOutput.body.outputs[0].id}`)
+      .set(authHeader(context))
+      .send({ nonconformityId: foreignNc.body.id });
+
+    expect(foreignNcOutputPatch.status).toBe(400);
+    expect(foreignNcOutputPatch.body.error).toContain("Não conformidade inválida");
   });
 });

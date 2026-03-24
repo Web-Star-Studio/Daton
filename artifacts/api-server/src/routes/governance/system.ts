@@ -289,6 +289,31 @@ const managementReviewOutputBodySchema = z.object({
 });
 
 type MutationTx = Pick<typeof db, "select" | "insert" | "update" | "delete">;
+type ProcessUpdateValues = Partial<typeof sgqProcessesTable.$inferInsert>;
+type AuditUpdateValues = Partial<typeof internalAuditsTable.$inferInsert>;
+type FindingUpdateValues = Partial<typeof internalAuditFindingsTable.$inferInsert>;
+type NonconformityUpdateValues = Partial<typeof nonconformitiesTable.$inferInsert>;
+type CorrectiveActionUpdateValues = Partial<typeof correctiveActionsTable.$inferInsert>;
+type ManagementReviewUpdateValues = Partial<typeof managementReviewsTable.$inferInsert>;
+type ManagementReviewInputUpdateValues = Partial<typeof managementReviewInputsTable.$inferInsert>;
+type ManagementReviewOutputUpdateValues = Partial<typeof managementReviewOutputsTable.$inferInsert>;
+type ProcessInteractionState = {
+  relatedProcessId: number;
+  direction: "upstream" | "downstream";
+  notes: string | null;
+};
+type ProcessSnapshotState = {
+  name: string;
+  objective: string;
+  ownerUserId: number | null;
+  inputs: string[];
+  outputs: string[];
+  criteria: string | null;
+  indicators: string | null;
+  status: "active" | "inactive";
+  attachments: GovernanceSystemAttachment[];
+  interactions: ProcessInteractionState[];
+};
 
 function isoDateTime(value: Date | null | undefined): string | null {
   return value ? value.toISOString() : null;
@@ -302,6 +327,46 @@ function normalizeAttachments(
 
 function normalizeDate(value: string | null | undefined) {
   return value ?? null;
+}
+
+function escapeIlikeSearchPattern(value: string) {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
+
+function buildContainsPattern(value: string) {
+  return `%${escapeIlikeSearchPattern(value)}%`;
+}
+
+function normalizeNullableText(value: string | null | undefined) {
+  return value ?? null;
+}
+
+function normalizeProcessInteractionsForComparison(
+  interactions: Array<{
+    relatedProcessId: number;
+    direction: "upstream" | "downstream";
+    notes?: string | null;
+  }>,
+): ProcessInteractionState[] {
+  return interactions
+    .map((interaction) => ({
+      relatedProcessId: interaction.relatedProcessId,
+      direction: interaction.direction,
+      notes: interaction.notes ?? null,
+    }))
+    .sort((left, right) => {
+      if (left.relatedProcessId !== right.relatedProcessId) {
+        return left.relatedProcessId - right.relatedProcessId;
+      }
+      if (left.direction !== right.direction) {
+        return left.direction.localeCompare(right.direction);
+      }
+      return (left.notes ?? "").localeCompare(right.notes ?? "");
+    });
+}
+
+function processSnapshotsEqual(left: ProcessSnapshotState, right: ProcessSnapshotState) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 async function validateOrgUsers(userIds: number[], orgId: number): Promise<boolean> {
@@ -382,6 +447,36 @@ async function getProcessRecord(processId: number, orgId: number) {
     .from(sgqProcessesTable)
     .where(and(eq(sgqProcessesTable.id, processId), eq(sgqProcessesTable.organizationId, orgId)));
   return process ?? null;
+}
+
+async function getProcessComparisonState(
+  processId: number,
+  orgId: number,
+): Promise<ProcessSnapshotState | null> {
+  const process = await getProcessRecord(processId, orgId);
+  if (!process) return null;
+
+  const interactions = await db
+    .select({
+      relatedProcessId: sgqProcessInteractionsTable.relatedProcessId,
+      direction: sgqProcessInteractionsTable.direction,
+      notes: sgqProcessInteractionsTable.notes,
+    })
+    .from(sgqProcessInteractionsTable)
+    .where(eq(sgqProcessInteractionsTable.processId, processId));
+
+  return {
+    name: process.name,
+    objective: process.objective,
+    ownerUserId: process.ownerUserId ?? null,
+    inputs: process.inputs ?? [],
+    outputs: process.outputs ?? [],
+    criteria: process.criteria ?? null,
+    indicators: process.indicators ?? null,
+    status: process.status,
+    attachments: normalizeAttachments(process.attachments),
+    interactions: normalizeProcessInteractionsForComparison(interactions),
+  };
 }
 
 async function syncProcessInteractions(
@@ -834,10 +929,11 @@ router.get("/organizations/:orgId/governance/sgq-processes", async (req, res): P
   if (query.status) conditions.push(eq(sgqProcessesTable.status, query.status));
   if (query.ownerUserId) conditions.push(eq(sgqProcessesTable.ownerUserId, query.ownerUserId));
   if (query.search) {
+    const pattern = buildContainsPattern(query.search);
     conditions.push(
       or(
-        ilike(sgqProcessesTable.name, `%${query.search}%`),
-        ilike(sgqProcessesTable.objective, `%${query.search}%`),
+        ilike(sgqProcessesTable.name, pattern),
+        ilike(sgqProcessesTable.objective, pattern),
       )!,
     );
   }
@@ -989,6 +1085,11 @@ router.patch(
       res.status(404).json({ error: "Processo SGQ não encontrado" });
       return;
     }
+    const currentState = await getProcessComparisonState(params.processId, params.orgId);
+    if (!currentState) {
+      res.status(404).json({ error: "Processo SGQ não encontrado" });
+      return;
+    }
 
     if (
       body.ownerUserId &&
@@ -998,9 +1099,37 @@ router.patch(
       return;
     }
 
+    const nextState: ProcessSnapshotState = {
+      name: body.name ?? currentState.name,
+      objective: body.objective ?? currentState.objective,
+      ownerUserId: body.ownerUserId !== undefined ? body.ownerUserId ?? null : currentState.ownerUserId,
+      inputs: body.inputs ?? currentState.inputs,
+      outputs: body.outputs ?? currentState.outputs,
+      criteria:
+        body.criteria !== undefined ? normalizeNullableText(body.criteria) : currentState.criteria,
+      indicators:
+        body.indicators !== undefined
+          ? normalizeNullableText(body.indicators)
+          : currentState.indicators,
+      status: body.status ?? currentState.status,
+      attachments:
+        body.attachments !== undefined
+          ? normalizeAttachments(body.attachments)
+          : currentState.attachments,
+      interactions:
+        body.interactions !== undefined
+          ? normalizeProcessInteractionsForComparison(body.interactions)
+          : currentState.interactions,
+    };
+
+    if (processSnapshotsEqual(currentState, nextState)) {
+      res.json(await getProcessDetail(params.processId, params.orgId));
+      return;
+    }
+
     try {
       await db.transaction(async (tx) => {
-        const updateData: Record<string, unknown> = {
+        const updateData: ProcessUpdateValues = {
           updatedById: req.auth!.userId,
         };
 
@@ -1013,7 +1142,6 @@ router.patch(
         if (body.indicators !== undefined) updateData.indicators = body.indicators ?? null;
         if (body.attachments !== undefined) updateData.attachments = body.attachments;
         if (body.status !== undefined) updateData.status = body.status;
-
         updateData.currentRevisionNumber = process.currentRevisionNumber + 1;
 
         await tx
@@ -1167,10 +1295,11 @@ router.get("/organizations/:orgId/governance/internal-audits", async (req, res):
   if (query.auditorUserId) conditions.push(eq(internalAuditsTable.auditorUserId, query.auditorUserId));
   if (query.originType) conditions.push(eq(internalAuditsTable.originType, query.originType));
   if (query.search) {
+    const pattern = buildContainsPattern(query.search);
     conditions.push(
       or(
-        ilike(internalAuditsTable.title, `%${query.search}%`),
-        ilike(internalAuditsTable.scope, `%${query.search}%`),
+        ilike(internalAuditsTable.title, pattern),
+        ilike(internalAuditsTable.scope, pattern),
       )!,
     );
   }
@@ -1241,8 +1370,7 @@ router.post(
       res.status(400).json({ error: "Auditor inválido" });
       return;
     }
-    if (body.status === "completed" && !(await assertAuditCanComplete(-1))) {
-      // Creation with completed status is not allowed because there are no checklist items yet.
+    if (body.status === "completed") {
       res.status(400).json({ error: "Uma auditoria sem checklist avaliado não pode ser concluída" });
       return;
     }
@@ -1258,7 +1386,7 @@ router.post(
         periodEnd: body.periodEnd,
         auditorUserId: body.auditorUserId ?? null,
         originType: body.originType,
-        status: body.status === "completed" ? "planned" : body.status,
+        status: body.status,
         attachments: body.attachments,
         createdById: req.auth!.userId,
         updatedById: req.auth!.userId,
@@ -1316,7 +1444,7 @@ router.patch(
       return;
     }
 
-    const updateData: Record<string, unknown> = {
+    const updateData: AuditUpdateValues = {
       updatedById: req.auth!.userId,
     };
     if (body.title !== undefined) updateData.title = body.title;
@@ -1494,7 +1622,7 @@ router.patch(
       return;
     }
 
-    const updateData: Record<string, unknown> = { updatedById: req.auth!.userId };
+    const updateData: FindingUpdateValues = { updatedById: req.auth!.userId };
     if (body.processId !== undefined) updateData.processId = body.processId ?? null;
     if (body.requirementRef !== undefined) updateData.requirementRef = body.requirementRef ?? null;
     if (body.classification !== undefined) updateData.classification = body.classification;
@@ -1532,10 +1660,11 @@ router.get("/organizations/:orgId/governance/nonconformities", async (req, res):
     conditions.push(eq(nonconformitiesTable.responsibleUserId, query.responsibleUserId));
   }
   if (query.search) {
+    const pattern = buildContainsPattern(query.search);
     conditions.push(
       or(
-        ilike(nonconformitiesTable.title, `%${query.search}%`),
-        ilike(nonconformitiesTable.description, `%${query.search}%`),
+        ilike(nonconformitiesTable.title, pattern),
+        ilike(nonconformitiesTable.description, pattern),
       )!,
     );
   }
@@ -1722,7 +1851,7 @@ router.patch(
       return;
     }
 
-    const updateData: Record<string, unknown> = { updatedById: req.auth!.userId };
+    const updateData: NonconformityUpdateValues = { updatedById: req.auth!.userId };
     if (body.originType !== undefined) updateData.originType = body.originType;
     if (body.title !== undefined) updateData.title = body.title;
     if (body.description !== undefined) updateData.description = body.description;
@@ -1911,7 +2040,7 @@ router.patch(
       return;
     }
 
-    const updateData: Record<string, unknown> = { updatedById: req.auth!.userId };
+    const updateData: CorrectiveActionUpdateValues = { updatedById: req.auth!.userId };
     if (body.title !== undefined) updateData.title = body.title;
     if (body.description !== undefined) updateData.description = body.description;
     if (body.responsibleUserId !== undefined) {
@@ -1955,10 +2084,11 @@ router.get("/organizations/:orgId/governance/management-reviews", async (req, re
   if (query.status) conditions.push(eq(managementReviewsTable.status, query.status));
   if (query.chairUserId) conditions.push(eq(managementReviewsTable.chairUserId, query.chairUserId));
   if (query.search) {
+    const pattern = buildContainsPattern(query.search);
     conditions.push(
       or(
-        ilike(managementReviewsTable.title, `%${query.search}%`),
-        ilike(managementReviewsTable.minutes, `%${query.search}%`),
+        ilike(managementReviewsTable.title, pattern),
+        ilike(managementReviewsTable.minutes, pattern),
       )!,
     );
   }
@@ -2090,7 +2220,7 @@ router.patch(
       return;
     }
 
-    const updateData: Record<string, unknown> = { updatedById: req.auth!.userId };
+    const updateData: ManagementReviewUpdateValues = { updatedById: req.auth!.userId };
     if (body.title !== undefined) updateData.title = body.title;
     if (body.reviewDate !== undefined) updateData.reviewDate = body.reviewDate;
     if (body.chairUserId !== undefined) updateData.chairUserId = body.chairUserId ?? null;
@@ -2203,8 +2333,47 @@ router.patch(
       res.status(404).json({ error: "Análise crítica não encontrada" });
       return;
     }
+    const [existingInput] = await db
+      .select()
+      .from(managementReviewInputsTable)
+      .where(
+        and(
+          eq(managementReviewInputsTable.id, params.inputId),
+          eq(managementReviewInputsTable.reviewId, params.reviewId),
+        ),
+      );
+    if (!existingInput) {
+      res.status(404).json({ error: "Entrada não encontrada" });
+      return;
+    }
+    if (body.documentId && !(await validateOrgDocuments([body.documentId], params.orgId))) {
+      res.status(400).json({ error: "Documento inválido" });
+      return;
+    }
+    if (body.auditId && !(await validateOrgAudits([body.auditId], params.orgId))) {
+      res.status(400).json({ error: "Auditoria inválida" });
+      return;
+    }
+    if (
+      body.nonconformityId &&
+      !(await validateOrgNonconformities([body.nonconformityId], params.orgId))
+    ) {
+      res.status(400).json({ error: "Não conformidade inválida" });
+      return;
+    }
+    if (
+      body.strategicPlanId &&
+      !(await validateOrgStrategicPlans([body.strategicPlanId], params.orgId))
+    ) {
+      res.status(400).json({ error: "Planejamento estratégico inválido" });
+      return;
+    }
+    if (body.processId && !(await validateOrgProcesses([body.processId], params.orgId))) {
+      res.status(400).json({ error: "Processo SGQ inválido" });
+      return;
+    }
 
-    const updateData: Record<string, unknown> = {};
+    const updateData: ManagementReviewInputUpdateValues = {};
     if (body.inputType !== undefined) updateData.inputType = body.inputType;
     if (body.summary !== undefined) updateData.summary = body.summary;
     if (body.documentId !== undefined) updateData.documentId = body.documentId ?? null;
@@ -2361,10 +2530,21 @@ router.patch(
       res.status(400).json({ error: "Responsável inválido" });
       return;
     }
+    if (body.processId && !(await validateOrgProcesses([body.processId], params.orgId))) {
+      res.status(400).json({ error: "Processo SGQ inválido" });
+      return;
+    }
+    if (
+      body.nonconformityId &&
+      !(await validateOrgNonconformities([body.nonconformityId], params.orgId))
+    ) {
+      res.status(400).json({ error: "Não conformidade inválida" });
+      return;
+    }
 
     const nextType = body.outputType ?? existingOutput.outputType;
     const nextStatus = body.status ?? existingOutput.status;
-    const updateData: Record<string, unknown> = {};
+    const updateData: ManagementReviewOutputUpdateValues = {};
     if (body.outputType !== undefined) updateData.outputType = body.outputType;
     if (body.description !== undefined) updateData.description = body.description;
     if (body.responsibleUserId !== undefined) {
