@@ -1,6 +1,11 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
-import { db, sgqProcessRevisionsTable, strategicPlansTable } from "@workspace/db";
+import {
+  db,
+  nonconformitiesTable,
+  sgqProcessRevisionsTable,
+  strategicPlansTable,
+} from "@workspace/db";
 import app from "../../src/app";
 import {
   authHeader,
@@ -469,6 +474,19 @@ describe("governance system routes", () => {
 
     expect(localProcess.status).toBe(201);
 
+    const explicitSnapshot = {
+      name: `Processo local ${context.prefix}`,
+      objective: "Controle local do SGQ",
+      ownerUserId: owner.id,
+      inputs: ["Entrada"],
+      outputs: ["Saída"],
+      criteria: null,
+      indicators: null,
+      status: "active" as const,
+      attachments: [],
+      interactions: [],
+    };
+
     let duplicateRevisionError: unknown;
     try {
       await db.insert(sgqProcessRevisionsTable).values({
@@ -476,13 +494,18 @@ describe("governance system routes", () => {
         revisionNumber: 1,
         approvedById: context.userId,
         changeSummary: "Duplicada",
-        snapshot: localProcess.body.revisions[0].snapshot,
+        snapshot: explicitSnapshot,
       });
     } catch (error) {
       duplicateRevisionError = error;
     }
 
     expect(duplicateRevisionError).toBeTruthy();
+    const duplicateRevisionMessage =
+      duplicateRevisionError instanceof Error
+        ? duplicateRevisionError.message
+        : String(duplicateRevisionError);
+    expect(duplicateRevisionMessage).toContain("sgq_process_revision_number_unique");
 
     const foreignAudit = await request(app)
       .post(`/api/organizations/${foreignContext.organizationId}/governance/internal-audits`)
@@ -529,6 +552,28 @@ describe("governance system routes", () => {
 
     expect(patchedNc.status).toBe(400);
     expect(patchedNc.body.error).toContain("Achado de auditoria inválido");
+
+    let compositeFkError: unknown;
+    try {
+      await db.insert(nonconformitiesTable).values({
+        organizationId: context.organizationId,
+        originType: "audit_finding",
+        title: `NC DB ${context.prefix}`,
+        description: "Tentativa de vínculo cross-org direto no banco",
+        auditFindingId: foreignFinding.body.id,
+        createdById: context.userId,
+        updatedById: context.userId,
+      });
+    } catch (error) {
+      compositeFkError = error;
+    }
+
+    expect(compositeFkError).toBeTruthy();
+    const compositeFkMessage =
+      compositeFkError instanceof Error
+        ? compositeFkError.message
+        : String(compositeFkError);
+    expect(compositeFkMessage).toContain("nonconformities_audit_finding_org_fk");
   });
 
   it("requires inputs and outputs before completing a management review and keeps action outputs open", async () => {

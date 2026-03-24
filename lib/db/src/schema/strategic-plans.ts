@@ -279,6 +279,9 @@ export const strategicPlanRiskOpportunityItemsTable = pgTable(
   "strategic_plan_risk_opportunity_items",
   {
     id: serial("id").primaryKey(),
+    organizationId: integer("organization_id")
+      .notNull()
+      .references(() => organizationsTable.id, { onDelete: "cascade" }),
     planId: integer("plan_id")
       .notNull()
       .references(() => strategicPlansTable.id, { onDelete: "cascade" }),
@@ -323,6 +326,12 @@ export const strategicPlanRiskOpportunityItemsTable = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
+  (table) => [
+    unique("strategic_plan_risk_opportunity_items_org_id_unique").on(
+      table.organizationId,
+      table.id,
+    ),
+  ],
 );
 
 export const strategicPlanRiskOpportunityEffectivenessReviewsTable = pgTable(

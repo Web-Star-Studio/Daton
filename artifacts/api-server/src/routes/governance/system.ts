@@ -1610,6 +1610,7 @@ router.post(
     const [finding] = await db
       .insert(internalAuditFindingsTable)
       .values({
+        organizationId: params.orgId,
         auditId: params.auditId,
         processId: body.processId ?? null,
         requirementRef: body.requirementRef ?? null,

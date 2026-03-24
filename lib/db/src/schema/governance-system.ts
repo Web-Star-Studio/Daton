@@ -3,6 +3,7 @@ import {
   AnyPgColumn,
   boolean,
   date,
+  foreignKey,
   integer,
   jsonb,
   pgTable,
@@ -133,6 +134,7 @@ export const sgqProcessesTable = pgTable(
   },
   (table) => [
     unique("sgq_process_org_name_unique").on(table.organizationId, table.name),
+    unique("sgq_processes_org_id_unique").on(table.organizationId, table.id),
   ],
 );
 
@@ -272,6 +274,9 @@ export const internalAuditChecklistItemsTable = pgTable("internal_audit_checklis
 
 export const internalAuditFindingsTable = pgTable("internal_audit_findings", {
   id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizationsTable.id, { onDelete: "cascade" }),
   auditId: integer("audit_id")
     .notNull()
     .references(() => internalAuditsTable.id, { onDelete: "cascade" }),
@@ -306,7 +311,9 @@ export const internalAuditFindingsTable = pgTable("internal_audit_findings", {
     .notNull()
     .defaultNow()
     .$onUpdate(() => new Date()),
-});
+}, (table) => [
+  unique("internal_audit_findings_org_id_unique").on(table.organizationId, table.id),
+]);
 
 export const nonconformitiesTable = pgTable("nonconformities", {
   id: serial("id").primaryKey(),
@@ -362,7 +369,36 @@ export const nonconformitiesTable = pgTable("nonconformities", {
     .notNull()
     .defaultNow()
     .$onUpdate(() => new Date()),
-});
+}, (table) => [
+  foreignKey({
+    name: "nonconformities_responsible_user_org_fk",
+    columns: [table.organizationId, table.responsibleUserId],
+    foreignColumns: [usersTable.organizationId, usersTable.id],
+  }),
+  foreignKey({
+    name: "nonconformities_process_org_fk",
+    columns: [table.organizationId, table.processId],
+    foreignColumns: [sgqProcessesTable.organizationId, sgqProcessesTable.id],
+  }),
+  foreignKey({
+    name: "nonconformities_document_org_fk",
+    columns: [table.organizationId, table.documentId],
+    foreignColumns: [documentsTable.organizationId, documentsTable.id],
+  }),
+  foreignKey({
+    name: "nonconformities_risk_item_org_fk",
+    columns: [table.organizationId, table.riskOpportunityItemId],
+    foreignColumns: [
+      strategicPlanRiskOpportunityItemsTable.organizationId,
+      strategicPlanRiskOpportunityItemsTable.id,
+    ],
+  }),
+  foreignKey({
+    name: "nonconformities_audit_finding_org_fk",
+    columns: [table.organizationId, table.auditFindingId],
+    foreignColumns: [internalAuditFindingsTable.organizationId, internalAuditFindingsTable.id],
+  }),
+]);
 
 export const correctiveActionsTable = pgTable("corrective_actions", {
   id: serial("id").primaryKey(),

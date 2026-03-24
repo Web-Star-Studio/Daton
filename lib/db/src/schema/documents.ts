@@ -17,7 +17,9 @@ export const documentsTable = pgTable("documents", {
   createdById: integer("created_by_id").notNull().references(() => usersTable.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  unique("documents_org_id_unique").on(table.organizationId, table.id),
+]);
 
 export type Document = typeof documentsTable.$inferSelect;
 
