@@ -1735,6 +1735,7 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
       .where(eq(documentRecipientsTable.documentId, docId))).length > 0
       ? "distributed"
       : "approved";
+    const distributedAt = nextStatus === "distributed" ? new Date() : null;
     let changeDescription = `Versão ${newVersion} aprovada`;
 
     if (canPersistPendingVersionDescription) {
@@ -1761,6 +1762,21 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
     await tx.update(documentsTable)
       .set(documentApprovalUpdates)
       .where(eq(documentsTable.id, docId));
+
+    if (distributedAt) {
+      await tx
+        .update(sgqCommunicationPlansTable)
+        .set({
+          lastDistributedAt: distributedAt,
+          updatedById: userId,
+        })
+        .where(
+          and(
+            eq(sgqCommunicationPlansTable.documentId, docId),
+            eq(sgqCommunicationPlansTable.organizationId, orgId),
+          ),
+        );
+    }
 
     await tx.insert(documentVersionsTable).values({
       documentId: docId,
