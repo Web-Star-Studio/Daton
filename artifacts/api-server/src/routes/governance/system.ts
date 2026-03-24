@@ -188,16 +188,6 @@ const nonconformityCreateBodySchema = z.object({
   documentId: z.number().int().positive().nullable().optional(),
   riskOpportunityItemId: z.number().int().positive().nullable().optional(),
   auditFindingId: z.number().int().positive().nullable().optional(),
-  status: z
-    .enum([
-      "open",
-      "under_analysis",
-      "action_in_progress",
-      "awaiting_effectiveness",
-      "closed",
-      "canceled",
-    ])
-    .default("open"),
   attachments: z.array(attachmentSchema).default([]),
 });
 
@@ -1993,7 +1983,7 @@ router.post(
       res.status(404).json({ error: "Não conformidade não encontrada" });
       return;
     }
-    if (body.result === "effective" && nc.status !== "awaiting_effectiveness") {
+    if (nc.status !== "awaiting_effectiveness") {
       res.status(400).json({ error: "A não conformidade deve estar aguardando eficácia para ser encerrada" });
       return;
     }

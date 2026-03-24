@@ -435,6 +435,17 @@ describe("governance system routes", () => {
     expect(blockedEffectiveReview.status).toBe(400);
     expect(blockedEffectiveReview.body.error).toContain("aguardando eficácia");
 
+    const blockedIneffectiveReview = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/nonconformities/${created.body.id}/effectiveness-review`)
+      .set(authHeader(context))
+      .send({
+        result: "ineffective",
+        comment: "Tentativa prematura",
+      });
+
+    expect(blockedIneffectiveReview.status).toBe(400);
+    expect(blockedIneffectiveReview.body.error).toContain("aguardando eficácia");
+
     const finishedSecondAction = await request(app)
       .patch(`/api/organizations/${context.organizationId}/governance/nonconformities/${created.body.id}/corrective-actions/${secondAction.body.correctiveActions[0].id}`)
       .set(authHeader(context))
