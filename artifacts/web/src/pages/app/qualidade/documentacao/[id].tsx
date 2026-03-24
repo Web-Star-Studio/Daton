@@ -1,4 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useLocation, useParams } from "wouter";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
@@ -159,6 +162,20 @@ type CommunicationPlanFormState = {
   notes: string;
 };
 
+const communicationPlanFormSchema = z.object({
+  channel: z.string().trim().min(1, "Informe o canal"),
+  audience: z.string().trim().min(1, "Informe o público"),
+  periodicity: z.string().trim().min(1, "Informe a periodicidade"),
+  requiresAcknowledgment: z.preprocess(
+    (value) => {
+      if (value === true || value === "yes") return true;
+      return false;
+    },
+    z.boolean(),
+  ),
+  notes: z.string().default(""),
+});
+
 const emptyCommunicationPlanForm = (): CommunicationPlanFormState => ({
   channel: "",
   audience: "",
@@ -195,9 +212,17 @@ export default function DocumentDetailPage() {
   const [editingCommunicationPlanId, setEditingCommunicationPlanId] = useState<
     number | undefined
   >(undefined);
-  const [communicationPlanForm, setCommunicationPlanForm] = useState<CommunicationPlanFormState>(
-    emptyCommunicationPlanForm(),
-  );
+  const communicationPlanForm = useForm<CommunicationPlanFormState>({
+    resolver: zodResolver(communicationPlanFormSchema),
+    defaultValues: emptyCommunicationPlanForm(),
+  });
+  const {
+    register: registerCommunicationPlan,
+    handleSubmit: handleCommunicationPlanSubmit,
+    reset: resetCommunicationPlanValues,
+    formState: communicationPlanFormState,
+    watch: watchCommunicationPlan,
+  } = communicationPlanForm;
 
   const { data: doc, isLoading } = useGetDocument(orgId!, docId, {
     query: {
@@ -345,8 +370,13 @@ export default function DocumentDetailPage() {
 
   const resetCommunicationPlanForm = () => {
     setEditingCommunicationPlanId(undefined);
-    setCommunicationPlanForm(emptyCommunicationPlanForm());
+    resetCommunicationPlanValues(emptyCommunicationPlanForm());
   };
+
+  useEffect(() => {
+    setEditingCommunicationPlanId(undefined);
+    resetCommunicationPlanValues(emptyCommunicationPlanForm());
+  }, [docId, resetCommunicationPlanValues]);
 
   const invalidate = () =>
     queryClient.invalidateQueries({
@@ -401,6 +431,8 @@ export default function DocumentDetailPage() {
     setSubmitChangeDescription("");
     invalidate();
   };
+
+  const watchedCommunicationPlan = watchCommunicationPlan();
 
   const handleCompleteCriticalAnalysis = async () => {
     if (!orgId) return;
@@ -865,129 +897,113 @@ export default function DocumentDetailPage() {
                     Configure canais, públicos e periodicidade da política aprovada.
                   </p>
                 </div>
-                {editingCommunicationPlanId ? (
+                {canEdit && editingCommunicationPlanId ? (
                   <Button variant="outline" size="sm" onClick={resetCommunicationPlanForm}>
                     Cancelar edição
                   </Button>
                 ) : null}
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Canal</Label>
-                  <Input
-                    value={communicationPlanForm.channel}
-                    onChange={(event) =>
-                      setCommunicationPlanForm((current) => ({
-                        ...current,
-                        channel: event.target.value,
-                      }))
-                    }
-                    placeholder="Portal, reunião, mural..."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Público</Label>
-                  <Input
-                    value={communicationPlanForm.audience}
-                    onChange={(event) =>
-                      setCommunicationPlanForm((current) => ({
-                        ...current,
-                        audience: event.target.value,
-                      }))
-                    }
-                    placeholder="Toda a organização, líderes..."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Periodicidade</Label>
-                  <Input
-                    value={communicationPlanForm.periodicity}
-                    onChange={(event) =>
-                      setCommunicationPlanForm((current) => ({
-                        ...current,
-                        periodicity: event.target.value,
-                      }))
-                    }
-                    placeholder="Mensal, trimestral, sob revisão..."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Exige ciência formal?</Label>
-                  <Select
-                    value={communicationPlanForm.requiresAcknowledgment ? "yes" : "no"}
-                    onChange={(event) =>
-                      setCommunicationPlanForm((current) => ({
-                        ...current,
-                        requiresAcknowledgment: event.target.value === "yes",
-                      }))
-                    }
-                  >
-                    <option value="yes">Sim</option>
-                    <option value="no">Não</option>
-                  </Select>
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Observações</Label>
-                  <Textarea
-                    rows={3}
-                    value={communicationPlanForm.notes}
-                    onChange={(event) =>
-                      setCommunicationPlanForm((current) => ({
-                        ...current,
-                        notes: event.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="flex justify-end gap-2 md:col-span-2">
-                  <Button
-                    onClick={async () => {
-                      try {
-                        const body = {
-                          channel: communicationPlanForm.channel,
-                          audience: communicationPlanForm.audience,
-                          periodicity: communicationPlanForm.periodicity,
-                          requiresAcknowledgment:
-                            communicationPlanForm.requiresAcknowledgment,
-                          notes: communicationPlanForm.notes || null,
-                        };
-                        if (editingCommunicationPlanId) {
-                          await updateCommunicationPlanMut.mutateAsync({
-                            method: "PATCH",
-                            body,
-                          });
+              {canEdit ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Canal</Label>
+                    <Input
+                      {...registerCommunicationPlan("channel")}
+                      placeholder="Portal, reunião, mural..."
+                    />
+                    {communicationPlanFormState.errors.channel ? (
+                      <p className="text-sm text-destructive">
+                        {communicationPlanFormState.errors.channel.message}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Público</Label>
+                    <Input
+                      {...registerCommunicationPlan("audience")}
+                      placeholder="Toda a organização, líderes..."
+                    />
+                    {communicationPlanFormState.errors.audience ? (
+                      <p className="text-sm text-destructive">
+                        {communicationPlanFormState.errors.audience.message}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Periodicidade</Label>
+                    <Input
+                      {...registerCommunicationPlan("periodicity")}
+                      placeholder="Mensal, trimestral, sob revisão..."
+                    />
+                    {communicationPlanFormState.errors.periodicity ? (
+                      <p className="text-sm text-destructive">
+                        {communicationPlanFormState.errors.periodicity.message}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Exige ciência formal?</Label>
+                    <Select
+                      {...registerCommunicationPlan("requiresAcknowledgment")}
+                      value={watchedCommunicationPlan.requiresAcknowledgment ? "yes" : "no"}
+                    >
+                      <option value="yes">Sim</option>
+                      <option value="no">Não</option>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Observações</Label>
+                    <Textarea rows={3} {...registerCommunicationPlan("notes")} />
+                  </div>
+                  <div className="flex justify-end gap-2 md:col-span-2">
+                    <Button
+                      onClick={handleCommunicationPlanSubmit(async (values) => {
+                        try {
+                          const body = {
+                            channel: values.channel.trim(),
+                            audience: values.audience.trim(),
+                            periodicity: values.periodicity.trim(),
+                            requiresAcknowledgment: values.requiresAcknowledgment,
+                            notes: values.notes.trim() || null,
+                          };
+                          if (editingCommunicationPlanId) {
+                            await updateCommunicationPlanMut.mutateAsync({
+                              method: "PATCH",
+                              body,
+                            });
+                            toast({
+                              title: "Plano de comunicação atualizado",
+                            });
+                          } else {
+                            await createCommunicationPlanMut.mutateAsync({
+                              method: "POST",
+                              body,
+                            });
+                            toast({
+                              title: "Plano de comunicação criado",
+                            });
+                          }
+                          resetCommunicationPlanForm();
+                        } catch (error) {
                           toast({
-                            title: "Plano de comunicação atualizado",
-                          });
-                        } else {
-                          await createCommunicationPlanMut.mutateAsync({
-                            method: "POST",
-                            body,
-                          });
-                          toast({
-                            title: "Plano de comunicação criado",
+                            title: "Falha ao salvar plano de comunicação",
+                            description:
+                              error instanceof Error ? error.message : "Tente novamente.",
+                            variant: "destructive",
                           });
                         }
-                        resetCommunicationPlanForm();
-                      } catch (error) {
-                        toast({
-                          title: "Falha ao salvar plano de comunicação",
-                          description:
-                            error instanceof Error ? error.message : "Tente novamente.",
-                          variant: "destructive",
-                        });
+                      })}
+                      disabled={
+                        createCommunicationPlanMut.isPending ||
+                        updateCommunicationPlanMut.isPending
                       }
-                    }}
-                    disabled={
-                      createCommunicationPlanMut.isPending ||
-                      updateCommunicationPlanMut.isPending
-                    }
-                  >
-                    {editingCommunicationPlanId ? "Salvar mudanças" : "Adicionar plano"}
-                  </Button>
+                    >
+                      {editingCommunicationPlanId ? "Salvar mudanças" : "Adicionar plano"}
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               <div className="space-y-3">
                 {communicationPlans.map((plan: DocumentCommunicationPlan) => (
@@ -999,48 +1015,50 @@ export default function DocumentDetailPage() {
                           {plan.audience} · {plan.periodicity}
                         </p>
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingCommunicationPlanId(plan.id);
-                            setCommunicationPlanForm({
-                              channel: plan.channel,
-                              audience: plan.audience,
-                              periodicity: plan.periodicity,
-                              requiresAcknowledgment: plan.requiresAcknowledgment,
-                              notes: plan.notes ?? "",
-                            });
-                          }}
-                        >
-                          Editar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={async () => {
-                            try {
-                              await deleteCommunicationPlanMut.mutateAsync({
-                                method: "DELETE",
-                                planId: plan.id,
+                      {canEdit ? (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingCommunicationPlanId(plan.id);
+                              resetCommunicationPlanValues({
+                                channel: plan.channel,
+                                audience: plan.audience,
+                                periodicity: plan.periodicity,
+                                requiresAcknowledgment: plan.requiresAcknowledgment,
+                                notes: plan.notes ?? "",
                               });
-                              resetCommunicationPlanForm();
-                              toast({ title: "Plano de comunicação removido" });
-                            } catch (error) {
-                              toast({
-                                title: "Falha ao remover plano",
-                                description:
-                                  error instanceof Error ? error.message : "Tente novamente.",
-                                variant: "destructive",
-                              });
-                            }
-                          }}
-                        >
-                          Remover
-                        </Button>
-                      </div>
+                            }}
+                          >
+                            Editar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={async () => {
+                              try {
+                                await deleteCommunicationPlanMut.mutateAsync({
+                                  method: "DELETE",
+                                  planId: plan.id,
+                                });
+                                resetCommunicationPlanForm();
+                                toast({ title: "Plano de comunicação removido" });
+                              } catch (error) {
+                                toast({
+                                  title: "Falha ao remover plano",
+                                  description:
+                                    error instanceof Error ? error.message : "Tente novamente.",
+                                  variant: "destructive",
+                                });
+                              }
+                            }}
+                          >
+                            Remover
+                          </Button>
+                        </div>
+                      ) : null}
                     </div>
                     <p className="mt-2 text-sm text-muted-foreground">
                       {plan.notes || "Sem observações registradas."}
