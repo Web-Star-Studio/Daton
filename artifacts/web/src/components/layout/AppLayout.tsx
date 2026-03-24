@@ -37,6 +37,11 @@ type NavLink = {
   label: string;
 };
 
+type NavSection = {
+  label: string;
+  links: NavLink[];
+};
+
 type PopoverPosition = {
   left: number;
   top?: number;
@@ -194,6 +199,26 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           label: "Riscos e Oportunidades",
           href: "/governanca/riscos-oportunidades",
         });
+      } else if (normalizedLocation.startsWith("/governanca/processos-sgq")) {
+        crumbs.push({
+          label: "Processos SGQ",
+          href: "/governanca/processos-sgq",
+        });
+      } else if (normalizedLocation.startsWith("/governanca/auditorias")) {
+        crumbs.push({
+          label: "Auditorias",
+          href: "/governanca/auditorias",
+        });
+      } else if (normalizedLocation.startsWith("/governanca/nao-conformidades")) {
+        crumbs.push({
+          label: "Não Conformidades",
+          href: "/governanca/nao-conformidades",
+        });
+      } else if (normalizedLocation.startsWith("/governanca/analises-criticas")) {
+        crumbs.push({
+          label: "Análises Críticas",
+          href: "/governanca/analises-criticas",
+        });
       } else if (normalizedLocation.startsWith("/governanca/planejamento")) {
         crumbs.push({
           label: "Planejamento",
@@ -247,6 +272,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const governancaLinks: NavLink[] = [
     { href: "/governanca/planejamento", label: "Planejamento" },
     { href: "/governanca/riscos-oportunidades", label: "Riscos e Oportunidades" },
+  ];
+  const governancaSections: NavSection[] = [
+    {
+      label: "Planejamento Estratégico",
+      links: governancaLinks,
+    },
+    {
+      label: "Gestão do Sistema",
+      links: [
+        { href: "/governanca/processos-sgq", label: "Processos SGQ" },
+        { href: "/governanca/auditorias", label: "Auditorias" },
+        { href: "/governanca/nao-conformidades", label: "Não Conformidades" },
+        { href: "/governanca/analises-criticas", label: "Análises Críticas" },
+      ],
+    },
   ];
 
   const configuracoesLinks: NavLink[] = [
@@ -337,6 +377,60 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           >
             {link.label}
           </Link>
+        ))}
+      </div>
+    );
+  };
+
+  const renderSectionPopover = (
+    title: string,
+    sections: NavSection[],
+    isOpen: boolean,
+    setOpen: React.Dispatch<React.SetStateAction<boolean>>,
+    position: PopoverPosition,
+    timeoutRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>,
+  ) => {
+    if (!isOpen) return null;
+
+    return (
+      <div
+        className="fixed z-[100] min-w-[230px] max-h-[calc(100vh-16px)] overflow-y-auto rounded-xl border border-border/60 bg-popover px-1.5 py-2 shadow-lg animate-[popoverIn_150ms_cubic-bezier(0.16,1,0.3,1)]"
+        style={{
+          left: position.left,
+          top: position.top,
+          bottom: position.bottom,
+        }}
+        onMouseEnter={() => {
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+          }
+        }}
+        onMouseLeave={() => closePopover(setOpen, timeoutRef)}
+      >
+        <p className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
+        </p>
+        {sections.map((section) => (
+          <div key={section.label} className="mb-1 last:mb-0">
+            <p className="px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">
+              {section.label}
+            </p>
+            {section.links.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex items-center rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+                  isNavLinkActive(link.href)
+                    ? "bg-muted/50 font-medium text-foreground"
+                    : "text-muted-foreground hover:bg-muted/30 hover:text-foreground",
+                )}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
         ))}
       </div>
     );
@@ -501,12 +595,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             qualidadePopoverPos,
             qualidadeTimeoutRef,
           )}
-          {renderPopover(
-            "Governança",
-            governancaLinks,
-            governancaPopover,
-            setGovernancaPopover,
-            governancaPopoverPos,
+      {renderSectionPopover(
+        "Governança",
+        governancaSections,
+        governancaPopover,
+        setGovernancaPopover,
+        governancaPopoverPos,
             governancaTimeoutRef,
           )}
         </div>

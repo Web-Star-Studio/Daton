@@ -39,6 +39,11 @@ import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
 import { useUserMultiPicker } from "@/hooks/use-user-multi-picker";
 import { useDocumentMultiPicker } from "@/hooks/use-document-multi-picker";
 import {
+  useDocumentCommunicationPlanMutation,
+  useDocumentCommunicationPlans,
+  type DocumentCommunicationPlan,
+} from "@/lib/governance-system-client";
+import {
   FileText,
   Upload,
   Download,
@@ -145,6 +150,22 @@ interface DocumentCriticalReviewerItem {
   completedAt?: string | null;
 }
 
+type CommunicationPlanFormState = {
+  channel: string;
+  audience: string;
+  periodicity: string;
+  requiresAcknowledgment: boolean;
+  notes: string;
+};
+
+const emptyCommunicationPlanForm = (): CommunicationPlanFormState => ({
+  channel: "",
+  audience: "",
+  periodicity: "",
+  requiresAcknowledgment: false,
+  notes: "",
+});
+
 export default function DocumentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const docId = parseInt(id || "0", 10);
@@ -170,6 +191,12 @@ export default function DocumentDetailPage() {
     string | null
   >(null);
   const [editForm, setEditForm] = useState<EditFormState | null>(null);
+  const [editingCommunicationPlanId, setEditingCommunicationPlanId] = useState<
+    number | undefined
+  >(undefined);
+  const [communicationPlanForm, setCommunicationPlanForm] = useState<CommunicationPlanFormState>(
+    emptyCommunicationPlanForm(),
+  );
 
   const { data: doc, isLoading } = useGetDocument(orgId!, docId, {
     query: {
@@ -177,6 +204,11 @@ export default function DocumentDetailPage() {
       enabled: !!orgId && docId > 0,
     },
   });
+  const isPolicyDocument = doc?.type === "politica";
+  const { data: communicationPlans = [] } = useDocumentCommunicationPlans(
+    orgId,
+    isPolicyDocument ? docId : undefined,
+  );
 
   const { data: allUnits } = useListUnits(orgId!, {
     query: {
@@ -246,6 +278,17 @@ export default function DocumentDetailPage() {
   const deleteAttachmentMut = useDeleteDocumentAttachment();
   const resetVersionsMut = useResetDocumentVersions();
   const deleteMut = useDeleteDocument();
+  const createCommunicationPlanMut = useDocumentCommunicationPlanMutation(orgId, docId);
+  const updateCommunicationPlanMut = useDocumentCommunicationPlanMutation(
+    orgId,
+    docId,
+    editingCommunicationPlanId,
+  );
+  const deleteCommunicationPlanMut = useDocumentCommunicationPlanMutation(
+    orgId,
+    docId,
+    editingCommunicationPlanId,
+  );
   const completeCriticalAnalysisMut = useMutation({
     mutationFn: async () => {
       const response = await fetch(
@@ -298,6 +341,11 @@ export default function DocumentDetailPage() {
       });
     },
   });
+
+  const resetCommunicationPlanForm = () => {
+    setEditingCommunicationPlanId(undefined);
+    setCommunicationPlanForm(emptyCommunicationPlanForm());
+  };
 
   const invalidate = () =>
     queryClient.invalidateQueries({
@@ -801,6 +849,211 @@ export default function DocumentDetailPage() {
                     {r.title}
                   </span>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {isPolicyDocument && (
+            <div className="space-y-4 rounded-2xl border border-border/60 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                    Plano de comunicação SGQ
+                  </Label>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Configure canais, públicos e periodicidade da política aprovada.
+                  </p>
+                </div>
+                {editingCommunicationPlanId ? (
+                  <Button variant="outline" size="sm" onClick={resetCommunicationPlanForm}>
+                    Cancelar edição
+                  </Button>
+                ) : null}
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Canal</Label>
+                  <Input
+                    value={communicationPlanForm.channel}
+                    onChange={(event) =>
+                      setCommunicationPlanForm((current) => ({
+                        ...current,
+                        channel: event.target.value,
+                      }))
+                    }
+                    placeholder="Portal, reunião, mural..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Público</Label>
+                  <Input
+                    value={communicationPlanForm.audience}
+                    onChange={(event) =>
+                      setCommunicationPlanForm((current) => ({
+                        ...current,
+                        audience: event.target.value,
+                      }))
+                    }
+                    placeholder="Toda a organização, líderes..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Periodicidade</Label>
+                  <Input
+                    value={communicationPlanForm.periodicity}
+                    onChange={(event) =>
+                      setCommunicationPlanForm((current) => ({
+                        ...current,
+                        periodicity: event.target.value,
+                      }))
+                    }
+                    placeholder="Mensal, trimestral, sob revisão..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Exige ciência formal?</Label>
+                  <Select
+                    value={communicationPlanForm.requiresAcknowledgment ? "yes" : "no"}
+                    onChange={(event) =>
+                      setCommunicationPlanForm((current) => ({
+                        ...current,
+                        requiresAcknowledgment: event.target.value === "yes",
+                      }))
+                    }
+                  >
+                    <option value="yes">Sim</option>
+                    <option value="no">Não</option>
+                  </Select>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Observações</Label>
+                  <Textarea
+                    rows={3}
+                    value={communicationPlanForm.notes}
+                    onChange={(event) =>
+                      setCommunicationPlanForm((current) => ({
+                        ...current,
+                        notes: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="flex justify-end gap-2 md:col-span-2">
+                  <Button
+                    onClick={async () => {
+                      try {
+                        const body = {
+                          channel: communicationPlanForm.channel,
+                          audience: communicationPlanForm.audience,
+                          periodicity: communicationPlanForm.periodicity,
+                          requiresAcknowledgment:
+                            communicationPlanForm.requiresAcknowledgment,
+                          notes: communicationPlanForm.notes || null,
+                        };
+                        if (editingCommunicationPlanId) {
+                          await updateCommunicationPlanMut.mutateAsync({
+                            method: "PATCH",
+                            body,
+                          });
+                          toast({
+                            title: "Plano de comunicação atualizado",
+                          });
+                        } else {
+                          await createCommunicationPlanMut.mutateAsync({
+                            method: "POST",
+                            body,
+                          });
+                          toast({
+                            title: "Plano de comunicação criado",
+                          });
+                        }
+                        resetCommunicationPlanForm();
+                      } catch (error) {
+                        toast({
+                          title: "Falha ao salvar plano de comunicação",
+                          description:
+                            error instanceof Error ? error.message : "Tente novamente.",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                    disabled={
+                      createCommunicationPlanMut.isPending ||
+                      updateCommunicationPlanMut.isPending
+                    }
+                  >
+                    {editingCommunicationPlanId ? "Salvar mudanças" : "Adicionar plano"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {communicationPlans.map((plan: DocumentCommunicationPlan) => (
+                  <div key={plan.id} className="rounded-xl border p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium">{plan.channel}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {plan.audience} · {plan.periodicity}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingCommunicationPlanId(plan.id);
+                            setCommunicationPlanForm({
+                              channel: plan.channel,
+                              audience: plan.audience,
+                              periodicity: plan.periodicity,
+                              requiresAcknowledgment: plan.requiresAcknowledgment,
+                              notes: plan.notes ?? "",
+                            });
+                          }}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={async () => {
+                            try {
+                              await deleteCommunicationPlanMut.mutateAsync({
+                                method: "DELETE",
+                                planId: plan.id,
+                              });
+                              resetCommunicationPlanForm();
+                              toast({ title: "Plano de comunicação removido" });
+                            } catch (error) {
+                              toast({
+                                title: "Falha ao remover plano",
+                                description:
+                                  error instanceof Error ? error.message : "Tente novamente.",
+                                variant: "destructive",
+                              });
+                            }
+                          }}
+                        >
+                          Remover
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {plan.notes || "Sem observações registradas."}
+                    </p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Última distribuição: {formatDateTime(plan.lastDistributedAt)}
+                    </p>
+                  </div>
+                ))}
+                {communicationPlans.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum plano de comunicação SGQ cadastrado para esta política.
+                  </p>
+                ) : null}
               </div>
             </div>
           )}
