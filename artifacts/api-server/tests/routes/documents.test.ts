@@ -27,6 +27,7 @@ async function createDocumentForTest(context: TestOrgContext, options?: {
   criticalReviewerIds?: number[];
   approverIds?: number[];
   recipientIds?: number[];
+  type?: "manual" | "politica";
 }) {
   const employee = await createEmployee(context, {
     name: `Elaborador ${context.prefix}`,
@@ -61,7 +62,7 @@ async function createDocumentForTest(context: TestOrgContext, options?: {
     .set(authHeader(context))
     .send({
       title: `Documento ${context.prefix}`,
-      type: "manual",
+      type: options?.type ?? "manual",
       validityDate: "2030-01-01",
       elaboratorIds: [employee.id],
       criticalReviewerIds: options?.criticalReviewerIds ?? [criticalReviewer!.id],
@@ -250,5 +251,113 @@ describe("documents routes", () => {
         (notification) => notification.type === "document_review",
       ),
     ).toBe(false);
+  });
+
+  it("allows SGQ communication plans only for policy documents and exposes them on detail", async () => {
+    const context = await createTestContext({ seed: "documents-communication-plans" });
+    contexts.push(context);
+
+    const { document: manualDocument } = await createDocumentForTest(context);
+
+    const manualResponse = await request(app)
+      .post(`/api/organizations/${context.organizationId}/documents/${manualDocument.id}/communication-plans`)
+      .set(authHeader(context))
+      .send({
+        channel: "email",
+        audience: "Todos os colaboradores",
+        periodicity: "mensal",
+        requiresAcknowledgment: true,
+        notes: "Enviar no início do mês",
+      });
+
+    expect(manualResponse.status).toBe(400);
+    expect(manualResponse.body.error).toContain("Apenas políticas");
+
+    const { document: policyDocument } = await createDocumentForTest(context, {
+      type: "politica",
+    });
+
+    const createdPlan = await request(app)
+      .post(`/api/organizations/${context.organizationId}/documents/${policyDocument.id}/communication-plans`)
+      .set(authHeader(context))
+      .send({
+        channel: "reunião geral",
+        audience: "Lideranças",
+        periodicity: "trimestral",
+        requiresAcknowledgment: false,
+        notes: "Apresentar os indicadores na abertura",
+      });
+
+    expect(createdPlan.status).toBe(201);
+    expect(createdPlan.body).toHaveLength(1);
+    expect(createdPlan.body[0].channel).toBe("reunião geral");
+
+    const detail = await request(app)
+      .get(`/api/organizations/${context.organizationId}/documents/${policyDocument.id}`)
+      .set(authHeader(context));
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.communicationPlans).toHaveLength(1);
+    expect(detail.body.communicationPlans[0].audience).toBe("Lideranças");
+  });
+
+  it("updates policy communication plans when the document is distributed", async () => {
+    const context = await createTestContext({ seed: "documents-communication-distribution" });
+    contexts.push(context);
+
+    const { document, criticalReviewer, approver } = await createDocumentForTest(context, {
+      type: "politica",
+      recipientIds: [],
+    });
+
+    const createdPlan = await request(app)
+      .post(`/api/organizations/${context.organizationId}/documents/${document.id}/communication-plans`)
+      .set(authHeader(context))
+      .send({
+        channel: "email",
+        audience: "Equipe operacional",
+        periodicity: "mensal",
+        requiresAcknowledgment: true,
+        notes: "Enviar o PDF aprovado",
+      });
+
+    expect(createdPlan.status).toBe(201);
+    expect(createdPlan.body[0].lastDistributedAt).toBeNull();
+
+    await request(app)
+      .post(`/api/organizations/${context.organizationId}/documents/${document.id}/critical-analysis/complete`)
+      .set({ Authorization: `Bearer ${criticalReviewer!.token}` })
+      .send({})
+      .expect(200);
+
+    await request(app)
+      .post(`/api/organizations/${context.organizationId}/documents/${document.id}/submit`)
+      .set(authHeader(context))
+      .send({ changeDescription: "Publicação inicial da política" })
+      .expect(200);
+
+    const approved = await request(app)
+      .post(`/api/organizations/${context.organizationId}/documents/${document.id}/approve`)
+      .set({ Authorization: `Bearer ${approver!.token}` })
+      .send({});
+
+    expect(approved.status).toBe(200);
+    expect(approved.body.status).toBe("approved");
+
+    const distributeResponse = await request(app)
+      .post(`/api/organizations/${context.organizationId}/documents/${document.id}/distribute`)
+      .set(authHeader(context))
+      .send({});
+
+    expect(distributeResponse.status).toBe(200);
+    expect(distributeResponse.body.status).toBe("distributed");
+
+    const plans = await request(app)
+      .get(`/api/organizations/${context.organizationId}/documents/${document.id}/communication-plans`)
+      .set(authHeader(context));
+
+    expect(plans.status).toBe(200);
+    expect(plans.body).toHaveLength(1);
+    expect(plans.body[0].lastDistributedAt).not.toBeNull();
   });
 });

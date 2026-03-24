@@ -6,7 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DocumentAttachment } from "./documentAttachment";
+import type { DocumentCommunicationPlan } from "./documentCommunicationPlan";
 import type { DocumentDetailApproversItem } from "./documentDetailApproversItem";
+import type { DocumentDetailCriticalReviewersItem } from "./documentDetailCriticalReviewersItem";
 import type { DocumentDetailRecipientsItem } from "./documentDetailRecipientsItem";
 import type { DocumentDetailReferencesItem } from "./documentDetailReferencesItem";
 import type { DocumentDetailUnitsItem } from "./documentDetailUnitsItem";
@@ -26,9 +28,11 @@ export interface DocumentDetail {
   updatedAt?: string;
   units?: DocumentDetailUnitsItem[];
   elaborators?: Employee[];
+  criticalReviewers?: DocumentDetailCriticalReviewersItem[];
   approvers?: DocumentDetailApproversItem[];
   recipients?: DocumentDetailRecipientsItem[];
   references?: DocumentDetailReferencesItem[];
   attachments?: DocumentAttachment[];
   versions?: DocumentVersion[];
+  communicationPlans?: DocumentCommunicationPlan[];
 }

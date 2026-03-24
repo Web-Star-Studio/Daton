@@ -2081,6 +2081,122 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /organizations/{orgId}/documents/{docId}/communication-plans:
+    get:
+      operationId: listDocumentCommunicationPlans
+      tags: [documents]
+      summary: List SGQ communication plans for a policy document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Communication plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentCommunicationPlan"
+    post:
+      operationId: createDocumentCommunicationPlan
+      tags: [documents]
+      summary: Create an SGQ communication plan for a policy document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentCommunicationPlanBody"
+      responses:
+        "201":
+          description: Communication plans after creation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentCommunicationPlan"
+
+  /organizations/{orgId}/documents/{docId}/communication-plans/{planId}:
+    patch:
+      operationId: updateDocumentCommunicationPlan
+      tags: [documents]
+      summary: Update an SGQ communication plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDocumentCommunicationPlanBody"
+      responses:
+        "200":
+          description: Communication plans after update
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentCommunicationPlan"
+    delete:
+      operationId: deleteDocumentCommunicationPlan
+      tags: [documents]
+      summary: Delete an SGQ communication plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Communication plan deleted
+
   /organizations/{orgId}/documents/{docId}/submit:
     post:
       operationId: submitDocumentForReview
@@ -3809,6 +3925,47 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteStrategicPlanAction
+      tags: [governance]
+      summary: Delete an action for a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Action deleted
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /organizations/{orgId}/governance/strategic-plans/{planId}/risk-opportunity-items:
     get:
@@ -3982,6 +4139,1006 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /organizations/{orgId}/governance/sgq-processes:
+    get:
+      operationId: listSgqProcesses
+      tags: [governance]
+      summary: List SGQ processes
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/GovernanceSgqProcessStatus"
+        - name: ownerUserId
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated SGQ processes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedSgqProcesses"
+    post:
+      operationId: createSgqProcess
+      tags: [governance]
+      summary: Create an SGQ process
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSgqProcessBody"
+      responses:
+        "201":
+          description: SGQ process created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SgqProcessDetail"
+
+  /organizations/{orgId}/governance/sgq-processes/{processId}:
+    get:
+      operationId: getSgqProcess
+      tags: [governance]
+      summary: Get SGQ process detail
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: processId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: SGQ process detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SgqProcessDetail"
+    patch:
+      operationId: updateSgqProcess
+      tags: [governance]
+      summary: Update an SGQ process
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: processId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSgqProcessBody"
+      responses:
+        "200":
+          description: Updated SGQ process
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SgqProcessDetail"
+
+  /organizations/{orgId}/governance/sgq-processes/{processId}/inactivate:
+    post:
+      operationId: inactivateSgqProcess
+      tags: [governance]
+      summary: Inactivate an SGQ process
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: processId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Inactivated SGQ process
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SgqProcessDetail"
+
+  /organizations/{orgId}/governance/sgq-processes/{processId}/reactivate:
+    post:
+      operationId: reactivateSgqProcess
+      tags: [governance]
+      summary: Reactivate an SGQ process
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: processId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Reactivated SGQ process
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SgqProcessDetail"
+
+  /organizations/{orgId}/governance/sgq-processes/{processId}/revisions:
+    get:
+      operationId: listSgqProcessRevisions
+      tags: [governance]
+      summary: List SGQ process revisions
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: processId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: SGQ process revisions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SgqProcessRevision"
+
+  /organizations/{orgId}/governance/internal-audits:
+    get:
+      operationId: listInternalAudits
+      tags: [governance]
+      summary: List internal audits
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/InternalAuditStatus"
+        - name: auditorUserId
+          in: query
+          schema:
+            type: integer
+        - name: originType
+          in: query
+          schema:
+            $ref: "#/components/schemas/InternalAuditOriginType"
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated internal audits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedInternalAudits"
+    post:
+      operationId: createInternalAudit
+      tags: [governance]
+      summary: Create an internal audit
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInternalAuditBody"
+      responses:
+        "201":
+          description: Internal audit created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalAuditDetail"
+
+  /organizations/{orgId}/governance/internal-audits/{auditId}:
+    get:
+      operationId: getInternalAudit
+      tags: [governance]
+      summary: Get internal audit detail
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: auditId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Internal audit detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalAuditDetail"
+    patch:
+      operationId: updateInternalAudit
+      tags: [governance]
+      summary: Update an internal audit
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: auditId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInternalAuditBody"
+      responses:
+        "200":
+          description: Updated internal audit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalAuditDetail"
+
+  /organizations/{orgId}/governance/internal-audits/{auditId}/checklist-items:
+    put:
+      operationId: syncInternalAuditChecklistItems
+      tags: [governance]
+      summary: Replace checklist items for an internal audit
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: auditId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncInternalAuditChecklistBody"
+      responses:
+        "200":
+          description: Updated internal audit detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalAuditDetail"
+
+  /organizations/{orgId}/governance/internal-audits/{auditId}/findings:
+    get:
+      operationId: listInternalAuditFindings
+      tags: [governance]
+      summary: List findings for an internal audit
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: auditId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Internal audit findings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InternalAuditFinding"
+    post:
+      operationId: createInternalAuditFinding
+      tags: [governance]
+      summary: Create a finding for an internal audit
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: auditId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInternalAuditFindingBody"
+      responses:
+        "201":
+          description: Internal audit finding created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalAuditFinding"
+
+  /organizations/{orgId}/governance/internal-audits/{auditId}/findings/{findingId}:
+    patch:
+      operationId: updateInternalAuditFinding
+      tags: [governance]
+      summary: Update an internal audit finding
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: auditId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: findingId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInternalAuditFindingBody"
+      responses:
+        "200":
+          description: Updated internal audit finding
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalAuditFinding"
+
+  /organizations/{orgId}/governance/nonconformities:
+    get:
+      operationId: listNonconformities
+      tags: [governance]
+      summary: List nonconformities
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/NonconformityStatus"
+        - name: originType
+          in: query
+          schema:
+            $ref: "#/components/schemas/NonconformityOriginType"
+        - name: responsibleUserId
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated nonconformities
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedNonconformities"
+    post:
+      operationId: createNonconformity
+      tags: [governance]
+      summary: Create a nonconformity
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNonconformityBody"
+      responses:
+        "201":
+          description: Nonconformity created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NonconformityDetail"
+
+  /organizations/{orgId}/governance/nonconformities/{ncId}:
+    get:
+      operationId: getNonconformity
+      tags: [governance]
+      summary: Get nonconformity detail
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: ncId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Nonconformity detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NonconformityDetail"
+    patch:
+      operationId: updateNonconformity
+      tags: [governance]
+      summary: Update a nonconformity
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: ncId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNonconformityBody"
+      responses:
+        "200":
+          description: Updated nonconformity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NonconformityDetail"
+
+  /organizations/{orgId}/governance/nonconformities/{ncId}/effectiveness-review:
+    post:
+      operationId: createNonconformityEffectivenessReview
+      tags: [governance]
+      summary: Register effectiveness review for a nonconformity
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: ncId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NonconformityEffectivenessReviewBody"
+      responses:
+        "200":
+          description: Updated nonconformity detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NonconformityDetail"
+
+  /organizations/{orgId}/governance/nonconformities/{ncId}/corrective-actions:
+    get:
+      operationId: listCorrectiveActions
+      tags: [governance]
+      summary: List corrective actions for a nonconformity
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: ncId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Corrective actions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CorrectiveAction"
+    post:
+      operationId: createCorrectiveAction
+      tags: [governance]
+      summary: Create a corrective action for a nonconformity
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: ncId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCorrectiveActionBody"
+      responses:
+        "201":
+          description: Updated nonconformity detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NonconformityDetail"
+
+  /organizations/{orgId}/governance/nonconformities/{ncId}/corrective-actions/{actionId}:
+    patch:
+      operationId: updateCorrectiveAction
+      tags: [governance]
+      summary: Update a corrective action
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: ncId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: actionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCorrectiveActionBody"
+      responses:
+        "200":
+          description: Updated nonconformity detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NonconformityDetail"
+
+  /organizations/{orgId}/governance/management-reviews:
+    get:
+      operationId: listManagementReviews
+      tags: [governance]
+      summary: List management reviews
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ManagementReviewStatus"
+        - name: chairUserId
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated management reviews
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedManagementReviews"
+    post:
+      operationId: createManagementReview
+      tags: [governance]
+      summary: Create a management review
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateManagementReviewBody"
+      responses:
+        "201":
+          description: Management review created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementReviewDetail"
+
+  /organizations/{orgId}/governance/management-reviews/{reviewId}:
+    get:
+      operationId: getManagementReview
+      tags: [governance]
+      summary: Get management review detail
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Management review detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementReviewDetail"
+    patch:
+      operationId: updateManagementReview
+      tags: [governance]
+      summary: Update a management review
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateManagementReviewBody"
+      responses:
+        "200":
+          description: Updated management review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementReviewDetail"
+
+  /organizations/{orgId}/governance/management-reviews/{reviewId}/inputs:
+    get:
+      operationId: listManagementReviewInputs
+      tags: [governance]
+      summary: List inputs for a management review
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Management review inputs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ManagementReviewInput"
+    post:
+      operationId: createManagementReviewInput
+      tags: [governance]
+      summary: Create an input for a management review
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateManagementReviewInputBody"
+      responses:
+        "201":
+          description: Updated management review detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementReviewDetail"
+
+  /organizations/{orgId}/governance/management-reviews/{reviewId}/inputs/{inputId}:
+    patch:
+      operationId: updateManagementReviewInput
+      tags: [governance]
+      summary: Update a management review input
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: inputId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateManagementReviewInputBody"
+      responses:
+        "200":
+          description: Updated management review detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementReviewDetail"
+    delete:
+      operationId: deleteManagementReviewInput
+      tags: [governance]
+      summary: Delete a management review input
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: inputId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Management review input deleted
+
+  /organizations/{orgId}/governance/management-reviews/{reviewId}/outputs:
+    get:
+      operationId: listManagementReviewOutputs
+      tags: [governance]
+      summary: List outputs for a management review
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Management review outputs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ManagementReviewOutput"
+    post:
+      operationId: createManagementReviewOutput
+      tags: [governance]
+      summary: Create an output for a management review
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateManagementReviewOutputBody"
+      responses:
+        "201":
+          description: Updated management review detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementReviewDetail"
+
+  /organizations/{orgId}/governance/management-reviews/{reviewId}/outputs/{outputId}:
+    patch:
+      operationId: updateManagementReviewOutput
+      tags: [governance]
+      summary: Update a management review output
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: outputId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateManagementReviewOutputBody"
+      responses:
+        "200":
+          description: Updated management review detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementReviewDetail"
+    delete:
+      operationId: deleteManagementReviewOutput
+      tags: [governance]
+      summary: Delete a management review output
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: outputId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Management review output deleted
+
   /organizations/{orgId}/governance/strategic-plans/{planId}/risk-opportunity-items/{itemId}/effectiveness-review:
     post:
       operationId: createStrategicPlanRiskOpportunityEffectivenessReview
@@ -4016,59 +5173,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StrategicPlanRiskOpportunityItem"
-        "400":
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-    delete:
-      operationId: deleteStrategicPlanAction
-      tags: [governance]
-      summary: Delete an action for a strategic plan
-      parameters:
-        - name: orgId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: planId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: itemId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "204":
-          description: Action deleted
         "400":
           description: Validation error
           content:
@@ -7198,6 +8302,1215 @@ components:
         - objectPath
         - uploadedAt
 
+    GovernanceSystemAttachment:
+      allOf:
+        - $ref: "#/components/schemas/EmployeeRecordAttachment"
+
+    PaginatedResponseMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+      required:
+        - page
+        - pageSize
+        - total
+        - totalPages
+
+    GovernanceSgqProcessStatus:
+      type: string
+      enum: [active, inactive]
+
+    InternalAuditOriginType:
+      type: string
+      enum: [internal, external_manual]
+
+    InternalAuditStatus:
+      type: string
+      enum: [planned, in_progress, completed, canceled]
+
+    InternalAuditChecklistResult:
+      type: string
+      enum: [conformity, nonconformity, observation, not_evaluated]
+
+    InternalAuditFindingClassification:
+      type: string
+      enum: [conformity, observation, nonconformity]
+
+    NonconformityOriginType:
+      type: string
+      enum: [audit_finding, incident, document, process, risk, other]
+
+    NonconformityStatus:
+      type: string
+      enum: [open, under_analysis, action_in_progress, awaiting_effectiveness, closed, canceled]
+
+    NonconformityEffectivenessResult:
+      type: string
+      enum: [effective, ineffective]
+
+    CorrectiveActionStatus:
+      type: string
+      enum: [pending, in_progress, done, canceled]
+
+    ManagementReviewStatus:
+      type: string
+      enum: [draft, completed, canceled]
+
+    ManagementReviewInputType:
+      type: string
+      enum:
+        [policy, audit_summary, nc_summary, objective_status, risk_status, process_performance, customer_feedback, other]
+
+    ManagementReviewOutputType:
+      type: string
+      enum: [decision, action, resource, priority]
+
+    ManagementReviewOutputStatus:
+      type: string
+      enum: [open, done, canceled]
+
+    SgqProcessInteraction:
+      type: object
+      properties:
+        id:
+          type: integer
+        relatedProcessId:
+          type: integer
+        relatedProcessName:
+          type: string
+          nullable: true
+        direction:
+          type: string
+          enum: [upstream, downstream]
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+      required:
+        - relatedProcessId
+        - direction
+
+    SgqProcessInteractionInput:
+      type: object
+      properties:
+        relatedProcessId:
+          type: integer
+        direction:
+          type: string
+          enum: [upstream, downstream]
+        notes:
+          type: string
+          nullable: true
+      required:
+        - relatedProcessId
+        - direction
+
+    SgqProcessRevisionSnapshot:
+      type: object
+      properties:
+        name:
+          type: string
+        objective:
+          type: string
+        ownerUserId:
+          type: integer
+          nullable: true
+        inputs:
+          type: array
+          items:
+            type: string
+        outputs:
+          type: array
+          items:
+            type: string
+        criteria:
+          type: string
+          nullable: true
+        indicators:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/GovernanceSgqProcessStatus"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        interactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SgqProcessInteractionInput"
+      required:
+        - name
+        - objective
+        - inputs
+        - outputs
+        - status
+        - attachments
+        - interactions
+
+    SgqProcessRevision:
+      type: object
+      properties:
+        id:
+          type: integer
+        revisionNumber:
+          type: integer
+        changeSummary:
+          type: string
+          nullable: true
+        approvedById:
+          type: integer
+          nullable: true
+        approvedByName:
+          type: string
+          nullable: true
+        snapshot:
+          $ref: "#/components/schemas/SgqProcessRevisionSnapshot"
+        createdAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - revisionNumber
+        - snapshot
+
+    SgqProcessListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        name:
+          type: string
+        objective:
+          type: string
+        ownerUserId:
+          type: integer
+          nullable: true
+        ownerName:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/GovernanceSgqProcessStatus"
+        currentRevisionNumber:
+          type: integer
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - organizationId
+        - name
+        - objective
+        - status
+        - currentRevisionNumber
+
+    SgqProcessDetail:
+      allOf:
+        - $ref: "#/components/schemas/SgqProcessListItem"
+        - type: object
+          properties:
+            inputs:
+              type: array
+              items:
+                type: string
+            outputs:
+              type: array
+              items:
+                type: string
+            criteria:
+              type: string
+              nullable: true
+            indicators:
+              type: string
+              nullable: true
+            attachments:
+              type: array
+              items:
+                $ref: "#/components/schemas/GovernanceSystemAttachment"
+            createdById:
+              type: integer
+              nullable: true
+            updatedById:
+              type: integer
+              nullable: true
+            interactions:
+              type: array
+              items:
+                $ref: "#/components/schemas/SgqProcessInteraction"
+            revisions:
+              type: array
+              items:
+                $ref: "#/components/schemas/SgqProcessRevision"
+          required:
+            - inputs
+            - outputs
+            - attachments
+            - interactions
+            - revisions
+
+    PaginatedSgqProcesses:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SgqProcessListItem"
+        pagination:
+          $ref: "#/components/schemas/PaginatedResponseMeta"
+      required:
+        - data
+        - pagination
+
+    CreateSgqProcessBody:
+      type: object
+      properties:
+        name:
+          type: string
+        objective:
+          type: string
+        ownerUserId:
+          type: integer
+          nullable: true
+        inputs:
+          type: array
+          items:
+            type: string
+        outputs:
+          type: array
+          items:
+            type: string
+        criteria:
+          type: string
+          nullable: true
+        indicators:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        changeSummary:
+          type: string
+          nullable: true
+        interactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SgqProcessInteractionInput"
+      required:
+        - name
+        - objective
+
+    UpdateSgqProcessBody:
+      type: object
+      properties:
+        name:
+          type: string
+        objective:
+          type: string
+        ownerUserId:
+          type: integer
+          nullable: true
+        inputs:
+          type: array
+          items:
+            type: string
+        outputs:
+          type: array
+          items:
+            type: string
+        criteria:
+          type: string
+          nullable: true
+        indicators:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        status:
+          $ref: "#/components/schemas/GovernanceSgqProcessStatus"
+        changeSummary:
+          type: string
+          nullable: true
+        interactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SgqProcessInteractionInput"
+
+    InternalAuditChecklistItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        auditId:
+          type: integer
+        label:
+          type: string
+        requirementRef:
+          type: string
+          nullable: true
+        result:
+          $ref: "#/components/schemas/InternalAuditChecklistResult"
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - auditId
+        - label
+        - result
+        - sortOrder
+
+    InternalAuditFinding:
+      type: object
+      properties:
+        id:
+          type: integer
+        processId:
+          type: integer
+          nullable: true
+        processName:
+          type: string
+          nullable: true
+        requirementRef:
+          type: string
+          nullable: true
+        classification:
+          $ref: "#/components/schemas/InternalAuditFindingClassification"
+        description:
+          type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
+        responsibleUserName:
+          type: string
+          nullable: true
+        dueDate:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        correctiveActionId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - classification
+        - description
+        - attachments
+
+    InternalAuditListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        title:
+          type: string
+        scope:
+          type: string
+        criteria:
+          type: string
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+        auditorUserId:
+          type: integer
+          nullable: true
+        auditorName:
+          type: string
+          nullable: true
+        originType:
+          $ref: "#/components/schemas/InternalAuditOriginType"
+        status:
+          $ref: "#/components/schemas/InternalAuditStatus"
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - organizationId
+        - title
+        - scope
+        - criteria
+        - periodStart
+        - periodEnd
+        - originType
+        - status
+
+    InternalAuditDetail:
+      allOf:
+        - $ref: "#/components/schemas/InternalAuditListItem"
+        - type: object
+          properties:
+            attachments:
+              type: array
+              items:
+                $ref: "#/components/schemas/GovernanceSystemAttachment"
+            checklistItems:
+              type: array
+              items:
+                $ref: "#/components/schemas/InternalAuditChecklistItem"
+            findings:
+              type: array
+              items:
+                $ref: "#/components/schemas/InternalAuditFinding"
+          required:
+            - attachments
+            - checklistItems
+            - findings
+
+    PaginatedInternalAudits:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/InternalAuditListItem"
+        pagination:
+          $ref: "#/components/schemas/PaginatedResponseMeta"
+      required:
+        - data
+        - pagination
+
+    CreateInternalAuditBody:
+      type: object
+      properties:
+        title:
+          type: string
+        scope:
+          type: string
+        criteria:
+          type: string
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+        auditorUserId:
+          type: integer
+          nullable: true
+        originType:
+          $ref: "#/components/schemas/InternalAuditOriginType"
+        status:
+          $ref: "#/components/schemas/InternalAuditStatus"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+      required:
+        - title
+        - scope
+        - criteria
+        - periodStart
+        - periodEnd
+
+    UpdateInternalAuditBody:
+      type: object
+      properties:
+        title:
+          type: string
+        scope:
+          type: string
+        criteria:
+          type: string
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+        auditorUserId:
+          type: integer
+          nullable: true
+        originType:
+          $ref: "#/components/schemas/InternalAuditOriginType"
+        status:
+          $ref: "#/components/schemas/InternalAuditStatus"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+
+    SyncInternalAuditChecklistBody:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              label:
+                type: string
+              requirementRef:
+                type: string
+                nullable: true
+              result:
+                $ref: "#/components/schemas/InternalAuditChecklistResult"
+              notes:
+                type: string
+                nullable: true
+              sortOrder:
+                type: integer
+            required:
+              - label
+      required:
+        - items
+
+    CreateInternalAuditFindingBody:
+      type: object
+      properties:
+        processId:
+          type: integer
+          nullable: true
+        requirementRef:
+          type: string
+          nullable: true
+        classification:
+          $ref: "#/components/schemas/InternalAuditFindingClassification"
+        description:
+          type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
+        dueDate:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+      required:
+        - classification
+        - description
+
+    UpdateInternalAuditFindingBody:
+      type: object
+      properties:
+        processId:
+          type: integer
+          nullable: true
+        requirementRef:
+          type: string
+          nullable: true
+        classification:
+          $ref: "#/components/schemas/InternalAuditFindingClassification"
+        description:
+          type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
+        dueDate:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+
+    CorrectiveAction:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
+        responsibleUserName:
+          type: string
+          nullable: true
+        dueDate:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/CorrectiveActionStatus"
+        executionNotes:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - title
+        - description
+        - status
+        - attachments
+
+    NonconformityListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        originType:
+          $ref: "#/components/schemas/NonconformityOriginType"
+        title:
+          type: string
+        description:
+          type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
+        responsibleUserName:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/NonconformityStatus"
+        effectivenessResult:
+          $ref: "#/components/schemas/NonconformityEffectivenessResult"
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - organizationId
+        - originType
+        - title
+        - description
+        - status
+
+    NonconformityDetail:
+      allOf:
+        - $ref: "#/components/schemas/NonconformityListItem"
+        - type: object
+          properties:
+            classification:
+              type: string
+              nullable: true
+            rootCause:
+              type: string
+              nullable: true
+            processId:
+              type: integer
+              nullable: true
+            processName:
+              type: string
+              nullable: true
+            documentId:
+              type: integer
+              nullable: true
+            auditFindingId:
+              type: integer
+              nullable: true
+            riskOpportunityItemId:
+              type: integer
+              nullable: true
+            effectivenessComment:
+              type: string
+              nullable: true
+            effectivenessCheckedAt:
+              type: string
+              nullable: true
+            closedAt:
+              type: string
+              nullable: true
+            attachments:
+              type: array
+              items:
+                $ref: "#/components/schemas/GovernanceSystemAttachment"
+            correctiveActions:
+              type: array
+              items:
+                $ref: "#/components/schemas/CorrectiveAction"
+          required:
+            - attachments
+            - correctiveActions
+
+    PaginatedNonconformities:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/NonconformityListItem"
+        pagination:
+          $ref: "#/components/schemas/PaginatedResponseMeta"
+      required:
+        - data
+        - pagination
+
+    CreateNonconformityBody:
+      type: object
+      properties:
+        originType:
+          $ref: "#/components/schemas/NonconformityOriginType"
+        title:
+          type: string
+        description:
+          type: string
+        classification:
+          type: string
+          nullable: true
+        rootCause:
+          type: string
+          nullable: true
+        responsibleUserId:
+          type: integer
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        documentId:
+          type: integer
+          nullable: true
+        riskOpportunityItemId:
+          type: integer
+          nullable: true
+        auditFindingId:
+          type: integer
+          nullable: true
+        status:
+          $ref: "#/components/schemas/NonconformityStatus"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+      required:
+        - originType
+        - title
+        - description
+
+    UpdateNonconformityBody:
+      type: object
+      properties:
+        originType:
+          $ref: "#/components/schemas/NonconformityOriginType"
+        title:
+          type: string
+        description:
+          type: string
+        classification:
+          type: string
+          nullable: true
+        rootCause:
+          type: string
+          nullable: true
+        responsibleUserId:
+          type: integer
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        documentId:
+          type: integer
+          nullable: true
+        riskOpportunityItemId:
+          type: integer
+          nullable: true
+        auditFindingId:
+          type: integer
+          nullable: true
+        status:
+          $ref: "#/components/schemas/NonconformityStatus"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+
+    NonconformityEffectivenessReviewBody:
+      type: object
+      properties:
+        result:
+          $ref: "#/components/schemas/NonconformityEffectivenessResult"
+        comment:
+          type: string
+          nullable: true
+      required:
+        - result
+
+    CreateCorrectiveActionBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
+        dueDate:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/CorrectiveActionStatus"
+        executionNotes:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+      required:
+        - title
+        - description
+
+    UpdateCorrectiveActionBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
+        dueDate:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/CorrectiveActionStatus"
+        executionNotes:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+
+    ManagementReviewInput:
+      type: object
+      properties:
+        id:
+          type: integer
+        reviewId:
+          type: integer
+        inputType:
+          $ref: "#/components/schemas/ManagementReviewInputType"
+        summary:
+          type: string
+        documentId:
+          type: integer
+          nullable: true
+        auditId:
+          type: integer
+          nullable: true
+        nonconformityId:
+          type: integer
+          nullable: true
+        strategicPlanId:
+          type: integer
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - reviewId
+        - inputType
+        - summary
+        - sortOrder
+
+    ManagementReviewOutput:
+      type: object
+      properties:
+        id:
+          type: integer
+        outputType:
+          $ref: "#/components/schemas/ManagementReviewOutputType"
+        description:
+          type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
+        responsibleUserName:
+          type: string
+          nullable: true
+        dueDate:
+          type: string
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        nonconformityId:
+          type: integer
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ManagementReviewOutputStatus"
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - outputType
+        - description
+        - status
+
+    ManagementReviewListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        title:
+          type: string
+        reviewDate:
+          type: string
+        chairUserId:
+          type: integer
+          nullable: true
+        chairUserName:
+          type: string
+          nullable: true
+        minutes:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ManagementReviewStatus"
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - organizationId
+        - title
+        - reviewDate
+        - status
+
+    ManagementReviewDetail:
+      allOf:
+        - $ref: "#/components/schemas/ManagementReviewListItem"
+        - type: object
+          properties:
+            attachments:
+              type: array
+              items:
+                $ref: "#/components/schemas/GovernanceSystemAttachment"
+            inputs:
+              type: array
+              items:
+                $ref: "#/components/schemas/ManagementReviewInput"
+            outputs:
+              type: array
+              items:
+                $ref: "#/components/schemas/ManagementReviewOutput"
+          required:
+            - attachments
+            - inputs
+            - outputs
+
+    PaginatedManagementReviews:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ManagementReviewListItem"
+        pagination:
+          $ref: "#/components/schemas/PaginatedResponseMeta"
+      required:
+        - data
+        - pagination
+
+    CreateManagementReviewBody:
+      type: object
+      properties:
+        title:
+          type: string
+        reviewDate:
+          type: string
+        chairUserId:
+          type: integer
+          nullable: true
+        minutes:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ManagementReviewStatus"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+      required:
+        - title
+        - reviewDate
+
+    UpdateManagementReviewBody:
+      type: object
+      properties:
+        title:
+          type: string
+        reviewDate:
+          type: string
+        chairUserId:
+          type: integer
+          nullable: true
+        minutes:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ManagementReviewStatus"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+
+    CreateManagementReviewInputBody:
+      type: object
+      properties:
+        inputType:
+          $ref: "#/components/schemas/ManagementReviewInputType"
+        summary:
+          type: string
+        documentId:
+          type: integer
+          nullable: true
+        auditId:
+          type: integer
+          nullable: true
+        nonconformityId:
+          type: integer
+          nullable: true
+        strategicPlanId:
+          type: integer
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        sortOrder:
+          type: integer
+      required:
+        - inputType
+        - summary
+
+    UpdateManagementReviewInputBody:
+      type: object
+      properties:
+        inputType:
+          $ref: "#/components/schemas/ManagementReviewInputType"
+        summary:
+          type: string
+        documentId:
+          type: integer
+          nullable: true
+        auditId:
+          type: integer
+          nullable: true
+        nonconformityId:
+          type: integer
+          nullable: true
+        strategicPlanId:
+          type: integer
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        sortOrder:
+          type: integer
+
+    CreateManagementReviewOutputBody:
+      type: object
+      properties:
+        outputType:
+          $ref: "#/components/schemas/ManagementReviewOutputType"
+        description:
+          type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
+        dueDate:
+          type: string
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        nonconformityId:
+          type: integer
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ManagementReviewOutputStatus"
+      required:
+        - outputType
+        - description
+
+    UpdateManagementReviewOutputBody:
+      type: object
+      properties:
+        outputType:
+          $ref: "#/components/schemas/ManagementReviewOutputType"
+        description:
+          type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
+        dueDate:
+          type: string
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        nonconformityId:
+          type: integer
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ManagementReviewOutputStatus"
+
     DocumentSummary:
       type: object
       properties:
@@ -7340,6 +9653,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DocumentVersion"
+        communicationPlans:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentCommunicationPlan"
       required:
         - id
         - title
@@ -7521,6 +9838,79 @@ components:
         - versionNumber
         - changeDescription
         - createdAt
+
+    DocumentCommunicationPlanBody:
+      type: object
+      properties:
+        channel:
+          type: string
+        audience:
+          type: string
+        periodicity:
+          type: string
+        requiresAcknowledgment:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+      required:
+        - channel
+        - audience
+        - periodicity
+        - requiresAcknowledgment
+
+    UpdateDocumentCommunicationPlanBody:
+      type: object
+      properties:
+        channel:
+          type: string
+        audience:
+          type: string
+        periodicity:
+          type: string
+        requiresAcknowledgment:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+
+    DocumentCommunicationPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+        channel:
+          type: string
+        audience:
+          type: string
+        periodicity:
+          type: string
+        requiresAcknowledgment:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+        lastDistributedAt:
+          type: string
+          nullable: true
+        createdById:
+          type: integer
+        createdByName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - channel
+        - audience
+        - periodicity
+        - requiresAcknowledgment
+        - createdById
 
     ApproveDocumentBody:
       type: object

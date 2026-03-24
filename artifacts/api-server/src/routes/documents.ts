@@ -19,6 +19,7 @@ import {
   unitsTable,
   employeesTable,
   notificationsTable,
+  sgqCommunicationPlansTable,
 } from "@workspace/db";
 import {
   ListDocumentsParams,
@@ -59,6 +60,18 @@ const UpdateDocumentBodySchema = UpdateDocumentBody.extend({
 const CompleteDocumentCriticalAnalysisParamsSchema = z.object({
   orgId: z.coerce.number(),
   docId: z.coerce.number(),
+});
+const DocumentCommunicationPlanParamsSchema = z.object({
+  orgId: z.coerce.number().int().positive(),
+  docId: z.coerce.number().int().positive(),
+  planId: z.coerce.number().int().positive().optional(),
+});
+const DocumentCommunicationPlanBodySchema = z.object({
+  channel: z.string().min(1),
+  audience: z.string().min(1),
+  periodicity: z.string().min(1),
+  requiresAcknowledgment: z.boolean().default(false),
+  notes: z.string().nullable().optional(),
 });
 
 async function supportsPendingVersionDescriptionColumn(): Promise<boolean> {
@@ -450,6 +463,13 @@ async function getDocumentRecord(docId: number, orgId: number) {
   return doc ?? null;
 }
 
+async function assertPolicyDocument(docId: number, orgId: number) {
+  const doc = await getDocumentRecord(docId, orgId);
+  if (!doc) return { error: "DOCUMENT_NOT_FOUND" as const };
+  if (doc.type !== "politica") return { error: "DOCUMENT_NOT_POLICY" as const };
+  return { doc };
+}
+
 async function getDocumentDetail(docId: number, orgId: number) {
   const [doc] = await db.select({
     id: documentsTable.id,
@@ -603,6 +623,25 @@ async function getDocumentDetail(docId: number, orgId: number) {
     .where(eq(documentVersionsTable.documentId, docId))
     .orderBy(desc(documentVersionsTable.versionNumber));
 
+  const communicationPlanRows = await db
+    .select({
+      id: sgqCommunicationPlansTable.id,
+      channel: sgqCommunicationPlansTable.channel,
+      audience: sgqCommunicationPlansTable.audience,
+      periodicity: sgqCommunicationPlansTable.periodicity,
+      requiresAcknowledgment: sgqCommunicationPlansTable.requiresAcknowledgment,
+      notes: sgqCommunicationPlansTable.notes,
+      lastDistributedAt: sgqCommunicationPlansTable.lastDistributedAt,
+      createdById: sgqCommunicationPlansTable.createdById,
+      createdByName: usersTable.name,
+      createdAt: sgqCommunicationPlansTable.createdAt,
+      updatedAt: sgqCommunicationPlansTable.updatedAt,
+    })
+    .from(sgqCommunicationPlansTable)
+    .leftJoin(usersTable, eq(sgqCommunicationPlansTable.createdById, usersTable.id))
+    .where(eq(sgqCommunicationPlansTable.documentId, docId))
+    .orderBy(desc(sgqCommunicationPlansTable.updatedAt));
+
   return {
     ...doc,
     createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt,
@@ -668,6 +707,15 @@ async function getDocumentDetail(docId: number, orgId: number) {
     versions: versionRows.map(v => ({
       ...v,
       createdAt: v.createdAt instanceof Date ? v.createdAt.toISOString() : v.createdAt,
+    })),
+    communicationPlans: communicationPlanRows.map((plan) => ({
+      ...plan,
+      createdAt: plan.createdAt instanceof Date ? plan.createdAt.toISOString() : plan.createdAt,
+      updatedAt: plan.updatedAt instanceof Date ? plan.updatedAt.toISOString() : plan.updatedAt,
+      lastDistributedAt:
+        plan.lastDistributedAt instanceof Date
+          ? plan.lastDistributedAt.toISOString()
+          : plan.lastDistributedAt,
     })),
   };
 }
@@ -867,6 +915,199 @@ router.get("/organizations/:orgId/documents/:docId", requireAuth, async (req, re
 
   res.json(detail);
 });
+
+router.get(
+  "/organizations/:orgId/documents/:docId/communication-plans",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const params = DocumentCommunicationPlanParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+
+    const policyCheck = await assertPolicyDocument(params.data.docId, params.data.orgId);
+    if ("error" in policyCheck) {
+      if (policyCheck.error === "DOCUMENT_NOT_FOUND") {
+        res.status(404).json({ error: "Documento não encontrado" });
+        return;
+      }
+      res.status(400).json({ error: "Apenas políticas aceitam planos de comunicação SGQ" });
+      return;
+    }
+
+    const detail = await getDocumentDetail(params.data.docId, params.data.orgId);
+    res.json(detail?.communicationPlans ?? []);
+  },
+);
+
+router.post(
+  "/organizations/:orgId/documents/:docId/communication-plans",
+  requireAuth,
+  requireModuleAccess("documents"),
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = DocumentCommunicationPlanParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    const body = DocumentCommunicationPlanBodySchema.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
+      return;
+    }
+
+    const policyCheck = await assertPolicyDocument(params.data.docId, params.data.orgId);
+    if ("error" in policyCheck) {
+      if (policyCheck.error === "DOCUMENT_NOT_FOUND") {
+        res.status(404).json({ error: "Documento não encontrado" });
+        return;
+      }
+      res.status(400).json({ error: "Apenas políticas aceitam planos de comunicação SGQ" });
+      return;
+    }
+
+    await db.insert(sgqCommunicationPlansTable).values({
+      organizationId: params.data.orgId,
+      documentId: params.data.docId,
+      channel: body.data.channel,
+      audience: body.data.audience,
+      periodicity: body.data.periodicity,
+      requiresAcknowledgment: body.data.requiresAcknowledgment,
+      notes: body.data.notes ?? null,
+      createdById: req.auth!.userId,
+      updatedById: req.auth!.userId,
+    });
+
+    const detail = await getDocumentDetail(params.data.docId, params.data.orgId);
+    res.status(201).json(detail?.communicationPlans ?? []);
+  },
+);
+
+router.patch(
+  "/organizations/:orgId/documents/:docId/communication-plans/:planId",
+  requireAuth,
+  requireModuleAccess("documents"),
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = DocumentCommunicationPlanParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    const body = DocumentCommunicationPlanBodySchema.partial().safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
+      return;
+    }
+    if (!params.data.planId) {
+      res.status(400).json({ error: "Plano de comunicação inválido" });
+      return;
+    }
+
+    const policyCheck = await assertPolicyDocument(params.data.docId, params.data.orgId);
+    if ("error" in policyCheck) {
+      if (policyCheck.error === "DOCUMENT_NOT_FOUND") {
+        res.status(404).json({ error: "Documento não encontrado" });
+        return;
+      }
+      res.status(400).json({ error: "Apenas políticas aceitam planos de comunicação SGQ" });
+      return;
+    }
+
+    const [plan] = await db
+      .select({ id: sgqCommunicationPlansTable.id })
+      .from(sgqCommunicationPlansTable)
+      .where(
+        and(
+          eq(sgqCommunicationPlansTable.id, params.data.planId),
+          eq(sgqCommunicationPlansTable.documentId, params.data.docId),
+          eq(sgqCommunicationPlansTable.organizationId, params.data.orgId),
+        ),
+      );
+
+    if (!plan) {
+      res.status(404).json({ error: "Plano de comunicação não encontrado" });
+      return;
+    }
+
+    const updateData: Record<string, unknown> = {
+      updatedById: req.auth!.userId,
+    };
+    if (body.data.channel !== undefined) updateData.channel = body.data.channel;
+    if (body.data.audience !== undefined) updateData.audience = body.data.audience;
+    if (body.data.periodicity !== undefined) updateData.periodicity = body.data.periodicity;
+    if (body.data.requiresAcknowledgment !== undefined) {
+      updateData.requiresAcknowledgment = body.data.requiresAcknowledgment;
+    }
+    if (body.data.notes !== undefined) updateData.notes = body.data.notes ?? null;
+
+    await db
+      .update(sgqCommunicationPlansTable)
+      .set(updateData)
+      .where(eq(sgqCommunicationPlansTable.id, params.data.planId));
+
+    const detail = await getDocumentDetail(params.data.docId, params.data.orgId);
+    res.json(detail?.communicationPlans ?? []);
+  },
+);
+
+router.delete(
+  "/organizations/:orgId/documents/:docId/communication-plans/:planId",
+  requireAuth,
+  requireModuleAccess("documents"),
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = DocumentCommunicationPlanParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    if (!params.data.planId) {
+      res.status(400).json({ error: "Plano de comunicação inválido" });
+      return;
+    }
+
+    const policyCheck = await assertPolicyDocument(params.data.docId, params.data.orgId);
+    if ("error" in policyCheck) {
+      if (policyCheck.error === "DOCUMENT_NOT_FOUND") {
+        res.status(404).json({ error: "Documento não encontrado" });
+        return;
+      }
+      res.status(400).json({ error: "Apenas políticas aceitam planos de comunicação SGQ" });
+      return;
+    }
+
+    await db
+      .delete(sgqCommunicationPlansTable)
+      .where(
+        and(
+          eq(sgqCommunicationPlansTable.id, params.data.planId),
+          eq(sgqCommunicationPlansTable.documentId, params.data.docId),
+          eq(sgqCommunicationPlansTable.organizationId, params.data.orgId),
+        ),
+      );
+
+    res.sendStatus(204);
+  },
+);
 
 router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = UpdateDocumentParams.safeParse(req.params);
@@ -1494,6 +1735,7 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
       .where(eq(documentRecipientsTable.documentId, docId))).length > 0
       ? "distributed"
       : "approved";
+    const distributedAt = nextStatus === "distributed" ? new Date() : null;
     let changeDescription = `Versão ${newVersion} aprovada`;
 
     if (canPersistPendingVersionDescription) {
@@ -1520,6 +1762,21 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
     await tx.update(documentsTable)
       .set(documentApprovalUpdates)
       .where(eq(documentsTable.id, docId));
+
+    if (distributedAt) {
+      await tx
+        .update(sgqCommunicationPlansTable)
+        .set({
+          lastDistributedAt: distributedAt,
+          updatedById: userId,
+        })
+        .where(
+          and(
+            eq(sgqCommunicationPlansTable.documentId, docId),
+            eq(sgqCommunicationPlansTable.organizationId, orgId),
+          ),
+        );
+    }
 
     await tx.insert(documentVersionsTable).values({
       documentId: docId,
@@ -1661,6 +1918,19 @@ router.post("/organizations/:orgId/documents/:docId/distribute", requireAuth, re
       .update(documentsTable)
       .set({ status: "distributed" })
       .where(eq(documentsTable.id, docId));
+
+    await tx
+      .update(sgqCommunicationPlansTable)
+      .set({
+        lastDistributedAt: new Date(),
+        updatedById: actorUserId,
+      })
+      .where(
+        and(
+          eq(sgqCommunicationPlansTable.documentId, docId),
+          eq(sgqCommunicationPlansTable.organizationId, orgId),
+        ),
+      );
 
     return tx
       .select({ userId: documentRecipientsTable.userId })

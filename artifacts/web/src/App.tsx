@@ -21,6 +21,10 @@ import OrganizacaoEmployeeDetailPage from "@/pages/app/organizacao/colaboradores
 import UnitDetailPage from "@/pages/app/organizacao/unidades/[id]";
 import GovernancePage from "@/pages/app/governanca";
 import GovernanceDetailPage from "@/pages/app/governanca/[id]";
+import GovernanceManagementReviewsPage from "@/pages/app/governanca/analises-criticas";
+import GovernanceAuditsPage from "@/pages/app/governanca/auditorias";
+import GovernanceNonconformitiesPage from "@/pages/app/governanca/nao-conformidades";
+import GovernanceProcessesPage from "@/pages/app/governanca/processos-sgq";
 import GovernanceRiskOpportunityPage from "@/pages/app/governanca/riscos-oportunidades";
 import AdminDashboardPage from "@/pages/app/admin/index";
 import ProductKnowledgeAdminPage from "@/pages/app/admin/base-conhecimento";
@@ -108,6 +112,10 @@ function AppPages() {
       <Route path="/governanca/planejamento" component={GovernancePage} />
       <Route path="/governanca/planejamento/:id" component={GovernanceDetailPage} />
       <Route path="/governanca/riscos-oportunidades" component={GovernanceRiskOpportunityPage} />
+      <Route path="/governanca/processos-sgq" component={GovernanceProcessesPage} />
+      <Route path="/governanca/auditorias" component={GovernanceAuditsPage} />
+      <Route path="/governanca/nao-conformidades" component={GovernanceNonconformitiesPage} />
+      <Route path="/governanca/analises-criticas" component={GovernanceManagementReviewsPage} />
       <Route path="/qualidade/legislacoes" component={LegislacoesPage} />
       <Route path="/qualidade/legislacoes/:id" component={LegislationDetailPage} />
       <Route path="/qualidade/documentacao" component={DocumentacaoPage} />
@@ -127,6 +135,10 @@ function AppPages() {
       <Route path="/app/governanca/planejamento" component={GovernancePage} />
       <Route path="/app/governanca/planejamento/:id" component={GovernanceDetailPage} />
       <Route path="/app/governanca/riscos-oportunidades" component={GovernanceRiskOpportunityPage} />
+      <Route path="/app/governanca/processos-sgq" component={GovernanceProcessesPage} />
+      <Route path="/app/governanca/auditorias" component={GovernanceAuditsPage} />
+      <Route path="/app/governanca/nao-conformidades" component={GovernanceNonconformitiesPage} />
+      <Route path="/app/governanca/analises-criticas" component={GovernanceManagementReviewsPage} />
       <Route path="/app/qualidade/legislacoes" component={LegislacoesPage} />
       <Route path="/app/qualidade/legislacoes/:id" component={LegislationDetailPage} />
       <Route path="/app/qualidade/documentacao" component={DocumentacaoPage} />

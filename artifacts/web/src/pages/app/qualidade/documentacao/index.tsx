@@ -288,7 +288,7 @@ export default function DocumentacaoPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="w-44">
+      <div className="w-44">
           <Label>Tipo</Label>
           <Select
             value={typeFilter}
@@ -302,6 +302,14 @@ export default function DocumentacaoPage() {
               </option>
             ))}
           </Select>
+        </div>
+        <div className="flex items-end">
+          <Button
+            variant={typeFilter === "politica" ? "default" : "outline"}
+            onClick={() => setTypeFilter(typeFilter === "politica" ? "" : "politica")}
+          >
+            {typeFilter === "politica" ? "Limpar filtro de política" : "Ver só políticas"}
+          </Button>
         </div>
         <div className="w-44">
           <Label>Status</Label>

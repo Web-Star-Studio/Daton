@@ -1822,6 +1822,583 @@ export interface StrategicPlanExportResponse {
   uploadedAt: string;
 }
 
+export type GovernanceSystemAttachment = EmployeeRecordAttachment;
+
+export interface PaginatedResponseMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export type GovernanceSgqProcessStatus =
+  (typeof GovernanceSgqProcessStatus)[keyof typeof GovernanceSgqProcessStatus];
+
+export const GovernanceSgqProcessStatus = {
+  active: "active",
+  inactive: "inactive",
+} as const;
+
+export type InternalAuditOriginType =
+  (typeof InternalAuditOriginType)[keyof typeof InternalAuditOriginType];
+
+export const InternalAuditOriginType = {
+  internal: "internal",
+  external_manual: "external_manual",
+} as const;
+
+export type InternalAuditStatus =
+  (typeof InternalAuditStatus)[keyof typeof InternalAuditStatus];
+
+export const InternalAuditStatus = {
+  planned: "planned",
+  in_progress: "in_progress",
+  completed: "completed",
+  canceled: "canceled",
+} as const;
+
+export type InternalAuditChecklistResult =
+  (typeof InternalAuditChecklistResult)[keyof typeof InternalAuditChecklistResult];
+
+export const InternalAuditChecklistResult = {
+  conformity: "conformity",
+  nonconformity: "nonconformity",
+  observation: "observation",
+  not_evaluated: "not_evaluated",
+} as const;
+
+export type InternalAuditFindingClassification =
+  (typeof InternalAuditFindingClassification)[keyof typeof InternalAuditFindingClassification];
+
+export const InternalAuditFindingClassification = {
+  conformity: "conformity",
+  observation: "observation",
+  nonconformity: "nonconformity",
+} as const;
+
+export type NonconformityOriginType =
+  (typeof NonconformityOriginType)[keyof typeof NonconformityOriginType];
+
+export const NonconformityOriginType = {
+  audit_finding: "audit_finding",
+  incident: "incident",
+  document: "document",
+  process: "process",
+  risk: "risk",
+  other: "other",
+} as const;
+
+export type NonconformityStatus =
+  (typeof NonconformityStatus)[keyof typeof NonconformityStatus];
+
+export const NonconformityStatus = {
+  open: "open",
+  under_analysis: "under_analysis",
+  action_in_progress: "action_in_progress",
+  awaiting_effectiveness: "awaiting_effectiveness",
+  closed: "closed",
+  canceled: "canceled",
+} as const;
+
+export type NonconformityEffectivenessResult =
+  (typeof NonconformityEffectivenessResult)[keyof typeof NonconformityEffectivenessResult];
+
+export const NonconformityEffectivenessResult = {
+  effective: "effective",
+  ineffective: "ineffective",
+} as const;
+
+export type CorrectiveActionStatus =
+  (typeof CorrectiveActionStatus)[keyof typeof CorrectiveActionStatus];
+
+export const CorrectiveActionStatus = {
+  pending: "pending",
+  in_progress: "in_progress",
+  done: "done",
+  canceled: "canceled",
+} as const;
+
+export type ManagementReviewStatus =
+  (typeof ManagementReviewStatus)[keyof typeof ManagementReviewStatus];
+
+export const ManagementReviewStatus = {
+  draft: "draft",
+  completed: "completed",
+  canceled: "canceled",
+} as const;
+
+export type ManagementReviewInputType =
+  (typeof ManagementReviewInputType)[keyof typeof ManagementReviewInputType];
+
+export const ManagementReviewInputType = {
+  policy: "policy",
+  audit_summary: "audit_summary",
+  nc_summary: "nc_summary",
+  objective_status: "objective_status",
+  risk_status: "risk_status",
+  process_performance: "process_performance",
+  customer_feedback: "customer_feedback",
+  other: "other",
+} as const;
+
+export type ManagementReviewOutputType =
+  (typeof ManagementReviewOutputType)[keyof typeof ManagementReviewOutputType];
+
+export const ManagementReviewOutputType = {
+  decision: "decision",
+  action: "action",
+  resource: "resource",
+  priority: "priority",
+} as const;
+
+export type ManagementReviewOutputStatus =
+  (typeof ManagementReviewOutputStatus)[keyof typeof ManagementReviewOutputStatus];
+
+export const ManagementReviewOutputStatus = {
+  open: "open",
+  done: "done",
+  canceled: "canceled",
+} as const;
+
+export type SgqProcessInteractionDirection =
+  (typeof SgqProcessInteractionDirection)[keyof typeof SgqProcessInteractionDirection];
+
+export const SgqProcessInteractionDirection = {
+  upstream: "upstream",
+  downstream: "downstream",
+} as const;
+
+export interface SgqProcessInteraction {
+  id?: number;
+  relatedProcessId: number;
+  relatedProcessName?: string | null;
+  direction: SgqProcessInteractionDirection;
+  notes?: string | null;
+  createdAt?: string | null;
+}
+
+export type SgqProcessInteractionInputDirection =
+  (typeof SgqProcessInteractionInputDirection)[keyof typeof SgqProcessInteractionInputDirection];
+
+export const SgqProcessInteractionInputDirection = {
+  upstream: "upstream",
+  downstream: "downstream",
+} as const;
+
+export interface SgqProcessInteractionInput {
+  relatedProcessId: number;
+  direction: SgqProcessInteractionInputDirection;
+  notes?: string | null;
+}
+
+export interface SgqProcessRevisionSnapshot {
+  name: string;
+  objective: string;
+  ownerUserId?: number | null;
+  inputs: string[];
+  outputs: string[];
+  criteria?: string | null;
+  indicators?: string | null;
+  status: GovernanceSgqProcessStatus;
+  attachments: GovernanceSystemAttachment[];
+  interactions: SgqProcessInteractionInput[];
+}
+
+export interface SgqProcessRevision {
+  id: number;
+  revisionNumber: number;
+  changeSummary?: string | null;
+  approvedById?: number | null;
+  approvedByName?: string | null;
+  snapshot: SgqProcessRevisionSnapshot;
+  createdAt?: string | null;
+}
+
+export interface SgqProcessListItem {
+  id: number;
+  organizationId: number;
+  name: string;
+  objective: string;
+  ownerUserId?: number | null;
+  ownerName?: string | null;
+  status: GovernanceSgqProcessStatus;
+  currentRevisionNumber: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export type SgqProcessDetail = SgqProcessListItem & {
+  inputs: string[];
+  outputs: string[];
+  criteria?: string | null;
+  indicators?: string | null;
+  attachments: GovernanceSystemAttachment[];
+  createdById?: number | null;
+  updatedById?: number | null;
+  interactions: SgqProcessInteraction[];
+  revisions: SgqProcessRevision[];
+};
+
+export interface PaginatedSgqProcesses {
+  data: SgqProcessListItem[];
+  pagination: PaginatedResponseMeta;
+}
+
+export interface CreateSgqProcessBody {
+  name: string;
+  objective: string;
+  ownerUserId?: number | null;
+  inputs?: string[];
+  outputs?: string[];
+  criteria?: string | null;
+  indicators?: string | null;
+  attachments?: GovernanceSystemAttachment[];
+  changeSummary?: string | null;
+  interactions?: SgqProcessInteractionInput[];
+}
+
+export interface UpdateSgqProcessBody {
+  name?: string;
+  objective?: string;
+  ownerUserId?: number | null;
+  inputs?: string[];
+  outputs?: string[];
+  criteria?: string | null;
+  indicators?: string | null;
+  attachments?: GovernanceSystemAttachment[];
+  status?: GovernanceSgqProcessStatus;
+  changeSummary?: string | null;
+  interactions?: SgqProcessInteractionInput[];
+}
+
+export interface InternalAuditChecklistItem {
+  id: number;
+  auditId: number;
+  label: string;
+  requirementRef?: string | null;
+  result: InternalAuditChecklistResult;
+  notes?: string | null;
+  sortOrder: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface InternalAuditFinding {
+  id: number;
+  processId?: number | null;
+  processName?: string | null;
+  requirementRef?: string | null;
+  classification: InternalAuditFindingClassification;
+  description: string;
+  responsibleUserId?: number | null;
+  responsibleUserName?: string | null;
+  dueDate?: string | null;
+  attachments: GovernanceSystemAttachment[];
+  correctiveActionId?: number | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface InternalAuditListItem {
+  id: number;
+  organizationId: number;
+  title: string;
+  scope: string;
+  criteria: string;
+  periodStart: string;
+  periodEnd: string;
+  auditorUserId?: number | null;
+  auditorName?: string | null;
+  originType: InternalAuditOriginType;
+  status: InternalAuditStatus;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export type InternalAuditDetail = InternalAuditListItem & {
+  attachments: GovernanceSystemAttachment[];
+  checklistItems: InternalAuditChecklistItem[];
+  findings: InternalAuditFinding[];
+};
+
+export interface PaginatedInternalAudits {
+  data: InternalAuditListItem[];
+  pagination: PaginatedResponseMeta;
+}
+
+export interface CreateInternalAuditBody {
+  title: string;
+  scope: string;
+  criteria: string;
+  periodStart: string;
+  periodEnd: string;
+  auditorUserId?: number | null;
+  originType?: InternalAuditOriginType;
+  status?: InternalAuditStatus;
+  attachments?: GovernanceSystemAttachment[];
+}
+
+export interface UpdateInternalAuditBody {
+  title?: string;
+  scope?: string;
+  criteria?: string;
+  periodStart?: string;
+  periodEnd?: string;
+  auditorUserId?: number | null;
+  originType?: InternalAuditOriginType;
+  status?: InternalAuditStatus;
+  attachments?: GovernanceSystemAttachment[];
+}
+
+export type SyncInternalAuditChecklistBodyItemsItem = {
+  id?: number;
+  label: string;
+  requirementRef?: string | null;
+  result?: InternalAuditChecklistResult;
+  notes?: string | null;
+  sortOrder?: number;
+};
+
+export interface SyncInternalAuditChecklistBody {
+  items: SyncInternalAuditChecklistBodyItemsItem[];
+}
+
+export interface CreateInternalAuditFindingBody {
+  processId?: number | null;
+  requirementRef?: string | null;
+  classification: InternalAuditFindingClassification;
+  description: string;
+  responsibleUserId?: number | null;
+  dueDate?: string | null;
+  attachments?: GovernanceSystemAttachment[];
+}
+
+export interface UpdateInternalAuditFindingBody {
+  processId?: number | null;
+  requirementRef?: string | null;
+  classification?: InternalAuditFindingClassification;
+  description?: string;
+  responsibleUserId?: number | null;
+  dueDate?: string | null;
+  attachments?: GovernanceSystemAttachment[];
+}
+
+export interface CorrectiveAction {
+  id: number;
+  title: string;
+  description: string;
+  responsibleUserId?: number | null;
+  responsibleUserName?: string | null;
+  dueDate?: string | null;
+  status: CorrectiveActionStatus;
+  executionNotes?: string | null;
+  attachments: GovernanceSystemAttachment[];
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface NonconformityListItem {
+  id: number;
+  organizationId: number;
+  originType: NonconformityOriginType;
+  title: string;
+  description: string;
+  responsibleUserId?: number | null;
+  responsibleUserName?: string | null;
+  status: NonconformityStatus;
+  effectivenessResult?: NonconformityEffectivenessResult | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export type NonconformityDetail = NonconformityListItem & {
+  classification?: string | null;
+  rootCause?: string | null;
+  processId?: number | null;
+  processName?: string | null;
+  documentId?: number | null;
+  auditFindingId?: number | null;
+  riskOpportunityItemId?: number | null;
+  effectivenessComment?: string | null;
+  effectivenessCheckedAt?: string | null;
+  closedAt?: string | null;
+  attachments: GovernanceSystemAttachment[];
+  correctiveActions: CorrectiveAction[];
+};
+
+export interface PaginatedNonconformities {
+  data: NonconformityListItem[];
+  pagination: PaginatedResponseMeta;
+}
+
+export interface CreateNonconformityBody {
+  originType: NonconformityOriginType;
+  title: string;
+  description: string;
+  classification?: string | null;
+  rootCause?: string | null;
+  responsibleUserId?: number | null;
+  processId?: number | null;
+  documentId?: number | null;
+  riskOpportunityItemId?: number | null;
+  auditFindingId?: number | null;
+  status?: NonconformityStatus;
+  attachments?: GovernanceSystemAttachment[];
+}
+
+export interface UpdateNonconformityBody {
+  originType?: NonconformityOriginType;
+  title?: string;
+  description?: string;
+  classification?: string | null;
+  rootCause?: string | null;
+  responsibleUserId?: number | null;
+  processId?: number | null;
+  documentId?: number | null;
+  riskOpportunityItemId?: number | null;
+  auditFindingId?: number | null;
+  status?: NonconformityStatus;
+  attachments?: GovernanceSystemAttachment[];
+}
+
+export interface NonconformityEffectivenessReviewBody {
+  result: NonconformityEffectivenessResult;
+  comment?: string | null;
+}
+
+export interface CreateCorrectiveActionBody {
+  title: string;
+  description: string;
+  responsibleUserId?: number | null;
+  dueDate?: string | null;
+  status?: CorrectiveActionStatus;
+  executionNotes?: string | null;
+  attachments?: GovernanceSystemAttachment[];
+}
+
+export interface UpdateCorrectiveActionBody {
+  title?: string;
+  description?: string;
+  responsibleUserId?: number | null;
+  dueDate?: string | null;
+  status?: CorrectiveActionStatus;
+  executionNotes?: string | null;
+  attachments?: GovernanceSystemAttachment[];
+}
+
+export interface ManagementReviewInput {
+  id: number;
+  reviewId: number;
+  inputType: ManagementReviewInputType;
+  summary: string;
+  documentId?: number | null;
+  auditId?: number | null;
+  nonconformityId?: number | null;
+  strategicPlanId?: number | null;
+  processId?: number | null;
+  sortOrder: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ManagementReviewOutput {
+  id: number;
+  outputType: ManagementReviewOutputType;
+  description: string;
+  responsibleUserId?: number | null;
+  responsibleUserName?: string | null;
+  dueDate?: string | null;
+  processId?: number | null;
+  nonconformityId?: number | null;
+  status: ManagementReviewOutputStatus;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ManagementReviewListItem {
+  id: number;
+  organizationId: number;
+  title: string;
+  reviewDate: string;
+  chairUserId?: number | null;
+  chairUserName?: string | null;
+  minutes?: string | null;
+  status: ManagementReviewStatus;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export type ManagementReviewDetail = ManagementReviewListItem & {
+  attachments: GovernanceSystemAttachment[];
+  inputs: ManagementReviewInput[];
+  outputs: ManagementReviewOutput[];
+};
+
+export interface PaginatedManagementReviews {
+  data: ManagementReviewListItem[];
+  pagination: PaginatedResponseMeta;
+}
+
+export interface CreateManagementReviewBody {
+  title: string;
+  reviewDate: string;
+  chairUserId?: number | null;
+  minutes?: string | null;
+  status?: ManagementReviewStatus;
+  attachments?: GovernanceSystemAttachment[];
+}
+
+export interface UpdateManagementReviewBody {
+  title?: string;
+  reviewDate?: string;
+  chairUserId?: number | null;
+  minutes?: string | null;
+  status?: ManagementReviewStatus;
+  attachments?: GovernanceSystemAttachment[];
+}
+
+export interface CreateManagementReviewInputBody {
+  inputType: ManagementReviewInputType;
+  summary: string;
+  documentId?: number | null;
+  auditId?: number | null;
+  nonconformityId?: number | null;
+  strategicPlanId?: number | null;
+  processId?: number | null;
+  sortOrder?: number;
+}
+
+export interface UpdateManagementReviewInputBody {
+  inputType?: ManagementReviewInputType;
+  summary?: string;
+  documentId?: number | null;
+  auditId?: number | null;
+  nonconformityId?: number | null;
+  strategicPlanId?: number | null;
+  processId?: number | null;
+  sortOrder?: number;
+}
+
+export interface CreateManagementReviewOutputBody {
+  outputType: ManagementReviewOutputType;
+  description: string;
+  responsibleUserId?: number | null;
+  dueDate?: string | null;
+  processId?: number | null;
+  nonconformityId?: number | null;
+  status?: ManagementReviewOutputStatus;
+}
+
+export interface UpdateManagementReviewOutputBody {
+  outputType?: ManagementReviewOutputType;
+  description?: string;
+  responsibleUserId?: number | null;
+  dueDate?: string | null;
+  processId?: number | null;
+  nonconformityId?: number | null;
+  status?: ManagementReviewOutputStatus;
+}
+
 export interface DocumentSummary {
   id: number;
   title: string;
@@ -1839,6 +2416,14 @@ export interface DocumentSummary {
 export type DocumentDetailUnitsItem = {
   id?: number;
   name?: string;
+};
+
+export type DocumentDetailCriticalReviewersItem = {
+  id?: number;
+  userId?: number;
+  name?: string;
+  status?: string;
+  completedAt?: string | null;
 };
 
 export type DocumentDetailApproversItem = {
@@ -1885,6 +2470,20 @@ export interface DocumentVersion {
   createdAt: string;
 }
 
+export interface DocumentCommunicationPlan {
+  id: number;
+  channel: string;
+  audience: string;
+  periodicity: string;
+  requiresAcknowledgment: boolean;
+  notes?: string | null;
+  lastDistributedAt?: string | null;
+  createdById: number;
+  createdByName?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
 export interface DocumentDetail {
   id: number;
   title: string;
@@ -1898,11 +2497,13 @@ export interface DocumentDetail {
   updatedAt?: string;
   units?: DocumentDetailUnitsItem[];
   elaborators?: Employee[];
+  criticalReviewers?: DocumentDetailCriticalReviewersItem[];
   approvers?: DocumentDetailApproversItem[];
   recipients?: DocumentDetailRecipientsItem[];
   references?: DocumentDetailReferencesItem[];
   attachments?: DocumentAttachment[];
   versions?: DocumentVersion[];
+  communicationPlans?: DocumentCommunicationPlan[];
 }
 
 export type CreateDocumentBodyType =
@@ -1931,6 +2532,8 @@ export interface CreateDocumentBody {
   validityDate?: string;
   /** @minItems 1 */
   elaboratorIds: number[];
+  /** @minItems 1 */
+  criticalReviewerIds: number[];
   unitIds?: number[];
   approverIds: number[];
   recipientIds?: number[];
@@ -1943,6 +2546,8 @@ export interface UpdateDocumentBody {
   type?: string;
   validityDate?: string;
   elaboratorIds?: number[];
+  /** @minItems 1 */
+  criticalReviewerIds?: number[];
   unitIds?: number[];
   approverIds?: number[];
   recipientIds?: number[];
@@ -1959,6 +2564,22 @@ export interface AddDocumentAttachmentBody {
   fileSize: number;
   contentType: string;
   objectPath: string;
+}
+
+export interface DocumentCommunicationPlanBody {
+  channel: string;
+  audience: string;
+  periodicity: string;
+  requiresAcknowledgment: boolean;
+  notes?: string | null;
+}
+
+export interface UpdateDocumentCommunicationPlanBody {
+  channel?: string;
+  audience?: string;
+  periodicity?: string;
+  requiresAcknowledgment?: boolean;
+  notes?: string | null;
 }
 
 export interface ApproveDocumentBody {
@@ -2153,4 +2774,38 @@ export type ListGovernanceRiskOpportunityItemsParams = {
   ownerUserId?: number;
   unitId?: number;
   sourceType?: StrategicPlanRiskOpportunitySourceType;
+};
+
+export type ListSgqProcessesParams = {
+  page?: number;
+  pageSize?: number;
+  status?: GovernanceSgqProcessStatus;
+  ownerUserId?: number;
+  search?: string;
+};
+
+export type ListInternalAuditsParams = {
+  page?: number;
+  pageSize?: number;
+  status?: InternalAuditStatus;
+  auditorUserId?: number;
+  originType?: InternalAuditOriginType;
+  search?: string;
+};
+
+export type ListNonconformitiesParams = {
+  page?: number;
+  pageSize?: number;
+  status?: NonconformityStatus;
+  originType?: NonconformityOriginType;
+  responsibleUserId?: number;
+  search?: string;
+};
+
+export type ListManagementReviewsParams = {
+  page?: number;
+  pageSize?: number;
+  status?: ManagementReviewStatus;
+  chairUserId?: number;
+  search?: string;
 };

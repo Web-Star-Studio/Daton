@@ -2660,6 +2660,7 @@ export const CreateDocumentBody = zod.object({
   ]),
   validityDate: zod.string().optional(),
   elaboratorIds: zod.array(zod.number()).min(1),
+  criticalReviewerIds: zod.array(zod.number()).min(1),
   unitIds: zod.array(zod.number()).optional(),
   approverIds: zod.array(zod.number()),
   recipientIds: zod.array(zod.number()).optional(),
@@ -2725,6 +2726,17 @@ export const GetDocumentResponse = zod.object({
       }),
     )
     .optional(),
+  criticalReviewers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        completedAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
   approvers: zod
     .array(
       zod.object({
@@ -2784,6 +2796,23 @@ export const GetDocumentResponse = zod.object({
       }),
     )
     .optional(),
+  communicationPlans: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        channel: zod.string(),
+        audience: zod.string(),
+        periodicity: zod.string(),
+        requiresAcknowledgment: zod.boolean(),
+        notes: zod.string().nullish(),
+        lastDistributedAt: zod.string().nullish(),
+        createdById: zod.number(),
+        createdByName: zod.string().nullish(),
+        createdAt: zod.string().nullish(),
+        updatedAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -2799,6 +2828,7 @@ export const UpdateDocumentBody = zod.object({
   type: zod.string().optional(),
   validityDate: zod.string().optional(),
   elaboratorIds: zod.array(zod.number()).optional(),
+  criticalReviewerIds: zod.array(zod.number()).min(1).optional(),
   unitIds: zod.array(zod.number()).optional(),
   approverIds: zod.array(zod.number()).optional(),
   recipientIds: zod.array(zod.number()).optional(),
@@ -2846,6 +2876,17 @@ export const UpdateDocumentResponse = zod.object({
       }),
     )
     .optional(),
+  criticalReviewers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        completedAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
   approvers: zod
     .array(
       zod.object({
@@ -2902,6 +2943,23 @@ export const UpdateDocumentResponse = zod.object({
         changedByName: zod.string().optional(),
         changedFields: zod.string().nullish(),
         createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+  communicationPlans: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        channel: zod.string(),
+        audience: zod.string(),
+        periodicity: zod.string(),
+        requiresAcknowledgment: zod.boolean(),
+        notes: zod.string().nullish(),
+        lastDistributedAt: zod.string().nullish(),
+        createdById: zod.number(),
+        createdByName: zod.string().nullish(),
+        createdAt: zod.string().nullish(),
+        updatedAt: zod.string().nullish(),
       }),
     )
     .optional(),
@@ -2981,18 +3039,14 @@ export const DeleteDocumentAttachmentParams = zod.object({
 });
 
 /**
- * @summary Submit document for review
+ * @summary Complete document critical analysis
  */
-export const SubmitDocumentForReviewParams = zod.object({
+export const CompleteDocumentCriticalAnalysisParams = zod.object({
   orgId: zod.coerce.number(),
   docId: zod.coerce.number(),
 });
 
-export const SubmitDocumentForReviewBody = zod.object({
-  changeDescription: zod.string().min(1),
-});
-
-export const SubmitDocumentForReviewResponse = zod.object({
+export const CompleteDocumentCriticalAnalysisResponse = zod.object({
   id: zod.number(),
   title: zod.string(),
   type: zod.string(),
@@ -3030,6 +3084,17 @@ export const SubmitDocumentForReviewResponse = zod.object({
         unitName: zod.string().nullish(),
         createdAt: zod.string().datetime({}),
         updatedAt: zod.string().datetime({}),
+      }),
+    )
+    .optional(),
+  criticalReviewers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        completedAt: zod.string().nullish(),
       }),
     )
     .optional(),
@@ -3089,6 +3154,249 @@ export const SubmitDocumentForReviewResponse = zod.object({
         changedByName: zod.string().optional(),
         changedFields: zod.string().nullish(),
         createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+  communicationPlans: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        channel: zod.string(),
+        audience: zod.string(),
+        periodicity: zod.string(),
+        requiresAcknowledgment: zod.boolean(),
+        notes: zod.string().nullish(),
+        lastDistributedAt: zod.string().nullish(),
+        createdById: zod.number(),
+        createdByName: zod.string().nullish(),
+        createdAt: zod.string().nullish(),
+        updatedAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary List SGQ communication plans for a policy document
+ */
+export const ListDocumentCommunicationPlansParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const ListDocumentCommunicationPlansResponseItem = zod.object({
+  id: zod.number(),
+  channel: zod.string(),
+  audience: zod.string(),
+  periodicity: zod.string(),
+  requiresAcknowledgment: zod.boolean(),
+  notes: zod.string().nullish(),
+  lastDistributedAt: zod.string().nullish(),
+  createdById: zod.number(),
+  createdByName: zod.string().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+export const ListDocumentCommunicationPlansResponse = zod.array(
+  ListDocumentCommunicationPlansResponseItem,
+);
+
+/**
+ * @summary Create an SGQ communication plan for a policy document
+ */
+export const CreateDocumentCommunicationPlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const CreateDocumentCommunicationPlanBody = zod.object({
+  channel: zod.string(),
+  audience: zod.string(),
+  periodicity: zod.string(),
+  requiresAcknowledgment: zod.boolean(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Update an SGQ communication plan
+ */
+export const UpdateDocumentCommunicationPlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const UpdateDocumentCommunicationPlanBody = zod.object({
+  channel: zod.string().optional(),
+  audience: zod.string().optional(),
+  periodicity: zod.string().optional(),
+  requiresAcknowledgment: zod.boolean().optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateDocumentCommunicationPlanResponseItem = zod.object({
+  id: zod.number(),
+  channel: zod.string(),
+  audience: zod.string(),
+  periodicity: zod.string(),
+  requiresAcknowledgment: zod.boolean(),
+  notes: zod.string().nullish(),
+  lastDistributedAt: zod.string().nullish(),
+  createdById: zod.number(),
+  createdByName: zod.string().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+export const UpdateDocumentCommunicationPlanResponse = zod.array(
+  UpdateDocumentCommunicationPlanResponseItem,
+);
+
+/**
+ * @summary Delete an SGQ communication plan
+ */
+export const DeleteDocumentCommunicationPlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+/**
+ * @summary Submit document for review
+ */
+export const SubmitDocumentForReviewParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const SubmitDocumentForReviewBody = zod.object({
+  changeDescription: zod.string().min(1),
+});
+
+export const SubmitDocumentForReviewResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  type: zod.string(),
+  status: zod.string(),
+  currentVersion: zod.number(),
+  validityDate: zod.string().nullish(),
+  createdById: zod.number().optional(),
+  createdByName: zod.string().optional(),
+  createdAt: zod.string(),
+  updatedAt: zod.string().optional(),
+  units: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        name: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  elaborators: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        organizationId: zod.number(),
+        unitId: zod.number().nullish(),
+        name: zod.string(),
+        cpf: zod.string().nullish(),
+        email: zod.string().nullish(),
+        phone: zod.string().nullish(),
+        position: zod.string().nullish(),
+        department: zod.string().nullish(),
+        contractType: zod.enum(["clt", "pj", "intern", "temporary"]),
+        admissionDate: zod.string().nullish(),
+        terminationDate: zod.string().nullish(),
+        status: zod.enum(["active", "inactive", "on_leave"]),
+        unitName: zod.string().nullish(),
+        createdAt: zod.string().datetime({}),
+        updatedAt: zod.string().datetime({}),
+      }),
+    )
+    .optional(),
+  criticalReviewers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        completedAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  approvers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        approvedAt: zod.string().nullish(),
+        comment: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  recipients: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        receivedAt: zod.string().nullish(),
+        readAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  references: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        documentId: zod.number().optional(),
+        title: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        documentId: zod.number().optional(),
+        versionNumber: zod.number().optional(),
+        fileName: zod.string(),
+        fileSize: zod.number().optional(),
+        contentType: zod.string().optional(),
+        objectPath: zod.string(),
+        uploadedByName: zod.string().optional(),
+        uploadedAt: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  versions: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        versionNumber: zod.number(),
+        changeDescription: zod.string(),
+        changedByName: zod.string().optional(),
+        changedFields: zod.string().nullish(),
+        createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+  communicationPlans: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        channel: zod.string(),
+        audience: zod.string(),
+        periodicity: zod.string(),
+        requiresAcknowledgment: zod.boolean(),
+        notes: zod.string().nullish(),
+        lastDistributedAt: zod.string().nullish(),
+        createdById: zod.number(),
+        createdByName: zod.string().nullish(),
+        createdAt: zod.string().nullish(),
+        updatedAt: zod.string().nullish(),
       }),
     )
     .optional(),
@@ -3147,6 +3455,17 @@ export const ApproveDocumentResponse = zod.object({
       }),
     )
     .optional(),
+  criticalReviewers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        completedAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
   approvers: zod
     .array(
       zod.object({
@@ -3203,6 +3522,23 @@ export const ApproveDocumentResponse = zod.object({
         changedByName: zod.string().optional(),
         changedFields: zod.string().nullish(),
         createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+  communicationPlans: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        channel: zod.string(),
+        audience: zod.string(),
+        periodicity: zod.string(),
+        requiresAcknowledgment: zod.boolean(),
+        notes: zod.string().nullish(),
+        lastDistributedAt: zod.string().nullish(),
+        createdById: zod.number(),
+        createdByName: zod.string().nullish(),
+        createdAt: zod.string().nullish(),
+        updatedAt: zod.string().nullish(),
       }),
     )
     .optional(),
@@ -3261,6 +3597,17 @@ export const RejectDocumentResponse = zod.object({
       }),
     )
     .optional(),
+  criticalReviewers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        completedAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
   approvers: zod
     .array(
       zod.object({
@@ -3317,6 +3664,23 @@ export const RejectDocumentResponse = zod.object({
         changedByName: zod.string().optional(),
         changedFields: zod.string().nullish(),
         createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+  communicationPlans: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        channel: zod.string(),
+        audience: zod.string(),
+        periodicity: zod.string(),
+        requiresAcknowledgment: zod.boolean(),
+        notes: zod.string().nullish(),
+        lastDistributedAt: zod.string().nullish(),
+        createdById: zod.number(),
+        createdByName: zod.string().nullish(),
+        createdAt: zod.string().nullish(),
+        updatedAt: zod.string().nullish(),
       }),
     )
     .optional(),
@@ -3371,6 +3735,17 @@ export const DistributeDocumentResponse = zod.object({
       }),
     )
     .optional(),
+  criticalReviewers: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        userId: zod.number().optional(),
+        name: zod.string().optional(),
+        status: zod.string().optional(),
+        completedAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
   approvers: zod
     .array(
       zod.object({
@@ -3427,6 +3802,23 @@ export const DistributeDocumentResponse = zod.object({
         changedByName: zod.string().optional(),
         changedFields: zod.string().nullish(),
         createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+  communicationPlans: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        channel: zod.string(),
+        audience: zod.string(),
+        periodicity: zod.string(),
+        requiresAcknowledgment: zod.boolean(),
+        notes: zod.string().nullish(),
+        lastDistributedAt: zod.string().nullish(),
+        createdById: zod.number(),
+        createdByName: zod.string().nullish(),
+        createdAt: zod.string().nullish(),
+        updatedAt: zod.string().nullish(),
       }),
     )
     .optional(),
@@ -7443,6 +7835,15 @@ export const UpdateStrategicPlanActionResponse = zod.object({
 });
 
 /**
+ * @summary Delete an action for a strategic plan
+ */
+export const DeleteStrategicPlanActionParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  itemId: zod.coerce.number(),
+});
+
+/**
  * @summary List risk and opportunity items for a strategic plan
  */
 export const ListStrategicPlanRiskOpportunityItemsParams = zod.object({
@@ -7880,6 +8281,2527 @@ export const DeleteStrategicPlanRiskOpportunityItemParams = zod.object({
 });
 
 /**
+ * @summary List SGQ processes
+ */
+export const ListSgqProcessesParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListSgqProcessesQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+  status: zod.enum(["active", "inactive"]).optional(),
+  ownerUserId: zod.coerce.number().optional(),
+  search: zod.coerce.string().optional(),
+});
+
+export const ListSgqProcessesResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      organizationId: zod.number(),
+      name: zod.string(),
+      objective: zod.string(),
+      ownerUserId: zod.number().nullish(),
+      ownerName: zod.string().nullish(),
+      status: zod.enum(["active", "inactive"]),
+      currentRevisionNumber: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    pageSize: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary Create an SGQ process
+ */
+export const CreateSgqProcessParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const createSgqProcessBodyAttachmentsItemOneFileSizeMax = 20971520;
+
+export const createSgqProcessBodyAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const CreateSgqProcessBody = zod.object({
+  name: zod.string(),
+  objective: zod.string(),
+  ownerUserId: zod.number().nullish(),
+  inputs: zod.array(zod.string()).optional(),
+  outputs: zod.array(zod.string()).optional(),
+  criteria: zod.string().nullish(),
+  indicators: zod.string().nullish(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(createSgqProcessBodyAttachmentsItemOneFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(createSgqProcessBodyAttachmentsItemOneObjectPathRegExp),
+      }),
+    )
+    .optional(),
+  changeSummary: zod.string().nullish(),
+  interactions: zod
+    .array(
+      zod.object({
+        relatedProcessId: zod.number(),
+        direction: zod.enum(["upstream", "downstream"]),
+        notes: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Get SGQ process detail
+ */
+export const GetSgqProcessParams = zod.object({
+  orgId: zod.coerce.number(),
+  processId: zod.coerce.number(),
+});
+
+export const getSgqProcessResponseTwoAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getSgqProcessResponseTwoAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const getSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const GetSgqProcessResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    name: zod.string(),
+    objective: zod.string(),
+    ownerUserId: zod.number().nullish(),
+    ownerName: zod.string().nullish(),
+    status: zod.enum(["active", "inactive"]),
+    currentRevisionNumber: zod.number(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      inputs: zod.array(zod.string()),
+      outputs: zod.array(zod.string()),
+      criteria: zod.string().nullish(),
+      indicators: zod.string().nullish(),
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(getSgqProcessResponseTwoAttachmentsItemOneFileSizeMax),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(getSgqProcessResponseTwoAttachmentsItemOneObjectPathRegExp),
+        }),
+      ),
+      createdById: zod.number().nullish(),
+      updatedById: zod.number().nullish(),
+      interactions: zod.array(
+        zod.object({
+          id: zod.number().optional(),
+          relatedProcessId: zod.number(),
+          relatedProcessName: zod.string().nullish(),
+          direction: zod.enum(["upstream", "downstream"]),
+          notes: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+        }),
+      ),
+      revisions: zod.array(
+        zod.object({
+          id: zod.number(),
+          revisionNumber: zod.number(),
+          changeSummary: zod.string().nullish(),
+          approvedById: zod.number().nullish(),
+          approvedByName: zod.string().nullish(),
+          snapshot: zod.object({
+            name: zod.string(),
+            objective: zod.string(),
+            ownerUserId: zod.number().nullish(),
+            inputs: zod.array(zod.string()),
+            outputs: zod.array(zod.string()),
+            criteria: zod.string().nullish(),
+            indicators: zod.string().nullish(),
+            status: zod.enum(["active", "inactive"]),
+            attachments: zod.array(
+              zod.object({
+                fileName: zod.string(),
+                fileSize: zod
+                  .number()
+                  .max(
+                    getSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneFileSizeMax,
+                  ),
+                contentType: zod.string(),
+                objectPath: zod
+                  .string()
+                  .regex(
+                    getSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneObjectPathRegExp,
+                  ),
+              }),
+            ),
+            interactions: zod.array(
+              zod.object({
+                relatedProcessId: zod.number(),
+                direction: zod.enum(["upstream", "downstream"]),
+                notes: zod.string().nullish(),
+              }),
+            ),
+          }),
+          createdAt: zod.string().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update an SGQ process
+ */
+export const UpdateSgqProcessParams = zod.object({
+  orgId: zod.coerce.number(),
+  processId: zod.coerce.number(),
+});
+
+export const updateSgqProcessBodyAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateSgqProcessBodyAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateSgqProcessBody = zod.object({
+  name: zod.string().optional(),
+  objective: zod.string().optional(),
+  ownerUserId: zod.number().nullish(),
+  inputs: zod.array(zod.string()).optional(),
+  outputs: zod.array(zod.string()).optional(),
+  criteria: zod.string().nullish(),
+  indicators: zod.string().nullish(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(updateSgqProcessBodyAttachmentsItemOneFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(updateSgqProcessBodyAttachmentsItemOneObjectPathRegExp),
+      }),
+    )
+    .optional(),
+  status: zod.enum(["active", "inactive"]).optional(),
+  changeSummary: zod.string().nullish(),
+  interactions: zod
+    .array(
+      zod.object({
+        relatedProcessId: zod.number(),
+        direction: zod.enum(["upstream", "downstream"]),
+        notes: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+});
+
+export const updateSgqProcessResponseTwoAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateSgqProcessResponseTwoAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const updateSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateSgqProcessResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    name: zod.string(),
+    objective: zod.string(),
+    ownerUserId: zod.number().nullish(),
+    ownerName: zod.string().nullish(),
+    status: zod.enum(["active", "inactive"]),
+    currentRevisionNumber: zod.number(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      inputs: zod.array(zod.string()),
+      outputs: zod.array(zod.string()),
+      criteria: zod.string().nullish(),
+      indicators: zod.string().nullish(),
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(updateSgqProcessResponseTwoAttachmentsItemOneFileSizeMax),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              updateSgqProcessResponseTwoAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      createdById: zod.number().nullish(),
+      updatedById: zod.number().nullish(),
+      interactions: zod.array(
+        zod.object({
+          id: zod.number().optional(),
+          relatedProcessId: zod.number(),
+          relatedProcessName: zod.string().nullish(),
+          direction: zod.enum(["upstream", "downstream"]),
+          notes: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+        }),
+      ),
+      revisions: zod.array(
+        zod.object({
+          id: zod.number(),
+          revisionNumber: zod.number(),
+          changeSummary: zod.string().nullish(),
+          approvedById: zod.number().nullish(),
+          approvedByName: zod.string().nullish(),
+          snapshot: zod.object({
+            name: zod.string(),
+            objective: zod.string(),
+            ownerUserId: zod.number().nullish(),
+            inputs: zod.array(zod.string()),
+            outputs: zod.array(zod.string()),
+            criteria: zod.string().nullish(),
+            indicators: zod.string().nullish(),
+            status: zod.enum(["active", "inactive"]),
+            attachments: zod.array(
+              zod.object({
+                fileName: zod.string(),
+                fileSize: zod
+                  .number()
+                  .max(
+                    updateSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneFileSizeMax,
+                  ),
+                contentType: zod.string(),
+                objectPath: zod
+                  .string()
+                  .regex(
+                    updateSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneObjectPathRegExp,
+                  ),
+              }),
+            ),
+            interactions: zod.array(
+              zod.object({
+                relatedProcessId: zod.number(),
+                direction: zod.enum(["upstream", "downstream"]),
+                notes: zod.string().nullish(),
+              }),
+            ),
+          }),
+          createdAt: zod.string().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Inactivate an SGQ process
+ */
+export const InactivateSgqProcessParams = zod.object({
+  orgId: zod.coerce.number(),
+  processId: zod.coerce.number(),
+});
+
+export const inactivateSgqProcessResponseTwoAttachmentsItemOneFileSizeMax = 20971520;
+
+export const inactivateSgqProcessResponseTwoAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const inactivateSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneFileSizeMax = 20971520;
+
+export const inactivateSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const InactivateSgqProcessResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    name: zod.string(),
+    objective: zod.string(),
+    ownerUserId: zod.number().nullish(),
+    ownerName: zod.string().nullish(),
+    status: zod.enum(["active", "inactive"]),
+    currentRevisionNumber: zod.number(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      inputs: zod.array(zod.string()),
+      outputs: zod.array(zod.string()),
+      criteria: zod.string().nullish(),
+      indicators: zod.string().nullish(),
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(inactivateSgqProcessResponseTwoAttachmentsItemOneFileSizeMax),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              inactivateSgqProcessResponseTwoAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      createdById: zod.number().nullish(),
+      updatedById: zod.number().nullish(),
+      interactions: zod.array(
+        zod.object({
+          id: zod.number().optional(),
+          relatedProcessId: zod.number(),
+          relatedProcessName: zod.string().nullish(),
+          direction: zod.enum(["upstream", "downstream"]),
+          notes: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+        }),
+      ),
+      revisions: zod.array(
+        zod.object({
+          id: zod.number(),
+          revisionNumber: zod.number(),
+          changeSummary: zod.string().nullish(),
+          approvedById: zod.number().nullish(),
+          approvedByName: zod.string().nullish(),
+          snapshot: zod.object({
+            name: zod.string(),
+            objective: zod.string(),
+            ownerUserId: zod.number().nullish(),
+            inputs: zod.array(zod.string()),
+            outputs: zod.array(zod.string()),
+            criteria: zod.string().nullish(),
+            indicators: zod.string().nullish(),
+            status: zod.enum(["active", "inactive"]),
+            attachments: zod.array(
+              zod.object({
+                fileName: zod.string(),
+                fileSize: zod
+                  .number()
+                  .max(
+                    inactivateSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneFileSizeMax,
+                  ),
+                contentType: zod.string(),
+                objectPath: zod
+                  .string()
+                  .regex(
+                    inactivateSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneObjectPathRegExp,
+                  ),
+              }),
+            ),
+            interactions: zod.array(
+              zod.object({
+                relatedProcessId: zod.number(),
+                direction: zod.enum(["upstream", "downstream"]),
+                notes: zod.string().nullish(),
+              }),
+            ),
+          }),
+          createdAt: zod.string().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Reactivate an SGQ process
+ */
+export const ReactivateSgqProcessParams = zod.object({
+  orgId: zod.coerce.number(),
+  processId: zod.coerce.number(),
+});
+
+export const reactivateSgqProcessResponseTwoAttachmentsItemOneFileSizeMax = 20971520;
+
+export const reactivateSgqProcessResponseTwoAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const reactivateSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneFileSizeMax = 20971520;
+
+export const reactivateSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const ReactivateSgqProcessResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    name: zod.string(),
+    objective: zod.string(),
+    ownerUserId: zod.number().nullish(),
+    ownerName: zod.string().nullish(),
+    status: zod.enum(["active", "inactive"]),
+    currentRevisionNumber: zod.number(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      inputs: zod.array(zod.string()),
+      outputs: zod.array(zod.string()),
+      criteria: zod.string().nullish(),
+      indicators: zod.string().nullish(),
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(reactivateSgqProcessResponseTwoAttachmentsItemOneFileSizeMax),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              reactivateSgqProcessResponseTwoAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      createdById: zod.number().nullish(),
+      updatedById: zod.number().nullish(),
+      interactions: zod.array(
+        zod.object({
+          id: zod.number().optional(),
+          relatedProcessId: zod.number(),
+          relatedProcessName: zod.string().nullish(),
+          direction: zod.enum(["upstream", "downstream"]),
+          notes: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+        }),
+      ),
+      revisions: zod.array(
+        zod.object({
+          id: zod.number(),
+          revisionNumber: zod.number(),
+          changeSummary: zod.string().nullish(),
+          approvedById: zod.number().nullish(),
+          approvedByName: zod.string().nullish(),
+          snapshot: zod.object({
+            name: zod.string(),
+            objective: zod.string(),
+            ownerUserId: zod.number().nullish(),
+            inputs: zod.array(zod.string()),
+            outputs: zod.array(zod.string()),
+            criteria: zod.string().nullish(),
+            indicators: zod.string().nullish(),
+            status: zod.enum(["active", "inactive"]),
+            attachments: zod.array(
+              zod.object({
+                fileName: zod.string(),
+                fileSize: zod
+                  .number()
+                  .max(
+                    reactivateSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneFileSizeMax,
+                  ),
+                contentType: zod.string(),
+                objectPath: zod
+                  .string()
+                  .regex(
+                    reactivateSgqProcessResponseTwoRevisionsItemSnapshotAttachmentsItemOneObjectPathRegExp,
+                  ),
+              }),
+            ),
+            interactions: zod.array(
+              zod.object({
+                relatedProcessId: zod.number(),
+                direction: zod.enum(["upstream", "downstream"]),
+                notes: zod.string().nullish(),
+              }),
+            ),
+          }),
+          createdAt: zod.string().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary List SGQ process revisions
+ */
+export const ListSgqProcessRevisionsParams = zod.object({
+  orgId: zod.coerce.number(),
+  processId: zod.coerce.number(),
+});
+
+export const listSgqProcessRevisionsResponseSnapshotAttachmentsItemOneFileSizeMax = 20971520;
+
+export const listSgqProcessRevisionsResponseSnapshotAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const ListSgqProcessRevisionsResponseItem = zod.object({
+  id: zod.number(),
+  revisionNumber: zod.number(),
+  changeSummary: zod.string().nullish(),
+  approvedById: zod.number().nullish(),
+  approvedByName: zod.string().nullish(),
+  snapshot: zod.object({
+    name: zod.string(),
+    objective: zod.string(),
+    ownerUserId: zod.number().nullish(),
+    inputs: zod.array(zod.string()),
+    outputs: zod.array(zod.string()),
+    criteria: zod.string().nullish(),
+    indicators: zod.string().nullish(),
+    status: zod.enum(["active", "inactive"]),
+    attachments: zod.array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(
+            listSgqProcessRevisionsResponseSnapshotAttachmentsItemOneFileSizeMax,
+          ),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            listSgqProcessRevisionsResponseSnapshotAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    ),
+    interactions: zod.array(
+      zod.object({
+        relatedProcessId: zod.number(),
+        direction: zod.enum(["upstream", "downstream"]),
+        notes: zod.string().nullish(),
+      }),
+    ),
+  }),
+  createdAt: zod.string().nullish(),
+});
+export const ListSgqProcessRevisionsResponse = zod.array(
+  ListSgqProcessRevisionsResponseItem,
+);
+
+/**
+ * @summary List internal audits
+ */
+export const ListInternalAuditsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListInternalAuditsQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+  status: zod
+    .enum(["planned", "in_progress", "completed", "canceled"])
+    .optional(),
+  auditorUserId: zod.coerce.number().optional(),
+  originType: zod.enum(["internal", "external_manual"]).optional(),
+  search: zod.coerce.string().optional(),
+});
+
+export const ListInternalAuditsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      organizationId: zod.number(),
+      title: zod.string(),
+      scope: zod.string(),
+      criteria: zod.string(),
+      periodStart: zod.string(),
+      periodEnd: zod.string(),
+      auditorUserId: zod.number().nullish(),
+      auditorName: zod.string().nullish(),
+      originType: zod.enum(["internal", "external_manual"]),
+      status: zod.enum(["planned", "in_progress", "completed", "canceled"]),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    pageSize: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary Create an internal audit
+ */
+export const CreateInternalAuditParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const createInternalAuditBodyAttachmentsItemOneFileSizeMax = 20971520;
+
+export const createInternalAuditBodyAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const CreateInternalAuditBody = zod.object({
+  title: zod.string(),
+  scope: zod.string(),
+  criteria: zod.string(),
+  periodStart: zod.string(),
+  periodEnd: zod.string(),
+  auditorUserId: zod.number().nullish(),
+  originType: zod.enum(["internal", "external_manual"]).optional(),
+  status: zod
+    .enum(["planned", "in_progress", "completed", "canceled"])
+    .optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(createInternalAuditBodyAttachmentsItemOneFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(createInternalAuditBodyAttachmentsItemOneObjectPathRegExp),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Get internal audit detail
+ */
+export const GetInternalAuditParams = zod.object({
+  orgId: zod.coerce.number(),
+  auditId: zod.coerce.number(),
+});
+
+export const getInternalAuditResponseTwoAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getInternalAuditResponseTwoAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const getInternalAuditResponseTwoFindingsItemAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getInternalAuditResponseTwoFindingsItemAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const GetInternalAuditResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    title: zod.string(),
+    scope: zod.string(),
+    criteria: zod.string(),
+    periodStart: zod.string(),
+    periodEnd: zod.string(),
+    auditorUserId: zod.number().nullish(),
+    auditorName: zod.string().nullish(),
+    originType: zod.enum(["internal", "external_manual"]),
+    status: zod.enum(["planned", "in_progress", "completed", "canceled"]),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(getInternalAuditResponseTwoAttachmentsItemOneFileSizeMax),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              getInternalAuditResponseTwoAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      checklistItems: zod.array(
+        zod.object({
+          id: zod.number(),
+          auditId: zod.number(),
+          label: zod.string(),
+          requirementRef: zod.string().nullish(),
+          result: zod.enum([
+            "conformity",
+            "nonconformity",
+            "observation",
+            "not_evaluated",
+          ]),
+          notes: zod.string().nullish(),
+          sortOrder: zod.number(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      findings: zod.array(
+        zod.object({
+          id: zod.number(),
+          processId: zod.number().nullish(),
+          processName: zod.string().nullish(),
+          requirementRef: zod.string().nullish(),
+          classification: zod.enum([
+            "conformity",
+            "observation",
+            "nonconformity",
+          ]),
+          description: zod.string(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          dueDate: zod.string().nullish(),
+          attachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  getInternalAuditResponseTwoFindingsItemAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  getInternalAuditResponseTwoFindingsItemAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          correctiveActionId: zod.number().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update an internal audit
+ */
+export const UpdateInternalAuditParams = zod.object({
+  orgId: zod.coerce.number(),
+  auditId: zod.coerce.number(),
+});
+
+export const updateInternalAuditBodyAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateInternalAuditBodyAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateInternalAuditBody = zod.object({
+  title: zod.string().optional(),
+  scope: zod.string().optional(),
+  criteria: zod.string().optional(),
+  periodStart: zod.string().optional(),
+  periodEnd: zod.string().optional(),
+  auditorUserId: zod.number().nullish(),
+  originType: zod.enum(["internal", "external_manual"]).optional(),
+  status: zod
+    .enum(["planned", "in_progress", "completed", "canceled"])
+    .optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(updateInternalAuditBodyAttachmentsItemOneFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(updateInternalAuditBodyAttachmentsItemOneObjectPathRegExp),
+      }),
+    )
+    .optional(),
+});
+
+export const updateInternalAuditResponseTwoAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateInternalAuditResponseTwoAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const updateInternalAuditResponseTwoFindingsItemAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateInternalAuditResponseTwoFindingsItemAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateInternalAuditResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    title: zod.string(),
+    scope: zod.string(),
+    criteria: zod.string(),
+    periodStart: zod.string(),
+    periodEnd: zod.string(),
+    auditorUserId: zod.number().nullish(),
+    auditorName: zod.string().nullish(),
+    originType: zod.enum(["internal", "external_manual"]),
+    status: zod.enum(["planned", "in_progress", "completed", "canceled"]),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(updateInternalAuditResponseTwoAttachmentsItemOneFileSizeMax),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              updateInternalAuditResponseTwoAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      checklistItems: zod.array(
+        zod.object({
+          id: zod.number(),
+          auditId: zod.number(),
+          label: zod.string(),
+          requirementRef: zod.string().nullish(),
+          result: zod.enum([
+            "conformity",
+            "nonconformity",
+            "observation",
+            "not_evaluated",
+          ]),
+          notes: zod.string().nullish(),
+          sortOrder: zod.number(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      findings: zod.array(
+        zod.object({
+          id: zod.number(),
+          processId: zod.number().nullish(),
+          processName: zod.string().nullish(),
+          requirementRef: zod.string().nullish(),
+          classification: zod.enum([
+            "conformity",
+            "observation",
+            "nonconformity",
+          ]),
+          description: zod.string(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          dueDate: zod.string().nullish(),
+          attachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  updateInternalAuditResponseTwoFindingsItemAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  updateInternalAuditResponseTwoFindingsItemAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          correctiveActionId: zod.number().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Replace checklist items for an internal audit
+ */
+export const SyncInternalAuditChecklistItemsParams = zod.object({
+  orgId: zod.coerce.number(),
+  auditId: zod.coerce.number(),
+});
+
+export const SyncInternalAuditChecklistItemsBody = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number().optional(),
+      label: zod.string(),
+      requirementRef: zod.string().nullish(),
+      result: zod
+        .enum(["conformity", "nonconformity", "observation", "not_evaluated"])
+        .optional(),
+      notes: zod.string().nullish(),
+      sortOrder: zod.number().optional(),
+    }),
+  ),
+});
+
+export const syncInternalAuditChecklistItemsResponseTwoAttachmentsItemOneFileSizeMax = 20971520;
+
+export const syncInternalAuditChecklistItemsResponseTwoAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const syncInternalAuditChecklistItemsResponseTwoFindingsItemAttachmentsItemOneFileSizeMax = 20971520;
+
+export const syncInternalAuditChecklistItemsResponseTwoFindingsItemAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const SyncInternalAuditChecklistItemsResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    title: zod.string(),
+    scope: zod.string(),
+    criteria: zod.string(),
+    periodStart: zod.string(),
+    periodEnd: zod.string(),
+    auditorUserId: zod.number().nullish(),
+    auditorName: zod.string().nullish(),
+    originType: zod.enum(["internal", "external_manual"]),
+    status: zod.enum(["planned", "in_progress", "completed", "canceled"]),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(
+              syncInternalAuditChecklistItemsResponseTwoAttachmentsItemOneFileSizeMax,
+            ),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              syncInternalAuditChecklistItemsResponseTwoAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      checklistItems: zod.array(
+        zod.object({
+          id: zod.number(),
+          auditId: zod.number(),
+          label: zod.string(),
+          requirementRef: zod.string().nullish(),
+          result: zod.enum([
+            "conformity",
+            "nonconformity",
+            "observation",
+            "not_evaluated",
+          ]),
+          notes: zod.string().nullish(),
+          sortOrder: zod.number(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      findings: zod.array(
+        zod.object({
+          id: zod.number(),
+          processId: zod.number().nullish(),
+          processName: zod.string().nullish(),
+          requirementRef: zod.string().nullish(),
+          classification: zod.enum([
+            "conformity",
+            "observation",
+            "nonconformity",
+          ]),
+          description: zod.string(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          dueDate: zod.string().nullish(),
+          attachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  syncInternalAuditChecklistItemsResponseTwoFindingsItemAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  syncInternalAuditChecklistItemsResponseTwoFindingsItemAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          correctiveActionId: zod.number().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary List findings for an internal audit
+ */
+export const ListInternalAuditFindingsParams = zod.object({
+  orgId: zod.coerce.number(),
+  auditId: zod.coerce.number(),
+});
+
+export const listInternalAuditFindingsResponseAttachmentsItemOneFileSizeMax = 20971520;
+
+export const listInternalAuditFindingsResponseAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const ListInternalAuditFindingsResponseItem = zod.object({
+  id: zod.number(),
+  processId: zod.number().nullish(),
+  processName: zod.string().nullish(),
+  requirementRef: zod.string().nullish(),
+  classification: zod.enum(["conformity", "observation", "nonconformity"]),
+  description: zod.string(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  dueDate: zod.string().nullish(),
+  attachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(listInternalAuditFindingsResponseAttachmentsItemOneFileSizeMax),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(
+          listInternalAuditFindingsResponseAttachmentsItemOneObjectPathRegExp,
+        ),
+    }),
+  ),
+  correctiveActionId: zod.number().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+export const ListInternalAuditFindingsResponse = zod.array(
+  ListInternalAuditFindingsResponseItem,
+);
+
+/**
+ * @summary Create a finding for an internal audit
+ */
+export const CreateInternalAuditFindingParams = zod.object({
+  orgId: zod.coerce.number(),
+  auditId: zod.coerce.number(),
+});
+
+export const createInternalAuditFindingBodyAttachmentsItemOneFileSizeMax = 20971520;
+
+export const createInternalAuditFindingBodyAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const CreateInternalAuditFindingBody = zod.object({
+  processId: zod.number().nullish(),
+  requirementRef: zod.string().nullish(),
+  classification: zod.enum(["conformity", "observation", "nonconformity"]),
+  description: zod.string(),
+  responsibleUserId: zod.number().nullish(),
+  dueDate: zod.string().nullish(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(createInternalAuditFindingBodyAttachmentsItemOneFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            createInternalAuditFindingBodyAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Update an internal audit finding
+ */
+export const UpdateInternalAuditFindingParams = zod.object({
+  orgId: zod.coerce.number(),
+  auditId: zod.coerce.number(),
+  findingId: zod.coerce.number(),
+});
+
+export const updateInternalAuditFindingBodyAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateInternalAuditFindingBodyAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateInternalAuditFindingBody = zod.object({
+  processId: zod.number().nullish(),
+  requirementRef: zod.string().nullish(),
+  classification: zod
+    .enum(["conformity", "observation", "nonconformity"])
+    .optional(),
+  description: zod.string().optional(),
+  responsibleUserId: zod.number().nullish(),
+  dueDate: zod.string().nullish(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(updateInternalAuditFindingBodyAttachmentsItemOneFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            updateInternalAuditFindingBodyAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    )
+    .optional(),
+});
+
+export const updateInternalAuditFindingResponseAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateInternalAuditFindingResponseAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateInternalAuditFindingResponse = zod.object({
+  id: zod.number(),
+  processId: zod.number().nullish(),
+  processName: zod.string().nullish(),
+  requirementRef: zod.string().nullish(),
+  classification: zod.enum(["conformity", "observation", "nonconformity"]),
+  description: zod.string(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  dueDate: zod.string().nullish(),
+  attachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(updateInternalAuditFindingResponseAttachmentsItemOneFileSizeMax),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(
+          updateInternalAuditFindingResponseAttachmentsItemOneObjectPathRegExp,
+        ),
+    }),
+  ),
+  correctiveActionId: zod.number().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
+ * @summary List nonconformities
+ */
+export const ListNonconformitiesParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListNonconformitiesQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+  status: zod
+    .enum([
+      "open",
+      "under_analysis",
+      "action_in_progress",
+      "awaiting_effectiveness",
+      "closed",
+      "canceled",
+    ])
+    .optional(),
+  originType: zod
+    .enum(["audit_finding", "incident", "document", "process", "risk", "other"])
+    .optional(),
+  responsibleUserId: zod.coerce.number().optional(),
+  search: zod.coerce.string().optional(),
+});
+
+export const ListNonconformitiesResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      organizationId: zod.number(),
+      originType: zod.enum([
+        "audit_finding",
+        "incident",
+        "document",
+        "process",
+        "risk",
+        "other",
+      ]),
+      title: zod.string(),
+      description: zod.string(),
+      responsibleUserId: zod.number().nullish(),
+      responsibleUserName: zod.string().nullish(),
+      status: zod.enum([
+        "open",
+        "under_analysis",
+        "action_in_progress",
+        "awaiting_effectiveness",
+        "closed",
+        "canceled",
+      ]),
+      effectivenessResult: zod.enum(["effective", "ineffective"]).nullish(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    pageSize: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary Create a nonconformity
+ */
+export const CreateNonconformityParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const createNonconformityBodyAttachmentsItemOneFileSizeMax = 20971520;
+
+export const createNonconformityBodyAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const CreateNonconformityBody = zod.object({
+  originType: zod.enum([
+    "audit_finding",
+    "incident",
+    "document",
+    "process",
+    "risk",
+    "other",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+  classification: zod.string().nullish(),
+  rootCause: zod.string().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  processId: zod.number().nullish(),
+  documentId: zod.number().nullish(),
+  riskOpportunityItemId: zod.number().nullish(),
+  auditFindingId: zod.number().nullish(),
+  status: zod
+    .enum([
+      "open",
+      "under_analysis",
+      "action_in_progress",
+      "awaiting_effectiveness",
+      "closed",
+      "canceled",
+    ])
+    .optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(createNonconformityBodyAttachmentsItemOneFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(createNonconformityBodyAttachmentsItemOneObjectPathRegExp),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Get nonconformity detail
+ */
+export const GetNonconformityParams = zod.object({
+  orgId: zod.coerce.number(),
+  ncId: zod.coerce.number(),
+});
+
+export const getNonconformityResponseTwoAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getNonconformityResponseTwoAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const getNonconformityResponseTwoCorrectiveActionsItemAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getNonconformityResponseTwoCorrectiveActionsItemAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const GetNonconformityResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    originType: zod.enum([
+      "audit_finding",
+      "incident",
+      "document",
+      "process",
+      "risk",
+      "other",
+    ]),
+    title: zod.string(),
+    description: zod.string(),
+    responsibleUserId: zod.number().nullish(),
+    responsibleUserName: zod.string().nullish(),
+    status: zod.enum([
+      "open",
+      "under_analysis",
+      "action_in_progress",
+      "awaiting_effectiveness",
+      "closed",
+      "canceled",
+    ]),
+    effectivenessResult: zod.enum(["effective", "ineffective"]).nullish(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      classification: zod.string().nullish(),
+      rootCause: zod.string().nullish(),
+      processId: zod.number().nullish(),
+      processName: zod.string().nullish(),
+      documentId: zod.number().nullish(),
+      auditFindingId: zod.number().nullish(),
+      riskOpportunityItemId: zod.number().nullish(),
+      effectivenessComment: zod.string().nullish(),
+      effectivenessCheckedAt: zod.string().nullish(),
+      closedAt: zod.string().nullish(),
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(getNonconformityResponseTwoAttachmentsItemOneFileSizeMax),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              getNonconformityResponseTwoAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      correctiveActions: zod.array(
+        zod.object({
+          id: zod.number(),
+          title: zod.string(),
+          description: zod.string(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          dueDate: zod.string().nullish(),
+          status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+          executionNotes: zod.string().nullish(),
+          attachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  getNonconformityResponseTwoCorrectiveActionsItemAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  getNonconformityResponseTwoCorrectiveActionsItemAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update a nonconformity
+ */
+export const UpdateNonconformityParams = zod.object({
+  orgId: zod.coerce.number(),
+  ncId: zod.coerce.number(),
+});
+
+export const updateNonconformityBodyAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateNonconformityBodyAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateNonconformityBody = zod.object({
+  originType: zod
+    .enum(["audit_finding", "incident", "document", "process", "risk", "other"])
+    .optional(),
+  title: zod.string().optional(),
+  description: zod.string().optional(),
+  classification: zod.string().nullish(),
+  rootCause: zod.string().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  processId: zod.number().nullish(),
+  documentId: zod.number().nullish(),
+  riskOpportunityItemId: zod.number().nullish(),
+  auditFindingId: zod.number().nullish(),
+  status: zod
+    .enum([
+      "open",
+      "under_analysis",
+      "action_in_progress",
+      "awaiting_effectiveness",
+      "closed",
+      "canceled",
+    ])
+    .optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(updateNonconformityBodyAttachmentsItemOneFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(updateNonconformityBodyAttachmentsItemOneObjectPathRegExp),
+      }),
+    )
+    .optional(),
+});
+
+export const updateNonconformityResponseTwoAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateNonconformityResponseTwoAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const updateNonconformityResponseTwoCorrectiveActionsItemAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateNonconformityResponseTwoCorrectiveActionsItemAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateNonconformityResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    originType: zod.enum([
+      "audit_finding",
+      "incident",
+      "document",
+      "process",
+      "risk",
+      "other",
+    ]),
+    title: zod.string(),
+    description: zod.string(),
+    responsibleUserId: zod.number().nullish(),
+    responsibleUserName: zod.string().nullish(),
+    status: zod.enum([
+      "open",
+      "under_analysis",
+      "action_in_progress",
+      "awaiting_effectiveness",
+      "closed",
+      "canceled",
+    ]),
+    effectivenessResult: zod.enum(["effective", "ineffective"]).nullish(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      classification: zod.string().nullish(),
+      rootCause: zod.string().nullish(),
+      processId: zod.number().nullish(),
+      processName: zod.string().nullish(),
+      documentId: zod.number().nullish(),
+      auditFindingId: zod.number().nullish(),
+      riskOpportunityItemId: zod.number().nullish(),
+      effectivenessComment: zod.string().nullish(),
+      effectivenessCheckedAt: zod.string().nullish(),
+      closedAt: zod.string().nullish(),
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(updateNonconformityResponseTwoAttachmentsItemOneFileSizeMax),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              updateNonconformityResponseTwoAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      correctiveActions: zod.array(
+        zod.object({
+          id: zod.number(),
+          title: zod.string(),
+          description: zod.string(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          dueDate: zod.string().nullish(),
+          status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+          executionNotes: zod.string().nullish(),
+          attachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  updateNonconformityResponseTwoCorrectiveActionsItemAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  updateNonconformityResponseTwoCorrectiveActionsItemAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Register effectiveness review for a nonconformity
+ */
+export const CreateNonconformityEffectivenessReviewParams = zod.object({
+  orgId: zod.coerce.number(),
+  ncId: zod.coerce.number(),
+});
+
+export const CreateNonconformityEffectivenessReviewBody = zod.object({
+  result: zod.enum(["effective", "ineffective"]),
+  comment: zod.string().nullish(),
+});
+
+export const createNonconformityEffectivenessReviewResponseTwoAttachmentsItemOneFileSizeMax = 20971520;
+
+export const createNonconformityEffectivenessReviewResponseTwoAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const createNonconformityEffectivenessReviewResponseTwoCorrectiveActionsItemAttachmentsItemOneFileSizeMax = 20971520;
+
+export const createNonconformityEffectivenessReviewResponseTwoCorrectiveActionsItemAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const CreateNonconformityEffectivenessReviewResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    originType: zod.enum([
+      "audit_finding",
+      "incident",
+      "document",
+      "process",
+      "risk",
+      "other",
+    ]),
+    title: zod.string(),
+    description: zod.string(),
+    responsibleUserId: zod.number().nullish(),
+    responsibleUserName: zod.string().nullish(),
+    status: zod.enum([
+      "open",
+      "under_analysis",
+      "action_in_progress",
+      "awaiting_effectiveness",
+      "closed",
+      "canceled",
+    ]),
+    effectivenessResult: zod.enum(["effective", "ineffective"]).nullish(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      classification: zod.string().nullish(),
+      rootCause: zod.string().nullish(),
+      processId: zod.number().nullish(),
+      processName: zod.string().nullish(),
+      documentId: zod.number().nullish(),
+      auditFindingId: zod.number().nullish(),
+      riskOpportunityItemId: zod.number().nullish(),
+      effectivenessComment: zod.string().nullish(),
+      effectivenessCheckedAt: zod.string().nullish(),
+      closedAt: zod.string().nullish(),
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(
+              createNonconformityEffectivenessReviewResponseTwoAttachmentsItemOneFileSizeMax,
+            ),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              createNonconformityEffectivenessReviewResponseTwoAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      correctiveActions: zod.array(
+        zod.object({
+          id: zod.number(),
+          title: zod.string(),
+          description: zod.string(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          dueDate: zod.string().nullish(),
+          status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+          executionNotes: zod.string().nullish(),
+          attachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  createNonconformityEffectivenessReviewResponseTwoCorrectiveActionsItemAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  createNonconformityEffectivenessReviewResponseTwoCorrectiveActionsItemAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary List corrective actions for a nonconformity
+ */
+export const ListCorrectiveActionsParams = zod.object({
+  orgId: zod.coerce.number(),
+  ncId: zod.coerce.number(),
+});
+
+export const listCorrectiveActionsResponseAttachmentsItemOneFileSizeMax = 20971520;
+
+export const listCorrectiveActionsResponseAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const ListCorrectiveActionsResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  dueDate: zod.string().nullish(),
+  status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+  executionNotes: zod.string().nullish(),
+  attachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(listCorrectiveActionsResponseAttachmentsItemOneFileSizeMax),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(listCorrectiveActionsResponseAttachmentsItemOneObjectPathRegExp),
+    }),
+  ),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+export const ListCorrectiveActionsResponse = zod.array(
+  ListCorrectiveActionsResponseItem,
+);
+
+/**
+ * @summary Create a corrective action for a nonconformity
+ */
+export const CreateCorrectiveActionParams = zod.object({
+  orgId: zod.coerce.number(),
+  ncId: zod.coerce.number(),
+});
+
+export const createCorrectiveActionBodyAttachmentsItemOneFileSizeMax = 20971520;
+
+export const createCorrectiveActionBodyAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const CreateCorrectiveActionBody = zod.object({
+  title: zod.string(),
+  description: zod.string(),
+  responsibleUserId: zod.number().nullish(),
+  dueDate: zod.string().nullish(),
+  status: zod.enum(["pending", "in_progress", "done", "canceled"]).optional(),
+  executionNotes: zod.string().nullish(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(createCorrectiveActionBodyAttachmentsItemOneFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(createCorrectiveActionBodyAttachmentsItemOneObjectPathRegExp),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Update a corrective action
+ */
+export const UpdateCorrectiveActionParams = zod.object({
+  orgId: zod.coerce.number(),
+  ncId: zod.coerce.number(),
+  actionId: zod.coerce.number(),
+});
+
+export const updateCorrectiveActionBodyAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateCorrectiveActionBodyAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateCorrectiveActionBody = zod.object({
+  title: zod.string().optional(),
+  description: zod.string().optional(),
+  responsibleUserId: zod.number().nullish(),
+  dueDate: zod.string().nullish(),
+  status: zod.enum(["pending", "in_progress", "done", "canceled"]).optional(),
+  executionNotes: zod.string().nullish(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(updateCorrectiveActionBodyAttachmentsItemOneFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(updateCorrectiveActionBodyAttachmentsItemOneObjectPathRegExp),
+      }),
+    )
+    .optional(),
+});
+
+export const updateCorrectiveActionResponseTwoAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateCorrectiveActionResponseTwoAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const updateCorrectiveActionResponseTwoCorrectiveActionsItemAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateCorrectiveActionResponseTwoCorrectiveActionsItemAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateCorrectiveActionResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    originType: zod.enum([
+      "audit_finding",
+      "incident",
+      "document",
+      "process",
+      "risk",
+      "other",
+    ]),
+    title: zod.string(),
+    description: zod.string(),
+    responsibleUserId: zod.number().nullish(),
+    responsibleUserName: zod.string().nullish(),
+    status: zod.enum([
+      "open",
+      "under_analysis",
+      "action_in_progress",
+      "awaiting_effectiveness",
+      "closed",
+      "canceled",
+    ]),
+    effectivenessResult: zod.enum(["effective", "ineffective"]).nullish(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      classification: zod.string().nullish(),
+      rootCause: zod.string().nullish(),
+      processId: zod.number().nullish(),
+      processName: zod.string().nullish(),
+      documentId: zod.number().nullish(),
+      auditFindingId: zod.number().nullish(),
+      riskOpportunityItemId: zod.number().nullish(),
+      effectivenessComment: zod.string().nullish(),
+      effectivenessCheckedAt: zod.string().nullish(),
+      closedAt: zod.string().nullish(),
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(
+              updateCorrectiveActionResponseTwoAttachmentsItemOneFileSizeMax,
+            ),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              updateCorrectiveActionResponseTwoAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      correctiveActions: zod.array(
+        zod.object({
+          id: zod.number(),
+          title: zod.string(),
+          description: zod.string(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          dueDate: zod.string().nullish(),
+          status: zod.enum(["pending", "in_progress", "done", "canceled"]),
+          executionNotes: zod.string().nullish(),
+          attachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  updateCorrectiveActionResponseTwoCorrectiveActionsItemAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  updateCorrectiveActionResponseTwoCorrectiveActionsItemAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary List management reviews
+ */
+export const ListManagementReviewsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListManagementReviewsQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+  status: zod.enum(["draft", "completed", "canceled"]).optional(),
+  chairUserId: zod.coerce.number().optional(),
+  search: zod.coerce.string().optional(),
+});
+
+export const ListManagementReviewsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      organizationId: zod.number(),
+      title: zod.string(),
+      reviewDate: zod.string(),
+      chairUserId: zod.number().nullish(),
+      chairUserName: zod.string().nullish(),
+      minutes: zod.string().nullish(),
+      status: zod.enum(["draft", "completed", "canceled"]),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    pageSize: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary Create a management review
+ */
+export const CreateManagementReviewParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const createManagementReviewBodyAttachmentsItemOneFileSizeMax = 20971520;
+
+export const createManagementReviewBodyAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const CreateManagementReviewBody = zod.object({
+  title: zod.string(),
+  reviewDate: zod.string(),
+  chairUserId: zod.number().nullish(),
+  minutes: zod.string().nullish(),
+  status: zod.enum(["draft", "completed", "canceled"]).optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(createManagementReviewBodyAttachmentsItemOneFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(createManagementReviewBodyAttachmentsItemOneObjectPathRegExp),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Get management review detail
+ */
+export const GetManagementReviewParams = zod.object({
+  orgId: zod.coerce.number(),
+  reviewId: zod.coerce.number(),
+});
+
+export const getManagementReviewResponseTwoAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getManagementReviewResponseTwoAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const GetManagementReviewResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    title: zod.string(),
+    reviewDate: zod.string(),
+    chairUserId: zod.number().nullish(),
+    chairUserName: zod.string().nullish(),
+    minutes: zod.string().nullish(),
+    status: zod.enum(["draft", "completed", "canceled"]),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(getManagementReviewResponseTwoAttachmentsItemOneFileSizeMax),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              getManagementReviewResponseTwoAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      inputs: zod.array(
+        zod.object({
+          id: zod.number(),
+          reviewId: zod.number(),
+          inputType: zod.enum([
+            "policy",
+            "audit_summary",
+            "nc_summary",
+            "objective_status",
+            "risk_status",
+            "process_performance",
+            "customer_feedback",
+            "other",
+          ]),
+          summary: zod.string(),
+          documentId: zod.number().nullish(),
+          auditId: zod.number().nullish(),
+          nonconformityId: zod.number().nullish(),
+          strategicPlanId: zod.number().nullish(),
+          processId: zod.number().nullish(),
+          sortOrder: zod.number(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      outputs: zod.array(
+        zod.object({
+          id: zod.number(),
+          outputType: zod.enum(["decision", "action", "resource", "priority"]),
+          description: zod.string(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          dueDate: zod.string().nullish(),
+          processId: zod.number().nullish(),
+          nonconformityId: zod.number().nullish(),
+          status: zod.enum(["open", "done", "canceled"]),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Update a management review
+ */
+export const UpdateManagementReviewParams = zod.object({
+  orgId: zod.coerce.number(),
+  reviewId: zod.coerce.number(),
+});
+
+export const updateManagementReviewBodyAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateManagementReviewBodyAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateManagementReviewBody = zod.object({
+  title: zod.string().optional(),
+  reviewDate: zod.string().optional(),
+  chairUserId: zod.number().nullish(),
+  minutes: zod.string().nullish(),
+  status: zod.enum(["draft", "completed", "canceled"]).optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(updateManagementReviewBodyAttachmentsItemOneFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(updateManagementReviewBodyAttachmentsItemOneObjectPathRegExp),
+      }),
+    )
+    .optional(),
+});
+
+export const updateManagementReviewResponseTwoAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateManagementReviewResponseTwoAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateManagementReviewResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    title: zod.string(),
+    reviewDate: zod.string(),
+    chairUserId: zod.number().nullish(),
+    chairUserName: zod.string().nullish(),
+    minutes: zod.string().nullish(),
+    status: zod.enum(["draft", "completed", "canceled"]),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(
+              updateManagementReviewResponseTwoAttachmentsItemOneFileSizeMax,
+            ),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              updateManagementReviewResponseTwoAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      inputs: zod.array(
+        zod.object({
+          id: zod.number(),
+          reviewId: zod.number(),
+          inputType: zod.enum([
+            "policy",
+            "audit_summary",
+            "nc_summary",
+            "objective_status",
+            "risk_status",
+            "process_performance",
+            "customer_feedback",
+            "other",
+          ]),
+          summary: zod.string(),
+          documentId: zod.number().nullish(),
+          auditId: zod.number().nullish(),
+          nonconformityId: zod.number().nullish(),
+          strategicPlanId: zod.number().nullish(),
+          processId: zod.number().nullish(),
+          sortOrder: zod.number(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      outputs: zod.array(
+        zod.object({
+          id: zod.number(),
+          outputType: zod.enum(["decision", "action", "resource", "priority"]),
+          description: zod.string(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          dueDate: zod.string().nullish(),
+          processId: zod.number().nullish(),
+          nonconformityId: zod.number().nullish(),
+          status: zod.enum(["open", "done", "canceled"]),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary List inputs for a management review
+ */
+export const ListManagementReviewInputsParams = zod.object({
+  orgId: zod.coerce.number(),
+  reviewId: zod.coerce.number(),
+});
+
+export const ListManagementReviewInputsResponseItem = zod.object({
+  id: zod.number(),
+  reviewId: zod.number(),
+  inputType: zod.enum([
+    "policy",
+    "audit_summary",
+    "nc_summary",
+    "objective_status",
+    "risk_status",
+    "process_performance",
+    "customer_feedback",
+    "other",
+  ]),
+  summary: zod.string(),
+  documentId: zod.number().nullish(),
+  auditId: zod.number().nullish(),
+  nonconformityId: zod.number().nullish(),
+  strategicPlanId: zod.number().nullish(),
+  processId: zod.number().nullish(),
+  sortOrder: zod.number(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+export const ListManagementReviewInputsResponse = zod.array(
+  ListManagementReviewInputsResponseItem,
+);
+
+/**
+ * @summary Create an input for a management review
+ */
+export const CreateManagementReviewInputParams = zod.object({
+  orgId: zod.coerce.number(),
+  reviewId: zod.coerce.number(),
+});
+
+export const CreateManagementReviewInputBody = zod.object({
+  inputType: zod.enum([
+    "policy",
+    "audit_summary",
+    "nc_summary",
+    "objective_status",
+    "risk_status",
+    "process_performance",
+    "customer_feedback",
+    "other",
+  ]),
+  summary: zod.string(),
+  documentId: zod.number().nullish(),
+  auditId: zod.number().nullish(),
+  nonconformityId: zod.number().nullish(),
+  strategicPlanId: zod.number().nullish(),
+  processId: zod.number().nullish(),
+  sortOrder: zod.number().optional(),
+});
+
+/**
+ * @summary Update a management review input
+ */
+export const UpdateManagementReviewInputParams = zod.object({
+  orgId: zod.coerce.number(),
+  reviewId: zod.coerce.number(),
+  inputId: zod.coerce.number(),
+});
+
+export const UpdateManagementReviewInputBody = zod.object({
+  inputType: zod
+    .enum([
+      "policy",
+      "audit_summary",
+      "nc_summary",
+      "objective_status",
+      "risk_status",
+      "process_performance",
+      "customer_feedback",
+      "other",
+    ])
+    .optional(),
+  summary: zod.string().optional(),
+  documentId: zod.number().nullish(),
+  auditId: zod.number().nullish(),
+  nonconformityId: zod.number().nullish(),
+  strategicPlanId: zod.number().nullish(),
+  processId: zod.number().nullish(),
+  sortOrder: zod.number().optional(),
+});
+
+export const updateManagementReviewInputResponseTwoAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateManagementReviewInputResponseTwoAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateManagementReviewInputResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    title: zod.string(),
+    reviewDate: zod.string(),
+    chairUserId: zod.number().nullish(),
+    chairUserName: zod.string().nullish(),
+    minutes: zod.string().nullish(),
+    status: zod.enum(["draft", "completed", "canceled"]),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(
+              updateManagementReviewInputResponseTwoAttachmentsItemOneFileSizeMax,
+            ),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              updateManagementReviewInputResponseTwoAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      inputs: zod.array(
+        zod.object({
+          id: zod.number(),
+          reviewId: zod.number(),
+          inputType: zod.enum([
+            "policy",
+            "audit_summary",
+            "nc_summary",
+            "objective_status",
+            "risk_status",
+            "process_performance",
+            "customer_feedback",
+            "other",
+          ]),
+          summary: zod.string(),
+          documentId: zod.number().nullish(),
+          auditId: zod.number().nullish(),
+          nonconformityId: zod.number().nullish(),
+          strategicPlanId: zod.number().nullish(),
+          processId: zod.number().nullish(),
+          sortOrder: zod.number(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      outputs: zod.array(
+        zod.object({
+          id: zod.number(),
+          outputType: zod.enum(["decision", "action", "resource", "priority"]),
+          description: zod.string(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          dueDate: zod.string().nullish(),
+          processId: zod.number().nullish(),
+          nonconformityId: zod.number().nullish(),
+          status: zod.enum(["open", "done", "canceled"]),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Delete a management review input
+ */
+export const DeleteManagementReviewInputParams = zod.object({
+  orgId: zod.coerce.number(),
+  reviewId: zod.coerce.number(),
+  inputId: zod.coerce.number(),
+});
+
+/**
+ * @summary List outputs for a management review
+ */
+export const ListManagementReviewOutputsParams = zod.object({
+  orgId: zod.coerce.number(),
+  reviewId: zod.coerce.number(),
+});
+
+export const ListManagementReviewOutputsResponseItem = zod.object({
+  id: zod.number(),
+  outputType: zod.enum(["decision", "action", "resource", "priority"]),
+  description: zod.string(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  dueDate: zod.string().nullish(),
+  processId: zod.number().nullish(),
+  nonconformityId: zod.number().nullish(),
+  status: zod.enum(["open", "done", "canceled"]),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+export const ListManagementReviewOutputsResponse = zod.array(
+  ListManagementReviewOutputsResponseItem,
+);
+
+/**
+ * @summary Create an output for a management review
+ */
+export const CreateManagementReviewOutputParams = zod.object({
+  orgId: zod.coerce.number(),
+  reviewId: zod.coerce.number(),
+});
+
+export const CreateManagementReviewOutputBody = zod.object({
+  outputType: zod.enum(["decision", "action", "resource", "priority"]),
+  description: zod.string(),
+  responsibleUserId: zod.number().nullish(),
+  dueDate: zod.string().nullish(),
+  processId: zod.number().nullish(),
+  nonconformityId: zod.number().nullish(),
+  status: zod.enum(["open", "done", "canceled"]).optional(),
+});
+
+/**
+ * @summary Update a management review output
+ */
+export const UpdateManagementReviewOutputParams = zod.object({
+  orgId: zod.coerce.number(),
+  reviewId: zod.coerce.number(),
+  outputId: zod.coerce.number(),
+});
+
+export const UpdateManagementReviewOutputBody = zod.object({
+  outputType: zod
+    .enum(["decision", "action", "resource", "priority"])
+    .optional(),
+  description: zod.string().optional(),
+  responsibleUserId: zod.number().nullish(),
+  dueDate: zod.string().nullish(),
+  processId: zod.number().nullish(),
+  nonconformityId: zod.number().nullish(),
+  status: zod.enum(["open", "done", "canceled"]).optional(),
+});
+
+export const updateManagementReviewOutputResponseTwoAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateManagementReviewOutputResponseTwoAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateManagementReviewOutputResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    title: zod.string(),
+    reviewDate: zod.string(),
+    chairUserId: zod.number().nullish(),
+    chairUserName: zod.string().nullish(),
+    minutes: zod.string().nullish(),
+    status: zod.enum(["draft", "completed", "canceled"]),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(
+              updateManagementReviewOutputResponseTwoAttachmentsItemOneFileSizeMax,
+            ),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              updateManagementReviewOutputResponseTwoAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      inputs: zod.array(
+        zod.object({
+          id: zod.number(),
+          reviewId: zod.number(),
+          inputType: zod.enum([
+            "policy",
+            "audit_summary",
+            "nc_summary",
+            "objective_status",
+            "risk_status",
+            "process_performance",
+            "customer_feedback",
+            "other",
+          ]),
+          summary: zod.string(),
+          documentId: zod.number().nullish(),
+          auditId: zod.number().nullish(),
+          nonconformityId: zod.number().nullish(),
+          strategicPlanId: zod.number().nullish(),
+          processId: zod.number().nullish(),
+          sortOrder: zod.number(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      outputs: zod.array(
+        zod.object({
+          id: zod.number(),
+          outputType: zod.enum(["decision", "action", "resource", "priority"]),
+          description: zod.string(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          dueDate: zod.string().nullish(),
+          processId: zod.number().nullish(),
+          nonconformityId: zod.number().nullish(),
+          status: zod.enum(["open", "done", "canceled"]),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+    }),
+  );
+
+/**
+ * @summary Delete a management review output
+ */
+export const DeleteManagementReviewOutputParams = zod.object({
+  orgId: zod.coerce.number(),
+  reviewId: zod.coerce.number(),
+  outputId: zod.coerce.number(),
+});
+
+/**
  * @summary Create an effectiveness review for a risk or opportunity item
  */
 export const CreateStrategicPlanRiskOpportunityEffectivenessReviewParams =
@@ -8029,12 +10951,3 @@ export const CreateStrategicPlanRiskOpportunityEffectivenessReviewResponse =
     createdAt: zod.string().nullish(),
     updatedAt: zod.string().nullish(),
   });
-
-/**
- * @summary Delete an action for a strategic plan
- */
-export const DeleteStrategicPlanActionParams = zod.object({
-  orgId: zod.coerce.number(),
-  planId: zod.coerce.number(),
-  itemId: zod.coerce.number(),
-});

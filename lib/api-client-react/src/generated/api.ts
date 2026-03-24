@@ -27,17 +27,26 @@ import type {
   BulkDeletePositionsBody,
   CompleteOrganizationOnboardingBody,
   ComplianceTag,
+  CorrectiveAction,
   CreateAwarenessBody,
   CreateCompetencyBody,
+  CreateCorrectiveActionBody,
   CreateDepartmentBody,
   CreateDocumentBody,
   CreateEmployeeBody,
   CreateEmployeeProfileItemBody,
+  CreateInternalAuditBody,
+  CreateInternalAuditFindingBody,
   CreateInvitationBody,
   CreateLegislationBody,
+  CreateManagementReviewBody,
+  CreateManagementReviewInputBody,
+  CreateManagementReviewOutputBody,
+  CreateNonconformityBody,
   CreateOrgUserBody,
   CreateOrgUserResponse,
   CreatePositionBody,
+  CreateSgqProcessBody,
   CreateStrategicPlanActionBody,
   CreateStrategicPlanBody,
   CreateStrategicPlanInterestedPartyBody,
@@ -49,6 +58,8 @@ import type {
   CreateUnitBody,
   Department,
   DocumentAttachment,
+  DocumentCommunicationPlan,
+  DocumentCommunicationPlanBody,
   DocumentDetail,
   DocumentSummary,
   DocumentVersion,
@@ -68,6 +79,8 @@ import type {
   ImportPositionsBody,
   ImportResult,
   ImportStrategicPlanBody,
+  InternalAuditDetail,
+  InternalAuditFinding,
   InvitationResponse,
   InviteTokenInfo,
   Legislation,
@@ -77,22 +90,37 @@ import type {
   ListDocumentsParams,
   ListEmployeesParams,
   ListGovernanceRiskOpportunityItemsParams,
+  ListInternalAuditsParams,
   ListInvitations200,
   ListLegislationsParams,
+  ListManagementReviewsParams,
+  ListNonconformitiesParams,
   ListNotifications200,
   ListOrgUsers200,
+  ListSgqProcessesParams,
   ListUserOptionsParams,
   LoginBody,
+  ManagementReviewDetail,
+  ManagementReviewInput,
+  ManagementReviewOutput,
   MeResponse,
   MessageResponse,
+  NonconformityDetail,
+  NonconformityEffectivenessReviewBody,
   Organization,
   OrganizationOnboardingAuthResponse,
   PaginatedEmployees,
+  PaginatedInternalAudits,
+  PaginatedManagementReviews,
+  PaginatedNonconformities,
+  PaginatedSgqProcesses,
   Position,
   QuestionnaireTheme,
   RegisterBody,
   RejectDocumentBody,
   SaveQuestionnaireResponsesBody,
+  SgqProcessDetail,
+  SgqProcessRevision,
   StrategicPlanAction,
   StrategicPlanDetail,
   StrategicPlanExportResponse,
@@ -105,20 +133,30 @@ import type {
   SubmitDocumentForReviewBody,
   SubmitQuestionnaireResponse,
   SuccessResponse,
+  SyncInternalAuditChecklistBody,
   Unit,
   UnitLegislation,
   UnitLegislationWithLegislation,
   UpdateAwarenessBody,
   UpdateCompetencyBody,
+  UpdateCorrectiveActionBody,
   UpdateDepartmentBody,
   UpdateDocumentBody,
+  UpdateDocumentCommunicationPlanBody,
   UpdateEmployeeBody,
   UpdateEmployeeProfileItemBody,
+  UpdateInternalAuditBody,
+  UpdateInternalAuditFindingBody,
   UpdateLegislationBody,
+  UpdateManagementReviewBody,
+  UpdateManagementReviewInputBody,
+  UpdateManagementReviewOutputBody,
   UpdateMeBody,
   UpdateMyPasswordBody,
+  UpdateNonconformityBody,
   UpdateOrganizationBody,
   UpdatePositionBody,
+  UpdateSgqProcessBody,
   UpdateStrategicPlanActionBody,
   UpdateStrategicPlanBody,
   UpdateStrategicPlanInterestedPartyBody,
@@ -7365,6 +7403,555 @@ export const useDeleteDocumentAttachment = <
 };
 
 /**
+ * @summary Complete document critical analysis
+ */
+export const getCompleteDocumentCriticalAnalysisUrl = (
+  orgId: number,
+  docId: number,
+) => {
+  return `/api/organizations/${orgId}/documents/${docId}/critical-analysis/complete`;
+};
+
+export const completeDocumentCriticalAnalysis = async (
+  orgId: number,
+  docId: number,
+  options?: RequestInit,
+): Promise<DocumentDetail> => {
+  return customFetch<DocumentDetail>(
+    getCompleteDocumentCriticalAnalysisUrl(orgId, docId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getCompleteDocumentCriticalAnalysisMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeDocumentCriticalAnalysis>>,
+    TError,
+    { orgId: number; docId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof completeDocumentCriticalAnalysis>>,
+  TError,
+  { orgId: number; docId: number },
+  TContext
+> => {
+  const mutationKey = ["completeDocumentCriticalAnalysis"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof completeDocumentCriticalAnalysis>>,
+    { orgId: number; docId: number }
+  > = (props) => {
+    const { orgId, docId } = props ?? {};
+
+    return completeDocumentCriticalAnalysis(orgId, docId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CompleteDocumentCriticalAnalysisMutationResult = NonNullable<
+  Awaited<ReturnType<typeof completeDocumentCriticalAnalysis>>
+>;
+
+export type CompleteDocumentCriticalAnalysisMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Complete document critical analysis
+ */
+export const useCompleteDocumentCriticalAnalysis = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof completeDocumentCriticalAnalysis>>,
+    TError,
+    { orgId: number; docId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof completeDocumentCriticalAnalysis>>,
+  TError,
+  { orgId: number; docId: number },
+  TContext
+> => {
+  return useMutation(
+    getCompleteDocumentCriticalAnalysisMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List SGQ communication plans for a policy document
+ */
+export const getListDocumentCommunicationPlansUrl = (
+  orgId: number,
+  docId: number,
+) => {
+  return `/api/organizations/${orgId}/documents/${docId}/communication-plans`;
+};
+
+export const listDocumentCommunicationPlans = async (
+  orgId: number,
+  docId: number,
+  options?: RequestInit,
+): Promise<DocumentCommunicationPlan[]> => {
+  return customFetch<DocumentCommunicationPlan[]>(
+    getListDocumentCommunicationPlansUrl(orgId, docId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListDocumentCommunicationPlansQueryKey = (
+  orgId: number,
+  docId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/documents/${docId}/communication-plans`,
+  ] as const;
+};
+
+export const getListDocumentCommunicationPlansQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDocumentCommunicationPlans>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  docId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDocumentCommunicationPlans>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListDocumentCommunicationPlansQueryKey(orgId, docId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listDocumentCommunicationPlans>>
+  > = ({ signal }) =>
+    listDocumentCommunicationPlans(orgId, docId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && docId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDocumentCommunicationPlans>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDocumentCommunicationPlansQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDocumentCommunicationPlans>>
+>;
+export type ListDocumentCommunicationPlansQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List SGQ communication plans for a policy document
+ */
+
+export function useListDocumentCommunicationPlans<
+  TData = Awaited<ReturnType<typeof listDocumentCommunicationPlans>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  docId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDocumentCommunicationPlans>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDocumentCommunicationPlansQueryOptions(
+    orgId,
+    docId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an SGQ communication plan for a policy document
+ */
+export const getCreateDocumentCommunicationPlanUrl = (
+  orgId: number,
+  docId: number,
+) => {
+  return `/api/organizations/${orgId}/documents/${docId}/communication-plans`;
+};
+
+export const createDocumentCommunicationPlan = async (
+  orgId: number,
+  docId: number,
+  documentCommunicationPlanBody: DocumentCommunicationPlanBody,
+  options?: RequestInit,
+): Promise<DocumentCommunicationPlan[]> => {
+  return customFetch<DocumentCommunicationPlan[]>(
+    getCreateDocumentCommunicationPlanUrl(orgId, docId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(documentCommunicationPlanBody),
+    },
+  );
+};
+
+export const getCreateDocumentCommunicationPlanMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDocumentCommunicationPlan>>,
+    TError,
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<DocumentCommunicationPlanBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createDocumentCommunicationPlan>>,
+  TError,
+  {
+    orgId: number;
+    docId: number;
+    data: BodyType<DocumentCommunicationPlanBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createDocumentCommunicationPlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createDocumentCommunicationPlan>>,
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<DocumentCommunicationPlanBody>;
+    }
+  > = (props) => {
+    const { orgId, docId, data } = props ?? {};
+
+    return createDocumentCommunicationPlan(orgId, docId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateDocumentCommunicationPlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createDocumentCommunicationPlan>>
+>;
+export type CreateDocumentCommunicationPlanMutationBody =
+  BodyType<DocumentCommunicationPlanBody>;
+export type CreateDocumentCommunicationPlanMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an SGQ communication plan for a policy document
+ */
+export const useCreateDocumentCommunicationPlan = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDocumentCommunicationPlan>>,
+    TError,
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<DocumentCommunicationPlanBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createDocumentCommunicationPlan>>,
+  TError,
+  {
+    orgId: number;
+    docId: number;
+    data: BodyType<DocumentCommunicationPlanBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateDocumentCommunicationPlanMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Update an SGQ communication plan
+ */
+export const getUpdateDocumentCommunicationPlanUrl = (
+  orgId: number,
+  docId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/documents/${docId}/communication-plans/${planId}`;
+};
+
+export const updateDocumentCommunicationPlan = async (
+  orgId: number,
+  docId: number,
+  planId: number,
+  updateDocumentCommunicationPlanBody: UpdateDocumentCommunicationPlanBody,
+  options?: RequestInit,
+): Promise<DocumentCommunicationPlan[]> => {
+  return customFetch<DocumentCommunicationPlan[]>(
+    getUpdateDocumentCommunicationPlanUrl(orgId, docId, planId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateDocumentCommunicationPlanBody),
+    },
+  );
+};
+
+export const getUpdateDocumentCommunicationPlanMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDocumentCommunicationPlan>>,
+    TError,
+    {
+      orgId: number;
+      docId: number;
+      planId: number;
+      data: BodyType<UpdateDocumentCommunicationPlanBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateDocumentCommunicationPlan>>,
+  TError,
+  {
+    orgId: number;
+    docId: number;
+    planId: number;
+    data: BodyType<UpdateDocumentCommunicationPlanBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateDocumentCommunicationPlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateDocumentCommunicationPlan>>,
+    {
+      orgId: number;
+      docId: number;
+      planId: number;
+      data: BodyType<UpdateDocumentCommunicationPlanBody>;
+    }
+  > = (props) => {
+    const { orgId, docId, planId, data } = props ?? {};
+
+    return updateDocumentCommunicationPlan(
+      orgId,
+      docId,
+      planId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateDocumentCommunicationPlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateDocumentCommunicationPlan>>
+>;
+export type UpdateDocumentCommunicationPlanMutationBody =
+  BodyType<UpdateDocumentCommunicationPlanBody>;
+export type UpdateDocumentCommunicationPlanMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update an SGQ communication plan
+ */
+export const useUpdateDocumentCommunicationPlan = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDocumentCommunicationPlan>>,
+    TError,
+    {
+      orgId: number;
+      docId: number;
+      planId: number;
+      data: BodyType<UpdateDocumentCommunicationPlanBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateDocumentCommunicationPlan>>,
+  TError,
+  {
+    orgId: number;
+    docId: number;
+    planId: number;
+    data: BodyType<UpdateDocumentCommunicationPlanBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getUpdateDocumentCommunicationPlanMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Delete an SGQ communication plan
+ */
+export const getDeleteDocumentCommunicationPlanUrl = (
+  orgId: number,
+  docId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/documents/${docId}/communication-plans/${planId}`;
+};
+
+export const deleteDocumentCommunicationPlan = async (
+  orgId: number,
+  docId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteDocumentCommunicationPlanUrl(orgId, docId, planId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteDocumentCommunicationPlanMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteDocumentCommunicationPlan>>,
+    TError,
+    { orgId: number; docId: number; planId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteDocumentCommunicationPlan>>,
+  TError,
+  { orgId: number; docId: number; planId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteDocumentCommunicationPlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteDocumentCommunicationPlan>>,
+    { orgId: number; docId: number; planId: number }
+  > = (props) => {
+    const { orgId, docId, planId } = props ?? {};
+
+    return deleteDocumentCommunicationPlan(
+      orgId,
+      docId,
+      planId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteDocumentCommunicationPlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteDocumentCommunicationPlan>>
+>;
+
+export type DeleteDocumentCommunicationPlanMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete an SGQ communication plan
+ */
+export const useDeleteDocumentCommunicationPlan = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteDocumentCommunicationPlan>>,
+    TError,
+    { orgId: number; docId: number; planId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteDocumentCommunicationPlan>>,
+  TError,
+  { orgId: number; docId: number; planId: number },
+  TContext
+> => {
+  return useMutation(
+    getDeleteDocumentCommunicationPlanMutationOptions(options),
+  );
+};
+
+/**
  * @summary Submit document for review
  */
 export const getSubmitDocumentForReviewUrl = (orgId: number, docId: number) => {
@@ -11973,6 +12560,99 @@ export const useUpdateStrategicPlanAction = <
 };
 
 /**
+ * @summary Delete an action for a strategic plan
+ */
+export const getDeleteStrategicPlanActionUrl = (
+  orgId: number,
+  planId: number,
+  itemId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/actions/${itemId}`;
+};
+
+export const deleteStrategicPlanAction = async (
+  orgId: number,
+  planId: number,
+  itemId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteStrategicPlanActionUrl(orgId, planId, itemId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteStrategicPlanActionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteStrategicPlanAction>>,
+    TError,
+    { orgId: number; planId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteStrategicPlanAction>>,
+  TError,
+  { orgId: number; planId: number; itemId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteStrategicPlanAction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteStrategicPlanAction>>,
+    { orgId: number; planId: number; itemId: number }
+  > = (props) => {
+    const { orgId, planId, itemId } = props ?? {};
+
+    return deleteStrategicPlanAction(orgId, planId, itemId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteStrategicPlanActionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteStrategicPlanAction>>
+>;
+
+export type DeleteStrategicPlanActionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete an action for a strategic plan
+ */
+export const useDeleteStrategicPlanAction = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteStrategicPlanAction>>,
+    TError,
+    { orgId: number; planId: number; itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteStrategicPlanAction>>,
+  TError,
+  { orgId: number; planId: number; itemId: number },
+  TContext
+> => {
+  return useMutation(getDeleteStrategicPlanActionMutationOptions(options));
+};
+
+/**
  * @summary List risk and opportunity items for a strategic plan
  */
 export const getListStrategicPlanRiskOpportunityItemsUrl = (
@@ -12440,6 +13120,3712 @@ export const useDeleteStrategicPlanRiskOpportunityItem = <
 };
 
 /**
+ * @summary List SGQ processes
+ */
+export const getListSgqProcessesUrl = (
+  orgId: number,
+  params?: ListSgqProcessesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/governance/sgq-processes?${stringifiedParams}`
+    : `/api/organizations/${orgId}/governance/sgq-processes`;
+};
+
+export const listSgqProcesses = async (
+  orgId: number,
+  params?: ListSgqProcessesParams,
+  options?: RequestInit,
+): Promise<PaginatedSgqProcesses> => {
+  return customFetch<PaginatedSgqProcesses>(
+    getListSgqProcessesUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListSgqProcessesQueryKey = (
+  orgId: number,
+  params?: ListSgqProcessesParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/sgq-processes`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListSgqProcessesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSgqProcesses>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListSgqProcessesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSgqProcesses>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListSgqProcessesQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSgqProcesses>>
+  > = ({ signal }) =>
+    listSgqProcesses(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSgqProcesses>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSgqProcessesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSgqProcesses>>
+>;
+export type ListSgqProcessesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List SGQ processes
+ */
+
+export function useListSgqProcesses<
+  TData = Awaited<ReturnType<typeof listSgqProcesses>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListSgqProcessesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSgqProcesses>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSgqProcessesQueryOptions(orgId, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an SGQ process
+ */
+export const getCreateSgqProcessUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/governance/sgq-processes`;
+};
+
+export const createSgqProcess = async (
+  orgId: number,
+  createSgqProcessBody: CreateSgqProcessBody,
+  options?: RequestInit,
+): Promise<SgqProcessDetail> => {
+  return customFetch<SgqProcessDetail>(getCreateSgqProcessUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSgqProcessBody),
+  });
+};
+
+export const getCreateSgqProcessMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSgqProcess>>,
+    TError,
+    { orgId: number; data: BodyType<CreateSgqProcessBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSgqProcess>>,
+  TError,
+  { orgId: number; data: BodyType<CreateSgqProcessBody> },
+  TContext
+> => {
+  const mutationKey = ["createSgqProcess"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSgqProcess>>,
+    { orgId: number; data: BodyType<CreateSgqProcessBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createSgqProcess(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSgqProcessMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSgqProcess>>
+>;
+export type CreateSgqProcessMutationBody = BodyType<CreateSgqProcessBody>;
+export type CreateSgqProcessMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an SGQ process
+ */
+export const useCreateSgqProcess = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSgqProcess>>,
+    TError,
+    { orgId: number; data: BodyType<CreateSgqProcessBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSgqProcess>>,
+  TError,
+  { orgId: number; data: BodyType<CreateSgqProcessBody> },
+  TContext
+> => {
+  return useMutation(getCreateSgqProcessMutationOptions(options));
+};
+
+/**
+ * @summary Get SGQ process detail
+ */
+export const getGetSgqProcessUrl = (orgId: number, processId: number) => {
+  return `/api/organizations/${orgId}/governance/sgq-processes/${processId}`;
+};
+
+export const getSgqProcess = async (
+  orgId: number,
+  processId: number,
+  options?: RequestInit,
+): Promise<SgqProcessDetail> => {
+  return customFetch<SgqProcessDetail>(getGetSgqProcessUrl(orgId, processId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSgqProcessQueryKey = (orgId: number, processId: number) => {
+  return [
+    `/api/organizations/${orgId}/governance/sgq-processes/${processId}`,
+  ] as const;
+};
+
+export const getGetSgqProcessQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSgqProcess>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  processId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSgqProcess>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSgqProcessQueryKey(orgId, processId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSgqProcess>>> = ({
+    signal,
+  }) => getSgqProcess(orgId, processId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && processId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSgqProcess>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSgqProcessQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSgqProcess>>
+>;
+export type GetSgqProcessQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get SGQ process detail
+ */
+
+export function useGetSgqProcess<
+  TData = Awaited<ReturnType<typeof getSgqProcess>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  processId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSgqProcess>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSgqProcessQueryOptions(orgId, processId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update an SGQ process
+ */
+export const getUpdateSgqProcessUrl = (orgId: number, processId: number) => {
+  return `/api/organizations/${orgId}/governance/sgq-processes/${processId}`;
+};
+
+export const updateSgqProcess = async (
+  orgId: number,
+  processId: number,
+  updateSgqProcessBody: UpdateSgqProcessBody,
+  options?: RequestInit,
+): Promise<SgqProcessDetail> => {
+  return customFetch<SgqProcessDetail>(
+    getUpdateSgqProcessUrl(orgId, processId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateSgqProcessBody),
+    },
+  );
+};
+
+export const getUpdateSgqProcessMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSgqProcess>>,
+    TError,
+    { orgId: number; processId: number; data: BodyType<UpdateSgqProcessBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSgqProcess>>,
+  TError,
+  { orgId: number; processId: number; data: BodyType<UpdateSgqProcessBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSgqProcess"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSgqProcess>>,
+    { orgId: number; processId: number; data: BodyType<UpdateSgqProcessBody> }
+  > = (props) => {
+    const { orgId, processId, data } = props ?? {};
+
+    return updateSgqProcess(orgId, processId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSgqProcessMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSgqProcess>>
+>;
+export type UpdateSgqProcessMutationBody = BodyType<UpdateSgqProcessBody>;
+export type UpdateSgqProcessMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update an SGQ process
+ */
+export const useUpdateSgqProcess = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSgqProcess>>,
+    TError,
+    { orgId: number; processId: number; data: BodyType<UpdateSgqProcessBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSgqProcess>>,
+  TError,
+  { orgId: number; processId: number; data: BodyType<UpdateSgqProcessBody> },
+  TContext
+> => {
+  return useMutation(getUpdateSgqProcessMutationOptions(options));
+};
+
+/**
+ * @summary Inactivate an SGQ process
+ */
+export const getInactivateSgqProcessUrl = (
+  orgId: number,
+  processId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/sgq-processes/${processId}/inactivate`;
+};
+
+export const inactivateSgqProcess = async (
+  orgId: number,
+  processId: number,
+  options?: RequestInit,
+): Promise<SgqProcessDetail> => {
+  return customFetch<SgqProcessDetail>(
+    getInactivateSgqProcessUrl(orgId, processId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getInactivateSgqProcessMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof inactivateSgqProcess>>,
+    TError,
+    { orgId: number; processId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof inactivateSgqProcess>>,
+  TError,
+  { orgId: number; processId: number },
+  TContext
+> => {
+  const mutationKey = ["inactivateSgqProcess"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof inactivateSgqProcess>>,
+    { orgId: number; processId: number }
+  > = (props) => {
+    const { orgId, processId } = props ?? {};
+
+    return inactivateSgqProcess(orgId, processId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type InactivateSgqProcessMutationResult = NonNullable<
+  Awaited<ReturnType<typeof inactivateSgqProcess>>
+>;
+
+export type InactivateSgqProcessMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Inactivate an SGQ process
+ */
+export const useInactivateSgqProcess = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof inactivateSgqProcess>>,
+    TError,
+    { orgId: number; processId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof inactivateSgqProcess>>,
+  TError,
+  { orgId: number; processId: number },
+  TContext
+> => {
+  return useMutation(getInactivateSgqProcessMutationOptions(options));
+};
+
+/**
+ * @summary Reactivate an SGQ process
+ */
+export const getReactivateSgqProcessUrl = (
+  orgId: number,
+  processId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/sgq-processes/${processId}/reactivate`;
+};
+
+export const reactivateSgqProcess = async (
+  orgId: number,
+  processId: number,
+  options?: RequestInit,
+): Promise<SgqProcessDetail> => {
+  return customFetch<SgqProcessDetail>(
+    getReactivateSgqProcessUrl(orgId, processId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getReactivateSgqProcessMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reactivateSgqProcess>>,
+    TError,
+    { orgId: number; processId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reactivateSgqProcess>>,
+  TError,
+  { orgId: number; processId: number },
+  TContext
+> => {
+  const mutationKey = ["reactivateSgqProcess"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reactivateSgqProcess>>,
+    { orgId: number; processId: number }
+  > = (props) => {
+    const { orgId, processId } = props ?? {};
+
+    return reactivateSgqProcess(orgId, processId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReactivateSgqProcessMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reactivateSgqProcess>>
+>;
+
+export type ReactivateSgqProcessMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reactivate an SGQ process
+ */
+export const useReactivateSgqProcess = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reactivateSgqProcess>>,
+    TError,
+    { orgId: number; processId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reactivateSgqProcess>>,
+  TError,
+  { orgId: number; processId: number },
+  TContext
+> => {
+  return useMutation(getReactivateSgqProcessMutationOptions(options));
+};
+
+/**
+ * @summary List SGQ process revisions
+ */
+export const getListSgqProcessRevisionsUrl = (
+  orgId: number,
+  processId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/sgq-processes/${processId}/revisions`;
+};
+
+export const listSgqProcessRevisions = async (
+  orgId: number,
+  processId: number,
+  options?: RequestInit,
+): Promise<SgqProcessRevision[]> => {
+  return customFetch<SgqProcessRevision[]>(
+    getListSgqProcessRevisionsUrl(orgId, processId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListSgqProcessRevisionsQueryKey = (
+  orgId: number,
+  processId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/sgq-processes/${processId}/revisions`,
+  ] as const;
+};
+
+export const getListSgqProcessRevisionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSgqProcessRevisions>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  processId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSgqProcessRevisions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListSgqProcessRevisionsQueryKey(orgId, processId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSgqProcessRevisions>>
+  > = ({ signal }) =>
+    listSgqProcessRevisions(orgId, processId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && processId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSgqProcessRevisions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSgqProcessRevisionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSgqProcessRevisions>>
+>;
+export type ListSgqProcessRevisionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List SGQ process revisions
+ */
+
+export function useListSgqProcessRevisions<
+  TData = Awaited<ReturnType<typeof listSgqProcessRevisions>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  processId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSgqProcessRevisions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSgqProcessRevisionsQueryOptions(
+    orgId,
+    processId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List internal audits
+ */
+export const getListInternalAuditsUrl = (
+  orgId: number,
+  params?: ListInternalAuditsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/governance/internal-audits?${stringifiedParams}`
+    : `/api/organizations/${orgId}/governance/internal-audits`;
+};
+
+export const listInternalAudits = async (
+  orgId: number,
+  params?: ListInternalAuditsParams,
+  options?: RequestInit,
+): Promise<PaginatedInternalAudits> => {
+  return customFetch<PaginatedInternalAudits>(
+    getListInternalAuditsUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListInternalAuditsQueryKey = (
+  orgId: number,
+  params?: ListInternalAuditsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/internal-audits`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListInternalAuditsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listInternalAudits>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListInternalAuditsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listInternalAudits>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListInternalAuditsQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listInternalAudits>>
+  > = ({ signal }) =>
+    listInternalAudits(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listInternalAudits>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListInternalAuditsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listInternalAudits>>
+>;
+export type ListInternalAuditsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List internal audits
+ */
+
+export function useListInternalAudits<
+  TData = Awaited<ReturnType<typeof listInternalAudits>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListInternalAuditsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listInternalAudits>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListInternalAuditsQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an internal audit
+ */
+export const getCreateInternalAuditUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/governance/internal-audits`;
+};
+
+export const createInternalAudit = async (
+  orgId: number,
+  createInternalAuditBody: CreateInternalAuditBody,
+  options?: RequestInit,
+): Promise<InternalAuditDetail> => {
+  return customFetch<InternalAuditDetail>(getCreateInternalAuditUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createInternalAuditBody),
+  });
+};
+
+export const getCreateInternalAuditMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createInternalAudit>>,
+    TError,
+    { orgId: number; data: BodyType<CreateInternalAuditBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createInternalAudit>>,
+  TError,
+  { orgId: number; data: BodyType<CreateInternalAuditBody> },
+  TContext
+> => {
+  const mutationKey = ["createInternalAudit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createInternalAudit>>,
+    { orgId: number; data: BodyType<CreateInternalAuditBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createInternalAudit(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateInternalAuditMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createInternalAudit>>
+>;
+export type CreateInternalAuditMutationBody = BodyType<CreateInternalAuditBody>;
+export type CreateInternalAuditMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an internal audit
+ */
+export const useCreateInternalAudit = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createInternalAudit>>,
+    TError,
+    { orgId: number; data: BodyType<CreateInternalAuditBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createInternalAudit>>,
+  TError,
+  { orgId: number; data: BodyType<CreateInternalAuditBody> },
+  TContext
+> => {
+  return useMutation(getCreateInternalAuditMutationOptions(options));
+};
+
+/**
+ * @summary Get internal audit detail
+ */
+export const getGetInternalAuditUrl = (orgId: number, auditId: number) => {
+  return `/api/organizations/${orgId}/governance/internal-audits/${auditId}`;
+};
+
+export const getInternalAudit = async (
+  orgId: number,
+  auditId: number,
+  options?: RequestInit,
+): Promise<InternalAuditDetail> => {
+  return customFetch<InternalAuditDetail>(
+    getGetInternalAuditUrl(orgId, auditId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetInternalAuditQueryKey = (orgId: number, auditId: number) => {
+  return [
+    `/api/organizations/${orgId}/governance/internal-audits/${auditId}`,
+  ] as const;
+};
+
+export const getGetInternalAuditQueryOptions = <
+  TData = Awaited<ReturnType<typeof getInternalAudit>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  auditId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getInternalAudit>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetInternalAuditQueryKey(orgId, auditId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getInternalAudit>>
+  > = ({ signal }) =>
+    getInternalAudit(orgId, auditId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && auditId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getInternalAudit>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetInternalAuditQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getInternalAudit>>
+>;
+export type GetInternalAuditQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get internal audit detail
+ */
+
+export function useGetInternalAudit<
+  TData = Awaited<ReturnType<typeof getInternalAudit>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  auditId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getInternalAudit>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetInternalAuditQueryOptions(orgId, auditId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update an internal audit
+ */
+export const getUpdateInternalAuditUrl = (orgId: number, auditId: number) => {
+  return `/api/organizations/${orgId}/governance/internal-audits/${auditId}`;
+};
+
+export const updateInternalAudit = async (
+  orgId: number,
+  auditId: number,
+  updateInternalAuditBody: UpdateInternalAuditBody,
+  options?: RequestInit,
+): Promise<InternalAuditDetail> => {
+  return customFetch<InternalAuditDetail>(
+    getUpdateInternalAuditUrl(orgId, auditId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateInternalAuditBody),
+    },
+  );
+};
+
+export const getUpdateInternalAuditMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateInternalAudit>>,
+    TError,
+    { orgId: number; auditId: number; data: BodyType<UpdateInternalAuditBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateInternalAudit>>,
+  TError,
+  { orgId: number; auditId: number; data: BodyType<UpdateInternalAuditBody> },
+  TContext
+> => {
+  const mutationKey = ["updateInternalAudit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateInternalAudit>>,
+    { orgId: number; auditId: number; data: BodyType<UpdateInternalAuditBody> }
+  > = (props) => {
+    const { orgId, auditId, data } = props ?? {};
+
+    return updateInternalAudit(orgId, auditId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateInternalAuditMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateInternalAudit>>
+>;
+export type UpdateInternalAuditMutationBody = BodyType<UpdateInternalAuditBody>;
+export type UpdateInternalAuditMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update an internal audit
+ */
+export const useUpdateInternalAudit = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateInternalAudit>>,
+    TError,
+    { orgId: number; auditId: number; data: BodyType<UpdateInternalAuditBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateInternalAudit>>,
+  TError,
+  { orgId: number; auditId: number; data: BodyType<UpdateInternalAuditBody> },
+  TContext
+> => {
+  return useMutation(getUpdateInternalAuditMutationOptions(options));
+};
+
+/**
+ * @summary Replace checklist items for an internal audit
+ */
+export const getSyncInternalAuditChecklistItemsUrl = (
+  orgId: number,
+  auditId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/internal-audits/${auditId}/checklist-items`;
+};
+
+export const syncInternalAuditChecklistItems = async (
+  orgId: number,
+  auditId: number,
+  syncInternalAuditChecklistBody: SyncInternalAuditChecklistBody,
+  options?: RequestInit,
+): Promise<InternalAuditDetail> => {
+  return customFetch<InternalAuditDetail>(
+    getSyncInternalAuditChecklistItemsUrl(orgId, auditId),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(syncInternalAuditChecklistBody),
+    },
+  );
+};
+
+export const getSyncInternalAuditChecklistItemsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncInternalAuditChecklistItems>>,
+    TError,
+    {
+      orgId: number;
+      auditId: number;
+      data: BodyType<SyncInternalAuditChecklistBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof syncInternalAuditChecklistItems>>,
+  TError,
+  {
+    orgId: number;
+    auditId: number;
+    data: BodyType<SyncInternalAuditChecklistBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["syncInternalAuditChecklistItems"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof syncInternalAuditChecklistItems>>,
+    {
+      orgId: number;
+      auditId: number;
+      data: BodyType<SyncInternalAuditChecklistBody>;
+    }
+  > = (props) => {
+    const { orgId, auditId, data } = props ?? {};
+
+    return syncInternalAuditChecklistItems(
+      orgId,
+      auditId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SyncInternalAuditChecklistItemsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof syncInternalAuditChecklistItems>>
+>;
+export type SyncInternalAuditChecklistItemsMutationBody =
+  BodyType<SyncInternalAuditChecklistBody>;
+export type SyncInternalAuditChecklistItemsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Replace checklist items for an internal audit
+ */
+export const useSyncInternalAuditChecklistItems = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncInternalAuditChecklistItems>>,
+    TError,
+    {
+      orgId: number;
+      auditId: number;
+      data: BodyType<SyncInternalAuditChecklistBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof syncInternalAuditChecklistItems>>,
+  TError,
+  {
+    orgId: number;
+    auditId: number;
+    data: BodyType<SyncInternalAuditChecklistBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getSyncInternalAuditChecklistItemsMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List findings for an internal audit
+ */
+export const getListInternalAuditFindingsUrl = (
+  orgId: number,
+  auditId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/internal-audits/${auditId}/findings`;
+};
+
+export const listInternalAuditFindings = async (
+  orgId: number,
+  auditId: number,
+  options?: RequestInit,
+): Promise<InternalAuditFinding[]> => {
+  return customFetch<InternalAuditFinding[]>(
+    getListInternalAuditFindingsUrl(orgId, auditId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListInternalAuditFindingsQueryKey = (
+  orgId: number,
+  auditId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/internal-audits/${auditId}/findings`,
+  ] as const;
+};
+
+export const getListInternalAuditFindingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listInternalAuditFindings>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  auditId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listInternalAuditFindings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListInternalAuditFindingsQueryKey(orgId, auditId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listInternalAuditFindings>>
+  > = ({ signal }) =>
+    listInternalAuditFindings(orgId, auditId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && auditId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listInternalAuditFindings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListInternalAuditFindingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listInternalAuditFindings>>
+>;
+export type ListInternalAuditFindingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List findings for an internal audit
+ */
+
+export function useListInternalAuditFindings<
+  TData = Awaited<ReturnType<typeof listInternalAuditFindings>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  auditId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listInternalAuditFindings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListInternalAuditFindingsQueryOptions(
+    orgId,
+    auditId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a finding for an internal audit
+ */
+export const getCreateInternalAuditFindingUrl = (
+  orgId: number,
+  auditId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/internal-audits/${auditId}/findings`;
+};
+
+export const createInternalAuditFinding = async (
+  orgId: number,
+  auditId: number,
+  createInternalAuditFindingBody: CreateInternalAuditFindingBody,
+  options?: RequestInit,
+): Promise<InternalAuditFinding> => {
+  return customFetch<InternalAuditFinding>(
+    getCreateInternalAuditFindingUrl(orgId, auditId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createInternalAuditFindingBody),
+    },
+  );
+};
+
+export const getCreateInternalAuditFindingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createInternalAuditFinding>>,
+    TError,
+    {
+      orgId: number;
+      auditId: number;
+      data: BodyType<CreateInternalAuditFindingBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createInternalAuditFinding>>,
+  TError,
+  {
+    orgId: number;
+    auditId: number;
+    data: BodyType<CreateInternalAuditFindingBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createInternalAuditFinding"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createInternalAuditFinding>>,
+    {
+      orgId: number;
+      auditId: number;
+      data: BodyType<CreateInternalAuditFindingBody>;
+    }
+  > = (props) => {
+    const { orgId, auditId, data } = props ?? {};
+
+    return createInternalAuditFinding(orgId, auditId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateInternalAuditFindingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createInternalAuditFinding>>
+>;
+export type CreateInternalAuditFindingMutationBody =
+  BodyType<CreateInternalAuditFindingBody>;
+export type CreateInternalAuditFindingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a finding for an internal audit
+ */
+export const useCreateInternalAuditFinding = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createInternalAuditFinding>>,
+    TError,
+    {
+      orgId: number;
+      auditId: number;
+      data: BodyType<CreateInternalAuditFindingBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createInternalAuditFinding>>,
+  TError,
+  {
+    orgId: number;
+    auditId: number;
+    data: BodyType<CreateInternalAuditFindingBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateInternalAuditFindingMutationOptions(options));
+};
+
+/**
+ * @summary Update an internal audit finding
+ */
+export const getUpdateInternalAuditFindingUrl = (
+  orgId: number,
+  auditId: number,
+  findingId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/internal-audits/${auditId}/findings/${findingId}`;
+};
+
+export const updateInternalAuditFinding = async (
+  orgId: number,
+  auditId: number,
+  findingId: number,
+  updateInternalAuditFindingBody: UpdateInternalAuditFindingBody,
+  options?: RequestInit,
+): Promise<InternalAuditFinding> => {
+  return customFetch<InternalAuditFinding>(
+    getUpdateInternalAuditFindingUrl(orgId, auditId, findingId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateInternalAuditFindingBody),
+    },
+  );
+};
+
+export const getUpdateInternalAuditFindingMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateInternalAuditFinding>>,
+    TError,
+    {
+      orgId: number;
+      auditId: number;
+      findingId: number;
+      data: BodyType<UpdateInternalAuditFindingBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateInternalAuditFinding>>,
+  TError,
+  {
+    orgId: number;
+    auditId: number;
+    findingId: number;
+    data: BodyType<UpdateInternalAuditFindingBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateInternalAuditFinding"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateInternalAuditFinding>>,
+    {
+      orgId: number;
+      auditId: number;
+      findingId: number;
+      data: BodyType<UpdateInternalAuditFindingBody>;
+    }
+  > = (props) => {
+    const { orgId, auditId, findingId, data } = props ?? {};
+
+    return updateInternalAuditFinding(
+      orgId,
+      auditId,
+      findingId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateInternalAuditFindingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateInternalAuditFinding>>
+>;
+export type UpdateInternalAuditFindingMutationBody =
+  BodyType<UpdateInternalAuditFindingBody>;
+export type UpdateInternalAuditFindingMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update an internal audit finding
+ */
+export const useUpdateInternalAuditFinding = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateInternalAuditFinding>>,
+    TError,
+    {
+      orgId: number;
+      auditId: number;
+      findingId: number;
+      data: BodyType<UpdateInternalAuditFindingBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateInternalAuditFinding>>,
+  TError,
+  {
+    orgId: number;
+    auditId: number;
+    findingId: number;
+    data: BodyType<UpdateInternalAuditFindingBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateInternalAuditFindingMutationOptions(options));
+};
+
+/**
+ * @summary List nonconformities
+ */
+export const getListNonconformitiesUrl = (
+  orgId: number,
+  params?: ListNonconformitiesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/governance/nonconformities?${stringifiedParams}`
+    : `/api/organizations/${orgId}/governance/nonconformities`;
+};
+
+export const listNonconformities = async (
+  orgId: number,
+  params?: ListNonconformitiesParams,
+  options?: RequestInit,
+): Promise<PaginatedNonconformities> => {
+  return customFetch<PaginatedNonconformities>(
+    getListNonconformitiesUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListNonconformitiesQueryKey = (
+  orgId: number,
+  params?: ListNonconformitiesParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/nonconformities`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListNonconformitiesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listNonconformities>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListNonconformitiesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listNonconformities>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListNonconformitiesQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listNonconformities>>
+  > = ({ signal }) =>
+    listNonconformities(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listNonconformities>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListNonconformitiesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listNonconformities>>
+>;
+export type ListNonconformitiesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List nonconformities
+ */
+
+export function useListNonconformities<
+  TData = Awaited<ReturnType<typeof listNonconformities>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListNonconformitiesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listNonconformities>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListNonconformitiesQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a nonconformity
+ */
+export const getCreateNonconformityUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/governance/nonconformities`;
+};
+
+export const createNonconformity = async (
+  orgId: number,
+  createNonconformityBody: CreateNonconformityBody,
+  options?: RequestInit,
+): Promise<NonconformityDetail> => {
+  return customFetch<NonconformityDetail>(getCreateNonconformityUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createNonconformityBody),
+  });
+};
+
+export const getCreateNonconformityMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createNonconformity>>,
+    TError,
+    { orgId: number; data: BodyType<CreateNonconformityBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createNonconformity>>,
+  TError,
+  { orgId: number; data: BodyType<CreateNonconformityBody> },
+  TContext
+> => {
+  const mutationKey = ["createNonconformity"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createNonconformity>>,
+    { orgId: number; data: BodyType<CreateNonconformityBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createNonconformity(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateNonconformityMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createNonconformity>>
+>;
+export type CreateNonconformityMutationBody = BodyType<CreateNonconformityBody>;
+export type CreateNonconformityMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a nonconformity
+ */
+export const useCreateNonconformity = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createNonconformity>>,
+    TError,
+    { orgId: number; data: BodyType<CreateNonconformityBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createNonconformity>>,
+  TError,
+  { orgId: number; data: BodyType<CreateNonconformityBody> },
+  TContext
+> => {
+  return useMutation(getCreateNonconformityMutationOptions(options));
+};
+
+/**
+ * @summary Get nonconformity detail
+ */
+export const getGetNonconformityUrl = (orgId: number, ncId: number) => {
+  return `/api/organizations/${orgId}/governance/nonconformities/${ncId}`;
+};
+
+export const getNonconformity = async (
+  orgId: number,
+  ncId: number,
+  options?: RequestInit,
+): Promise<NonconformityDetail> => {
+  return customFetch<NonconformityDetail>(getGetNonconformityUrl(orgId, ncId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetNonconformityQueryKey = (orgId: number, ncId: number) => {
+  return [
+    `/api/organizations/${orgId}/governance/nonconformities/${ncId}`,
+  ] as const;
+};
+
+export const getGetNonconformityQueryOptions = <
+  TData = Awaited<ReturnType<typeof getNonconformity>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  ncId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getNonconformity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetNonconformityQueryKey(orgId, ncId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getNonconformity>>
+  > = ({ signal }) =>
+    getNonconformity(orgId, ncId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && ncId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getNonconformity>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetNonconformityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getNonconformity>>
+>;
+export type GetNonconformityQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get nonconformity detail
+ */
+
+export function useGetNonconformity<
+  TData = Awaited<ReturnType<typeof getNonconformity>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  ncId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getNonconformity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetNonconformityQueryOptions(orgId, ncId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a nonconformity
+ */
+export const getUpdateNonconformityUrl = (orgId: number, ncId: number) => {
+  return `/api/organizations/${orgId}/governance/nonconformities/${ncId}`;
+};
+
+export const updateNonconformity = async (
+  orgId: number,
+  ncId: number,
+  updateNonconformityBody: UpdateNonconformityBody,
+  options?: RequestInit,
+): Promise<NonconformityDetail> => {
+  return customFetch<NonconformityDetail>(
+    getUpdateNonconformityUrl(orgId, ncId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateNonconformityBody),
+    },
+  );
+};
+
+export const getUpdateNonconformityMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateNonconformity>>,
+    TError,
+    { orgId: number; ncId: number; data: BodyType<UpdateNonconformityBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateNonconformity>>,
+  TError,
+  { orgId: number; ncId: number; data: BodyType<UpdateNonconformityBody> },
+  TContext
+> => {
+  const mutationKey = ["updateNonconformity"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateNonconformity>>,
+    { orgId: number; ncId: number; data: BodyType<UpdateNonconformityBody> }
+  > = (props) => {
+    const { orgId, ncId, data } = props ?? {};
+
+    return updateNonconformity(orgId, ncId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateNonconformityMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateNonconformity>>
+>;
+export type UpdateNonconformityMutationBody = BodyType<UpdateNonconformityBody>;
+export type UpdateNonconformityMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a nonconformity
+ */
+export const useUpdateNonconformity = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateNonconformity>>,
+    TError,
+    { orgId: number; ncId: number; data: BodyType<UpdateNonconformityBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateNonconformity>>,
+  TError,
+  { orgId: number; ncId: number; data: BodyType<UpdateNonconformityBody> },
+  TContext
+> => {
+  return useMutation(getUpdateNonconformityMutationOptions(options));
+};
+
+/**
+ * @summary Register effectiveness review for a nonconformity
+ */
+export const getCreateNonconformityEffectivenessReviewUrl = (
+  orgId: number,
+  ncId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/nonconformities/${ncId}/effectiveness-review`;
+};
+
+export const createNonconformityEffectivenessReview = async (
+  orgId: number,
+  ncId: number,
+  nonconformityEffectivenessReviewBody: NonconformityEffectivenessReviewBody,
+  options?: RequestInit,
+): Promise<NonconformityDetail> => {
+  return customFetch<NonconformityDetail>(
+    getCreateNonconformityEffectivenessReviewUrl(orgId, ncId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(nonconformityEffectivenessReviewBody),
+    },
+  );
+};
+
+export const getCreateNonconformityEffectivenessReviewMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createNonconformityEffectivenessReview>>,
+    TError,
+    {
+      orgId: number;
+      ncId: number;
+      data: BodyType<NonconformityEffectivenessReviewBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createNonconformityEffectivenessReview>>,
+  TError,
+  {
+    orgId: number;
+    ncId: number;
+    data: BodyType<NonconformityEffectivenessReviewBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createNonconformityEffectivenessReview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createNonconformityEffectivenessReview>>,
+    {
+      orgId: number;
+      ncId: number;
+      data: BodyType<NonconformityEffectivenessReviewBody>;
+    }
+  > = (props) => {
+    const { orgId, ncId, data } = props ?? {};
+
+    return createNonconformityEffectivenessReview(
+      orgId,
+      ncId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateNonconformityEffectivenessReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createNonconformityEffectivenessReview>>
+>;
+export type CreateNonconformityEffectivenessReviewMutationBody =
+  BodyType<NonconformityEffectivenessReviewBody>;
+export type CreateNonconformityEffectivenessReviewMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Register effectiveness review for a nonconformity
+ */
+export const useCreateNonconformityEffectivenessReview = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createNonconformityEffectivenessReview>>,
+    TError,
+    {
+      orgId: number;
+      ncId: number;
+      data: BodyType<NonconformityEffectivenessReviewBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createNonconformityEffectivenessReview>>,
+  TError,
+  {
+    orgId: number;
+    ncId: number;
+    data: BodyType<NonconformityEffectivenessReviewBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateNonconformityEffectivenessReviewMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List corrective actions for a nonconformity
+ */
+export const getListCorrectiveActionsUrl = (orgId: number, ncId: number) => {
+  return `/api/organizations/${orgId}/governance/nonconformities/${ncId}/corrective-actions`;
+};
+
+export const listCorrectiveActions = async (
+  orgId: number,
+  ncId: number,
+  options?: RequestInit,
+): Promise<CorrectiveAction[]> => {
+  return customFetch<CorrectiveAction[]>(
+    getListCorrectiveActionsUrl(orgId, ncId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListCorrectiveActionsQueryKey = (
+  orgId: number,
+  ncId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/nonconformities/${ncId}/corrective-actions`,
+  ] as const;
+};
+
+export const getListCorrectiveActionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCorrectiveActions>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  ncId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCorrectiveActions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCorrectiveActionsQueryKey(orgId, ncId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCorrectiveActions>>
+  > = ({ signal }) =>
+    listCorrectiveActions(orgId, ncId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && ncId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCorrectiveActions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCorrectiveActionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCorrectiveActions>>
+>;
+export type ListCorrectiveActionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List corrective actions for a nonconformity
+ */
+
+export function useListCorrectiveActions<
+  TData = Awaited<ReturnType<typeof listCorrectiveActions>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  ncId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCorrectiveActions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCorrectiveActionsQueryOptions(
+    orgId,
+    ncId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a corrective action for a nonconformity
+ */
+export const getCreateCorrectiveActionUrl = (orgId: number, ncId: number) => {
+  return `/api/organizations/${orgId}/governance/nonconformities/${ncId}/corrective-actions`;
+};
+
+export const createCorrectiveAction = async (
+  orgId: number,
+  ncId: number,
+  createCorrectiveActionBody: CreateCorrectiveActionBody,
+  options?: RequestInit,
+): Promise<NonconformityDetail> => {
+  return customFetch<NonconformityDetail>(
+    getCreateCorrectiveActionUrl(orgId, ncId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createCorrectiveActionBody),
+    },
+  );
+};
+
+export const getCreateCorrectiveActionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCorrectiveAction>>,
+    TError,
+    { orgId: number; ncId: number; data: BodyType<CreateCorrectiveActionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCorrectiveAction>>,
+  TError,
+  { orgId: number; ncId: number; data: BodyType<CreateCorrectiveActionBody> },
+  TContext
+> => {
+  const mutationKey = ["createCorrectiveAction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCorrectiveAction>>,
+    { orgId: number; ncId: number; data: BodyType<CreateCorrectiveActionBody> }
+  > = (props) => {
+    const { orgId, ncId, data } = props ?? {};
+
+    return createCorrectiveAction(orgId, ncId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCorrectiveActionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCorrectiveAction>>
+>;
+export type CreateCorrectiveActionMutationBody =
+  BodyType<CreateCorrectiveActionBody>;
+export type CreateCorrectiveActionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a corrective action for a nonconformity
+ */
+export const useCreateCorrectiveAction = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCorrectiveAction>>,
+    TError,
+    { orgId: number; ncId: number; data: BodyType<CreateCorrectiveActionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCorrectiveAction>>,
+  TError,
+  { orgId: number; ncId: number; data: BodyType<CreateCorrectiveActionBody> },
+  TContext
+> => {
+  return useMutation(getCreateCorrectiveActionMutationOptions(options));
+};
+
+/**
+ * @summary Update a corrective action
+ */
+export const getUpdateCorrectiveActionUrl = (
+  orgId: number,
+  ncId: number,
+  actionId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/nonconformities/${ncId}/corrective-actions/${actionId}`;
+};
+
+export const updateCorrectiveAction = async (
+  orgId: number,
+  ncId: number,
+  actionId: number,
+  updateCorrectiveActionBody: UpdateCorrectiveActionBody,
+  options?: RequestInit,
+): Promise<NonconformityDetail> => {
+  return customFetch<NonconformityDetail>(
+    getUpdateCorrectiveActionUrl(orgId, ncId, actionId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateCorrectiveActionBody),
+    },
+  );
+};
+
+export const getUpdateCorrectiveActionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCorrectiveAction>>,
+    TError,
+    {
+      orgId: number;
+      ncId: number;
+      actionId: number;
+      data: BodyType<UpdateCorrectiveActionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCorrectiveAction>>,
+  TError,
+  {
+    orgId: number;
+    ncId: number;
+    actionId: number;
+    data: BodyType<UpdateCorrectiveActionBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateCorrectiveAction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCorrectiveAction>>,
+    {
+      orgId: number;
+      ncId: number;
+      actionId: number;
+      data: BodyType<UpdateCorrectiveActionBody>;
+    }
+  > = (props) => {
+    const { orgId, ncId, actionId, data } = props ?? {};
+
+    return updateCorrectiveAction(orgId, ncId, actionId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCorrectiveActionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCorrectiveAction>>
+>;
+export type UpdateCorrectiveActionMutationBody =
+  BodyType<UpdateCorrectiveActionBody>;
+export type UpdateCorrectiveActionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a corrective action
+ */
+export const useUpdateCorrectiveAction = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCorrectiveAction>>,
+    TError,
+    {
+      orgId: number;
+      ncId: number;
+      actionId: number;
+      data: BodyType<UpdateCorrectiveActionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCorrectiveAction>>,
+  TError,
+  {
+    orgId: number;
+    ncId: number;
+    actionId: number;
+    data: BodyType<UpdateCorrectiveActionBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateCorrectiveActionMutationOptions(options));
+};
+
+/**
+ * @summary List management reviews
+ */
+export const getListManagementReviewsUrl = (
+  orgId: number,
+  params?: ListManagementReviewsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/governance/management-reviews?${stringifiedParams}`
+    : `/api/organizations/${orgId}/governance/management-reviews`;
+};
+
+export const listManagementReviews = async (
+  orgId: number,
+  params?: ListManagementReviewsParams,
+  options?: RequestInit,
+): Promise<PaginatedManagementReviews> => {
+  return customFetch<PaginatedManagementReviews>(
+    getListManagementReviewsUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListManagementReviewsQueryKey = (
+  orgId: number,
+  params?: ListManagementReviewsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/management-reviews`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListManagementReviewsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listManagementReviews>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListManagementReviewsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listManagementReviews>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListManagementReviewsQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listManagementReviews>>
+  > = ({ signal }) =>
+    listManagementReviews(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listManagementReviews>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListManagementReviewsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listManagementReviews>>
+>;
+export type ListManagementReviewsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List management reviews
+ */
+
+export function useListManagementReviews<
+  TData = Awaited<ReturnType<typeof listManagementReviews>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListManagementReviewsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listManagementReviews>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListManagementReviewsQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a management review
+ */
+export const getCreateManagementReviewUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/governance/management-reviews`;
+};
+
+export const createManagementReview = async (
+  orgId: number,
+  createManagementReviewBody: CreateManagementReviewBody,
+  options?: RequestInit,
+): Promise<ManagementReviewDetail> => {
+  return customFetch<ManagementReviewDetail>(
+    getCreateManagementReviewUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createManagementReviewBody),
+    },
+  );
+};
+
+export const getCreateManagementReviewMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createManagementReview>>,
+    TError,
+    { orgId: number; data: BodyType<CreateManagementReviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createManagementReview>>,
+  TError,
+  { orgId: number; data: BodyType<CreateManagementReviewBody> },
+  TContext
+> => {
+  const mutationKey = ["createManagementReview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createManagementReview>>,
+    { orgId: number; data: BodyType<CreateManagementReviewBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createManagementReview(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateManagementReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createManagementReview>>
+>;
+export type CreateManagementReviewMutationBody =
+  BodyType<CreateManagementReviewBody>;
+export type CreateManagementReviewMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a management review
+ */
+export const useCreateManagementReview = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createManagementReview>>,
+    TError,
+    { orgId: number; data: BodyType<CreateManagementReviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createManagementReview>>,
+  TError,
+  { orgId: number; data: BodyType<CreateManagementReviewBody> },
+  TContext
+> => {
+  return useMutation(getCreateManagementReviewMutationOptions(options));
+};
+
+/**
+ * @summary Get management review detail
+ */
+export const getGetManagementReviewUrl = (orgId: number, reviewId: number) => {
+  return `/api/organizations/${orgId}/governance/management-reviews/${reviewId}`;
+};
+
+export const getManagementReview = async (
+  orgId: number,
+  reviewId: number,
+  options?: RequestInit,
+): Promise<ManagementReviewDetail> => {
+  return customFetch<ManagementReviewDetail>(
+    getGetManagementReviewUrl(orgId, reviewId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetManagementReviewQueryKey = (
+  orgId: number,
+  reviewId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/management-reviews/${reviewId}`,
+  ] as const;
+};
+
+export const getGetManagementReviewQueryOptions = <
+  TData = Awaited<ReturnType<typeof getManagementReview>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  reviewId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getManagementReview>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetManagementReviewQueryKey(orgId, reviewId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getManagementReview>>
+  > = ({ signal }) =>
+    getManagementReview(orgId, reviewId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && reviewId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getManagementReview>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetManagementReviewQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getManagementReview>>
+>;
+export type GetManagementReviewQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get management review detail
+ */
+
+export function useGetManagementReview<
+  TData = Awaited<ReturnType<typeof getManagementReview>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  reviewId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getManagementReview>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetManagementReviewQueryOptions(
+    orgId,
+    reviewId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a management review
+ */
+export const getUpdateManagementReviewUrl = (
+  orgId: number,
+  reviewId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/management-reviews/${reviewId}`;
+};
+
+export const updateManagementReview = async (
+  orgId: number,
+  reviewId: number,
+  updateManagementReviewBody: UpdateManagementReviewBody,
+  options?: RequestInit,
+): Promise<ManagementReviewDetail> => {
+  return customFetch<ManagementReviewDetail>(
+    getUpdateManagementReviewUrl(orgId, reviewId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateManagementReviewBody),
+    },
+  );
+};
+
+export const getUpdateManagementReviewMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateManagementReview>>,
+    TError,
+    {
+      orgId: number;
+      reviewId: number;
+      data: BodyType<UpdateManagementReviewBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateManagementReview>>,
+  TError,
+  {
+    orgId: number;
+    reviewId: number;
+    data: BodyType<UpdateManagementReviewBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateManagementReview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateManagementReview>>,
+    {
+      orgId: number;
+      reviewId: number;
+      data: BodyType<UpdateManagementReviewBody>;
+    }
+  > = (props) => {
+    const { orgId, reviewId, data } = props ?? {};
+
+    return updateManagementReview(orgId, reviewId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateManagementReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateManagementReview>>
+>;
+export type UpdateManagementReviewMutationBody =
+  BodyType<UpdateManagementReviewBody>;
+export type UpdateManagementReviewMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a management review
+ */
+export const useUpdateManagementReview = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateManagementReview>>,
+    TError,
+    {
+      orgId: number;
+      reviewId: number;
+      data: BodyType<UpdateManagementReviewBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateManagementReview>>,
+  TError,
+  {
+    orgId: number;
+    reviewId: number;
+    data: BodyType<UpdateManagementReviewBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateManagementReviewMutationOptions(options));
+};
+
+/**
+ * @summary List inputs for a management review
+ */
+export const getListManagementReviewInputsUrl = (
+  orgId: number,
+  reviewId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/management-reviews/${reviewId}/inputs`;
+};
+
+export const listManagementReviewInputs = async (
+  orgId: number,
+  reviewId: number,
+  options?: RequestInit,
+): Promise<ManagementReviewInput[]> => {
+  return customFetch<ManagementReviewInput[]>(
+    getListManagementReviewInputsUrl(orgId, reviewId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListManagementReviewInputsQueryKey = (
+  orgId: number,
+  reviewId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/management-reviews/${reviewId}/inputs`,
+  ] as const;
+};
+
+export const getListManagementReviewInputsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listManagementReviewInputs>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  reviewId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listManagementReviewInputs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListManagementReviewInputsQueryKey(orgId, reviewId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listManagementReviewInputs>>
+  > = ({ signal }) =>
+    listManagementReviewInputs(orgId, reviewId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && reviewId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listManagementReviewInputs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListManagementReviewInputsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listManagementReviewInputs>>
+>;
+export type ListManagementReviewInputsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List inputs for a management review
+ */
+
+export function useListManagementReviewInputs<
+  TData = Awaited<ReturnType<typeof listManagementReviewInputs>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  reviewId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listManagementReviewInputs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListManagementReviewInputsQueryOptions(
+    orgId,
+    reviewId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an input for a management review
+ */
+export const getCreateManagementReviewInputUrl = (
+  orgId: number,
+  reviewId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/management-reviews/${reviewId}/inputs`;
+};
+
+export const createManagementReviewInput = async (
+  orgId: number,
+  reviewId: number,
+  createManagementReviewInputBody: CreateManagementReviewInputBody,
+  options?: RequestInit,
+): Promise<ManagementReviewDetail> => {
+  return customFetch<ManagementReviewDetail>(
+    getCreateManagementReviewInputUrl(orgId, reviewId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createManagementReviewInputBody),
+    },
+  );
+};
+
+export const getCreateManagementReviewInputMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createManagementReviewInput>>,
+    TError,
+    {
+      orgId: number;
+      reviewId: number;
+      data: BodyType<CreateManagementReviewInputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createManagementReviewInput>>,
+  TError,
+  {
+    orgId: number;
+    reviewId: number;
+    data: BodyType<CreateManagementReviewInputBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createManagementReviewInput"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createManagementReviewInput>>,
+    {
+      orgId: number;
+      reviewId: number;
+      data: BodyType<CreateManagementReviewInputBody>;
+    }
+  > = (props) => {
+    const { orgId, reviewId, data } = props ?? {};
+
+    return createManagementReviewInput(orgId, reviewId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateManagementReviewInputMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createManagementReviewInput>>
+>;
+export type CreateManagementReviewInputMutationBody =
+  BodyType<CreateManagementReviewInputBody>;
+export type CreateManagementReviewInputMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an input for a management review
+ */
+export const useCreateManagementReviewInput = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createManagementReviewInput>>,
+    TError,
+    {
+      orgId: number;
+      reviewId: number;
+      data: BodyType<CreateManagementReviewInputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createManagementReviewInput>>,
+  TError,
+  {
+    orgId: number;
+    reviewId: number;
+    data: BodyType<CreateManagementReviewInputBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateManagementReviewInputMutationOptions(options));
+};
+
+/**
+ * @summary Update a management review input
+ */
+export const getUpdateManagementReviewInputUrl = (
+  orgId: number,
+  reviewId: number,
+  inputId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/management-reviews/${reviewId}/inputs/${inputId}`;
+};
+
+export const updateManagementReviewInput = async (
+  orgId: number,
+  reviewId: number,
+  inputId: number,
+  updateManagementReviewInputBody: UpdateManagementReviewInputBody,
+  options?: RequestInit,
+): Promise<ManagementReviewDetail> => {
+  return customFetch<ManagementReviewDetail>(
+    getUpdateManagementReviewInputUrl(orgId, reviewId, inputId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateManagementReviewInputBody),
+    },
+  );
+};
+
+export const getUpdateManagementReviewInputMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateManagementReviewInput>>,
+    TError,
+    {
+      orgId: number;
+      reviewId: number;
+      inputId: number;
+      data: BodyType<UpdateManagementReviewInputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateManagementReviewInput>>,
+  TError,
+  {
+    orgId: number;
+    reviewId: number;
+    inputId: number;
+    data: BodyType<UpdateManagementReviewInputBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateManagementReviewInput"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateManagementReviewInput>>,
+    {
+      orgId: number;
+      reviewId: number;
+      inputId: number;
+      data: BodyType<UpdateManagementReviewInputBody>;
+    }
+  > = (props) => {
+    const { orgId, reviewId, inputId, data } = props ?? {};
+
+    return updateManagementReviewInput(
+      orgId,
+      reviewId,
+      inputId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateManagementReviewInputMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateManagementReviewInput>>
+>;
+export type UpdateManagementReviewInputMutationBody =
+  BodyType<UpdateManagementReviewInputBody>;
+export type UpdateManagementReviewInputMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a management review input
+ */
+export const useUpdateManagementReviewInput = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateManagementReviewInput>>,
+    TError,
+    {
+      orgId: number;
+      reviewId: number;
+      inputId: number;
+      data: BodyType<UpdateManagementReviewInputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateManagementReviewInput>>,
+  TError,
+  {
+    orgId: number;
+    reviewId: number;
+    inputId: number;
+    data: BodyType<UpdateManagementReviewInputBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateManagementReviewInputMutationOptions(options));
+};
+
+/**
+ * @summary Delete a management review input
+ */
+export const getDeleteManagementReviewInputUrl = (
+  orgId: number,
+  reviewId: number,
+  inputId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/management-reviews/${reviewId}/inputs/${inputId}`;
+};
+
+export const deleteManagementReviewInput = async (
+  orgId: number,
+  reviewId: number,
+  inputId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteManagementReviewInputUrl(orgId, reviewId, inputId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteManagementReviewInputMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteManagementReviewInput>>,
+    TError,
+    { orgId: number; reviewId: number; inputId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteManagementReviewInput>>,
+  TError,
+  { orgId: number; reviewId: number; inputId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteManagementReviewInput"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteManagementReviewInput>>,
+    { orgId: number; reviewId: number; inputId: number }
+  > = (props) => {
+    const { orgId, reviewId, inputId } = props ?? {};
+
+    return deleteManagementReviewInput(
+      orgId,
+      reviewId,
+      inputId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteManagementReviewInputMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteManagementReviewInput>>
+>;
+
+export type DeleteManagementReviewInputMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a management review input
+ */
+export const useDeleteManagementReviewInput = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteManagementReviewInput>>,
+    TError,
+    { orgId: number; reviewId: number; inputId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteManagementReviewInput>>,
+  TError,
+  { orgId: number; reviewId: number; inputId: number },
+  TContext
+> => {
+  return useMutation(getDeleteManagementReviewInputMutationOptions(options));
+};
+
+/**
+ * @summary List outputs for a management review
+ */
+export const getListManagementReviewOutputsUrl = (
+  orgId: number,
+  reviewId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/management-reviews/${reviewId}/outputs`;
+};
+
+export const listManagementReviewOutputs = async (
+  orgId: number,
+  reviewId: number,
+  options?: RequestInit,
+): Promise<ManagementReviewOutput[]> => {
+  return customFetch<ManagementReviewOutput[]>(
+    getListManagementReviewOutputsUrl(orgId, reviewId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListManagementReviewOutputsQueryKey = (
+  orgId: number,
+  reviewId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/management-reviews/${reviewId}/outputs`,
+  ] as const;
+};
+
+export const getListManagementReviewOutputsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listManagementReviewOutputs>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  reviewId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listManagementReviewOutputs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListManagementReviewOutputsQueryKey(orgId, reviewId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listManagementReviewOutputs>>
+  > = ({ signal }) =>
+    listManagementReviewOutputs(orgId, reviewId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && reviewId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listManagementReviewOutputs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListManagementReviewOutputsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listManagementReviewOutputs>>
+>;
+export type ListManagementReviewOutputsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List outputs for a management review
+ */
+
+export function useListManagementReviewOutputs<
+  TData = Awaited<ReturnType<typeof listManagementReviewOutputs>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  reviewId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listManagementReviewOutputs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListManagementReviewOutputsQueryOptions(
+    orgId,
+    reviewId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an output for a management review
+ */
+export const getCreateManagementReviewOutputUrl = (
+  orgId: number,
+  reviewId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/management-reviews/${reviewId}/outputs`;
+};
+
+export const createManagementReviewOutput = async (
+  orgId: number,
+  reviewId: number,
+  createManagementReviewOutputBody: CreateManagementReviewOutputBody,
+  options?: RequestInit,
+): Promise<ManagementReviewDetail> => {
+  return customFetch<ManagementReviewDetail>(
+    getCreateManagementReviewOutputUrl(orgId, reviewId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createManagementReviewOutputBody),
+    },
+  );
+};
+
+export const getCreateManagementReviewOutputMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createManagementReviewOutput>>,
+    TError,
+    {
+      orgId: number;
+      reviewId: number;
+      data: BodyType<CreateManagementReviewOutputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createManagementReviewOutput>>,
+  TError,
+  {
+    orgId: number;
+    reviewId: number;
+    data: BodyType<CreateManagementReviewOutputBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createManagementReviewOutput"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createManagementReviewOutput>>,
+    {
+      orgId: number;
+      reviewId: number;
+      data: BodyType<CreateManagementReviewOutputBody>;
+    }
+  > = (props) => {
+    const { orgId, reviewId, data } = props ?? {};
+
+    return createManagementReviewOutput(orgId, reviewId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateManagementReviewOutputMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createManagementReviewOutput>>
+>;
+export type CreateManagementReviewOutputMutationBody =
+  BodyType<CreateManagementReviewOutputBody>;
+export type CreateManagementReviewOutputMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an output for a management review
+ */
+export const useCreateManagementReviewOutput = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createManagementReviewOutput>>,
+    TError,
+    {
+      orgId: number;
+      reviewId: number;
+      data: BodyType<CreateManagementReviewOutputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createManagementReviewOutput>>,
+  TError,
+  {
+    orgId: number;
+    reviewId: number;
+    data: BodyType<CreateManagementReviewOutputBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateManagementReviewOutputMutationOptions(options));
+};
+
+/**
+ * @summary Update a management review output
+ */
+export const getUpdateManagementReviewOutputUrl = (
+  orgId: number,
+  reviewId: number,
+  outputId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/management-reviews/${reviewId}/outputs/${outputId}`;
+};
+
+export const updateManagementReviewOutput = async (
+  orgId: number,
+  reviewId: number,
+  outputId: number,
+  updateManagementReviewOutputBody: UpdateManagementReviewOutputBody,
+  options?: RequestInit,
+): Promise<ManagementReviewDetail> => {
+  return customFetch<ManagementReviewDetail>(
+    getUpdateManagementReviewOutputUrl(orgId, reviewId, outputId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateManagementReviewOutputBody),
+    },
+  );
+};
+
+export const getUpdateManagementReviewOutputMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateManagementReviewOutput>>,
+    TError,
+    {
+      orgId: number;
+      reviewId: number;
+      outputId: number;
+      data: BodyType<UpdateManagementReviewOutputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateManagementReviewOutput>>,
+  TError,
+  {
+    orgId: number;
+    reviewId: number;
+    outputId: number;
+    data: BodyType<UpdateManagementReviewOutputBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateManagementReviewOutput"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateManagementReviewOutput>>,
+    {
+      orgId: number;
+      reviewId: number;
+      outputId: number;
+      data: BodyType<UpdateManagementReviewOutputBody>;
+    }
+  > = (props) => {
+    const { orgId, reviewId, outputId, data } = props ?? {};
+
+    return updateManagementReviewOutput(
+      orgId,
+      reviewId,
+      outputId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateManagementReviewOutputMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateManagementReviewOutput>>
+>;
+export type UpdateManagementReviewOutputMutationBody =
+  BodyType<UpdateManagementReviewOutputBody>;
+export type UpdateManagementReviewOutputMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a management review output
+ */
+export const useUpdateManagementReviewOutput = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateManagementReviewOutput>>,
+    TError,
+    {
+      orgId: number;
+      reviewId: number;
+      outputId: number;
+      data: BodyType<UpdateManagementReviewOutputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateManagementReviewOutput>>,
+  TError,
+  {
+    orgId: number;
+    reviewId: number;
+    outputId: number;
+    data: BodyType<UpdateManagementReviewOutputBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateManagementReviewOutputMutationOptions(options));
+};
+
+/**
+ * @summary Delete a management review output
+ */
+export const getDeleteManagementReviewOutputUrl = (
+  orgId: number,
+  reviewId: number,
+  outputId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/management-reviews/${reviewId}/outputs/${outputId}`;
+};
+
+export const deleteManagementReviewOutput = async (
+  orgId: number,
+  reviewId: number,
+  outputId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteManagementReviewOutputUrl(orgId, reviewId, outputId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteManagementReviewOutputMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteManagementReviewOutput>>,
+    TError,
+    { orgId: number; reviewId: number; outputId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteManagementReviewOutput>>,
+  TError,
+  { orgId: number; reviewId: number; outputId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteManagementReviewOutput"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteManagementReviewOutput>>,
+    { orgId: number; reviewId: number; outputId: number }
+  > = (props) => {
+    const { orgId, reviewId, outputId } = props ?? {};
+
+    return deleteManagementReviewOutput(
+      orgId,
+      reviewId,
+      outputId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteManagementReviewOutputMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteManagementReviewOutput>>
+>;
+
+export type DeleteManagementReviewOutputMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a management review output
+ */
+export const useDeleteManagementReviewOutput = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteManagementReviewOutput>>,
+    TError,
+    { orgId: number; reviewId: number; outputId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteManagementReviewOutput>>,
+  TError,
+  { orgId: number; reviewId: number; outputId: number },
+  TContext
+> => {
+  return useMutation(getDeleteManagementReviewOutputMutationOptions(options));
+};
+
+/**
  * @summary Create an effectiveness review for a risk or opportunity item
  */
 export const getCreateStrategicPlanRiskOpportunityEffectivenessReviewUrl = (
@@ -12589,97 +16975,4 @@ export const useCreateStrategicPlanRiskOpportunityEffectivenessReview = <
       options,
     ),
   );
-};
-
-/**
- * @summary Delete an action for a strategic plan
- */
-export const getDeleteStrategicPlanActionUrl = (
-  orgId: number,
-  planId: number,
-  itemId: number,
-) => {
-  return `/api/organizations/${orgId}/governance/strategic-plans/${planId}/risk-opportunity-items/${itemId}/effectiveness-review`;
-};
-
-export const deleteStrategicPlanAction = async (
-  orgId: number,
-  planId: number,
-  itemId: number,
-  options?: RequestInit,
-): Promise<void> => {
-  return customFetch<void>(
-    getDeleteStrategicPlanActionUrl(orgId, planId, itemId),
-    {
-      ...options,
-      method: "DELETE",
-    },
-  );
-};
-
-export const getDeleteStrategicPlanActionMutationOptions = <
-  TError = ErrorType<ErrorResponse>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof deleteStrategicPlanAction>>,
-    TError,
-    { orgId: number; planId: number; itemId: number },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof deleteStrategicPlanAction>>,
-  TError,
-  { orgId: number; planId: number; itemId: number },
-  TContext
-> => {
-  const mutationKey = ["deleteStrategicPlanAction"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof deleteStrategicPlanAction>>,
-    { orgId: number; planId: number; itemId: number }
-  > = (props) => {
-    const { orgId, planId, itemId } = props ?? {};
-
-    return deleteStrategicPlanAction(orgId, planId, itemId, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type DeleteStrategicPlanActionMutationResult = NonNullable<
-  Awaited<ReturnType<typeof deleteStrategicPlanAction>>
->;
-
-export type DeleteStrategicPlanActionMutationError = ErrorType<ErrorResponse>;
-
-/**
- * @summary Delete an action for a strategic plan
- */
-export const useDeleteStrategicPlanAction = <
-  TError = ErrorType<ErrorResponse>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof deleteStrategicPlanAction>>,
-    TError,
-    { orgId: number; planId: number; itemId: number },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof deleteStrategicPlanAction>>,
-  TError,
-  { orgId: number; planId: number; itemId: number },
-  TContext
-> => {
-  return useMutation(getDeleteStrategicPlanActionMutationOptions(options));
 };

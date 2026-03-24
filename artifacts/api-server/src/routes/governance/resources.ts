@@ -369,6 +369,7 @@ router.post("/organizations/:orgId/governance/strategic-plans/:planId/risk-oppor
   const [item] = await db
     .insert(strategicPlanRiskOpportunityItemsTable)
     .values({
+      organizationId: params.orgId,
       planId: plan.id,
       type: body.data.type,
       sourceType: body.data.sourceType,
