@@ -1,6 +1,7 @@
 import { Readable } from "stream";
 import { Router, type IRouter } from "express";
 import { eq, and, ilike, or, desc, inArray, sql, max } from "drizzle-orm";
+import { z } from "zod";
 import {
   db,
   pool,
@@ -8,6 +9,8 @@ import {
   documentUnitsTable,
   documentElaboratorsTable,
   documentApproversTable,
+  documentCriticalAnalysisTable,
+  documentCriticalReviewersTable,
   documentRecipientsTable,
   documentReferencesTable,
   documentAttachmentsTable,
@@ -46,6 +49,17 @@ import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage"
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 let supportsPendingVersionDescriptionColumnCache: boolean | null = null;
+type DocumentsMutationTx = Pick<typeof db, "select" | "insert" | "update" | "delete" | "execute">;
+const CreateDocumentBodySchema = CreateDocumentBody.extend({
+  criticalReviewerIds: z.array(z.number()).min(1),
+});
+const UpdateDocumentBodySchema = UpdateDocumentBody.extend({
+  criticalReviewerIds: z.array(z.number()).min(1).optional(),
+});
+const CompleteDocumentCriticalAnalysisParamsSchema = z.object({
+  orgId: z.coerce.number(),
+  docId: z.coerce.number(),
+});
 
 async function supportsPendingVersionDescriptionColumn(): Promise<boolean> {
   if (supportsPendingVersionDescriptionColumnCache !== null) {
@@ -102,6 +116,86 @@ async function validateOrgDocuments(docIds: number[], orgId: number): Promise<bo
   return rows.length === docIds.length;
 }
 
+async function getDocumentCriticalReviewerUserIds(docId: number): Promise<number[]> {
+  const rows = await db
+    .selectDistinct({ userId: documentCriticalReviewersTable.userId })
+    .from(documentCriticalReviewersTable)
+    .where(eq(documentCriticalReviewersTable.documentId, docId));
+
+  return rows.map((row) => row.userId);
+}
+
+async function getCurrentCriticalAnalysisCycle(docId: number): Promise<number> {
+  const result = await db
+    .select({
+      maxCycle: sql<number>`COALESCE(MAX(${documentCriticalAnalysisTable.analysisCycle}), 0)`,
+    })
+    .from(documentCriticalAnalysisTable)
+    .where(eq(documentCriticalAnalysisTable.documentId, docId));
+
+  return result[0]?.maxCycle ?? 0;
+}
+
+async function lockDocumentForCriticalAnalysisMutation(
+  tx: DocumentsMutationTx,
+  docId: number,
+): Promise<void> {
+  await tx.execute(sql`SELECT 1 FROM documents WHERE id = ${docId} FOR UPDATE`);
+}
+
+async function startCriticalAnalysisCycle(
+  tx: DocumentsMutationTx,
+  docId: number,
+  reviewerIds: number[],
+): Promise<number> {
+  await lockDocumentForCriticalAnalysisMutation(tx, docId);
+
+  const maxCycleResult = await tx
+    .select({
+      maxCycle: sql<number>`COALESCE(MAX(${documentCriticalAnalysisTable.analysisCycle}), 0)`,
+    })
+    .from(documentCriticalAnalysisTable)
+    .where(eq(documentCriticalAnalysisTable.documentId, docId));
+
+  if (reviewerIds.length === 0) {
+    return maxCycleResult[0]?.maxCycle ?? 0;
+  }
+
+  const nextCycle = (maxCycleResult[0]?.maxCycle ?? 0) + 1;
+
+  await tx.insert(documentCriticalAnalysisTable).values(
+    reviewerIds.map((userId) => ({
+      documentId: docId,
+      userId,
+      analysisCycle: nextCycle,
+      status: "pending",
+    })),
+  );
+
+  return nextCycle;
+}
+
+async function syncDocumentCriticalReviewers(
+  tx: DocumentsMutationTx,
+  docId: number,
+  reviewerIds: number[],
+): Promise<void> {
+  await lockDocumentForCriticalAnalysisMutation(tx, docId);
+
+  await tx
+    .delete(documentCriticalReviewersTable)
+    .where(eq(documentCriticalReviewersTable.documentId, docId));
+
+  if (reviewerIds.length > 0) {
+    await tx.insert(documentCriticalReviewersTable).values(
+      reviewerIds.map((userId) => ({
+        documentId: docId,
+        userId,
+      })),
+    );
+  }
+}
+
 async function createNotification(orgId: number, userId: number, type: string, title: string, description: string, entityType?: string, entityId?: number) {
   await db.insert(notificationsTable).values({
     organizationId: orgId,
@@ -138,7 +232,7 @@ async function getEmployeeLinkedUserIds(employeeIds: number[], orgId: number): P
 }
 
 async function getDocumentParticipantUserIds(docId: number, orgId: number): Promise<number[]> {
-  const [doc, elaborators, approvers, recipients] = await Promise.all([
+  const [doc, elaborators, criticalReviewers, approvers, recipients] = await Promise.all([
     db
       .select({ createdById: documentsTable.createdById })
       .from(documentsTable)
@@ -147,6 +241,10 @@ async function getDocumentParticipantUserIds(docId: number, orgId: number): Prom
       .selectDistinct({ employeeId: documentElaboratorsTable.employeeId })
       .from(documentElaboratorsTable)
       .where(eq(documentElaboratorsTable.documentId, docId)),
+    db
+      .selectDistinct({ userId: documentCriticalReviewersTable.userId })
+      .from(documentCriticalReviewersTable)
+      .where(eq(documentCriticalReviewersTable.documentId, docId)),
     db
       .selectDistinct({ userId: documentApproversTable.userId })
       .from(documentApproversTable)
@@ -164,13 +262,14 @@ async function getDocumentParticipantUserIds(docId: number, orgId: number): Prom
   return [...new Set([
     ...doc.map((row) => row.createdById),
     ...elaboratorUserIds,
+    ...criticalReviewers.map((row) => row.userId),
     ...approvers.map((row) => row.userId),
     ...recipients.map((row) => row.userId),
   ])];
 }
 
 async function getDocumentReviewStakeholderUserIds(docId: number, orgId: number): Promise<number[]> {
-  const [doc, elaborators, approvers] = await Promise.all([
+  const [doc, elaborators, criticalReviewers, approvers] = await Promise.all([
     db
       .select({ createdById: documentsTable.createdById })
       .from(documentsTable)
@@ -179,6 +278,10 @@ async function getDocumentReviewStakeholderUserIds(docId: number, orgId: number)
       .selectDistinct({ employeeId: documentElaboratorsTable.employeeId })
       .from(documentElaboratorsTable)
       .where(eq(documentElaboratorsTable.documentId, docId)),
+    db
+      .selectDistinct({ userId: documentCriticalReviewersTable.userId })
+      .from(documentCriticalReviewersTable)
+      .where(eq(documentCriticalReviewersTable.documentId, docId)),
     db
       .selectDistinct({ userId: documentApproversTable.userId })
       .from(documentApproversTable)
@@ -192,7 +295,40 @@ async function getDocumentReviewStakeholderUserIds(docId: number, orgId: number)
   return [...new Set([
     ...doc.map((row) => row.createdById),
     ...elaboratorUserIds,
+    ...criticalReviewers.map((row) => row.userId),
     ...approvers.map((row) => row.userId),
+  ])];
+}
+
+async function getDocumentDraftStakeholderUserIds(docId: number, orgId: number): Promise<number[]> {
+  const [doc, elaborators, criticalReviewers, recipients] = await Promise.all([
+    db
+      .select({ createdById: documentsTable.createdById })
+      .from(documentsTable)
+      .where(eq(documentsTable.id, docId)),
+    db
+      .selectDistinct({ employeeId: documentElaboratorsTable.employeeId })
+      .from(documentElaboratorsTable)
+      .where(eq(documentElaboratorsTable.documentId, docId)),
+    db
+      .selectDistinct({ userId: documentCriticalReviewersTable.userId })
+      .from(documentCriticalReviewersTable)
+      .where(eq(documentCriticalReviewersTable.documentId, docId)),
+    db
+      .selectDistinct({ userId: documentRecipientsTable.userId })
+      .from(documentRecipientsTable)
+      .where(eq(documentRecipientsTable.documentId, docId)),
+  ]);
+  const elaboratorUserIds = await getEmployeeLinkedUserIds(
+    elaborators.map((row) => row.employeeId),
+    orgId,
+  );
+
+  return [...new Set([
+    ...doc.map((row) => row.createdById),
+    ...elaboratorUserIds,
+    ...criticalReviewers.map((row) => row.userId),
+    ...recipients.map((row) => row.userId),
   ])];
 }
 
@@ -268,6 +404,33 @@ async function notifyDocumentParticipants({
   });
 }
 
+async function notifyDocumentDraftStakeholders({
+  orgId,
+  docId,
+  actorUserId,
+  type,
+  title,
+  description,
+}: {
+  orgId: number;
+  docId: number;
+  actorUserId?: number;
+  type: string;
+  title: string;
+  description: string;
+}): Promise<void> {
+  const stakeholderIds = await getDocumentDraftStakeholderUserIds(docId, orgId);
+  await notifyUsers({
+    orgId,
+    userIds: stakeholderIds,
+    actorUserId,
+    type,
+    title,
+    description,
+    docId,
+  });
+}
+
 async function getDocumentRecord(docId: number, orgId: number) {
   const [doc] = await db
     .select({
@@ -335,6 +498,44 @@ async function getDocumentDetail(docId: number, orgId: number) {
     .innerJoin(employeesTable, eq(documentElaboratorsTable.employeeId, employeesTable.id))
     .leftJoin(unitsTable, eq(employeesTable.unitId, unitsTable.id))
     .where(eq(documentElaboratorsTable.documentId, docId));
+
+  const maxCriticalAnalysisCycleResult = await db
+    .select({
+      maxCycle: sql<number>`COALESCE(MAX(${documentCriticalAnalysisTable.analysisCycle}), 0)`,
+    })
+    .from(documentCriticalAnalysisTable)
+    .where(eq(documentCriticalAnalysisTable.documentId, docId));
+  const currentCriticalAnalysisCycle = maxCriticalAnalysisCycleResult[0]?.maxCycle ?? 0;
+
+  const criticalReviewerRows =
+    currentCriticalAnalysisCycle > 0
+      ? await db
+          .select({
+            id: documentCriticalAnalysisTable.id,
+            userId: documentCriticalAnalysisTable.userId,
+            name: usersTable.name,
+            status: documentCriticalAnalysisTable.status,
+            completedAt: documentCriticalAnalysisTable.completedAt,
+          })
+          .from(documentCriticalAnalysisTable)
+          .innerJoin(usersTable, eq(documentCriticalAnalysisTable.userId, usersTable.id))
+          .where(
+            and(
+              eq(documentCriticalAnalysisTable.documentId, docId),
+              eq(documentCriticalAnalysisTable.analysisCycle, currentCriticalAnalysisCycle),
+            ),
+          )
+      : await db
+          .select({
+            id: documentCriticalReviewersTable.id,
+            userId: documentCriticalReviewersTable.userId,
+            name: usersTable.name,
+            status: sql<string>`'pending'`,
+            completedAt: sql<Date | null>`NULL`,
+          })
+          .from(documentCriticalReviewersTable)
+          .innerJoin(usersTable, eq(documentCriticalReviewersTable.userId, usersTable.id))
+          .where(eq(documentCriticalReviewersTable.documentId, docId));
 
   const maxCycleResult = await db.select({ maxCycle: sql<number>`COALESCE(MAX(${documentApproversTable.approvalCycle}), 1)` })
     .from(documentApproversTable)
@@ -443,6 +644,13 @@ async function getDocumentDetail(docId: number, orgId: number) {
               : (doc.updatedAt ?? (doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt)),
         }]
         : [],
+    criticalReviewers: criticalReviewerRows.map((reviewer) => ({
+      ...reviewer,
+      completedAt:
+        reviewer.completedAt instanceof Date
+          ? reviewer.completedAt.toISOString()
+          : reviewer.completedAt,
+    })),
     approvers: approverRows.map(a => ({
       ...a,
       approvedAt: a.approvedAt instanceof Date ? a.approvedAt.toISOString() : a.approvedAt,
@@ -544,14 +752,16 @@ router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess(
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
-  const body = CreateDocumentBody.safeParse(req.body);
+  const body = CreateDocumentBodySchema.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
   const userId = req.auth!.userId;
   const orgId = params.data.orgId;
   const elaboratorIds = body.data.elaboratorIds;
+  const criticalReviewerIds = [...new Set(body.data.criticalReviewerIds)];
 
   const allUserIds = [...new Set([
+    ...criticalReviewerIds,
     ...(body.data.approverIds || []),
     ...(body.data.recipientIds || []),
   ])];
@@ -572,59 +782,76 @@ router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess(
     return;
   }
 
-  const [doc] = await db.insert(documentsTable).values({
-    organizationId: orgId,
-    title: body.data.title,
-    type: body.data.type,
-    validityDate: body.data.validityDate || null,
-    createdById: userId,
-    status: "draft",
-    currentVersion: 0,
-  }).returning();
+  const [doc] = await db.transaction(async (tx) => {
+    const [createdDoc] = await tx.insert(documentsTable).values({
+      organizationId: orgId,
+      title: body.data.title,
+      type: body.data.type,
+      validityDate: body.data.validityDate || null,
+      createdById: userId,
+      status: "draft",
+      currentVersion: 0,
+    }).returning();
 
-  if (body.data.unitIds?.length) {
-    await db.insert(documentUnitsTable).values(
-      body.data.unitIds.map(unitId => ({ documentId: doc.id, unitId }))
-    );
-  }
+    if (body.data.unitIds?.length) {
+      await tx.insert(documentUnitsTable).values(
+        body.data.unitIds.map((unitId) => ({ documentId: createdDoc.id, unitId })),
+      );
+    }
 
-  if (elaboratorIds.length > 0) {
-    await db.insert(documentElaboratorsTable).values(
-      elaboratorIds.map(employeeId => ({ documentId: doc.id, employeeId }))
-    );
-  }
+    if (elaboratorIds.length > 0) {
+      await tx.insert(documentElaboratorsTable).values(
+        elaboratorIds.map((employeeId) => ({ documentId: createdDoc.id, employeeId })),
+      );
+    }
 
-  if (body.data.approverIds?.length) {
-    await db.insert(documentApproversTable).values(
-      body.data.approverIds.map(uid => ({ documentId: doc.id, userId: uid }))
-    );
-  }
+    await syncDocumentCriticalReviewers(tx, createdDoc.id, criticalReviewerIds);
+    await startCriticalAnalysisCycle(tx, createdDoc.id, criticalReviewerIds);
 
-  if (body.data.recipientIds?.length) {
-    await db.insert(documentRecipientsTable).values(
-      body.data.recipientIds.map(uid => ({ documentId: doc.id, userId: uid }))
-    );
-  }
+    if (body.data.approverIds?.length) {
+      await tx.insert(documentApproversTable).values(
+        body.data.approverIds.map((uid) => ({ documentId: createdDoc.id, userId: uid })),
+      );
+    }
 
-  if (body.data.referenceIds?.length) {
-    await db.insert(documentReferencesTable).values(
-      body.data.referenceIds.map(refId => ({ documentId: doc.id, referencedDocumentId: refId }))
-    );
-  }
+    if (body.data.recipientIds?.length) {
+      await tx.insert(documentRecipientsTable).values(
+        body.data.recipientIds.map((uid) => ({ documentId: createdDoc.id, userId: uid })),
+      );
+    }
 
-  if (body.data.attachments?.length) {
-    await db.insert(documentAttachmentsTable).values(
-      body.data.attachments.map(att => ({
-        documentId: doc.id,
-        versionNumber: 1,
-        fileName: att.fileName,
-        fileSize: att.fileSize,
-        contentType: att.contentType,
-        objectPath: att.objectPath,
-        uploadedById: userId,
-      }))
-    );
-  }
+    if (body.data.referenceIds?.length) {
+      await tx.insert(documentReferencesTable).values(
+        body.data.referenceIds.map((refId) => ({ documentId: createdDoc.id, referencedDocumentId: refId })),
+      );
+    }
+
+    if (body.data.attachments?.length) {
+      await tx.insert(documentAttachmentsTable).values(
+        body.data.attachments.map((att) => ({
+          documentId: createdDoc.id,
+          versionNumber: 1,
+          fileName: att.fileName,
+          fileSize: att.fileSize,
+          contentType: att.contentType,
+          objectPath: att.objectPath,
+          uploadedById: userId,
+        })),
+      );
+    }
+
+    return [createdDoc] as const;
+  });
+
+  await notifyUsers({
+    orgId,
+    userIds: criticalReviewerIds,
+    actorUserId: userId,
+    type: "document_critical_analysis_requested",
+    title: "Documento aguardando análise crítica",
+    description: `O documento "${body.data.title}" foi criado e aguarda sua análise crítica.`,
+    docId: doc.id,
+  });
 
   const detail = await getDocumentDetail(doc.id, orgId);
   res.status(201).json(detail);
@@ -646,7 +873,7 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
-  const body = UpdateDocumentBody.safeParse(req.body);
+  const body = UpdateDocumentBodySchema.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
   const userId = req.auth!.userId;
@@ -662,6 +889,7 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
   }
 
   const allUserIds = [...new Set([
+    ...(body.data.criticalReviewerIds || []),
     ...(body.data.approverIds || []),
     ...(body.data.recipientIds || []),
   ])];
@@ -694,51 +922,92 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
     updates.validityDate = body.data.validityDate || null;
   }
 
-  await db.update(documentsTable).set(updates).where(eq(documentsTable.id, docId));
+  const nextCriticalReviewerIds = await db.transaction(async (tx) => {
+    const reviewerIds =
+      body.data.criticalReviewerIds !== undefined
+        ? [...new Set(body.data.criticalReviewerIds)]
+        : (
+            await tx
+              .selectDistinct({ userId: documentCriticalReviewersTable.userId })
+              .from(documentCriticalReviewersTable)
+              .where(eq(documentCriticalReviewersTable.documentId, docId))
+          ).map((row) => row.userId);
 
-  if (body.data.unitIds) {
-    await db.delete(documentUnitsTable).where(eq(documentUnitsTable.documentId, docId));
-    if (body.data.unitIds.length) {
-      await db.insert(documentUnitsTable).values(body.data.unitIds.map(uid => ({ documentId: docId, unitId: uid })));
+    await tx
+      .update(documentsTable)
+      .set({
+        ...updates,
+        status: "draft",
+      })
+      .where(eq(documentsTable.id, docId));
+
+    if (body.data.unitIds) {
+      await tx.delete(documentUnitsTable).where(eq(documentUnitsTable.documentId, docId));
+      if (body.data.unitIds.length) {
+        await tx.insert(documentUnitsTable).values(
+          body.data.unitIds.map((uid) => ({ documentId: docId, unitId: uid })),
+        );
+      }
     }
-  }
 
-  if (body.data.elaboratorIds !== undefined) {
-    await db.transaction(async (tx) => {
+    if (body.data.elaboratorIds !== undefined) {
       await tx
         .delete(documentElaboratorsTable)
         .where(eq(documentElaboratorsTable.documentId, docId));
-      if (body.data.elaboratorIds!.length > 0) {
+      if (body.data.elaboratorIds.length > 0) {
         await tx.insert(documentElaboratorsTable).values(
-          body.data.elaboratorIds!.map(employeeId => ({ documentId: docId, employeeId }))
+          body.data.elaboratorIds.map((employeeId) => ({ documentId: docId, employeeId })),
         );
       }
-    });
-  }
-
-  if (body.data.approverIds) {
-    await db.delete(documentApproversTable).where(eq(documentApproversTable.documentId, docId));
-    if (body.data.approverIds.length) {
-      await db.insert(documentApproversTable).values(body.data.approverIds.map(uid => ({ documentId: docId, userId: uid })));
     }
-  }
 
-  if (body.data.recipientIds) {
-    await db.delete(documentRecipientsTable).where(eq(documentRecipientsTable.documentId, docId));
-    if (body.data.recipientIds.length) {
-      await db.insert(documentRecipientsTable).values(body.data.recipientIds.map(uid => ({ documentId: docId, userId: uid })));
+    if (body.data.criticalReviewerIds !== undefined) {
+      await syncDocumentCriticalReviewers(tx, docId, reviewerIds);
     }
-  }
 
-  if (body.data.referenceIds) {
-    await db.delete(documentReferencesTable).where(eq(documentReferencesTable.documentId, docId));
-    if (body.data.referenceIds.length) {
-      await db.insert(documentReferencesTable).values(body.data.referenceIds.map(refId => ({ documentId: docId, referencedDocumentId: refId })));
+    if (body.data.approverIds) {
+      await tx.delete(documentApproversTable).where(eq(documentApproversTable.documentId, docId));
+      if (body.data.approverIds.length) {
+        await tx.insert(documentApproversTable).values(
+          body.data.approverIds.map((uid) => ({ documentId: docId, userId: uid })),
+        );
+      }
     }
-  }
+
+    if (body.data.recipientIds) {
+      await tx.delete(documentRecipientsTable).where(eq(documentRecipientsTable.documentId, docId));
+      if (body.data.recipientIds.length) {
+        await tx.insert(documentRecipientsTable).values(
+          body.data.recipientIds.map((uid) => ({ documentId: docId, userId: uid })),
+        );
+      }
+    }
+
+    if (body.data.referenceIds) {
+      await tx.delete(documentReferencesTable).where(eq(documentReferencesTable.documentId, docId));
+      if (body.data.referenceIds.length) {
+        await tx.insert(documentReferencesTable).values(
+          body.data.referenceIds.map((refId) => ({ documentId: docId, referencedDocumentId: refId })),
+        );
+      }
+    }
+
+    await startCriticalAnalysisCycle(tx, docId, reviewerIds);
+
+    return reviewerIds;
+  });
 
   const detail = await getDocumentDetail(docId, orgId);
-  await notifyDocumentParticipants({
+  await notifyUsers({
+    orgId,
+    userIds: nextCriticalReviewerIds,
+    actorUserId: userId,
+    type: "document_critical_analysis_requested",
+    title: "Documento reenviado para análise crítica",
+    description: `O documento "${detail?.title || existing.title}" foi atualizado e precisa de nova análise crítica.`,
+    docId,
+  });
+  await notifyDocumentDraftStakeholders({
     orgId,
     docId,
     actorUserId: userId,
@@ -836,20 +1105,40 @@ router.post("/organizations/:orgId/documents/:docId/attachments", requireAuth, r
   }
 
   const userId = req.auth!.userId;
+  const criticalReviewerIds = await getDocumentCriticalReviewerUserIds(doc.id);
 
-  const [att] = await db.insert(documentAttachmentsTable).values({
-    documentId: doc.id,
-    versionNumber: doc.currentVersion + 1,
-    fileName: body.data.fileName,
-    fileSize: body.data.fileSize,
-    contentType: body.data.contentType,
-    objectPath: body.data.objectPath,
-    uploadedById: userId,
-  }).returning();
+  const [att] = await db.transaction(async (tx) => {
+    const [createdAttachment] = await tx.insert(documentAttachmentsTable).values({
+      documentId: doc.id,
+      versionNumber: doc.currentVersion + 1,
+      fileName: body.data.fileName,
+      fileSize: body.data.fileSize,
+      contentType: body.data.contentType,
+      objectPath: body.data.objectPath,
+      uploadedById: userId,
+    }).returning();
+
+    await tx
+      .update(documentsTable)
+      .set({ status: "draft" })
+      .where(eq(documentsTable.id, doc.id));
+    await startCriticalAnalysisCycle(tx, doc.id, criticalReviewerIds);
+
+    return [createdAttachment] as const;
+  });
 
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
-  await notifyDocumentParticipants({
+  await notifyUsers({
+    orgId: params.data.orgId,
+    userIds: criticalReviewerIds,
+    actorUserId: userId,
+    type: "document_critical_analysis_requested",
+    title: "Documento reenviado para análise crítica",
+    description: `O documento "${doc.title}" recebeu um novo anexo e precisa de nova análise crítica.`,
+    docId: doc.id,
+  });
+  await notifyDocumentDraftStakeholders({
     orgId: params.data.orgId,
     docId: doc.id,
     actorUserId: userId,
@@ -885,6 +1174,7 @@ router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", re
   }
 
   const userId = req.auth!.userId;
+  const criticalReviewerIds = await getDocumentCriticalReviewerUserIds(doc.id);
   let deletedAttachment: typeof documentAttachmentsTable.$inferSelect;
 
   try {
@@ -897,6 +1187,12 @@ router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", re
       if (!attachment) {
         throw new Error("DOCUMENT_ATTACHMENT_NOT_FOUND");
       }
+
+      await tx
+        .update(documentsTable)
+        .set({ status: "draft" })
+        .where(eq(documentsTable.id, doc.id));
+      await startCriticalAnalysisCycle(tx, doc.id, criticalReviewerIds);
 
       return attachment;
     });
@@ -911,7 +1207,16 @@ router.delete("/organizations/:orgId/documents/:docId/attachments/:attachId", re
 
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
-  await notifyDocumentParticipants({
+  await notifyUsers({
+    orgId: params.data.orgId,
+    userIds: criticalReviewerIds,
+    actorUserId: userId,
+    type: "document_critical_analysis_requested",
+    title: "Documento reenviado para análise crítica",
+    description: `O documento "${doc.title}" teve anexos alterados e precisa de nova análise crítica.`,
+    docId: doc.id,
+  });
+  await notifyDocumentDraftStakeholders({
     orgId: params.data.orgId,
     docId: doc.id,
     actorUserId: userId,
@@ -979,6 +1284,58 @@ router.get("/organizations/:orgId/documents/:docId/attachments/:attachId/file", 
   }
 });
 
+router.post("/organizations/:orgId/documents/:docId/critical-analysis/complete", requireAuth, requireModuleAccess("documents"), async (req, res): Promise<void> => {
+  const params = CompleteDocumentCriticalAnalysisParamsSchema.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const orgId = params.data.orgId;
+  const docId = params.data.docId;
+  const userId = req.auth!.userId;
+
+  const doc = await getDocumentRecord(docId, orgId);
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+  if (doc.status !== "draft") { res.status(400).json({ error: "A análise crítica só pode ser concluída para documentos em análise crítica" }); return; }
+
+  const currentCriticalAnalysisCycle = await getCurrentCriticalAnalysisCycle(docId);
+  if (currentCriticalAnalysisCycle === 0) {
+    res.status(400).json({ error: "O documento não possui uma análise crítica ativa" });
+    return;
+  }
+
+  const [criticalReview] = await db
+    .select()
+    .from(documentCriticalAnalysisTable)
+    .where(
+      and(
+        eq(documentCriticalAnalysisTable.documentId, docId),
+        eq(documentCriticalAnalysisTable.userId, userId),
+        eq(documentCriticalAnalysisTable.analysisCycle, currentCriticalAnalysisCycle),
+      ),
+    );
+
+  if (!criticalReview) {
+    res.status(403).json({ error: "Você não é um responsável ativo pela análise crítica deste documento" });
+    return;
+  }
+  if (criticalReview.status === "completed") {
+    res.status(400).json({ error: "Sua análise crítica já foi concluída neste ciclo" });
+    return;
+  }
+
+  await db
+    .update(documentCriticalAnalysisTable)
+    .set({
+      status: "completed",
+      completedAt: new Date(),
+      completedById: userId,
+    })
+    .where(eq(documentCriticalAnalysisTable.id, criticalReview.id));
+
+  const detail = await getDocumentDetail(docId, orgId);
+  res.json(detail);
+});
+
 router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
   const params = SubmitDocumentForReviewParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
@@ -1000,6 +1357,34 @@ router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, requir
   // Business rule: any document-writing admin or operator may advance a draft to review.
   if (req.auth!.role !== "org_admin" && req.auth!.role !== "operator") {
     res.status(403).json({ error: "Apenas administradores e operadores podem enviar o documento para revisão" });
+    return;
+  }
+
+  const criticalReviewerIds = await getDocumentCriticalReviewerUserIds(docId);
+  if (criticalReviewerIds.length === 0) {
+    res.status(400).json({ error: "O documento deve ter pelo menos um responsável pela análise crítica" });
+    return;
+  }
+
+  const currentCriticalAnalysisCycle = await getCurrentCriticalAnalysisCycle(docId);
+  if (currentCriticalAnalysisCycle === 0) {
+    res.status(400).json({ error: "A análise crítica do documento ainda não foi iniciada" });
+    return;
+  }
+
+  const pendingCriticalReviewers = await db
+    .select({ id: documentCriticalAnalysisTable.id })
+    .from(documentCriticalAnalysisTable)
+    .where(
+      and(
+        eq(documentCriticalAnalysisTable.documentId, docId),
+        eq(documentCriticalAnalysisTable.analysisCycle, currentCriticalAnalysisCycle),
+        eq(documentCriticalAnalysisTable.status, "pending"),
+      ),
+    );
+
+  if (pendingCriticalReviewers.length > 0) {
+    res.status(400).json({ error: "Conclua a análise crítica antes de enviar o documento para revisão" });
     return;
   }
 
@@ -1219,15 +1604,32 @@ router.post("/organizations/:orgId/documents/:docId/reject", requireAuth, requir
       eq(documentApproversTable.status, "pending")
     ));
   if (!approver) { res.status(403).json({ error: "Você não é um aprovador pendente deste documento" }); return; }
+  const criticalReviewerIds = await getDocumentCriticalReviewerUserIds(docId);
 
-  await db.update(documentApproversTable)
-    .set({ status: "rejected", approvedAt: new Date(), comment: body.data.comment })
-    .where(eq(documentApproversTable.id, approver.id));
+  await db.transaction(async (tx) => {
+    await tx.update(documentApproversTable)
+      .set({ status: "rejected", approvedAt: new Date(), comment: body.data.comment })
+      .where(eq(documentApproversTable.id, approver.id));
 
-  await db.update(documentsTable).set({ status: "rejected" }).where(eq(documentsTable.id, docId));
+    await tx
+      .update(documentsTable)
+      .set({ status: "draft" })
+      .where(eq(documentsTable.id, docId));
+
+    await startCriticalAnalysisCycle(tx, docId, criticalReviewerIds);
+  });
 
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
 
+  await notifyUsers({
+    orgId,
+    userIds: criticalReviewerIds,
+    actorUserId: userId,
+    type: "document_critical_analysis_requested",
+    title: "Documento reenviado para análise crítica",
+    description: `O documento "${doc.title}" retornou para análise crítica após rejeição na aprovação.`,
+    docId,
+  });
   await notifyDocumentParticipants({
     orgId,
     docId,

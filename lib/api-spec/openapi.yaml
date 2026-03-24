@@ -2039,6 +2039,48 @@ paths:
         "204":
           description: Attachment deleted
 
+  /organizations/{orgId}/documents/{docId}/critical-analysis/complete:
+    post:
+      operationId: completeDocumentCriticalAnalysis
+      tags: [documents]
+      summary: Complete document critical analysis
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Critical analysis completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentDetail"
+        "400":
+          description: Invalid request or document is not in active critical analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Access denied or user is not an active critical reviewer for the document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Document not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /organizations/{orgId}/documents/{docId}/submit:
     post:
       operationId: submitDocumentForReview
@@ -7227,6 +7269,22 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Employee"
+        criticalReviewers:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              userId:
+                type: integer
+              name:
+                type: string
+              status:
+                type: string
+              completedAt:
+                type: string
+                nullable: true
         approvers:
           type: array
           items:
@@ -7306,6 +7364,12 @@ components:
           uniqueItems: true
           items:
             type: integer
+        criticalReviewerIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: integer
         unitIds:
           type: array
           items:
@@ -7344,6 +7408,7 @@ components:
         - title
         - type
         - elaboratorIds
+        - criticalReviewerIds
         - approverIds
 
     UpdateDocumentBody:
@@ -7357,6 +7422,12 @@ components:
           type: string
         elaboratorIds:
           type: array
+          uniqueItems: true
+          items:
+            type: integer
+        criticalReviewerIds:
+          type: array
+          minItems: 1
           uniqueItems: true
           items:
             type: integer

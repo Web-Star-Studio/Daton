@@ -58,6 +58,9 @@ const createDocumentSchema = z.object({
   ]),
   validityDate: z.string().min(1, "Data de validade é obrigatória"),
   elaboratorIds: z.array(z.number()).min(1, "Selecione ao menos um elaborador"),
+  criticalReviewerIds: z
+    .array(z.number())
+    .min(1, "Selecione ao menos um responsável pela análise crítica"),
   unitIds: z.array(z.number()),
   approverIds: z.array(z.number()).min(1, "Selecione ao menos um aprovador"),
   recipientIds: z
@@ -98,6 +101,7 @@ export default function NovoDocumentoPage() {
       type: "manual",
       validityDate: new Date().toISOString().split("T")[0],
       elaboratorIds: [],
+      criticalReviewerIds: [],
       unitIds: [],
       approverIds: [],
       recipientIds: [],
@@ -107,6 +111,7 @@ export default function NovoDocumentoPage() {
 
   const unitIds = watch("unitIds");
   const elaboratorIds = watch("elaboratorIds");
+  const criticalReviewerIds = watch("criticalReviewerIds");
   const approverIds = watch("approverIds");
   const recipientIds = watch("recipientIds");
   const referenceIds = watch("referenceIds");
@@ -123,6 +128,11 @@ export default function NovoDocumentoPage() {
   const approverPicker = useUserMultiPicker({
     orgId,
     selectedIds: approverIds,
+    enabled: !!orgId,
+  });
+  const criticalReviewerPicker = useUserMultiPicker({
+    orgId,
+    selectedIds: criticalReviewerIds,
     enabled: !!orgId,
   });
   const recipientPicker = useUserMultiPicker({
@@ -215,6 +225,7 @@ export default function NovoDocumentoPage() {
           type: data.type,
           validityDate: data.validityDate || undefined,
           elaboratorIds: data.elaboratorIds,
+          criticalReviewerIds: data.criticalReviewerIds,
           unitIds: data.unitIds.length > 0 ? data.unitIds : undefined,
           approverIds: data.approverIds,
           recipientIds:
@@ -222,7 +233,7 @@ export default function NovoDocumentoPage() {
           referenceIds:
             data.referenceIds.length > 0 ? data.referenceIds : undefined,
           attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined,
-        },
+        } as never,
       });
       queryClient.invalidateQueries({
         queryKey: getListDocumentsQueryKey(orgId),
@@ -316,6 +327,36 @@ export default function NovoDocumentoPage() {
             )}
           </div>
           <div>
+            <Label>Responsáveis pela análise crítica *</Label>
+            <SearchableMultiSelect
+              placeholder="Selecione"
+              searchPlaceholder="Buscar responsável..."
+              emptyMessage="Nenhum responsável encontrado."
+              options={criticalReviewerPicker.options.map((u) => ({
+                value: u.id,
+                label: u.name,
+                keywords: [u.email],
+              }))}
+              selected={criticalReviewerIds}
+              onToggle={(id) =>
+                toggleMultiSelect(
+                  "criticalReviewerIds",
+                  criticalReviewerIds,
+                  id,
+                )
+              }
+              onSearchValueChange={criticalReviewerPicker.setSearchValue}
+            />
+            {errors.criticalReviewerIds && (
+              <p className="text-xs text-red-500 mt-1">
+                {errors.criticalReviewerIds.message}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <div>
             <Label>Aprovadores *</Label>
             <SearchableMultiSelect
               placeholder="Selecione"
@@ -335,6 +376,29 @@ export default function NovoDocumentoPage() {
             {errors.approverIds && (
               <p className="text-xs text-red-500 mt-1">
                 {errors.approverIds.message}
+              </p>
+            )}
+          </div>
+          <div>
+            <Label>Destinatários (protocolo de recebimento) *</Label>
+            <SearchableMultiSelect
+              placeholder="Selecionar destinatários"
+              searchPlaceholder="Buscar destinatário..."
+              emptyMessage="Nenhum destinatário encontrado."
+              options={recipientPicker.options.map((u) => ({
+                value: u.id,
+                label: u.name,
+                keywords: [u.email],
+              }))}
+              selected={recipientIds}
+              onToggle={(id) =>
+                toggleMultiSelect("recipientIds", recipientIds, id)
+              }
+              onSearchValueChange={recipientPicker.setSearchValue}
+            />
+            {errors.recipientIds && (
+              <p className="text-xs text-red-500 mt-1">
+                {errors.recipientIds.message}
               </p>
             )}
           </div>
@@ -402,30 +466,6 @@ export default function NovoDocumentoPage() {
               </div>
             )}
           </div>
-        </div>
-
-        <div>
-          <Label>Destinatários (protocolo de recebimento) *</Label>
-          <SearchableMultiSelect
-            placeholder="Selecionar destinatários"
-            searchPlaceholder="Buscar destinatário..."
-            emptyMessage="Nenhum destinatário encontrado."
-            options={recipientPicker.options.map((u) => ({
-              value: u.id,
-              label: u.name,
-              keywords: [u.email],
-            }))}
-            selected={recipientIds}
-            onToggle={(id) =>
-              toggleMultiSelect("recipientIds", recipientIds, id)
-            }
-            onSearchValueChange={recipientPicker.setSearchValue}
-          />
-          {errors.recipientIds && (
-            <p className="text-xs text-red-500 mt-1">
-              {errors.recipientIds.message}
-            </p>
-          )}
         </div>
 
         <div>

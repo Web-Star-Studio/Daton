@@ -1,5 +1,6 @@
 import { test, expect } from "./fixtures/auth";
 import { API_BASE_URL, WEB_BASE_URL, WEB_ORIGIN } from "./support/config";
+import { createEmployee } from "../tests/support/backend";
 
 async function apiJson<T>(
   path: string,
@@ -36,12 +37,16 @@ async function apiJson<T>(
   return body as T;
 }
 
-async function createOperatorWithDocumentsModule(
+async function createUserWithDocumentsModule(
   orgId: number,
   adminToken: string,
   prefix: string,
+  options: {
+    role: "operator" | "analyst";
+    suffix: string;
+  },
 ) {
-  const email = `${prefix}-reviewer@daton.e2e`;
+  const email = `${prefix}-${options.suffix}@daton.e2e`;
   const password = "DatonE2E!123";
 
   const user = await apiJson<{ id: number; name: string; email: string }>(
@@ -50,10 +55,10 @@ async function createOperatorWithDocumentsModule(
     {
       method: "POST",
       bodyJson: {
-        name: `${prefix} Reviewer`,
+        name: `${prefix} ${options.suffix}`,
         email,
         password,
-        role: "operator",
+        role: options.role,
         modules: ["documents"],
       },
     },
@@ -93,16 +98,35 @@ async function uploadCsvAttachment(token: string) {
   }>;
 }
 
-test("formal version is created only after approval and only creator can submit", async ({
+test("critical analysis gates the document flow before approval and is reopened on rework", async ({
   authenticatedPage,
   browser,
   orgAdmin,
 }, testInfo) => {
   const prefix = testInfo.title.replace(/\W+/g, "-").toLowerCase();
-  const reviewer = await createOperatorWithDocumentsModule(
+  const criticalReviewer = await createUserWithDocumentsModule(
     orgAdmin.organizationId,
     orgAdmin.token,
     prefix,
+    { role: "analyst", suffix: "critical-reviewer" },
+  );
+  const approver = await createUserWithDocumentsModule(
+    orgAdmin.organizationId,
+    orgAdmin.token,
+    prefix,
+    { role: "operator", suffix: "approver" },
+  );
+  const recipient = await createUserWithDocumentsModule(
+    orgAdmin.organizationId,
+    orgAdmin.token,
+    prefix,
+    { role: "operator", suffix: "recipient" },
+  );
+  const elaborator = await createEmployee(
+    { organizationId: orgAdmin.organizationId },
+    {
+      name: `${prefix} Elaborador`,
+    },
   );
   const attachment = await uploadCsvAttachment(orgAdmin.token);
   const title = `Documento E2E ${Date.now()}`;
@@ -117,8 +141,10 @@ test("formal version is created only after approval and only creator can submit"
       title,
       type: "manual",
       validityDate: "2030-01-01",
-      approverIds: [reviewer.id],
-      recipientIds: [reviewer.id],
+      elaboratorIds: [elaborator.id],
+      criticalReviewerIds: [criticalReviewer.id],
+      approverIds: [approver.id],
+      recipientIds: [recipient.id],
       attachments: [
         {
           fileName: "evidencia.csv",
@@ -133,26 +159,50 @@ test("formal version is created only after approval and only creator can submit"
   expect(createdDoc.currentVersion).toBe(0);
   expect(createdDoc.versions || []).toHaveLength(0);
 
-  const reviewerContext = await browser.newContext({
+  const criticalNotifications = await apiJson<{
+    notifications: Array<{ title: string; description: string }>;
+  }>(`/api/organizations/${orgAdmin.organizationId}/notifications`, criticalReviewer.token);
+  expect(
+    criticalNotifications.notifications.some((notification) =>
+      notification.title.includes("análise crítica"),
+    ),
+  ).toBe(true);
+
+  const criticalReviewerContext = await browser.newContext({
     baseURL: WEB_BASE_URL,
     storageState: {
       cookies: [],
       origins: [
         {
           origin: WEB_ORIGIN,
-          localStorage: [{ name: "daton_token", value: reviewer.token }],
+          localStorage: [{ name: "daton_token", value: criticalReviewer.token }],
         },
       ],
     },
   });
-  const reviewerPage = await reviewerContext.newPage();
+  const criticalReviewerPage = await criticalReviewerContext.newPage();
+
+  const approverContext = await browser.newContext({
+    baseURL: WEB_BASE_URL,
+    storageState: {
+      cookies: [],
+      origins: [
+        {
+          origin: WEB_ORIGIN,
+          localStorage: [{ name: "daton_token", value: approver.token }],
+        },
+      ],
+    },
+  });
+  const approverPage = await approverContext.newPage();
 
   try {
     await authenticatedPage.goto(`/qualidade/documentacao/${createdDoc.id}`);
     await expect(authenticatedPage.getByText("Sem versão aprovada")).toBeVisible();
+    await expect(authenticatedPage.getByText("Análise crítica")).toBeVisible();
     await expect(
       authenticatedPage.getByRole("button", { name: "Enviar para Revisão" }),
-    ).toBeVisible();
+    ).toHaveCount(0);
 
     await authenticatedPage.getByRole("button", { name: "Anexos" }).click();
     await expect(
@@ -162,11 +212,49 @@ test("formal version is created only after approval and only creator can submit"
       authenticatedPage.getByRole("button", { name: "Baixar" }),
     ).toBeVisible();
 
-    await reviewerPage.goto(`/qualidade/documentacao/${createdDoc.id}`);
+    await criticalReviewerPage.goto(`/qualidade/documentacao/${createdDoc.id}`);
     await expect(
-      reviewerPage.getByRole("button", { name: "Enviar para Revisão" }),
+      criticalReviewerPage.getByRole("button", { name: "Concluir análise crítica" }),
+    ).toBeVisible();
+    await criticalReviewerPage
+      .getByRole("button", { name: "Concluir análise crítica" })
+      .click();
+    await criticalReviewerPage.getByRole("button", { name: "Fluxo" }).click();
+    await expect(criticalReviewerPage.getByText("Concluída")).toBeVisible();
+
+    await authenticatedPage.reload();
+    await expect(
+      authenticatedPage.getByRole("button", { name: "Enviar para Revisão" }),
+    ).toBeVisible();
+
+    await authenticatedPage.getByRole("button", { name: "Editar" }).click();
+    await authenticatedPage.getByLabel("Título *").fill(`${title} atualizado`);
+    await authenticatedPage.getByRole("button", { name: "Próximo" }).click();
+    await authenticatedPage.getByRole("button", { name: "Próximo" }).click();
+    await authenticatedPage.getByRole("button", { name: "Salvar Alterações" }).click();
+
+    await expect(
+      authenticatedPage.getByRole("button", { name: "Enviar para Revisão" }),
     ).toHaveCount(0);
 
+    const notificationsAfterEdit = await apiJson<{
+      notifications: Array<{ title: string; description: string }>;
+    }>(`/api/organizations/${orgAdmin.organizationId}/notifications`, criticalReviewer.token);
+    expect(
+      notificationsAfterEdit.notifications.filter((notification) =>
+        notification.title.includes("análise crítica"),
+      ).length,
+    ).toBeGreaterThan(1);
+
+    await criticalReviewerPage.reload();
+    await expect(
+      criticalReviewerPage.getByRole("button", { name: "Concluir análise crítica" }),
+    ).toBeVisible();
+    await criticalReviewerPage
+      .getByRole("button", { name: "Concluir análise crítica" })
+      .click();
+
+    await authenticatedPage.reload();
     await authenticatedPage.getByRole("button", { name: "Enviar para Revisão" }).click();
     await authenticatedPage
       .getByLabel("Descrição da versão *")
@@ -177,12 +265,39 @@ test("formal version is created only after approval and only creator can submit"
       .click();
     await expect(authenticatedPage.getByText("Em Revisão")).toBeVisible();
 
-    await reviewerPage.reload();
+    await approverPage.goto(`/qualidade/documentacao/${createdDoc.id}`);
+    await approverPage.getByRole("button", { name: "Rejeitar" }).click();
+    await approverPage
+      .getByLabel("Motivo *")
+      .fill("Ajustar conteúdo antes da aprovação");
+    await approverPage.getByRole("button", { name: "Rejeitar" }).last().click();
+    await expect(approverPage.getByText("Análise crítica")).toBeVisible();
+
+    await criticalReviewerPage.reload();
     await expect(
-      reviewerPage.getByRole("button", { name: "Aprovar" }),
+      criticalReviewerPage.getByRole("button", { name: "Concluir análise crítica" }),
     ).toBeVisible();
-    await reviewerPage.getByRole("button", { name: "Aprovar" }).click();
-    await expect(reviewerPage.getByText("Distribuído")).toBeVisible();
+    await criticalReviewerPage
+      .getByRole("button", { name: "Concluir análise crítica" })
+      .click();
+
+    await authenticatedPage.reload();
+    await authenticatedPage.getByRole("button", { name: "Reenviar para Revisão" }).click();
+    await authenticatedPage
+      .getByLabel("Descrição da versão *")
+      .fill("Primeira versão formal do documento");
+    await authenticatedPage
+      .getByRole("button", { name: "Enviar para Revisão" })
+      .last()
+      .click();
+    await expect(authenticatedPage.getByText("Em Revisão")).toBeVisible();
+
+    await approverPage.reload();
+    await expect(
+      approverPage.getByRole("button", { name: "Aprovar" }),
+    ).toBeVisible();
+    await approverPage.getByRole("button", { name: "Aprovar" }).click();
+    await expect(approverPage.getByText("Distribuído")).toBeVisible();
 
     await authenticatedPage.reload();
     await expect(authenticatedPage.getByText("v1")).toBeVisible();
@@ -191,6 +306,7 @@ test("formal version is created only after approval and only creator can submit"
       authenticatedPage.getByText("Primeira versão formal do documento"),
     ).toBeVisible();
   } finally {
-    await reviewerContext.close();
+    await criticalReviewerContext.close();
+    await approverContext.close();
   }
 });

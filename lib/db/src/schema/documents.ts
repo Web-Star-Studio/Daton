@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, date, unique } from "drizzle-orm/pg-core";
 import { organizationsTable } from "./organizations";
 import { usersTable } from "./users";
 import { employeesTable } from "./employees";
@@ -47,6 +47,32 @@ export const documentApproversTable = pgTable("document_approvers", {
   approvalCycle: integer("approval_cycle").notNull().default(1),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const documentCriticalReviewersTable = pgTable("document_critical_reviewers", {
+  id: serial("id").primaryKey(),
+  documentId: integer("document_id").notNull().references(() => documentsTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => usersTable.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  unique("document_critical_reviewers_document_user_unique").on(table.documentId, table.userId),
+]);
+
+export const documentCriticalAnalysisTable = pgTable("document_critical_analysis", {
+  id: serial("id").primaryKey(),
+  documentId: integer("document_id").notNull().references(() => documentsTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => usersTable.id),
+  analysisCycle: integer("analysis_cycle").notNull().default(1),
+  status: text("status").notNull().default("pending"),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  completedById: integer("completed_by_id").references(() => usersTable.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  unique("document_critical_analysis_document_user_cycle_unique").on(
+    table.documentId,
+    table.userId,
+    table.analysisCycle,
+  ),
+]);
 
 export const documentRecipientsTable = pgTable("document_recipients", {
   id: serial("id").primaryKey(),

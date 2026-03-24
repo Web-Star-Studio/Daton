@@ -25,7 +25,7 @@ import type {
   DocumentAttachment,
   DocumentVersion,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,7 @@ import { Select } from "@/components/ui/select";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
+import { toast } from "@/hooks/use-toast";
 import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
 import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
 import { useUserMultiPicker } from "@/hooks/use-user-multi-picker";
@@ -55,7 +56,7 @@ import {
 } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "Rascunho",
+  draft: "Análise crítica",
   in_review: "Em Revisão",
   approved: "Aprovado",
   rejected: "Rejeitado",
@@ -129,10 +130,19 @@ interface EditFormState {
   type: string;
   validityDate: string;
   elaboratorIds: number[];
+  criticalReviewerIds: number[];
   unitIds: number[];
   approverIds: number[];
   recipientIds: number[];
   referenceIds: number[];
+}
+
+interface DocumentCriticalReviewerItem {
+  id?: number;
+  userId?: number;
+  name?: string | null;
+  status?: string | null;
+  completedAt?: string | null;
 }
 
 export default function DocumentDetailPage() {
@@ -204,6 +214,16 @@ export default function DocumentDetailPage() {
       email: "",
     })),
   });
+  const criticalReviewerPicker = useUserMultiPicker({
+    orgId,
+    selectedIds: editForm?.criticalReviewerIds ?? [],
+    enabled: !!orgId && editDialogOpen,
+    initialUsers: ((doc as { criticalReviewers?: DocumentCriticalReviewerItem[] } | undefined)?.criticalReviewers ?? []).map((reviewer) => ({
+      id: reviewer.userId!,
+      name: reviewer.name!,
+      email: "",
+    })),
+  });
   const referencePicker = useDocumentMultiPicker({
     orgId,
     selectedIds: editForm?.referenceIds ?? [],
@@ -226,6 +246,58 @@ export default function DocumentDetailPage() {
   const deleteAttachmentMut = useDeleteDocumentAttachment();
   const resetVersionsMut = useResetDocumentVersions();
   const deleteMut = useDeleteDocument();
+  const completeCriticalAnalysisMut = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(
+        resolveApiUrl(
+          `/api/organizations/${orgId}/documents/${docId}/critical-analysis/complete`,
+        ),
+        {
+          method: "POST",
+          headers: getAuthHeaders(),
+        },
+      );
+
+      if (!response.ok) {
+        const responseText = await response.text();
+        let errorMessage = "Falha ao concluir análise crítica";
+
+        if (responseText) {
+          try {
+            const body = JSON.parse(responseText) as { error?: string };
+            if (body.error) {
+              errorMessage = body.error;
+            }
+          } catch {
+            errorMessage = responseText;
+          }
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      if (response.status === 204) {
+        return null;
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        return response.json();
+      }
+
+      return null;
+    },
+    onError: (error) => {
+      toast({
+        title: "Não foi possível concluir a análise crítica",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Tente novamente em instantes.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const invalidate = () =>
     queryClient.invalidateQueries({
@@ -235,8 +307,16 @@ export default function DocumentDetailPage() {
   const isApprover = doc?.approvers?.some(
     (a: DocumentDetailApproversItem) => a.userId === user?.id,
   );
+  const criticalReviewers =
+    ((doc as { criticalReviewers?: DocumentCriticalReviewerItem[] } | undefined)?.criticalReviewers ?? []);
+  const isCriticalReviewer = criticalReviewers.some(
+    (reviewer) => reviewer.userId === user?.id,
+  );
   const isRecipient = doc?.recipients?.some(
     (r: DocumentDetailRecipientsItem) => r.userId === user?.id,
+  );
+  const myCriticalReview = criticalReviewers.find(
+    (reviewer) => reviewer.userId === user?.id,
   );
   const myApproval = doc?.approvers?.find(
     (a: DocumentDetailApproversItem) => a.userId === user?.id,
@@ -248,10 +328,18 @@ export default function DocumentDetailPage() {
   const canEdit =
     canWriteDocuments &&
     (doc?.status === "draft" || doc?.status === "rejected");
+  const isCriticalAnalysisComplete =
+    criticalReviewers.length > 0 &&
+    criticalReviewers.every((reviewer) => reviewer.status === "completed");
+  const canCompleteCriticalAnalysis =
+    isCriticalReviewer &&
+    doc?.status === "draft" &&
+    myCriticalReview?.status === "pending";
   const canSubmitForReview =
     canWriteDocuments &&
     (role === "org_admin" || role === "operator") &&
-    (doc?.status === "draft" || doc?.status === "rejected");
+    (doc?.status === "draft" || doc?.status === "rejected") &&
+    isCriticalAnalysisComplete;
 
   const handleSubmitForReview = async () => {
     if (!orgId || !submitChangeDescription.trim()) return;
@@ -263,6 +351,16 @@ export default function DocumentDetailPage() {
     setSubmitDialog(false);
     setSubmitChangeDescription("");
     invalidate();
+  };
+
+  const handleCompleteCriticalAnalysis = async () => {
+    if (!orgId) return;
+    try {
+      await completeCriticalAnalysisMut.mutateAsync();
+      invalidate();
+    } catch {
+      // The mutation onError handler already surfaces the failure to the user.
+    }
   };
 
   const handleApprove = async () => {
@@ -284,6 +382,9 @@ export default function DocumentDetailPage() {
       type: doc.type,
       validityDate: doc.validityDate ?? "",
       elaboratorIds: doc.elaborators?.map((e) => e.id).filter(Boolean) as number[] ?? [],
+      criticalReviewerIds: criticalReviewers
+        .map((reviewer) => reviewer.userId)
+        .filter(Boolean) as number[],
       unitIds:
         doc.units
           ?.map((u: DocumentDetailUnitsItem) => u.id!)
@@ -321,6 +422,7 @@ export default function DocumentDetailPage() {
     if (currentStep === 1) {
       return (
         form.elaboratorIds.length > 0 &&
+        form.criticalReviewerIds.length > 0 &&
         form.approverIds.length > 0 &&
         form.recipientIds.length > 0
       );
@@ -351,11 +453,12 @@ export default function DocumentDetailPage() {
         type: editForm.type,
         validityDate: editForm.validityDate || undefined,
         elaboratorIds: editForm.elaboratorIds,
+        criticalReviewerIds: editForm.criticalReviewerIds,
         unitIds: editForm.unitIds,
         approverIds: editForm.approverIds,
         recipientIds: editForm.recipientIds,
         referenceIds: editForm.referenceIds,
-      },
+      } as never,
     });
     handleCloseEditDialog();
     invalidate();
@@ -367,6 +470,16 @@ export default function DocumentDetailPage() {
         {canEdit && (
           <Button size="sm" variant="outline" onClick={handleOpenEditDialog}>
             <Pencil className="h-3.5 w-3.5 mr-1.5" /> Editar
+          </Button>
+        )}
+        {canCompleteCriticalAnalysis && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleCompleteCriticalAnalysis}
+            isLoading={completeCriticalAnalysisMut.isPending}
+          >
+            <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Concluir análise crítica
           </Button>
         )}
         {canSubmitForReview && doc.status === "draft" && (
@@ -852,6 +965,45 @@ export default function DocumentDetailPage() {
         <div className="space-y-8">
           <div>
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" /> Análise crítica
+            </h3>
+            {criticalReviewers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhum responsável pela análise crítica definido.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {criticalReviewers.map((reviewer) => (
+                  <div
+                    key={reviewer.id}
+                    className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-foreground/5 flex items-center justify-center text-xs font-medium">
+                        {reviewer.name?.charAt(0).toUpperCase() || "?"}
+                      </div>
+                      <span className="text-sm font-medium">{reviewer.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {reviewer.status === "completed" ? (
+                        <span className="flex items-center gap-1 text-xs text-emerald-600">
+                          <CheckCircle className="h-3 w-3" /> Concluída{" "}
+                          {formatDateTime(reviewer.completedAt)}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-xs text-amber-600">
+                          <Clock className="h-3 w-3" /> Pendente
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
               <CheckCircle className="h-4 w-4" /> Aprovadores
             </h3>
             {!doc.approvers || doc.approvers.length === 0 ? (
@@ -999,7 +1151,7 @@ export default function DocumentDetailPage() {
         description={
           [
             "Atualize os dados principais do documento.",
-            "Defina colaborador, aprovadores e destinatários.",
+            "Defina colaborador, análise crítica, aprovadores e destinatários.",
             "Associe unidades e documentos de referência.",
           ][editStep]
         }
@@ -1085,6 +1237,31 @@ export default function DocumentDetailPage() {
                       })
                     }
                     onSearchValueChange={elaboratorPicker.setSearchValue}
+                  />
+                </div>
+
+                <div>
+                  <Label>Responsáveis pela análise crítica</Label>
+                  <SearchableMultiSelect
+                    placeholder="Selecione responsáveis"
+                    searchPlaceholder="Buscar responsável..."
+                    emptyMessage="Nenhum responsável encontrado."
+                    options={criticalReviewerPicker.options.map((u) => ({
+                      value: u.id,
+                      label: u.name,
+                      keywords: [u.email],
+                    }))}
+                    selected={editForm.criticalReviewerIds}
+                    onToggle={(id) =>
+                      setEditForm({
+                        ...editForm,
+                        criticalReviewerIds: toggleMultiSelect(
+                          editForm.criticalReviewerIds,
+                          id,
+                        ),
+                      })
+                    }
+                    onSearchValueChange={criticalReviewerPicker.setSearchValue}
                   />
                 </div>
 
@@ -1227,6 +1404,7 @@ export default function DocumentDetailPage() {
                     (editStep === 0 && !editForm.title.trim()) ||
                     (editStep === 1 &&
                       (editForm.elaboratorIds.length === 0 ||
+                        editForm.criticalReviewerIds.length === 0 ||
                         editForm.approverIds.length === 0 ||
                         editForm.recipientIds.length === 0))
                   }
@@ -1242,6 +1420,7 @@ export default function DocumentDetailPage() {
                   disabled={
                     !editForm.title.trim() ||
                     editForm.elaboratorIds.length === 0 ||
+                    editForm.criticalReviewerIds.length === 0 ||
                     editForm.approverIds.length === 0 ||
                     editForm.recipientIds.length === 0
                   }

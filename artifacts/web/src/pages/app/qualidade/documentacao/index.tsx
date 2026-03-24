@@ -28,7 +28,7 @@ import { useUserMultiPicker } from "@/hooks/use-user-multi-picker";
 import { useDocumentMultiPicker } from "@/hooks/use-document-multi-picker";
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "Rascunho",
+  draft: "Análise crítica",
   in_review: "Em Revisão",
   approved: "Aprovado",
   rejected: "Rejeitado",
@@ -88,6 +88,9 @@ const createDocumentSchema = z.object({
   ]),
   validityDate: z.string().min(1, "Data de validade é obrigatória"),
   elaboratorIds: z.array(z.number()).min(1, "Selecione ao menos um elaborador"),
+  criticalReviewerIds: z
+    .array(z.number())
+    .min(1, "Selecione ao menos um responsável pela análise crítica"),
   unitIds: z.array(z.number()),
   approverIds: z.array(z.number()).min(1, "Selecione ao menos um aprovador"),
   recipientIds: z
@@ -227,7 +230,7 @@ export default function DocumentacaoPage() {
       });
       setSelectedIds(new Set());
       if (errors > 0) {
-        alert(`${errors} documento(s) não puderam ser excluídos. Verifique se estão em rascunho ou rejeitados.`);
+        alert(`${errors} documento(s) não puderam ser excluídos. Verifique se estão em análise crítica ou rejeitados.`);
       }
     } finally {
       setIsDeleting(false);
@@ -473,7 +476,7 @@ export default function DocumentacaoPage() {
         <p className="text-sm text-muted-foreground mt-2">
           Tem certeza que deseja excluir {selectedDeletable.length} documento
           {selectedDeletable.length > 1 ? "s" : ""}? Apenas documentos em
-          rascunho ou rejeitados serão removidos.
+          análise crítica ou rejeitados serão removidos.
         </p>
         <DialogFooter>
           <Button
@@ -529,6 +532,7 @@ function CreateDocumentModal({
       type: "manual",
       validityDate: new Date().toISOString().split("T")[0],
       elaboratorIds: [],
+      criticalReviewerIds: [],
       unitIds: [],
       approverIds: [],
       recipientIds: [],
@@ -538,6 +542,7 @@ function CreateDocumentModal({
 
   const unitIds = watch("unitIds");
   const elaboratorIds = watch("elaboratorIds");
+  const criticalReviewerIds = watch("criticalReviewerIds");
   const approverIds = watch("approverIds");
   const recipientIds = watch("recipientIds");
   const referenceIds = watch("referenceIds");
@@ -554,6 +559,11 @@ function CreateDocumentModal({
   const approverPicker = useUserMultiPicker({
     orgId,
     selectedIds: approverIds,
+    enabled: !!orgId && open,
+  });
+  const criticalReviewerPicker = useUserMultiPicker({
+    orgId,
+    selectedIds: criticalReviewerIds,
     enabled: !!orgId && open,
   });
   const recipientPicker = useUserMultiPicker({
@@ -652,6 +662,7 @@ function CreateDocumentModal({
           type: data.type,
           validityDate: data.validityDate || undefined,
           elaboratorIds: data.elaboratorIds,
+          criticalReviewerIds: data.criticalReviewerIds,
           unitIds: data.unitIds.length > 0 ? data.unitIds : undefined,
           approverIds: data.approverIds,
           recipientIds:
@@ -659,7 +670,7 @@ function CreateDocumentModal({
           referenceIds:
             data.referenceIds.length > 0 ? data.referenceIds : undefined,
           attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined,
-        },
+        } as never,
       });
       reset();
       setUploadedFiles([]);
@@ -682,6 +693,7 @@ function CreateDocumentModal({
     if (step === 1) {
       const valid = await trigger([
         "elaboratorIds",
+        "criticalReviewerIds",
         "approverIds",
         "recipientIds",
       ]);
@@ -708,7 +720,7 @@ function CreateDocumentModal({
       description={
         [
           "Defina os dados principais do documento.",
-          "Selecione colaborador, aprovadores e destinatários.",
+          "Selecione colaborador, análise crítica, aprovadores e destinatários.",
           "Associe unidades e referências relacionadas.",
           "Adicione os anexos iniciais antes de salvar.",
         ][step]
@@ -790,6 +802,36 @@ function CreateDocumentModal({
                 )}
               </div>
               <div>
+                <Label>Responsáveis pela análise crítica *</Label>
+                <SearchableMultiSelect
+                  placeholder="Selecione"
+                  searchPlaceholder="Buscar responsável..."
+                  emptyMessage="Nenhum responsável encontrado."
+                  options={criticalReviewerPicker.options.map((u) => ({
+                    value: u.id,
+                    label: u.name,
+                    keywords: [u.email],
+                  }))}
+                  selected={criticalReviewerIds}
+                  onToggle={(id) =>
+                    toggleMultiSelect(
+                      "criticalReviewerIds",
+                      criticalReviewerIds,
+                      id,
+                    )
+                  }
+                  onSearchValueChange={criticalReviewerPicker.setSearchValue}
+                />
+                {errors.criticalReviewerIds && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.criticalReviewerIds.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div>
                 <Label>Aprovadores *</Label>
                 <SearchableMultiSelect
                   placeholder="Selecione"
@@ -812,30 +854,29 @@ function CreateDocumentModal({
                   </p>
                 )}
               </div>
-            </div>
-
-            <div>
-              <Label>Destinatários (protocolo de recebimento) *</Label>
-              <SearchableMultiSelect
-                placeholder="Selecionar destinatários"
-                searchPlaceholder="Buscar destinatário..."
-                emptyMessage="Nenhum destinatário encontrado."
-                options={recipientPicker.options.map((u) => ({
-                  value: u.id,
-                  label: u.name,
-                  keywords: [u.email],
-                }))}
-                selected={recipientIds}
-                onToggle={(id) =>
-                  toggleMultiSelect("recipientIds", recipientIds, id)
-                }
-                onSearchValueChange={recipientPicker.setSearchValue}
-              />
-              {errors.recipientIds && (
-                <p className="mt-1 text-xs text-red-500">
-                  {errors.recipientIds.message}
-                </p>
-              )}
+              <div>
+                <Label>Destinatários (protocolo de recebimento) *</Label>
+                <SearchableMultiSelect
+                  placeholder="Selecionar destinatários"
+                  searchPlaceholder="Buscar destinatário..."
+                  emptyMessage="Nenhum destinatário encontrado."
+                  options={recipientPicker.options.map((u) => ({
+                    value: u.id,
+                    label: u.name,
+                    keywords: [u.email],
+                  }))}
+                  selected={recipientIds}
+                  onToggle={(id) =>
+                    toggleMultiSelect("recipientIds", recipientIds, id)
+                  }
+                  onSearchValueChange={recipientPicker.setSearchValue}
+                />
+                {errors.recipientIds && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.recipientIds.message}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}

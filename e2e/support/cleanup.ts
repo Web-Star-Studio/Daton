@@ -1,6 +1,16 @@
 import { inArray, like } from "drizzle-orm";
 import {
   db,
+  documentApproversTable,
+  documentAttachmentsTable,
+  documentCriticalAnalysisTable,
+  documentCriticalReviewersTable,
+  documentElaboratorsTable,
+  documentRecipientsTable,
+  documentReferencesTable,
+  documentsTable,
+  documentUnitsTable,
+  documentVersionsTable,
   departmentsTable,
   departmentUnitsTable,
   employeeAwarenessTable,
@@ -41,6 +51,7 @@ import {
   unitsTable,
   userModulePermissionsTable,
   usersTable,
+  notificationsTable,
 } from "@workspace/db";
 
 type CleanupTransaction = Pick<typeof db, "delete">;
@@ -53,6 +64,9 @@ async function deleteStandaloneUsers(
     return;
   }
 
+  await tx
+    .delete(notificationsTable)
+    .where(inArray(notificationsTable.userId, userIds));
   await tx
     .delete(userModulePermissionsTable)
     .where(inArray(userModulePermissionsTable.userId, userIds));
@@ -117,6 +131,12 @@ export async function cleanupTestData(prefix: string) {
       .from(suppliersTable)
       .where(inArray(suppliersTable.organizationId, orgIds));
     const supplierIds = suppliers.map((supplier) => supplier.id);
+
+    const documents = await tx
+      .select({ id: documentsTable.id })
+      .from(documentsTable)
+      .where(inArray(documentsTable.organizationId, orgIds));
+    const documentIds = documents.map((document) => document.id);
 
     const supplierCategories = await tx
       .select({ id: supplierCategoriesTable.id })
@@ -208,6 +228,12 @@ export async function cleanupTestData(prefix: string) {
     }
 
     if (employeeIds.length > 0) {
+      if (documentIds.length > 0) {
+        await tx
+          .delete(documentElaboratorsTable)
+          .where(inArray(documentElaboratorsTable.documentId, documentIds));
+      }
+
       const profileItems = await tx
         .select({ id: employeeProfileItemsTable.id })
         .from(employeeProfileItemsTable)
@@ -289,6 +315,39 @@ export async function cleanupTestData(prefix: string) {
       await tx.delete(suppliersTable).where(inArray(suppliersTable.id, supplierIds));
     }
 
+    if (documentIds.length > 0) {
+      await tx
+        .delete(documentVersionsTable)
+        .where(inArray(documentVersionsTable.documentId, documentIds));
+      await tx
+        .delete(documentAttachmentsTable)
+        .where(inArray(documentAttachmentsTable.documentId, documentIds));
+      await tx
+        .delete(documentReferencesTable)
+        .where(inArray(documentReferencesTable.documentId, documentIds));
+      await tx
+        .delete(documentRecipientsTable)
+        .where(inArray(documentRecipientsTable.documentId, documentIds));
+      await tx
+        .delete(documentApproversTable)
+        .where(inArray(documentApproversTable.documentId, documentIds));
+      await tx
+        .delete(documentCriticalAnalysisTable)
+        .where(inArray(documentCriticalAnalysisTable.documentId, documentIds));
+      await tx
+        .delete(documentCriticalReviewersTable)
+        .where(inArray(documentCriticalReviewersTable.documentId, documentIds));
+      await tx
+        .delete(documentElaboratorsTable)
+        .where(inArray(documentElaboratorsTable.documentId, documentIds));
+      await tx
+        .delete(documentUnitsTable)
+        .where(inArray(documentUnitsTable.documentId, documentIds));
+      await tx
+        .delete(documentsTable)
+        .where(inArray(documentsTable.id, documentIds));
+    }
+
     if (supplierTemplateIds.length > 0) {
       await tx
         .delete(supplierRequirementCommunicationsTable)
@@ -351,6 +410,12 @@ export async function cleanupTestData(prefix: string) {
 
     if (unitIds.length > 0) {
       await tx.delete(unitsTable).where(inArray(unitsTable.id, unitIds));
+    }
+
+    if (userIds.length > 0) {
+      await tx
+        .delete(notificationsTable)
+        .where(inArray(notificationsTable.userId, userIds));
     }
 
     if (userIds.length > 0) {
