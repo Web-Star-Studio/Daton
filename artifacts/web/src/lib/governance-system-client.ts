@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getGetDocumentQueryKey,
   getGetInternalAuditQueryKey,
@@ -10,6 +10,7 @@ import {
   getListManagementReviewsQueryKey,
   getListNonconformitiesQueryKey,
   getListSgqProcessesQueryKey,
+  listSgqProcesses,
   useCreateCorrectiveAction,
   useCreateDocumentCommunicationPlan,
   useCreateInternalAudit,
@@ -159,6 +160,32 @@ export function useSgqProcesses(orgId?: number, params?: ListSgqProcessesParams)
     query: {
       enabled: !!orgId,
       queryKey: getListSgqProcessesQueryKey(orgId ?? 0, params),
+    },
+  });
+}
+
+export function useAllActiveSgqProcesses(orgId?: number) {
+  return useQuery({
+    enabled: !!orgId,
+    queryKey: ["sgq-processes-options", orgId],
+    queryFn: async (): Promise<SgqProcessSummary[]> => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const items: SgqProcessSummary[] = [];
+      let currentPage = 1;
+      let totalPages = 1;
+
+      while (currentPage <= totalPages) {
+        const response = await listSgqProcesses(validOrgId, {
+          page: currentPage,
+          pageSize: 100,
+          status: "active",
+        });
+        items.push(...response.data);
+        totalPages = response.pagination.totalPages;
+        currentPage += 1;
+      }
+
+      return items;
     },
   });
 }

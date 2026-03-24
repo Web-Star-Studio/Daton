@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { useFieldArray, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/contexts/LayoutContext";
 import { Button } from "@/components/ui/button";
@@ -12,42 +15,62 @@ import { PaginationControls } from "@/components/ui/pagination-controls";
 import { toast } from "@/hooks/use-toast";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
+  useAllActiveSgqProcesses,
   useAuditChecklistSyncMutation,
   useAuditFindingMutation,
   useInternalAudit,
   useInternalAuditMutation,
   useInternalAudits,
-  useSgqProcesses,
 } from "@/lib/governance-system-client";
 import {
   getListUserOptionsQueryKey,
   useListUserOptions,
 } from "@workspace/api-client-react";
 
-type AuditFormState = {
-  title: string;
-  scope: string;
-  criteria: string;
-  periodStart: string;
-  periodEnd: string;
-  auditorUserId: string;
-  originType: "internal" | "external_manual";
-  status: "planned" | "in_progress" | "completed" | "canceled";
-};
+const auditFormSchema = z
+  .object({
+    title: z.string().trim().min(1, "Informe o título da auditoria"),
+    scope: z.string().trim().min(1, "Informe o escopo da auditoria"),
+    criteria: z.string().trim().min(1, "Informe os critérios da auditoria"),
+    periodStart: z.string().min(1, "Informe a data inicial"),
+    periodEnd: z.string().min(1, "Informe a data final"),
+    auditorUserId: z.string().default(""),
+    originType: z.enum(["internal", "external_manual"]),
+    status: z.enum(["planned", "in_progress", "completed", "canceled"]),
+  })
+  .refine((values) => values.periodStart <= values.periodEnd, {
+    message: "A data final deve ser maior ou igual à data inicial",
+    path: ["periodEnd"],
+  });
 
-type ChecklistDraftItem = {
-  id: string;
-  label: string;
-  requirementRef: string;
-  result: "conformity" | "nonconformity" | "observation" | "not_evaluated";
-  notes: string;
-};
+const checklistItemSchema = z.object({
+  draftId: z.string(),
+  label: z.string().trim().min(1, "Informe o item do checklist"),
+  requirementRef: z.string().default(""),
+  result: z.enum(["conformity", "nonconformity", "observation", "not_evaluated"]),
+  notes: z.string().default(""),
+});
 
-function createChecklistDraftItem(
-  overrides?: Partial<Omit<ChecklistDraftItem, "id">>,
-): ChecklistDraftItem {
+const checklistFormSchema = z.object({
+  items: z.array(checklistItemSchema),
+});
+
+const findingFormSchema = z.object({
+  processId: z.string().default(""),
+  requirementRef: z.string().default(""),
+  classification: z.enum(["conformity", "observation", "nonconformity"]),
+  description: z.string().trim().min(1, "Informe a descrição do achado"),
+  responsibleUserId: z.string().default(""),
+  dueDate: z.string().default(""),
+});
+
+type AuditFormState = z.infer<typeof auditFormSchema>;
+type ChecklistDraftItem = z.infer<typeof checklistItemSchema>;
+type FindingFormState = z.infer<typeof findingFormSchema>;
+
+function createChecklistDraftItem(overrides?: Partial<Omit<ChecklistDraftItem, "draftId">>): ChecklistDraftItem {
   return {
-    id: globalThis.crypto?.randomUUID?.() ?? `draft-${Math.random().toString(36).slice(2)}`,
+    draftId: globalThis.crypto?.randomUUID?.() ?? `draft-${Math.random().toString(36).slice(2)}`,
     label: "",
     requirementRef: "",
     result: "not_evaluated",
@@ -67,14 +90,14 @@ const emptyAuditForm = (): AuditFormState => ({
   status: "planned",
 });
 
-const emptyFindingForm = {
+const emptyFindingForm = (): FindingFormState => ({
   processId: "",
   requirementRef: "",
-  classification: "observation" as "conformity" | "observation" | "nonconformity",
+  classification: "observation",
   description: "",
   responsibleUserId: "",
   dueDate: "",
-};
+});
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -91,10 +114,48 @@ export default function GovernanceAuditsPage() {
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<number | undefined>(undefined);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
-  const [form, setForm] = useState<AuditFormState>(emptyAuditForm);
-  const [checklistDraft, setChecklistDraft] = useState<ChecklistDraftItem[]>([]);
-  const [findingForm, setFindingForm] = useState(emptyFindingForm);
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
+
+  const auditForm = useForm<AuditFormState>({
+    resolver: zodResolver(auditFormSchema),
+    defaultValues: emptyAuditForm(),
+  });
+  const checklistForm = useForm<{ items: ChecklistDraftItem[] }>({
+    resolver: zodResolver(checklistFormSchema),
+    defaultValues: { items: [] },
+  });
+  const findingForm = useForm<FindingFormState>({
+    resolver: zodResolver(findingFormSchema),
+    defaultValues: emptyFindingForm(),
+  });
+  const {
+    register: registerAudit,
+    handleSubmit: handleAuditSubmit,
+    reset: resetAuditForm,
+    formState: { errors: auditErrors },
+  } = auditForm;
+  const {
+    control: checklistControl,
+    handleSubmit: handleChecklistSubmit,
+    reset: resetChecklistForm,
+    register: registerChecklist,
+    formState: { errors: checklistErrors },
+  } = checklistForm;
+  const checklistFieldsArray = useFieldArray({
+    control: checklistControl,
+    name: "items",
+  });
+  const {
+    fields: checklistDraft,
+    append: appendChecklistItem,
+    remove: removeChecklistItem,
+  } = checklistFieldsArray;
+  const {
+    register: registerFinding,
+    handleSubmit: handleFindingSubmit,
+    reset: resetFindingForm,
+    formState: { errors: findingErrors },
+  } = findingForm;
 
   const { data: auditList } = useInternalAudits(orgId, {
     page,
@@ -116,8 +177,7 @@ export default function GovernanceAuditsPage() {
       queryKey: getListUserOptionsQueryKey(orgId!),
     },
   });
-  const { data: processList } = useSgqProcesses(orgId, { status: "active" });
-  const processes = processList?.data ?? [];
+  const { data: processes = [] } = useAllActiveSgqProcesses(orgId);
 
   useEffect(() => {
     if (isCreatingNew) return;
@@ -136,7 +196,7 @@ export default function GovernanceAuditsPage() {
 
   useEffect(() => {
     if (!auditDetail) return;
-    setForm({
+    resetAuditForm({
       title: auditDetail.title,
       scope: auditDetail.scope,
       criteria: auditDetail.criteria,
@@ -146,8 +206,8 @@ export default function GovernanceAuditsPage() {
       originType: auditDetail.originType,
       status: auditDetail.status,
     });
-    setChecklistDraft(
-      auditDetail.checklistItems.map((item) =>
+    resetChecklistForm({
+      items: auditDetail.checklistItems.map((item) =>
         createChecklistDraftItem({
           label: item.label,
           requirementRef: item.requirementRef ?? "",
@@ -155,23 +215,24 @@ export default function GovernanceAuditsPage() {
           notes: item.notes ?? "",
         }),
       ),
-    );
-  }, [auditDetail]);
+    });
+    resetFindingForm(emptyFindingForm());
+  }, [auditDetail, resetAuditForm, resetChecklistForm, resetFindingForm]);
 
   const handleNew = () => {
     setIsCreatingNew(true);
     setSelectedId(undefined);
-    setForm(emptyAuditForm());
-    setChecklistDraft([]);
-    setFindingForm(emptyFindingForm);
+    resetAuditForm(emptyAuditForm());
+    resetChecklistForm({ items: [] });
+    resetFindingForm(emptyFindingForm());
   };
 
-  const handleSaveAudit = async () => {
+  const handleSaveAudit = handleAuditSubmit(async (values) => {
     if (createMutation.isPending || updateMutation.isPending) return;
     try {
       const payload = {
-        ...form,
-        auditorUserId: form.auditorUserId ? Number(form.auditorUserId) : null,
+        ...values,
+        auditorUserId: values.auditorUserId ? Number(values.auditorUserId) : null,
       };
       if (selectedId) {
         await updateMutation.mutateAsync({ method: "PATCH", body: payload });
@@ -190,13 +251,13 @@ export default function GovernanceAuditsPage() {
         variant: "destructive",
       });
     }
-  };
+  });
 
-  const handleSaveChecklist = async () => {
+  const handleSaveChecklist = handleChecklistSubmit(async (values) => {
     if (!selectedId || checklistMutation.isPending) return;
     try {
       await checklistMutation.mutateAsync(
-        checklistDraft.map(({ id: _id, ...item }, index) => ({
+        values.items.map(({ draftId: _draftId, ...item }, index) => ({
           label: item.label,
           requirementRef: item.requirementRef || null,
           result: item.result,
@@ -212,25 +273,25 @@ export default function GovernanceAuditsPage() {
         variant: "destructive",
       });
     }
-  };
+  });
 
-  const handleCreateFinding = async () => {
+  const handleCreateFinding = handleFindingSubmit(async (values) => {
     if (!selectedId || findingMutation.isPending) return;
     try {
       await findingMutation.mutateAsync({
         method: "POST",
         body: {
-          processId: findingForm.processId ? Number(findingForm.processId) : null,
-          requirementRef: findingForm.requirementRef || null,
-          classification: findingForm.classification,
-          description: findingForm.description,
-          responsibleUserId: findingForm.responsibleUserId
-            ? Number(findingForm.responsibleUserId)
+          processId: values.processId ? Number(values.processId) : null,
+          requirementRef: values.requirementRef || null,
+          classification: values.classification,
+          description: values.description.trim(),
+          responsibleUserId: values.responsibleUserId
+            ? Number(values.responsibleUserId)
             : null,
-          dueDate: findingForm.dueDate || null,
+          dueDate: values.dueDate || null,
         },
       });
-      setFindingForm(emptyFindingForm);
+      resetFindingForm(emptyFindingForm());
       toast({ title: "Achado registrado" });
     } catch (error) {
       toast({
@@ -239,7 +300,7 @@ export default function GovernanceAuditsPage() {
         variant: "destructive",
       });
     }
-  };
+  });
 
   return (
     <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -311,27 +372,32 @@ export default function GovernanceAuditsPage() {
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
               <Label>Título</Label>
-              <Input value={form.title} onChange={(e) => setForm((c) => ({ ...c, title: e.target.value }))} />
+              <Input {...registerAudit("title")} />
+              {auditErrors.title ? <p className="text-sm text-destructive">{auditErrors.title.message}</p> : null}
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Escopo</Label>
-              <Textarea value={form.scope} onChange={(e) => setForm((c) => ({ ...c, scope: e.target.value }))} rows={3} />
+              <Textarea rows={3} {...registerAudit("scope")} />
+              {auditErrors.scope ? <p className="text-sm text-destructive">{auditErrors.scope.message}</p> : null}
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Critérios</Label>
-              <Textarea value={form.criteria} onChange={(e) => setForm((c) => ({ ...c, criteria: e.target.value }))} rows={3} />
+              <Textarea rows={3} {...registerAudit("criteria")} />
+              {auditErrors.criteria ? <p className="text-sm text-destructive">{auditErrors.criteria.message}</p> : null}
             </div>
             <div className="space-y-2">
               <Label>Início</Label>
-              <Input type="date" value={form.periodStart} onChange={(e) => setForm((c) => ({ ...c, periodStart: e.target.value }))} />
+              <Input type="date" {...registerAudit("periodStart")} />
+              {auditErrors.periodStart ? <p className="text-sm text-destructive">{auditErrors.periodStart.message}</p> : null}
             </div>
             <div className="space-y-2">
               <Label>Fim</Label>
-              <Input type="date" value={form.periodEnd} onChange={(e) => setForm((c) => ({ ...c, periodEnd: e.target.value }))} />
+              <Input type="date" {...registerAudit("periodEnd")} />
+              {auditErrors.periodEnd ? <p className="text-sm text-destructive">{auditErrors.periodEnd.message}</p> : null}
             </div>
             <div className="space-y-2">
               <Label>Auditor</Label>
-              <Select value={form.auditorUserId} onChange={(e) => setForm((c) => ({ ...c, auditorUserId: e.target.value }))}>
+              <Select {...registerAudit("auditorUserId")}>
                 <option value="">Sem auditor definido</option>
                 {users.map((user) => (
                   <option key={user.id} value={String(user.id)}>
@@ -342,14 +408,14 @@ export default function GovernanceAuditsPage() {
             </div>
             <div className="space-y-2">
               <Label>Origem</Label>
-              <Select value={form.originType} onChange={(e) => setForm((c) => ({ ...c, originType: e.target.value as AuditFormState["originType"] }))}>
+              <Select {...registerAudit("originType")}>
                 <option value="internal">Interna</option>
                 <option value="external_manual">Externa (manual)</option>
               </Select>
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Status</Label>
-              <Select value={form.status} onChange={(e) => setForm((c) => ({ ...c, status: e.target.value as AuditFormState["status"] }))}>
+              <Select {...registerAudit("status")}>
                 <option value="planned">Planejada</option>
                 <option value="in_progress">Em andamento</option>
                 <option value="completed">Concluída</option>
@@ -376,10 +442,7 @@ export default function GovernanceAuditsPage() {
                   size="sm"
                   variant="outline"
                   onClick={() =>
-                    setChecklistDraft((current) => [
-                      ...current,
-                      createChecklistDraftItem(),
-                    ])
+                    appendChecklistItem(createChecklistDraftItem())
                   }
                 >
                   Novo item
@@ -388,44 +451,22 @@ export default function GovernanceAuditsPage() {
               <CardContent className="space-y-3">
                 {checklistDraft.map((item, index) => (
                   <div key={item.id} className="rounded-xl border p-3 space-y-3">
+                    <input type="hidden" {...registerChecklist(`items.${index}.draftId`)} />
                     <Input
-                      value={item.label}
-                      onChange={(event) =>
-                        setChecklistDraft((current) =>
-                          current.map((entry, entryIndex) =>
-                            entryIndex === index ? { ...entry, label: event.target.value } : entry,
-                          ),
-                        )
-                      }
+                      {...registerChecklist(`items.${index}.label`)}
                       placeholder="Item do checklist"
                     />
+                    {checklistErrors.items?.[index]?.label ? (
+                      <p className="text-sm text-destructive">
+                        {checklistErrors.items[index]?.label?.message}
+                      </p>
+                    ) : null}
                     <Input
-                      value={item.requirementRef}
-                      onChange={(event) =>
-                        setChecklistDraft((current) =>
-                          current.map((entry, entryIndex) =>
-                            entryIndex === index
-                              ? { ...entry, requirementRef: event.target.value }
-                              : entry,
-                          ),
-                        )
-                      }
+                      {...registerChecklist(`items.${index}.requirementRef`)}
                       placeholder="Referência"
                     />
                     <Select
-                      value={item.result}
-                      onChange={(event) =>
-                        setChecklistDraft((current) =>
-                          current.map((entry, entryIndex) =>
-                            entryIndex === index
-                              ? {
-                                  ...entry,
-                                  result: event.target.value as ChecklistDraftItem["result"],
-                                }
-                              : entry,
-                          ),
-                        )
-                      }
+                      {...registerChecklist(`items.${index}.result`)}
                     >
                       <option value="not_evaluated">Não avaliado</option>
                       <option value="conformity">Conforme</option>
@@ -434,16 +475,14 @@ export default function GovernanceAuditsPage() {
                     </Select>
                     <Textarea
                       rows={3}
-                      value={item.notes}
-                      onChange={(event) =>
-                        setChecklistDraft((current) =>
-                          current.map((entry, entryIndex) =>
-                            entryIndex === index ? { ...entry, notes: event.target.value } : entry,
-                          ),
-                        )
-                      }
+                      {...registerChecklist(`items.${index}.notes`)}
                       placeholder="Notas"
                     />
+                    <div className="flex justify-end">
+                      <Button size="sm" variant="outline" onClick={() => removeChecklistItem(index)}>
+                        Remover item
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 <Button onClick={handleSaveChecklist} isLoading={checklistMutation.isPending}>
@@ -469,46 +508,24 @@ export default function GovernanceAuditsPage() {
 
                 <div className="rounded-xl border p-3 space-y-3">
                   <Label>Novo achado</Label>
-                  <Select
-                    value={findingForm.classification}
-                    onChange={(event) =>
-                      setFindingForm((current) => ({
-                        ...current,
-                        classification: event.target.value as typeof current.classification,
-                      }))
-                    }
-                  >
+                  <Select {...registerFinding("classification")}>
                     <option value="conformity">Conformidade</option>
                     <option value="observation">Observação</option>
                     <option value="nonconformity">Não conformidade</option>
                   </Select>
                   <Textarea
                     rows={3}
-                    value={findingForm.description}
-                    onChange={(event) =>
-                      setFindingForm((current) => ({
-                        ...current,
-                        description: event.target.value,
-                      }))
-                    }
+                    {...registerFinding("description")}
                     placeholder="Descrição do achado"
                   />
+                  {findingErrors.description ? (
+                    <p className="text-sm text-destructive">{findingErrors.description.message}</p>
+                  ) : null}
                   <Input
-                    value={findingForm.requirementRef}
-                    onChange={(event) =>
-                      setFindingForm((current) => ({
-                        ...current,
-                        requirementRef: event.target.value,
-                      }))
-                    }
+                    {...registerFinding("requirementRef")}
                     placeholder="Referência do requisito"
                   />
-                  <Select
-                    value={findingForm.processId}
-                    onChange={(event) =>
-                      setFindingForm((current) => ({ ...current, processId: event.target.value }))
-                    }
-                  >
+                  <Select {...registerFinding("processId")}>
                     <option value="">Sem processo vinculado</option>
                     {processes.map((process) => (
                       <option key={process.id} value={String(process.id)}>
@@ -516,15 +533,7 @@ export default function GovernanceAuditsPage() {
                       </option>
                     ))}
                   </Select>
-                  <Select
-                    value={findingForm.responsibleUserId}
-                    onChange={(event) =>
-                      setFindingForm((current) => ({
-                        ...current,
-                        responsibleUserId: event.target.value,
-                      }))
-                    }
-                  >
+                  <Select {...registerFinding("responsibleUserId")}>
                     <option value="">Sem responsável</option>
                     {users.map((user) => (
                       <option key={user.id} value={String(user.id)}>
@@ -532,13 +541,7 @@ export default function GovernanceAuditsPage() {
                       </option>
                     ))}
                   </Select>
-                  <Input
-                    type="date"
-                    value={findingForm.dueDate}
-                    onChange={(event) =>
-                      setFindingForm((current) => ({ ...current, dueDate: event.target.value }))
-                    }
-                  />
+                  <Input type="date" {...registerFinding("dueDate")} />
                   <Button onClick={handleCreateFinding} isLoading={findingMutation.isPending}>
                     Registrar achado
                   </Button>
