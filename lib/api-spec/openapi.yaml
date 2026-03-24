@@ -3925,6 +3925,47 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteStrategicPlanAction
+      tags: [governance]
+      summary: Delete an action for a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Action deleted
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /organizations/{orgId}/governance/strategic-plans/{planId}/risk-opportunity-items:
     get:
@@ -4038,6 +4079,47 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StrategicPlanRiskOpportunityItem"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteStrategicPlanRiskOpportunityItem
+      tags: [governance]
+      summary: Delete a risk or opportunity item for a strategic plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Risk or opportunity item deleted
         "400":
           description: Validation error
           content:
@@ -5056,47 +5138,6 @@ paths:
       responses:
         "204":
           description: Management review output deleted
-    delete:
-      operationId: deleteStrategicPlanRiskOpportunityItem
-      tags: [governance]
-      summary: Delete a risk or opportunity item for a strategic plan
-      parameters:
-        - name: orgId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: planId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: itemId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "204":
-          description: Risk or opportunity item deleted
-        "400":
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
 
   /organizations/{orgId}/governance/strategic-plans/{planId}/risk-opportunity-items/{itemId}/effectiveness-review:
     post:
@@ -5132,59 +5173,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StrategicPlanRiskOpportunityItem"
-        "400":
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-    delete:
-      operationId: deleteStrategicPlanAction
-      tags: [governance]
-      summary: Delete an action for a strategic plan
-      parameters:
-        - name: orgId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: planId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: itemId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "204":
-          description: Action deleted
         "400":
           description: Validation error
           content:

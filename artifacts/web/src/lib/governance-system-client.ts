@@ -1,234 +1,47 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type {
+  CorrectiveAction,
+  DocumentCommunicationPlan,
+  GovernanceSystemAttachment as Attachment,
+  InternalAuditChecklistItem,
+  InternalAuditDetail,
+  InternalAuditFinding,
+  InternalAuditListItem as InternalAuditSummary,
+  ManagementReviewDetail,
+  ManagementReviewInput,
+  ManagementReviewListItem as ManagementReviewSummary,
+  ManagementReviewOutput,
+  NonconformityDetail,
+  NonconformityListItem as NonconformitySummary,
+  PaginatedInternalAudits,
+  PaginatedManagementReviews,
+  PaginatedNonconformities,
+  PaginatedSgqProcesses,
+  SgqProcessDetail,
+  SgqProcessInteraction,
+  SgqProcessListItem as SgqProcessSummary,
+  SgqProcessRevision,
+} from "@workspace/api-client-react";
 import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
 
-export type Attachment = {
-  fileName: string;
-  fileSize: number;
-  contentType: string;
-  objectPath: string;
-};
-
-export type PaginatedResponse<T> = {
-  data: T[];
-  pagination: {
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-  };
-};
-
-export type SgqProcessSummary = {
-  id: number;
-  organizationId: number;
-  name: string;
-  objective: string;
-  ownerUserId: number | null;
-  ownerName?: string | null;
-  status: "active" | "inactive";
-  currentRevisionNumber: number;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type SgqProcessInteraction = {
-  id?: number;
-  relatedProcessId: number;
-  relatedProcessName?: string | null;
-  direction: "upstream" | "downstream";
-  notes?: string | null;
-  createdAt?: string | null;
-};
-
-export type SgqProcessRevision = {
-  id: number;
-  revisionNumber: number;
-  changeSummary?: string | null;
-  approvedById: number;
-  approvedByName?: string | null;
-  snapshot: unknown;
-  createdAt: string | null;
-};
-
-export type SgqProcessDetail = SgqProcessSummary & {
-  inputs: string[];
-  outputs: string[];
-  criteria?: string | null;
-  indicators?: string | null;
-  attachments: Attachment[];
-  createdById: number;
-  updatedById: number;
-  interactions: SgqProcessInteraction[];
-  revisions: SgqProcessRevision[];
-};
-
-export type InternalAuditSummary = {
-  id: number;
-  organizationId: number;
-  title: string;
-  scope: string;
-  criteria: string;
-  periodStart: string;
-  periodEnd: string;
-  auditorUserId?: number | null;
-  auditorName?: string | null;
-  originType: "internal" | "external_manual";
-  status: "planned" | "in_progress" | "completed" | "canceled";
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type InternalAuditChecklistItem = {
-  id: number;
-  auditId: number;
-  label: string;
-  requirementRef?: string | null;
-  result: "conformity" | "nonconformity" | "observation" | "not_evaluated";
-  notes?: string | null;
-  sortOrder: number;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type InternalAuditFinding = {
-  id: number;
-  processId?: number | null;
-  processName?: string | null;
-  requirementRef?: string | null;
-  classification: "conformity" | "observation" | "nonconformity";
-  description: string;
-  responsibleUserId?: number | null;
-  responsibleUserName?: string | null;
-  dueDate?: string | null;
-  attachments: Attachment[];
-  correctiveActionId?: number | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type InternalAuditDetail = InternalAuditSummary & {
-  attachments: Attachment[];
-  checklistItems: InternalAuditChecklistItem[];
-  findings: InternalAuditFinding[];
-};
-
-export type CorrectiveAction = {
-  id: number;
-  title: string;
-  description: string;
-  responsibleUserId?: number | null;
-  responsibleUserName?: string | null;
-  dueDate?: string | null;
-  status: "pending" | "in_progress" | "done" | "canceled";
-  executionNotes?: string | null;
-  attachments: Attachment[];
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type NonconformitySummary = {
-  id: number;
-  organizationId: number;
-  originType: "audit_finding" | "incident" | "document" | "process" | "risk" | "other";
-  title: string;
-  description: string;
-  responsibleUserId?: number | null;
-  responsibleUserName?: string | null;
-  status:
-    | "open"
-    | "under_analysis"
-    | "action_in_progress"
-    | "awaiting_effectiveness"
-    | "closed"
-    | "canceled";
-  effectivenessResult?: "effective" | "ineffective" | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type NonconformityDetail = NonconformitySummary & {
-  classification?: string | null;
-  rootCause?: string | null;
-  processId?: number | null;
-  processName?: string | null;
-  documentId?: number | null;
-  riskOpportunityItemId?: number | null;
-  auditFindingId?: number | null;
-  effectivenessComment?: string | null;
-  effectivenessCheckedAt?: string | null;
-  closedAt?: string | null;
-  attachments: Attachment[];
-  correctiveActions: CorrectiveAction[];
-};
-
-export type ManagementReviewSummary = {
-  id: number;
-  organizationId: number;
-  title: string;
-  reviewDate: string;
-  chairUserId?: number | null;
-  chairUserName?: string | null;
-  status: "draft" | "completed" | "canceled";
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type ManagementReviewInput = {
-  id: number;
-  reviewId: number;
-  inputType:
-    | "policy"
-    | "audit_summary"
-    | "nc_summary"
-    | "objective_status"
-    | "risk_status"
-    | "process_performance"
-    | "customer_feedback"
-    | "other";
-  summary: string;
-  documentId?: number | null;
-  auditId?: number | null;
-  nonconformityId?: number | null;
-  strategicPlanId?: number | null;
-  processId?: number | null;
-  sortOrder: number;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type ManagementReviewOutput = {
-  id: number;
-  outputType: "decision" | "action" | "resource" | "priority";
-  description: string;
-  responsibleUserId?: number | null;
-  responsibleUserName?: string | null;
-  dueDate?: string | null;
-  processId?: number | null;
-  nonconformityId?: number | null;
-  status: "open" | "done" | "canceled";
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type ManagementReviewDetail = ManagementReviewSummary & {
-  minutes?: string | null;
-  attachments: Attachment[];
-  inputs: ManagementReviewInput[];
-  outputs: ManagementReviewOutput[];
-};
-
-export type DocumentCommunicationPlan = {
-  id: number;
-  channel: string;
-  audience: string;
-  periodicity: string;
-  requiresAcknowledgment: boolean;
-  notes?: string | null;
-  lastDistributedAt?: string | null;
-  createdById: number;
-  createdByName?: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
+export type {
+  Attachment,
+  CorrectiveAction,
+  DocumentCommunicationPlan,
+  InternalAuditChecklistItem,
+  InternalAuditDetail,
+  InternalAuditFinding,
+  InternalAuditSummary,
+  ManagementReviewDetail,
+  ManagementReviewInput,
+  ManagementReviewOutput,
+  ManagementReviewSummary,
+  NonconformityDetail,
+  NonconformitySummary,
+  SgqProcessDetail,
+  SgqProcessInteraction,
+  SgqProcessRevision,
+  SgqProcessSummary,
 };
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
@@ -310,7 +123,7 @@ export function useSgqProcesses(
     queryKey: governanceSystemKeys.processes(orgId || 0, params),
     enabled: !!orgId,
     queryFn: () =>
-      apiRequest<PaginatedResponse<SgqProcessSummary>>(
+      apiRequest<PaginatedSgqProcesses>(
         `/api/organizations/${orgId}/governance/sgq-processes${buildQuery(params)}`,
       ),
   });
@@ -372,7 +185,7 @@ export function useInternalAudits(
     queryKey: governanceSystemKeys.audits(orgId || 0, params),
     enabled: !!orgId,
     queryFn: () =>
-      apiRequest<PaginatedResponse<InternalAuditSummary>>(
+      apiRequest<PaginatedInternalAudits>(
         `/api/organizations/${orgId}/governance/internal-audits${buildQuery(params)}`,
       ),
   });
@@ -452,7 +265,7 @@ export function useNonconformities(
     queryKey: governanceSystemKeys.nonconformities(orgId || 0, params),
     enabled: !!orgId,
     queryFn: () =>
-      apiRequest<PaginatedResponse<NonconformitySummary>>(
+      apiRequest<PaginatedNonconformities>(
         `/api/organizations/${orgId}/governance/nonconformities${buildQuery(params)}`,
       ),
   });
@@ -532,7 +345,7 @@ export function useManagementReviews(
     queryKey: governanceSystemKeys.managementReviews(orgId || 0, params),
     enabled: !!orgId,
     queryFn: () =>
-      apiRequest<PaginatedResponse<ManagementReviewSummary>>(
+      apiRequest<PaginatedManagementReviews>(
         `/api/organizations/${orgId}/governance/management-reviews${buildQuery(params)}`,
       ),
   });

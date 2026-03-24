@@ -11,6 +11,8 @@ export interface UpdateDocumentBody {
   type?: string;
   validityDate?: string;
   elaboratorIds?: number[];
+  /** @minItems 1 */
+  criticalReviewerIds?: number[];
   unitIds?: number[];
   approverIds?: number[];
   recipientIds?: number[];
