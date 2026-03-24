@@ -388,12 +388,18 @@ async function validateOrgDocuments(docIds: number[], orgId: number): Promise<bo
 }
 
 async function validateOrgProcesses(processIds: number[], orgId: number): Promise<boolean> {
-  if (processIds.length === 0) return true;
+  const uniqueProcessIds = [...new Set(processIds)];
+  if (uniqueProcessIds.length === 0) return true;
   const rows = await db
     .select({ id: sgqProcessesTable.id })
     .from(sgqProcessesTable)
-    .where(and(inArray(sgqProcessesTable.id, processIds), eq(sgqProcessesTable.organizationId, orgId)));
-  return rows.length === processIds.length;
+    .where(
+      and(
+        inArray(sgqProcessesTable.id, uniqueProcessIds),
+        eq(sgqProcessesTable.organizationId, orgId),
+      ),
+    );
+  return rows.length === uniqueProcessIds.length;
 }
 
 async function validateOrgAudits(auditIds: number[], orgId: number): Promise<boolean> {
@@ -744,6 +750,39 @@ async function getNonconformityRecord(ncId: number, orgId: number) {
     .from(nonconformitiesTable)
     .where(and(eq(nonconformitiesTable.id, ncId), eq(nonconformitiesTable.organizationId, orgId)));
   return nc ?? null;
+}
+
+async function recomputeNonconformityStatus(
+  ncId: number,
+  orgId: number,
+  updatedById: number,
+) {
+  const nc = await getNonconformityRecord(ncId, orgId);
+  if (!nc || nc.status === "closed" || nc.status === "canceled") return;
+
+  const [actionStatusSummary] = await db
+    .select({
+      total: count(),
+      done: count(sql<number>`case when ${correctiveActionsTable.status} = 'done' then 1 end`),
+    })
+    .from(correctiveActionsTable)
+    .where(eq(correctiveActionsTable.nonconformityId, ncId));
+
+  const total = actionStatusSummary?.total ?? 0;
+  const done = actionStatusSummary?.done ?? 0;
+  if (total === 0) return;
+
+  const nextStatus = done === total ? "awaiting_effectiveness" : "action_in_progress";
+  if (nc.status === nextStatus) return;
+
+  await db
+    .update(nonconformitiesTable)
+    .set({
+      status: nextStatus,
+      updatedById,
+      closedAt: null,
+    })
+    .where(eq(nonconformitiesTable.id, ncId));
 }
 
 async function getNonconformityDetail(ncId: number, orgId: number) {
@@ -1534,6 +1573,10 @@ router.put(
       res.status(404).json({ error: "Auditoria não encontrada" });
       return;
     }
+    if (audit.status === "completed") {
+      res.status(400).json({ error: "Auditorias concluídas não podem ter o checklist alterado" });
+      return;
+    }
 
     await db.transaction(async (tx) => {
       await tx
@@ -1815,7 +1858,7 @@ router.post(
         documentId: body.documentId ?? null,
         riskOpportunityItemId: body.riskOpportunityItemId ?? null,
         auditFindingId: body.auditFindingId ?? null,
-        status: body.status,
+        status: "open",
         attachments: body.attachments,
         createdById: req.auth!.userId,
         updatedById: req.auth!.userId,
@@ -1868,6 +1911,13 @@ router.patch(
       return;
     }
     if (
+      body.status === "awaiting_effectiveness" ||
+      body.status === "closed"
+    ) {
+      res.status(400).json({ error: "Use os fluxos dedicados para avançar o ciclo de vida da não conformidade" });
+      return;
+    }
+    if (
       body.responsibleUserId &&
       !(await validateOrgUsers([body.responsibleUserId], params.orgId))
     ) {
@@ -1914,7 +1964,6 @@ router.patch(
     if (body.auditFindingId !== undefined) updateData.auditFindingId = body.auditFindingId ?? null;
     if (body.status !== undefined) {
       updateData.status = body.status;
-      updateData.closedAt = body.status === "closed" ? new Date() : null;
     }
     if (body.attachments !== undefined) updateData.attachments = body.attachments;
 
@@ -2040,6 +2089,8 @@ router.post(
         .where(eq(internalAuditFindingsTable.id, nc.auditFindingId));
     }
 
+    await recomputeNonconformityStatus(params.ncId, params.orgId, req.auth!.userId);
+
     res.status(201).json(await getNonconformityDetail(params.ncId, params.orgId));
   },
 );
@@ -2106,28 +2157,7 @@ router.patch(
       .set(updateData)
       .where(eq(correctiveActionsTable.id, params.actionId));
 
-    if (nextStatus === "done") {
-      const [actionStatusSummary] = await db
-        .select({
-          total: count(),
-          done: count(sql<number>`case when ${correctiveActionsTable.status} = 'done' then 1 end`),
-        })
-        .from(correctiveActionsTable)
-        .where(eq(correctiveActionsTable.nonconformityId, params.ncId));
-
-      if (
-        (actionStatusSummary?.total ?? 0) > 0 &&
-        (actionStatusSummary?.done ?? 0) === (actionStatusSummary?.total ?? 0)
-      ) {
-        await db
-          .update(nonconformitiesTable)
-          .set({
-            status: "awaiting_effectiveness",
-            updatedById: req.auth!.userId,
-          })
-          .where(eq(nonconformitiesTable.id, params.ncId));
-      }
-    }
+    await recomputeNonconformityStatus(params.ncId, params.orgId, req.auth!.userId);
 
     res.json(await getNonconformityDetail(params.ncId, params.orgId));
   },
@@ -2474,6 +2504,11 @@ router.delete(
       res.status(403).json({ error: "Acesso negado" });
       return;
     }
+    const review = await getManagementReviewRecord(params.reviewId, params.orgId);
+    if (!review) {
+      res.status(404).json({ error: "Análise crítica não encontrada" });
+      return;
+    }
     await db
       .delete(managementReviewInputsTable)
       .where(
@@ -2620,6 +2655,8 @@ router.patch(
     }
     if (body.status !== undefined) {
       updateData.status = nextType === "action" && nextStatus === "done" ? "open" : nextStatus;
+    } else if (body.outputType !== undefined && nextType === "action" && nextStatus === "done") {
+      updateData.status = "open";
     }
 
     await db
@@ -2644,6 +2681,11 @@ router.delete(
     if (!params) return;
     if (params.orgId !== req.auth!.organizationId) {
       res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+    const review = await getManagementReviewRecord(params.reviewId, params.orgId);
+    if (!review) {
+      res.status(404).json({ error: "Análise crítica não encontrada" });
       return;
     }
     await db

@@ -320,6 +320,21 @@ describe("governance system routes", () => {
 
     expect(completed.status).toBe(200);
     expect(completed.body.status).toBe("completed");
+
+    const blockedChecklistEditAfterCompletion = await request(app)
+      .put(`/api/organizations/${context.organizationId}/governance/internal-audits/${created.body.id}/checklist-items`)
+      .set(authHeader(context))
+      .send({
+        items: [
+          {
+            label: "Tentativa de alteração após conclusão",
+            result: "conformity",
+          },
+        ],
+      });
+
+    expect(blockedChecklistEditAfterCompletion.status).toBe(400);
+    expect(blockedChecklistEditAfterCompletion.body.error).toContain("não podem ter o checklist alterado");
   });
 
   it("enforces NC effectiveness review and corrective action evidence rules", async () => {
@@ -341,9 +356,11 @@ describe("governance system routes", () => {
         description: "Desvio identificado na liberação final",
         classification: "major",
         responsibleUserId: responsible.id,
+        status: "closed",
       });
 
     expect(created.status).toBe(201);
+    expect(created.body.status).toBe("open");
 
     const prematureClose = await request(app)
       .patch(`/api/organizations/${context.organizationId}/governance/nonconformities/${created.body.id}`)
@@ -352,6 +369,14 @@ describe("governance system routes", () => {
 
     expect(prematureClose.status).toBe(400);
     expect(prematureClose.body.error).toContain("verificação de eficácia");
+
+    const blockedLifecycleJump = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/governance/nonconformities/${created.body.id}`)
+      .set(authHeader(context))
+      .send({ status: "awaiting_effectiveness" });
+
+    expect(blockedLifecycleJump.status).toBe(400);
+    expect(blockedLifecycleJump.body.error).toContain("fluxos dedicados");
 
     const createdAction = await request(app)
       .post(`/api/organizations/${context.organizationId}/governance/nonconformities/${created.body.id}/corrective-actions`)
@@ -364,6 +389,7 @@ describe("governance system routes", () => {
 
     expect(createdAction.status).toBe(201);
     expect(createdAction.body.correctiveActions).toHaveLength(1);
+    expect(createdAction.body.status).toBe("action_in_progress");
 
     const secondAction = await request(app)
       .post(`/api/organizations/${context.organizationId}/governance/nonconformities/${created.body.id}/corrective-actions`)
@@ -396,7 +422,7 @@ describe("governance system routes", () => {
       });
 
     expect(finishedAction.status).toBe(200);
-    expect(finishedAction.body.status).toBe("open");
+    expect(finishedAction.body.status).toBe("action_in_progress");
 
     const blockedEffectiveReview = await request(app)
       .post(`/api/organizations/${context.organizationId}/governance/nonconformities/${created.body.id}/effectiveness-review`)
@@ -647,6 +673,36 @@ describe("governance system routes", () => {
     expect(addedOutput.status).toBe(201);
     expect(addedOutput.body.outputs).toHaveLength(1);
     expect(addedOutput.body.outputs[0].status).toBe("open");
+
+    const secondOutput = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/management-reviews/${review.body.id}/outputs`)
+      .set(authHeader(context))
+      .send({
+        outputType: "decision",
+        description: "Registrar deliberação formal",
+        status: "done",
+      });
+
+    expect(secondOutput.status).toBe(201);
+    const secondOutputId = secondOutput.body.outputs.find(
+      (output: { description: string; id: number }) =>
+        output.description === "Registrar deliberação formal",
+    )?.id;
+    expect(secondOutputId).toBeTruthy();
+
+    const normalizedOutput = await request(app)
+      .patch(
+        `/api/organizations/${context.organizationId}/governance/management-reviews/${review.body.id}/outputs/${secondOutputId}`,
+      )
+      .set(authHeader(context))
+      .send({
+        outputType: "action",
+      });
+
+    expect(normalizedOutput.status).toBe(200);
+    expect(
+      normalizedOutput.body.outputs.find((output: { id: number; status: string }) => output.id === secondOutputId)?.status,
+    ).toBe("open");
 
     const completed = await request(app)
       .patch(`/api/organizations/${context.organizationId}/governance/management-reviews/${review.body.id}`)
