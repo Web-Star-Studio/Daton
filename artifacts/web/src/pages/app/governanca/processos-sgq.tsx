@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useFieldArray, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/contexts/LayoutContext";
 import { Button } from "@/components/ui/button";
@@ -16,28 +19,34 @@ import {
   useSgqProcessLifecycleMutation,
   useSgqProcessMutation,
   useSgqProcesses,
-  type SgqProcessInteraction,
 } from "@/lib/governance-system-client";
 import {
   getListUserOptionsQueryKey,
   useListUserOptions,
 } from "@workspace/api-client-react";
 
-type ProcessFormState = {
-  name: string;
-  objective: string;
-  ownerUserId: string;
-  inputsText: string;
-  outputsText: string;
-  criteria: string;
-  indicators: string;
-  status: "active" | "inactive";
-  interactions: Array<{
-    relatedProcessId: string;
-    direction: "upstream" | "downstream";
-    notes: string;
-  }>;
-};
+const interactionSchema = z.object({
+  relatedProcessId: z.string().min(1, "Selecione o processo relacionado"),
+  direction: z.enum(["upstream", "downstream"]),
+  notes: z.string().default(""),
+});
+
+const processFormSchema = z.object({
+  name: z.string().trim().min(1, "Informe o nome do processo"),
+  objective: z.string().trim().min(1, "Informe o objetivo do processo"),
+  ownerUserId: z.string().default(""),
+  inputsText: z.string().default(""),
+  outputsText: z.string().default(""),
+  criteria: z.string().default(""),
+  indicators: z.string().default(""),
+  status: z.enum(["active", "inactive"]),
+  interactions: z.array(interactionSchema),
+});
+
+type ProcessFormState = z.infer<typeof processFormSchema>;
+
+const PAGE_SIZE = 25;
+const SEARCH_DEBOUNCE_MS = 300;
 
 const emptyForm = (): ProcessFormState => ({
   name: "",
@@ -51,9 +60,6 @@ const emptyForm = (): ProcessFormState => ({
   interactions: [],
 });
 
-const PAGE_SIZE = 25;
-const SEARCH_DEBOUNCE_MS = 300;
-
 function parseList(value: string) {
   return value
     .split("\n")
@@ -65,32 +71,44 @@ function formatList(values?: string[]) {
   return (values ?? []).join("\n");
 }
 
-function toFormInteraction(item: SgqProcessInteraction) {
-  return {
-    relatedProcessId: item.relatedProcessId ? String(item.relatedProcessId) : "",
-    direction: item.direction,
-    notes: item.notes ?? "",
-  };
-}
-
 export default function GovernanceProcessesPage() {
   usePageTitle("Processos SGQ");
   const { organization } = useAuth();
   const orgId = organization?.id;
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<"" | "active" | "inactive">("");
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<number | undefined>(undefined);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
-  const [form, setForm] = useState<ProcessFormState>(emptyForm);
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
+
+  const form = useForm<ProcessFormState>({
+    resolver: zodResolver(processFormSchema),
+    defaultValues: emptyForm(),
+  });
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = form;
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "interactions",
+  });
 
   const { data: processList, isLoading } = useSgqProcesses(orgId, {
     page,
     pageSize: PAGE_SIZE,
     search: debouncedSearch || undefined,
     status: statusFilter || undefined,
+  });
+  const { data: processOptionsList } = useSgqProcesses(orgId, {
+    page: 1,
+    pageSize: 100,
+    status: "active",
   });
   const processes = processList?.data ?? [];
   const pagination = processList?.pagination;
@@ -101,10 +119,10 @@ export default function GovernanceProcessesPage() {
   const inactivateMutation = useSgqProcessLifecycleMutation(orgId, selectedId, "inactivate");
   const reactivateMutation = useSgqProcessLifecycleMutation(orgId, selectedId, "reactivate");
 
-  const { data: users = [] } = useListUserOptions(orgId!, {}, {
+  const { data: users = [] } = useListUserOptions(orgId ?? 0, {}, {
     query: {
       enabled: !!orgId,
-      queryKey: getListUserOptionsQueryKey(orgId!),
+      queryKey: getListUserOptionsQueryKey(orgId ?? 0),
     },
   });
 
@@ -121,11 +139,11 @@ export default function GovernanceProcessesPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter]);
+  }, [debouncedSearch, statusFilter]);
 
   useEffect(() => {
     if (!processDetail) return;
-    setForm({
+    reset({
       name: processDetail.name,
       objective: processDetail.objective,
       ownerUserId: processDetail.ownerUserId ? String(processDetail.ownerUserId) : "",
@@ -134,39 +152,60 @@ export default function GovernanceProcessesPage() {
       criteria: processDetail.criteria ?? "",
       indicators: processDetail.indicators ?? "",
       status: processDetail.status,
-      interactions: processDetail.interactions.map(toFormInteraction),
+      interactions: processDetail.interactions.map((item) => ({
+        relatedProcessId: String(item.relatedProcessId),
+        direction: item.direction,
+        notes: item.notes ?? "",
+      })),
     });
-  }, [processDetail]);
+  }, [processDetail, reset]);
 
-  const activeProcessOptions = useMemo(
-    () => processes.filter((item) => item.status === "active" || item.id === selectedId),
-    [processes, selectedId],
-  );
+  const activeProcessOptions = useMemo(() => {
+    const options = [...(processOptionsList?.data ?? [])];
+    if (
+      processDetail &&
+      !options.some((option) => option.id === processDetail.id) &&
+      (processDetail.status === "active" || processDetail.id === selectedId)
+    ) {
+      options.push({
+        id: processDetail.id,
+        organizationId: processDetail.organizationId,
+        name: processDetail.name,
+        objective: processDetail.objective,
+        ownerUserId: processDetail.ownerUserId,
+        ownerName: processDetail.ownerName,
+        status: processDetail.status,
+        currentRevisionNumber: processDetail.currentRevisionNumber,
+        createdAt: processDetail.createdAt,
+        updatedAt: processDetail.updatedAt,
+      });
+    }
+
+    return options.filter((item) => item.status === "active" || item.id === selectedId);
+  }, [processOptionsList?.data, processDetail, selectedId]);
 
   const handleNew = () => {
     setIsCreatingNew(true);
     setSelectedId(undefined);
-    setForm(emptyForm());
+    reset(emptyForm());
   };
 
-  const handleSave = async () => {
+  const handleSave = handleSubmit(async (values) => {
     try {
       const payload = {
-        name: form.name,
-        objective: form.objective,
-        ownerUserId: form.ownerUserId ? Number(form.ownerUserId) : null,
-        inputs: parseList(form.inputsText),
-        outputs: parseList(form.outputsText),
-        criteria: form.criteria || null,
-        indicators: form.indicators || null,
-        status: form.status,
-        interactions: form.interactions
-          .filter((item) => item.relatedProcessId)
-          .map((item) => ({
-            relatedProcessId: Number(item.relatedProcessId),
-            direction: item.direction,
-            notes: item.notes || null,
-          })),
+        name: values.name.trim(),
+        objective: values.objective.trim(),
+        ownerUserId: values.ownerUserId ? Number(values.ownerUserId) : null,
+        inputs: parseList(values.inputsText),
+        outputs: parseList(values.outputsText),
+        criteria: values.criteria.trim() || null,
+        indicators: values.indicators.trim() || null,
+        status: values.status,
+        interactions: values.interactions.map((item) => ({
+          relatedProcessId: Number(item.relatedProcessId),
+          direction: item.direction,
+          notes: item.notes.trim() || null,
+        })),
       };
 
       if (selectedId) {
@@ -192,7 +231,7 @@ export default function GovernanceProcessesPage() {
         variant: "destructive",
       });
     }
-  };
+  });
 
   const handleLifecycle = async () => {
     if (!selectedId || !processDetail) return;
@@ -233,7 +272,9 @@ export default function GovernanceProcessesPage() {
               />
               <Select
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as "" | "active" | "inactive")
+                }
               >
                 <option value="">Todos os status</option>
                 <option value="active">Ativos</option>
@@ -300,41 +341,40 @@ export default function GovernanceProcessesPage() {
                 </p>
               </div>
               {selectedId && processDetail ? (
-                <Button variant="outline" onClick={handleLifecycle}>
+                <Button
+                  variant="outline"
+                  onClick={handleLifecycle}
+                  isLoading={inactivateMutation.isPending || reactivateMutation.isPending}
+                >
                   {processDetail.status === "active" ? "Inativar" : "Reativar"}
                 </Button>
               ) : null}
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 md:col-span-2">
-                <Label>Nome do processo</Label>
+                <Label htmlFor="process-name">Nome do processo</Label>
                 <Input
-                  value={form.name}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, name: event.target.value }))
-                  }
+                  id="process-name"
+                  {...register("name")}
                   placeholder="Ex.: Controle de documentos"
                 />
+                {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label>Objetivo</Label>
+                <Label htmlFor="process-objective">Objetivo</Label>
                 <Textarea
-                  value={form.objective}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, objective: event.target.value }))
-                  }
+                  id="process-objective"
+                  {...register("objective")}
                   rows={3}
                   placeholder="Descreva a finalidade do processo."
                 />
+                {errors.objective ? (
+                  <p className="text-sm text-destructive">{errors.objective.message}</p>
+                ) : null}
               </div>
               <div className="space-y-2">
-                <Label>Responsável</Label>
-                <Select
-                  value={form.ownerUserId}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, ownerUserId: event.target.value }))
-                  }
-                >
+                <Label htmlFor="process-owner">Responsável</Label>
+                <Select id="process-owner" {...register("ownerUserId")}>
                   <option value="">Sem responsável definido</option>
                   {users.map((user) => (
                     <option key={user.id} value={String(user.id)}>
@@ -344,61 +384,37 @@ export default function GovernanceProcessesPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Status</Label>
-                <Select
-                  value={form.status}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      status: event.target.value as "active" | "inactive",
-                    }))
-                  }
-                >
+                <Label htmlFor="process-status">Status</Label>
+                <Select id="process-status" {...register("status")}>
                   <option value="active">Ativo</option>
                   <option value="inactive">Inativo</option>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Entradas</Label>
+                <Label htmlFor="process-inputs">Entradas</Label>
                 <Textarea
-                  value={form.inputsText}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, inputsText: event.target.value }))
-                  }
+                  id="process-inputs"
+                  {...register("inputsText")}
                   rows={5}
                   placeholder="Uma entrada por linha"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Saídas</Label>
+                <Label htmlFor="process-outputs">Saídas</Label>
                 <Textarea
-                  value={form.outputsText}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, outputsText: event.target.value }))
-                  }
+                  id="process-outputs"
+                  {...register("outputsText")}
                   rows={5}
                   placeholder="Uma saída por linha"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Critérios</Label>
-                <Textarea
-                  value={form.criteria}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, criteria: event.target.value }))
-                  }
-                  rows={4}
-                />
+                <Label htmlFor="process-criteria">Critérios</Label>
+                <Textarea id="process-criteria" {...register("criteria")} rows={4} />
               </div>
               <div className="space-y-2">
-                <Label>Indicadores</Label>
-                <Textarea
-                  value={form.indicators}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, indicators: event.target.value }))
-                  }
-                  rows={4}
-                />
+                <Label htmlFor="process-indicators">Indicadores</Label>
+                <Textarea id="process-indicators" {...register("indicators")} rows={4} />
               </div>
               <div className="space-y-3 md:col-span-2">
                 <div className="flex items-center justify-between gap-3">
@@ -408,94 +424,53 @@ export default function GovernanceProcessesPage() {
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      setForm((current) => ({
-                        ...current,
-                        interactions: [
-                          ...current.interactions,
-                          { relatedProcessId: "", direction: "upstream", notes: "" },
-                        ],
-                      }))
+                      append({
+                        relatedProcessId: "",
+                        direction: "upstream",
+                        notes: "",
+                      })
                     }
                   >
                     Adicionar interação
                   </Button>
                 </div>
                 <div className="space-y-3">
-                  {form.interactions.map((interaction, index) => (
+                  {fields.map((field, index) => (
                     <div
-                      key={`${interaction.relatedProcessId}-${index}`}
+                      key={field.id}
                       className="grid gap-3 rounded-xl border p-3 md:grid-cols-[1.2fr_0.8fr_1fr_auto]"
                     >
-                      <Select
-                        value={interaction.relatedProcessId}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            interactions: current.interactions.map((item, itemIndex) =>
-                              itemIndex === index
-                                ? { ...item, relatedProcessId: event.target.value }
-                                : item,
-                            ),
-                          }))
-                        }
-                      >
-                        <option value="">Selecione o processo relacionado</option>
-                        {activeProcessOptions
-                          .filter((option) => option.id !== selectedId)
-                          .map((option) => (
-                            <option key={option.id} value={String(option.id)}>
-                              {option.name}
-                            </option>
-                          ))}
-                      </Select>
-                      <Select
-                        value={interaction.direction}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            interactions: current.interactions.map((item, itemIndex) =>
-                              itemIndex === index
-                                ? {
-                                    ...item,
-                                    direction: event.target.value as "upstream" | "downstream",
-                                  }
-                                : item,
-                            ),
-                          }))
-                        }
-                      >
+                      <div className="space-y-2">
+                        <Select {...register(`interactions.${index}.relatedProcessId`)}>
+                          <option value="">Selecione o processo relacionado</option>
+                          {activeProcessOptions
+                            .filter((option) => option.id !== selectedId)
+                            .map((option) => (
+                              <option key={option.id} value={String(option.id)}>
+                                {option.name}
+                              </option>
+                            ))}
+                        </Select>
+                        {errors.interactions?.[index]?.relatedProcessId ? (
+                          <p className="text-sm text-destructive">
+                            {errors.interactions[index]?.relatedProcessId?.message}
+                          </p>
+                        ) : null}
+                      </div>
+                      <Select {...register(`interactions.${index}.direction`)}>
                         <option value="upstream">Upstream</option>
                         <option value="downstream">Downstream</option>
                       </Select>
                       <Input
-                        value={interaction.notes}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            interactions: current.interactions.map((item, itemIndex) =>
-                              itemIndex === index
-                                ? { ...item, notes: event.target.value }
-                                : item,
-                            ),
-                          }))
-                        }
+                        {...register(`interactions.${index}.notes`)}
                         placeholder="Observações"
                       />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() =>
-                          setForm((current) => ({
-                            ...current,
-                            interactions: current.interactions.filter((_, itemIndex) => itemIndex !== index),
-                          }))
-                        }
-                      >
+                      <Button type="button" variant="ghost" onClick={() => remove(index)}>
                         Remover
                       </Button>
                     </div>
                   ))}
-                  {form.interactions.length === 0 ? (
+                  {fields.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                       Nenhuma interação cadastrada.
                     </p>
@@ -505,7 +480,7 @@ export default function GovernanceProcessesPage() {
               <div className="flex justify-end md:col-span-2">
                 <Button
                   onClick={handleSave}
-                  disabled={createMutation.isPending || updateMutation.isPending}
+                  isLoading={createMutation.isPending || updateMutation.isPending}
                 >
                   {selectedId ? "Salvar mudanças" : "Criar processo"}
                 </Button>

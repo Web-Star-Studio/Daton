@@ -46,7 +46,6 @@ import {
   useUpdateSgqProcess,
   type CorrectiveAction,
   type CreateCorrectiveActionBody,
-  type CreateDocumentCommunicationPlanBody,
   type CreateInternalAuditBody,
   type CreateInternalAuditFindingBody,
   type CreateManagementReviewBody,
@@ -55,6 +54,7 @@ import {
   type CreateNonconformityBody,
   type CreateSgqProcessBody,
   type DocumentCommunicationPlan,
+  type DocumentCommunicationPlanBody,
   type GovernanceSystemAttachment as Attachment,
   type InternalAuditChecklistItem,
   type InternalAuditDetail,
@@ -156,13 +156,19 @@ async function invalidateGovernanceManagementReviews(
 
 export function useSgqProcesses(orgId?: number, params?: ListSgqProcessesParams) {
   return useListSgqProcesses(orgId ?? 0, params, {
-    query: { enabled: !!orgId },
+    query: {
+      enabled: !!orgId,
+      queryKey: getListSgqProcessesQueryKey(orgId ?? 0, params),
+    },
   });
 }
 
 export function useSgqProcess(orgId?: number, processId?: number) {
   return useGetSgqProcess(orgId ?? 0, processId ?? 0, {
-    query: { enabled: !!orgId && !!processId },
+    query: {
+      enabled: !!orgId && !!processId,
+      queryKey: getGetSgqProcessQueryKey(orgId ?? 0, processId ?? 0),
+    },
   });
 }
 
@@ -221,13 +227,19 @@ export function useSgqProcessLifecycleMutation(
 
 export function useInternalAudits(orgId?: number, params?: ListInternalAuditsParams) {
   return useListInternalAudits(orgId ?? 0, params, {
-    query: { enabled: !!orgId },
+    query: {
+      enabled: !!orgId,
+      queryKey: getListInternalAuditsQueryKey(orgId ?? 0, params),
+    },
   });
 }
 
 export function useInternalAudit(orgId?: number, auditId?: number) {
   return useGetInternalAudit(orgId ?? 0, auditId ?? 0, {
-    query: { enabled: !!orgId && !!auditId },
+    query: {
+      enabled: !!orgId && !!auditId,
+      queryKey: getGetInternalAuditQueryKey(orgId ?? 0, auditId ?? 0),
+    },
   });
 }
 
@@ -321,13 +333,19 @@ export function useAuditFindingMutation(orgId?: number, auditId?: number, findin
 
 export function useNonconformities(orgId?: number, params?: ListNonconformitiesParams) {
   return useListNonconformities(orgId ?? 0, params, {
-    query: { enabled: !!orgId },
+    query: {
+      enabled: !!orgId,
+      queryKey: getListNonconformitiesQueryKey(orgId ?? 0, params),
+    },
   });
 }
 
 export function useNonconformity(orgId?: number, ncId?: number) {
   return useGetNonconformity(orgId ?? 0, ncId ?? 0, {
-    query: { enabled: !!orgId && !!ncId },
+    query: {
+      enabled: !!orgId && !!ncId,
+      queryKey: getGetNonconformityQueryKey(orgId ?? 0, ncId ?? 0),
+    },
   });
 }
 
@@ -406,13 +424,19 @@ export function useCorrectiveActionMutation(orgId?: number, ncId?: number, actio
 
 export function useManagementReviews(orgId?: number, params?: ListManagementReviewsParams) {
   return useListManagementReviews(orgId ?? 0, params, {
-    query: { enabled: !!orgId },
+    query: {
+      enabled: !!orgId,
+      queryKey: getListManagementReviewsQueryKey(orgId ?? 0, params),
+    },
   });
 }
 
 export function useManagementReview(orgId?: number, reviewId?: number) {
   return useGetManagementReview(orgId ?? 0, reviewId ?? 0, {
-    query: { enabled: !!orgId && !!reviewId },
+    query: {
+      enabled: !!orgId && !!reviewId,
+      queryKey: getGetManagementReviewQueryKey(orgId ?? 0, reviewId ?? 0),
+    },
   });
 }
 
@@ -530,7 +554,10 @@ export function useManagementReviewOutputMutation(
 
 export function useDocumentCommunicationPlans(orgId?: number, docId?: number) {
   return useListDocumentCommunicationPlans(orgId ?? 0, docId ?? 0, {
-    query: { enabled: !!orgId && !!docId },
+    query: {
+      enabled: !!orgId && !!docId,
+      queryKey: getListDocumentCommunicationPlansQueryKey(orgId ?? 0, docId ?? 0),
+    },
   });
 }
 
@@ -545,7 +572,7 @@ export function useDocumentCommunicationPlanMutation(
   const deleteMutation = useDeleteDocumentCommunicationPlan();
 
   return useMutation({
-    mutationFn: async (payload: { method: "POST" | "PATCH" | "DELETE"; body?: CreateDocumentCommunicationPlanBody | UpdateDocumentCommunicationPlanBody; planId?: number }) => {
+    mutationFn: async (payload: { method: "POST" | "PATCH" | "DELETE"; body?: DocumentCommunicationPlanBody | UpdateDocumentCommunicationPlanBody; planId?: number }) => {
       const validOrgId = assertNumberId(orgId, "Organização");
       const validDocId = assertNumberId(docId, "Documento");
       const targetPlanId = payload.planId ?? planId;
@@ -553,7 +580,7 @@ export function useDocumentCommunicationPlanMutation(
         return createMutation.mutateAsync({
           orgId: validOrgId,
           docId: validDocId,
-          data: payload.body as CreateDocumentCommunicationPlanBody,
+          data: payload.body as DocumentCommunicationPlanBody,
         });
       }
       const validPlanId = assertNumberId(targetPlanId, "Plano de comunicação");

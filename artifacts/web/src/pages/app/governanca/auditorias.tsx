@@ -36,11 +36,25 @@ type AuditFormState = {
 };
 
 type ChecklistDraftItem = {
+  id: string;
   label: string;
   requirementRef: string;
   result: "conformity" | "nonconformity" | "observation" | "not_evaluated";
   notes: string;
 };
+
+function createChecklistDraftItem(
+  overrides?: Partial<Omit<ChecklistDraftItem, "id">>,
+): ChecklistDraftItem {
+  return {
+    id: globalThis.crypto?.randomUUID?.() ?? `draft-${Math.random().toString(36).slice(2)}`,
+    label: "",
+    requirementRef: "",
+    result: "not_evaluated",
+    notes: "",
+    ...overrides,
+  };
+}
 
 const emptyAuditForm = (): AuditFormState => ({
   title: "",
@@ -71,7 +85,9 @@ export default function GovernanceAuditsPage() {
   const orgId = organization?.id;
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<
+    "" | "planned" | "in_progress" | "completed" | "canceled"
+  >("");
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<number | undefined>(undefined);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
@@ -131,12 +147,14 @@ export default function GovernanceAuditsPage() {
       status: auditDetail.status,
     });
     setChecklistDraft(
-      auditDetail.checklistItems.map((item) => ({
-        label: item.label,
-        requirementRef: item.requirementRef ?? "",
-        result: item.result,
-        notes: item.notes ?? "",
-      })),
+      auditDetail.checklistItems.map((item) =>
+        createChecklistDraftItem({
+          label: item.label,
+          requirementRef: item.requirementRef ?? "",
+          result: item.result,
+          notes: item.notes ?? "",
+        }),
+      ),
     );
   }, [auditDetail]);
 
@@ -149,6 +167,7 @@ export default function GovernanceAuditsPage() {
   };
 
   const handleSaveAudit = async () => {
+    if (createMutation.isPending || updateMutation.isPending) return;
     try {
       const payload = {
         ...form,
@@ -174,10 +193,10 @@ export default function GovernanceAuditsPage() {
   };
 
   const handleSaveChecklist = async () => {
-    if (!selectedId) return;
+    if (!selectedId || checklistMutation.isPending) return;
     try {
       await checklistMutation.mutateAsync(
-        checklistDraft.map((item, index) => ({
+        checklistDraft.map(({ id: _id, ...item }, index) => ({
           label: item.label,
           requirementRef: item.requirementRef || null,
           result: item.result,
@@ -196,7 +215,7 @@ export default function GovernanceAuditsPage() {
   };
 
   const handleCreateFinding = async () => {
-    if (!selectedId) return;
+    if (!selectedId || findingMutation.isPending) return;
     try {
       await findingMutation.mutateAsync({
         method: "POST",
@@ -239,7 +258,11 @@ export default function GovernanceAuditsPage() {
           />
           <Select
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
+            onChange={(event) =>
+              setStatusFilter(
+                event.target.value as "" | "planned" | "in_progress" | "completed" | "canceled",
+              )
+            }
           >
             <option value="">Todos os status</option>
             <option value="planned">Planejada</option>
@@ -334,7 +357,12 @@ export default function GovernanceAuditsPage() {
               </Select>
             </div>
             <div className="flex justify-end md:col-span-2">
-              <Button onClick={handleSaveAudit}>Salvar auditoria</Button>
+              <Button
+                onClick={handleSaveAudit}
+                isLoading={createMutation.isPending || updateMutation.isPending}
+              >
+                Salvar auditoria
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -350,12 +378,7 @@ export default function GovernanceAuditsPage() {
                   onClick={() =>
                     setChecklistDraft((current) => [
                       ...current,
-                      {
-                        label: "",
-                        requirementRef: "",
-                        result: "not_evaluated",
-                        notes: "",
-                      },
+                      createChecklistDraftItem(),
                     ])
                   }
                 >
@@ -364,7 +387,7 @@ export default function GovernanceAuditsPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {checklistDraft.map((item, index) => (
-                  <div key={`${item.label}-${index}`} className="rounded-xl border p-3 space-y-3">
+                  <div key={item.id} className="rounded-xl border p-3 space-y-3">
                     <Input
                       value={item.label}
                       onChange={(event) =>
@@ -423,7 +446,9 @@ export default function GovernanceAuditsPage() {
                     />
                   </div>
                 ))}
-                <Button onClick={handleSaveChecklist}>Sincronizar checklist</Button>
+                <Button onClick={handleSaveChecklist} isLoading={checklistMutation.isPending}>
+                  Sincronizar checklist
+                </Button>
               </CardContent>
             </Card>
 
@@ -514,7 +539,9 @@ export default function GovernanceAuditsPage() {
                       setFindingForm((current) => ({ ...current, dueDate: event.target.value }))
                     }
                   />
-                  <Button onClick={handleCreateFinding}>Registrar achado</Button>
+                  <Button onClick={handleCreateFinding} isLoading={findingMutation.isPending}>
+                    Registrar achado
+                  </Button>
                 </div>
               </CardContent>
             </Card>

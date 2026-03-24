@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/contexts/LayoutContext";
 import { Button } from "@/components/ui/button";
@@ -25,13 +28,46 @@ import {
   useListUserOptions,
 } from "@workspace/api-client-react";
 
-type ReviewFormState = {
-  title: string;
-  reviewDate: string;
-  chairUserId: string;
-  status: "draft" | "completed" | "canceled";
-  minutes: string;
-};
+const reviewFormSchema = z.object({
+  title: z.string().trim().min(1, "Informe o título da análise crítica"),
+  reviewDate: z.string().min(1, "Informe a data da revisão"),
+  chairUserId: z.string().default(""),
+  status: z.enum(["draft", "completed", "canceled"]),
+  minutes: z.string().default(""),
+});
+
+const reviewInputFormSchema = z.object({
+  inputType: z.enum([
+    "policy",
+    "audit_summary",
+    "nc_summary",
+    "objective_status",
+    "risk_status",
+    "process_performance",
+    "customer_feedback",
+    "other",
+  ]),
+  summary: z.string().trim().min(1, "Informe o resumo da entrada"),
+  processId: z.string().default(""),
+  nonconformityId: z.string().default(""),
+});
+
+const reviewOutputFormSchema = z.object({
+  outputType: z.enum(["decision", "action", "resource", "priority"]),
+  description: z.string().trim().min(1, "Informe a descrição da saída"),
+  responsibleUserId: z.string().default(""),
+  dueDate: z.string().default(""),
+  processId: z.string().default(""),
+  nonconformityId: z.string().default(""),
+  status: z.enum(["open", "done", "canceled"]),
+});
+
+type ReviewFormState = z.infer<typeof reviewFormSchema>;
+type ReviewInputFormState = z.infer<typeof reviewInputFormSchema>;
+type ReviewOutputFormState = z.infer<typeof reviewOutputFormSchema>;
+
+const PAGE_SIZE = 25;
+const SEARCH_DEBOUNCE_MS = 300;
 
 const emptyReviewForm = (): ReviewFormState => ({
   title: "",
@@ -41,33 +77,22 @@ const emptyReviewForm = (): ReviewFormState => ({
   minutes: "",
 });
 
-const emptyInputForm = {
-  inputType: "other" as
-    | "policy"
-    | "audit_summary"
-    | "nc_summary"
-    | "objective_status"
-    | "risk_status"
-    | "process_performance"
-    | "customer_feedback"
-    | "other",
+const emptyInputForm = (): ReviewInputFormState => ({
+  inputType: "other",
   summary: "",
   processId: "",
   nonconformityId: "",
-};
+});
 
-const emptyOutputForm = {
-  outputType: "decision" as "decision" | "action" | "resource" | "priority",
+const emptyOutputForm = (): ReviewOutputFormState => ({
+  outputType: "decision",
   description: "",
   responsibleUserId: "",
   dueDate: "",
   processId: "",
   nonconformityId: "",
-  status: "open" as "open" | "done" | "canceled",
-};
-
-const PAGE_SIZE = 25;
-const SEARCH_DEBOUNCE_MS = 300;
+  status: "open",
+});
 
 export default function GovernanceManagementReviewsPage() {
   usePageTitle("Análises Críticas");
@@ -78,10 +103,20 @@ export default function GovernanceManagementReviewsPage() {
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<number | undefined>(undefined);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
-  const [form, setForm] = useState<ReviewFormState>(emptyReviewForm);
-  const [inputForm, setInputForm] = useState(emptyInputForm);
-  const [outputForm, setOutputForm] = useState(emptyOutputForm);
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
+
+  const reviewForm = useForm<ReviewFormState>({
+    resolver: zodResolver(reviewFormSchema),
+    defaultValues: emptyReviewForm(),
+  });
+  const inputForm = useForm<ReviewInputFormState>({
+    resolver: zodResolver(reviewInputFormSchema),
+    defaultValues: emptyInputForm(),
+  });
+  const outputForm = useForm<ReviewOutputFormState>({
+    resolver: zodResolver(reviewOutputFormSchema),
+    defaultValues: emptyOutputForm(),
+  });
 
   const { data: reviewsList } = useManagementReviews(orgId, {
     page,
@@ -95,14 +130,14 @@ export default function GovernanceManagementReviewsPage() {
   const updateMutation = useManagementReviewMutation(orgId, selectedId);
   const inputMutation = useManagementReviewInputMutation(orgId, selectedId);
   const outputMutation = useManagementReviewOutputMutation(orgId, selectedId);
-  const { data: users = [] } = useListUserOptions(orgId!, {}, {
+  const { data: users = [] } = useListUserOptions(orgId ?? 0, {}, {
     query: {
       enabled: !!orgId,
-      queryKey: getListUserOptionsQueryKey(orgId!),
+      queryKey: getListUserOptionsQueryKey(orgId ?? 0),
     },
   });
-  const { data: processList } = useSgqProcesses(orgId, { status: "active" });
-  const { data: ncList } = useNonconformities(orgId, { pageSize: 50 });
+  const { data: processList } = useSgqProcesses(orgId, { page: 1, pageSize: 100, status: "active" });
+  const { data: ncList } = useNonconformities(orgId, { page: 1, pageSize: 100 });
   const processes = processList?.data ?? [];
   const nonconformities = ncList?.data ?? [];
 
@@ -119,35 +154,35 @@ export default function GovernanceManagementReviewsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     if (!reviewDetail) return;
-    setForm({
+    reviewForm.reset({
       title: reviewDetail.title,
       reviewDate: reviewDetail.reviewDate,
       chairUserId: reviewDetail.chairUserId ? String(reviewDetail.chairUserId) : "",
       status: reviewDetail.status,
       minutes: reviewDetail.minutes ?? "",
     });
-  }, [reviewDetail]);
+  }, [reviewDetail, reviewForm]);
 
   const handleNew = () => {
     setIsCreatingNew(true);
     setSelectedId(undefined);
-    setForm(emptyReviewForm());
-    setInputForm(emptyInputForm);
-    setOutputForm(emptyOutputForm);
+    reviewForm.reset(emptyReviewForm());
+    inputForm.reset(emptyInputForm());
+    outputForm.reset(emptyOutputForm());
   };
 
-  const handleSaveReview = async () => {
+  const handleSaveReview = reviewForm.handleSubmit(async (values) => {
     try {
       const payload = {
-        title: form.title,
-        reviewDate: form.reviewDate,
-        chairUserId: form.chairUserId ? Number(form.chairUserId) : null,
-        status: form.status,
-        minutes: form.minutes || null,
+        title: values.title.trim(),
+        reviewDate: values.reviewDate,
+        chairUserId: values.chairUserId ? Number(values.chairUserId) : null,
+        status: values.status,
+        minutes: values.minutes.trim() || null,
       };
       if (selectedId) {
         await updateMutation.mutateAsync({ method: "PATCH", body: payload });
@@ -166,23 +201,21 @@ export default function GovernanceManagementReviewsPage() {
         variant: "destructive",
       });
     }
-  };
+  });
 
-  const handleCreateInput = async () => {
+  const handleCreateInput = inputForm.handleSubmit(async (values) => {
     if (!selectedId) return;
     try {
       await inputMutation.mutateAsync({
         method: "POST",
         body: {
-          inputType: inputForm.inputType,
-          summary: inputForm.summary,
-          processId: inputForm.processId ? Number(inputForm.processId) : null,
-          nonconformityId: inputForm.nonconformityId
-            ? Number(inputForm.nonconformityId)
-            : null,
+          inputType: values.inputType,
+          summary: values.summary.trim(),
+          processId: values.processId ? Number(values.processId) : null,
+          nonconformityId: values.nonconformityId ? Number(values.nonconformityId) : null,
         },
       });
-      setInputForm(emptyInputForm);
+      inputForm.reset(emptyInputForm());
       toast({ title: "Entrada adicionada" });
     } catch (error) {
       toast({
@@ -191,28 +224,24 @@ export default function GovernanceManagementReviewsPage() {
         variant: "destructive",
       });
     }
-  };
+  });
 
-  const handleCreateOutput = async () => {
+  const handleCreateOutput = outputForm.handleSubmit(async (values) => {
     if (!selectedId) return;
     try {
       await outputMutation.mutateAsync({
         method: "POST",
         body: {
-          outputType: outputForm.outputType,
-          description: outputForm.description,
-          responsibleUserId: outputForm.responsibleUserId
-            ? Number(outputForm.responsibleUserId)
-            : null,
-          dueDate: outputForm.dueDate || null,
-          processId: outputForm.processId ? Number(outputForm.processId) : null,
-          nonconformityId: outputForm.nonconformityId
-            ? Number(outputForm.nonconformityId)
-            : null,
-          status: outputForm.status,
+          outputType: values.outputType,
+          description: values.description.trim(),
+          responsibleUserId: values.responsibleUserId ? Number(values.responsibleUserId) : null,
+          dueDate: values.dueDate || null,
+          processId: values.processId ? Number(values.processId) : null,
+          nonconformityId: values.nonconformityId ? Number(values.nonconformityId) : null,
+          status: values.status,
         },
       });
-      setOutputForm(emptyOutputForm);
+      outputForm.reset(emptyOutputForm());
       toast({ title: "Saída adicionada" });
     } catch (error) {
       toast({
@@ -221,7 +250,7 @@ export default function GovernanceManagementReviewsPage() {
         variant: "destructive",
       });
     }
-  };
+  });
 
   return (
     <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -278,24 +307,32 @@ export default function GovernanceManagementReviewsPage() {
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
-              <Label>Título</Label>
-              <Input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} />
+              <Label htmlFor="review-title">Título</Label>
+              <Input id="review-title" {...reviewForm.register("title")} />
+              {reviewForm.formState.errors.title ? (
+                <p className="text-sm text-destructive">{reviewForm.formState.errors.title.message}</p>
+              ) : null}
             </div>
             <div className="space-y-2">
-              <Label>Data da revisão</Label>
-              <Input type="date" value={form.reviewDate} onChange={(event) => setForm((current) => ({ ...current, reviewDate: event.target.value }))} />
+              <Label htmlFor="review-date">Data da revisão</Label>
+              <Input id="review-date" type="date" {...reviewForm.register("reviewDate")} />
+              {reviewForm.formState.errors.reviewDate ? (
+                <p className="text-sm text-destructive">
+                  {reviewForm.formState.errors.reviewDate.message}
+                </p>
+              ) : null}
             </div>
             <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as ReviewFormState["status"] }))}>
+              <Label htmlFor="review-status">Status</Label>
+              <Select id="review-status" {...reviewForm.register("status")}>
                 <option value="draft">Rascunho</option>
                 <option value="completed">Concluída</option>
                 <option value="canceled">Cancelada</option>
               </Select>
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label>Presidente</Label>
-              <Select value={form.chairUserId} onChange={(event) => setForm((current) => ({ ...current, chairUserId: event.target.value }))}>
+              <Label htmlFor="review-chair">Presidente</Label>
+              <Select id="review-chair" {...reviewForm.register("chairUserId")}>
                 <option value="">Sem responsável</option>
                 {users.map((user) => (
                   <option key={user.id} value={String(user.id)}>
@@ -305,11 +342,16 @@ export default function GovernanceManagementReviewsPage() {
               </Select>
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label>Ata / minutos</Label>
-              <Textarea rows={5} value={form.minutes} onChange={(event) => setForm((current) => ({ ...current, minutes: event.target.value }))} />
+              <Label htmlFor="review-minutes">Ata / minutos</Label>
+              <Textarea id="review-minutes" rows={5} {...reviewForm.register("minutes")} />
             </div>
             <div className="flex justify-end md:col-span-2">
-              <Button onClick={handleSaveReview}>Salvar análise crítica</Button>
+              <Button
+                onClick={handleSaveReview}
+                isLoading={createMutation.isPending || updateMutation.isPending}
+              >
+                Salvar análise crítica
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -332,7 +374,7 @@ export default function GovernanceManagementReviewsPage() {
                 ))}
                 <div className="rounded-xl border p-3 space-y-3">
                   <Label>Nova entrada</Label>
-                  <Select value={inputForm.inputType} onChange={(event) => setInputForm((current) => ({ ...current, inputType: event.target.value as typeof current.inputType }))}>
+                  <Select {...inputForm.register("inputType")}>
                     <option value="policy">Política</option>
                     <option value="audit_summary">Resumo de auditoria</option>
                     <option value="nc_summary">Resumo de NC</option>
@@ -342,8 +384,15 @@ export default function GovernanceManagementReviewsPage() {
                     <option value="customer_feedback">Feedback de clientes</option>
                     <option value="other">Outro</option>
                   </Select>
-                  <Textarea rows={3} value={inputForm.summary} onChange={(event) => setInputForm((current) => ({ ...current, summary: event.target.value }))} placeholder="Resumo da entrada" />
-                  <Select value={inputForm.processId} onChange={(event) => setInputForm((current) => ({ ...current, processId: event.target.value }))}>
+                  <Textarea
+                    rows={3}
+                    {...inputForm.register("summary")}
+                    placeholder="Resumo da entrada"
+                  />
+                  {inputForm.formState.errors.summary ? (
+                    <p className="text-sm text-destructive">{inputForm.formState.errors.summary.message}</p>
+                  ) : null}
+                  <Select {...inputForm.register("processId")}>
                     <option value="">Sem processo vinculado</option>
                     {processes.map((process) => (
                       <option key={process.id} value={String(process.id)}>
@@ -351,7 +400,7 @@ export default function GovernanceManagementReviewsPage() {
                       </option>
                     ))}
                   </Select>
-                  <Select value={inputForm.nonconformityId} onChange={(event) => setInputForm((current) => ({ ...current, nonconformityId: event.target.value }))}>
+                  <Select {...inputForm.register("nonconformityId")}>
                     <option value="">Sem NC vinculada</option>
                     {nonconformities.map((item) => (
                       <option key={item.id} value={String(item.id)}>
@@ -359,7 +408,9 @@ export default function GovernanceManagementReviewsPage() {
                       </option>
                     ))}
                   </Select>
-                  <Button onClick={handleCreateInput}>Adicionar entrada</Button>
+                  <Button onClick={handleCreateInput} isLoading={inputMutation.isPending}>
+                    Adicionar entrada
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -380,14 +431,23 @@ export default function GovernanceManagementReviewsPage() {
                 ))}
                 <div className="rounded-xl border p-3 space-y-3">
                   <Label>Nova saída</Label>
-                  <Select value={outputForm.outputType} onChange={(event) => setOutputForm((current) => ({ ...current, outputType: event.target.value as typeof current.outputType }))}>
+                  <Select {...outputForm.register("outputType")}>
                     <option value="decision">Decisão</option>
                     <option value="action">Ação</option>
                     <option value="resource">Recurso</option>
                     <option value="priority">Prioridade</option>
                   </Select>
-                  <Textarea rows={3} value={outputForm.description} onChange={(event) => setOutputForm((current) => ({ ...current, description: event.target.value }))} placeholder="Descrição da saída" />
-                  <Select value={outputForm.responsibleUserId} onChange={(event) => setOutputForm((current) => ({ ...current, responsibleUserId: event.target.value }))}>
+                  <Textarea
+                    rows={3}
+                    {...outputForm.register("description")}
+                    placeholder="Descrição da saída"
+                  />
+                  {outputForm.formState.errors.description ? (
+                    <p className="text-sm text-destructive">
+                      {outputForm.formState.errors.description.message}
+                    </p>
+                  ) : null}
+                  <Select {...outputForm.register("responsibleUserId")}>
                     <option value="">Sem responsável</option>
                     {users.map((user) => (
                       <option key={user.id} value={String(user.id)}>
@@ -395,8 +455,8 @@ export default function GovernanceManagementReviewsPage() {
                       </option>
                     ))}
                   </Select>
-                  <Input type="date" value={outputForm.dueDate} onChange={(event) => setOutputForm((current) => ({ ...current, dueDate: event.target.value }))} />
-                  <Select value={outputForm.processId} onChange={(event) => setOutputForm((current) => ({ ...current, processId: event.target.value }))}>
+                  <Input type="date" {...outputForm.register("dueDate")} />
+                  <Select {...outputForm.register("processId")}>
                     <option value="">Sem processo vinculado</option>
                     {processes.map((process) => (
                       <option key={process.id} value={String(process.id)}>
@@ -404,7 +464,7 @@ export default function GovernanceManagementReviewsPage() {
                       </option>
                     ))}
                   </Select>
-                  <Select value={outputForm.nonconformityId} onChange={(event) => setOutputForm((current) => ({ ...current, nonconformityId: event.target.value }))}>
+                  <Select {...outputForm.register("nonconformityId")}>
                     <option value="">Sem NC vinculada</option>
                     {nonconformities.map((item) => (
                       <option key={item.id} value={String(item.id)}>
@@ -412,12 +472,14 @@ export default function GovernanceManagementReviewsPage() {
                       </option>
                     ))}
                   </Select>
-                  <Select value={outputForm.status} onChange={(event) => setOutputForm((current) => ({ ...current, status: event.target.value as typeof current.status }))}>
+                  <Select {...outputForm.register("status")}>
                     <option value="open">Aberta</option>
                     <option value="done">Concluída</option>
                     <option value="canceled">Cancelada</option>
                   </Select>
-                  <Button onClick={handleCreateOutput}>Adicionar saída</Button>
+                  <Button onClick={handleCreateOutput} isLoading={outputMutation.isPending}>
+                    Adicionar saída
+                  </Button>
                 </div>
               </CardContent>
             </Card>
