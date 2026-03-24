@@ -1,167 +1,208 @@
 # Daton
 
-Daton is a `pnpm` workspace monorepo for the Daton platform.
+<p align="center">
+  <img src="./artifacts/web/public/images/daton-logo.png" alt="Logo do Daton" width="120" />
+</p>
 
-It currently includes:
+<p align="center">
+  Plataforma ESG e SGQ para estruturar organizações, governança, documentação, conformidade e operação em um único monorepo.
+</p>
 
-- `artifacts/web`: the main React + Vite frontend
-- `artifacts/api-server`: the Express 5 API server
-- `artifacts/mockup-sandbox`: a separate UI sandbox
-- `lib/*`: shared packages for database access, API contracts, OpenAI integrations, and object storage helpers
-- `scripts`: workspace scripts such as seeding utilities
+<p align="center">
+  <a href="#visao-geral">Visão geral</a> •
+  <a href="#stack">Stack</a> •
+  <a href="#estrutura-do-monorepo">Estrutura</a> •
+  <a href="#como-rodar-localmente">Setup local</a> •
+  <a href="#comandos-principais">Comandos</a> •
+  <a href="#testes">Testes</a>
+</p>
 
-## Tech Stack
+## Visão Geral
 
-- TypeScript across the entire repo
-- React 19 + Vite for frontend apps
-- Express 5 for the API
-- Drizzle ORM for database access and schema management
-- Playwright for end-to-end tests
-- PostgreSQL + S3-compatible object storage for local and production data
+O Daton é um monorepo `pnpm` com a aplicação web, a API e bibliotecas compartilhadas da plataforma.
 
-## Repository Structure
+Hoje o produto cobre fluxos como:
+
+- autenticação, onboarding e administração da organização;
+- unidades, departamentos, cargos e colaboradores;
+- legislação e conformidade por unidade;
+- documentação do SGQ, anexos, aprovação e distribuição;
+- governança estratégica, riscos e oportunidades, auditorias e não conformidades;
+- gestão de fornecedores;
+- integrações com OpenAI, e-mail transacional e armazenamento de objetos.
+
+## Stack
+
+- `TypeScript` em todo o workspace
+- `React 19` + `Vite` no frontend
+- `Express 5` na API
+- `Drizzle ORM` para schema e acesso ao PostgreSQL
+- `Playwright` para testes end-to-end
+- `PostgreSQL`, `MinIO`/S3 compatível, `Resend` e integrações OpenAI
+
+## Estrutura Do Monorepo
 
 ```text
 artifacts/
-  api-server/
-  mockup-sandbox/
-  web/
+  api-server/        # API Express
+  mockup-sandbox/    # sandbox isolado para UI
+  web/               # aplicação React + Vite
 lib/
-  api-client-react/
-  api-spec/
-  api-zod/
-  db/
+  api-client-react/  # cliente React Query gerado a partir do OpenAPI
+  api-spec/          # fonte OpenAPI
+  api-zod/           # contratos Zod gerados
+  db/                # schema e acesso ao banco com Drizzle
   integrations-openai-ai-react/
   integrations-openai-ai-server/
   object-storage-web/
-scripts/
-e2e/
+scripts/             # seed, criação de admins e utilitários
+e2e/                 # testes Playwright
+docs/                # documentação complementar
 ```
 
-## Prerequisites
+## Como Rodar Localmente
 
-- Node.js 20+
+### Pré-requisitos
+
+- `Node.js 20+`
 - `pnpm`
-- Docker (recommended for local PostgreSQL and MinIO)
+- `Docker` para PostgreSQL e MinIO local
 
-This repo only supports `pnpm`. The root `preinstall` script blocks `npm` and `yarn`.
+> [!IMPORTANT]
+> Este repositório suporta apenas `pnpm`. O script de `preinstall` bloqueia `npm` e `yarn`.
 
-## Getting Started
-
-1. Install dependencies:
+### 1. Instale as dependências
 
 ```bash
 pnpm install
 ```
 
-2. Create your local environment file:
+### 2. Configure o ambiente
 
 ```bash
 cp .env.example .env
 ```
 
-3. Start local infrastructure:
+Variáveis mínimas para desenvolvimento local:
+
+```bash
+PORT=3001
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/daton
+JWT_SECRET=daton-local-dev-secret
+VITE_API_BASE_URL=http://localhost:3001
+```
+
+### 3. Suba a infraestrutura local
 
 ```bash
 docker compose up -d
 ```
 
-This starts:
+Isso inicia:
 
-- PostgreSQL on `localhost:5432`
-- MinIO on `localhost:9000`
-- MinIO Console on `localhost:9001`
+- PostgreSQL em `localhost:5432`
+- MinIO em `localhost:9000`
+- Console do MinIO em `localhost:9001`
 
-4. Update `.env` as needed for your local setup.
-
-For a simple local setup, the repo's existing `.env` expects:
-
-- PostgreSQL at `postgresql://postgres:postgres@localhost:5432/daton`
-- MinIO credentials `minioadmin` / `minioadmin`
-
-5. Push the database schema:
+### 4. Aplique o schema
 
 ```bash
 pnpm --filter @workspace/db push
 ```
 
-6. Optionally seed local data:
+### 5. Popule dados iniciais opcionais
 
 ```bash
 pnpm --filter @workspace/scripts seed
 ```
 
-## Development
-
-Run the main frontend:
+Se precisar criar usuários administrativos manualmente:
 
 ```bash
-pnpm --filter @workspace/web dev
+pnpm --filter @workspace/scripts create-org-admin
+pnpm --filter @workspace/scripts create-platform-admin
 ```
 
-Run the API server:
+## Desenvolvimento
+
+Suba os serviços principais em terminais separados:
 
 ```bash
 pnpm --filter @workspace/api-server dev
+pnpm --filter @workspace/web dev
 ```
 
-Run the mockup sandbox:
+O sandbox visual pode ser iniciado separadamente:
 
 ```bash
 pnpm --filter @workspace/mockup-sandbox dev
 ```
 
-## Common Commands
-
-Install dependencies:
+## Comandos Principais
 
 ```bash
 pnpm install
-```
-
-Run all type checks:
-
-```bash
 pnpm typecheck
-```
-
-Build the workspace:
-
-```bash
 pnpm build
+pnpm test:unit
+pnpm test:e2e
+pnpm test:e2e:ui
+pnpm test:e2e:headed
+pnpm --filter @workspace/db push
+pnpm --filter @workspace/api-spec codegen
 ```
 
-Run end-to-end tests:
+## Testes
+
+Os testes E2E usam Playwright e exigem `DATABASE_URL` e `JWT_SECRET` definidos antes da execução.
+
+Fluxo mínimo:
 
 ```bash
+docker compose up -d postgres
+pnpm --filter @workspace/db push
+pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-Run Playwright in UI mode:
+> [!NOTE]
+> A suíte sobe a API em `3001` e a aplicação web em `4173`. Os testes criam organizações isoladas com prefixo `E2E` e limpam os registros ao final.
 
-```bash
-pnpm test:e2e:ui
-```
+## Variáveis De Ambiente
 
-Regenerate API code from OpenAPI:
+O arquivo [`.env.example`](./.env.example) documenta os valores esperados. Os grupos principais são:
+
+- aplicação e autenticação: `PORT`, `DATABASE_URL`, `JWT_SECRET`
+- frontend e CORS: `APP_BASE_URL`, `CORS_ALLOWED_ORIGINS`, `VITE_API_BASE_URL`
+- e-mail: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
+- OpenAI: `AI_INTEGRATIONS_OPENAI_API_KEY`, `AI_INTEGRATIONS_OPENAI_BASE_URL`, `OPENAI_ASSISTANT_MODEL`
+- armazenamento: `S3_REGION`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `PRIVATE_OBJECT_DIR`, `PUBLIC_OBJECT_SEARCH_PATHS`
+
+## Geração De Contratos
+
+O contrato da API fica em [`lib/api-spec/openapi.yaml`](./lib/api-spec/openapi.yaml). Depois de alterá-lo, regenere os consumidores:
 
 ```bash
 pnpm --filter @workspace/api-spec codegen
 ```
 
-## Environment Variables
+> [!CAUTION]
+> Não edite manualmente arquivos gerados em `lib/api-client-react/src/generated` ou `lib/api-zod/src/generated`.
 
-The main variables are documented in [`.env.example`](./.env.example).
+## Deploy
 
-Important groups:
+O repositório já está estruturado para:
 
-- API/runtime: `PORT`, `DATABASE_URL`, `JWT_SECRET`
-- frontend/API connectivity: `APP_BASE_URL`, `CORS_ALLOWED_ORIGINS`, `VITE_API_BASE_URL`
-- email: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
-- OpenAI integrations: `AI_INTEGRATIONS_OPENAI_API_KEY`, `AI_INTEGRATIONS_OPENAI_BASE_URL`
-- storage: `S3_*`, `PRIVATE_OBJECT_DIR`, `PUBLIC_OBJECT_SEARCH_PATHS`
+- API no Render
+- banco no Neon
+- frontend no Cloudflare Pages
+- objetos no Cloudflare R2
+- e-mails no Resend
 
-## Notes
+Os detalhes operacionais estão em [`DEPLOYMENT.md`](./DEPLOYMENT.md).
 
-- Generated API files live under `lib/api-client-react/src/generated` and `lib/api-zod/src/generated`. Regenerate them instead of editing them manually.
-- Additional deployment details live in [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+## Observações
+
+- O servidor inicia um scheduler de manutenção de governança no boot da API.
+- O frontend usa `React Query`, `wouter` e uma camada compartilhada de contratos gerados.
+- A especificação OpenAPI descreve os módulos principais da plataforma e serve de base para tipagem e consumo entre apps e libs.
