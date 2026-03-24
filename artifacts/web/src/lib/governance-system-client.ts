@@ -105,14 +105,16 @@ export const governanceSystemKeys = {
 
 async function invalidateAllGovernanceSystem(queryClient: ReturnType<typeof useQueryClient>, orgId?: number) {
   if (!orgId) return;
-  await queryClient.invalidateQueries({ queryKey: ["governance-system", "processes", orgId] });
-  await queryClient.invalidateQueries({ queryKey: ["governance-system", "process", orgId] });
-  await queryClient.invalidateQueries({ queryKey: ["governance-system", "audits", orgId] });
-  await queryClient.invalidateQueries({ queryKey: ["governance-system", "audit", orgId] });
-  await queryClient.invalidateQueries({ queryKey: ["governance-system", "nonconformities", orgId] });
-  await queryClient.invalidateQueries({ queryKey: ["governance-system", "nonconformity", orgId] });
-  await queryClient.invalidateQueries({ queryKey: ["governance-system", "management-reviews", orgId] });
-  await queryClient.invalidateQueries({ queryKey: ["governance-system", "management-review", orgId] });
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["governance-system", "processes", orgId] }),
+    queryClient.invalidateQueries({ queryKey: ["governance-system", "process", orgId] }),
+    queryClient.invalidateQueries({ queryKey: ["governance-system", "audits", orgId] }),
+    queryClient.invalidateQueries({ queryKey: ["governance-system", "audit", orgId] }),
+    queryClient.invalidateQueries({ queryKey: ["governance-system", "nonconformities", orgId] }),
+    queryClient.invalidateQueries({ queryKey: ["governance-system", "nonconformity", orgId] }),
+    queryClient.invalidateQueries({ queryKey: ["governance-system", "management-reviews", orgId] }),
+    queryClient.invalidateQueries({ queryKey: ["governance-system", "management-review", orgId] }),
+  ]);
 }
 
 export function useSgqProcesses(

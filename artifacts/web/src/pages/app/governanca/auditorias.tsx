@@ -8,7 +8,9 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { toast } from "@/hooks/use-toast";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   useAuditChecklistSyncMutation,
   useAuditFindingMutation,
@@ -60,6 +62,9 @@ const emptyFindingForm = {
   dueDate: "",
 };
 
+const PAGE_SIZE = 25;
+const SEARCH_DEBOUNCE_MS = 300;
+
 export default function GovernanceAuditsPage() {
   usePageTitle("Auditorias");
   const { organization } = useAuth();
@@ -67,16 +72,22 @@ export default function GovernanceAuditsPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<number | undefined>(undefined);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [form, setForm] = useState<AuditFormState>(emptyAuditForm);
   const [checklistDraft, setChecklistDraft] = useState<ChecklistDraftItem[]>([]);
   const [findingForm, setFindingForm] = useState(emptyFindingForm);
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
 
   const { data: auditList } = useInternalAudits(orgId, {
-    search: search || undefined,
+    page,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearch || undefined,
     status: statusFilter || undefined,
   });
   const audits = auditList?.data ?? [];
+  const pagination = auditList?.pagination;
   const { data: auditDetail } = useInternalAudit(orgId, selectedId);
   const createMutation = useInternalAuditMutation(orgId);
   const updateMutation = useInternalAuditMutation(orgId, selectedId);
@@ -93,8 +104,19 @@ export default function GovernanceAuditsPage() {
   const processes = processList?.data ?? [];
 
   useEffect(() => {
-    if (!selectedId && audits.length > 0) setSelectedId(audits[0].id);
-  }, [audits, selectedId]);
+    if (isCreatingNew) return;
+    if (audits.length === 0) {
+      setSelectedId(undefined);
+      return;
+    }
+    if (!selectedId || !audits.some((item) => item.id === selectedId)) {
+      setSelectedId(audits[0].id);
+    }
+  }, [audits, isCreatingNew, selectedId]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
 
   useEffect(() => {
     if (!auditDetail) return;
@@ -119,6 +141,7 @@ export default function GovernanceAuditsPage() {
   }, [auditDetail]);
 
   const handleNew = () => {
+    setIsCreatingNew(true);
     setSelectedId(undefined);
     setForm(emptyAuditForm());
     setChecklistDraft([]);
@@ -133,9 +156,11 @@ export default function GovernanceAuditsPage() {
       };
       if (selectedId) {
         await updateMutation.mutateAsync({ method: "PATCH", body: payload });
+        setIsCreatingNew(false);
         toast({ title: "Auditoria atualizada" });
       } else {
         const created = await createMutation.mutateAsync({ method: "POST", body: payload });
+        setIsCreatingNew(false);
         setSelectedId(created.id);
         toast({ title: "Auditoria criada" });
       }
@@ -228,7 +253,10 @@ export default function GovernanceAuditsPage() {
             <button
               key={audit.id}
               type="button"
-              onClick={() => setSelectedId(audit.id)}
+              onClick={() => {
+                setIsCreatingNew(false);
+                setSelectedId(audit.id);
+              }}
               className={`w-full rounded-xl border px-3 py-3 text-left ${
                 selectedId === audit.id ? "border-primary bg-primary/5" : "border-border"
               }`}
@@ -242,6 +270,13 @@ export default function GovernanceAuditsPage() {
               </div>
             </button>
           ))}
+          <PaginationControls
+            page={pagination?.page ?? page}
+            pageSize={pagination?.pageSize ?? PAGE_SIZE}
+            total={pagination?.total ?? 0}
+            totalPages={pagination?.totalPages ?? 0}
+            onPageChange={setPage}
+          />
         </CardContent>
       </Card>
 

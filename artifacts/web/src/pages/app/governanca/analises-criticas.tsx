@@ -8,7 +8,9 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { toast } from "@/hooks/use-toast";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   useManagementReview,
   useManagementReviewInputMutation,
@@ -64,21 +66,30 @@ const emptyOutputForm = {
   status: "open" as "open" | "done" | "canceled",
 };
 
+const PAGE_SIZE = 25;
+const SEARCH_DEBOUNCE_MS = 300;
+
 export default function GovernanceManagementReviewsPage() {
   usePageTitle("Análises Críticas");
   const { organization } = useAuth();
   const orgId = organization?.id;
 
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<number | undefined>(undefined);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [form, setForm] = useState<ReviewFormState>(emptyReviewForm);
   const [inputForm, setInputForm] = useState(emptyInputForm);
   const [outputForm, setOutputForm] = useState(emptyOutputForm);
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
 
   const { data: reviewsList } = useManagementReviews(orgId, {
-    search: search || undefined,
+    page,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearch || undefined,
   });
   const reviews = reviewsList?.data ?? [];
+  const pagination = reviewsList?.pagination;
   const { data: reviewDetail } = useManagementReview(orgId, selectedId);
   const createMutation = useManagementReviewMutation(orgId);
   const updateMutation = useManagementReviewMutation(orgId, selectedId);
@@ -96,8 +107,19 @@ export default function GovernanceManagementReviewsPage() {
   const nonconformities = ncList?.data ?? [];
 
   useEffect(() => {
-    if (!selectedId && reviews.length > 0) setSelectedId(reviews[0].id);
-  }, [reviews, selectedId]);
+    if (isCreatingNew) return;
+    if (reviews.length === 0) {
+      setSelectedId(undefined);
+      return;
+    }
+    if (!selectedId || !reviews.some((item) => item.id === selectedId)) {
+      setSelectedId(reviews[0].id);
+    }
+  }, [isCreatingNew, reviews, selectedId]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   useEffect(() => {
     if (!reviewDetail) return;
@@ -111,6 +133,7 @@ export default function GovernanceManagementReviewsPage() {
   }, [reviewDetail]);
 
   const handleNew = () => {
+    setIsCreatingNew(true);
     setSelectedId(undefined);
     setForm(emptyReviewForm());
     setInputForm(emptyInputForm);
@@ -128,9 +151,11 @@ export default function GovernanceManagementReviewsPage() {
       };
       if (selectedId) {
         await updateMutation.mutateAsync({ method: "PATCH", body: payload });
+        setIsCreatingNew(false);
         toast({ title: "Análise crítica atualizada" });
       } else {
         const created = await createMutation.mutateAsync({ method: "POST", body: payload });
+        setIsCreatingNew(false);
         setSelectedId(created.id);
         toast({ title: "Análise crítica criada" });
       }
@@ -219,7 +244,10 @@ export default function GovernanceManagementReviewsPage() {
             <button
               key={review.id}
               type="button"
-              onClick={() => setSelectedId(review.id)}
+              onClick={() => {
+                setIsCreatingNew(false);
+                setSelectedId(review.id);
+              }}
               className={`w-full rounded-xl border px-3 py-3 text-left ${
                 selectedId === review.id ? "border-primary bg-primary/5" : "border-border"
               }`}
@@ -233,6 +261,13 @@ export default function GovernanceManagementReviewsPage() {
               </div>
             </button>
           ))}
+          <PaginationControls
+            page={pagination?.page ?? page}
+            pageSize={pagination?.pageSize ?? PAGE_SIZE}
+            total={pagination?.total ?? 0}
+            totalPages={pagination?.totalPages ?? 0}
+            onPageChange={setPage}
+          />
         </CardContent>
       </Card>
 

@@ -8,7 +8,9 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { toast } from "@/hooks/use-toast";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   useCorrectiveActionMutation,
   useEffectivenessReviewMutation,
@@ -59,6 +61,9 @@ const emptyActionForm = {
   executionNotes: "",
 };
 
+const PAGE_SIZE = 25;
+const SEARCH_DEBOUNCE_MS = 300;
+
 export default function GovernanceNonconformitiesPage() {
   usePageTitle("Não Conformidades");
   const { organization } = useAuth();
@@ -66,19 +71,25 @@ export default function GovernanceNonconformitiesPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<number | undefined>(undefined);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [form, setForm] = useState<NcFormState>(emptyNcForm);
   const [effectivenessResult, setEffectivenessResult] = useState<"effective" | "ineffective">(
     "effective",
   );
   const [effectivenessComment, setEffectivenessComment] = useState("");
   const [actionForm, setActionForm] = useState(emptyActionForm);
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
 
   const { data: ncList } = useNonconformities(orgId, {
-    search: search || undefined,
+    page,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearch || undefined,
     status: statusFilter || undefined,
   });
   const nonconformities = ncList?.data ?? [];
+  const pagination = ncList?.pagination;
   const { data: ncDetail } = useNonconformity(orgId, selectedId);
   const createMutation = useNonconformityMutation(orgId);
   const updateMutation = useNonconformityMutation(orgId, selectedId);
@@ -95,8 +106,19 @@ export default function GovernanceNonconformitiesPage() {
   const processes = processList?.data ?? [];
 
   useEffect(() => {
-    if (!selectedId && nonconformities.length > 0) setSelectedId(nonconformities[0].id);
-  }, [nonconformities, selectedId]);
+    if (isCreatingNew) return;
+    if (nonconformities.length === 0) {
+      setSelectedId(undefined);
+      return;
+    }
+    if (!selectedId || !nonconformities.some((item) => item.id === selectedId)) {
+      setSelectedId(nonconformities[0].id);
+    }
+  }, [isCreatingNew, nonconformities, selectedId]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
 
   useEffect(() => {
     if (!ncDetail) return;
@@ -113,6 +135,7 @@ export default function GovernanceNonconformitiesPage() {
   }, [ncDetail]);
 
   const handleNew = () => {
+    setIsCreatingNew(true);
     setSelectedId(undefined);
     setForm(emptyNcForm());
     setActionForm(emptyActionForm);
@@ -134,9 +157,11 @@ export default function GovernanceNonconformitiesPage() {
       };
       if (selectedId) {
         await updateMutation.mutateAsync({ method: "PATCH", body: payload });
+        setIsCreatingNew(false);
         toast({ title: "Não conformidade atualizada" });
       } else {
         const created = await createMutation.mutateAsync({ method: "POST", body: payload });
+        setIsCreatingNew(false);
         setSelectedId(created.id);
         toast({ title: "Não conformidade criada" });
       }
@@ -224,7 +249,10 @@ export default function GovernanceNonconformitiesPage() {
             <button
               key={item.id}
               type="button"
-              onClick={() => setSelectedId(item.id)}
+              onClick={() => {
+                setIsCreatingNew(false);
+                setSelectedId(item.id);
+              }}
               className={`w-full rounded-xl border px-3 py-3 text-left ${
                 selectedId === item.id ? "border-primary bg-primary/5" : "border-border"
               }`}
@@ -240,6 +268,13 @@ export default function GovernanceNonconformitiesPage() {
               </div>
             </button>
           ))}
+          <PaginationControls
+            page={pagination?.page ?? page}
+            pageSize={pagination?.pageSize ?? PAGE_SIZE}
+            total={pagination?.total ?? 0}
+            totalPages={pagination?.totalPages ?? 0}
+            onPageChange={setPage}
+          />
         </CardContent>
       </Card>
 

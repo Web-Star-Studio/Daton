@@ -595,12 +595,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             qualidadePopoverPos,
             qualidadeTimeoutRef,
           )}
-      {renderSectionPopover(
-        "Governança",
-        governancaSections,
-        governancaPopover,
-        setGovernancaPopover,
-        governancaPopoverPos,
+          {renderSectionPopover(
+            "Governança",
+            governancaSections,
+            governancaPopover,
+            setGovernancaPopover,
+            governancaPopoverPos,
             governancaTimeoutRef,
           )}
         </div>

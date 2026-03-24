@@ -8,7 +8,9 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { toast } from "@/hooks/use-toast";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   useSgqProcess,
   useSgqProcessLifecycleMutation,
@@ -49,6 +51,9 @@ const emptyForm = (): ProcessFormState => ({
   interactions: [],
 });
 
+const PAGE_SIZE = 25;
+const SEARCH_DEBOUNCE_MS = 300;
+
 function parseList(value: string) {
   return value
     .split("\n")
@@ -75,14 +80,20 @@ export default function GovernanceProcessesPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<number | undefined>(undefined);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [form, setForm] = useState<ProcessFormState>(emptyForm);
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
 
   const { data: processList, isLoading } = useSgqProcesses(orgId, {
-    search: search || undefined,
+    page,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearch || undefined,
     status: statusFilter || undefined,
   });
   const processes = processList?.data ?? [];
+  const pagination = processList?.pagination;
 
   const { data: processDetail } = useSgqProcess(orgId, selectedId);
   const createMutation = useSgqProcessMutation(orgId);
@@ -98,10 +109,19 @@ export default function GovernanceProcessesPage() {
   });
 
   useEffect(() => {
-    if (!selectedId && processes.length > 0) {
+    if (isCreatingNew) return;
+    if (processes.length === 0) {
+      setSelectedId(undefined);
+      return;
+    }
+    if (!selectedId || !processes.some((item) => item.id === selectedId)) {
       setSelectedId(processes[0].id);
     }
-  }, [processes, selectedId]);
+  }, [isCreatingNew, processes, selectedId]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
 
   useEffect(() => {
     if (!processDetail) return;
@@ -124,6 +144,7 @@ export default function GovernanceProcessesPage() {
   );
 
   const handleNew = () => {
+    setIsCreatingNew(true);
     setSelectedId(undefined);
     setForm(emptyForm());
   };
@@ -150,12 +171,14 @@ export default function GovernanceProcessesPage() {
 
       if (selectedId) {
         await updateMutation.mutateAsync({ method: "PATCH", body: payload });
+        setIsCreatingNew(false);
         toast({
           title: "Processo atualizado",
           description: "As mudanças do processo SGQ foram salvas.",
         });
       } else {
         const created = await createMutation.mutateAsync({ method: "POST", body: payload });
+        setIsCreatingNew(false);
         setSelectedId(created.id);
         toast({
           title: "Processo criado",
@@ -224,7 +247,10 @@ export default function GovernanceProcessesPage() {
               <button
                 key={process.id}
                 type="button"
-                onClick={() => setSelectedId(process.id)}
+                onClick={() => {
+                  setIsCreatingNew(false);
+                  setSelectedId(process.id);
+                }}
                 className={`w-full rounded-xl border px-3 py-3 text-left transition ${
                   selectedId === process.id
                     ? "border-primary bg-primary/5"
@@ -253,6 +279,14 @@ export default function GovernanceProcessesPage() {
                 Nenhum processo encontrado com os filtros atuais.
               </p>
             ) : null}
+            <PaginationControls
+              page={pagination?.page ?? page}
+              pageSize={pagination?.pageSize ?? PAGE_SIZE}
+              total={pagination?.total ?? 0}
+              totalPages={pagination?.totalPages ?? 0}
+              disabled={isLoading}
+              onPageChange={setPage}
+            />
           </CardContent>
         </Card>
 
