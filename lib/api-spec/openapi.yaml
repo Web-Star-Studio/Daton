@@ -2081,6 +2081,122 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /organizations/{orgId}/documents/{docId}/communication-plans:
+    get:
+      operationId: listDocumentCommunicationPlans
+      tags: [documents]
+      summary: List SGQ communication plans for a policy document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Communication plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentCommunicationPlan"
+    post:
+      operationId: createDocumentCommunicationPlan
+      tags: [documents]
+      summary: Create an SGQ communication plan for a policy document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentCommunicationPlanBody"
+      responses:
+        "201":
+          description: Communication plans after creation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentCommunicationPlan"
+
+  /organizations/{orgId}/documents/{docId}/communication-plans/{planId}:
+    patch:
+      operationId: updateDocumentCommunicationPlan
+      tags: [documents]
+      summary: Update an SGQ communication plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDocumentCommunicationPlanBody"
+      responses:
+        "200":
+          description: Communication plans after update
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentCommunicationPlan"
+    delete:
+      operationId: deleteDocumentCommunicationPlan
+      tags: [documents]
+      summary: Delete an SGQ communication plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Communication plan deleted
+
   /organizations/{orgId}/documents/{docId}/submit:
     post:
       operationId: submitDocumentForReview
@@ -7340,6 +7456,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DocumentVersion"
+        communicationPlans:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentCommunicationPlan"
       required:
         - id
         - title
@@ -7521,6 +7641,79 @@ components:
         - versionNumber
         - changeDescription
         - createdAt
+
+    DocumentCommunicationPlanBody:
+      type: object
+      properties:
+        channel:
+          type: string
+        audience:
+          type: string
+        periodicity:
+          type: string
+        requiresAcknowledgment:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+      required:
+        - channel
+        - audience
+        - periodicity
+        - requiresAcknowledgment
+
+    UpdateDocumentCommunicationPlanBody:
+      type: object
+      properties:
+        channel:
+          type: string
+        audience:
+          type: string
+        periodicity:
+          type: string
+        requiresAcknowledgment:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+
+    DocumentCommunicationPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+        channel:
+          type: string
+        audience:
+          type: string
+        periodicity:
+          type: string
+        requiresAcknowledgment:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+        lastDistributedAt:
+          type: string
+          nullable: true
+        createdById:
+          type: integer
+        createdByName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - channel
+        - audience
+        - periodicity
+        - requiresAcknowledgment
+        - createdById
 
     ApproveDocumentBody:
       type: object
