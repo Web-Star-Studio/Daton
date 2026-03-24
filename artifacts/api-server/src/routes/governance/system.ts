@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   correctiveActionsTable,
@@ -403,6 +403,21 @@ async function validateOrgAudits(auditIds: number[], orgId: number): Promise<boo
     .from(internalAuditsTable)
     .where(and(inArray(internalAuditsTable.id, auditIds), eq(internalAuditsTable.organizationId, orgId)));
   return rows.length === auditIds.length;
+}
+
+async function validateOrgAuditFindings(findingIds: number[], orgId: number): Promise<boolean> {
+  if (findingIds.length === 0) return true;
+  const rows = await db
+    .select({ id: internalAuditFindingsTable.id })
+    .from(internalAuditFindingsTable)
+    .innerJoin(internalAuditsTable, eq(internalAuditFindingsTable.auditId, internalAuditsTable.id))
+    .where(
+      and(
+        inArray(internalAuditFindingsTable.id, findingIds),
+        eq(internalAuditsTable.organizationId, orgId),
+      ),
+    );
+  return rows.length === findingIds.length;
 }
 
 async function validateOrgNonconformities(ncIds: number[], orgId: number): Promise<boolean> {
@@ -888,17 +903,23 @@ async function assertManagementReviewCanComplete(reviewId: number) {
 }
 
 async function assertAuditCanComplete(auditId: number) {
-  const [openChecklist] = await db
-    .select({ total: count() })
-    .from(internalAuditChecklistItemsTable)
-    .where(
-      and(
-        eq(internalAuditChecklistItemsTable.auditId, auditId),
-        eq(internalAuditChecklistItemsTable.result, "not_evaluated"),
+  const [totalChecklist, openChecklist] = await Promise.all([
+    db
+      .select({ total: count() })
+      .from(internalAuditChecklistItemsTable)
+      .where(eq(internalAuditChecklistItemsTable.auditId, auditId)),
+    db
+      .select({ total: count() })
+      .from(internalAuditChecklistItemsTable)
+      .where(
+        and(
+          eq(internalAuditChecklistItemsTable.auditId, auditId),
+          eq(internalAuditChecklistItemsTable.result, "not_evaluated"),
+        ),
       ),
-    );
+  ]);
 
-  return (openChecklist?.total ?? 0) === 0;
+  return (totalChecklist[0]?.total ?? 0) > 0 && (openChecklist[0]?.total ?? 0) === 0;
 }
 
 function parseOrReject<T extends z.ZodTypeAny>(
@@ -1080,11 +1101,6 @@ router.patch(
     const body = parseOrReject(processUpdateBodySchema, req.body, res);
     if (!body) return;
 
-    const process = await getProcessRecord(params.processId, params.orgId);
-    if (!process) {
-      res.status(404).json({ error: "Processo SGQ não encontrado" });
-      return;
-    }
     const currentState = await getProcessComparisonState(params.processId, params.orgId);
     if (!currentState) {
       res.status(404).json({ error: "Processo SGQ não encontrado" });
@@ -1142,12 +1158,24 @@ router.patch(
         if (body.indicators !== undefined) updateData.indicators = body.indicators ?? null;
         if (body.attachments !== undefined) updateData.attachments = body.attachments;
         if (body.status !== undefined) updateData.status = body.status;
-        updateData.currentRevisionNumber = process.currentRevisionNumber + 1;
 
-        await tx
+        const [updatedProcess] = await tx
           .update(sgqProcessesTable)
-          .set(updateData)
-          .where(eq(sgqProcessesTable.id, params.processId));
+          .set({
+            ...updateData,
+            currentRevisionNumber: sql`${sgqProcessesTable.currentRevisionNumber} + 1`,
+          })
+          .where(
+            and(
+              eq(sgqProcessesTable.id, params.processId),
+              eq(sgqProcessesTable.organizationId, params.orgId),
+            ),
+          )
+          .returning({ id: sgqProcessesTable.id });
+
+        if (!updatedProcess) {
+          throw new Error("PROCESS_NOT_FOUND");
+        }
 
         if (body.interactions !== undefined) {
           await syncProcessInteractions(tx, params.orgId, params.processId, body.interactions);
@@ -1157,6 +1185,10 @@ router.patch(
       });
     } catch (error) {
       if (error instanceof Error) {
+        if (error.message === "PROCESS_NOT_FOUND") {
+          res.status(404).json({ error: "Processo SGQ não encontrado" });
+          return;
+        }
         if (error.message === "SELF_PROCESS_INTERACTION") {
           res.status(400).json({ error: "Um processo não pode se relacionar com ele mesmo" });
           return;
@@ -1194,14 +1226,23 @@ router.post(
     }
 
     await db.transaction(async (tx) => {
-      await tx
+      const [updatedProcess] = await tx
         .update(sgqProcessesTable)
         .set({
           status: "inactive",
-          currentRevisionNumber: process.currentRevisionNumber + 1,
+          currentRevisionNumber: sql`${sgqProcessesTable.currentRevisionNumber} + 1`,
           updatedById: req.auth!.userId,
         })
-        .where(eq(sgqProcessesTable.id, params.processId));
+        .where(
+          and(
+            eq(sgqProcessesTable.id, params.processId),
+            eq(sgqProcessesTable.organizationId, params.orgId),
+          ),
+        )
+        .returning({ id: sgqProcessesTable.id });
+      if (!updatedProcess) {
+        throw new Error("PROCESS_NOT_FOUND");
+      }
       await createProcessRevision(tx, params.processId, req.auth!.userId, "Processo inativado");
     });
 
@@ -1226,14 +1267,23 @@ router.post(
     }
 
     await db.transaction(async (tx) => {
-      await tx
+      const [updatedProcess] = await tx
         .update(sgqProcessesTable)
         .set({
           status: "active",
-          currentRevisionNumber: process.currentRevisionNumber + 1,
+          currentRevisionNumber: sql`${sgqProcessesTable.currentRevisionNumber} + 1`,
           updatedById: req.auth!.userId,
         })
-        .where(eq(sgqProcessesTable.id, params.processId));
+        .where(
+          and(
+            eq(sgqProcessesTable.id, params.processId),
+            eq(sgqProcessesTable.organizationId, params.orgId),
+          ),
+        )
+        .returning({ id: sgqProcessesTable.id });
+      if (!updatedProcess) {
+        throw new Error("PROCESS_NOT_FOUND");
+      }
       await createProcessRevision(tx, params.processId, req.auth!.userId, "Processo reativado");
     });
 
@@ -1745,21 +1795,9 @@ router.post(
       res.status(400).json({ error: "Risco/Oportunidade inválido" });
       return;
     }
-    if (body.auditFindingId) {
-      const findingRows = await db
-        .select({ id: internalAuditFindingsTable.id })
-        .from(internalAuditFindingsTable)
-        .innerJoin(internalAuditsTable, eq(internalAuditFindingsTable.auditId, internalAuditsTable.id))
-        .where(
-          and(
-            eq(internalAuditFindingsTable.id, body.auditFindingId),
-            eq(internalAuditsTable.organizationId, params.orgId),
-          ),
-        );
-      if (findingRows.length === 0) {
+    if (body.auditFindingId && !(await validateOrgAuditFindings([body.auditFindingId], params.orgId))) {
         res.status(400).json({ error: "Achado de auditoria inválido" });
         return;
-      }
     }
 
     const [nc] = await db
@@ -1823,7 +1861,7 @@ router.patch(
     }
     if (
       body.status === "closed" &&
-      !nc.effectivenessResult
+      nc.effectivenessResult !== "effective"
     ) {
       res.status(400).json({ error: "Não conformidades só podem ser encerradas após a verificação de eficácia" });
       return;
@@ -1848,6 +1886,13 @@ router.patch(
       !(await validateOrgRiskItems([body.riskOpportunityItemId], params.orgId))
     ) {
       res.status(400).json({ error: "Risco/Oportunidade inválido" });
+      return;
+    }
+    if (
+      body.auditFindingId &&
+      !(await validateOrgAuditFindings([body.auditFindingId], params.orgId))
+    ) {
+      res.status(400).json({ error: "Achado de auditoria inválido" });
       return;
     }
 
@@ -1896,6 +1941,10 @@ router.post(
     const nc = await getNonconformityRecord(params.ncId, params.orgId);
     if (!nc) {
       res.status(404).json({ error: "Não conformidade não encontrada" });
+      return;
+    }
+    if (body.result === "effective" && nc.status !== "awaiting_effectiveness") {
+      res.status(400).json({ error: "A não conformidade deve estar aguardando eficácia para ser encerrada" });
       return;
     }
 
@@ -2057,13 +2106,26 @@ router.patch(
       .where(eq(correctiveActionsTable.id, params.actionId));
 
     if (nextStatus === "done") {
-      await db
-        .update(nonconformitiesTable)
-        .set({
-          status: "awaiting_effectiveness",
-          updatedById: req.auth!.userId,
+      const [actionStatusSummary] = await db
+        .select({
+          total: count(),
+          done: count(sql<number>`case when ${correctiveActionsTable.status} = 'done' then 1 end`),
         })
-        .where(eq(nonconformitiesTable.id, params.ncId));
+        .from(correctiveActionsTable)
+        .where(eq(correctiveActionsTable.nonconformityId, params.ncId));
+
+      if (
+        (actionStatusSummary?.total ?? 0) > 0 &&
+        (actionStatusSummary?.done ?? 0) === (actionStatusSummary?.total ?? 0)
+      ) {
+        await db
+          .update(nonconformitiesTable)
+          .set({
+            status: "awaiting_effectiveness",
+            updatedById: req.auth!.userId,
+          })
+          .where(eq(nonconformitiesTable.id, params.ncId));
+      }
     }
 
     res.json(await getNonconformityDetail(params.ncId, params.orgId));

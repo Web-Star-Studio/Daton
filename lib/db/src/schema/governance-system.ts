@@ -161,21 +161,27 @@ export const sgqProcessInteractionsTable = pgTable(
   ],
 );
 
-export const sgqProcessRevisionsTable = pgTable("sgq_process_revisions", {
-  id: serial("id").primaryKey(),
-  processId: integer("process_id")
-    .notNull()
-    .references(() => sgqProcessesTable.id, { onDelete: "cascade" }),
-  revisionNumber: integer("revision_number").notNull(),
-  changeSummary: text("change_summary"),
-  approvedById: integer("approved_by_id")
-    .notNull()
-    .references(() => usersTable.id),
-  snapshot: jsonb("snapshot")
-    .$type<SgqProcessRevisionSnapshot>()
-    .notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const sgqProcessRevisionsTable = pgTable(
+  "sgq_process_revisions",
+  {
+    id: serial("id").primaryKey(),
+    processId: integer("process_id")
+      .notNull()
+      .references(() => sgqProcessesTable.id, { onDelete: "cascade" }),
+    revisionNumber: integer("revision_number").notNull(),
+    changeSummary: text("change_summary"),
+    approvedById: integer("approved_by_id")
+      .notNull()
+      .references(() => usersTable.id),
+    snapshot: jsonb("snapshot")
+      .$type<SgqProcessRevisionSnapshot>()
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique("sgq_process_revision_number_unique").on(table.processId, table.revisionNumber),
+  ],
+);
 
 export const sgqCommunicationPlansTable = pgTable("sgq_communication_plans", {
   id: serial("id").primaryKey(),

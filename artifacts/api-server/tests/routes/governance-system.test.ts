@@ -1,6 +1,6 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
-import { db, strategicPlansTable } from "@workspace/db";
+import { db, sgqProcessRevisionsTable, strategicPlansTable } from "@workspace/db";
 import app from "../../src/app";
 import {
   authHeader,
@@ -260,6 +260,14 @@ describe("governance system routes", () => {
     expect(rejectedCompletedCreate.status).toBe(400);
     expect(rejectedCompletedCreate.body.error).toContain("não pode ser concluída");
 
+    const blockedWithoutChecklist = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/governance/internal-audits/${created.body.id}`)
+      .set(authHeader(context))
+      .send({ status: "completed" });
+
+    expect(blockedWithoutChecklist.status).toBe(400);
+    expect(blockedWithoutChecklist.body.error).toContain("checklist não avaliados");
+
     const checklist = await request(app)
       .put(`/api/organizations/${context.organizationId}/governance/internal-audits/${created.body.id}/checklist-items`)
       .set(authHeader(context))
@@ -352,6 +360,18 @@ describe("governance system routes", () => {
     expect(createdAction.status).toBe(201);
     expect(createdAction.body.correctiveActions).toHaveLength(1);
 
+    const secondAction = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/nonconformities/${created.body.id}/corrective-actions`)
+      .set(authHeader(context))
+      .send({
+        title: "Validar implementação",
+        description: "Confirmar que o ajuste foi absorvido pela operação",
+        responsibleUserId: responsible.id,
+      });
+
+    expect(secondAction.status).toBe(201);
+    expect(secondAction.body.correctiveActions).toHaveLength(2);
+
     const blockedDone = await request(app)
       .patch(`/api/organizations/${context.organizationId}/governance/nonconformities/${created.body.id}/corrective-actions/${createdAction.body.correctiveActions[0].id}`)
       .set(authHeader(context))
@@ -371,7 +391,29 @@ describe("governance system routes", () => {
       });
 
     expect(finishedAction.status).toBe(200);
-    expect(finishedAction.body.status).toBe("awaiting_effectiveness");
+    expect(finishedAction.body.status).toBe("open");
+
+    const blockedEffectiveReview = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/nonconformities/${created.body.id}/effectiveness-review`)
+      .set(authHeader(context))
+      .send({
+        result: "effective",
+        comment: "Tentativa prematura",
+      });
+
+    expect(blockedEffectiveReview.status).toBe(400);
+    expect(blockedEffectiveReview.body.error).toContain("aguardando eficácia");
+
+    const finishedSecondAction = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/governance/nonconformities/${created.body.id}/corrective-actions/${secondAction.body.correctiveActions[0].id}`)
+      .set(authHeader(context))
+      .send({
+        status: "done",
+        executionNotes: "Validação operacional concluída",
+      });
+
+    expect(finishedSecondAction.status).toBe(200);
+    expect(finishedSecondAction.body.status).toBe("awaiting_effectiveness");
 
     const ineffectiveReview = await request(app)
       .post(`/api/organizations/${context.organizationId}/governance/nonconformities/${created.body.id}/effectiveness-review`)
@@ -395,6 +437,98 @@ describe("governance system routes", () => {
     expect(effectiveReview.status).toBe(200);
     expect(effectiveReview.body.status).toBe("closed");
     expect(effectiveReview.body.effectivenessResult).toBe("effective");
+  });
+
+  it("rejects foreign audit findings on NC patch and enforces unique SGQ revision numbers", async () => {
+    const context = await createTestContext({ seed: "governance-system-nc-foreign-finding" });
+    const foreignContext = await createTestContext({ seed: "governance-system-nc-foreign-finding-foreign" });
+    contexts.push(context, foreignContext);
+
+    const owner = await createTestUser(context, {
+      role: "analyst",
+      suffix: "process-owner",
+      modules: ["governance"],
+    });
+    const foreignOwner = await createTestUser(foreignContext, {
+      role: "analyst",
+      suffix: "foreign-process-owner",
+      modules: ["governance"],
+    });
+
+    const localProcess = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/sgq-processes`)
+      .set(authHeader(context))
+      .send({
+        name: `Processo local ${context.prefix}`,
+        objective: "Controle local do SGQ",
+        ownerUserId: owner.id,
+        inputs: ["Entrada"],
+        outputs: ["Saída"],
+        changeSummary: "Cadastro inicial",
+      });
+
+    expect(localProcess.status).toBe(201);
+
+    let duplicateRevisionError: unknown;
+    try {
+      await db.insert(sgqProcessRevisionsTable).values({
+        processId: localProcess.body.id,
+        revisionNumber: 1,
+        approvedById: context.userId,
+        changeSummary: "Duplicada",
+        snapshot: localProcess.body.revisions[0].snapshot,
+      });
+    } catch (error) {
+      duplicateRevisionError = error;
+    }
+
+    expect(duplicateRevisionError).toBeTruthy();
+
+    const foreignAudit = await request(app)
+      .post(`/api/organizations/${foreignContext.organizationId}/governance/internal-audits`)
+      .set(authHeader(foreignContext))
+      .send({
+        title: `Auditoria externa ${foreignContext.prefix}`,
+        scope: "Escopo externo",
+        criteria: "ISO 9001",
+        periodStart: "2026-01-01",
+        periodEnd: "2026-01-31",
+        auditorUserId: foreignOwner.id,
+        originType: "internal",
+      });
+
+    expect(foreignAudit.status).toBe(201);
+
+    const foreignFinding = await request(app)
+      .post(`/api/organizations/${foreignContext.organizationId}/governance/internal-audits/${foreignAudit.body.id}/findings`)
+      .set(authHeader(foreignContext))
+      .send({
+        classification: "nonconformity",
+        description: "Achado externo",
+      });
+
+    expect(foreignFinding.status).toBe(201);
+
+    const nc = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/nonconformities`)
+      .set(authHeader(context))
+      .send({
+        originType: "other",
+        title: `NC ${context.prefix}`,
+        description: "NC local",
+      });
+
+    expect(nc.status).toBe(201);
+
+    const patchedNc = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/governance/nonconformities/${nc.body.id}`)
+      .set(authHeader(context))
+      .send({
+        auditFindingId: foreignFinding.body.id,
+      });
+
+    expect(patchedNc.status).toBe(400);
+    expect(patchedNc.body.error).toContain("Achado de auditoria inválido");
   });
 
   it("requires inputs and outputs before completing a management review and keeps action outputs open", async () => {
