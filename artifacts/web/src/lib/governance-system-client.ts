@@ -1,28 +1,93 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type {
-  CorrectiveAction,
-  DocumentCommunicationPlan,
-  GovernanceSystemAttachment as Attachment,
-  InternalAuditChecklistItem,
-  InternalAuditDetail,
-  InternalAuditFinding,
-  InternalAuditListItem as InternalAuditSummary,
-  ManagementReviewDetail,
-  ManagementReviewInput,
-  ManagementReviewListItem as ManagementReviewSummary,
-  ManagementReviewOutput,
-  NonconformityDetail,
-  NonconformityListItem as NonconformitySummary,
-  PaginatedInternalAudits,
-  PaginatedManagementReviews,
-  PaginatedNonconformities,
-  PaginatedSgqProcesses,
-  SgqProcessDetail,
-  SgqProcessInteraction,
-  SgqProcessListItem as SgqProcessSummary,
-  SgqProcessRevision,
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  getGetDocumentQueryKey,
+  getGetInternalAuditQueryKey,
+  getGetManagementReviewQueryKey,
+  getGetNonconformityQueryKey,
+  getGetSgqProcessQueryKey,
+  getListDocumentCommunicationPlansQueryKey,
+  getListInternalAuditsQueryKey,
+  getListManagementReviewsQueryKey,
+  getListNonconformitiesQueryKey,
+  getListSgqProcessesQueryKey,
+  useCreateCorrectiveAction,
+  useCreateDocumentCommunicationPlan,
+  useCreateInternalAudit,
+  useCreateInternalAuditFinding,
+  useCreateManagementReview,
+  useCreateManagementReviewInput,
+  useCreateManagementReviewOutput,
+  useCreateNonconformity,
+  useCreateNonconformityEffectivenessReview,
+  useCreateSgqProcess,
+  useDeleteDocumentCommunicationPlan,
+  useDeleteManagementReviewInput,
+  useDeleteManagementReviewOutput,
+  useGetInternalAudit,
+  useGetManagementReview,
+  useGetNonconformity,
+  useGetSgqProcess,
+  useInactivateSgqProcess,
+  useListDocumentCommunicationPlans,
+  useListInternalAudits,
+  useListManagementReviews,
+  useListNonconformities,
+  useListSgqProcesses,
+  useReactivateSgqProcess,
+  useSyncInternalAuditChecklistItems,
+  useUpdateCorrectiveAction,
+  useUpdateDocumentCommunicationPlan,
+  useUpdateInternalAudit,
+  useUpdateInternalAuditFinding,
+  useUpdateManagementReview,
+  useUpdateManagementReviewInput,
+  useUpdateManagementReviewOutput,
+  useUpdateNonconformity,
+  useUpdateSgqProcess,
+  type CorrectiveAction,
+  type CreateCorrectiveActionBody,
+  type CreateDocumentCommunicationPlanBody,
+  type CreateInternalAuditBody,
+  type CreateInternalAuditFindingBody,
+  type CreateManagementReviewBody,
+  type CreateManagementReviewInputBody,
+  type CreateManagementReviewOutputBody,
+  type CreateNonconformityBody,
+  type CreateSgqProcessBody,
+  type DocumentCommunicationPlan,
+  type GovernanceSystemAttachment as Attachment,
+  type InternalAuditChecklistItem,
+  type InternalAuditDetail,
+  type InternalAuditFinding,
+  type InternalAuditListItem as InternalAuditSummary,
+  type ListInternalAuditsParams,
+  type ListManagementReviewsParams,
+  type ListNonconformitiesParams,
+  type ListSgqProcessesParams,
+  type ManagementReviewDetail,
+  type ManagementReviewInput,
+  type ManagementReviewListItem as ManagementReviewSummary,
+  type ManagementReviewOutput,
+  type NonconformityDetail,
+  type NonconformityListItem as NonconformitySummary,
+  type PaginatedInternalAudits,
+  type PaginatedManagementReviews,
+  type PaginatedNonconformities,
+  type PaginatedSgqProcesses,
+  type SgqProcessDetail,
+  type SgqProcessInteraction,
+  type SgqProcessListItem as SgqProcessSummary,
+  type SgqProcessRevision,
+  type UpdateCorrectiveActionBody,
+  type UpdateDocumentCommunicationPlanBody,
+  type UpdateInternalAuditBody,
+  type UpdateInternalAuditFindingBody,
+  type UpdateManagementReviewBody,
+  type UpdateManagementReviewInputBody,
+  type UpdateManagementReviewOutputBody,
+  type UpdateNonconformityBody,
+  type UpdateSgqProcessBody,
 } from "@workspace/api-client-react";
-import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
 
 export type {
   Attachment,
@@ -44,119 +109,84 @@ export type {
   SgqProcessSummary,
 };
 
-async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(resolveApiUrl(path), {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders(),
-      ...(init?.headers || {}),
-    },
-  });
-
-  if (!response.ok) {
-    let message = "Falha na requisição";
-    try {
-      const payload = await response.json();
-      message = payload?.error || message;
-    } catch {
-      // noop
-    }
-    throw new Error(message);
+function assertNumberId(id: number | undefined, label: string) {
+  if (!id) {
+    throw new Error(`${label} é obrigatório para esta operação`);
   }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
+  return id;
 }
 
-function buildQuery(params?: Record<string, string | number | undefined | null>) {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params ?? {})) {
-    if (value === undefined || value === null || value === "") continue;
-    search.set(key, String(value));
+async function invalidateGovernanceProcesses(queryClient: ReturnType<typeof useQueryClient>, orgId: number, processId?: number) {
+  await queryClient.invalidateQueries({ queryKey: getListSgqProcessesQueryKey(orgId) });
+  if (processId) {
+    await queryClient.invalidateQueries({ queryKey: getGetSgqProcessQueryKey(orgId, processId) });
   }
-  const query = search.toString();
-  return query ? `?${query}` : "";
 }
 
-export const governanceSystemKeys = {
-  processes: (orgId: number, params?: Record<string, unknown>) =>
-    ["governance-system", "processes", orgId, params] as const,
-  process: (orgId: number, processId: number) =>
-    ["governance-system", "process", orgId, processId] as const,
-  audits: (orgId: number, params?: Record<string, unknown>) =>
-    ["governance-system", "audits", orgId, params] as const,
-  audit: (orgId: number, auditId: number) =>
-    ["governance-system", "audit", orgId, auditId] as const,
-  nonconformities: (orgId: number, params?: Record<string, unknown>) =>
-    ["governance-system", "nonconformities", orgId, params] as const,
-  nonconformity: (orgId: number, ncId: number) =>
-    ["governance-system", "nonconformity", orgId, ncId] as const,
-  managementReviews: (orgId: number, params?: Record<string, unknown>) =>
-    ["governance-system", "management-reviews", orgId, params] as const,
-  managementReview: (orgId: number, reviewId: number) =>
-    ["governance-system", "management-review", orgId, reviewId] as const,
-  communicationPlans: (orgId: number, docId: number) =>
-    ["documents", "communication-plans", orgId, docId] as const,
-};
-
-async function invalidateAllGovernanceSystem(queryClient: ReturnType<typeof useQueryClient>, orgId?: number) {
-  if (!orgId) return;
-  await Promise.all([
-    queryClient.invalidateQueries({ queryKey: ["governance-system", "processes", orgId] }),
-    queryClient.invalidateQueries({ queryKey: ["governance-system", "process", orgId] }),
-    queryClient.invalidateQueries({ queryKey: ["governance-system", "audits", orgId] }),
-    queryClient.invalidateQueries({ queryKey: ["governance-system", "audit", orgId] }),
-    queryClient.invalidateQueries({ queryKey: ["governance-system", "nonconformities", orgId] }),
-    queryClient.invalidateQueries({ queryKey: ["governance-system", "nonconformity", orgId] }),
-    queryClient.invalidateQueries({ queryKey: ["governance-system", "management-reviews", orgId] }),
-    queryClient.invalidateQueries({ queryKey: ["governance-system", "management-review", orgId] }),
-  ]);
+async function invalidateGovernanceAudits(queryClient: ReturnType<typeof useQueryClient>, orgId: number, auditId?: number) {
+  await queryClient.invalidateQueries({ queryKey: getListInternalAuditsQueryKey(orgId) });
+  if (auditId) {
+    await queryClient.invalidateQueries({ queryKey: getGetInternalAuditQueryKey(orgId, auditId) });
+  }
 }
 
-export function useSgqProcesses(
-  orgId?: number,
-  params?: { page?: number; pageSize?: number; status?: string; ownerUserId?: number; search?: string },
+async function invalidateGovernanceNonconformities(
+  queryClient: ReturnType<typeof useQueryClient>,
+  orgId: number,
+  ncId?: number,
 ) {
-  return useQuery({
-    queryKey: governanceSystemKeys.processes(orgId || 0, params),
-    enabled: !!orgId,
-    queryFn: () =>
-      apiRequest<PaginatedSgqProcesses>(
-        `/api/organizations/${orgId}/governance/sgq-processes${buildQuery(params)}`,
-      ),
+  await queryClient.invalidateQueries({ queryKey: getListNonconformitiesQueryKey(orgId) });
+  if (ncId) {
+    await queryClient.invalidateQueries({ queryKey: getGetNonconformityQueryKey(orgId, ncId) });
+  }
+}
+
+async function invalidateGovernanceManagementReviews(
+  queryClient: ReturnType<typeof useQueryClient>,
+  orgId: number,
+  reviewId?: number,
+) {
+  await queryClient.invalidateQueries({ queryKey: getListManagementReviewsQueryKey(orgId) });
+  if (reviewId) {
+    await queryClient.invalidateQueries({
+      queryKey: getGetManagementReviewQueryKey(orgId, reviewId),
+    });
+  }
+}
+
+export function useSgqProcesses(orgId?: number, params?: ListSgqProcessesParams) {
+  return useListSgqProcesses(orgId ?? 0, params, {
+    query: { enabled: !!orgId },
   });
 }
 
 export function useSgqProcess(orgId?: number, processId?: number) {
-  return useQuery({
-    queryKey: governanceSystemKeys.process(orgId || 0, processId || 0),
-    enabled: !!orgId && !!processId,
-    queryFn: () =>
-      apiRequest<SgqProcessDetail>(
-        `/api/organizations/${orgId}/governance/sgq-processes/${processId}`,
-      ),
+  return useGetSgqProcess(orgId ?? 0, processId ?? 0, {
+    query: { enabled: !!orgId && !!processId },
   });
 }
 
 export function useSgqProcessMutation(orgId?: number, processId?: number) {
   const queryClient = useQueryClient();
+  const createMutation = useCreateSgqProcess();
+  const updateMutation = useUpdateSgqProcess();
+
   return useMutation({
-    mutationFn: (payload: { method: "POST" | "PATCH"; body: unknown }) =>
-      apiRequest<SgqProcessDetail>(
-        processId
-          ? `/api/organizations/${orgId}/governance/sgq-processes/${processId}`
-          : `/api/organizations/${orgId}/governance/sgq-processes`,
-        {
-          method: payload.method,
-          body: JSON.stringify(payload.body),
-        },
-      ),
-    onSuccess: async () => {
-      await invalidateAllGovernanceSystem(queryClient, orgId);
+    mutationFn: async (payload: { method: "POST" | "PATCH"; body: CreateSgqProcessBody | UpdateSgqProcessBody }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      if (payload.method === "POST") {
+        return createMutation.mutateAsync({ orgId: validOrgId, data: payload.body as CreateSgqProcessBody });
+      }
+      const validProcessId = assertNumberId(processId, "Processo");
+      return updateMutation.mutateAsync({
+        orgId: validOrgId,
+        processId: validProcessId,
+        data: payload.body as UpdateSgqProcessBody,
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceProcesses(queryClient, orgId, data.id);
     },
   });
 }
@@ -167,237 +197,289 @@ export function useSgqProcessLifecycleMutation(
   action?: "inactivate" | "reactivate",
 ) {
   const queryClient = useQueryClient();
+  const inactivateMutation = useInactivateSgqProcess();
+  const reactivateMutation = useReactivateSgqProcess();
+
   return useMutation({
-    mutationFn: () =>
-      apiRequest<SgqProcessDetail>(
-        `/api/organizations/${orgId}/governance/sgq-processes/${processId}/${action}`,
-        { method: "POST" },
-      ),
-    onSuccess: async () => {
-      await invalidateAllGovernanceSystem(queryClient, orgId);
+    mutationFn: async () => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const validProcessId = assertNumberId(processId, "Processo");
+      if (action === "inactivate") {
+        return inactivateMutation.mutateAsync({ orgId: validOrgId, processId: validProcessId });
+      }
+      if (action === "reactivate") {
+        return reactivateMutation.mutateAsync({ orgId: validOrgId, processId: validProcessId });
+      }
+      throw new Error("Ação de ciclo de vida inválida");
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceProcesses(queryClient, orgId, data.id);
     },
   });
 }
 
-export function useInternalAudits(
-  orgId?: number,
-  params?: { page?: number; pageSize?: number; status?: string; auditorUserId?: number; originType?: string; search?: string },
-) {
-  return useQuery({
-    queryKey: governanceSystemKeys.audits(orgId || 0, params),
-    enabled: !!orgId,
-    queryFn: () =>
-      apiRequest<PaginatedInternalAudits>(
-        `/api/organizations/${orgId}/governance/internal-audits${buildQuery(params)}`,
-      ),
+export function useInternalAudits(orgId?: number, params?: ListInternalAuditsParams) {
+  return useListInternalAudits(orgId ?? 0, params, {
+    query: { enabled: !!orgId },
   });
 }
 
 export function useInternalAudit(orgId?: number, auditId?: number) {
-  return useQuery({
-    queryKey: governanceSystemKeys.audit(orgId || 0, auditId || 0),
-    enabled: !!orgId && !!auditId,
-    queryFn: () =>
-      apiRequest<InternalAuditDetail>(
-        `/api/organizations/${orgId}/governance/internal-audits/${auditId}`,
-      ),
+  return useGetInternalAudit(orgId ?? 0, auditId ?? 0, {
+    query: { enabled: !!orgId && !!auditId },
   });
 }
 
 export function useInternalAuditMutation(orgId?: number, auditId?: number) {
   const queryClient = useQueryClient();
+  const createMutation = useCreateInternalAudit();
+  const updateMutation = useUpdateInternalAudit();
+
   return useMutation({
-    mutationFn: (payload: { method: "POST" | "PATCH"; body: unknown }) =>
-      apiRequest<InternalAuditDetail>(
-        auditId
-          ? `/api/organizations/${orgId}/governance/internal-audits/${auditId}`
-          : `/api/organizations/${orgId}/governance/internal-audits`,
-        {
-          method: payload.method,
-          body: JSON.stringify(payload.body),
-        },
-      ),
-    onSuccess: async () => {
-      await invalidateAllGovernanceSystem(queryClient, orgId);
+    mutationFn: async (payload: { method: "POST" | "PATCH"; body: CreateInternalAuditBody | UpdateInternalAuditBody }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      if (payload.method === "POST") {
+        return createMutation.mutateAsync({ orgId: validOrgId, data: payload.body as CreateInternalAuditBody });
+      }
+      const validAuditId = assertNumberId(auditId, "Auditoria");
+      return updateMutation.mutateAsync({
+        orgId: validOrgId,
+        auditId: validAuditId,
+        data: payload.body as UpdateInternalAuditBody,
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceAudits(queryClient, orgId, data.id);
     },
   });
 }
 
 export function useAuditChecklistSyncMutation(orgId?: number, auditId?: number) {
   const queryClient = useQueryClient();
+  const syncMutation = useSyncInternalAuditChecklistItems();
+
   return useMutation({
-    mutationFn: (items: unknown[]) =>
-      apiRequest<InternalAuditDetail>(
-        `/api/organizations/${orgId}/governance/internal-audits/${auditId}/checklist-items`,
-        {
-          method: "PUT",
-          body: JSON.stringify({ items }),
-        },
-      ),
-    onSuccess: async () => {
-      await invalidateAllGovernanceSystem(queryClient, orgId);
+    mutationFn: async (items: SyncInternalAuditChecklistBody["items"]) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const validAuditId = assertNumberId(auditId, "Auditoria");
+      return syncMutation.mutateAsync({
+        orgId: validOrgId,
+        auditId: validAuditId,
+        data: { items },
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceAudits(queryClient, orgId, data.id);
     },
   });
 }
+
+type SyncInternalAuditChecklistBody = {
+  items: Array<{
+    id?: number;
+    label: string;
+    requirementRef?: string | null;
+    result?: InternalAuditChecklistItem["result"];
+    notes?: string | null;
+    sortOrder?: number;
+  }>;
+};
 
 export function useAuditFindingMutation(orgId?: number, auditId?: number, findingId?: number) {
   const queryClient = useQueryClient();
+  const createMutation = useCreateInternalAuditFinding();
+  const updateMutation = useUpdateInternalAuditFinding();
+
   return useMutation({
-    mutationFn: (payload: { method: "POST" | "PATCH"; body: unknown }) =>
-      apiRequest(
-        findingId
-          ? `/api/organizations/${orgId}/governance/internal-audits/${auditId}/findings/${findingId}`
-          : `/api/organizations/${orgId}/governance/internal-audits/${auditId}/findings`,
-        {
-          method: payload.method,
-          body: JSON.stringify(payload.body),
-        },
-      ),
+    mutationFn: async (payload: { method: "POST" | "PATCH"; body: CreateInternalAuditFindingBody | UpdateInternalAuditFindingBody }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const validAuditId = assertNumberId(auditId, "Auditoria");
+      if (payload.method === "POST") {
+        return createMutation.mutateAsync({
+          orgId: validOrgId,
+          auditId: validAuditId,
+          data: payload.body as CreateInternalAuditFindingBody,
+        });
+      }
+      const validFindingId = assertNumberId(findingId, "Achado");
+      return updateMutation.mutateAsync({
+        orgId: validOrgId,
+        auditId: validAuditId,
+        findingId: validFindingId,
+        data: payload.body as UpdateInternalAuditFindingBody,
+      });
+    },
     onSuccess: async () => {
-      await invalidateAllGovernanceSystem(queryClient, orgId);
+      if (!orgId || !auditId) return;
+      await invalidateGovernanceAudits(queryClient, orgId, auditId);
     },
   });
 }
 
-export function useNonconformities(
-  orgId?: number,
-  params?: { page?: number; pageSize?: number; status?: string; originType?: string; responsibleUserId?: number; search?: string },
-) {
-  return useQuery({
-    queryKey: governanceSystemKeys.nonconformities(orgId || 0, params),
-    enabled: !!orgId,
-    queryFn: () =>
-      apiRequest<PaginatedNonconformities>(
-        `/api/organizations/${orgId}/governance/nonconformities${buildQuery(params)}`,
-      ),
+export function useNonconformities(orgId?: number, params?: ListNonconformitiesParams) {
+  return useListNonconformities(orgId ?? 0, params, {
+    query: { enabled: !!orgId },
   });
 }
 
 export function useNonconformity(orgId?: number, ncId?: number) {
-  return useQuery({
-    queryKey: governanceSystemKeys.nonconformity(orgId || 0, ncId || 0),
-    enabled: !!orgId && !!ncId,
-    queryFn: () =>
-      apiRequest<NonconformityDetail>(
-        `/api/organizations/${orgId}/governance/nonconformities/${ncId}`,
-      ),
+  return useGetNonconformity(orgId ?? 0, ncId ?? 0, {
+    query: { enabled: !!orgId && !!ncId },
   });
 }
 
 export function useNonconformityMutation(orgId?: number, ncId?: number) {
   const queryClient = useQueryClient();
+  const createMutation = useCreateNonconformity();
+  const updateMutation = useUpdateNonconformity();
+
   return useMutation({
-    mutationFn: (payload: { method: "POST" | "PATCH"; body: unknown }) =>
-      apiRequest<NonconformityDetail>(
-        ncId
-          ? `/api/organizations/${orgId}/governance/nonconformities/${ncId}`
-          : `/api/organizations/${orgId}/governance/nonconformities`,
-        {
-          method: payload.method,
-          body: JSON.stringify(payload.body),
-        },
-      ),
-    onSuccess: async () => {
-      await invalidateAllGovernanceSystem(queryClient, orgId);
+    mutationFn: async (payload: { method: "POST" | "PATCH"; body: CreateNonconformityBody | UpdateNonconformityBody }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      if (payload.method === "POST") {
+        return createMutation.mutateAsync({ orgId: validOrgId, data: payload.body as CreateNonconformityBody });
+      }
+      const validNcId = assertNumberId(ncId, "Não conformidade");
+      return updateMutation.mutateAsync({
+        orgId: validOrgId,
+        ncId: validNcId,
+        data: payload.body as UpdateNonconformityBody,
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceNonconformities(queryClient, orgId, data.id);
     },
   });
 }
 
 export function useEffectivenessReviewMutation(orgId?: number, ncId?: number) {
   const queryClient = useQueryClient();
+  const reviewMutation = useCreateNonconformityEffectivenessReview();
+
   return useMutation({
-    mutationFn: (body: unknown) =>
-      apiRequest<NonconformityDetail>(
-        `/api/organizations/${orgId}/governance/nonconformities/${ncId}/effectiveness-review`,
-        {
-          method: "POST",
-          body: JSON.stringify(body),
-        },
-      ),
-    onSuccess: async () => {
-      await invalidateAllGovernanceSystem(queryClient, orgId);
+    mutationFn: async (data: { result: "effective" | "ineffective"; comment?: string | null }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const validNcId = assertNumberId(ncId, "Não conformidade");
+      return reviewMutation.mutateAsync({ orgId: validOrgId, ncId: validNcId, data });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceNonconformities(queryClient, orgId, data.id);
     },
   });
 }
 
 export function useCorrectiveActionMutation(orgId?: number, ncId?: number, actionId?: number) {
   const queryClient = useQueryClient();
+  const createMutation = useCreateCorrectiveAction();
+  const updateMutation = useUpdateCorrectiveAction();
+
   return useMutation({
-    mutationFn: (payload: { method: "POST" | "PATCH"; body: unknown }) =>
-      apiRequest<NonconformityDetail>(
-        actionId
-          ? `/api/organizations/${orgId}/governance/nonconformities/${ncId}/corrective-actions/${actionId}`
-          : `/api/organizations/${orgId}/governance/nonconformities/${ncId}/corrective-actions`,
-        {
-          method: payload.method,
-          body: JSON.stringify(payload.body),
-        },
-      ),
-    onSuccess: async () => {
-      await invalidateAllGovernanceSystem(queryClient, orgId);
+    mutationFn: async (payload: { method: "POST" | "PATCH"; body: CreateCorrectiveActionBody | UpdateCorrectiveActionBody }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const validNcId = assertNumberId(ncId, "Não conformidade");
+      if (payload.method === "POST") {
+        return createMutation.mutateAsync({
+          orgId: validOrgId,
+          ncId: validNcId,
+          data: payload.body as CreateCorrectiveActionBody,
+        });
+      }
+      const validActionId = assertNumberId(actionId, "Ação corretiva");
+      return updateMutation.mutateAsync({
+        orgId: validOrgId,
+        ncId: validNcId,
+        actionId: validActionId,
+        data: payload.body as UpdateCorrectiveActionBody,
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceNonconformities(queryClient, orgId, data.id);
     },
   });
 }
 
-export function useManagementReviews(
-  orgId?: number,
-  params?: { page?: number; pageSize?: number; status?: string; chairUserId?: number; search?: string },
-) {
-  return useQuery({
-    queryKey: governanceSystemKeys.managementReviews(orgId || 0, params),
-    enabled: !!orgId,
-    queryFn: () =>
-      apiRequest<PaginatedManagementReviews>(
-        `/api/organizations/${orgId}/governance/management-reviews${buildQuery(params)}`,
-      ),
+export function useManagementReviews(orgId?: number, params?: ListManagementReviewsParams) {
+  return useListManagementReviews(orgId ?? 0, params, {
+    query: { enabled: !!orgId },
   });
 }
 
 export function useManagementReview(orgId?: number, reviewId?: number) {
-  return useQuery({
-    queryKey: governanceSystemKeys.managementReview(orgId || 0, reviewId || 0),
-    enabled: !!orgId && !!reviewId,
-    queryFn: () =>
-      apiRequest<ManagementReviewDetail>(
-        `/api/organizations/${orgId}/governance/management-reviews/${reviewId}`,
-      ),
+  return useGetManagementReview(orgId ?? 0, reviewId ?? 0, {
+    query: { enabled: !!orgId && !!reviewId },
   });
 }
 
 export function useManagementReviewMutation(orgId?: number, reviewId?: number) {
   const queryClient = useQueryClient();
+  const createMutation = useCreateManagementReview();
+  const updateMutation = useUpdateManagementReview();
+
   return useMutation({
-    mutationFn: (payload: { method: "POST" | "PATCH"; body: unknown }) =>
-      apiRequest<ManagementReviewDetail>(
-        reviewId
-          ? `/api/organizations/${orgId}/governance/management-reviews/${reviewId}`
-          : `/api/organizations/${orgId}/governance/management-reviews`,
-        {
-          method: payload.method,
-          body: JSON.stringify(payload.body),
-        },
-      ),
-    onSuccess: async () => {
-      await invalidateAllGovernanceSystem(queryClient, orgId);
+    mutationFn: async (payload: { method: "POST" | "PATCH"; body: CreateManagementReviewBody | UpdateManagementReviewBody }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      if (payload.method === "POST") {
+        return createMutation.mutateAsync({
+          orgId: validOrgId,
+          data: payload.body as CreateManagementReviewBody,
+        });
+      }
+      const validReviewId = assertNumberId(reviewId, "Análise crítica");
+      return updateMutation.mutateAsync({
+        orgId: validOrgId,
+        reviewId: validReviewId,
+        data: payload.body as UpdateManagementReviewBody,
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceManagementReviews(queryClient, orgId, data.id);
     },
   });
 }
 
 export function useManagementReviewInputMutation(orgId?: number, reviewId?: number, inputId?: number) {
   const queryClient = useQueryClient();
+  const createMutation = useCreateManagementReviewInput();
+  const updateMutation = useUpdateManagementReviewInput();
+  const deleteMutation = useDeleteManagementReviewInput();
+
   return useMutation({
-    mutationFn: (payload: { method: "POST" | "PATCH" | "DELETE"; body?: unknown }) =>
-      apiRequest(
-        inputId
-          ? `/api/organizations/${orgId}/governance/management-reviews/${reviewId}/inputs/${inputId}`
-          : `/api/organizations/${orgId}/governance/management-reviews/${reviewId}/inputs`,
-        {
-          method: payload.method,
-          body: payload.body === undefined ? undefined : JSON.stringify(payload.body),
-        },
-      ),
+    mutationFn: async (payload: { method: "POST" | "PATCH" | "DELETE"; body?: CreateManagementReviewInputBody | UpdateManagementReviewInputBody }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const validReviewId = assertNumberId(reviewId, "Análise crítica");
+      if (payload.method === "POST") {
+        return createMutation.mutateAsync({
+          orgId: validOrgId,
+          reviewId: validReviewId,
+          data: payload.body as CreateManagementReviewInputBody,
+        });
+      }
+      const validInputId = assertNumberId(inputId, "Entrada");
+      if (payload.method === "PATCH") {
+        return updateMutation.mutateAsync({
+          orgId: validOrgId,
+          reviewId: validReviewId,
+          inputId: validInputId,
+          data: payload.body as UpdateManagementReviewInputBody,
+        });
+      }
+      await deleteMutation.mutateAsync({
+        orgId: validOrgId,
+        reviewId: validReviewId,
+        inputId: validInputId,
+      });
+      return undefined;
+    },
     onSuccess: async () => {
-      await invalidateAllGovernanceSystem(queryClient, orgId);
+      if (!orgId || !reviewId) return;
+      await invalidateGovernanceManagementReviews(queryClient, orgId, reviewId);
     },
   });
 }
@@ -408,52 +490,96 @@ export function useManagementReviewOutputMutation(
   outputId?: number,
 ) {
   const queryClient = useQueryClient();
+  const createMutation = useCreateManagementReviewOutput();
+  const updateMutation = useUpdateManagementReviewOutput();
+  const deleteMutation = useDeleteManagementReviewOutput();
+
   return useMutation({
-    mutationFn: (payload: { method: "POST" | "PATCH" | "DELETE"; body?: unknown }) =>
-      apiRequest(
-        outputId
-          ? `/api/organizations/${orgId}/governance/management-reviews/${reviewId}/outputs/${outputId}`
-          : `/api/organizations/${orgId}/governance/management-reviews/${reviewId}/outputs`,
-        {
-          method: payload.method,
-          body: payload.body === undefined ? undefined : JSON.stringify(payload.body),
-        },
-      ),
+    mutationFn: async (payload: { method: "POST" | "PATCH" | "DELETE"; body?: CreateManagementReviewOutputBody | UpdateManagementReviewOutputBody }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const validReviewId = assertNumberId(reviewId, "Análise crítica");
+      if (payload.method === "POST") {
+        return createMutation.mutateAsync({
+          orgId: validOrgId,
+          reviewId: validReviewId,
+          data: payload.body as CreateManagementReviewOutputBody,
+        });
+      }
+      const validOutputId = assertNumberId(outputId, "Saída");
+      if (payload.method === "PATCH") {
+        return updateMutation.mutateAsync({
+          orgId: validOrgId,
+          reviewId: validReviewId,
+          outputId: validOutputId,
+          data: payload.body as UpdateManagementReviewOutputBody,
+        });
+      }
+      await deleteMutation.mutateAsync({
+        orgId: validOrgId,
+        reviewId: validReviewId,
+        outputId: validOutputId,
+      });
+      return undefined;
+    },
     onSuccess: async () => {
-      await invalidateAllGovernanceSystem(queryClient, orgId);
+      if (!orgId || !reviewId) return;
+      await invalidateGovernanceManagementReviews(queryClient, orgId, reviewId);
     },
   });
 }
 
 export function useDocumentCommunicationPlans(orgId?: number, docId?: number) {
-  return useQuery({
-    queryKey: governanceSystemKeys.communicationPlans(orgId || 0, docId || 0),
-    enabled: !!orgId && !!docId,
-    queryFn: () =>
-      apiRequest<DocumentCommunicationPlan[]>(
-        `/api/organizations/${orgId}/documents/${docId}/communication-plans`,
-      ),
+  return useListDocumentCommunicationPlans(orgId ?? 0, docId ?? 0, {
+    query: { enabled: !!orgId && !!docId },
   });
 }
 
-export function useDocumentCommunicationPlanMutation(orgId?: number, docId?: number, planId?: number) {
+export function useDocumentCommunicationPlanMutation(
+  orgId?: number,
+  docId?: number,
+  planId?: number,
+) {
   const queryClient = useQueryClient();
+  const createMutation = useCreateDocumentCommunicationPlan();
+  const updateMutation = useUpdateDocumentCommunicationPlan();
+  const deleteMutation = useDeleteDocumentCommunicationPlan();
+
   return useMutation({
-    mutationFn: (payload: { method: "POST" | "PATCH" | "DELETE"; body?: unknown; planId?: number }) =>
-      apiRequest<DocumentCommunicationPlan[] | undefined>(
-        (payload.planId ?? planId)
-          ? `/api/organizations/${orgId}/documents/${docId}/communication-plans/${payload.planId ?? planId}`
-          : `/api/organizations/${orgId}/documents/${docId}/communication-plans`,
-        {
-          method: payload.method,
-          body: payload.body === undefined ? undefined : JSON.stringify(payload.body),
-        },
-      ),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: governanceSystemKeys.communicationPlans(orgId || 0, docId || 0),
+    mutationFn: async (payload: { method: "POST" | "PATCH" | "DELETE"; body?: CreateDocumentCommunicationPlanBody | UpdateDocumentCommunicationPlanBody; planId?: number }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const validDocId = assertNumberId(docId, "Documento");
+      const targetPlanId = payload.planId ?? planId;
+      if (payload.method === "POST") {
+        return createMutation.mutateAsync({
+          orgId: validOrgId,
+          docId: validDocId,
+          data: payload.body as CreateDocumentCommunicationPlanBody,
+        });
+      }
+      const validPlanId = assertNumberId(targetPlanId, "Plano de comunicação");
+      if (payload.method === "PATCH") {
+        return updateMutation.mutateAsync({
+          orgId: validOrgId,
+          docId: validDocId,
+          planId: validPlanId,
+          data: payload.body as UpdateDocumentCommunicationPlanBody,
+        });
+      }
+      await deleteMutation.mutateAsync({
+        orgId: validOrgId,
+        docId: validDocId,
+        planId: validPlanId,
       });
-      await queryClient.invalidateQueries({ queryKey: ["getDocument", orgId, docId] });
+      return undefined;
+    },
+    onSuccess: async () => {
+      if (!orgId || !docId) return;
+      await queryClient.invalidateQueries({
+        queryKey: getListDocumentCommunicationPlansQueryKey(orgId, docId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: getGetDocumentQueryKey(orgId || 0, docId || 0),
+      });
     },
   });
 }
