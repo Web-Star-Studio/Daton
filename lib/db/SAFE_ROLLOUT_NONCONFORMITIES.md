@@ -1,19 +1,15 @@
 # Safe rollout for organization-scoped nonconformity references
 
-This repository is intentionally in the **phase 1** state of the rollout.
+This repository is now in the **phase 2** state of the rollout.
 
-What phase 1 includes:
-
-- composite unique constraints on referenced tables that already have `organization_id`
-- `organization_id` columns on:
-  - `internal_audit_findings`
-  - `strategic_plan_risk_opportunity_items`
-- application-level validation that keeps cross-org links rejected in the API
-
-What phase 1 intentionally does **not** include yet:
+That means the schema once again declares:
 
 - composite foreign keys from `nonconformities` to `(organization_id, id)` on referenced tables
-- `NOT NULL` enforcement on the newly added `organization_id` columns above
+- `NOT NULL` on:
+  - `internal_audit_findings.organization_id`
+  - `strategic_plan_risk_opportunity_items.organization_id`
+
+Do **not** run `pnpm --filter @workspace/db push` for this phase until phase 1 has already been applied and verified on the target branch.
 
 This split exists because `drizzle-kit push` cannot safely apply the prerequisite constraints, denormalized columns, backfill, and composite foreign keys in one shot on a live database.
 
@@ -48,12 +44,21 @@ pnpm --filter @workspace/scripts backfill-governance-org-scopes --verify-only
 - `strategic_plan_risk_opportunity_items.organization_id` must match `strategic_plans.organization_id`
 - `internal_audit_findings.organization_id` must match `internal_audits.organization_id`
 
-## Phase 2 follow-up
+## Phase 2 rollout order
 
-Once `dev` and `production` are fully backfilled, the follow-up schema change can:
+Once `dev` and `production` are fully backfilled, update the application code to this phase-2 state and then run:
 
-- re-enable the five composite foreign keys on `nonconformities`
-- make `internal_audit_findings.organization_id` `NOT NULL`
-- make `strategic_plan_risk_opportunity_items.organization_id` `NOT NULL`
+```bash
+pnpm --filter @workspace/db push
+```
 
-Only after that second schema change should you run another `pnpm --filter @workspace/db push`.
+Expected result:
+
+- the five composite foreign keys on `nonconformities` can now be created successfully
+- `internal_audit_findings.organization_id` can become `NOT NULL`
+- `strategic_plan_risk_opportunity_items.organization_id` can become `NOT NULL`
+
+## Verification after phase 2
+
+- a direct cross-org write to `nonconformities.audit_finding_id` must fail in PostgreSQL
+- normal same-org links must still succeed

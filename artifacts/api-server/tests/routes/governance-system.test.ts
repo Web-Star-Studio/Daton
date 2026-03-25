@@ -2,6 +2,7 @@ import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   db,
+  nonconformitiesTable,
   sgqProcessRevisionsTable,
   strategicPlansTable,
 } from "@workspace/db";
@@ -589,8 +590,27 @@ describe("governance system routes", () => {
     expect(patchedNc.status).toBe(400);
     expect(patchedNc.body.error).toContain("Achado de auditoria inválido");
 
-    // Phase 1 rollout keeps DB-level composite FKs disabled until production backfill is complete.
-    // Cross-org protection remains enforced at the application layer above.
+    let compositeFkError: unknown;
+    try {
+      await db.insert(nonconformitiesTable).values({
+        organizationId: context.organizationId,
+        originType: "audit_finding",
+        title: `NC DB ${context.prefix}`,
+        description: "Tentativa de vínculo cross-org direto no banco",
+        auditFindingId: foreignFinding.body.id,
+        createdById: context.userId,
+        updatedById: context.userId,
+      });
+    } catch (error) {
+      compositeFkError = error;
+    }
+
+    expect(compositeFkError).toBeTruthy();
+    const compositeFkMessage =
+      compositeFkError instanceof Error
+        ? compositeFkError.message
+        : String(compositeFkError);
+    expect(compositeFkMessage).toContain("nonconformities_audit_finding_org_fk");
   });
 
   it("requires inputs and outputs before completing a management review and keeps action outputs open", async () => {
