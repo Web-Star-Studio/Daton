@@ -10,6 +10,7 @@
     "create-org-admin": "tsx ./src/create-org-admin.ts",
     "migrate": "tsx ./src/migrate/index.ts",
     "backfill-trainings": "tsx ./src/migrate/backfill-trainings.ts",
+    "backfill-governance-org-scopes": "tsx ./src/migrate/backfill-governance-org-scopes.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
