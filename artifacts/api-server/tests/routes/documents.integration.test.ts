@@ -3,8 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   db,
   documentCriticalAnalysisTable,
+  documentRecipientGroupLinksTable,
+  documentRecipientUserLinksTable,
+  documentRecipientsTable,
   documentsTable,
   notificationsTable,
+  organizationContactGroupsTable,
 } from "@workspace/db";
 import { and, desc, eq } from "drizzle-orm";
 
@@ -46,6 +50,7 @@ async function createDocumentForTest(
     criticalReviewerIds?: number[];
     approverIds?: number[];
     recipientIds?: number[];
+    recipientGroupIds?: number[];
     type?: "manual" | "politica";
     normativeRequirements?: string[];
     referenceIds?: number[];
@@ -92,6 +97,7 @@ async function createDocumentForTest(
       ],
       approverIds: options?.approverIds ?? [approver!.id],
       recipientIds: options?.recipientIds ?? [recipient!.id],
+      recipientGroupIds: options?.recipientGroupIds,
       normativeRequirements: options?.normativeRequirements,
       referenceIds: options?.referenceIds,
     });
@@ -107,12 +113,172 @@ async function createDocumentForTest(
   };
 }
 
+async function createRecipientGroupForTest(
+  context: TestOrgContext,
+  contactIds: number[],
+  name = `Grupo ${context.prefix}`,
+) {
+  const response = await request(app)
+    .post(`/api/organizations/${context.organizationId}/contact-groups`)
+    .set(authHeader(context))
+    .send({
+      name,
+      description: "Grupo de teste",
+      contactIds,
+    });
+
+  expect(response.status).toBe(201);
+  return response.body as {
+    id: number;
+    name: string;
+    members: Array<{ id: number; sourceType: string; name: string; email: string | null }>;
+  };
+}
+
+async function createContactForTest(
+  context: TestOrgContext,
+  options:
+    | {
+        sourceType: "system_user";
+        sourceId: number;
+      }
+    | {
+        sourceType: "employee";
+        sourceId: number;
+      }
+    | {
+        sourceType: "external_contact";
+        name: string;
+        email: string;
+      },
+) {
+  const payload =
+    options.sourceType === "external_contact"
+      ? {
+          sourceType: options.sourceType,
+          name: options.name,
+          email: options.email,
+          classificationType: "other",
+        }
+      : {
+          sourceType: options.sourceType,
+          sourceId: options.sourceId,
+          classificationType: "other",
+        };
+
+  const response = await request(app)
+    .post(`/api/organizations/${context.organizationId}/contacts`)
+    .set(authHeader(context))
+    .send(payload);
+
+  expect(response.status).toBe(201);
+  return response.body as {
+    id: number;
+    sourceType: string;
+    sourceId: number | null;
+    name: string;
+    email: string | null;
+  };
+}
+
 describe("documents routes", () => {
   beforeEach(() => {
     createCompletionMock.mockReset();
     createCompletionMock.mockResolvedValue({
       choices: [{ message: { content: '{"suggestions":[]}' } }],
     });
+  });
+
+  it("creates and updates reusable contact groups", async () => {
+    const context = await createTestContext({
+      seed: "documents-recipient-groups-crud",
+    });
+    contexts.push(context);
+
+    const userA = await createTestUser(context, {
+      role: "operator",
+      suffix: "group-user-a",
+      modules: ["documents"],
+    });
+    const userB = await createTestUser(context, {
+      role: "analyst",
+      suffix: "group-user-b",
+      modules: ["documents"],
+    });
+
+    const contactA = await createContactForTest(context, {
+      sourceType: "system_user",
+      sourceId: userA.id,
+    });
+    const contactB = await createContactForTest(context, {
+      sourceType: "system_user",
+      sourceId: userB.id,
+    });
+
+    const created = await request(app)
+      .post(`/api/organizations/${context.organizationId}/contact-groups`)
+      .set(authHeader(context))
+      .send({
+        name: "Lideranças SGQ",
+        description: "Distribuição da liderança",
+        contactIds: [contactA.id],
+      });
+
+    expect(created.status).toBe(201);
+    expect(created.body.name).toBe("Lideranças SGQ");
+    expect(created.body.members).toHaveLength(1);
+
+    const updated = await request(app)
+      .patch(
+        `/api/organizations/${context.organizationId}/contact-groups/${created.body.id}`,
+      )
+      .set(authHeader(context))
+      .send({
+        name: "Lideranças SGQ",
+        description: "Distribuição revisada",
+        contactIds: [contactA.id, contactB.id],
+      });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.members).toHaveLength(2);
+
+    const listed = await request(app)
+      .get(`/api/organizations/${context.organizationId}/contact-groups`)
+      .set(authHeader(context));
+
+    expect(listed.status).toBe(200);
+    expect(listed.body).toHaveLength(1);
+    expect(
+      listed.body[0].members.map((member: { sourceId: number }) => member.sourceId),
+    ).toEqual(expect.arrayContaining([userA.id, userB.id]));
+  });
+
+  it("rejects foreign users when linking reusable contacts", async () => {
+    const context = await createTestContext({
+      seed: "documents-recipient-groups-validation-local",
+    });
+    const foreignContext = await createTestContext({
+      seed: "documents-recipient-groups-validation-foreign",
+    });
+    contexts.push(context, foreignContext);
+
+    const foreignUser = await createTestUser(foreignContext, {
+      role: "operator",
+      suffix: "foreign-group-user",
+      modules: ["documents"],
+    });
+
+    const response = await request(app)
+      .post(`/api/organizations/${context.organizationId}/contacts`)
+      .set(authHeader(context))
+      .send({
+        sourceType: "system_user",
+        sourceId: foreignUser.id,
+        classificationType: "other",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain("Usuário não encontrado");
   });
 
   it("rejects critical reviewers from another organization", async () => {
@@ -152,6 +318,199 @@ describe("documents routes", () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error).toContain("não pertencem a esta organização");
+  });
+
+  it("creates documents with recipient groups only", async () => {
+    const context = await createTestContext({
+      seed: "documents-recipient-groups-create-document",
+    });
+    contexts.push(context);
+
+    const groupedRecipient = await createTestUser(context, {
+      role: "operator",
+      suffix: "grouped-recipient",
+      modules: ["documents"],
+    });
+    const groupedContact = await createContactForTest(context, {
+      sourceType: "system_user",
+      sourceId: groupedRecipient.id,
+    });
+    const group = await createRecipientGroupForTest(context, [groupedContact.id]);
+
+    const { document } = await createDocumentForTest(context, {
+      recipientIds: [],
+      recipientGroupIds: [group.id],
+    });
+
+    const detail = await request(app)
+      .get(`/api/organizations/${context.organizationId}/documents/${document.id}`)
+      .set(authHeader(context));
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.recipientGroups).toHaveLength(1);
+    expect(detail.body.recipientGroups[0].id).toBe(group.id);
+    expect(detail.body.recipients).toHaveLength(1);
+    expect(detail.body.recipients[0].userId).toBe(groupedRecipient.id);
+    expect(detail.body.directRecipients).toHaveLength(0);
+  });
+
+  it("shows non-system group members as informational contacts only", async () => {
+    const context = await createTestContext({
+      seed: "documents-recipient-groups-non-operational-members",
+    });
+    contexts.push(context);
+
+    const groupedRecipient = await createTestUser(context, {
+      role: "operator",
+      suffix: "grouped-recipient",
+      modules: ["documents"],
+    });
+    const employee = await createEmployee(context, {
+      name: `Colaborador ${context.prefix}`,
+    });
+    const userContact = await createContactForTest(context, {
+      sourceType: "system_user",
+      sourceId: groupedRecipient.id,
+    });
+    const employeeContact = await createContactForTest(context, {
+      sourceType: "employee",
+      sourceId: employee.id,
+    });
+    const externalContact = await createContactForTest(context, {
+      sourceType: "external_contact",
+      name: `Cliente ${context.prefix}`,
+      email: `external-${context.prefix}@example.com`,
+    });
+    const group = await createRecipientGroupForTest(context, [
+      userContact.id,
+      employeeContact.id,
+      externalContact.id,
+    ]);
+
+    const { document } = await createDocumentForTest(context, {
+      recipientIds: [],
+      recipientGroupIds: [group.id],
+    });
+
+    const detail = await request(app)
+      .get(`/api/organizations/${context.organizationId}/documents/${document.id}`)
+      .set(authHeader(context));
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.recipients).toHaveLength(1);
+    expect(detail.body.recipients[0].userId).toBe(groupedRecipient.id);
+    expect(detail.body.groupContacts).toHaveLength(2);
+    expect(
+      detail.body.groupContacts.map((contact: { sourceType: string }) => contact.sourceType),
+    ).toEqual(expect.arrayContaining(["employee", "external_contact"]));
+  });
+
+  it("deduplicates direct recipients and group members on create and update", async () => {
+    const context = await createTestContext({
+      seed: "documents-recipient-groups-deduplicate",
+    });
+    contexts.push(context);
+
+    const groupedRecipient = await createTestUser(context, {
+      role: "operator",
+      suffix: "grouped-recipient",
+      modules: ["documents"],
+    });
+    const extraRecipient = await createTestUser(context, {
+      role: "operator",
+      suffix: "extra-recipient",
+      modules: ["documents"],
+    });
+    const groupedContact = await createContactForTest(context, {
+      sourceType: "system_user",
+      sourceId: groupedRecipient.id,
+    });
+    const group = await createRecipientGroupForTest(context, [groupedContact.id]);
+
+    const { document } = await createDocumentForTest(context, {
+      recipientIds: [groupedRecipient.id],
+      recipientGroupIds: [group.id],
+    });
+
+    const createdRecipients = await db
+      .select({ userId: documentRecipientsTable.userId })
+      .from(documentRecipientsTable)
+      .where(eq(documentRecipientsTable.documentId, document.id));
+
+    expect(createdRecipients).toHaveLength(1);
+    expect(createdRecipients[0]?.userId).toBe(groupedRecipient.id);
+
+    const updateResponse = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/documents/${document.id}`)
+      .set(authHeader(context))
+      .send({
+        recipientIds: [groupedRecipient.id, extraRecipient.id],
+        recipientGroupIds: [group.id],
+      });
+
+    expect(updateResponse.status).toBe(200);
+
+    const recipientUserLinks = await db
+      .select({ userId: documentRecipientUserLinksTable.userId })
+      .from(documentRecipientUserLinksTable)
+      .where(eq(documentRecipientUserLinksTable.documentId, document.id));
+
+    expect(recipientUserLinks.map((row) => row.userId)).toEqual(
+      expect.arrayContaining([groupedRecipient.id, extraRecipient.id]),
+    );
+
+    const updatedRecipients = await db
+      .select({ userId: documentRecipientsTable.userId })
+      .from(documentRecipientsTable)
+      .where(eq(documentRecipientsTable.documentId, document.id));
+
+    expect(updatedRecipients.map((row) => row.userId).sort((a, b) => a - b)).toEqual(
+      [extraRecipient.id, groupedRecipient.id].sort((a, b) => a - b),
+    );
+  });
+
+  it("blocks deletion of contact groups that are linked to documents", async () => {
+    const context = await createTestContext({
+      seed: "documents-recipient-groups-delete-blocked",
+    });
+    contexts.push(context);
+
+    const groupedRecipient = await createTestUser(context, {
+      role: "operator",
+      suffix: "grouped-recipient",
+      modules: ["documents"],
+    });
+    const groupedContact = await createContactForTest(context, {
+      sourceType: "system_user",
+      sourceId: groupedRecipient.id,
+    });
+    const group = await createRecipientGroupForTest(context, [groupedContact.id]);
+
+    const { document } = await createDocumentForTest(context, {
+      recipientIds: [],
+      recipientGroupIds: [group.id],
+    });
+
+    const deleteResponse = await request(app)
+      .delete(`/api/organizations/${context.organizationId}/contact-groups/${group.id}`)
+      .set(authHeader(context));
+
+    expect(deleteResponse.status).toBe(400);
+    expect(deleteResponse.body.error).toContain("não pode ser excluído");
+
+    const linkedGroup = await db
+      .select({ id: documentRecipientGroupLinksTable.id })
+      .from(documentRecipientGroupLinksTable)
+      .where(eq(documentRecipientGroupLinksTable.documentId, document.id));
+
+    expect(linkedGroup).toHaveLength(1);
+
+    const storedGroup = await db
+      .select({ id: organizationContactGroupsTable.id })
+      .from(organizationContactGroupsTable)
+      .where(eq(organizationContactGroupsTable.id, group.id));
+
+    expect(storedGroup).toHaveLength(1);
   });
 
   it("blocks submit until critical analysis is completed and allows designated analysts to complete it", async () => {

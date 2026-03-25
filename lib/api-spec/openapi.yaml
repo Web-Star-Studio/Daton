@@ -1837,6 +1837,220 @@ paths:
               schema:
                 $ref: "#/components/schemas/DocumentDetail"
 
+  /organizations/{orgId}/contacts:
+    get:
+      operationId: listOrganizationContacts
+      tags: [organizations]
+      summary: List reusable organization contacts
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: includeArchived
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of reusable contacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OrganizationContact"
+    post:
+      operationId: createOrganizationContact
+      tags: [organizations]
+      summary: Create a reusable organization contact
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationContactBody"
+      responses:
+        "201":
+          description: Contact created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationContact"
+
+  /organizations/{orgId}/contacts/{contactId}:
+    patch:
+      operationId: updateOrganizationContact
+      tags: [organizations]
+      summary: Update a reusable organization contact
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrganizationContactBody"
+      responses:
+        "200":
+          description: Contact updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationContact"
+    delete:
+      operationId: deleteOrganizationContact
+      tags: [organizations]
+      summary: Delete a reusable organization contact
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Contact deleted
+
+  /organizations/{orgId}/contact-groups:
+    get:
+      operationId: listOrganizationContactGroups
+      tags: [organizations]
+      summary: List reusable organization contact groups
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of reusable contact groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OrganizationContactGroup"
+    post:
+      operationId: createOrganizationContactGroup
+      tags: [organizations]
+      summary: Create a reusable organization contact group
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationContactGroupBody"
+      responses:
+        "201":
+          description: Contact group created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationContactGroup"
+
+  /organizations/{orgId}/contact-groups/{groupId}:
+    get:
+      operationId: getOrganizationContactGroup
+      tags: [organizations]
+      summary: Get a reusable organization contact group
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Contact group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationContactGroup"
+    patch:
+      operationId: updateOrganizationContactGroup
+      tags: [organizations]
+      summary: Update a reusable organization contact group
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrganizationContactGroupBody"
+      responses:
+        "200":
+          description: Contact group updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationContactGroup"
+    delete:
+      operationId: deleteOrganizationContactGroup
+      tags: [organizations]
+      summary: Delete a reusable organization contact group
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Contact group deleted
+
   /organizations/{orgId}/documents/normative-requirements/suggestions:
     post:
       operationId: suggestDocumentNormativeRequirements
@@ -9708,6 +9922,18 @@ components:
               readAt:
                 type: string
                 nullable: true
+        directRecipients:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentDirectRecipient"
+        recipientGroups:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrganizationContactGroup"
+        groupContacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrganizationContact"
         references:
           type: array
           items:
@@ -9742,6 +9968,337 @@ components:
         - status
         - currentVersion
         - createdAt
+
+    DocumentDirectRecipient:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+      required:
+        - id
+        - userId
+        - name
+        - email
+
+    OrganizationContact:
+      type: object
+      properties:
+        id:
+          type: integer
+        sourceType:
+          $ref: "#/components/schemas/OrganizationContactSourceType"
+        sourceId:
+          type: integer
+          nullable: true
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        organizationName:
+          type: string
+          nullable: true
+        classificationType:
+          $ref: "#/components/schemas/OrganizationContactClassificationType"
+        classificationDescription:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        archivedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - sourceType
+        - name
+        - classificationType
+        - createdAt
+        - updatedAt
+
+    OrganizationContactGroup:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        memberCount:
+          type: integer
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrganizationContact"
+      required:
+        - id
+        - name
+        - memberCount
+        - members
+
+    OrganizationContactBody:
+      oneOf:
+        - type: object
+          properties:
+            sourceType:
+              type: string
+              enum: [system_user]
+            sourceId:
+              type: integer
+            phone:
+              type: string
+              nullable: true
+            organizationName:
+              type: string
+              nullable: true
+            classificationType:
+              $ref: "#/components/schemas/OrganizationContactClassificationType"
+            classificationDescription:
+              type: string
+              nullable: true
+            notes:
+              type: string
+              nullable: true
+          required:
+            - sourceType
+            - sourceId
+        - type: object
+          properties:
+            sourceType:
+              type: string
+              enum: [employee]
+            sourceId:
+              type: integer
+            phone:
+              type: string
+              nullable: true
+            organizationName:
+              type: string
+              nullable: true
+            classificationType:
+              $ref: "#/components/schemas/OrganizationContactClassificationType"
+            classificationDescription:
+              type: string
+              nullable: true
+            notes:
+              type: string
+              nullable: true
+          required:
+            - sourceType
+            - sourceId
+        - type: object
+          properties:
+            sourceType:
+              type: string
+              enum: [external_contact]
+            sourceId:
+              type: integer
+              nullable: true
+            name:
+              type: string
+            email:
+              type: string
+              format: email
+            phone:
+              type: string
+              nullable: true
+            organizationName:
+              type: string
+              nullable: true
+            classificationType:
+              $ref: "#/components/schemas/OrganizationContactClassificationType"
+            classificationDescription:
+              type: string
+              nullable: true
+            notes:
+              type: string
+              nullable: true
+          required:
+            - sourceType
+            - name
+            - email
+
+    UpdateOrganizationContactBody:
+      oneOf:
+        - type: object
+          properties:
+            sourceType:
+              type: string
+              enum: [system_user]
+            sourceId:
+              type: integer
+            name:
+              type: string
+            email:
+              type: string
+              format: email
+            phone:
+              type: string
+              nullable: true
+            organizationName:
+              type: string
+              nullable: true
+            classificationType:
+              $ref: "#/components/schemas/OrganizationContactClassificationType"
+            classificationDescription:
+              type: string
+              nullable: true
+            notes:
+              type: string
+              nullable: true
+            archived:
+              type: boolean
+          required:
+            - sourceType
+            - sourceId
+        - type: object
+          properties:
+            sourceType:
+              type: string
+              enum: [employee]
+            sourceId:
+              type: integer
+            name:
+              type: string
+            email:
+              type: string
+              format: email
+            phone:
+              type: string
+              nullable: true
+            organizationName:
+              type: string
+              nullable: true
+            classificationType:
+              $ref: "#/components/schemas/OrganizationContactClassificationType"
+            classificationDescription:
+              type: string
+              nullable: true
+            notes:
+              type: string
+              nullable: true
+            archived:
+              type: boolean
+          required:
+            - sourceType
+            - sourceId
+        - type: object
+          properties:
+            sourceType:
+              type: string
+              enum: [external_contact]
+            sourceId:
+              type: integer
+              nullable: true
+            name:
+              type: string
+            email:
+              type: string
+              format: email
+            phone:
+              type: string
+              nullable: true
+            organizationName:
+              type: string
+              nullable: true
+            classificationType:
+              $ref: "#/components/schemas/OrganizationContactClassificationType"
+            classificationDescription:
+              type: string
+              nullable: true
+            notes:
+              type: string
+              nullable: true
+            archived:
+              type: boolean
+        - type: object
+          not:
+            required:
+              - sourceType
+          properties:
+            sourceId:
+              type: integer
+              nullable: true
+            name:
+              type: string
+            email:
+              type: string
+              format: email
+            phone:
+              type: string
+              nullable: true
+            organizationName:
+              type: string
+              nullable: true
+            classificationType:
+              $ref: "#/components/schemas/OrganizationContactClassificationType"
+            classificationDescription:
+              type: string
+              nullable: true
+            notes:
+              type: string
+              nullable: true
+            archived:
+              type: boolean
+
+    OrganizationContactGroupBody:
+      type: object
+      properties:
+        description:
+          type: string
+          nullable: true
+        name:
+          type: string
+        contactIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: integer
+      required:
+        - name
+        - contactIds
+
+    UpdateOrganizationContactGroupBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        contactIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: integer
+
+    OrganizationContactSourceType:
+      type: string
+      enum: [system_user, employee, external_contact]
+
+    OrganizationContactClassificationType:
+      type: string
+      enum: [supplier, customer, partner, auditor, consultant, other]
 
     CreateDocumentBody:
       type: object
@@ -9783,6 +10340,10 @@ components:
           items:
             type: integer
         recipientIds:
+          type: array
+          items:
+            type: integer
+        recipientGroupIds:
           type: array
           items:
             type: integer
@@ -9848,6 +10409,10 @@ components:
           items:
             type: integer
         recipientIds:
+          type: array
+          items:
+            type: integer
+        recipientGroupIds:
           type: array
           items:
             type: integer

@@ -19,6 +19,8 @@ import {
   useDeleteDocument,
   useListUnits,
   getListUnitsQueryKey,
+  useListOrganizationContactGroups,
+  getListOrganizationContactGroupsQueryKey,
 } from "@workspace/api-client-react";
 import type {
   DocumentDetailUnitsItem,
@@ -27,6 +29,7 @@ import type {
   DocumentDetailReferencesItem,
   DocumentAttachment,
   DocumentVersion,
+  OrganizationContactGroup,
 } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -44,6 +47,7 @@ import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
 import { useUserMultiPicker } from "@/hooks/use-user-multi-picker";
 import { useDocumentMultiPicker } from "@/hooks/use-document-multi-picker";
 import { DocumentNormativeRequirementsField } from "@/components/documents/document-normative-requirements-field";
+import { getDocumentRecipientResolution } from "@/lib/organization-contacts";
 import {
   useDocumentCommunicationPlanMutation,
   useDocumentCommunicationPlans,
@@ -145,6 +149,7 @@ interface EditFormState {
   unitIds: number[];
   approverIds: number[];
   recipientIds: number[];
+  recipientGroupIds: number[];
   referenceIds: number[];
   normativeRequirements: string[];
 }
@@ -266,12 +271,21 @@ export default function DocumentDetailPage() {
     orgId,
     selectedIds: editForm?.recipientIds ?? [],
     enabled: !!orgId && editDialogOpen,
-    initialUsers: doc?.recipients?.map((r: DocumentDetailRecipientsItem) => ({
-      id: r.userId!,
-      name: r.name!,
-      email: "",
-    })),
+    initialUsers:
+      doc?.directRecipients?.map((recipient) => ({
+        id: recipient.userId,
+        name: recipient.name,
+        email: recipient.email,
+      })) ?? [],
   });
+  const { data: recipientGroups = [] } = useListOrganizationContactGroups(orgId!, {
+    query: {
+      queryKey: getListOrganizationContactGroupsQueryKey(orgId!),
+      enabled: !!orgId && editDialogOpen,
+    },
+  });
+  const availableRecipientGroups =
+    recipientGroups.length > 0 ? recipientGroups : (doc?.recipientGroups ?? []);
   const criticalReviewerPicker = useUserMultiPicker({
     orgId,
     selectedIds: editForm?.criticalReviewerIds ?? [],
@@ -300,6 +314,11 @@ export default function DocumentDetailPage() {
       }),
     ),
   });
+  const recipientResolution = getDocumentRecipientResolution(
+    editForm?.recipientIds ?? [],
+    availableRecipientGroups,
+    editForm?.recipientGroupIds ?? [],
+  );
 
   usePageTitle(doc?.title);
 
@@ -487,8 +506,14 @@ export default function DocumentDetailPage() {
           ?.map((a: DocumentDetailApproversItem) => a.userId!)
           .filter(Boolean) ?? [],
       recipientIds:
-        doc.recipients
-          ?.map((r: DocumentDetailRecipientsItem) => r.userId!)
+        (
+          doc.directRecipients?.map((recipient) => recipient.userId) ??
+          doc.recipients?.map((r: DocumentDetailRecipientsItem) => r.userId!) ??
+          []
+        ).filter(Boolean) ?? [],
+      recipientGroupIds:
+        doc.recipientGroups
+          ?.map((group: OrganizationContactGroup) => group.id)
           .filter(Boolean) ?? [],
       referenceIds:
         doc.references
@@ -518,7 +543,11 @@ export default function DocumentDetailPage() {
         form.elaboratorIds.length > 0 &&
         form.criticalReviewerIds.length > 0 &&
         form.approverIds.length > 0 &&
-        form.recipientIds.length > 0
+        getDocumentRecipientResolution(
+          form.recipientIds,
+          availableRecipientGroups,
+          form.recipientGroupIds,
+        ).totalContactCount > 0
       );
     }
 
@@ -551,6 +580,7 @@ export default function DocumentDetailPage() {
         unitIds: editForm.unitIds,
         approverIds: editForm.approverIds,
         recipientIds: editForm.recipientIds,
+        recipientGroupIds: editForm.recipientGroupIds,
         referenceIds: editForm.referenceIds,
         normativeRequirements: editForm.normativeRequirements,
       } as never,
@@ -1399,6 +1429,45 @@ export default function DocumentDetailPage() {
             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
               <Users className="h-4 w-4" /> Destinatários
             </h3>
+            {doc.recipientGroups && doc.recipientGroups.length > 0 ? (
+              <div className="mb-4 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Grupos selecionados
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {doc.recipientGroups.map((group: OrganizationContactGroup) => (
+                    <span
+                      key={group.id}
+                      className="rounded-full bg-secondary px-2.5 py-1 text-xs text-secondary-foreground"
+                    >
+                      {group.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {doc.groupContacts && doc.groupContacts.length > 0 ? (
+              <div className="mb-4 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Contatos incluídos pelos grupos
+                </p>
+                <div className="space-y-2">
+                  {doc.groupContacts.map((contact) => (
+                    <div
+                      key={contact.id}
+                      className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
+                    >
+                      <p className="text-sm font-medium text-foreground">
+                        {contact.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Sem protocolo de recebimento/leitura no sistema.
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {!doc.recipients || doc.recipients.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Nenhum destinatário definido.
@@ -1494,7 +1563,7 @@ export default function DocumentDetailPage() {
         description={
           [
             "Atualize os dados principais do documento.",
-            "Defina colaborador, análise crítica, aprovadores e destinatários.",
+            "Defina colaborador, análise crítica, aprovadores, grupos e destinatários.",
             "Associe unidades e documentos de referência.",
           ][editStep]
         }
@@ -1657,6 +1726,46 @@ export default function DocumentDetailPage() {
                     onSearchValueChange={recipientPicker.setSearchValue}
                   />
                 </div>
+
+                <div>
+                  <Label>Grupos de destinatários</Label>
+                  <SearchableMultiSelect
+                    placeholder="Selecione grupos"
+                    searchPlaceholder="Buscar grupo..."
+                    emptyMessage="Nenhum grupo cadastrado."
+                    options={availableRecipientGroups.map((group) => ({
+                      value: group.id,
+                      label: group.name,
+                      keywords: group.members.map((member) => member.name),
+                    }))}
+                    selected={editForm.recipientGroupIds}
+                    onToggle={(id) =>
+                      setEditForm({
+                        ...editForm,
+                        recipientGroupIds: toggleMultiSelect(
+                          editForm.recipientGroupIds,
+                          id,
+                        ),
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Destinatários resolvidos
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold">
+                    {recipientResolution.totalContactCount}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {recipientResolution.totalContactCount === 0
+                      ? "Selecione usuários diretos ou grupos para compor a distribuição."
+                      : recipientResolution.nonOperationalContacts.length > 0
+                        ? `${recipientResolution.operationalUserCount} usuário(s) entram no fluxo e ${recipientResolution.nonOperationalContacts.length} contato(s) ficam só como referência.`
+                        : `${recipientResolution.operationalUserCount} usuário(s) entram no fluxo de recebimento e leitura.`}
+                  </p>
+                </div>
               </div>
             )}
 
@@ -1763,7 +1872,7 @@ export default function DocumentDetailPage() {
                       (editForm.elaboratorIds.length === 0 ||
                         editForm.criticalReviewerIds.length === 0 ||
                         editForm.approverIds.length === 0 ||
-                        editForm.recipientIds.length === 0))
+                        recipientResolution.totalContactCount === 0))
                   }
                 >
                   Próximo
@@ -1779,7 +1888,7 @@ export default function DocumentDetailPage() {
                     editForm.elaboratorIds.length === 0 ||
                     editForm.criticalReviewerIds.length === 0 ||
                     editForm.approverIds.length === 0 ||
-                    editForm.recipientIds.length === 0
+                    recipientResolution.totalContactCount === 0
                   }
                 >
                   Salvar Alterações

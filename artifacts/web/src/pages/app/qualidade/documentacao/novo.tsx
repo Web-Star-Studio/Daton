@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
@@ -9,6 +9,8 @@ import {
   useListUnits,
   getListUnitsQueryKey,
   getListDocumentsQueryKey,
+  useListOrganizationContactGroups,
+  getListOrganizationContactGroupsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -23,6 +25,7 @@ import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
 import { useUserMultiPicker } from "@/hooks/use-user-multi-picker";
 import { useDocumentMultiPicker } from "@/hooks/use-document-multi-picker";
 import { DocumentNormativeRequirementsField } from "@/components/documents/document-normative-requirements-field";
+import { getDocumentRecipientResolution } from "@/lib/organization-contacts";
 
 const TYPE_OPTIONS = [
   { value: "manual", label: "Manual" },
@@ -64,9 +67,8 @@ const createDocumentSchema = z.object({
     .min(1, "Selecione ao menos um responsável pela análise crítica"),
   unitIds: z.array(z.number()),
   approverIds: z.array(z.number()).min(1, "Selecione ao menos um aprovador"),
-  recipientIds: z
-    .array(z.number())
-    .min(1, "Selecione ao menos um destinatário"),
+  recipientIds: z.array(z.number()),
+  recipientGroupIds: z.array(z.number()),
   referenceIds: z.array(z.number()),
   normativeRequirements: z.array(z.string()),
 });
@@ -95,6 +97,8 @@ export default function NovoDocumentoPage() {
     handleSubmit,
     watch,
     setValue,
+    setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<CreateDocumentFormData>({
     resolver: zodResolver(createDocumentSchema),
@@ -107,6 +111,7 @@ export default function NovoDocumentoPage() {
       unitIds: [],
       approverIds: [],
       recipientIds: [],
+      recipientGroupIds: [],
       referenceIds: [],
       normativeRequirements: [],
     },
@@ -117,6 +122,7 @@ export default function NovoDocumentoPage() {
   const criticalReviewerIds = watch("criticalReviewerIds");
   const approverIds = watch("approverIds");
   const recipientIds = watch("recipientIds");
+  const recipientGroupIds = watch("recipientGroupIds");
   const referenceIds = watch("referenceIds");
   const normativeRequirements = watch("normativeRequirements");
   const title = watch("title");
@@ -146,13 +152,31 @@ export default function NovoDocumentoPage() {
     selectedIds: recipientIds,
     enabled: !!orgId,
   });
+  const { data: recipientGroups = [] } = useListOrganizationContactGroups(orgId!, {
+    query: {
+      queryKey: getListOrganizationContactGroupsQueryKey(orgId!),
+      enabled: !!orgId,
+    },
+  });
   const referencePicker = useDocumentMultiPicker({
     orgId,
     selectedIds: referenceIds,
     enabled: !!orgId,
   });
 
+  const recipientResolution = getDocumentRecipientResolution(
+    recipientIds,
+    recipientGroups,
+    recipientGroupIds,
+  );
+
   const createMut = useCreateDocument();
+
+  useEffect(() => {
+    if (recipientResolution.totalContactCount > 0) {
+      clearErrors("recipientIds");
+    }
+  }, [clearErrors, recipientResolution.totalContactCount]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -223,6 +247,14 @@ export default function NovoDocumentoPage() {
   const onSubmit = async (data: CreateDocumentFormData) => {
     if (!orgId) return;
 
+    if (recipientResolution.totalContactCount === 0) {
+      setError("recipientIds", {
+        type: "manual",
+        message: "Selecione ao menos um destinatário ou grupo",
+      });
+      return;
+    }
+
     try {
       const doc = await createMut.mutateAsync({
         orgId,
@@ -236,6 +268,10 @@ export default function NovoDocumentoPage() {
           approverIds: data.approverIds,
           recipientIds:
             data.recipientIds.length > 0 ? data.recipientIds : undefined,
+          recipientGroupIds:
+            data.recipientGroupIds.length > 0
+              ? data.recipientGroupIds
+              : undefined,
           referenceIds:
             data.referenceIds.length > 0 ? data.referenceIds : undefined,
           normativeRequirements:
@@ -390,6 +426,26 @@ export default function NovoDocumentoPage() {
             )}
           </div>
           <div>
+            <Label>Grupos de destinatários</Label>
+            <SearchableMultiSelect
+              placeholder="Selecionar grupos"
+              searchPlaceholder="Buscar grupo..."
+              emptyMessage="Nenhum grupo cadastrado."
+              options={recipientGroups.map((group) => ({
+                value: group.id,
+                label: group.name,
+                keywords: group.members.map((member) => member.name),
+              }))}
+              selected={recipientGroupIds}
+              onToggle={(id) =>
+                toggleMultiSelect("recipientGroupIds", recipientGroupIds, id)
+              }
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <div>
             <Label>Destinatários (protocolo de recebimento) *</Label>
             <SearchableMultiSelect
               placeholder="Selecionar destinatários"
@@ -411,6 +467,21 @@ export default function NovoDocumentoPage() {
                 {errors.recipientIds.message}
               </p>
             )}
+          </div>
+          <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Destinatários resolvidos
+            </p>
+            <p className="mt-2 text-2xl font-semibold">
+              {recipientResolution.totalContactCount}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {recipientResolution.totalContactCount === 0
+                ? "Selecione usuários diretos ou grupos para compor a distribuição."
+                : recipientResolution.nonOperationalContacts.length > 0
+                  ? `${recipientResolution.operationalUserCount} usuário(s) entram no fluxo e ${recipientResolution.nonOperationalContacts.length} contato(s) ficam só como referência.`
+                  : `${recipientResolution.operationalUserCount} usuário(s) entram no fluxo de recebimento e leitura.`}
+            </p>
           </div>
         </div>
 

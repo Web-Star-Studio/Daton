@@ -102,6 +102,20 @@ async function uploadCsvAttachment(token: string) {
   }>;
 }
 
+async function selectSearchableMultiOption(
+  root:
+    | import("@playwright/test").Page
+    | import("@playwright/test").Locator,
+  fieldLabel: string,
+  searchPlaceholder: string,
+  optionLabel: string,
+) {
+  const field = root.getByText(fieldLabel, { exact: true }).locator("xpath=..");
+  await field.getByRole("button").click();
+  await root.getByPlaceholder(searchPlaceholder).fill(optionLabel);
+  await root.getByText(optionLabel, { exact: true }).click();
+}
+
 test("critical analysis gates the document flow before approval and is reopened on rework", async ({
   authenticatedPage,
   browser,
@@ -339,6 +353,213 @@ test("critical analysis gates the document flow before approval and is reopened 
     await criticalReviewerContext.close();
     await approverContext.close();
   }
+});
+
+test("creates catalog contacts and groups in system settings and resolves document acknowledgment from the selected group", async ({
+  authenticatedPage,
+  orgAdmin,
+}, testInfo) => {
+  const prefix = testInfo.title.replace(/\W+/g, "-").toLowerCase();
+  const criticalReviewer = await createUserWithDocumentsModule(
+    orgAdmin.organizationId,
+    orgAdmin.token,
+    prefix,
+    { role: "analyst", suffix: "critical-reviewer" },
+  );
+  const approver = await createUserWithDocumentsModule(
+    orgAdmin.organizationId,
+    orgAdmin.token,
+    prefix,
+    { role: "operator", suffix: "approver" },
+  );
+  const groupedRecipient = await createUserWithDocumentsModule(
+    orgAdmin.organizationId,
+    orgAdmin.token,
+    prefix,
+    { role: "operator", suffix: "group-recipient" },
+  );
+  const elaborator = await createEmployee(
+    { organizationId: orgAdmin.organizationId },
+    {
+      name: `${prefix} Elaborador`,
+    },
+  );
+  const groupedEmployee = await createEmployee(
+    { organizationId: orgAdmin.organizationId },
+    {
+      name: `${prefix} Colaborador Grupo`,
+    },
+  );
+  const groupedRecipientContact = await apiJson<{ id: number; name: string }>(
+    `/api/organizations/${orgAdmin.organizationId}/contacts`,
+    orgAdmin.token,
+    {
+      method: "POST",
+      bodyJson: {
+        sourceType: "system_user",
+        sourceId: groupedRecipient.id,
+        classificationType: "other",
+      },
+    },
+  );
+  const groupedEmployeeContact = await apiJson<{ id: number; name: string }>(
+    `/api/organizations/${orgAdmin.organizationId}/contacts`,
+    orgAdmin.token,
+    {
+      method: "POST",
+      bodyJson: {
+        sourceType: "employee",
+        sourceId: groupedEmployee.id,
+        classificationType: "other",
+      },
+    },
+  );
+  const groupName = `Grupo ${Date.now()}`;
+  const externalContactName = `Contato externo ${Date.now()}`;
+  const documentTitle = `Documento grupo ${Date.now()}`;
+
+  await authenticatedPage
+    .goto("/configuracoes/sistema");
+  await expect(authenticatedPage.getByRole("tab", { name: "Usuários" })).toBeVisible();
+  await expect(authenticatedPage.getByText("Contatos reutilizáveis")).toBeVisible();
+  await expect(authenticatedPage.getByText("Grupos")).toBeVisible();
+
+  await authenticatedPage
+    .getByRole("button", { name: "Novo contato" })
+    .click();
+  const contactDialog = authenticatedPage.getByRole("dialog");
+  await contactDialog
+    .getByText("Nome", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill(externalContactName);
+  await contactDialog
+    .getByText("Email", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill(`${prefix}-external@daton.e2e`);
+  await contactDialog
+    .getByText("Organização / empresa", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("Fornecedor de teste");
+  await contactDialog
+    .getByRole("button", { name: "Criar contato" })
+    .click();
+  await expect(authenticatedPage.getByText(externalContactName)).toBeVisible();
+
+  await authenticatedPage
+    .getByRole("button", { name: "Novo grupo" })
+    .click();
+  const groupDialog = authenticatedPage.getByRole("dialog");
+  await groupDialog
+    .getByText("Nome", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill(groupName);
+  await selectSearchableMultiOption(
+    groupDialog,
+    "Membros",
+    "Buscar contatos...",
+    groupedRecipientContact.name,
+  );
+  await selectSearchableMultiOption(
+    groupDialog,
+    "Membros",
+    "Buscar contatos...",
+    groupedEmployeeContact.name,
+  );
+  await selectSearchableMultiOption(
+    groupDialog,
+    "Membros",
+    "Buscar contatos...",
+    externalContactName,
+  );
+  await groupDialog.getByRole("button", { name: "Criar grupo" }).click();
+  await expect(authenticatedPage.getByText(groupName)).toBeVisible();
+  await expect(authenticatedPage.getByText("1 usuário • 1 colaborador • 1 externo")).toBeVisible();
+
+  await authenticatedPage.goto("/qualidade/documentacao");
+
+  await authenticatedPage.getByRole("button", { name: "Novo Documento" }).click();
+  await authenticatedPage
+    .getByPlaceholder("Ex.: Manual da Qualidade")
+    .fill(documentTitle);
+  await authenticatedPage.getByRole("button", { name: "Próximo" }).click();
+
+  await selectSearchableMultiOption(
+    authenticatedPage,
+    "Elaboradores *",
+    "Buscar colaborador...",
+    elaborator.name,
+  );
+  await selectSearchableMultiOption(
+    authenticatedPage,
+    "Responsáveis pela análise crítica *",
+    "Buscar responsável...",
+    criticalReviewer.name,
+  );
+  await selectSearchableMultiOption(
+    authenticatedPage,
+    "Aprovadores *",
+    "Buscar aprovador...",
+    approver.name,
+  );
+  await selectSearchableMultiOption(
+    authenticatedPage,
+    "Grupos de destinatários",
+    "Buscar grupo...",
+    groupName,
+  );
+  await authenticatedPage.getByRole("button", { name: "Próximo" }).click();
+  await authenticatedPage.getByRole("button", { name: "Próximo" }).click();
+  await authenticatedPage.getByRole("button", { name: "Salvar Documento" }).click();
+
+  await expect(authenticatedPage.getByText(documentTitle)).toBeVisible();
+  const documentUrl = authenticatedPage.url();
+  const docId = Number(documentUrl.split("/").pop());
+  expect(docId).toBeGreaterThan(0);
+
+  await apiJson(
+    `/api/organizations/${orgAdmin.organizationId}/documents/${docId}/critical-analysis/complete`,
+    criticalReviewer.token,
+    {
+      method: "POST",
+      bodyJson: {},
+    },
+  );
+  await apiJson(
+    `/api/organizations/${orgAdmin.organizationId}/documents/${docId}/submit`,
+    orgAdmin.token,
+    {
+      method: "POST",
+      bodyJson: { changeDescription: "Versão inicial com grupo" },
+    },
+  );
+  await apiJson(
+    `/api/organizations/${orgAdmin.organizationId}/documents/${docId}/approve`,
+    approver.token,
+    {
+      method: "POST",
+      bodyJson: {},
+    },
+  );
+  await apiJson(
+    `/api/organizations/${orgAdmin.organizationId}/documents/${docId}/acknowledge`,
+    groupedRecipient.token,
+    {
+      method: "POST",
+    },
+  );
+
+  await authenticatedPage.reload();
+  await expect(authenticatedPage.getByText("Distribuído")).toBeVisible();
+  await expect(authenticatedPage.getByText(groupName)).toBeVisible();
+  await expect(authenticatedPage.getByText(externalContactName)).toBeVisible();
+  await expect(authenticatedPage.getByText(groupedEmployee.name)).toBeVisible();
+  await expect(
+    authenticatedPage.getByText("Confirmado", { exact: false }),
+  ).toBeVisible();
 });
 
 test("edits normative requirements on document drafts and shows them on detail", async ({

@@ -12,8 +12,11 @@ import type { DocumentDetailCriticalReviewersItem } from "./documentDetailCritic
 import type { DocumentDetailRecipientsItem } from "./documentDetailRecipientsItem";
 import type { DocumentDetailReferencesItem } from "./documentDetailReferencesItem";
 import type { DocumentDetailUnitsItem } from "./documentDetailUnitsItem";
+import type { DocumentDirectRecipient } from "./documentDirectRecipient";
 import type { DocumentVersion } from "./documentVersion";
 import type { Employee } from "./employee";
+import type { OrganizationContact } from "./organizationContact";
+import type { OrganizationContactGroup } from "./organizationContactGroup";
 
 export interface DocumentDetail {
   id: number;
@@ -31,6 +34,9 @@ export interface DocumentDetail {
   criticalReviewers?: DocumentDetailCriticalReviewersItem[];
   approvers?: DocumentDetailApproversItem[];
   recipients?: DocumentDetailRecipientsItem[];
+  directRecipients?: DocumentDirectRecipient[];
+  recipientGroups?: OrganizationContactGroup[];
+  groupContacts?: OrganizationContact[];
   references?: DocumentDetailReferencesItem[];
   attachments?: DocumentAttachment[];
   versions?: DocumentVersion[];

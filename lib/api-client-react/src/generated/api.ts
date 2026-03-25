@@ -99,6 +99,7 @@ import type {
   ListNonconformitiesParams,
   ListNotifications200,
   ListOrgUsers200,
+  ListOrganizationContactsParams,
   ListSgqProcessesParams,
   ListUserOptionsParams,
   LoginBody,
@@ -110,6 +111,10 @@ import type {
   NonconformityDetail,
   NonconformityEffectivenessReviewBody,
   Organization,
+  OrganizationContact,
+  OrganizationContactBody,
+  OrganizationContactGroup,
+  OrganizationContactGroupBody,
   OrganizationOnboardingAuthResponse,
   PaginatedEmployees,
   PaginatedInternalAudits,
@@ -157,6 +162,8 @@ import type {
   UpdateMyPasswordBody,
   UpdateNonconformityBody,
   UpdateOrganizationBody,
+  UpdateOrganizationContactBody,
+  UpdateOrganizationContactGroupBody,
   UpdatePositionBody,
   UpdateSgqProcessBody,
   UpdateStrategicPlanActionBody,
@@ -6630,6 +6637,919 @@ export const useCreateDocument = <
   TContext
 > => {
   return useMutation(getCreateDocumentMutationOptions(options));
+};
+
+/**
+ * @summary List reusable organization contacts
+ */
+export const getListOrganizationContactsUrl = (
+  orgId: number,
+  params?: ListOrganizationContactsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/contacts?${stringifiedParams}`
+    : `/api/organizations/${orgId}/contacts`;
+};
+
+export const listOrganizationContacts = async (
+  orgId: number,
+  params?: ListOrganizationContactsParams,
+  options?: RequestInit,
+): Promise<OrganizationContact[]> => {
+  return customFetch<OrganizationContact[]>(
+    getListOrganizationContactsUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListOrganizationContactsQueryKey = (
+  orgId: number,
+  params?: ListOrganizationContactsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/contacts`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListOrganizationContactsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listOrganizationContacts>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListOrganizationContactsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOrganizationContacts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListOrganizationContactsQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listOrganizationContacts>>
+  > = ({ signal }) =>
+    listOrganizationContacts(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listOrganizationContacts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListOrganizationContactsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listOrganizationContacts>>
+>;
+export type ListOrganizationContactsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List reusable organization contacts
+ */
+
+export function useListOrganizationContacts<
+  TData = Awaited<ReturnType<typeof listOrganizationContacts>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListOrganizationContactsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOrganizationContacts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListOrganizationContactsQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a reusable organization contact
+ */
+export const getCreateOrganizationContactUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/contacts`;
+};
+
+export const createOrganizationContact = async (
+  orgId: number,
+  organizationContactBody: OrganizationContactBody,
+  options?: RequestInit,
+): Promise<OrganizationContact> => {
+  return customFetch<OrganizationContact>(
+    getCreateOrganizationContactUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(organizationContactBody),
+    },
+  );
+};
+
+export const getCreateOrganizationContactMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrganizationContact>>,
+    TError,
+    { orgId: number; data: BodyType<OrganizationContactBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createOrganizationContact>>,
+  TError,
+  { orgId: number; data: BodyType<OrganizationContactBody> },
+  TContext
+> => {
+  const mutationKey = ["createOrganizationContact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createOrganizationContact>>,
+    { orgId: number; data: BodyType<OrganizationContactBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createOrganizationContact(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateOrganizationContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createOrganizationContact>>
+>;
+export type CreateOrganizationContactMutationBody =
+  BodyType<OrganizationContactBody>;
+export type CreateOrganizationContactMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a reusable organization contact
+ */
+export const useCreateOrganizationContact = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrganizationContact>>,
+    TError,
+    { orgId: number; data: BodyType<OrganizationContactBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createOrganizationContact>>,
+  TError,
+  { orgId: number; data: BodyType<OrganizationContactBody> },
+  TContext
+> => {
+  return useMutation(getCreateOrganizationContactMutationOptions(options));
+};
+
+/**
+ * @summary Update a reusable organization contact
+ */
+export const getUpdateOrganizationContactUrl = (
+  orgId: number,
+  contactId: number,
+) => {
+  return `/api/organizations/${orgId}/contacts/${contactId}`;
+};
+
+export const updateOrganizationContact = async (
+  orgId: number,
+  contactId: number,
+  updateOrganizationContactBody: UpdateOrganizationContactBody,
+  options?: RequestInit,
+): Promise<OrganizationContact> => {
+  return customFetch<OrganizationContact>(
+    getUpdateOrganizationContactUrl(orgId, contactId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateOrganizationContactBody),
+    },
+  );
+};
+
+export const getUpdateOrganizationContactMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateOrganizationContact>>,
+    TError,
+    {
+      orgId: number;
+      contactId: number;
+      data: BodyType<UpdateOrganizationContactBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateOrganizationContact>>,
+  TError,
+  {
+    orgId: number;
+    contactId: number;
+    data: BodyType<UpdateOrganizationContactBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateOrganizationContact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateOrganizationContact>>,
+    {
+      orgId: number;
+      contactId: number;
+      data: BodyType<UpdateOrganizationContactBody>;
+    }
+  > = (props) => {
+    const { orgId, contactId, data } = props ?? {};
+
+    return updateOrganizationContact(orgId, contactId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateOrganizationContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateOrganizationContact>>
+>;
+export type UpdateOrganizationContactMutationBody =
+  BodyType<UpdateOrganizationContactBody>;
+export type UpdateOrganizationContactMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a reusable organization contact
+ */
+export const useUpdateOrganizationContact = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateOrganizationContact>>,
+    TError,
+    {
+      orgId: number;
+      contactId: number;
+      data: BodyType<UpdateOrganizationContactBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateOrganizationContact>>,
+  TError,
+  {
+    orgId: number;
+    contactId: number;
+    data: BodyType<UpdateOrganizationContactBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateOrganizationContactMutationOptions(options));
+};
+
+/**
+ * @summary Delete a reusable organization contact
+ */
+export const getDeleteOrganizationContactUrl = (
+  orgId: number,
+  contactId: number,
+) => {
+  return `/api/organizations/${orgId}/contacts/${contactId}`;
+};
+
+export const deleteOrganizationContact = async (
+  orgId: number,
+  contactId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteOrganizationContactUrl(orgId, contactId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteOrganizationContactMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteOrganizationContact>>,
+    TError,
+    { orgId: number; contactId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteOrganizationContact>>,
+  TError,
+  { orgId: number; contactId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteOrganizationContact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteOrganizationContact>>,
+    { orgId: number; contactId: number }
+  > = (props) => {
+    const { orgId, contactId } = props ?? {};
+
+    return deleteOrganizationContact(orgId, contactId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteOrganizationContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteOrganizationContact>>
+>;
+
+export type DeleteOrganizationContactMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a reusable organization contact
+ */
+export const useDeleteOrganizationContact = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteOrganizationContact>>,
+    TError,
+    { orgId: number; contactId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteOrganizationContact>>,
+  TError,
+  { orgId: number; contactId: number },
+  TContext
+> => {
+  return useMutation(getDeleteOrganizationContactMutationOptions(options));
+};
+
+/**
+ * @summary List reusable organization contact groups
+ */
+export const getListOrganizationContactGroupsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/contact-groups`;
+};
+
+export const listOrganizationContactGroups = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<OrganizationContactGroup[]> => {
+  return customFetch<OrganizationContactGroup[]>(
+    getListOrganizationContactGroupsUrl(orgId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListOrganizationContactGroupsQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/contact-groups`] as const;
+};
+
+export const getListOrganizationContactGroupsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listOrganizationContactGroups>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOrganizationContactGroups>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListOrganizationContactGroupsQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listOrganizationContactGroups>>
+  > = ({ signal }) =>
+    listOrganizationContactGroups(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listOrganizationContactGroups>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListOrganizationContactGroupsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listOrganizationContactGroups>>
+>;
+export type ListOrganizationContactGroupsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List reusable organization contact groups
+ */
+
+export function useListOrganizationContactGroups<
+  TData = Awaited<ReturnType<typeof listOrganizationContactGroups>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOrganizationContactGroups>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListOrganizationContactGroupsQueryOptions(
+    orgId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a reusable organization contact group
+ */
+export const getCreateOrganizationContactGroupUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/contact-groups`;
+};
+
+export const createOrganizationContactGroup = async (
+  orgId: number,
+  organizationContactGroupBody: OrganizationContactGroupBody,
+  options?: RequestInit,
+): Promise<OrganizationContactGroup> => {
+  return customFetch<OrganizationContactGroup>(
+    getCreateOrganizationContactGroupUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(organizationContactGroupBody),
+    },
+  );
+};
+
+export const getCreateOrganizationContactGroupMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrganizationContactGroup>>,
+    TError,
+    { orgId: number; data: BodyType<OrganizationContactGroupBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createOrganizationContactGroup>>,
+  TError,
+  { orgId: number; data: BodyType<OrganizationContactGroupBody> },
+  TContext
+> => {
+  const mutationKey = ["createOrganizationContactGroup"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createOrganizationContactGroup>>,
+    { orgId: number; data: BodyType<OrganizationContactGroupBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createOrganizationContactGroup(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateOrganizationContactGroupMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createOrganizationContactGroup>>
+>;
+export type CreateOrganizationContactGroupMutationBody =
+  BodyType<OrganizationContactGroupBody>;
+export type CreateOrganizationContactGroupMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a reusable organization contact group
+ */
+export const useCreateOrganizationContactGroup = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createOrganizationContactGroup>>,
+    TError,
+    { orgId: number; data: BodyType<OrganizationContactGroupBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createOrganizationContactGroup>>,
+  TError,
+  { orgId: number; data: BodyType<OrganizationContactGroupBody> },
+  TContext
+> => {
+  return useMutation(getCreateOrganizationContactGroupMutationOptions(options));
+};
+
+/**
+ * @summary Get a reusable organization contact group
+ */
+export const getGetOrganizationContactGroupUrl = (
+  orgId: number,
+  groupId: number,
+) => {
+  return `/api/organizations/${orgId}/contact-groups/${groupId}`;
+};
+
+export const getOrganizationContactGroup = async (
+  orgId: number,
+  groupId: number,
+  options?: RequestInit,
+): Promise<OrganizationContactGroup> => {
+  return customFetch<OrganizationContactGroup>(
+    getGetOrganizationContactGroupUrl(orgId, groupId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetOrganizationContactGroupQueryKey = (
+  orgId: number,
+  groupId: number,
+) => {
+  return [`/api/organizations/${orgId}/contact-groups/${groupId}`] as const;
+};
+
+export const getGetOrganizationContactGroupQueryOptions = <
+  TData = Awaited<ReturnType<typeof getOrganizationContactGroup>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  groupId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOrganizationContactGroup>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetOrganizationContactGroupQueryKey(orgId, groupId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getOrganizationContactGroup>>
+  > = ({ signal }) =>
+    getOrganizationContactGroup(orgId, groupId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && groupId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getOrganizationContactGroup>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetOrganizationContactGroupQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getOrganizationContactGroup>>
+>;
+export type GetOrganizationContactGroupQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a reusable organization contact group
+ */
+
+export function useGetOrganizationContactGroup<
+  TData = Awaited<ReturnType<typeof getOrganizationContactGroup>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  groupId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getOrganizationContactGroup>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetOrganizationContactGroupQueryOptions(
+    orgId,
+    groupId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a reusable organization contact group
+ */
+export const getUpdateOrganizationContactGroupUrl = (
+  orgId: number,
+  groupId: number,
+) => {
+  return `/api/organizations/${orgId}/contact-groups/${groupId}`;
+};
+
+export const updateOrganizationContactGroup = async (
+  orgId: number,
+  groupId: number,
+  updateOrganizationContactGroupBody: UpdateOrganizationContactGroupBody,
+  options?: RequestInit,
+): Promise<OrganizationContactGroup> => {
+  return customFetch<OrganizationContactGroup>(
+    getUpdateOrganizationContactGroupUrl(orgId, groupId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateOrganizationContactGroupBody),
+    },
+  );
+};
+
+export const getUpdateOrganizationContactGroupMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateOrganizationContactGroup>>,
+    TError,
+    {
+      orgId: number;
+      groupId: number;
+      data: BodyType<UpdateOrganizationContactGroupBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateOrganizationContactGroup>>,
+  TError,
+  {
+    orgId: number;
+    groupId: number;
+    data: BodyType<UpdateOrganizationContactGroupBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateOrganizationContactGroup"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateOrganizationContactGroup>>,
+    {
+      orgId: number;
+      groupId: number;
+      data: BodyType<UpdateOrganizationContactGroupBody>;
+    }
+  > = (props) => {
+    const { orgId, groupId, data } = props ?? {};
+
+    return updateOrganizationContactGroup(orgId, groupId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateOrganizationContactGroupMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateOrganizationContactGroup>>
+>;
+export type UpdateOrganizationContactGroupMutationBody =
+  BodyType<UpdateOrganizationContactGroupBody>;
+export type UpdateOrganizationContactGroupMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a reusable organization contact group
+ */
+export const useUpdateOrganizationContactGroup = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateOrganizationContactGroup>>,
+    TError,
+    {
+      orgId: number;
+      groupId: number;
+      data: BodyType<UpdateOrganizationContactGroupBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateOrganizationContactGroup>>,
+  TError,
+  {
+    orgId: number;
+    groupId: number;
+    data: BodyType<UpdateOrganizationContactGroupBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateOrganizationContactGroupMutationOptions(options));
+};
+
+/**
+ * @summary Delete a reusable organization contact group
+ */
+export const getDeleteOrganizationContactGroupUrl = (
+  orgId: number,
+  groupId: number,
+) => {
+  return `/api/organizations/${orgId}/contact-groups/${groupId}`;
+};
+
+export const deleteOrganizationContactGroup = async (
+  orgId: number,
+  groupId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteOrganizationContactGroupUrl(orgId, groupId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteOrganizationContactGroupMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteOrganizationContactGroup>>,
+    TError,
+    { orgId: number; groupId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteOrganizationContactGroup>>,
+  TError,
+  { orgId: number; groupId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteOrganizationContactGroup"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteOrganizationContactGroup>>,
+    { orgId: number; groupId: number }
+  > = (props) => {
+    const { orgId, groupId } = props ?? {};
+
+    return deleteOrganizationContactGroup(orgId, groupId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteOrganizationContactGroupMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteOrganizationContactGroup>>
+>;
+
+export type DeleteOrganizationContactGroupMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a reusable organization contact group
+ */
+export const useDeleteOrganizationContactGroup = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteOrganizationContactGroup>>,
+    TError,
+    { orgId: number; groupId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteOrganizationContactGroup>>,
+  TError,
+  { orgId: number; groupId: number },
+  TContext
+> => {
+  return useMutation(getDeleteOrganizationContactGroupMutationOptions(options));
 };
 
 /**

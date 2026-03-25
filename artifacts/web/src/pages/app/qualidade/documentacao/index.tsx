@@ -12,6 +12,8 @@ import {
   getListUnitsQueryKey,
   useCreateDocument,
   useDeleteDocument,
+  useListOrganizationContactGroups,
+  getListOrganizationContactGroupsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,7 @@ import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
 import { useUserMultiPicker } from "@/hooks/use-user-multi-picker";
 import { useDocumentMultiPicker } from "@/hooks/use-document-multi-picker";
 import { DocumentNormativeRequirementsField } from "@/components/documents/document-normative-requirements-field";
+import { getDocumentRecipientResolution } from "@/lib/organization-contacts";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Análise crítica",
@@ -94,9 +97,8 @@ const createDocumentSchema = z.object({
     .min(1, "Selecione ao menos um responsável pela análise crítica"),
   unitIds: z.array(z.number()),
   approverIds: z.array(z.number()).min(1, "Selecione ao menos um aprovador"),
-  recipientIds: z
-    .array(z.number())
-    .min(1, "Selecione ao menos um destinatário"),
+  recipientIds: z.array(z.number()),
+  recipientGroupIds: z.array(z.number()),
   referenceIds: z.array(z.number()),
   normativeRequirements: z.array(z.string()),
 });
@@ -272,9 +274,11 @@ export default function DocumentacaoPage() {
       );
     }
     return canWriteDocuments ? (
-      <Button size="sm" onClick={() => setCreateOpen(true)}>
-        <Plus className="h-3.5 w-3.5 mr-1.5" /> Novo Documento
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <Plus className="h-3.5 w-3.5 mr-1.5" /> Novo Documento
+        </Button>
+      </div>
     ) : null;
   }, [canWriteModule, isDeleting, selectedDeletable, selectedIds]);
 
@@ -306,18 +310,6 @@ export default function DocumentacaoPage() {
               </option>
             ))}
           </Select>
-        </div>
-        <div className="flex items-end">
-          <Button
-            variant={typeFilter === "politica" ? "default" : "outline"}
-            onClick={() =>
-              setTypeFilter(typeFilter === "politica" ? "" : "politica")
-            }
-          >
-            {typeFilter === "politica"
-              ? "Limpar filtro de política"
-              : "Ver só políticas"}
-          </Button>
         </div>
         <div className="w-44">
           <Label>Status</Label>
@@ -538,6 +530,8 @@ function CreateDocumentModal({
     handleSubmit,
     watch,
     setValue,
+    setError,
+    clearErrors,
     reset,
     trigger,
     formState: { errors, isSubmitting },
@@ -552,6 +546,7 @@ function CreateDocumentModal({
       unitIds: [],
       approverIds: [],
       recipientIds: [],
+      recipientGroupIds: [],
       referenceIds: [],
       normativeRequirements: [],
     },
@@ -562,6 +557,7 @@ function CreateDocumentModal({
   const criticalReviewerIds = watch("criticalReviewerIds");
   const approverIds = watch("approverIds");
   const recipientIds = watch("recipientIds");
+  const recipientGroupIds = watch("recipientGroupIds");
   const referenceIds = watch("referenceIds");
   const normativeRequirements = watch("normativeRequirements");
   const title = watch("title");
@@ -591,13 +587,31 @@ function CreateDocumentModal({
     selectedIds: recipientIds,
     enabled: !!orgId && open,
   });
+  const { data: recipientGroups = [] } = useListOrganizationContactGroups(orgId!, {
+    query: {
+      queryKey: getListOrganizationContactGroupsQueryKey(orgId!),
+      enabled: !!orgId && open,
+    },
+  });
   const referencePicker = useDocumentMultiPicker({
     orgId,
     selectedIds: referenceIds,
     enabled: !!orgId && open,
   });
 
+  const recipientResolution = getDocumentRecipientResolution(
+    recipientIds,
+    recipientGroups,
+    recipientGroupIds,
+  );
+
   const createMut = useCreateDocument();
+
+  useEffect(() => {
+    if (recipientResolution.totalContactCount > 0) {
+      clearErrors("recipientIds");
+    }
+  }, [clearErrors, recipientResolution.totalContactCount]);
 
   const handleClose = (val: boolean) => {
     if (!val) {
@@ -674,6 +688,14 @@ function CreateDocumentModal({
   const onSubmit = async (data: CreateDocumentFormData) => {
     if (!orgId) return;
 
+    if (recipientResolution.totalContactCount === 0) {
+      setError("recipientIds", {
+        type: "manual",
+        message: "Selecione ao menos um destinatário ou grupo",
+      });
+      return;
+    }
+
     try {
       const doc = await createMut.mutateAsync({
         orgId,
@@ -687,6 +709,10 @@ function CreateDocumentModal({
           approverIds: data.approverIds,
           recipientIds:
             data.recipientIds.length > 0 ? data.recipientIds : undefined,
+          recipientGroupIds:
+            data.recipientGroupIds.length > 0
+              ? data.recipientGroupIds
+              : undefined,
           referenceIds:
             data.referenceIds.length > 0 ? data.referenceIds : undefined,
           normativeRequirements:
@@ -719,9 +745,15 @@ function CreateDocumentModal({
         "elaboratorIds",
         "criticalReviewerIds",
         "approverIds",
-        "recipientIds",
       ]);
       if (!valid) return false;
+      if (recipientResolution.totalContactCount === 0) {
+        setError("recipientIds", {
+          type: "manual",
+          message: "Selecione ao menos um destinatário ou grupo",
+        });
+        return false;
+      }
     }
 
     return true;
@@ -741,14 +773,14 @@ function CreateDocumentModal({
       open={open}
       onOpenChange={handleClose}
       title="Novo Documento"
-      description={
-        [
-          "Defina os dados principais do documento.",
-          "Selecione colaborador, análise crítica, aprovadores e destinatários.",
-          "Associe unidades e referências relacionadas.",
-          "Adicione os anexos iniciais antes de salvar.",
-        ][step]
-      }
+        description={
+          [
+            "Defina os dados principais do documento.",
+            "Selecione colaborador, análise crítica, aprovadores, grupos e destinatários.",
+            "Associe unidades e referências relacionadas.",
+            "Adicione os anexos iniciais antes de salvar.",
+          ][step]
+        }
       size="xl"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -885,6 +917,30 @@ function CreateDocumentModal({
                 )}
               </div>
               <div>
+                <Label>Grupos de destinatários</Label>
+                <SearchableMultiSelect
+                  placeholder="Selecionar grupos"
+                  searchPlaceholder="Buscar grupo..."
+                  emptyMessage="Nenhum grupo cadastrado."
+                  options={recipientGroups.map((group) => ({
+                    value: group.id,
+                    label: group.name,
+                    keywords: group.members.map((member) => member.name),
+                  }))}
+                  selected={recipientGroupIds}
+                  onToggle={(id) =>
+                    toggleMultiSelect(
+                      "recipientGroupIds",
+                      recipientGroupIds,
+                      id,
+                    )
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div>
                 <Label>Destinatários (protocolo de recebimento) *</Label>
                 <SearchableMultiSelect
                   placeholder="Selecionar destinatários"
@@ -906,6 +962,21 @@ function CreateDocumentModal({
                     {errors.recipientIds.message}
                   </p>
                 )}
+              </div>
+              <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Destinatários resolvidos
+                </p>
+                <p className="mt-2 text-2xl font-semibold">
+                  {recipientResolution.totalContactCount}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {recipientResolution.totalContactCount === 0
+                    ? "Selecione usuários diretos ou grupos para compor a distribuição."
+                    : recipientResolution.nonOperationalContacts.length > 0
+                      ? `${recipientResolution.operationalUserCount} usuário(s) entram no fluxo e ${recipientResolution.nonOperationalContacts.length} contato(s) ficam só como referência.`
+                      : `${recipientResolution.operationalUserCount} usuário(s) entram no fluxo de recebimento e leitura.`}
+                </p>
               </div>
             </div>
           </div>

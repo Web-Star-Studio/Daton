@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { OrganizationContactsCatalogSection } from "@/components/settings/OrganizationContactsCatalogSection";
+import { OrganizationContactGroupsSection } from "@/components/settings/OrganizationContactGroupsSection";
 import {
   Plus,
   Trash2,
@@ -617,6 +619,9 @@ export function OrganizationUsersSettingsSection() {
             </div>
           )}
         </div>
+
+        <OrganizationContactsCatalogSection orgId={orgId} />
+        <OrganizationContactGroupsSection orgId={orgId} />
       </div>
 
       <Dialog

@@ -2449,6 +2449,58 @@ export type DocumentDetailReferencesItem = {
   title?: string;
 };
 
+export interface DocumentDirectRecipient {
+  id: number;
+  userId: number;
+  name: string;
+  email: string;
+}
+
+export type OrganizationContactSourceType =
+  (typeof OrganizationContactSourceType)[keyof typeof OrganizationContactSourceType];
+
+export const OrganizationContactSourceType = {
+  system_user: "system_user",
+  employee: "employee",
+  external_contact: "external_contact",
+} as const;
+
+export type OrganizationContactClassificationType =
+  (typeof OrganizationContactClassificationType)[keyof typeof OrganizationContactClassificationType];
+
+export const OrganizationContactClassificationType = {
+  supplier: "supplier",
+  customer: "customer",
+  partner: "partner",
+  auditor: "auditor",
+  consultant: "consultant",
+  other: "other",
+} as const;
+
+export interface OrganizationContact {
+  id: number;
+  sourceType: OrganizationContactSourceType;
+  sourceId?: number | null;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  organizationName?: string | null;
+  classificationType: OrganizationContactClassificationType;
+  classificationDescription?: string | null;
+  notes?: string | null;
+  archivedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrganizationContactGroup {
+  id: number;
+  name: string;
+  description?: string | null;
+  memberCount: number;
+  members: OrganizationContact[];
+}
+
 export interface DocumentAttachment {
   id: number;
   documentId?: number;
@@ -2500,11 +2552,108 @@ export interface DocumentDetail {
   criticalReviewers?: DocumentDetailCriticalReviewersItem[];
   approvers?: DocumentDetailApproversItem[];
   recipients?: DocumentDetailRecipientsItem[];
+  directRecipients?: DocumentDirectRecipient[];
+  recipientGroups?: OrganizationContactGroup[];
+  groupContacts?: OrganizationContact[];
   references?: DocumentDetailReferencesItem[];
   attachments?: DocumentAttachment[];
   versions?: DocumentVersion[];
   communicationPlans?: DocumentCommunicationPlan[];
   normativeRequirements?: string[];
+}
+
+export type OrganizationContactBody =
+  | {
+      sourceType: "system_user";
+      sourceId: number;
+      phone?: string | null;
+      organizationName?: string | null;
+      classificationType?: OrganizationContactClassificationType;
+      classificationDescription?: string | null;
+      notes?: string | null;
+    }
+  | {
+      sourceType: "employee";
+      sourceId: number;
+      phone?: string | null;
+      organizationName?: string | null;
+      classificationType?: OrganizationContactClassificationType;
+      classificationDescription?: string | null;
+      notes?: string | null;
+    }
+  | {
+      sourceType: "external_contact";
+      sourceId?: number | null;
+      name: string;
+      email: string;
+      phone?: string | null;
+      organizationName?: string | null;
+      classificationType?: OrganizationContactClassificationType;
+      classificationDescription?: string | null;
+      notes?: string | null;
+    };
+
+export type UpdateOrganizationContactBody =
+  | {
+      sourceType: "system_user";
+      sourceId: number;
+      name?: string;
+      email?: string;
+      phone?: string | null;
+      organizationName?: string | null;
+      classificationType?: OrganizationContactClassificationType;
+      classificationDescription?: string | null;
+      notes?: string | null;
+      archived?: boolean;
+    }
+  | {
+      sourceType: "employee";
+      sourceId: number;
+      name?: string;
+      email?: string;
+      phone?: string | null;
+      organizationName?: string | null;
+      classificationType?: OrganizationContactClassificationType;
+      classificationDescription?: string | null;
+      notes?: string | null;
+      archived?: boolean;
+    }
+  | {
+      sourceType?: "external_contact";
+      sourceId?: number | null;
+      name?: string;
+      email?: string;
+      phone?: string | null;
+      organizationName?: string | null;
+      classificationType?: OrganizationContactClassificationType;
+      classificationDescription?: string | null;
+      notes?: string | null;
+      archived?: boolean;
+    }
+  | {
+      sourceId?: number | null;
+      name?: string;
+      email?: string;
+      phone?: string | null;
+      organizationName?: string | null;
+      classificationType?: OrganizationContactClassificationType;
+      classificationDescription?: string | null;
+      notes?: string | null;
+      archived?: boolean;
+    };
+
+export interface OrganizationContactGroupBody {
+  description?: string | null;
+  name: string;
+  /** @minItems 1 */
+  contactIds: number[];
+}
+
+export interface UpdateOrganizationContactGroupBody {
+  name?: string;
+  description?: string | null;
+  /** @minItems 1 */
+  contactIds?: number[];
 }
 
 export type CreateDocumentBodyType =
@@ -2538,6 +2687,7 @@ export interface CreateDocumentBody {
   unitIds?: number[];
   approverIds: number[];
   recipientIds?: number[];
+  recipientGroupIds?: number[];
   referenceIds?: number[];
   normativeRequirements?: string[];
   attachments?: CreateDocumentBodyAttachmentsItem[];
@@ -2553,6 +2703,7 @@ export interface UpdateDocumentBody {
   unitIds?: number[];
   approverIds?: number[];
   recipientIds?: number[];
+  recipientGroupIds?: number[];
   referenceIds?: number[];
   normativeRequirements?: string[];
 }
@@ -2719,6 +2870,11 @@ export type ListDocumentsParams = {
    * @maximum 100
    */
   pageSize?: number;
+};
+
+export type ListOrganizationContactsParams = {
+  search?: string;
+  includeArchived?: boolean;
 };
 
 export type GetDocumentAttachmentFileParams = {

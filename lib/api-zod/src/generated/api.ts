@@ -2664,6 +2664,7 @@ export const CreateDocumentBody = zod.object({
   unitIds: zod.array(zod.number()).optional(),
   approverIds: zod.array(zod.number()),
   recipientIds: zod.array(zod.number()).optional(),
+  recipientGroupIds: zod.array(zod.number()).optional(),
   referenceIds: zod.array(zod.number()).optional(),
   normativeRequirements: zod.array(zod.string()).optional(),
   attachments: zod
@@ -2676,6 +2677,381 @@ export const CreateDocumentBody = zod.object({
       }),
     )
     .optional(),
+});
+
+/**
+ * @summary List reusable organization contacts
+ */
+export const ListOrganizationContactsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListOrganizationContactsQueryParams = zod.object({
+  search: zod.coerce.string().optional(),
+  includeArchived: zod.coerce.boolean().optional(),
+});
+
+export const ListOrganizationContactsResponseItem = zod.object({
+  id: zod.number(),
+  sourceType: zod.enum(["system_user", "employee", "external_contact"]),
+  sourceId: zod.number().nullish(),
+  name: zod.string(),
+  email: zod.string().email().nullish(),
+  phone: zod.string().nullish(),
+  organizationName: zod.string().nullish(),
+  classificationType: zod.enum([
+    "supplier",
+    "customer",
+    "partner",
+    "auditor",
+    "consultant",
+    "other",
+  ]),
+  classificationDescription: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  archivedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListOrganizationContactsResponse = zod.array(
+  ListOrganizationContactsResponseItem,
+);
+
+/**
+ * @summary Create a reusable organization contact
+ */
+export const CreateOrganizationContactParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateOrganizationContactBody = zod.union([
+  zod.object({
+    sourceType: zod.enum(["system_user"]),
+    sourceId: zod.number(),
+    phone: zod.string().nullish(),
+    organizationName: zod.string().nullish(),
+    classificationType: zod
+      .enum([
+        "supplier",
+        "customer",
+        "partner",
+        "auditor",
+        "consultant",
+        "other",
+      ])
+      .optional(),
+    classificationDescription: zod.string().nullish(),
+    notes: zod.string().nullish(),
+  }),
+  zod.object({
+    sourceType: zod.enum(["employee"]),
+    sourceId: zod.number(),
+    phone: zod.string().nullish(),
+    organizationName: zod.string().nullish(),
+    classificationType: zod
+      .enum([
+        "supplier",
+        "customer",
+        "partner",
+        "auditor",
+        "consultant",
+        "other",
+      ])
+      .optional(),
+    classificationDescription: zod.string().nullish(),
+    notes: zod.string().nullish(),
+  }),
+  zod.object({
+    sourceType: zod.enum(["external_contact"]),
+    sourceId: zod.number().nullish(),
+    name: zod.string(),
+    email: zod.string().email(),
+    phone: zod.string().nullish(),
+    organizationName: zod.string().nullish(),
+    classificationType: zod
+      .enum([
+        "supplier",
+        "customer",
+        "partner",
+        "auditor",
+        "consultant",
+        "other",
+      ])
+      .optional(),
+    classificationDescription: zod.string().nullish(),
+    notes: zod.string().nullish(),
+  }),
+]);
+
+/**
+ * @summary Update a reusable organization contact
+ */
+export const UpdateOrganizationContactParams = zod.object({
+  orgId: zod.coerce.number(),
+  contactId: zod.coerce.number(),
+});
+
+export const UpdateOrganizationContactBody = zod.union([
+  zod.object({
+    sourceType: zod.enum(["system_user"]),
+    sourceId: zod.number(),
+    name: zod.string().optional(),
+    email: zod.string().email().optional(),
+    phone: zod.string().nullish(),
+    organizationName: zod.string().nullish(),
+    classificationType: zod
+      .enum([
+        "supplier",
+        "customer",
+        "partner",
+        "auditor",
+        "consultant",
+        "other",
+      ])
+      .optional(),
+    classificationDescription: zod.string().nullish(),
+    notes: zod.string().nullish(),
+    archived: zod.boolean().optional(),
+  }),
+  zod.object({
+    sourceType: zod.enum(["employee"]),
+    sourceId: zod.number(),
+    name: zod.string().optional(),
+    email: zod.string().email().optional(),
+    phone: zod.string().nullish(),
+    organizationName: zod.string().nullish(),
+    classificationType: zod
+      .enum([
+        "supplier",
+        "customer",
+        "partner",
+        "auditor",
+        "consultant",
+        "other",
+      ])
+      .optional(),
+    classificationDescription: zod.string().nullish(),
+    notes: zod.string().nullish(),
+    archived: zod.boolean().optional(),
+  }),
+  zod.object({
+    sourceType: zod.enum(["external_contact"]).optional(),
+    sourceId: zod.number().nullish(),
+    name: zod.string().optional(),
+    email: zod.string().email().optional(),
+    phone: zod.string().nullish(),
+    organizationName: zod.string().nullish(),
+    classificationType: zod
+      .enum([
+        "supplier",
+        "customer",
+        "partner",
+        "auditor",
+        "consultant",
+        "other",
+      ])
+      .optional(),
+    classificationDescription: zod.string().nullish(),
+    notes: zod.string().nullish(),
+    archived: zod.boolean().optional(),
+  }),
+  zod.object({
+    sourceId: zod.number().nullish(),
+    name: zod.string().optional(),
+    email: zod.string().email().optional(),
+    phone: zod.string().nullish(),
+    organizationName: zod.string().nullish(),
+    classificationType: zod
+      .enum([
+        "supplier",
+        "customer",
+        "partner",
+        "auditor",
+        "consultant",
+        "other",
+      ])
+      .optional(),
+    classificationDescription: zod.string().nullish(),
+    notes: zod.string().nullish(),
+    archived: zod.boolean().optional(),
+  }),
+]);
+
+export const UpdateOrganizationContactResponse = zod.object({
+  id: zod.number(),
+  sourceType: zod.enum(["system_user", "employee", "external_contact"]),
+  sourceId: zod.number().nullish(),
+  name: zod.string(),
+  email: zod.string().email().nullish(),
+  phone: zod.string().nullish(),
+  organizationName: zod.string().nullish(),
+  classificationType: zod.enum([
+    "supplier",
+    "customer",
+    "partner",
+    "auditor",
+    "consultant",
+    "other",
+  ]),
+  classificationDescription: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  archivedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Delete a reusable organization contact
+ */
+export const DeleteOrganizationContactParams = zod.object({
+  orgId: zod.coerce.number(),
+  contactId: zod.coerce.number(),
+});
+
+/**
+ * @summary List reusable organization contact groups
+ */
+export const ListOrganizationContactGroupsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListOrganizationContactGroupsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  memberCount: zod.number(),
+  members: zod.array(
+    zod.object({
+      id: zod.number(),
+      sourceType: zod.enum(["system_user", "employee", "external_contact"]),
+      sourceId: zod.number().nullish(),
+      name: zod.string(),
+      email: zod.string().email().nullish(),
+      phone: zod.string().nullish(),
+      organizationName: zod.string().nullish(),
+      classificationType: zod.enum([
+        "supplier",
+        "customer",
+        "partner",
+        "auditor",
+        "consultant",
+        "other",
+      ]),
+      classificationDescription: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      archivedAt: zod.string().nullish(),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+    }),
+  ),
+});
+export const ListOrganizationContactGroupsResponse = zod.array(
+  ListOrganizationContactGroupsResponseItem,
+);
+
+/**
+ * @summary Create a reusable organization contact group
+ */
+export const CreateOrganizationContactGroupParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateOrganizationContactGroupBody = zod.object({
+  description: zod.string().nullish(),
+  name: zod.string(),
+  contactIds: zod.array(zod.number()).min(1),
+});
+
+/**
+ * @summary Get a reusable organization contact group
+ */
+export const GetOrganizationContactGroupParams = zod.object({
+  orgId: zod.coerce.number(),
+  groupId: zod.coerce.number(),
+});
+
+export const GetOrganizationContactGroupResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  memberCount: zod.number(),
+  members: zod.array(
+    zod.object({
+      id: zod.number(),
+      sourceType: zod.enum(["system_user", "employee", "external_contact"]),
+      sourceId: zod.number().nullish(),
+      name: zod.string(),
+      email: zod.string().email().nullish(),
+      phone: zod.string().nullish(),
+      organizationName: zod.string().nullish(),
+      classificationType: zod.enum([
+        "supplier",
+        "customer",
+        "partner",
+        "auditor",
+        "consultant",
+        "other",
+      ]),
+      classificationDescription: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      archivedAt: zod.string().nullish(),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Update a reusable organization contact group
+ */
+export const UpdateOrganizationContactGroupParams = zod.object({
+  orgId: zod.coerce.number(),
+  groupId: zod.coerce.number(),
+});
+
+export const UpdateOrganizationContactGroupBody = zod.object({
+  name: zod.string().optional(),
+  description: zod.string().nullish(),
+  contactIds: zod.array(zod.number()).min(1).optional(),
+});
+
+export const UpdateOrganizationContactGroupResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  description: zod.string().nullish(),
+  memberCount: zod.number(),
+  members: zod.array(
+    zod.object({
+      id: zod.number(),
+      sourceType: zod.enum(["system_user", "employee", "external_contact"]),
+      sourceId: zod.number().nullish(),
+      name: zod.string(),
+      email: zod.string().email().nullish(),
+      phone: zod.string().nullish(),
+      organizationName: zod.string().nullish(),
+      classificationType: zod.enum([
+        "supplier",
+        "customer",
+        "partner",
+        "auditor",
+        "consultant",
+        "other",
+      ]),
+      classificationDescription: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      archivedAt: zod.string().nullish(),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Delete a reusable organization contact group
+ */
+export const DeleteOrganizationContactGroupParams = zod.object({
+  orgId: zod.coerce.number(),
+  groupId: zod.coerce.number(),
 });
 
 /**
@@ -2779,6 +3155,80 @@ export const GetDocumentResponse = zod.object({
       }),
     )
     .optional(),
+  directRecipients: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        userId: zod.number(),
+        name: zod.string(),
+        email: zod.string().email(),
+      }),
+    )
+    .optional(),
+  recipientGroups: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        description: zod.string().nullish(),
+        memberCount: zod.number(),
+        members: zod.array(
+          zod.object({
+            id: zod.number(),
+            sourceType: zod.enum([
+              "system_user",
+              "employee",
+              "external_contact",
+            ]),
+            sourceId: zod.number().nullish(),
+            name: zod.string(),
+            email: zod.string().email().nullish(),
+            phone: zod.string().nullish(),
+            organizationName: zod.string().nullish(),
+            classificationType: zod.enum([
+              "supplier",
+              "customer",
+              "partner",
+              "auditor",
+              "consultant",
+              "other",
+            ]),
+            classificationDescription: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            archivedAt: zod.string().nullish(),
+            createdAt: zod.string(),
+            updatedAt: zod.string(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
+  groupContacts: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        sourceType: zod.enum(["system_user", "employee", "external_contact"]),
+        sourceId: zod.number().nullish(),
+        name: zod.string(),
+        email: zod.string().email().nullish(),
+        phone: zod.string().nullish(),
+        organizationName: zod.string().nullish(),
+        classificationType: zod.enum([
+          "supplier",
+          "customer",
+          "partner",
+          "auditor",
+          "consultant",
+          "other",
+        ]),
+        classificationDescription: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        archivedAt: zod.string().nullish(),
+        createdAt: zod.string(),
+        updatedAt: zod.string(),
+      }),
+    )
+    .optional(),
   references: zod
     .array(
       zod.object({
@@ -2852,6 +3302,7 @@ export const UpdateDocumentBody = zod.object({
   unitIds: zod.array(zod.number()).optional(),
   approverIds: zod.array(zod.number()).optional(),
   recipientIds: zod.array(zod.number()).optional(),
+  recipientGroupIds: zod.array(zod.number()).optional(),
   referenceIds: zod.array(zod.number()).optional(),
   normativeRequirements: zod.array(zod.string()).optional(),
 });
@@ -2928,6 +3379,80 @@ export const UpdateDocumentResponse = zod.object({
         name: zod.string().optional(),
         receivedAt: zod.string().nullish(),
         readAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  directRecipients: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        userId: zod.number(),
+        name: zod.string(),
+        email: zod.string().email(),
+      }),
+    )
+    .optional(),
+  recipientGroups: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        description: zod.string().nullish(),
+        memberCount: zod.number(),
+        members: zod.array(
+          zod.object({
+            id: zod.number(),
+            sourceType: zod.enum([
+              "system_user",
+              "employee",
+              "external_contact",
+            ]),
+            sourceId: zod.number().nullish(),
+            name: zod.string(),
+            email: zod.string().email().nullish(),
+            phone: zod.string().nullish(),
+            organizationName: zod.string().nullish(),
+            classificationType: zod.enum([
+              "supplier",
+              "customer",
+              "partner",
+              "auditor",
+              "consultant",
+              "other",
+            ]),
+            classificationDescription: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            archivedAt: zod.string().nullish(),
+            createdAt: zod.string(),
+            updatedAt: zod.string(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
+  groupContacts: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        sourceType: zod.enum(["system_user", "employee", "external_contact"]),
+        sourceId: zod.number().nullish(),
+        name: zod.string(),
+        email: zod.string().email().nullish(),
+        phone: zod.string().nullish(),
+        organizationName: zod.string().nullish(),
+        classificationType: zod.enum([
+          "supplier",
+          "customer",
+          "partner",
+          "auditor",
+          "consultant",
+          "other",
+        ]),
+        classificationDescription: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        archivedAt: zod.string().nullish(),
+        createdAt: zod.string(),
+        updatedAt: zod.string(),
       }),
     )
     .optional(),
@@ -3140,6 +3665,80 @@ export const CompleteDocumentCriticalAnalysisResponse = zod.object({
         name: zod.string().optional(),
         receivedAt: zod.string().nullish(),
         readAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  directRecipients: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        userId: zod.number(),
+        name: zod.string(),
+        email: zod.string().email(),
+      }),
+    )
+    .optional(),
+  recipientGroups: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        description: zod.string().nullish(),
+        memberCount: zod.number(),
+        members: zod.array(
+          zod.object({
+            id: zod.number(),
+            sourceType: zod.enum([
+              "system_user",
+              "employee",
+              "external_contact",
+            ]),
+            sourceId: zod.number().nullish(),
+            name: zod.string(),
+            email: zod.string().email().nullish(),
+            phone: zod.string().nullish(),
+            organizationName: zod.string().nullish(),
+            classificationType: zod.enum([
+              "supplier",
+              "customer",
+              "partner",
+              "auditor",
+              "consultant",
+              "other",
+            ]),
+            classificationDescription: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            archivedAt: zod.string().nullish(),
+            createdAt: zod.string(),
+            updatedAt: zod.string(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
+  groupContacts: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        sourceType: zod.enum(["system_user", "employee", "external_contact"]),
+        sourceId: zod.number().nullish(),
+        name: zod.string(),
+        email: zod.string().email().nullish(),
+        phone: zod.string().nullish(),
+        organizationName: zod.string().nullish(),
+        classificationType: zod.enum([
+          "supplier",
+          "customer",
+          "partner",
+          "auditor",
+          "consultant",
+          "other",
+        ]),
+        classificationDescription: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        archivedAt: zod.string().nullish(),
+        createdAt: zod.string(),
+        updatedAt: zod.string(),
       }),
     )
     .optional(),
@@ -3370,6 +3969,80 @@ export const SubmitDocumentForReviewResponse = zod.object({
       }),
     )
     .optional(),
+  directRecipients: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        userId: zod.number(),
+        name: zod.string(),
+        email: zod.string().email(),
+      }),
+    )
+    .optional(),
+  recipientGroups: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        description: zod.string().nullish(),
+        memberCount: zod.number(),
+        members: zod.array(
+          zod.object({
+            id: zod.number(),
+            sourceType: zod.enum([
+              "system_user",
+              "employee",
+              "external_contact",
+            ]),
+            sourceId: zod.number().nullish(),
+            name: zod.string(),
+            email: zod.string().email().nullish(),
+            phone: zod.string().nullish(),
+            organizationName: zod.string().nullish(),
+            classificationType: zod.enum([
+              "supplier",
+              "customer",
+              "partner",
+              "auditor",
+              "consultant",
+              "other",
+            ]),
+            classificationDescription: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            archivedAt: zod.string().nullish(),
+            createdAt: zod.string(),
+            updatedAt: zod.string(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
+  groupContacts: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        sourceType: zod.enum(["system_user", "employee", "external_contact"]),
+        sourceId: zod.number().nullish(),
+        name: zod.string(),
+        email: zod.string().email().nullish(),
+        phone: zod.string().nullish(),
+        organizationName: zod.string().nullish(),
+        classificationType: zod.enum([
+          "supplier",
+          "customer",
+          "partner",
+          "auditor",
+          "consultant",
+          "other",
+        ]),
+        classificationDescription: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        archivedAt: zod.string().nullish(),
+        createdAt: zod.string(),
+        updatedAt: zod.string(),
+      }),
+    )
+    .optional(),
   references: zod
     .array(
       zod.object({
@@ -3510,6 +4183,80 @@ export const ApproveDocumentResponse = zod.object({
         name: zod.string().optional(),
         receivedAt: zod.string().nullish(),
         readAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  directRecipients: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        userId: zod.number(),
+        name: zod.string(),
+        email: zod.string().email(),
+      }),
+    )
+    .optional(),
+  recipientGroups: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        description: zod.string().nullish(),
+        memberCount: zod.number(),
+        members: zod.array(
+          zod.object({
+            id: zod.number(),
+            sourceType: zod.enum([
+              "system_user",
+              "employee",
+              "external_contact",
+            ]),
+            sourceId: zod.number().nullish(),
+            name: zod.string(),
+            email: zod.string().email().nullish(),
+            phone: zod.string().nullish(),
+            organizationName: zod.string().nullish(),
+            classificationType: zod.enum([
+              "supplier",
+              "customer",
+              "partner",
+              "auditor",
+              "consultant",
+              "other",
+            ]),
+            classificationDescription: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            archivedAt: zod.string().nullish(),
+            createdAt: zod.string(),
+            updatedAt: zod.string(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
+  groupContacts: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        sourceType: zod.enum(["system_user", "employee", "external_contact"]),
+        sourceId: zod.number().nullish(),
+        name: zod.string(),
+        email: zod.string().email().nullish(),
+        phone: zod.string().nullish(),
+        organizationName: zod.string().nullish(),
+        classificationType: zod.enum([
+          "supplier",
+          "customer",
+          "partner",
+          "auditor",
+          "consultant",
+          "other",
+        ]),
+        classificationDescription: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        archivedAt: zod.string().nullish(),
+        createdAt: zod.string(),
+        updatedAt: zod.string(),
       }),
     )
     .optional(),
@@ -3656,6 +4403,80 @@ export const RejectDocumentResponse = zod.object({
       }),
     )
     .optional(),
+  directRecipients: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        userId: zod.number(),
+        name: zod.string(),
+        email: zod.string().email(),
+      }),
+    )
+    .optional(),
+  recipientGroups: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        description: zod.string().nullish(),
+        memberCount: zod.number(),
+        members: zod.array(
+          zod.object({
+            id: zod.number(),
+            sourceType: zod.enum([
+              "system_user",
+              "employee",
+              "external_contact",
+            ]),
+            sourceId: zod.number().nullish(),
+            name: zod.string(),
+            email: zod.string().email().nullish(),
+            phone: zod.string().nullish(),
+            organizationName: zod.string().nullish(),
+            classificationType: zod.enum([
+              "supplier",
+              "customer",
+              "partner",
+              "auditor",
+              "consultant",
+              "other",
+            ]),
+            classificationDescription: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            archivedAt: zod.string().nullish(),
+            createdAt: zod.string(),
+            updatedAt: zod.string(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
+  groupContacts: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        sourceType: zod.enum(["system_user", "employee", "external_contact"]),
+        sourceId: zod.number().nullish(),
+        name: zod.string(),
+        email: zod.string().email().nullish(),
+        phone: zod.string().nullish(),
+        organizationName: zod.string().nullish(),
+        classificationType: zod.enum([
+          "supplier",
+          "customer",
+          "partner",
+          "auditor",
+          "consultant",
+          "other",
+        ]),
+        classificationDescription: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        archivedAt: zod.string().nullish(),
+        createdAt: zod.string(),
+        updatedAt: zod.string(),
+      }),
+    )
+    .optional(),
   references: zod
     .array(
       zod.object({
@@ -3792,6 +4613,80 @@ export const DistributeDocumentResponse = zod.object({
         name: zod.string().optional(),
         receivedAt: zod.string().nullish(),
         readAt: zod.string().nullish(),
+      }),
+    )
+    .optional(),
+  directRecipients: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        userId: zod.number(),
+        name: zod.string(),
+        email: zod.string().email(),
+      }),
+    )
+    .optional(),
+  recipientGroups: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        description: zod.string().nullish(),
+        memberCount: zod.number(),
+        members: zod.array(
+          zod.object({
+            id: zod.number(),
+            sourceType: zod.enum([
+              "system_user",
+              "employee",
+              "external_contact",
+            ]),
+            sourceId: zod.number().nullish(),
+            name: zod.string(),
+            email: zod.string().email().nullish(),
+            phone: zod.string().nullish(),
+            organizationName: zod.string().nullish(),
+            classificationType: zod.enum([
+              "supplier",
+              "customer",
+              "partner",
+              "auditor",
+              "consultant",
+              "other",
+            ]),
+            classificationDescription: zod.string().nullish(),
+            notes: zod.string().nullish(),
+            archivedAt: zod.string().nullish(),
+            createdAt: zod.string(),
+            updatedAt: zod.string(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
+  groupContacts: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        sourceType: zod.enum(["system_user", "employee", "external_contact"]),
+        sourceId: zod.number().nullish(),
+        name: zod.string(),
+        email: zod.string().email().nullish(),
+        phone: zod.string().nullish(),
+        organizationName: zod.string().nullish(),
+        classificationType: zod.enum([
+          "supplier",
+          "customer",
+          "partner",
+          "auditor",
+          "consultant",
+          "other",
+        ]),
+        classificationDescription: zod.string().nullish(),
+        notes: zod.string().nullish(),
+        archivedAt: zod.string().nullish(),
+        createdAt: zod.string(),
+        updatedAt: zod.string(),
       }),
     )
     .optional(),

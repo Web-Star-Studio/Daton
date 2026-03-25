@@ -11,6 +11,7 @@ export * from "./employees";
 export * from "./departments";
 export * from "./department-units";
 export * from "./documents";
+export * from "./organization-contacts";
 export * from "./governance-system";
 export * from "./notifications";
 export * from "./invitations";

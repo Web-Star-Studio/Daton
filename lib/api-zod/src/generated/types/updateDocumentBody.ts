@@ -16,6 +16,7 @@ export interface UpdateDocumentBody {
   unitIds?: number[];
   approverIds?: number[];
   recipientIds?: number[];
+  recipientGroupIds?: number[];
   referenceIds?: number[];
   normativeRequirements?: string[];
 }

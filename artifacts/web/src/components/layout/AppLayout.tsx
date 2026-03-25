@@ -383,7 +383,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   const renderSectionPopover = (
-    title: string,
     sections: NavSection[],
     isOpen: boolean,
     setOpen: React.Dispatch<React.SetStateAction<boolean>>,
@@ -407,12 +406,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         }}
         onMouseLeave={() => closePopover(setOpen, timeoutRef)}
       >
-        <p className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {title}
-        </p>
         {sections.map((section) => (
           <div key={section.label} className="mb-1 last:mb-0">
-            <p className="px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">
+            <p className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
               {section.label}
             </p>
             {section.links.map((link) => (
@@ -596,7 +592,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             qualidadeTimeoutRef,
           )}
           {renderSectionPopover(
-            "Governança",
             governancaSections,
             governancaPopover,
             setGovernancaPopover,

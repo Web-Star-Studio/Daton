@@ -12,9 +12,14 @@ import {
   documentCriticalAnalysisTable,
   documentCriticalReviewersTable,
   documentRecipientsTable,
+  documentRecipientUserLinksTable,
+  documentRecipientGroupLinksTable,
   documentReferencesTable,
   documentAttachmentsTable,
   documentVersionsTable,
+  organizationContactGroupMembersTable,
+  organizationContactGroupsTable,
+  organizationContactsTable,
   usersTable,
   unitsTable,
   employeesTable,
@@ -57,13 +62,16 @@ import {
   getNormativeRequirementSuggestions,
   normalizeNormativeRequirements,
 } from "../lib/document-normative-requirements";
+import {
+  validateOrgContactGroupIds,
+} from "./organization-contacts.shared";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 let supportsPendingVersionDescriptionColumnCache: boolean | null = null;
 type DocumentsMutationTx = Pick<
   typeof db,
-  "select" | "insert" | "update" | "delete" | "execute"
+  "select" | "selectDistinct" | "insert" | "update" | "delete" | "execute"
 >;
 const CreateDocumentBodySchema = CreateDocumentBody.extend({
   criticalReviewerIds: z.array(z.number()).min(1),
@@ -93,7 +101,6 @@ const SuggestDocumentNormativeRequirementsBodySchema = z.object({
   referenceIds: z.array(z.number().int().positive()).optional(),
   currentRequirements: z.array(z.string()).optional(),
 });
-
 async function supportsPendingVersionDescriptionColumn(): Promise<boolean> {
   if (supportsPendingVersionDescriptionColumnCache !== null) {
     return supportsPendingVersionDescriptionColumnCache;
@@ -180,6 +187,113 @@ async function validateOrgDocuments(
       ),
     );
   return rows.length === docIds.length;
+}
+
+async function resolveRecipientUserIds(
+  orgId: number,
+  individualRecipientIds: number[],
+  recipientGroupIds: number[],
+): Promise<number[]> {
+  const resolved = new Set(individualRecipientIds);
+
+  if (recipientGroupIds.length > 0) {
+    const groupMembers = await db
+      .selectDistinct({ userId: organizationContactsTable.sourceUserId })
+      .from(organizationContactGroupMembersTable)
+      .innerJoin(
+        organizationContactGroupsTable,
+        eq(
+          organizationContactGroupMembersTable.groupId,
+          organizationContactGroupsTable.id,
+        ),
+      )
+      .innerJoin(
+        organizationContactsTable,
+        eq(
+          organizationContactGroupMembersTable.contactId,
+          organizationContactsTable.id,
+        ),
+      )
+      .where(
+        and(
+          inArray(organizationContactGroupMembersTable.groupId, recipientGroupIds),
+          eq(organizationContactGroupsTable.organizationId, orgId),
+          eq(organizationContactsTable.sourceType, "system_user"),
+        ),
+      );
+
+    for (const member of groupMembers) {
+      if (member.userId) {
+        resolved.add(member.userId);
+      }
+    }
+  }
+
+  return [...resolved];
+}
+
+async function replaceDocumentRecipientsSnapshot(
+  tx: DocumentsMutationTx,
+  docId: number,
+  userIds: number[],
+): Promise<void> {
+  await tx
+    .delete(documentRecipientsTable)
+    .where(eq(documentRecipientsTable.documentId, docId));
+
+  if (userIds.length > 0) {
+    await tx.insert(documentRecipientsTable).values(
+      userIds.map((userId) => ({
+        documentId: docId,
+        userId,
+      })),
+    );
+  }
+}
+
+async function replaceDocumentRecipientUserLinks(
+  tx: DocumentsMutationTx,
+  docId: number,
+  userIds: number[],
+): Promise<void> {
+  await tx
+    .delete(documentRecipientUserLinksTable)
+    .where(eq(documentRecipientUserLinksTable.documentId, docId));
+
+  if (userIds.length > 0) {
+    await tx.insert(documentRecipientUserLinksTable).values(
+      userIds.map((userId) => ({
+        documentId: docId,
+        userId,
+      })),
+    );
+  }
+}
+
+async function getStoredDirectRecipientIds(
+  tx: DocumentsMutationTx,
+  docId: number,
+  currentRecipientGroupIds: number[],
+): Promise<number[]> {
+  const directRecipientRows = await tx
+    .selectDistinct({ userId: documentRecipientUserLinksTable.userId })
+    .from(documentRecipientUserLinksTable)
+    .where(eq(documentRecipientUserLinksTable.documentId, docId));
+
+  if (directRecipientRows.length > 0) {
+    return directRecipientRows.map((row) => row.userId);
+  }
+
+  if (currentRecipientGroupIds.length > 0) {
+    return [];
+  }
+
+  const legacyRecipientRows = await tx
+    .selectDistinct({ userId: documentRecipientsTable.userId })
+    .from(documentRecipientsTable)
+    .where(eq(documentRecipientsTable.documentId, docId));
+
+  return legacyRecipientRows.map((row) => row.userId);
 }
 
 async function getDocumentCriticalReviewerUserIds(
@@ -707,6 +821,55 @@ async function getDocumentDetail(docId: number, orgId: number) {
     .innerJoin(usersTable, eq(documentRecipientsTable.userId, usersTable.id))
     .where(eq(documentRecipientsTable.documentId, docId));
 
+  const recipientGroupLinks = await db
+    .select({
+      groupId: documentRecipientGroupLinksTable.groupId,
+    })
+    .from(documentRecipientGroupLinksTable)
+    .where(eq(documentRecipientGroupLinksTable.documentId, docId));
+
+  const directRecipientRows = await db
+    .select({
+      id: documentRecipientUserLinksTable.id,
+      userId: documentRecipientUserLinksTable.userId,
+      name: usersTable.name,
+      email: usersTable.email,
+    })
+    .from(documentRecipientUserLinksTable)
+    .innerJoin(
+      usersTable,
+      eq(documentRecipientUserLinksTable.userId, usersTable.id),
+    )
+    .where(eq(documentRecipientUserLinksTable.documentId, docId));
+
+  const linkedGroupIds = recipientGroupLinks.map((group) => group.groupId);
+  const recipientGroups =
+    linkedGroupIds.length > 0
+      ? await db
+          .select({
+            id: organizationContactGroupsTable.id,
+            name: organizationContactGroupsTable.name,
+            description: organizationContactGroupsTable.description,
+          })
+          .from(organizationContactGroupsTable)
+          .where(
+            and(
+              eq(organizationContactGroupsTable.organizationId, orgId),
+              inArray(organizationContactGroupsTable.id, linkedGroupIds),
+            ),
+          )
+      : [];
+  const directRecipients =
+    directRecipientRows.length > 0 || linkedGroupIds.length > 0
+      ? directRecipientRows
+      : recipientRows.map((recipient) => ({
+          id: recipient.id,
+          userId: recipient.userId,
+          name: recipient.name,
+          email: "",
+        }));
+  const groupContacts: typeof organizationContactsTable.$inferSelect[] = [];
+
   const refRows = await db
     .select({
       id: documentReferencesTable.id,
@@ -853,6 +1016,13 @@ async function getDocumentDetail(docId: number, orgId: number) {
           : r.receivedAt,
       readAt: r.readAt instanceof Date ? r.readAt.toISOString() : r.readAt,
     })),
+    directRecipients,
+    recipientGroups: recipientGroups.map((group) => ({
+      ...group,
+      memberCount: 0,
+      members: [],
+    })),
+    groupContacts,
     references: refRows,
     attachments: attachmentRows.map((a) => ({
       ...a,
@@ -1007,6 +1177,9 @@ router.post(
     };
     const elaboratorIds = body.data.elaboratorIds;
     const criticalReviewerIds = [...new Set(body.data.criticalReviewerIds)];
+    const approverIds = [...new Set(body.data.approverIds || [])];
+    const recipientIds = [...new Set(body.data.recipientIds || [])];
+    const recipientGroupIds = [...new Set(body.data.recipientGroupIds || [])];
     const normativeRequirements = normalizeNormativeRequirements(
       createBody.normativeRequirements,
     );
@@ -1014,8 +1187,8 @@ router.post(
     const allUserIds = [
       ...new Set([
         ...criticalReviewerIds,
-        ...(body.data.approverIds || []),
-        ...(body.data.recipientIds || []),
+        ...approverIds,
+        ...recipientIds,
       ]),
     ];
     if (allUserIds.length > 0 && !(await validateOrgUsers(allUserIds, orgId))) {
@@ -1028,6 +1201,16 @@ router.post(
     if (!(await validateOrgEmployees(elaboratorIds, orgId))) {
       res.status(400).json({
         error: "Um ou mais elaboradores não pertencem a esta organização",
+      });
+      return;
+    }
+    if (
+      recipientGroupIds.length > 0 &&
+      !(await validateOrgContactGroupIds(recipientGroupIds, orgId))
+    ) {
+      res.status(400).json({
+        error:
+          "Um ou mais grupos de destinatários não pertencem a esta organização",
       });
       return;
     }
@@ -1051,6 +1234,18 @@ router.post(
       });
       return;
     }
+    if (recipientIds.length === 0 && recipientGroupIds.length === 0) {
+      res.status(400).json({
+        error: "Selecione ao menos um destinatário ou grupo",
+      });
+      return;
+    }
+
+    const resolvedRecipientIds = await resolveRecipientUserIds(
+      orgId,
+      recipientIds,
+      recipientGroupIds,
+    );
 
     const [doc] = await db.transaction(async (tx) => {
       const [createdDoc] = await tx
@@ -1094,21 +1289,29 @@ router.post(
 
       if (body.data.approverIds?.length) {
         await tx.insert(documentApproversTable).values(
-          body.data.approverIds.map((uid) => ({
+          approverIds.map((uid) => ({
             documentId: createdDoc.id,
             userId: uid,
           })),
         );
       }
 
-      if (body.data.recipientIds?.length) {
-        await tx.insert(documentRecipientsTable).values(
-          body.data.recipientIds.map((uid) => ({
+      if (recipientGroupIds.length > 0) {
+        await tx.insert(documentRecipientGroupLinksTable).values(
+          recipientGroupIds.map((groupId) => ({
             documentId: createdDoc.id,
-            userId: uid,
+            groupId,
           })),
         );
       }
+
+      await replaceDocumentRecipientUserLinks(tx, createdDoc.id, recipientIds);
+
+      await replaceDocumentRecipientsSnapshot(
+        tx,
+        createdDoc.id,
+        resolvedRecipientIds,
+      );
 
       if (body.data.referenceIds?.length) {
         await tx.insert(documentReferencesTable).values(
@@ -1481,6 +1684,22 @@ router.patch(
     const updateBody = body.data as typeof body.data & {
       normativeRequirements?: string[];
     };
+    const nextCriticalReviewerIdsInput =
+      body.data.criticalReviewerIds !== undefined
+        ? [...new Set(body.data.criticalReviewerIds)]
+        : undefined;
+    const nextApproverIds =
+      body.data.approverIds !== undefined
+        ? [...new Set(body.data.approverIds)]
+        : undefined;
+    const nextRecipientIds =
+      body.data.recipientIds !== undefined
+        ? [...new Set(body.data.recipientIds)]
+        : undefined;
+    const nextRecipientGroupIds =
+      body.data.recipientGroupIds !== undefined
+        ? [...new Set(body.data.recipientGroupIds)]
+        : undefined;
 
     const existing = await getDocumentRecord(docId, orgId);
     if (!existing) {
@@ -1497,15 +1716,25 @@ router.patch(
 
     const allUserIds = [
       ...new Set([
-        ...(body.data.criticalReviewerIds || []),
-        ...(body.data.approverIds || []),
-        ...(body.data.recipientIds || []),
+        ...(nextCriticalReviewerIdsInput || []),
+        ...(nextApproverIds || []),
+        ...(nextRecipientIds || []),
       ]),
     ];
     if (allUserIds.length > 0 && !(await validateOrgUsers(allUserIds, orgId))) {
       res.status(400).json({
         error:
           "Um ou mais usuários selecionados não pertencem a esta organização",
+      });
+      return;
+    }
+    if (
+      nextRecipientGroupIds &&
+      !(await validateOrgContactGroupIds(nextRecipientGroupIds, orgId))
+    ) {
+      res.status(400).json({
+        error:
+          "Um ou mais grupos de destinatários não pertencem a esta organização",
       });
       return;
     }
@@ -1539,6 +1768,51 @@ router.patch(
       return;
     }
 
+    const storedRecipientGroupIds =
+      nextRecipientGroupIds === undefined || nextRecipientIds === undefined
+        ? (
+            await db
+              .selectDistinct({ groupId: documentRecipientGroupLinksTable.groupId })
+              .from(documentRecipientGroupLinksTable)
+              .where(eq(documentRecipientGroupLinksTable.documentId, docId))
+          ).map((row) => row.groupId)
+        : [];
+
+    let storedDirectRecipientIds: number[] | undefined;
+    if (nextRecipientIds === undefined) {
+      const directRecipientRows = await db
+        .selectDistinct({ userId: documentRecipientUserLinksTable.userId })
+        .from(documentRecipientUserLinksTable)
+        .where(eq(documentRecipientUserLinksTable.documentId, docId));
+
+      if (directRecipientRows.length > 0) {
+        storedDirectRecipientIds = directRecipientRows.map((row) => row.userId);
+      } else if ((nextRecipientGroupIds ?? storedRecipientGroupIds).length > 0) {
+        storedDirectRecipientIds = [];
+      } else {
+        const legacyRecipientRows = await db
+          .selectDistinct({ userId: documentRecipientsTable.userId })
+          .from(documentRecipientsTable)
+          .where(eq(documentRecipientsTable.documentId, docId));
+
+        storedDirectRecipientIds = legacyRecipientRows.map((row) => row.userId);
+      }
+    }
+
+    const effectiveRecipientIds = nextRecipientIds ?? storedDirectRecipientIds ?? [];
+    const effectiveRecipientGroupIds =
+      nextRecipientGroupIds ?? storedRecipientGroupIds;
+
+    if (
+      effectiveRecipientIds.length === 0 &&
+      effectiveRecipientGroupIds.length === 0
+    ) {
+      res.status(400).json({
+        error: "Selecione ao menos um destinatário ou grupo",
+      });
+      return;
+    }
+
     const updates: Record<string, unknown> = {};
     const normalizedNormativeRequirements =
       updateBody.normativeRequirements !== undefined
@@ -1560,8 +1834,8 @@ router.patch(
 
     const nextCriticalReviewerIds = await db.transaction(async (tx) => {
       const reviewerIds =
-        body.data.criticalReviewerIds !== undefined
-          ? [...new Set(body.data.criticalReviewerIds)]
+        nextCriticalReviewerIdsInput !== undefined
+          ? nextCriticalReviewerIdsInput
           : (
               await tx
                 .selectDistinct({
@@ -1615,9 +1889,9 @@ router.patch(
         await tx
           .delete(documentApproversTable)
           .where(eq(documentApproversTable.documentId, docId));
-        if (body.data.approverIds.length) {
+        if ((nextApproverIds || []).length > 0) {
           await tx.insert(documentApproversTable).values(
-            body.data.approverIds.map((uid) => ({
+            nextApproverIds!.map((uid) => ({
               documentId: docId,
               userId: uid,
             })),
@@ -1625,18 +1899,57 @@ router.patch(
         }
       }
 
-      if (body.data.recipientIds) {
+      const existingRecipientGroupIds =
+        nextRecipientIds === undefined
+          ? (
+              await tx
+                .selectDistinct({ groupId: documentRecipientGroupLinksTable.groupId })
+                .from(documentRecipientGroupLinksTable)
+                .where(eq(documentRecipientGroupLinksTable.documentId, docId))
+            ).map((row) => row.groupId)
+          : [];
+
+      if (nextRecipientGroupIds !== undefined) {
         await tx
-          .delete(documentRecipientsTable)
-          .where(eq(documentRecipientsTable.documentId, docId));
-        if (body.data.recipientIds.length) {
-          await tx.insert(documentRecipientsTable).values(
-            body.data.recipientIds.map((uid) => ({
+          .delete(documentRecipientGroupLinksTable)
+          .where(eq(documentRecipientGroupLinksTable.documentId, docId));
+        if (nextRecipientGroupIds.length > 0) {
+          await tx.insert(documentRecipientGroupLinksTable).values(
+            nextRecipientGroupIds.map((groupId) => ({
               documentId: docId,
-              userId: uid,
+              groupId,
             })),
           );
         }
+      }
+
+      if (nextRecipientIds !== undefined || nextRecipientGroupIds !== undefined) {
+        const currentRecipientGroupIds =
+          nextRecipientGroupIds ??
+          (
+            await tx
+              .selectDistinct({ groupId: documentRecipientGroupLinksTable.groupId })
+              .from(documentRecipientGroupLinksTable)
+              .where(eq(documentRecipientGroupLinksTable.documentId, docId))
+          ).map((row) => row.groupId);
+
+        const currentRecipientIds =
+          nextRecipientIds ??
+          (await getStoredDirectRecipientIds(
+            tx,
+            docId,
+            existingRecipientGroupIds,
+          ));
+
+        await replaceDocumentRecipientUserLinks(tx, docId, currentRecipientIds);
+
+        const resolvedRecipientIds = await resolveRecipientUserIds(
+          orgId,
+          currentRecipientIds,
+          currentRecipientGroupIds,
+        );
+
+        await replaceDocumentRecipientsSnapshot(tx, docId, resolvedRecipientIds);
       }
 
       if (body.data.referenceIds) {

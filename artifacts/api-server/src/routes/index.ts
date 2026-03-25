@@ -18,6 +18,7 @@ import governanceRouter from "./governance/index";
 import notificationsRouter from "./notifications";
 import invitationsRouter from "./invitations";
 import orgUsersRouter from "./org-users";
+import organizationContactsRouter from "./organization-contacts";
 import productKnowledgeRouter from "./product-knowledge";
 import suppliersRouter from "./suppliers";
 const router: IRouter = Router();
@@ -27,6 +28,7 @@ router.use(authRouter);
 router.use(storageRouter);
 router.use(invitationsRouter);
 router.use(orgUsersRouter);
+router.use(organizationContactsRouter);
 router.use(organizationsRouter);
 
 router.use(productKnowledgeRouter);

@@ -9,6 +9,7 @@ import {
   unique,
 } from "drizzle-orm/pg-core";
 import { organizationsTable } from "./organizations";
+import { organizationContactGroupsTable } from "./organization-contacts";
 import { usersTable } from "./users";
 import { employeesTable } from "./employees";
 
@@ -155,6 +156,91 @@ export const documentRecipientsTable = pgTable("document_recipients", {
     .notNull()
     .defaultNow(),
 });
+
+export const documentRecipientUserLinksTable = pgTable(
+  "document_recipient_user_links",
+  {
+    id: serial("id").primaryKey(),
+    documentId: integer("document_id")
+      .notNull()
+      .references(() => documentsTable.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => usersTable.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("document_recipient_user_links_document_user_unique").on(
+      table.documentId,
+      table.userId,
+    ),
+  ],
+);
+
+export const documentRecipientGroupsTable = pgTable("document_recipient_groups", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizationsTable.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdById: integer("created_by_id")
+    .notNull()
+    .references(() => usersTable.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const documentRecipientGroupMembersTable = pgTable(
+  "document_recipient_group_members",
+  {
+    id: serial("id").primaryKey(),
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => documentRecipientGroupsTable.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => usersTable.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("document_recipient_group_members_group_user_unique").on(
+      table.groupId,
+      table.userId,
+    ),
+  ],
+);
+
+export const documentRecipientGroupLinksTable = pgTable(
+  "document_recipient_group_links",
+  {
+    id: serial("id").primaryKey(),
+    documentId: integer("document_id")
+      .notNull()
+      .references(() => documentsTable.id, { onDelete: "cascade" }),
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => organizationContactGroupsTable.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("document_recipient_group_links_document_group_unique").on(
+      table.documentId,
+      table.groupId,
+    ),
+  ],
+);
 
 export const documentReferencesTable = pgTable("document_references", {
   id: serial("id").primaryKey(),
