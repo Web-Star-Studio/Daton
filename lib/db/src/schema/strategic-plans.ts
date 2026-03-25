@@ -279,9 +279,10 @@ export const strategicPlanRiskOpportunityItemsTable = pgTable(
   "strategic_plan_risk_opportunity_items",
   {
     id: serial("id").primaryKey(),
-    organizationId: integer("organization_id")
-      .notNull()
-      .references(() => organizationsTable.id, { onDelete: "cascade" }),
+    // Phase 1 rollout keeps this nullable until existing production rows are backfilled.
+    organizationId: integer("organization_id").references(() => organizationsTable.id, {
+      onDelete: "cascade",
+    }),
     planId: integer("plan_id")
       .notNull()
       .references(() => strategicPlansTable.id, { onDelete: "cascade" }),
