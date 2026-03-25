@@ -2,8 +2,8 @@ import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   db,
-  nonconformitiesTable,
   sgqProcessRevisionsTable,
+  strategicPlanRiskOpportunityItemsTable,
   strategicPlansTable,
 } from "@workspace/db";
 import app from "../../src/app";
@@ -634,6 +634,42 @@ describe("governance system routes", () => {
       "sgq_process_revision_number_unique",
     );
 
+    const foreignResponsibleUser = await createTestUser(foreignContext, {
+      role: "analyst",
+      suffix: "foreign-nc-owner",
+      modules: ["governance"],
+    });
+
+    const foreignDocument = await createDocumentForTest(foreignContext);
+
+    const foreignPlan = await createStrategicPlanForTest(foreignContext);
+    const [foreignRiskItem] = await db
+      .insert(strategicPlanRiskOpportunityItemsTable)
+      .values({
+        organizationId: foreignContext.organizationId,
+        planId: foreignPlan.id,
+        type: "risk",
+        sourceType: "manual",
+        title: `Risco externo ${foreignContext.prefix}`,
+        description: "Risco externo para validação cruzada",
+      })
+      .returning({ id: strategicPlanRiskOpportunityItemsTable.id });
+
+    const foreignProcess = await request(app)
+      .post(
+        `/api/organizations/${foreignContext.organizationId}/governance/sgq-processes`,
+      )
+      .set(authHeader(foreignContext))
+      .send({
+        name: `Processo externo ${foreignContext.prefix}`,
+        objective: "Referência externa para não conformidade",
+        inputs: ["Entrada externa"],
+        outputs: ["Saída externa"],
+        changeSummary: "Cadastro inicial",
+      });
+
+    expect(foreignProcess.status).toBe(201);
+
     const foreignAudit = await request(app)
       .post(
         `/api/organizations/${foreignContext.organizationId}/governance/internal-audits`,
@@ -676,41 +712,92 @@ describe("governance system routes", () => {
 
     expect(nc.status).toBe(201);
 
-    const patchedNc = await request(app)
-      .patch(
-        `/api/organizations/${context.organizationId}/governance/nonconformities/${nc.body.id}`,
-      )
-      .set(authHeader(context))
-      .send({
-        auditFindingId: foreignFinding.body.id,
-      });
+    const invalidCreateCases = [
+      {
+        field: "responsibleUserId",
+        value: foreignResponsibleUser.id,
+        expectedError: "Responsável inválido",
+      },
+      {
+        field: "processId",
+        value: foreignProcess.body.id,
+        expectedError: "Processo SGQ inválido",
+      },
+      {
+        field: "documentId",
+        value: foreignDocument.id,
+        expectedError: "Documento inválido",
+      },
+      {
+        field: "riskOpportunityItemId",
+        value: foreignRiskItem.id,
+        expectedError: "Risco/Oportunidade inválido",
+      },
+      {
+        field: "auditFindingId",
+        value: foreignFinding.body.id,
+        expectedError: "Achado de auditoria inválido",
+      },
+    ] as const;
 
-    expect(patchedNc.status).toBe(400);
-    expect(patchedNc.body.error).toContain("Achado de auditoria inválido");
+    for (const testCase of invalidCreateCases) {
+      const createdNc = await request(app)
+        .post(
+          `/api/organizations/${context.organizationId}/governance/nonconformities`,
+        )
+        .set(authHeader(context))
+        .send({
+          originType: "other",
+          title: `NC inválida ${testCase.field} ${context.prefix}`,
+          description: "Tentativa com vínculo cross-org",
+          [testCase.field]: testCase.value,
+        });
 
-    let compositeFkError: unknown;
-    try {
-      await db.insert(nonconformitiesTable).values({
-        organizationId: context.organizationId,
-        originType: "audit_finding",
-        title: `NC DB ${context.prefix}`,
-        description: "Tentativa de vínculo cross-org direto no banco",
-        auditFindingId: foreignFinding.body.id,
-        createdById: context.userId,
-        updatedById: context.userId,
-      });
-    } catch (error) {
-      compositeFkError = error;
+      expect(createdNc.status).toBe(400);
+      expect(createdNc.body.error).toContain(testCase.expectedError);
     }
 
-    expect(compositeFkError).toBeTruthy();
-    const compositeFkMessage =
-      compositeFkError instanceof Error
-        ? compositeFkError.message
-        : String(compositeFkError);
-    expect(compositeFkMessage).toContain(
-      "nonconformities_audit_finding_org_fk",
-    );
+    const invalidPatchCases = [
+      {
+        field: "responsibleUserId",
+        value: foreignResponsibleUser.id,
+        expectedError: "Responsável inválido",
+      },
+      {
+        field: "processId",
+        value: foreignProcess.body.id,
+        expectedError: "Processo SGQ inválido",
+      },
+      {
+        field: "documentId",
+        value: foreignDocument.id,
+        expectedError: "Documento inválido",
+      },
+      {
+        field: "riskOpportunityItemId",
+        value: foreignRiskItem.id,
+        expectedError: "Risco/Oportunidade inválido",
+      },
+      {
+        field: "auditFindingId",
+        value: foreignFinding.body.id,
+        expectedError: "Achado de auditoria inválido",
+      },
+    ] as const;
+
+    for (const testCase of invalidPatchCases) {
+      const patchedNc = await request(app)
+        .patch(
+          `/api/organizations/${context.organizationId}/governance/nonconformities/${nc.body.id}`,
+        )
+        .set(authHeader(context))
+        .send({
+          [testCase.field]: testCase.value,
+        });
+
+      expect(patchedNc.status).toBe(400);
+      expect(patchedNc.body.error).toContain(testCase.expectedError);
+    }
   });
 
   it("requires inputs and outputs before completing a management review and keeps action outputs open", async () => {

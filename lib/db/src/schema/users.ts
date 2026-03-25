@@ -12,9 +12,7 @@ export const usersTable = pgTable("users", {
   role: text("role").notNull().default("analyst"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-}, (table) => [
-  unique("users_org_id_unique").on(table.organizationId, table.id),
-]);
+});
 
 export const userModulePermissionsTable = pgTable("user_module_permissions", {
   id: serial("id").primaryKey(),

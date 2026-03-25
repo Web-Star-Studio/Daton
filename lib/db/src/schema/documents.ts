@@ -43,9 +43,6 @@ export const documentsTable = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [
-    unique("documents_org_id_unique").on(table.organizationId, table.id),
-  ],
 );
 
 export type Document = typeof documentsTable.$inferSelect;

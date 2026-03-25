@@ -328,12 +328,6 @@ export const strategicPlanRiskOpportunityItemsTable = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [
-    unique("strategic_plan_risk_opportunity_items_org_id_unique").on(
-      table.organizationId,
-      table.id,
-    ),
-  ],
 );
 
 export const strategicPlanRiskOpportunityEffectivenessReviewsTable = pgTable(
