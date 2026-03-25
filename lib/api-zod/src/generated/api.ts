@@ -2615,6 +2615,9 @@ export const ListDocumentsQueryParams = zod.object({
   search: zod.coerce.string().optional(),
   type: zod.coerce.string().optional(),
   status: zod.coerce.string().optional(),
+  expiryStatus: zod
+    .enum(["vigente", "a_vencer", "vencido", "em_aprovacao"])
+    .optional(),
   unitId: zod.coerce.number().optional(),
   page: zod.coerce.number().min(1).optional(),
   pageSize: zod.coerce
@@ -2633,6 +2636,18 @@ export const ListDocumentsResponseItem = zod.object({
     .number()
     .describe("0 indicates the document has no approved formal version yet."),
   validityDate: zod.string().nullish(),
+  expiryStatus: zod
+    .string()
+    .nullish()
+    .describe("Computed: vigente | a_vencer | vencido | em_aprovacao"),
+  daysRemaining: zod
+    .number()
+    .nullish()
+    .describe("Days until validity_date expires. Negative means expired."),
+  pendingConfirmations: zod
+    .number()
+    .nullish()
+    .describe("Number of recipients who have not yet confirmed reading."),
   createdByName: zod.string().optional(),
   createdAt: zod.string(),
   updatedAt: zod.string().optional(),
@@ -2659,8 +2674,16 @@ export const CreateDocumentBody = zod.object({
     "outro",
   ]),
   validityDate: zod.string().optional(),
+  normReference: zod.string().optional(),
+  responsibleDepartment: zod.string().optional(),
   elaboratorIds: zod.array(zod.number()).min(1),
   unitIds: zod.array(zod.number()).optional(),
+  criticalReviewerIds: zod
+    .array(zod.number())
+    .optional()
+    .describe(
+      "Optional users who must approve before final approvers are notified.",
+    ),
   approverIds: zod.array(zod.number()),
   recipientIds: zod.array(zod.number()).optional(),
   referenceIds: zod.array(zod.number()).optional(),
@@ -2691,6 +2714,14 @@ export const GetDocumentResponse = zod.object({
   status: zod.string(),
   currentVersion: zod.number(),
   validityDate: zod.string().nullish(),
+  expiryStatus: zod
+    .string()
+    .nullish()
+    .describe("Computed: vigente | a_vencer | vencido | em_aprovacao"),
+  daysRemaining: zod.number().nullish(),
+  pendingConfirmations: zod.number().nullish(),
+  normReference: zod.string().nullish(),
+  responsibleDepartment: zod.string().nullish(),
   createdById: zod.number().optional(),
   createdByName: zod.string().optional(),
   createdAt: zod.string(),
@@ -2731,6 +2762,7 @@ export const GetDocumentResponse = zod.object({
         id: zod.number().optional(),
         userId: zod.number().optional(),
         name: zod.string().optional(),
+        role: zod.string().optional().describe("approver | critical_reviewer"),
         status: zod.string().optional(),
         approvedAt: zod.string().nullish(),
         comment: zod.string().nullish(),
@@ -2745,6 +2777,7 @@ export const GetDocumentResponse = zod.object({
         name: zod.string().optional(),
         receivedAt: zod.string().nullish(),
         readAt: zod.string().nullish(),
+        confirmationNote: zod.string().nullish(),
       }),
     )
     .optional(),
@@ -2798,8 +2831,11 @@ export const UpdateDocumentBody = zod.object({
   title: zod.string().optional(),
   type: zod.string().optional(),
   validityDate: zod.string().optional(),
+  normReference: zod.string().optional(),
+  responsibleDepartment: zod.string().optional(),
   elaboratorIds: zod.array(zod.number()).optional(),
   unitIds: zod.array(zod.number()).optional(),
+  criticalReviewerIds: zod.array(zod.number()).optional(),
   approverIds: zod.array(zod.number()).optional(),
   recipientIds: zod.array(zod.number()).optional(),
   referenceIds: zod.array(zod.number()).optional(),
@@ -2812,6 +2848,14 @@ export const UpdateDocumentResponse = zod.object({
   status: zod.string(),
   currentVersion: zod.number(),
   validityDate: zod.string().nullish(),
+  expiryStatus: zod
+    .string()
+    .nullish()
+    .describe("Computed: vigente | a_vencer | vencido | em_aprovacao"),
+  daysRemaining: zod.number().nullish(),
+  pendingConfirmations: zod.number().nullish(),
+  normReference: zod.string().nullish(),
+  responsibleDepartment: zod.string().nullish(),
   createdById: zod.number().optional(),
   createdByName: zod.string().optional(),
   createdAt: zod.string(),
@@ -2852,6 +2896,7 @@ export const UpdateDocumentResponse = zod.object({
         id: zod.number().optional(),
         userId: zod.number().optional(),
         name: zod.string().optional(),
+        role: zod.string().optional().describe("approver | critical_reviewer"),
         status: zod.string().optional(),
         approvedAt: zod.string().nullish(),
         comment: zod.string().nullish(),
@@ -2866,6 +2911,7 @@ export const UpdateDocumentResponse = zod.object({
         name: zod.string().optional(),
         receivedAt: zod.string().nullish(),
         readAt: zod.string().nullish(),
+        confirmationNote: zod.string().nullish(),
       }),
     )
     .optional(),
@@ -2944,6 +2990,32 @@ export const ResetDocumentVersionsParams = zod.object({
 });
 
 /**
+ * @summary Batch import version history from plain text
+ */
+export const BatchImportDocumentVersionsParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const BatchImportDocumentVersionsBody = zod.object({
+  text: zod
+    .string()
+    .min(1)
+    .describe(
+      "Plain text version history. Format per line: {N} - {DD\/MM\/YYYY} - {description}",
+    ),
+});
+
+export const BatchImportDocumentVersionsResponse = zod.object({
+  imported: zod
+    .number()
+    .describe("Number of versions from the batch text that were imported"),
+  total: zod
+    .number()
+    .describe("Total version count after import (batch + pre-existing)"),
+});
+
+/**
  * @summary Add attachment to document
  */
 export const AddDocumentAttachmentParams = zod.object({
@@ -2999,6 +3071,14 @@ export const SubmitDocumentForReviewResponse = zod.object({
   status: zod.string(),
   currentVersion: zod.number(),
   validityDate: zod.string().nullish(),
+  expiryStatus: zod
+    .string()
+    .nullish()
+    .describe("Computed: vigente | a_vencer | vencido | em_aprovacao"),
+  daysRemaining: zod.number().nullish(),
+  pendingConfirmations: zod.number().nullish(),
+  normReference: zod.string().nullish(),
+  responsibleDepartment: zod.string().nullish(),
   createdById: zod.number().optional(),
   createdByName: zod.string().optional(),
   createdAt: zod.string(),
@@ -3039,6 +3119,7 @@ export const SubmitDocumentForReviewResponse = zod.object({
         id: zod.number().optional(),
         userId: zod.number().optional(),
         name: zod.string().optional(),
+        role: zod.string().optional().describe("approver | critical_reviewer"),
         status: zod.string().optional(),
         approvedAt: zod.string().nullish(),
         comment: zod.string().nullish(),
@@ -3053,6 +3134,7 @@ export const SubmitDocumentForReviewResponse = zod.object({
         name: zod.string().optional(),
         receivedAt: zod.string().nullish(),
         readAt: zod.string().nullish(),
+        confirmationNote: zod.string().nullish(),
       }),
     )
     .optional(),
@@ -3113,6 +3195,14 @@ export const ApproveDocumentResponse = zod.object({
   status: zod.string(),
   currentVersion: zod.number(),
   validityDate: zod.string().nullish(),
+  expiryStatus: zod
+    .string()
+    .nullish()
+    .describe("Computed: vigente | a_vencer | vencido | em_aprovacao"),
+  daysRemaining: zod.number().nullish(),
+  pendingConfirmations: zod.number().nullish(),
+  normReference: zod.string().nullish(),
+  responsibleDepartment: zod.string().nullish(),
   createdById: zod.number().optional(),
   createdByName: zod.string().optional(),
   createdAt: zod.string(),
@@ -3153,6 +3243,7 @@ export const ApproveDocumentResponse = zod.object({
         id: zod.number().optional(),
         userId: zod.number().optional(),
         name: zod.string().optional(),
+        role: zod.string().optional().describe("approver | critical_reviewer"),
         status: zod.string().optional(),
         approvedAt: zod.string().nullish(),
         comment: zod.string().nullish(),
@@ -3167,6 +3258,7 @@ export const ApproveDocumentResponse = zod.object({
         name: zod.string().optional(),
         receivedAt: zod.string().nullish(),
         readAt: zod.string().nullish(),
+        confirmationNote: zod.string().nullish(),
       }),
     )
     .optional(),
@@ -3227,6 +3319,14 @@ export const RejectDocumentResponse = zod.object({
   status: zod.string(),
   currentVersion: zod.number(),
   validityDate: zod.string().nullish(),
+  expiryStatus: zod
+    .string()
+    .nullish()
+    .describe("Computed: vigente | a_vencer | vencido | em_aprovacao"),
+  daysRemaining: zod.number().nullish(),
+  pendingConfirmations: zod.number().nullish(),
+  normReference: zod.string().nullish(),
+  responsibleDepartment: zod.string().nullish(),
   createdById: zod.number().optional(),
   createdByName: zod.string().optional(),
   createdAt: zod.string(),
@@ -3267,6 +3367,7 @@ export const RejectDocumentResponse = zod.object({
         id: zod.number().optional(),
         userId: zod.number().optional(),
         name: zod.string().optional(),
+        role: zod.string().optional().describe("approver | critical_reviewer"),
         status: zod.string().optional(),
         approvedAt: zod.string().nullish(),
         comment: zod.string().nullish(),
@@ -3281,6 +3382,7 @@ export const RejectDocumentResponse = zod.object({
         name: zod.string().optional(),
         receivedAt: zod.string().nullish(),
         readAt: zod.string().nullish(),
+        confirmationNote: zod.string().nullish(),
       }),
     )
     .optional(),
@@ -3337,6 +3439,14 @@ export const DistributeDocumentResponse = zod.object({
   status: zod.string(),
   currentVersion: zod.number(),
   validityDate: zod.string().nullish(),
+  expiryStatus: zod
+    .string()
+    .nullish()
+    .describe("Computed: vigente | a_vencer | vencido | em_aprovacao"),
+  daysRemaining: zod.number().nullish(),
+  pendingConfirmations: zod.number().nullish(),
+  normReference: zod.string().nullish(),
+  responsibleDepartment: zod.string().nullish(),
   createdById: zod.number().optional(),
   createdByName: zod.string().optional(),
   createdAt: zod.string(),
@@ -3377,6 +3487,7 @@ export const DistributeDocumentResponse = zod.object({
         id: zod.number().optional(),
         userId: zod.number().optional(),
         name: zod.string().optional(),
+        role: zod.string().optional().describe("approver | critical_reviewer"),
         status: zod.string().optional(),
         approvedAt: zod.string().nullish(),
         comment: zod.string().nullish(),
@@ -3391,6 +3502,7 @@ export const DistributeDocumentResponse = zod.object({
         name: zod.string().optional(),
         receivedAt: zod.string().nullish(),
         readAt: zod.string().nullish(),
+        confirmationNote: zod.string().nullish(),
       }),
     )
     .optional(),
@@ -3440,9 +3552,188 @@ export const AcknowledgeDocumentParams = zod.object({
   docId: zod.coerce.number(),
 });
 
+export const AcknowledgeDocumentBody = zod.object({
+  confirmationNote: zod.string().optional(),
+});
+
 export const AcknowledgeDocumentResponse = zod.object({
   message: zod.string(),
 });
+
+/**
+ * @summary Get document settings for organization
+ */
+export const GetDocumentSettingsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const GetDocumentSettingsResponse = zod.object({
+  organizationId: zod.number(),
+  defaultExpiringDays: zod.number(),
+  updatedAt: zod.string().optional(),
+});
+
+/**
+ * @summary Update document settings for organization
+ */
+export const UpdateDocumentSettingsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const updateDocumentSettingsBodyDefaultExpiringDaysMax = 365;
+
+export const UpdateDocumentSettingsBody = zod.object({
+  defaultExpiringDays: zod
+    .number()
+    .min(1)
+    .max(updateDocumentSettingsBodyDefaultExpiringDaysMax),
+});
+
+export const UpdateDocumentSettingsResponse = zod.object({
+  organizationId: zod.number(),
+  defaultExpiringDays: zod.number(),
+  updatedAt: zod.string().optional(),
+});
+
+/**
+ * @summary List revision requests for a document
+ */
+export const ListDocumentRevisionRequestsParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const ListDocumentRevisionRequestsResponseItem = zod.object({
+  id: zod.number(),
+  documentId: zod.number(),
+  documentTitle: zod.string().optional(),
+  requestedById: zod.number().optional(),
+  requestedByName: zod.string().optional(),
+  reviewerUserId: zod.number().optional(),
+  reviewerName: zod.string().optional(),
+  status: zod.string().describe("pending | approved | rejected"),
+  changeDescription: zod.string(),
+  attachmentFileName: zod.string().nullish(),
+  attachmentFileSize: zod.number().nullish(),
+  attachmentContentType: zod.string().nullish(),
+  attachmentObjectPath: zod.string().nullish(),
+  reviewerNotes: zod.string().nullish(),
+  reviewedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+export const ListDocumentRevisionRequestsResponse = zod.array(
+  ListDocumentRevisionRequestsResponseItem,
+);
+
+/**
+ * @summary Create a revision request for an approved document
+ */
+export const CreateDocumentRevisionRequestParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const CreateDocumentRevisionRequestBody = zod.object({
+  reviewerUserId: zod.number(),
+  changeDescription: zod.string().min(1),
+  attachmentFileName: zod.string().optional(),
+  attachmentFileSize: zod.number().optional(),
+  attachmentContentType: zod.string().optional(),
+  attachmentObjectPath: zod.string().optional(),
+});
+
+/**
+ * @summary Approve a revision request, creating a new document version
+ */
+export const ApproveDocumentRevisionRequestParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+  reqId: zod.coerce.number(),
+});
+
+export const ApproveDocumentRevisionRequestBody = zod.object({
+  notes: zod.string().optional(),
+});
+
+export const ApproveDocumentRevisionRequestResponse = zod.object({
+  id: zod.number(),
+  documentId: zod.number(),
+  documentTitle: zod.string().optional(),
+  requestedById: zod.number().optional(),
+  requestedByName: zod.string().optional(),
+  reviewerUserId: zod.number().optional(),
+  reviewerName: zod.string().optional(),
+  status: zod.string().describe("pending | approved | rejected"),
+  changeDescription: zod.string(),
+  attachmentFileName: zod.string().nullish(),
+  attachmentFileSize: zod.number().nullish(),
+  attachmentContentType: zod.string().nullish(),
+  attachmentObjectPath: zod.string().nullish(),
+  reviewerNotes: zod.string().nullish(),
+  reviewedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Reject a revision request
+ */
+export const RejectDocumentRevisionRequestParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+  reqId: zod.coerce.number(),
+});
+
+export const RejectDocumentRevisionRequestBody = zod.object({
+  notes: zod.string().min(1),
+});
+
+export const RejectDocumentRevisionRequestResponse = zod.object({
+  id: zod.number(),
+  documentId: zod.number(),
+  documentTitle: zod.string().optional(),
+  requestedById: zod.number().optional(),
+  requestedByName: zod.string().optional(),
+  reviewerUserId: zod.number().optional(),
+  reviewerName: zod.string().optional(),
+  status: zod.string().describe("pending | approved | rejected"),
+  changeDescription: zod.string(),
+  attachmentFileName: zod.string().nullish(),
+  attachmentFileSize: zod.number().nullish(),
+  attachmentContentType: zod.string().nullish(),
+  attachmentObjectPath: zod.string().nullish(),
+  reviewerNotes: zod.string().nullish(),
+  reviewedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary List pending revision requests where current user is the reviewer
+ */
+export const ListMyRevisionRequestsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListMyRevisionRequestsResponseItem = zod.object({
+  id: zod.number(),
+  documentId: zod.number(),
+  documentTitle: zod.string().optional(),
+  requestedById: zod.number().optional(),
+  requestedByName: zod.string().optional(),
+  reviewerUserId: zod.number().optional(),
+  reviewerName: zod.string().optional(),
+  status: zod.string().describe("pending | approved | rejected"),
+  changeDescription: zod.string(),
+  attachmentFileName: zod.string().nullish(),
+  attachmentFileSize: zod.number().nullish(),
+  attachmentContentType: zod.string().nullish(),
+  attachmentObjectPath: zod.string().nullish(),
+  reviewerNotes: zod.string().nullish(),
+  reviewedAt: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+export const ListMyRevisionRequestsResponse = zod.array(
+  ListMyRevisionRequestsResponseItem,
+);
 
 /**
  * @summary List notifications for current user

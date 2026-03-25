@@ -1789,6 +1789,11 @@ paths:
           in: query
           schema:
             type: string
+        - name: expiryStatus
+          in: query
+          schema:
+            type: string
+            enum: [vigente, a_vencer, vencido, em_aprovacao]
         - name: unitId
           in: query
           schema:
@@ -1950,6 +1955,36 @@ paths:
       responses:
         "204":
           description: Version history reset
+
+  /organizations/{orgId}/documents/{docId}/versions/batch-import:
+    post:
+      operationId: batchImportDocumentVersions
+      tags: [documents]
+      summary: Batch import version history from plain text
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchImportVersionsBody"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchImportVersionsResponse"
 
   /organizations/{orgId}/documents/{docId}/attachments:
     post:
@@ -2167,6 +2202,11 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcknowledgeDocumentBody"
       responses:
         "200":
           description: Acknowledged
@@ -2174,6 +2214,192 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
+
+  /organizations/{orgId}/documents/settings:
+    get:
+      operationId: getDocumentSettings
+      tags: [documents]
+      summary: Get document settings for organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Document settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentSettings"
+    patch:
+      operationId: updateDocumentSettings
+      tags: [documents]
+      summary: Update document settings for organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDocumentSettingsBody"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentSettings"
+
+  /organizations/{orgId}/documents/{docId}/revision-requests:
+    get:
+      operationId: listDocumentRevisionRequests
+      tags: [documents]
+      summary: List revision requests for a document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of revision requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentRevisionRequest"
+    post:
+      operationId: createDocumentRevisionRequest
+      tags: [documents]
+      summary: Create a revision request for an approved document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDocumentRevisionRequestBody"
+      responses:
+        "201":
+          description: Revision request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentRevisionRequest"
+
+  /organizations/{orgId}/documents/{docId}/revision-requests/{reqId}/approve:
+    post:
+      operationId: approveDocumentRevisionRequest
+      tags: [documents]
+      summary: Approve a revision request, creating a new document version
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reqId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveRevisionRequestBody"
+      responses:
+        "200":
+          description: Revision approved, new version created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentRevisionRequest"
+
+  /organizations/{orgId}/documents/{docId}/revision-requests/{reqId}/reject:
+    post:
+      operationId: rejectDocumentRevisionRequest
+      tags: [documents]
+      summary: Reject a revision request
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reqId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectRevisionRequestBody"
+      responses:
+        "200":
+          description: Revision rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentRevisionRequest"
+
+  /organizations/{orgId}/revision-requests:
+    get:
+      operationId: listMyRevisionRequests
+      tags: [documents]
+      summary: List pending revision requests where current user is the reviewer
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of pending revision requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentRevisionRequest"
 
   /organizations/{orgId}/notifications:
     get:
@@ -7173,6 +7399,18 @@ components:
         validityDate:
           type: string
           nullable: true
+        expiryStatus:
+          type: string
+          nullable: true
+          description: "Computed: vigente | a_vencer | vencido | em_aprovacao"
+        daysRemaining:
+          type: integer
+          nullable: true
+          description: Days until validity_date expires. Negative means expired.
+        pendingConfirmations:
+          type: integer
+          nullable: true
+          description: Number of recipients who have not yet confirmed reading.
         createdByName:
           type: string
         createdAt:
@@ -7204,6 +7442,22 @@ components:
         currentVersion:
           type: integer
         validityDate:
+          type: string
+          nullable: true
+        expiryStatus:
+          type: string
+          nullable: true
+          description: "Computed: vigente | a_vencer | vencido | em_aprovacao"
+        daysRemaining:
+          type: integer
+          nullable: true
+        pendingConfirmations:
+          type: integer
+          nullable: true
+        normReference:
+          type: string
+          nullable: true
+        responsibleDepartment:
           type: string
           nullable: true
         createdById:
@@ -7238,6 +7492,9 @@ components:
                 type: integer
               name:
                 type: string
+              role:
+                type: string
+                description: "approver | critical_reviewer"
               status:
                 type: string
               approvedAt:
@@ -7261,6 +7518,9 @@ components:
                 type: string
                 nullable: true
               readAt:
+                type: string
+                nullable: true
+              confirmationNote:
                 type: string
                 nullable: true
         references:
@@ -7300,6 +7560,10 @@ components:
           enum: [manual, procedimento, instrucao, formulario, registro, politica, outro]
         validityDate:
           type: string
+        normReference:
+          type: string
+        responsibleDepartment:
+          type: string
         elaboratorIds:
           type: array
           minItems: 1
@@ -7310,6 +7574,12 @@ components:
           type: array
           items:
             type: integer
+        criticalReviewerIds:
+          type: array
+          uniqueItems: true
+          items:
+            type: integer
+          description: Optional users who must approve before final approvers are notified.
         approverIds:
           type: array
           items:
@@ -7355,6 +7625,10 @@ components:
           type: string
         validityDate:
           type: string
+        normReference:
+          type: string
+        responsibleDepartment:
+          type: string
         elaboratorIds:
           type: array
           uniqueItems: true
@@ -7362,6 +7636,11 @@ components:
             type: integer
         unitIds:
           type: array
+          items:
+            type: integer
+        criticalReviewerIds:
+          type: array
+          uniqueItems: true
           items:
             type: integer
         approverIds:
@@ -7376,6 +7655,139 @@ components:
           type: array
           items:
             type: integer
+
+    BatchImportVersionsBody:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          description: "Plain text version history. Format per line: {N} - {DD/MM/YYYY} - {description}"
+
+    BatchImportVersionsResponse:
+      type: object
+      required: [imported, total]
+      properties:
+        imported:
+          type: integer
+          description: Number of versions from the batch text that were imported
+        total:
+          type: integer
+          description: Total version count after import (batch + pre-existing)
+
+    DocumentRevisionRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+        documentId:
+          type: integer
+        documentTitle:
+          type: string
+        requestedById:
+          type: integer
+        requestedByName:
+          type: string
+        reviewerUserId:
+          type: integer
+        reviewerName:
+          type: string
+        status:
+          type: string
+          description: "pending | approved | rejected"
+        changeDescription:
+          type: string
+        attachmentFileName:
+          type: string
+          nullable: true
+        attachmentFileSize:
+          type: integer
+          nullable: true
+        attachmentContentType:
+          type: string
+          nullable: true
+        attachmentObjectPath:
+          type: string
+          nullable: true
+        reviewerNotes:
+          type: string
+          nullable: true
+        reviewedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - documentId
+        - status
+        - changeDescription
+        - createdAt
+
+    CreateDocumentRevisionRequestBody:
+      type: object
+      properties:
+        reviewerUserId:
+          type: integer
+        changeDescription:
+          type: string
+          minLength: 1
+        attachmentFileName:
+          type: string
+        attachmentFileSize:
+          type: integer
+        attachmentContentType:
+          type: string
+        attachmentObjectPath:
+          type: string
+      required:
+        - reviewerUserId
+        - changeDescription
+
+    ApproveRevisionRequestBody:
+      type: object
+      properties:
+        notes:
+          type: string
+
+    RejectRevisionRequestBody:
+      type: object
+      properties:
+        notes:
+          type: string
+          minLength: 1
+      required:
+        - notes
+
+    AcknowledgeDocumentBody:
+      type: object
+      properties:
+        confirmationNote:
+          type: string
+
+    DocumentSettings:
+      type: object
+      properties:
+        organizationId:
+          type: integer
+        defaultExpiringDays:
+          type: integer
+        updatedAt:
+          type: string
+      required:
+        - organizationId
+        - defaultExpiringDays
+
+    UpdateDocumentSettingsBody:
+      type: object
+      properties:
+        defaultExpiringDays:
+          type: integer
+          minimum: 1
+          maximum: 365
+      required:
+        - defaultExpiringDays
 
     SubmitDocumentForReviewBody:
       type: object

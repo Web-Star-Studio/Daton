@@ -17,9 +17,17 @@ import {
   useListUnits,
   useListUserOptions,
   useListDocuments,
+  useListDocumentRevisionRequests,
+  useCreateDocumentRevisionRequest,
+  useApproveDocumentRevisionRequest,
+  useRejectDocumentRevisionRequest,
+  useBatchImportDocumentVersions,
+  useListDepartments,
   getListUnitsQueryKey,
   getListUserOptionsQueryKey,
   getListDocumentsQueryKey,
+  getListDocumentRevisionRequestsQueryKey,
+  getListDepartmentsQueryKey,
 } from "@workspace/api-client-react";
 import type {
   DocumentDetailUnitsItem,
@@ -29,6 +37,7 @@ import type {
   DocumentAttachment,
   DocumentVersion,
   UserOption,
+  DocumentRevisionRequest,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -55,6 +64,8 @@ import {
   RotateCcw,
   Eye,
   Pencil,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -82,6 +93,16 @@ const TYPE_LABELS: Record<string, string> = {
   politica: "Política",
   outro: "Outro",
 };
+
+const NORM_OPTIONS = [
+  "ISO 9001:2015",
+  "ISO 14001:2015",
+  "ISO 45001:2018",
+  "ISO 17025:2017",
+  "ISO 31000:2018",
+  "ABNT NBR ISO 9001:2015",
+  "NBR ISO 14001:2015",
+];
 
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -131,8 +152,11 @@ interface EditFormState {
   title: string;
   type: string;
   validityDate: string;
+  normReference: string;
+  responsibleDepartment: string;
   elaboratorIds: number[];
   unitIds: number[];
+  criticalReviewerIds: number[];
   approverIds: number[];
   recipientIds: number[];
   referenceIds: number[];
@@ -148,7 +172,7 @@ export default function DocumentDetailPage() {
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<
-    "info" | "attachments" | "versions" | "flow"
+    "info" | "attachments" | "versions" | "flow" | "revisions"
   >("info");
   const [rejectDialog, setRejectDialog] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
@@ -163,6 +187,16 @@ export default function DocumentDetailPage() {
     string | null
   >(null);
   const [editForm, setEditForm] = useState<EditFormState | null>(null);
+  const [editNormCustom, setEditNormCustom] = useState(false);
+  const [revisionDialog, setRevisionDialog] = useState(false);
+  const [revisionReviewerUserId, setRevisionReviewerUserId] = useState<string>("");
+  const [revisionChangeDescription, setRevisionChangeDescription] = useState("");
+  const [approveRevisionDialog, setApproveRevisionDialog] = useState<{ reqId: number } | null>(null);
+  const [approveRevisionNotes, setApproveRevisionNotes] = useState("");
+  const [rejectRevisionDialog, setRejectRevisionDialog] = useState<{ reqId: number } | null>(null);
+  const [rejectRevisionNotes, setRejectRevisionNotes] = useState("");
+  const [batchImportDialog, setBatchImportDialog] = useState(false);
+  const [batchImportText, setBatchImportText] = useState("");
 
   const { data: doc, isLoading } = useGetDocument(orgId!, docId, {
     query: {
@@ -177,10 +211,10 @@ export default function DocumentDetailPage() {
       enabled: !!orgId && editDialogOpen,
     },
   });
-  const { data: allUsers } = useListUserOptions(orgId!, {
+  const { data: allUsers } = useListUserOptions(orgId!, undefined, {
     query: {
       queryKey: getListUserOptionsQueryKey(orgId!),
-      enabled: !!orgId && editDialogOpen,
+      enabled: !!orgId && (editDialogOpen || revisionDialog),
     },
   });
   const { data: allDocs } = useListDocuments(
@@ -193,6 +227,12 @@ export default function DocumentDetailPage() {
       },
     },
   );
+  const { data: allDepartments } = useListDepartments(orgId!, {
+    query: {
+      queryKey: getListDepartmentsQueryKey(orgId!),
+      enabled: !!orgId && editDialogOpen,
+    },
+  });
   const orgUsers = allUsers ?? [];
   const elaboratorPicker = useEmployeeMultiPicker({
     orgId,
@@ -203,6 +243,13 @@ export default function DocumentDetailPage() {
       name: e.name!,
       email: e.email,
     })),
+  });
+
+  const { data: revisionRequests } = useListDocumentRevisionRequests(orgId!, docId, {
+    query: {
+      queryKey: getListDocumentRevisionRequestsQueryKey(orgId!, docId),
+      enabled: !!orgId && docId > 0,
+    },
   });
 
   usePageTitle(doc?.title);
@@ -216,20 +263,28 @@ export default function DocumentDetailPage() {
   const deleteAttachmentMut = useDeleteDocumentAttachment();
   const resetVersionsMut = useResetDocumentVersions();
   const deleteMut = useDeleteDocument();
+  const createRevisionMut = useCreateDocumentRevisionRequest();
+  const approveRevisionMut = useApproveDocumentRevisionRequest();
+  const rejectRevisionMut = useRejectDocumentRevisionRequest();
+  const batchImportMut = useBatchImportDocumentVersions();
 
   const invalidate = () =>
     queryClient.invalidateQueries({
       queryKey: getGetDocumentQueryKey(orgId!, docId),
     });
 
-  const isApprover = doc?.approvers?.some(
-    (a: DocumentDetailApproversItem) => a.userId === user?.id,
+  const invalidateRevisions = () =>
+    queryClient.invalidateQueries({
+      queryKey: getListDocumentRevisionRequestsQueryKey(orgId!, docId),
+    });
+
+  const myApproval = doc?.approvers?.find(
+    (a: DocumentDetailApproversItem) =>
+      a.userId === user?.id && a.status === "pending",
   );
+  const isApprover = !!myApproval;
   const isRecipient = doc?.recipients?.some(
     (r: DocumentDetailRecipientsItem) => r.userId === user?.id,
-  );
-  const myApproval = doc?.approvers?.find(
-    (a: DocumentDetailApproversItem) => a.userId === user?.id,
   );
   const myReceipt = doc?.recipients?.find(
     (r: DocumentDetailRecipientsItem) => r.userId === user?.id,
@@ -242,6 +297,9 @@ export default function DocumentDetailPage() {
     canWriteDocuments &&
     (role === "org_admin" || role === "operator") &&
     (doc?.status === "draft" || doc?.status === "rejected");
+  const canRequestRevision =
+    canWriteDocuments &&
+    (doc?.status === "approved" || doc?.status === "distributed");
 
   const handleSubmitForReview = async () => {
     if (!orgId || !submitChangeDescription.trim()) return;
@@ -263,24 +321,34 @@ export default function DocumentDetailPage() {
 
   const handleAcknowledge = async () => {
     if (!orgId) return;
-    await acknowledgeMut.mutateAsync({ orgId, docId });
+    await acknowledgeMut.mutateAsync({ orgId, docId, data: {} });
     invalidate();
   };
 
   const handleOpenEditDialog = () => {
     if (!doc) return;
+    const existingNorm = doc.normReference ?? "";
+    setEditNormCustom(!!existingNorm && !NORM_OPTIONS.includes(existingNorm));
     setEditForm({
       title: doc.title,
       type: doc.type,
       validityDate: doc.validityDate ?? "",
+      normReference: existingNorm,
+      responsibleDepartment: doc.responsibleDepartment ?? "",
       elaboratorIds: doc.elaborators?.map((e) => e.id).filter(Boolean) as number[] ?? [],
       unitIds:
         doc.units
           ?.map((u: DocumentDetailUnitsItem) => u.id!)
           .filter(Boolean) ?? [],
+      criticalReviewerIds:
+        doc.approvers
+          ?.filter((a: DocumentDetailApproversItem) => a.role === "critical_reviewer")
+          .map((a: DocumentDetailApproversItem) => a.userId!)
+          .filter(Boolean) ?? [],
       approverIds:
         doc.approvers
-          ?.map((a: DocumentDetailApproversItem) => a.userId!)
+          ?.filter((a: DocumentDetailApproversItem) => a.role !== "critical_reviewer")
+          .map((a: DocumentDetailApproversItem) => a.userId!)
           .filter(Boolean) ?? [],
       recipientIds:
         doc.recipients
@@ -340,8 +408,11 @@ export default function DocumentDetailPage() {
         title: editForm.title.trim(),
         type: editForm.type,
         validityDate: editForm.validityDate || undefined,
+        normReference: editForm.normReference || undefined,
+        responsibleDepartment: editForm.responsibleDepartment || undefined,
         elaboratorIds: editForm.elaboratorIds,
         unitIds: editForm.unitIds,
+        criticalReviewerIds: editForm.criticalReviewerIds,
         approverIds: editForm.approverIds,
         recipientIds: editForm.recipientIds,
         referenceIds: editForm.referenceIds,
@@ -402,6 +473,19 @@ export default function DocumentDetailPage() {
               </Button>
             </>
           )}
+        {canRequestRevision && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setRevisionReviewerUserId("");
+              setRevisionChangeDescription("");
+              setRevisionDialog(true);
+            }}
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Solicitar Revisão
+          </Button>
+        )}
         {doc.status === "draft" && (
           <Button
             size="sm"
@@ -560,6 +644,7 @@ export default function DocumentDetailPage() {
     { id: "attachments" as const, label: "Anexos", icon: Paperclip },
     { id: "versions" as const, label: "Versões", icon: GitBranch },
     { id: "flow" as const, label: "Fluxo", icon: Users },
+    { id: "revisions" as const, label: "Revisões", icon: RefreshCw, badge: (revisionRequests ?? []).filter(r => r.status === "pending").length || undefined },
   ];
 
   return (
@@ -594,6 +679,11 @@ export default function DocumentDetailPage() {
           >
             <tab.icon className="h-3.5 w-3.5" />
             {tab.label}
+            {"badge" in tab && tab.badge ? (
+              <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 font-semibold leading-none">
+                {tab.badge}
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
@@ -624,6 +714,12 @@ export default function DocumentDetailPage() {
               value={formatDateTime(doc.updatedAt)}
             />
           </div>
+          {(doc.normReference || doc.responsibleDepartment) && (
+            <div className="grid grid-cols-2 gap-6">
+              <InfoField label="Referência Normativa" value={doc.normReference ?? ""} />
+              <InfoField label="Departamento Responsável" value={doc.responsibleDepartment ?? ""} />
+            </div>
+          )}
 
           {doc.units && doc.units.length > 0 && (
             <div>
@@ -779,23 +875,35 @@ export default function DocumentDetailPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Histórico de Versões</h3>
-            {canEdit && doc.versions && doc.versions.length > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                onClick={async () => {
-                  if (!orgId) return;
-                  if (!confirm("Deseja resetar todo o histórico de versões? Esta ação não pode ser desfeita.")) return;
-                  await resetVersionsMut.mutateAsync({ orgId, docId });
-                  invalidate();
-                }}
-                disabled={resetVersionsMut.isPending}
-              >
-                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-                Resetar Histórico
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {canWriteDocuments && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { setBatchImportText(""); setBatchImportDialog(true); }}
+                >
+                  <Upload className="h-3.5 w-3.5 mr-1.5" />
+                  Importar Histórico
+                </Button>
+              )}
+              {canEdit && doc.versions && doc.versions.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={async () => {
+                    if (!orgId) return;
+                    if (!confirm("Deseja resetar todo o histórico de versões? Esta ação não pode ser desfeita.")) return;
+                    await resetVersionsMut.mutateAsync({ orgId, docId });
+                    invalidate();
+                  }}
+                  disabled={resetVersionsMut.isPending}
+                >
+                  <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                  Resetar Histórico
+                </Button>
+              )}
+            </div>
           </div>
           {!doc.versions || doc.versions.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">
@@ -859,7 +967,12 @@ export default function DocumentDetailPage() {
                       <div className="h-8 w-8 rounded-full bg-foreground/5 flex items-center justify-center text-xs font-medium">
                         {a.name?.charAt(0).toUpperCase() || "?"}
                       </div>
-                      <span className="text-sm font-medium">{a.name}</span>
+                      <div>
+                        <span className="text-sm font-medium">{a.name}</span>
+                        {a.role === "critical_reviewer" && (
+                          <p className="text-xs text-amber-600">Analista Crítico</p>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {a.status === "pending" && (
@@ -976,6 +1089,86 @@ export default function DocumentDetailPage() {
         </div>
       )}
 
+      {activeTab === "revisions" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Solicitações de Revisão</h3>
+          </div>
+          {!revisionRequests || revisionRequests.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">
+              Nenhuma solicitação de revisão registrada.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {revisionRequests.map((r: DocumentRevisionRequest) => {
+                const isPending = r.status === "pending";
+                const isMyPendingReview = isPending && r.reviewerUserId === user?.id;
+                return (
+                  <div key={r.id} className="border border-border/60 rounded-lg p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          {isPending && (
+                            <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                              <Clock className="h-3 w-3" /> Pendente
+                            </span>
+                          )}
+                          {r.status === "approved" && (
+                            <span className="inline-flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                              <CheckCircle className="h-3 w-3" /> Aprovada
+                            </span>
+                          )}
+                          {r.status === "rejected" && (
+                            <span className="inline-flex items-center gap-1 text-xs text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">
+                              <XCircle className="h-3 w-3" /> Rejeitada
+                            </span>
+                          )}
+                          <span className="text-xs text-muted-foreground">{formatDateTime(r.createdAt)}</span>
+                        </div>
+                        <p className="text-sm">{r.changeDescription}</p>
+                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                          <span>Solicitante: {r.requestedByName || "—"}</span>
+                          <span>Revisor: {r.reviewerName || "—"}</span>
+                        </div>
+                        {r.reviewerNotes && (
+                          <p className="mt-2 text-xs text-muted-foreground italic border-l-2 border-border/40 pl-2">
+                            Nota: {r.reviewerNotes}
+                          </p>
+                        )}
+                      </div>
+                      {isMyPendingReview && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => {
+                              setRejectRevisionNotes("");
+                              setRejectRevisionDialog({ reqId: r.id });
+                            }}
+                          >
+                            <XCircle className="h-3.5 w-3.5 mr-1.5" /> Rejeitar
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setApproveRevisionNotes("");
+                              setApproveRevisionDialog({ reqId: r.id });
+                            }}
+                          >
+                            <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Aprovar
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       <Dialog
         open={editDialogOpen}
         onOpenChange={(open) => {
@@ -1048,6 +1241,55 @@ export default function DocumentDetailPage() {
                     />
                   </div>
                 </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <Label>Referência Normativa</Label>
+                    <Select
+                      className="mt-2"
+                      value={editNormCustom ? "__outro__" : editForm.normReference}
+                      onChange={(e) => {
+                        if (e.target.value === "__outro__") {
+                          setEditNormCustom(true);
+                          setEditForm({ ...editForm, normReference: "" });
+                        } else {
+                          setEditNormCustom(false);
+                          setEditForm({ ...editForm, normReference: e.target.value });
+                        }
+                      }}
+                    >
+                      <option value="">Selecione a norma</option>
+                      {NORM_OPTIONS.map((n) => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                      <option value="__outro__">Outro...</option>
+                    </Select>
+                    {editNormCustom && (
+                      <Input
+                        className="mt-2"
+                        placeholder="Informe a referência normativa"
+                        value={editForm.normReference}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, normReference: e.target.value })
+                        }
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <Label>Departamento Responsável</Label>
+                    <Select
+                      className="mt-2"
+                      value={editForm.responsibleDepartment}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, responsibleDepartment: e.target.value })
+                      }
+                    >
+                      <option value="">Selecione o departamento</option>
+                      {(allDepartments || []).map((d) => (
+                        <option key={d.id} value={d.name}>{d.name}</option>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1079,6 +1321,29 @@ export default function DocumentDetailPage() {
                 </div>
 
                 <div>
+                  <Label>Analista Crítico <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                  <SearchableMultiSelect
+                    placeholder="Selecione analistas críticos"
+                    searchPlaceholder="Buscar analista..."
+                    emptyMessage="Nenhum usuário encontrado."
+                    options={orgUsers.map((option: UserOption) => ({
+                      value: option.id,
+                      label: option.name,
+                      keywords: [option.email ?? ""],
+                    }))}
+                    selected={editForm.criticalReviewerIds}
+                    onToggle={(id) =>
+                      setEditForm({
+                        ...editForm,
+                        criticalReviewerIds: toggleMultiSelect(
+                          editForm.criticalReviewerIds,
+                          id,
+                        ),
+                      })
+                    }
+                  />
+                </div>
+                <div>
                   <Label>Aprovadores</Label>
                   <SearchableMultiSelect
                     placeholder="Selecione aprovadores"
@@ -1087,7 +1352,7 @@ export default function DocumentDetailPage() {
                     options={orgUsers.map((option: UserOption) => ({
                       value: option.id,
                       label: option.name,
-                      keywords: [option.email],
+                      keywords: [option.email ?? ""],
                     }))}
                     selected={editForm.approverIds}
                     onToggle={(id) =>
@@ -1111,7 +1376,7 @@ export default function DocumentDetailPage() {
                     options={orgUsers.map((option: UserOption) => ({
                       value: option.id,
                       label: option.name,
-                      keywords: [option.email],
+                      keywords: [option.email ?? ""],
                     }))}
                     selected={editForm.recipientIds}
                     onToggle={(id) =>
@@ -1351,6 +1616,194 @@ export default function DocumentDetailPage() {
               className="bg-red-600 hover:bg-red-700"
             >
               Excluir
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={revisionDialog}
+        onOpenChange={(open) => {
+          setRevisionDialog(open);
+          if (!open) { setRevisionReviewerUserId(""); setRevisionChangeDescription(""); }
+        }}
+        title="Solicitar Revisão"
+        description="Descreva as alterações necessárias e escolha o revisor responsável por aprovar."
+      >
+        <div className="space-y-4">
+          <div>
+            <Label>Revisor *</Label>
+            <Select
+              className="mt-2"
+              value={revisionReviewerUserId}
+              onChange={(e) => setRevisionReviewerUserId(e.target.value)}
+            >
+              <option value="">Selecione um revisor</option>
+              {orgUsers.map((u: UserOption) => (
+                <option key={u.id} value={String(u.id)}>{u.name}</option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label>Descrição das alterações *</Label>
+            <Input
+              className="mt-2"
+              placeholder="Descreva o que precisa ser revisado..."
+              value={revisionChangeDescription}
+              onChange={(e) => setRevisionChangeDescription(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setRevisionDialog(false)}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              disabled={!revisionReviewerUserId || !revisionChangeDescription.trim()}
+              isLoading={createRevisionMut.isPending}
+              onClick={async () => {
+                if (!orgId || !revisionReviewerUserId) return;
+                await createRevisionMut.mutateAsync({
+                  orgId,
+                  docId,
+                  data: {
+                    reviewerUserId: parseInt(revisionReviewerUserId, 10),
+                    changeDescription: revisionChangeDescription.trim(),
+                  },
+                });
+                setRevisionDialog(false);
+                invalidateRevisions();
+              }}
+            >
+              Enviar Solicitação
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={!!approveRevisionDialog}
+        onOpenChange={(open) => { if (!open) { setApproveRevisionDialog(null); setApproveRevisionNotes(""); } }}
+        title="Aprovar Solicitação de Revisão"
+        description="A aprovação incrementará a versão do documento e notificará os destinatários."
+      >
+        <div className="space-y-4">
+          <div>
+            <Label>Notas <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+            <Input
+              className="mt-2"
+              placeholder="Observações sobre a aprovação..."
+              value={approveRevisionNotes}
+              onChange={(e) => setApproveRevisionNotes(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setApproveRevisionDialog(null)}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              isLoading={approveRevisionMut.isPending}
+              onClick={async () => {
+                if (!orgId || !approveRevisionDialog) return;
+                await approveRevisionMut.mutateAsync({
+                  orgId,
+                  docId,
+                  reqId: approveRevisionDialog.reqId,
+                  data: { notes: approveRevisionNotes || undefined },
+                });
+                setApproveRevisionDialog(null);
+                invalidate();
+                invalidateRevisions();
+              }}
+            >
+              Confirmar Aprovação
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={batchImportDialog}
+        onOpenChange={(open) => { setBatchImportDialog(open); if (!open) setBatchImportText(""); }}
+        title="Importar Histórico de Versões"
+        description="Cole o histórico no formato: N - DD/MM/AAAA - Descrição. Versões existentes serão renumeradas para após o batch."
+        size="xl"
+      >
+        <div className="space-y-4">
+          <div>
+            <Label>Histórico *</Label>
+            <textarea
+              className="mt-2 w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+              placeholder={"1 - 01/01/2020 - Emissão inicial\n2 - 15/06/2020 - Revisão do escopo\n3 - 10/01/2021 - Atualização de procedimentos"}
+              value={batchImportText}
+              onChange={(e) => setBatchImportText(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setBatchImportDialog(false)}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              disabled={!batchImportText.trim()}
+              isLoading={batchImportMut.isPending}
+              onClick={async () => {
+                if (!orgId) return;
+                const result = await batchImportMut.mutateAsync({
+                  orgId,
+                  docId,
+                  data: { text: batchImportText.trim() },
+                });
+                setBatchImportDialog(false);
+                invalidate();
+                alert(`${result.imported} versões importadas. Total: ${result.total} versões.`);
+              }}
+            >
+              Importar
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={!!rejectRevisionDialog}
+        onOpenChange={(open) => { if (!open) { setRejectRevisionDialog(null); setRejectRevisionNotes(""); } }}
+        title="Rejeitar Solicitação de Revisão"
+        description="Informe o motivo da rejeição."
+      >
+        <div className="space-y-4">
+          <div>
+            <Label>Motivo *</Label>
+            <Input
+              className="mt-2"
+              placeholder="Descreva o motivo da rejeição..."
+              value={rejectRevisionNotes}
+              onChange={(e) => setRejectRevisionNotes(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setRejectRevisionDialog(null)}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              disabled={!rejectRevisionNotes.trim()}
+              isLoading={rejectRevisionMut.isPending}
+              className="bg-red-600 hover:bg-red-700"
+              onClick={async () => {
+                if (!orgId || !rejectRevisionDialog) return;
+                await rejectRevisionMut.mutateAsync({
+                  orgId,
+                  docId,
+                  reqId: rejectRevisionDialog.reqId,
+                  data: { notes: rejectRevisionNotes.trim() },
+                });
+                setRejectRevisionDialog(null);
+                invalidateRevisions();
+              }}
+            >
+              Rejeitar
             </Button>
           </DialogFooter>
         </div>

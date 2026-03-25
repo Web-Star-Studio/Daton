@@ -5,11 +5,13 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListDocumentsExpiryStatus } from "./listDocumentsExpiryStatus";
 
 export type ListDocumentsParams = {
   search?: string;
   type?: string;
   status?: string;
+  expiryStatus?: ListDocumentsExpiryStatus;
   unitId?: number;
   /**
    * @minimum 1

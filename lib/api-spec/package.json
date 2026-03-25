@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "codegen": "ruby -ryaml -rjson -e 'puts JSON.pretty_generate(YAML.load_file(\"./openapi.yaml\"))' > ./.openapi.codegen.json && orval --config ./orval.config.ts && ruby -e 'path = File.expand_path(\"../api-zod/src/index.ts\", __dir__); lines = File.readlines(path).reject { |line| line.include?(\"./generated/types\") }; File.write(path, lines.join)' && rm -f ./.openapi.codegen.json"
+    "codegen": "python3 -c \"import yaml, json; print(json.dumps(yaml.safe_load(open('./openapi.yaml'))))\" > ./.openapi.codegen.json && orval --config ./orval.config.ts && python3 -c \"import re; path='../api-zod/src/index.ts'; content=open(path).read(); open(path,'w').write(re.sub(r\\\"export \\\\* from './generated/types';\\\\n?\\\", '', content))\" && rm -f ./.openapi.codegen.json"
   },
   "devDependencies": {
     "orval": "^8.5.2"

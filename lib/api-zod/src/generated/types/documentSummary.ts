@@ -14,6 +14,12 @@ export interface DocumentSummary {
   /** 0 indicates the document has no approved formal version yet. */
   currentVersion: number;
   validityDate?: string | null;
+  /** Computed: vigente | a_vencer | vencido | em_aprovacao */
+  expiryStatus?: string | null;
+  /** Days until validity_date expires. Negative means expired. */
+  daysRemaining?: number | null;
+  /** Number of recipients who have not yet confirmed reading. */
+  pendingConfirmations?: number | null;
   createdByName?: string;
   createdAt: string;
   updatedAt?: string;

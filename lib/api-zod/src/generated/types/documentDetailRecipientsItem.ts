@@ -12,4 +12,5 @@ export type DocumentDetailRecipientsItem = {
   name?: string;
   receivedAt?: string | null;
   readAt?: string | null;
+  confirmationNote?: string | null;
 };

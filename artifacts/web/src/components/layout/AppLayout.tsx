@@ -242,6 +242,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       ? [{ href: "/qualidade/fornecedores", label: "Fornecedores" }]
       : []),
     { href: "/qualidade/documentacao", label: "Documentação" },
+    { href: "/qualidade/documentacao/revisoes", label: "Minhas Revisões" },
   ];
 
   const governancaLinks: NavLink[] = [

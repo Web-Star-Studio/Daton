@@ -382,7 +382,7 @@ export default function GovernanceRiskOpportunityPage() {
   const { data: units = [] } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
   });
-  const { data: users = [] } = useListUserOptions(orgId!, {
+  const { data: users = [] } = useListUserOptions(orgId!, undefined, {
     query: { queryKey: getListUserOptionsQueryKey(orgId!), enabled: !!orgId },
   });
   const { data: dialogPlan } = useGovernancePlan(orgId, dialogPlanId || undefined);

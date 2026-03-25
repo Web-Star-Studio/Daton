@@ -20,6 +20,12 @@ export interface DocumentDetail {
   status: string;
   currentVersion: number;
   validityDate?: string | null;
+  /** Computed: vigente | a_vencer | vencido | em_aprovacao */
+  expiryStatus?: string | null;
+  daysRemaining?: number | null;
+  pendingConfirmations?: number | null;
+  normReference?: string | null;
+  responsibleDepartment?: string | null;
   createdById?: number;
   createdByName?: string;
   createdAt: string;

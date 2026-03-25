@@ -12,6 +12,8 @@ import {
   documentReferencesTable,
   documentAttachmentsTable,
   documentVersionsTable,
+  documentSettingsTable,
+  documentRevisionRequestsTable,
   usersTable,
   unitsTable,
   employeesTable,
@@ -33,12 +35,26 @@ import {
   RejectDocumentBody,
   DistributeDocumentParams,
   AcknowledgeDocumentParams,
+  AcknowledgeDocumentBody,
   ListDocumentVersionsParams,
   AddDocumentAttachmentParams,
   AddDocumentAttachmentBody,
   DeleteDocumentAttachmentParams,
   DeleteDocumentParams,
   ListUserOptionsQueryParams,
+  GetDocumentSettingsParams,
+  UpdateDocumentSettingsParams,
+  UpdateDocumentSettingsBody,
+  ListDocumentRevisionRequestsParams,
+  CreateDocumentRevisionRequestParams,
+  CreateDocumentRevisionRequestBody,
+  ApproveDocumentRevisionRequestParams,
+  ApproveDocumentRevisionRequestBody,
+  RejectDocumentRevisionRequestParams,
+  RejectDocumentRevisionRequestBody,
+  ListMyRevisionRequestsParams,
+  BatchImportDocumentVersionsParams,
+  BatchImportDocumentVersionsBody,
 } from "@workspace/api-zod";
 import { requireAuth, requireModuleAccess, requireWriteAccess } from "../middlewares/auth";
 import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage";
@@ -46,6 +62,37 @@ import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage"
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 let supportsPendingVersionDescriptionColumnCache: boolean | null = null;
+
+function computeExpiryStatus(
+  status: string,
+  validityDate: string | null,
+  defaultExpiringDays: number,
+): { expiryStatus: string; daysRemaining: number | null } {
+  const isActive = status === "approved" || status === "distributed";
+  if (!isActive) return { expiryStatus: "em_aprovacao", daysRemaining: null };
+  if (!validityDate) return { expiryStatus: "vigente", daysRemaining: null };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiry = new Date(validityDate);
+  expiry.setHours(0, 0, 0, 0);
+  const daysRemaining = Math.round((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  let expiryStatus: string;
+  if (daysRemaining < 0) expiryStatus = "vencido";
+  else if (daysRemaining <= defaultExpiringDays) expiryStatus = "a_vencer";
+  else expiryStatus = "vigente";
+
+  return { expiryStatus, daysRemaining };
+}
+
+async function getOrgDocumentSettings(orgId: number): Promise<{ defaultExpiringDays: number }> {
+  const [settings] = await db
+    .select({ defaultExpiringDays: documentSettingsTable.defaultExpiringDays })
+    .from(documentSettingsTable)
+    .where(eq(documentSettingsTable.organizationId, orgId));
+  return settings ?? { defaultExpiringDays: 30 };
+}
 
 async function supportsPendingVersionDescriptionColumn(): Promise<boolean> {
   if (supportsPendingVersionDescriptionColumnCache !== null) {
@@ -277,6 +324,8 @@ async function getDocumentRecord(docId: number, orgId: number) {
       status: documentsTable.status,
       currentVersion: documentsTable.currentVersion,
       validityDate: documentsTable.validityDate,
+      normReference: documentsTable.normReference,
+      responsibleDepartment: documentsTable.responsibleDepartment,
       createdById: documentsTable.createdById,
       createdAt: documentsTable.createdAt,
       updatedAt: documentsTable.updatedAt,
@@ -295,6 +344,8 @@ async function getDocumentDetail(docId: number, orgId: number) {
     status: documentsTable.status,
     currentVersion: documentsTable.currentVersion,
     validityDate: documentsTable.validityDate,
+    normReference: documentsTable.normReference,
+    responsibleDepartment: documentsTable.responsibleDepartment,
     createdById: documentsTable.createdById,
     createdByName: usersTable.name,
     createdByEmail: usersTable.email,
@@ -345,6 +396,7 @@ async function getDocumentDetail(docId: number, orgId: number) {
     id: documentApproversTable.id,
     userId: documentApproversTable.userId,
     name: usersTable.name,
+    role: documentApproversTable.role,
     status: documentApproversTable.status,
     approvedAt: documentApproversTable.approvedAt,
     comment: documentApproversTable.comment,
@@ -359,6 +411,7 @@ async function getDocumentDetail(docId: number, orgId: number) {
     name: usersTable.name,
     receivedAt: documentRecipientsTable.receivedAt,
     readAt: documentRecipientsTable.readAt,
+    confirmationNote: documentRecipientsTable.confirmationNote,
   })
     .from(documentRecipientsTable)
     .innerJoin(usersTable, eq(documentRecipientsTable.userId, usersTable.id))
@@ -402,8 +455,15 @@ async function getDocumentDetail(docId: number, orgId: number) {
     .where(eq(documentVersionsTable.documentId, docId))
     .orderBy(desc(documentVersionsTable.versionNumber));
 
+  const settings = await getOrgDocumentSettings(orgId);
+  const { expiryStatus, daysRemaining } = computeExpiryStatus(doc.status, doc.validityDate, settings.defaultExpiringDays);
+  const pendingConfirmations = recipientRows.filter(r => !r.readAt).length;
+
   return {
     ...doc,
+    expiryStatus,
+    daysRemaining,
+    pendingConfirmations,
     createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt,
     updatedAt: doc.updatedAt instanceof Date ? doc.updatedAt.toISOString() : doc.updatedAt,
     units: unitRows,
@@ -451,6 +511,7 @@ async function getDocumentDetail(docId: number, orgId: number) {
       ...r,
       receivedAt: r.receivedAt instanceof Date ? r.receivedAt.toISOString() : r.receivedAt,
       readAt: r.readAt instanceof Date ? r.readAt.toISOString() : r.readAt,
+      confirmationNote: r.confirmationNote ?? null,
     })),
     references: refRows,
     attachments: attachmentRows.map(a => ({
@@ -475,7 +536,22 @@ router.get("/organizations/:orgId/documents", requireAuth, async (req, res): Pro
     return;
   }
 
-  const conditions = [eq(documentsTable.organizationId, params.data.orgId)];
+  const userId = req.auth!.userId;
+  const conditions = [
+    eq(documentsTable.organizationId, params.data.orgId),
+    // in_review docs are only visible to: creator, or users with a pending approver entry in the current cycle
+    sql`(
+      ${documentsTable.status} != 'in_review'
+      OR ${documentsTable.createdById} = ${userId}
+      OR EXISTS (
+        SELECT 1 FROM document_approvers da
+        WHERE da.document_id = ${documentsTable.id}
+          AND da.user_id = ${userId}
+          AND da.approval_cycle = (SELECT MAX(da2.approval_cycle) FROM document_approvers da2 WHERE da2.document_id = ${documentsTable.id})
+          AND da.status = 'pending'
+      )
+    )`,
+  ];
 
   if (query.data.search) {
     conditions.push(ilike(documentsTable.title, `%${query.data.search}%`));
@@ -485,6 +561,31 @@ router.get("/organizations/:orgId/documents", requireAuth, async (req, res): Pro
   }
   if (query.data.status) {
     conditions.push(eq(documentsTable.status, query.data.status));
+  }
+
+  // expiryStatus filter maps to DB-level conditions (pre-filter before computing in JS)
+  if (query.data.expiryStatus === "em_aprovacao") {
+    conditions.push(sql`${documentsTable.status} NOT IN ('approved', 'distributed')`);
+  } else if (query.data.expiryStatus === "vencido") {
+    conditions.push(sql`${documentsTable.status} IN ('approved', 'distributed')`);
+    conditions.push(sql`${documentsTable.validityDate} < CURRENT_DATE`);
+  } else if (query.data.expiryStatus === "a_vencer") {
+    const [settingsForFilter] = await db
+      .select({ defaultExpiringDays: documentSettingsTable.defaultExpiringDays })
+      .from(documentSettingsTable)
+      .where(eq(documentSettingsTable.organizationId, params.data.orgId));
+    const threshold = settingsForFilter?.defaultExpiringDays ?? 30;
+    conditions.push(sql`${documentsTable.status} IN ('approved', 'distributed')`);
+    conditions.push(sql`${documentsTable.validityDate} >= CURRENT_DATE`);
+    conditions.push(sql`${documentsTable.validityDate} <= CURRENT_DATE + INTERVAL '${sql.raw(String(threshold))} days'`);
+  } else if (query.data.expiryStatus === "vigente") {
+    const [settingsForFilter] = await db
+      .select({ defaultExpiringDays: documentSettingsTable.defaultExpiringDays })
+      .from(documentSettingsTable)
+      .where(eq(documentSettingsTable.organizationId, params.data.orgId));
+    const threshold = settingsForFilter?.defaultExpiringDays ?? 30;
+    conditions.push(sql`${documentsTable.status} IN ('approved', 'distributed')`);
+    conditions.push(sql`(${documentsTable.validityDate} IS NULL OR ${documentsTable.validityDate} > CURRENT_DATE + INTERVAL '${sql.raw(String(threshold))} days')`);
   }
 
   if (query.data.unitId) {
@@ -517,6 +618,11 @@ router.get("/organizations/:orgId/documents", requireAuth, async (req, res): Pro
       ORDER BY da.approved_at DESC
       LIMIT 1
     )`.as("approved_by_name"),
+    pendingConfirmations: sql<number>`(
+      SELECT COUNT(*) FROM document_recipients dr
+      WHERE dr.document_id = ${documentsTable.id}
+        AND dr.read_at IS NULL
+    )`.as("pending_confirmations"),
   })
     .from(documentsTable)
     .leftJoin(usersTable, eq(documentsTable.createdById, usersTable.id))
@@ -530,13 +636,20 @@ router.get("/organizations/:orgId/documents", requireAuth, async (req, res): Pro
   }
 
   const rows = await dbQuery;
+  const settings = await getOrgDocumentSettings(params.data.orgId);
 
-  res.json(rows.map(r => ({
-    ...r,
-    createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
-    updatedAt: r.updatedAt instanceof Date ? r.updatedAt.toISOString() : r.updatedAt,
-    approvedByName: r.approvedByName || null,
-  })));
+  res.json(rows.map(r => {
+    const { expiryStatus, daysRemaining } = computeExpiryStatus(r.status, r.validityDate, settings.defaultExpiringDays);
+    return {
+      ...r,
+      expiryStatus,
+      daysRemaining,
+      pendingConfirmations: Number(r.pendingConfirmations),
+      createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+      updatedAt: r.updatedAt instanceof Date ? r.updatedAt.toISOString() : r.updatedAt,
+      approvedByName: r.approvedByName || null,
+    };
+  }));
 });
 
 router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
@@ -577,6 +690,8 @@ router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess(
     title: body.data.title,
     type: body.data.type,
     validityDate: body.data.validityDate || null,
+    normReference: body.data.normReference || null,
+    responsibleDepartment: body.data.responsibleDepartment || null,
     createdById: userId,
     status: "draft",
     currentVersion: 0,
@@ -594,9 +709,15 @@ router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess(
     );
   }
 
+  if (body.data.criticalReviewerIds?.length) {
+    await db.insert(documentApproversTable).values(
+      body.data.criticalReviewerIds.map(uid => ({ documentId: doc.id, userId: uid, role: "critical_reviewer" }))
+    );
+  }
+
   if (body.data.approverIds?.length) {
     await db.insert(documentApproversTable).values(
-      body.data.approverIds.map(uid => ({ documentId: doc.id, userId: uid }))
+      body.data.approverIds.map(uid => ({ documentId: doc.id, userId: uid, role: "approver" }))
     );
   }
 
@@ -628,6 +749,58 @@ router.post("/organizations/:orgId/documents", requireAuth, requireModuleAccess(
 
   const detail = await getDocumentDetail(doc.id, orgId);
   res.status(201).json(detail);
+});
+
+router.get("/organizations/:orgId/documents/settings", requireAuth, requireModuleAccess("documents"), async (req, res): Promise<void> => {
+  const params = GetDocumentSettingsParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const orgId = params.data.orgId;
+  const [settings] = await db
+    .select()
+    .from(documentSettingsTable)
+    .where(eq(documentSettingsTable.organizationId, orgId));
+
+  if (!settings) {
+    const [created] = await db.insert(documentSettingsTable).values({ organizationId: orgId }).returning();
+    res.json({ organizationId: created.organizationId, defaultExpiringDays: created.defaultExpiringDays, updatedAt: created.updatedAt.toISOString() });
+    return;
+  }
+
+  res.json({ organizationId: settings.organizationId, defaultExpiringDays: settings.defaultExpiringDays, updatedAt: settings.updatedAt instanceof Date ? settings.updatedAt.toISOString() : settings.updatedAt });
+});
+
+router.patch("/organizations/:orgId/documents/settings", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = UpdateDocumentSettingsParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = UpdateDocumentSettingsBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const orgId = params.data.orgId;
+
+  const [existing] = await db
+    .select({ id: documentSettingsTable.id })
+    .from(documentSettingsTable)
+    .where(eq(documentSettingsTable.organizationId, orgId));
+
+  let updated;
+  if (existing) {
+    [updated] = await db
+      .update(documentSettingsTable)
+      .set({ defaultExpiringDays: body.data.defaultExpiringDays })
+      .where(eq(documentSettingsTable.organizationId, orgId))
+      .returning();
+  } else {
+    [updated] = await db
+      .insert(documentSettingsTable)
+      .values({ organizationId: orgId, defaultExpiringDays: body.data.defaultExpiringDays })
+      .returning();
+  }
+
+  res.json({ organizationId: updated.organizationId, defaultExpiringDays: updated.defaultExpiringDays, updatedAt: updated.updatedAt instanceof Date ? updated.updatedAt.toISOString() : updated.updatedAt });
 });
 
 router.get("/organizations/:orgId/documents/:docId", requireAuth, async (req, res): Promise<void> => {
@@ -662,6 +835,7 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
   }
 
   const allUserIds = [...new Set([
+    ...(body.data.criticalReviewerIds || []),
     ...(body.data.approverIds || []),
     ...(body.data.recipientIds || []),
   ])];
@@ -693,6 +867,12 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
   if (body.data.validityDate !== undefined) {
     updates.validityDate = body.data.validityDate || null;
   }
+  if (body.data.normReference !== undefined) {
+    updates.normReference = body.data.normReference || null;
+  }
+  if (body.data.responsibleDepartment !== undefined) {
+    updates.responsibleDepartment = body.data.responsibleDepartment || null;
+  }
 
   await db.update(documentsTable).set(updates).where(eq(documentsTable.id, docId));
 
@@ -716,10 +896,15 @@ router.patch("/organizations/:orgId/documents/:docId", requireAuth, requireModul
     });
   }
 
-  if (body.data.approverIds) {
+  // When either approverIds or criticalReviewerIds is provided, replace the full approver list
+  if (body.data.approverIds !== undefined || body.data.criticalReviewerIds !== undefined) {
     await db.delete(documentApproversTable).where(eq(documentApproversTable.documentId, docId));
-    if (body.data.approverIds.length) {
-      await db.insert(documentApproversTable).values(body.data.approverIds.map(uid => ({ documentId: docId, userId: uid })));
+    const newEntries = [
+      ...(body.data.criticalReviewerIds ?? []).map(uid => ({ documentId: docId, userId: uid, role: "critical_reviewer" as const })),
+      ...(body.data.approverIds ?? []).map(uid => ({ documentId: docId, userId: uid, role: "approver" as const })),
+    ];
+    if (newEntries.length) {
+      await db.insert(documentApproversTable).values(newEntries);
     }
   }
 
@@ -817,6 +1002,98 @@ router.delete("/organizations/:orgId/documents/:docId/versions", requireAuth, re
   });
 
   res.sendStatus(204);
+});
+
+router.post("/organizations/:orgId/documents/:docId/versions/batch-import", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = BatchImportDocumentVersionsParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = BatchImportDocumentVersionsBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const { orgId, docId } = params.data;
+  const userId = req.auth!.userId;
+
+  const doc = await getDocumentRecord(docId, orgId);
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
+  // Parse the plain-text version history
+  const lineRegex = /^(\d+)\s*[-–]\s*(\d{2}\/\d{2}\/\d{4})\s*[-–]\s*(.+)$/;
+  const batchEntries: Array<{ versionNumber: number; createdAt: Date; changeDescription: string }> = [];
+
+  for (const raw of body.data.text.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    const match = line.match(lineRegex);
+    if (match) {
+      const [day, month, year] = match[2].split("/");
+      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      batchEntries.push({
+        versionNumber: parseInt(match[1], 10),
+        createdAt: date,
+        changeDescription: match[3].trim(),
+      });
+    } else if (batchEntries.length > 0) {
+      // Continuation line — append to last entry
+      batchEntries[batchEntries.length - 1].changeDescription += " " + line;
+    }
+  }
+
+  if (batchEntries.length === 0) {
+    res.status(400).json({ error: "Nenhuma versão reconhecida no texto. Use o formato: N - DD/MM/AAAA - Descrição" });
+    return;
+  }
+
+  const maxBatchVersion = Math.max(...batchEntries.map((e) => e.versionNumber));
+
+  await db.transaction(async (tx) => {
+    // Fetch existing versions to re-number them after the batch
+    const existing = await tx
+      .select({ id: documentVersionsTable.id, versionNumber: documentVersionsTable.versionNumber })
+      .from(documentVersionsTable)
+      .where(eq(documentVersionsTable.documentId, docId))
+      .orderBy(documentVersionsTable.versionNumber);
+
+    // Delete all existing versions
+    await tx.delete(documentVersionsTable).where(eq(documentVersionsTable.documentId, docId));
+
+    // Insert batch entries (use their own version numbers)
+    await tx.insert(documentVersionsTable).values(
+      batchEntries.map((e) => ({
+        documentId: docId,
+        versionNumber: e.versionNumber,
+        changeDescription: e.changeDescription,
+        changedById: userId,
+        changedFields: "batch_import",
+        createdAt: e.createdAt,
+      })),
+    );
+
+    // Re-insert pre-existing versions with numbers offset after batch
+    if (existing.length > 0) {
+      await tx.insert(documentVersionsTable).values(
+        existing.map((e, i) => ({
+          documentId: docId,
+          versionNumber: maxBatchVersion + i + 1,
+          changeDescription: "Versão migrada",
+          changedById: userId,
+          changedFields: "batch_import_migrated",
+        })),
+      );
+    }
+
+    const totalVersions = maxBatchVersion + existing.length;
+    await tx.update(documentsTable)
+      .set({ currentVersion: totalVersions })
+      .where(eq(documentsTable.id, docId));
+  });
+
+  const total = await db.select({ count: sql<number>`count(*)` })
+    .from(documentVersionsTable)
+    .where(eq(documentVersionsTable.documentId, docId));
+
+  res.json({ imported: batchEntries.length, total: Number(total[0]?.count ?? 0) });
 });
 
 router.post("/organizations/:orgId/documents/:docId/attachments", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
@@ -1008,42 +1285,45 @@ router.post("/organizations/:orgId/documents/:docId/submit", requireAuth, requir
     .where(eq(documentApproversTable.documentId, docId));
   const newCycle = (maxCycleResult[0]?.maxCycle ?? 0) + 1;
 
-  const distinctApprovers = await db.selectDistinct({ userId: documentApproversTable.userId })
+  // Template = cycle 1 entries (always reflect current draft config after edit)
+  const templateApprovers = await db
+    .select({ userId: documentApproversTable.userId, role: documentApproversTable.role })
     .from(documentApproversTable)
-    .where(eq(documentApproversTable.documentId, docId));
+    .where(and(eq(documentApproversTable.documentId, docId), eq(documentApproversTable.approvalCycle, 1)));
 
-  if (distinctApprovers.length === 0) {
+  if (templateApprovers.length === 0) {
     res.status(400).json({ error: "O documento deve ter pelo menos um aprovador antes de ser enviado para revisão" });
     return;
   }
 
-  for (const a of distinctApprovers) {
-    await db.insert(documentApproversTable).values({
-      documentId: docId,
-      userId: a.userId,
-      status: "pending",
-      approvalCycle: newCycle,
-    });
-  }
+  const criticalReviewers = templateApprovers.filter(a => a.role === "critical_reviewer");
+  const finalApprovers = templateApprovers.filter(a => a.role !== "critical_reviewer");
 
-  const submitUpdates: Record<string, unknown> = {
-    status: "in_review",
-  };
+  // If there are critical reviewers, only activate them first
+  const firstWave = criticalReviewers.length > 0 ? criticalReviewers : finalApprovers;
+  await db.insert(documentApproversTable).values(
+    firstWave.map(a => ({ documentId: docId, userId: a.userId, role: a.role, status: "pending", approvalCycle: newCycle }))
+  );
+
+  const submitUpdates: Record<string, unknown> = { status: "in_review" };
   if (await supportsPendingVersionDescriptionColumn()) {
     submitUpdates.pendingVersionDescription = body.data.changeDescription.trim();
   }
 
-  await db.update(documentsTable)
-    .set(submitUpdates)
-    .where(eq(documentsTable.id, docId));
+  await db.update(documentsTable).set(submitUpdates).where(eq(documentsTable.id, docId));
+
+  const notifyLabel = criticalReviewers.length > 0 ? "Análise crítica pendente" : "Documento em revisão";
+  const notifyDesc = criticalReviewers.length > 0
+    ? `O documento "${doc.title}" aguarda sua análise crítica antes de ir para aprovação final.`
+    : `O documento "${doc.title}" foi enviado para revisão.`;
 
   await notifyUsers({
     orgId,
-    userIds: distinctApprovers.map((approver) => approver.userId),
+    userIds: firstWave.map(a => a.userId),
     actorUserId: req.auth!.userId,
     type: "document_review",
-    title: "Documento em revisão",
-    description: `O documento "${doc.title}" foi enviado para revisão.`,
+    title: notifyLabel,
+    description: notifyDesc,
     docId,
   });
 
@@ -1089,16 +1369,54 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
       .set({ status: "approved", approvedAt: new Date(), comment: approvalComment })
       .where(eq(documentApproversTable.id, approver.id));
 
-    const pendingApprovers = await tx.select().from(documentApproversTable)
+    // Check if there are still pending approvers in this cycle
+    const pendingInCycle = await tx.select({ role: documentApproversTable.role })
+      .from(documentApproversTable)
       .where(and(
         eq(documentApproversTable.documentId, docId),
         eq(documentApproversTable.approvalCycle, currentCycle),
         eq(documentApproversTable.status, "pending")
       ));
 
-    if (pendingApprovers.length > 0) {
+    // If current approver was a critical_reviewer and all critical_reviewers are now done,
+    // activate the final approvers from the template
+    if (approver.role === "critical_reviewer" && pendingInCycle.filter(a => a.role === "critical_reviewer").length === 0) {
+      const templateFinalApprovers = await tx
+        .select({ userId: documentApproversTable.userId })
+        .from(documentApproversTable)
+        .where(and(
+          eq(documentApproversTable.documentId, docId),
+          eq(documentApproversTable.approvalCycle, 1),
+          eq(documentApproversTable.role, "approver")
+        ));
+
+      if (templateFinalApprovers.length > 0) {
+        await tx.insert(documentApproversTable).values(
+          templateFinalApprovers.map(a => ({
+            documentId: docId,
+            userId: a.userId,
+            role: "approver",
+            status: "pending",
+            approvalCycle: currentCycle,
+          }))
+        );
+        return {
+          fullyApproved: false,
+          criticalReviewDone: true,
+          finalApproverIds: templateFinalApprovers.map(a => a.userId),
+          newVersion: null as number | null,
+          distributedToUserIds: [] as number[],
+        };
+      }
+      // No final approvers defined — critical reviewers alone are sufficient
+    }
+
+    // Still pending approvers (of any role) — not done yet
+    if (pendingInCycle.length > 0) {
       return {
         fullyApproved: false,
+        criticalReviewDone: false,
+        finalApproverIds: [] as number[],
         newVersion: null as number | null,
         distributedToUserIds: [] as number[],
       };
@@ -1149,6 +1467,8 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
 
     return {
       fullyApproved: true,
+      criticalReviewDone: false,
+      finalApproverIds: [] as number[],
       newVersion,
       distributedToUserIds: recipients.map((recipient) => recipient.userId),
     };
@@ -1163,6 +1483,19 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
     description: `${userName?.name || "Um participante"} aprovou o documento "${doc.title}".`,
   });
 
+  // Critical review completed — notify final approvers
+  if (approvalResult.criticalReviewDone && approvalResult.finalApproverIds.length > 0) {
+    await notifyUsers({
+      orgId,
+      userIds: approvalResult.finalApproverIds,
+      actorUserId: userId,
+      type: "document_review",
+      title: "Aprovação final pendente",
+      description: `A análise crítica do documento "${doc.title}" foi concluída. Sua aprovação final é necessária.`,
+      docId,
+    });
+  }
+
   if (approvalResult.fullyApproved) {
     await notifyDocumentParticipants({
       orgId,
@@ -1170,7 +1503,7 @@ router.post("/organizations/:orgId/documents/:docId/approve", requireAuth, requi
       actorUserId: userId,
       type: "document_approved",
       title: "Documento aprovado",
-      description: `O documento "${doc.title}" foi aprovado por todos os aprovadores e formalizou a versão ${approvalResult.newVersion}.`,
+      description: `O documento "${doc.title}" foi aprovado e formalizou a versão ${approvalResult.newVersion}.`,
     });
 
     if (approvalResult.distributedToUserIds.length > 0) {
@@ -1285,6 +1618,7 @@ router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, a
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
+  const body = AcknowledgeDocumentBody.safeParse(req.body || {});
   const orgId = params.data.orgId;
   const docId = params.data.docId;
   const userId = req.auth!.userId;
@@ -1298,8 +1632,9 @@ router.post("/organizations/:orgId/documents/:docId/acknowledge", requireAuth, a
   if (!recipient) { res.status(403).json({ error: "Você não é um destinatário deste documento" }); return; }
 
   const now = new Date();
+  const confirmationNote = body.success ? (body.data.confirmationNote || null) : null;
   await db.update(documentRecipientsTable)
-    .set({ receivedAt: recipient.receivedAt || now, readAt: now })
+    .set({ receivedAt: recipient.receivedAt || now, readAt: now, confirmationNote })
     .where(eq(documentRecipientsTable.id, recipient.id));
 
   const [userName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
@@ -1346,6 +1681,321 @@ router.get("/organizations/:orgId/user-options", requireAuth, requireModuleAcces
 
   const rows = await dbQuery;
   res.json(rows);
+});
+
+// ─── Revision Requests ────────────────────────────────────────────────────────
+
+function formatRevisionRequest(req: {
+  id: number;
+  documentId: number;
+  documentTitle?: string | null;
+  requestedById: number;
+  requestedByName?: string | null;
+  reviewerUserId: number;
+  reviewerName?: string | null;
+  status: string;
+  changeDescription: string;
+  attachmentFileName?: string | null;
+  attachmentFileSize?: number | null;
+  attachmentContentType?: string | null;
+  attachmentObjectPath?: string | null;
+  reviewerNotes?: string | null;
+  reviewedAt?: Date | null;
+  createdAt: Date;
+}) {
+  return {
+    id: req.id,
+    documentId: req.documentId,
+    documentTitle: req.documentTitle ?? undefined,
+    requestedById: req.requestedById,
+    requestedByName: req.requestedByName ?? undefined,
+    reviewerUserId: req.reviewerUserId,
+    reviewerName: req.reviewerName ?? undefined,
+    status: req.status,
+    changeDescription: req.changeDescription,
+    attachmentFileName: req.attachmentFileName ?? null,
+    attachmentFileSize: req.attachmentFileSize ?? null,
+    attachmentContentType: req.attachmentContentType ?? null,
+    attachmentObjectPath: req.attachmentObjectPath ?? null,
+    reviewerNotes: req.reviewerNotes ?? null,
+    reviewedAt: req.reviewedAt ? req.reviewedAt.toISOString() : null,
+    createdAt: req.createdAt.toISOString(),
+  };
+}
+
+router.get("/organizations/:orgId/documents/:docId/revision-requests", requireAuth, requireModuleAccess("documents"), async (req, res): Promise<void> => {
+  const params = ListDocumentRevisionRequestsParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const { orgId, docId } = params.data;
+
+  const doc = await getDocumentRecord(docId, orgId);
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
+  const requestedByAlias = usersTable;
+  const reviewerAlias = db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable).as("reviewer_user");
+
+  const rows = await db
+    .select({
+      id: documentRevisionRequestsTable.id,
+      documentId: documentRevisionRequestsTable.documentId,
+      documentTitle: documentsTable.title,
+      requestedById: documentRevisionRequestsTable.requestedById,
+      requestedByName: requestedByAlias.name,
+      reviewerUserId: documentRevisionRequestsTable.reviewerUserId,
+      reviewerName: reviewerAlias.name,
+      status: documentRevisionRequestsTable.status,
+      changeDescription: documentRevisionRequestsTable.changeDescription,
+      attachmentFileName: documentRevisionRequestsTable.attachmentFileName,
+      attachmentFileSize: documentRevisionRequestsTable.attachmentFileSize,
+      attachmentContentType: documentRevisionRequestsTable.attachmentContentType,
+      attachmentObjectPath: documentRevisionRequestsTable.attachmentObjectPath,
+      reviewerNotes: documentRevisionRequestsTable.reviewerNotes,
+      reviewedAt: documentRevisionRequestsTable.reviewedAt,
+      createdAt: documentRevisionRequestsTable.createdAt,
+    })
+    .from(documentRevisionRequestsTable)
+    .leftJoin(documentsTable, eq(documentRevisionRequestsTable.documentId, documentsTable.id))
+    .leftJoin(requestedByAlias, eq(documentRevisionRequestsTable.requestedById, requestedByAlias.id))
+    .leftJoin(reviewerAlias, eq(documentRevisionRequestsTable.reviewerUserId, reviewerAlias.id))
+    .where(
+      and(
+        eq(documentRevisionRequestsTable.documentId, docId),
+        eq(documentRevisionRequestsTable.organizationId, orgId),
+      ),
+    )
+    .orderBy(desc(documentRevisionRequestsTable.createdAt));
+
+  res.json(rows.map(formatRevisionRequest));
+});
+
+router.post("/organizations/:orgId/documents/:docId/revision-requests", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = CreateDocumentRevisionRequestParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = CreateDocumentRevisionRequestBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const { orgId, docId } = params.data;
+  const userId = req.auth!.userId;
+
+  const doc = await getDocumentRecord(docId, orgId);
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+  if (doc.status !== "approved" && doc.status !== "distributed") {
+    res.status(400).json({ error: "Apenas documentos aprovados ou distribuídos podem receber solicitações de revisão" });
+    return;
+  }
+
+  const reviewerValid = await validateOrgUsers([body.data.reviewerUserId], orgId);
+  if (!reviewerValid) { res.status(400).json({ error: "Revisor inválido para esta organização" }); return; }
+
+  const [created] = await db.insert(documentRevisionRequestsTable).values({
+    documentId: docId,
+    organizationId: orgId,
+    requestedById: userId,
+    reviewerUserId: body.data.reviewerUserId,
+    status: "pending",
+    changeDescription: body.data.changeDescription,
+    attachmentFileName: body.data.attachmentFileName || null,
+    attachmentFileSize: body.data.attachmentFileSize || null,
+    attachmentContentType: body.data.attachmentContentType || null,
+    attachmentObjectPath: body.data.attachmentObjectPath || null,
+  }).returning();
+
+  const [requesterName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
+
+  await createNotification(
+    orgId,
+    body.data.reviewerUserId,
+    "revision_request_created",
+    "Nova solicitação de revisão",
+    `${requesterName?.name || "Um usuário"} solicitou uma revisão para o documento "${doc.title}": ${body.data.changeDescription}`,
+    "document",
+    docId,
+  );
+
+  res.status(201).json(formatRevisionRequest({ ...created, documentTitle: doc.title }));
+});
+
+router.post("/organizations/:orgId/documents/:docId/revision-requests/:reqId/approve", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = ApproveDocumentRevisionRequestParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = ApproveDocumentRevisionRequestBody.safeParse(req.body || {});
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const { orgId, docId, reqId } = params.data;
+  const userId = req.auth!.userId;
+
+  const doc = await getDocumentRecord(docId, orgId);
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
+  const [revReq] = await db.select().from(documentRevisionRequestsTable)
+    .where(
+      and(
+        eq(documentRevisionRequestsTable.id, reqId),
+        eq(documentRevisionRequestsTable.documentId, docId),
+        eq(documentRevisionRequestsTable.organizationId, orgId),
+      ),
+    );
+  if (!revReq) { res.status(404).json({ error: "Solicitação de revisão não encontrada" }); return; }
+  if (revReq.reviewerUserId !== userId) { res.status(403).json({ error: "Você não é o revisor desta solicitação" }); return; }
+  if (revReq.status !== "pending") { res.status(400).json({ error: "Esta solicitação já foi processada" }); return; }
+
+  const now = new Date();
+  const newVersion = doc.currentVersion + 1;
+
+  await db.transaction(async (tx) => {
+    await tx.update(documentRevisionRequestsTable)
+      .set({ status: "approved", reviewerNotes: body.data.notes || null, reviewedAt: now })
+      .where(eq(documentRevisionRequestsTable.id, reqId));
+
+    await tx.update(documentsTable)
+      .set({ currentVersion: newVersion, status: doc.status })
+      .where(eq(documentsTable.id, docId));
+
+    await tx.insert(documentVersionsTable).values({
+      documentId: docId,
+      versionNumber: newVersion,
+      changeDescription: revReq.changeDescription,
+      changedById: userId,
+      changedFields: "revision_request_approved",
+    });
+
+    // Reset recipients so they must re-confirm the new version
+    await tx.update(documentRecipientsTable)
+      .set({ receivedAt: null, readAt: null })
+      .where(eq(documentRecipientsTable.documentId, docId));
+  });
+
+  const [reviewerName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
+
+  // Notify requester
+  await createNotification(
+    orgId,
+    revReq.requestedById,
+    "revision_request_approved",
+    "Solicitação de revisão aprovada",
+    `Sua solicitação de revisão para "${doc.title}" foi aprovada por ${reviewerName?.name || "o revisor"}. Nova versão: ${newVersion}.`,
+    "document",
+    docId,
+  );
+
+  // Notify current recipients
+  const recipients = await db.select({ userId: documentRecipientsTable.userId })
+    .from(documentRecipientsTable)
+    .where(eq(documentRecipientsTable.documentId, docId));
+
+  if (recipients.length > 0) {
+    await notifyUsers({
+      orgId,
+      userIds: recipients.map((r) => r.userId),
+      actorUserId: userId,
+      type: "document_distributed",
+      title: "Nova versão do documento disponível",
+      description: `O documento "${doc.title}" foi revisado (v${newVersion}). Confirme o recebimento.`,
+      docId,
+    });
+  }
+
+  const [updated] = await db.select().from(documentRevisionRequestsTable).where(eq(documentRevisionRequestsTable.id, reqId));
+  res.json(formatRevisionRequest({ ...updated!, documentTitle: doc.title }));
+});
+
+router.post("/organizations/:orgId/documents/:docId/revision-requests/:reqId/reject", requireAuth, requireModuleAccess("documents"), requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = RejectDocumentRevisionRequestParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = RejectDocumentRevisionRequestBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const { orgId, docId, reqId } = params.data;
+  const userId = req.auth!.userId;
+
+  const doc = await getDocumentRecord(docId, orgId);
+  if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
+  const [revReq] = await db.select().from(documentRevisionRequestsTable)
+    .where(
+      and(
+        eq(documentRevisionRequestsTable.id, reqId),
+        eq(documentRevisionRequestsTable.documentId, docId),
+        eq(documentRevisionRequestsTable.organizationId, orgId),
+      ),
+    );
+  if (!revReq) { res.status(404).json({ error: "Solicitação de revisão não encontrada" }); return; }
+  if (revReq.reviewerUserId !== userId) { res.status(403).json({ error: "Você não é o revisor desta solicitação" }); return; }
+  if (revReq.status !== "pending") { res.status(400).json({ error: "Esta solicitação já foi processada" }); return; }
+
+  const now = new Date();
+  await db.update(documentRevisionRequestsTable)
+    .set({ status: "rejected", reviewerNotes: body.data.notes, reviewedAt: now })
+    .where(eq(documentRevisionRequestsTable.id, reqId));
+
+  const [reviewerName] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId));
+
+  await createNotification(
+    orgId,
+    revReq.requestedById,
+    "revision_request_rejected",
+    "Solicitação de revisão rejeitada",
+    `Sua solicitação de revisão para "${doc.title}" foi rejeitada por ${reviewerName?.name || "o revisor"}. Motivo: ${body.data.notes}`,
+    "document",
+    docId,
+  );
+
+  const [updated] = await db.select().from(documentRevisionRequestsTable).where(eq(documentRevisionRequestsTable.id, reqId));
+  res.json(formatRevisionRequest({ ...updated!, documentTitle: doc.title }));
+});
+
+router.get("/organizations/:orgId/revision-requests", requireAuth, requireModuleAccess("documents"), async (req, res): Promise<void> => {
+  const params = ListMyRevisionRequestsParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const { orgId } = params.data;
+  const userId = req.auth!.userId;
+
+  const requestedByAlias = usersTable;
+  const reviewerAlias = db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable).as("reviewer_user");
+
+  const rows = await db
+    .select({
+      id: documentRevisionRequestsTable.id,
+      documentId: documentRevisionRequestsTable.documentId,
+      documentTitle: documentsTable.title,
+      requestedById: documentRevisionRequestsTable.requestedById,
+      requestedByName: requestedByAlias.name,
+      reviewerUserId: documentRevisionRequestsTable.reviewerUserId,
+      reviewerName: reviewerAlias.name,
+      status: documentRevisionRequestsTable.status,
+      changeDescription: documentRevisionRequestsTable.changeDescription,
+      attachmentFileName: documentRevisionRequestsTable.attachmentFileName,
+      attachmentFileSize: documentRevisionRequestsTable.attachmentFileSize,
+      attachmentContentType: documentRevisionRequestsTable.attachmentContentType,
+      attachmentObjectPath: documentRevisionRequestsTable.attachmentObjectPath,
+      reviewerNotes: documentRevisionRequestsTable.reviewerNotes,
+      reviewedAt: documentRevisionRequestsTable.reviewedAt,
+      createdAt: documentRevisionRequestsTable.createdAt,
+    })
+    .from(documentRevisionRequestsTable)
+    .leftJoin(documentsTable, eq(documentRevisionRequestsTable.documentId, documentsTable.id))
+    .leftJoin(requestedByAlias, eq(documentRevisionRequestsTable.requestedById, requestedByAlias.id))
+    .leftJoin(reviewerAlias, eq(documentRevisionRequestsTable.reviewerUserId, reviewerAlias.id))
+    .where(
+      and(
+        eq(documentRevisionRequestsTable.organizationId, orgId),
+        eq(documentRevisionRequestsTable.reviewerUserId, userId),
+        eq(documentRevisionRequestsTable.status, "pending"),
+      ),
+    )
+    .orderBy(desc(documentRevisionRequestsTable.createdAt));
+
+  res.json(rows.map(formatRevisionRequest));
 });
 
 export default router;

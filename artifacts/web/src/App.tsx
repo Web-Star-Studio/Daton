@@ -28,6 +28,7 @@ import LegislacoesPage from "@/pages/app/qualidade/legislacoes";
 import LegislationDetailPage from "@/pages/app/qualidade/legislacoes/[id]";
 import DocumentacaoPage from "@/pages/app/qualidade/documentacao";
 import DocumentDetailPage from "@/pages/app/qualidade/documentacao/[id]";
+import MinhasRevisoesPage from "@/pages/app/qualidade/documentacao/revisoes";
 import SuppliersPage from "@/pages/app/qualidade/fornecedores";
 import SupplierDetailPage from "@/pages/app/qualidade/fornecedores/[id]";
 import ProfileSettingsPage from "@/pages/app/configuracoes/perfil";
@@ -70,6 +71,7 @@ function AppPages() {
       <Route path="/qualidade/legislacoes" component={LegislacoesPage} />
       <Route path="/qualidade/legislacoes/:id" component={LegislationDetailPage} />
       <Route path="/qualidade/documentacao" component={DocumentacaoPage} />
+      <Route path="/qualidade/documentacao/revisoes" component={MinhasRevisoesPage} />
       <Route path="/qualidade/documentacao/:id" component={DocumentDetailPage} />
       <Route path="/qualidade/fornecedores" component={SuppliersPage} />
       <Route path="/qualidade/fornecedores/:id" component={SupplierDetailPage} />
@@ -89,6 +91,7 @@ function AppPages() {
       <Route path="/app/qualidade/legislacoes" component={LegislacoesPage} />
       <Route path="/app/qualidade/legislacoes/:id" component={LegislationDetailPage} />
       <Route path="/app/qualidade/documentacao" component={DocumentacaoPage} />
+      <Route path="/app/qualidade/documentacao/revisoes" component={MinhasRevisoesPage} />
       <Route path="/app/qualidade/documentacao/:id" component={DocumentDetailPage} />
       <Route path="/app/qualidade/fornecedores" component={SuppliersPage} />
       <Route path="/app/qualidade/fornecedores/:id" component={SupplierDetailPage} />

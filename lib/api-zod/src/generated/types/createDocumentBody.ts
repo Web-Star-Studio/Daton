@@ -12,9 +12,13 @@ export interface CreateDocumentBody {
   title: string;
   type: CreateDocumentBodyType;
   validityDate?: string;
+  normReference?: string;
+  responsibleDepartment?: string;
   /** @minItems 1 */
   elaboratorIds: number[];
   unitIds?: number[];
+  /** Optional users who must approve before final approvers are notified. */
+  criticalReviewerIds?: number[];
   approverIds: number[];
   recipientIds?: number[];
   referenceIds?: number[];

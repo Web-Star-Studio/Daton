@@ -1830,6 +1830,12 @@ export interface DocumentSummary {
   /** 0 indicates the document has no approved formal version yet. */
   currentVersion: number;
   validityDate?: string | null;
+  /** Computed: vigente | a_vencer | vencido | em_aprovacao */
+  expiryStatus?: string | null;
+  /** Days until validity_date expires. Negative means expired. */
+  daysRemaining?: number | null;
+  /** Number of recipients who have not yet confirmed reading. */
+  pendingConfirmations?: number | null;
   createdByName?: string;
   createdAt: string;
   updatedAt?: string;
@@ -1845,6 +1851,8 @@ export type DocumentDetailApproversItem = {
   id?: number;
   userId?: number;
   name?: string;
+  /** approver | critical_reviewer */
+  role?: string;
   status?: string;
   approvedAt?: string | null;
   comment?: string | null;
@@ -1856,6 +1864,7 @@ export type DocumentDetailRecipientsItem = {
   name?: string;
   receivedAt?: string | null;
   readAt?: string | null;
+  confirmationNote?: string | null;
 };
 
 export type DocumentDetailReferencesItem = {
@@ -1892,6 +1901,12 @@ export interface DocumentDetail {
   status: string;
   currentVersion: number;
   validityDate?: string | null;
+  /** Computed: vigente | a_vencer | vencido | em_aprovacao */
+  expiryStatus?: string | null;
+  daysRemaining?: number | null;
+  pendingConfirmations?: number | null;
+  normReference?: string | null;
+  responsibleDepartment?: string | null;
   createdById?: number;
   createdByName?: string;
   createdAt: string;
@@ -1929,9 +1944,13 @@ export interface CreateDocumentBody {
   title: string;
   type: CreateDocumentBodyType;
   validityDate?: string;
+  normReference?: string;
+  responsibleDepartment?: string;
   /** @minItems 1 */
   elaboratorIds: number[];
   unitIds?: number[];
+  /** Optional users who must approve before final approvers are notified. */
+  criticalReviewerIds?: number[];
   approverIds: number[];
   recipientIds?: number[];
   referenceIds?: number[];
@@ -1942,11 +1961,86 @@ export interface UpdateDocumentBody {
   title?: string;
   type?: string;
   validityDate?: string;
+  normReference?: string;
+  responsibleDepartment?: string;
   elaboratorIds?: number[];
   unitIds?: number[];
+  criticalReviewerIds?: number[];
   approverIds?: number[];
   recipientIds?: number[];
   referenceIds?: number[];
+}
+
+export interface BatchImportVersionsBody {
+  /**
+   * Plain text version history. Format per line: {N} - {DD/MM/YYYY} - {description}
+   * @minLength 1
+   */
+  text: string;
+}
+
+export interface BatchImportVersionsResponse {
+  /** Number of versions from the batch text that were imported */
+  imported: number;
+  /** Total version count after import (batch + pre-existing) */
+  total: number;
+}
+
+export interface DocumentRevisionRequest {
+  id: number;
+  documentId: number;
+  documentTitle?: string;
+  requestedById?: number;
+  requestedByName?: string;
+  reviewerUserId?: number;
+  reviewerName?: string;
+  /** pending | approved | rejected */
+  status: string;
+  changeDescription: string;
+  attachmentFileName?: string | null;
+  attachmentFileSize?: number | null;
+  attachmentContentType?: string | null;
+  attachmentObjectPath?: string | null;
+  reviewerNotes?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+}
+
+export interface CreateDocumentRevisionRequestBody {
+  reviewerUserId: number;
+  /** @minLength 1 */
+  changeDescription: string;
+  attachmentFileName?: string;
+  attachmentFileSize?: number;
+  attachmentContentType?: string;
+  attachmentObjectPath?: string;
+}
+
+export interface ApproveRevisionRequestBody {
+  notes?: string;
+}
+
+export interface RejectRevisionRequestBody {
+  /** @minLength 1 */
+  notes: string;
+}
+
+export interface AcknowledgeDocumentBody {
+  confirmationNote?: string;
+}
+
+export interface DocumentSettings {
+  organizationId: number;
+  defaultExpiringDays: number;
+  updatedAt?: string;
+}
+
+export interface UpdateDocumentSettingsBody {
+  /**
+   * @minimum 1
+   * @maximum 365
+   */
+  defaultExpiringDays: number;
 }
 
 export interface SubmitDocumentForReviewBody {
@@ -2074,6 +2168,7 @@ export type ListDocumentsParams = {
   search?: string;
   type?: string;
   status?: string;
+  expiryStatus?: ListDocumentsExpiryStatus;
   unitId?: number;
   /**
    * @minimum 1
@@ -2085,6 +2180,16 @@ export type ListDocumentsParams = {
    */
   pageSize?: number;
 };
+
+export type ListDocumentsExpiryStatus =
+  (typeof ListDocumentsExpiryStatus)[keyof typeof ListDocumentsExpiryStatus];
+
+export const ListDocumentsExpiryStatus = {
+  vigente: "vigente",
+  a_vencer: "a_vencer",
+  vencido: "vencido",
+  em_aprovacao: "em_aprovacao",
+} as const;
 
 export type GetDocumentAttachmentFileParams = {
   disposition?: GetDocumentAttachmentFileDisposition;

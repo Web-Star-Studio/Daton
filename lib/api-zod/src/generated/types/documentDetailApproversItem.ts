@@ -10,6 +10,8 @@ export type DocumentDetailApproversItem = {
   id?: number;
   userId?: number;
   name?: string;
+  /** approver | critical_reviewer */
+  role?: string;
   status?: string;
   approvedAt?: string | null;
   comment?: string | null;

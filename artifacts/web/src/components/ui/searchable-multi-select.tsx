@@ -164,7 +164,7 @@ export function SearchableMultiSelect({
                   <CommandPrimitive.Item
                     key={option.value}
                     value={`${option.label} ${option.value}`}
-                    keywords={option.keywords ?? []}
+                    keywords={(option.keywords ?? []).map((k) => k ?? "")}
                     onSelect={() => onToggle(option.value)}
                     className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-left outline-none data-[selected=true]:bg-muted"
                   >

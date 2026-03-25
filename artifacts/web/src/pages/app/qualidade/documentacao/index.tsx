@@ -11,11 +11,14 @@ import {
   useListUnits,
   getListUnitsQueryKey,
   useCreateDocument,
+  useSubmitDocumentForReview,
   useDeleteDocument,
   useListUserOptions,
   getListUserOptionsQueryKey,
+  useListDepartments,
+  getListDepartmentsQueryKey,
 } from "@workspace/api-client-react";
-import type { UserOption } from "@workspace/api-client-react";
+import type { UserOption, ListDocumentsExpiryStatus } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +56,16 @@ const TYPE_LABELS: Record<string, string> = {
   politica: "Política",
   outro: "Outro",
 };
+
+const NORM_OPTIONS = [
+  "ISO 9001:2015",
+  "ISO 14001:2015",
+  "ISO 45001:2018",
+  "ISO 17025:2017",
+  "ISO 31000:2018",
+  "ABNT NBR ISO 9001:2015",
+  "NBR ISO 14001:2015",
+];
 
 const TYPE_OPTIONS = [
   { value: "manual", label: "Manual" },
@@ -136,6 +149,7 @@ export default function DocumentacaoPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [expiryStatusFilter, setExpiryStatusFilter] = useState<ListDocumentsExpiryStatus | "">("");
   const [unitFilter, setUnitFilter] = useState<number | undefined>(undefined);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -152,6 +166,7 @@ export default function DocumentacaoPage() {
       search: search || undefined,
       type: typeFilter || undefined,
       status: statusFilter || undefined,
+      expiryStatus: expiryStatusFilter || undefined,
       unitId: unitFilter,
     },
     {
@@ -161,6 +176,7 @@ export default function DocumentacaoPage() {
           search,
           typeFilter,
           statusFilter,
+          expiryStatusFilter,
           unitFilter,
         ],
         enabled: !!orgId,
@@ -172,7 +188,7 @@ export default function DocumentacaoPage() {
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [search, typeFilter, statusFilter, unitFilter]);
+  }, [search, typeFilter, statusFilter, expiryStatusFilter, unitFilter]);
 
   const deletableIds = useMemo(() => {
     if (!documents) return new Set<number>();
@@ -317,6 +333,20 @@ export default function DocumentacaoPage() {
           </Select>
         </div>
         <div className="w-44">
+          <Label>Validade</Label>
+          <Select
+            value={expiryStatusFilter}
+            onChange={(e) => setExpiryStatusFilter(e.target.value as ListDocumentsExpiryStatus | "")}
+            className="mt-2"
+          >
+            <option value="">Todas</option>
+            <option value="vigente">Vigente</option>
+            <option value="a_vencer">A Vencer</option>
+            <option value="vencido">Vencido</option>
+            <option value="em_aprovacao">Em Aprovação</option>
+          </Select>
+        </div>
+        <div className="w-44">
           <Label>Filial</Label>
           <Select
             value={unitFilter?.toString() ?? ""}
@@ -431,7 +461,15 @@ export default function DocumentacaoPage() {
                         {formatVersionLabel(doc.currentVersion)}
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
-                        {formatDate(doc.validityDate)}
+                        <div className="flex items-center gap-1.5">
+                          <span>{formatDate(doc.validityDate)}</span>
+                          {doc.expiryStatus === "vencido" && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 font-medium">Vencido</span>
+                          )}
+                          {doc.expiryStatus === "a_vencer" && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 font-medium">A Vencer</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
                         {formatDate(doc.updatedAt)}
@@ -515,6 +553,10 @@ function CreateDocumentModal({
   const [isUploading, setIsUploading] = useState(false);
   const [step, setStep] = useState(0);
   const [maxReachedStep, setMaxReachedStep] = useState(0);
+  const [normReference, setNormReference] = useState("");
+  const [normCustom, setNormCustom] = useState(false);
+  const [responsibleDepartment, setResponsibleDepartment] = useState("");
+  const [criticalReviewerIds, setCriticalReviewerIds] = useState<number[]>([]);
   const {
     register,
     handleSubmit,
@@ -547,7 +589,11 @@ function CreateDocumentModal({
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId && open },
   });
 
-  const { data: orgUsers } = useListUserOptions(orgId!, {
+  const { data: departments } = useListDepartments(orgId!, {
+    query: { queryKey: getListDepartmentsQueryKey(orgId!), enabled: !!orgId && open },
+  });
+
+  const { data: orgUsers } = useListUserOptions(orgId!, undefined, {
     query: {
       queryKey: getListUserOptionsQueryKey(orgId!),
       enabled: !!orgId && open,
@@ -572,6 +618,7 @@ function CreateDocumentModal({
   );
 
   const createMut = useCreateDocument();
+  const submitMut = useSubmitDocumentForReview();
 
   const handleClose = (val: boolean) => {
     if (!val) {
@@ -579,6 +626,10 @@ function CreateDocumentModal({
       setUploadedFiles([]);
       setStep(0);
       setMaxReachedStep(0);
+      setNormReference("");
+      setNormCustom(false);
+      setResponsibleDepartment("");
+      setCriticalReviewerIds([]);
     }
     onOpenChange(val);
   };
@@ -655,8 +706,11 @@ function CreateDocumentModal({
           title: data.title.trim(),
           type: data.type,
           validityDate: data.validityDate || undefined,
+          normReference: normReference || undefined,
+          responsibleDepartment: responsibleDepartment || undefined,
           elaboratorIds: data.elaboratorIds,
           unitIds: data.unitIds.length > 0 ? data.unitIds : undefined,
+          criticalReviewerIds: criticalReviewerIds.length > 0 ? criticalReviewerIds : undefined,
           approverIds: data.approverIds,
           recipientIds:
             data.recipientIds.length > 0 ? data.recipientIds : undefined,
@@ -664,6 +718,11 @@ function CreateDocumentModal({
             data.referenceIds.length > 0 ? data.referenceIds : undefined,
           attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined,
         },
+      });
+      await submitMut.mutateAsync({
+        orgId,
+        docId: doc.id,
+        data: { changeDescription: "Versão inicial" },
       });
       reset();
       setUploadedFiles([]);
@@ -764,6 +823,52 @@ function CreateDocumentModal({
                 )}
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <Label>Referência Normativa</Label>
+                <Select
+                  className="mt-2"
+                  value={normCustom ? "__outro__" : normReference}
+                  onChange={(e) => {
+                    if (e.target.value === "__outro__") {
+                      setNormCustom(true);
+                      setNormReference("");
+                    } else {
+                      setNormCustom(false);
+                      setNormReference(e.target.value);
+                    }
+                  }}
+                >
+                  <option value="">Selecione a norma</option>
+                  {NORM_OPTIONS.map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                  <option value="__outro__">Outro...</option>
+                </Select>
+                {normCustom && (
+                  <Input
+                    className="mt-2"
+                    placeholder="Informe a referência normativa"
+                    value={normReference}
+                    onChange={(e) => setNormReference(e.target.value)}
+                  />
+                )}
+              </div>
+              <div>
+                <Label>Departamento Responsável</Label>
+                <Select
+                  className="mt-2"
+                  value={responsibleDepartment}
+                  onChange={(e) => setResponsibleDepartment(e.target.value)}
+                >
+                  <option value="">Selecione o departamento</option>
+                  {(departments || []).map((d) => (
+                    <option key={d.id} value={d.name}>{d.name}</option>
+                  ))}
+                </Select>
+              </div>
+            </div>
           </div>
         )}
 
@@ -794,27 +899,47 @@ function CreateDocumentModal({
                 )}
               </div>
               <div>
-                <Label>Aprovadores *</Label>
+                <Label>Analista Crítico <span className="text-muted-foreground font-normal">(opcional)</span></Label>
                 <SearchableMultiSelect
                   placeholder="Selecione"
-                  searchPlaceholder="Buscar aprovador..."
-                  emptyMessage="Nenhum aprovador encontrado."
+                  searchPlaceholder="Buscar analista..."
+                  emptyMessage="Nenhum usuário encontrado."
                   options={availableUsers.map((u: UserOption) => ({
                     value: u.id,
                     label: u.name,
-                    keywords: [u.email],
+                    keywords: [u.email ?? ""],
                   }))}
-                  selected={approverIds}
+                  selected={criticalReviewerIds}
                   onToggle={(id) =>
-                    toggleMultiSelect("approverIds", approverIds, id)
+                    setCriticalReviewerIds((prev) =>
+                      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id],
+                    )
                   }
                 />
-                {errors.approverIds && (
-                  <p className="mt-1 text-xs text-red-500">
-                    {errors.approverIds.message}
-                  </p>
-                )}
               </div>
+            </div>
+
+            <div>
+              <Label>Aprovadores *</Label>
+              <SearchableMultiSelect
+                placeholder="Selecione"
+                searchPlaceholder="Buscar aprovador..."
+                emptyMessage="Nenhum aprovador encontrado."
+                options={availableUsers.map((u: UserOption) => ({
+                  value: u.id,
+                  label: u.name,
+                  keywords: [u.email ?? ""],
+                }))}
+                selected={approverIds}
+                onToggle={(id) =>
+                  toggleMultiSelect("approverIds", approverIds, id)
+                }
+              />
+              {errors.approverIds && (
+                <p className="mt-1 text-xs text-red-500">
+                  {errors.approverIds.message}
+                </p>
+              )}
             </div>
 
             <div>
@@ -826,7 +951,7 @@ function CreateDocumentModal({
                 options={availableUsers.map((u: UserOption) => ({
                   value: u.id,
                   label: u.name,
-                  keywords: [u.email],
+                  keywords: [u.email ?? ""],
                 }))}
                 selected={recipientIds}
                 onToggle={(id) =>
@@ -967,7 +1092,12 @@ function CreateDocumentModal({
               Próximo
             </Button>
           ) : (
-            <Button type="submit" size="sm" isLoading={isSubmitting}>
+            <Button
+              type="button"
+              size="sm"
+              isLoading={isSubmitting}
+              onClick={() => void handleSubmit(onSubmit)()}
+            >
               Salvar Documento
             </Button>
           )}

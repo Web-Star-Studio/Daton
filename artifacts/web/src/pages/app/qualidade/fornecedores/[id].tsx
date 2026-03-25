@@ -204,7 +204,7 @@ export default function SupplierDetailPage() {
       enabled: !!orgId,
     },
   });
-  const usersQuery = useListUserOptions(orgId!, {
+  const usersQuery = useListUserOptions(orgId!, undefined, {
     query: {
       queryKey: getListUserOptionsQueryKey(orgId!),
       enabled: !!orgId,

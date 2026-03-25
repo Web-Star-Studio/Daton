@@ -6,12 +6,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   useCreateDocument,
+  useSubmitDocumentForReview,
   useListUnits,
   useListUserOptions,
   useListDocuments,
+  useListDepartments,
   getListDocumentsQueryKey,
   getListUnitsQueryKey,
   getListUserOptionsQueryKey,
+  getListDepartmentsQueryKey,
 } from "@workspace/api-client-react";
 import type { UserOption } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -24,6 +27,16 @@ import { Upload, X, FileText } from "lucide-react";
 import { usePageTitle } from "@/contexts/LayoutContext";
 import { resolveApiUrl } from "@/lib/api";
 import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
+
+const NORM_OPTIONS = [
+  "ISO 9001:2015",
+  "ISO 14001:2015",
+  "ISO 45001:2018",
+  "ISO 17025:2017",
+  "ISO 31000:2018",
+  "ABNT NBR ISO 9001:2015",
+  "NBR ISO 14001:2015",
+];
 
 const TYPE_OPTIONS = [
   { value: "manual", label: "Manual" },
@@ -86,6 +99,10 @@ export default function NovoDocumentoPage() {
 
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [normReference, setNormReference] = useState("");
+  const [normCustom, setNormCustom] = useState(false);
+  const [responsibleDepartment, setResponsibleDepartment] = useState("");
+  const [criticalReviewerIds, setCriticalReviewerIds] = useState<number[]>([]);
 
   const {
     register,
@@ -117,7 +134,11 @@ export default function NovoDocumentoPage() {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
   });
 
-  const { data: orgUsers } = useListUserOptions(orgId!, {
+  const { data: departments } = useListDepartments(orgId!, {
+    query: { queryKey: getListDepartmentsQueryKey(orgId!), enabled: !!orgId },
+  });
+
+  const { data: orgUsers } = useListUserOptions(orgId!, undefined, {
     query: {
       queryKey: getListUserOptionsQueryKey(orgId!),
       enabled: !!orgId,
@@ -139,6 +160,7 @@ export default function NovoDocumentoPage() {
   );
 
   const createMut = useCreateDocument();
+  const submitMut = useSubmitDocumentForReview();
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -216,8 +238,11 @@ export default function NovoDocumentoPage() {
           title: data.title.trim(),
           type: data.type,
           validityDate: data.validityDate || undefined,
+          normReference: normReference || undefined,
+          responsibleDepartment: responsibleDepartment || undefined,
           elaboratorIds: data.elaboratorIds,
           unitIds: data.unitIds.length > 0 ? data.unitIds : undefined,
+          criticalReviewerIds: criticalReviewerIds.length > 0 ? criticalReviewerIds : undefined,
           approverIds: data.approverIds,
           recipientIds:
             data.recipientIds.length > 0 ? data.recipientIds : undefined,
@@ -225,6 +250,11 @@ export default function NovoDocumentoPage() {
             data.referenceIds.length > 0 ? data.referenceIds : undefined,
           attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined,
         },
+      });
+      await submitMut.mutateAsync({
+        orgId,
+        docId: doc.id,
+        data: { changeDescription: "Versão inicial" },
       });
       queryClient.invalidateQueries({
         queryKey: getListDocumentsQueryKey(orgId),
@@ -318,27 +348,47 @@ export default function NovoDocumentoPage() {
             )}
           </div>
           <div>
-            <Label>Aprovadores *</Label>
+            <Label>Analista Crítico <span className="text-muted-foreground font-normal">(opcional)</span></Label>
             <SearchableMultiSelect
               placeholder="Selecione"
-              searchPlaceholder="Buscar aprovador..."
-              emptyMessage="Nenhum aprovador encontrado."
+              searchPlaceholder="Buscar analista..."
+              emptyMessage="Nenhum usuário encontrado."
               options={availableUsers.map((u: UserOption) => ({
                 value: u.id,
                 label: u.name,
-                keywords: [u.email],
+                keywords: [u.email ?? ""],
               }))}
-              selected={approverIds}
+              selected={criticalReviewerIds}
               onToggle={(id) =>
-                toggleMultiSelect("approverIds", approverIds, id)
+                setCriticalReviewerIds((prev) =>
+                  prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id],
+                )
               }
             />
-            {errors.approverIds && (
-              <p className="text-xs text-red-500 mt-1">
-                {errors.approverIds.message}
-              </p>
-            )}
           </div>
+        </div>
+
+        <div>
+          <Label>Aprovadores *</Label>
+          <SearchableMultiSelect
+            placeholder="Selecione"
+            searchPlaceholder="Buscar aprovador..."
+            emptyMessage="Nenhum aprovador encontrado."
+            options={availableUsers.map((u: UserOption) => ({
+              value: u.id,
+              label: u.name,
+              keywords: [u.email ?? ""],
+            }))}
+            selected={approverIds}
+            onToggle={(id) =>
+              toggleMultiSelect("approverIds", approverIds, id)
+            }
+          />
+          {errors.approverIds && (
+            <p className="text-xs text-red-500 mt-1">
+              {errors.approverIds.message}
+            </p>
+          )}
         </div>
 
         <div>
@@ -353,6 +403,52 @@ export default function NovoDocumentoPage() {
               {errors.validityDate.message}
             </p>
           )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <Label>Referência Normativa</Label>
+            <Select
+              className="mt-2"
+              value={normCustom ? "__outro__" : normReference}
+              onChange={(e) => {
+                if (e.target.value === "__outro__") {
+                  setNormCustom(true);
+                  setNormReference("");
+                } else {
+                  setNormCustom(false);
+                  setNormReference(e.target.value);
+                }
+              }}
+            >
+              <option value="">Selecione a norma</option>
+              {NORM_OPTIONS.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+              <option value="__outro__">Outro...</option>
+            </Select>
+            {normCustom && (
+              <Input
+                className="mt-2"
+                placeholder="Informe a referência normativa"
+                value={normReference}
+                onChange={(e) => setNormReference(e.target.value)}
+              />
+            )}
+          </div>
+          <div>
+            <Label>Departamento Responsável</Label>
+            <Select
+              className="mt-2"
+              value={responsibleDepartment}
+              onChange={(e) => setResponsibleDepartment(e.target.value)}
+            >
+              <option value="">Selecione o departamento</option>
+              {(departments || []).map((d) => (
+                <option key={d.id} value={d.name}>{d.name}</option>
+              ))}
+            </Select>
+          </div>
         </div>
 
         <div>
@@ -414,7 +510,7 @@ export default function NovoDocumentoPage() {
             options={availableUsers.map((u: UserOption) => ({
               value: u.id,
               label: u.name,
-              keywords: [u.email],
+              keywords: [u.email ?? ""],
             }))}
             selected={recipientIds}
             onToggle={(id) =>
