@@ -64,10 +64,14 @@ async function createUserWithDocumentsModule(
     },
   );
 
-  const login = await apiJson<{ token: string }>(`/api/auth/login`, adminToken, {
-    method: "POST",
-    bodyJson: { email, password },
-  });
+  const login = await apiJson<{ token: string }>(
+    `/api/auth/login`,
+    adminToken,
+    {
+      method: "POST",
+      bodyJson: { email, password },
+    },
+  );
 
   return {
     ...user,
@@ -135,33 +139,40 @@ test("critical analysis gates the document flow before approval and is reopened 
     id: number;
     currentVersion: number;
     versions?: Array<{ versionNumber: number }>;
-  }>(`/api/organizations/${orgAdmin.organizationId}/documents`, orgAdmin.token, {
-    method: "POST",
-    bodyJson: {
-      title,
-      type: "manual",
-      validityDate: "2030-01-01",
-      elaboratorIds: [elaborator.id],
-      criticalReviewerIds: [criticalReviewer.id],
-      approverIds: [approver.id],
-      recipientIds: [recipient.id],
-      attachments: [
-        {
-          fileName: "evidencia.csv",
-          fileSize: attachment.fileSize,
-          contentType: attachment.contentType,
-          objectPath: attachment.objectPath,
-        },
-      ],
+  }>(
+    `/api/organizations/${orgAdmin.organizationId}/documents`,
+    orgAdmin.token,
+    {
+      method: "POST",
+      bodyJson: {
+        title,
+        type: "manual",
+        validityDate: "2030-01-01",
+        elaboratorIds: [elaborator.id],
+        criticalReviewerIds: [criticalReviewer.id],
+        approverIds: [approver.id],
+        recipientIds: [recipient.id],
+        attachments: [
+          {
+            fileName: "evidencia.csv",
+            fileSize: attachment.fileSize,
+            contentType: attachment.contentType,
+            objectPath: attachment.objectPath,
+          },
+        ],
+      },
     },
-  });
+  );
 
   expect(createdDoc.currentVersion).toBe(0);
   expect(createdDoc.versions || []).toHaveLength(0);
 
   const criticalNotifications = await apiJson<{
     notifications: Array<{ title: string; description: string }>;
-  }>(`/api/organizations/${orgAdmin.organizationId}/notifications`, criticalReviewer.token);
+  }>(
+    `/api/organizations/${orgAdmin.organizationId}/notifications`,
+    criticalReviewer.token,
+  );
   expect(
     criticalNotifications.notifications.some((notification) =>
       notification.title.includes("análise crítica"),
@@ -175,7 +186,9 @@ test("critical analysis gates the document flow before approval and is reopened 
       origins: [
         {
           origin: WEB_ORIGIN,
-          localStorage: [{ name: "daton_token", value: criticalReviewer.token }],
+          localStorage: [
+            { name: "daton_token", value: criticalReviewer.token },
+          ],
         },
       ],
     },
@@ -198,7 +211,9 @@ test("critical analysis gates the document flow before approval and is reopened 
 
   try {
     await authenticatedPage.goto(`/qualidade/documentacao/${createdDoc.id}`);
-    await expect(authenticatedPage.getByText("Sem versão aprovada")).toBeVisible();
+    await expect(
+      authenticatedPage.getByText("Sem versão aprovada"),
+    ).toBeVisible();
     await expect(authenticatedPage.getByText("Análise crítica")).toBeVisible();
     await expect(
       authenticatedPage.getByRole("button", { name: "Enviar para Revisão" }),
@@ -214,7 +229,9 @@ test("critical analysis gates the document flow before approval and is reopened 
 
     await criticalReviewerPage.goto(`/qualidade/documentacao/${createdDoc.id}`);
     await expect(
-      criticalReviewerPage.getByRole("button", { name: "Concluir análise crítica" }),
+      criticalReviewerPage.getByRole("button", {
+        name: "Concluir análise crítica",
+      }),
     ).toBeVisible();
     await criticalReviewerPage
       .getByRole("button", { name: "Concluir análise crítica" })
@@ -231,7 +248,9 @@ test("critical analysis gates the document flow before approval and is reopened 
     await authenticatedPage.getByLabel("Título *").fill(`${title} atualizado`);
     await authenticatedPage.getByRole("button", { name: "Próximo" }).click();
     await authenticatedPage.getByRole("button", { name: "Próximo" }).click();
-    await authenticatedPage.getByRole("button", { name: "Salvar Alterações" }).click();
+    await authenticatedPage
+      .getByRole("button", { name: "Salvar Alterações" })
+      .click();
 
     await expect(
       authenticatedPage.getByRole("button", { name: "Enviar para Revisão" }),
@@ -239,7 +258,10 @@ test("critical analysis gates the document flow before approval and is reopened 
 
     const notificationsAfterEdit = await apiJson<{
       notifications: Array<{ title: string; description: string }>;
-    }>(`/api/organizations/${orgAdmin.organizationId}/notifications`, criticalReviewer.token);
+    }>(
+      `/api/organizations/${orgAdmin.organizationId}/notifications`,
+      criticalReviewer.token,
+    );
     expect(
       notificationsAfterEdit.notifications.filter((notification) =>
         notification.title.includes("análise crítica"),
@@ -248,14 +270,18 @@ test("critical analysis gates the document flow before approval and is reopened 
 
     await criticalReviewerPage.reload();
     await expect(
-      criticalReviewerPage.getByRole("button", { name: "Concluir análise crítica" }),
+      criticalReviewerPage.getByRole("button", {
+        name: "Concluir análise crítica",
+      }),
     ).toBeVisible();
     await criticalReviewerPage
       .getByRole("button", { name: "Concluir análise crítica" })
       .click();
 
     await authenticatedPage.reload();
-    await authenticatedPage.getByRole("button", { name: "Enviar para Revisão" }).click();
+    await authenticatedPage
+      .getByRole("button", { name: "Enviar para Revisão" })
+      .click();
     await authenticatedPage
       .getByLabel("Descrição da versão *")
       .fill("Primeira versão formal do documento");
@@ -275,14 +301,18 @@ test("critical analysis gates the document flow before approval and is reopened 
 
     await criticalReviewerPage.reload();
     await expect(
-      criticalReviewerPage.getByRole("button", { name: "Concluir análise crítica" }),
+      criticalReviewerPage.getByRole("button", {
+        name: "Concluir análise crítica",
+      }),
     ).toBeVisible();
     await criticalReviewerPage
       .getByRole("button", { name: "Concluir análise crítica" })
       .click();
 
     await authenticatedPage.reload();
-    await authenticatedPage.getByRole("button", { name: "Reenviar para Revisão" }).click();
+    await authenticatedPage
+      .getByRole("button", { name: "Reenviar para Revisão" })
+      .click();
     await authenticatedPage
       .getByLabel("Descrição da versão *")
       .fill("Primeira versão formal do documento");
@@ -309,4 +339,84 @@ test("critical analysis gates the document flow before approval and is reopened 
     await criticalReviewerContext.close();
     await approverContext.close();
   }
+});
+
+test("edits normative requirements on document drafts and shows them on detail", async ({
+  authenticatedPage,
+  orgAdmin,
+}, testInfo) => {
+  const prefix = testInfo.title.replace(/\W+/g, "-").toLowerCase();
+  const criticalReviewer = await createUserWithDocumentsModule(
+    orgAdmin.organizationId,
+    orgAdmin.token,
+    prefix,
+    { role: "analyst", suffix: "critical-reviewer" },
+  );
+  const approver = await createUserWithDocumentsModule(
+    orgAdmin.organizationId,
+    orgAdmin.token,
+    prefix,
+    { role: "operator", suffix: "approver" },
+  );
+  const recipient = await createUserWithDocumentsModule(
+    orgAdmin.organizationId,
+    orgAdmin.token,
+    prefix,
+    { role: "operator", suffix: "recipient" },
+  );
+  const elaborator = await createEmployee(
+    { organizationId: orgAdmin.organizationId },
+    {
+      name: `${prefix} Elaborador`,
+    },
+  );
+
+  const createdDoc = await apiJson<{ id: number }>(
+    `/api/organizations/${orgAdmin.organizationId}/documents`,
+    orgAdmin.token,
+    {
+      method: "POST",
+      bodyJson: {
+        title: `Documento requisitos ${Date.now()}`,
+        type: "manual",
+        validityDate: "2030-01-01",
+        elaboratorIds: [elaborator.id],
+        criticalReviewerIds: [criticalReviewer.id],
+        approverIds: [approver.id],
+        recipientIds: [recipient.id],
+        normativeRequirements: ["ISO 9001:2015 7.5"],
+      },
+    },
+  );
+
+  await authenticatedPage.goto(`/qualidade/documentacao/${createdDoc.id}`);
+  await expect(authenticatedPage.getByText("ISO 9001:2015 7.5")).toBeVisible();
+
+  await authenticatedPage.getByRole("button", { name: "Editar" }).click();
+  await authenticatedPage.getByRole("button", { name: "Próximo" }).click();
+  await authenticatedPage.getByRole("button", { name: "Próximo" }).click();
+
+  await authenticatedPage
+    .getByRole("button", { name: "Remover ISO 9001:2015 7.5" })
+    .click();
+  await authenticatedPage
+    .getByPlaceholder("Ex.: ISO 9001:2015 7.5")
+    .fill("ISO 9001:2015 4.4");
+  await authenticatedPage.getByRole("button", { name: "Adicionar" }).click();
+  await authenticatedPage
+    .getByPlaceholder("Ex.: ISO 9001:2015 7.5")
+    .fill("ISO 14001:2015 6.1.3");
+  await authenticatedPage.getByRole("button", { name: "Adicionar" }).click();
+  await authenticatedPage
+    .getByRole("button", { name: "Salvar Alterações" })
+    .click();
+
+  await expect(authenticatedPage.getByText("ISO 9001:2015 4.4")).toBeVisible();
+  await expect(
+    authenticatedPage.getByText("ISO 14001:2015 6.1.3"),
+  ).toBeVisible();
+  await expect(
+    authenticatedPage.getByText("Requisitos normativos"),
+  ).toBeVisible();
+  await expect(authenticatedPage.getByText("ISO 9001:2015 7.5")).toHaveCount(0);
 });

@@ -145,6 +145,8 @@ pnpm install
 pnpm typecheck
 pnpm build
 pnpm test:unit
+pnpm test:unit:coverage
+pnpm test:integration
 pnpm test:e2e
 pnpm test:e2e:ui
 pnpm test:e2e:headed
@@ -154,7 +156,21 @@ pnpm --filter @workspace/api-spec codegen
 
 ## Testes
 
-Os testes E2E usam Playwright e exigem `DATABASE_URL` e `JWT_SECRET` definidos antes da execução.
+Os testes unitários usam Vitest com mocks explícitos e não dependem de banco.
+
+Os testes de integração usam Vitest contra Postgres/MinIO locais e exigem `.env.integration`.
+
+Fluxo mínimo para integração:
+
+```bash
+cp .env.integration.example .env.integration
+pnpm test:integration:up
+pnpm test:integration:db:push
+pnpm test:integration
+pnpm test:integration:down
+```
+
+Os testes E2E usam Playwright e continuam separados da suíte de integração. Eles exigem `DATABASE_URL` e `JWT_SECRET` definidos antes da execução.
 
 Fluxo mínimo:
 
@@ -166,7 +182,7 @@ pnpm test:e2e
 ```
 
 > [!NOTE]
-> A suíte sobe a API em `3001` e a aplicação web em `4173`. Os testes criam organizações isoladas com prefixo `E2E` e limpam os registros ao final.
+> A suíte E2E sobe a API em `3001` e a aplicação web em `4173`. Os testes criam organizações isoladas com prefixo `E2E` e limpam os registros ao final.
 
 ## Variáveis De Ambiente
 

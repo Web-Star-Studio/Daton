@@ -61,6 +61,8 @@ import type {
   DocumentCommunicationPlan,
   DocumentCommunicationPlanBody,
   DocumentDetail,
+  DocumentNormativeRequirementsSuggestionBody,
+  DocumentNormativeRequirementsSuggestionResponse,
   DocumentSummary,
   DocumentVersion,
   Employee,
@@ -6628,6 +6630,115 @@ export const useCreateDocument = <
   TContext
 > => {
   return useMutation(getCreateDocumentMutationOptions(options));
+};
+
+/**
+ * @summary Suggest normative requirements for a document
+ */
+export const getSuggestDocumentNormativeRequirementsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/documents/normative-requirements/suggestions`;
+};
+
+export const suggestDocumentNormativeRequirements = async (
+  orgId: number,
+  documentNormativeRequirementsSuggestionBody: DocumentNormativeRequirementsSuggestionBody,
+  options?: RequestInit,
+): Promise<DocumentNormativeRequirementsSuggestionResponse> => {
+  return customFetch<DocumentNormativeRequirementsSuggestionResponse>(
+    getSuggestDocumentNormativeRequirementsUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(documentNormativeRequirementsSuggestionBody),
+    },
+  );
+};
+
+export const getSuggestDocumentNormativeRequirementsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof suggestDocumentNormativeRequirements>>,
+    TError,
+    {
+      orgId: number;
+      data: BodyType<DocumentNormativeRequirementsSuggestionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof suggestDocumentNormativeRequirements>>,
+  TError,
+  {
+    orgId: number;
+    data: BodyType<DocumentNormativeRequirementsSuggestionBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["suggestDocumentNormativeRequirements"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof suggestDocumentNormativeRequirements>>,
+    {
+      orgId: number;
+      data: BodyType<DocumentNormativeRequirementsSuggestionBody>;
+    }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return suggestDocumentNormativeRequirements(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SuggestDocumentNormativeRequirementsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof suggestDocumentNormativeRequirements>>
+>;
+export type SuggestDocumentNormativeRequirementsMutationBody =
+  BodyType<DocumentNormativeRequirementsSuggestionBody>;
+export type SuggestDocumentNormativeRequirementsMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Suggest normative requirements for a document
+ */
+export const useSuggestDocumentNormativeRequirements = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof suggestDocumentNormativeRequirements>>,
+    TError,
+    {
+      orgId: number;
+      data: BodyType<DocumentNormativeRequirementsSuggestionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof suggestDocumentNormativeRequirements>>,
+  TError,
+  {
+    orgId: number;
+    data: BodyType<DocumentNormativeRequirementsSuggestionBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getSuggestDocumentNormativeRequirementsMutationOptions(options),
+  );
 };
 
 /**

@@ -30,6 +30,7 @@ import type {
 } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -42,6 +43,7 @@ import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
 import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
 import { useUserMultiPicker } from "@/hooks/use-user-multi-picker";
 import { useDocumentMultiPicker } from "@/hooks/use-document-multi-picker";
+import { DocumentNormativeRequirementsField } from "@/components/documents/document-normative-requirements-field";
 import {
   useDocumentCommunicationPlanMutation,
   useDocumentCommunicationPlans,
@@ -144,6 +146,7 @@ interface EditFormState {
   approverIds: number[];
   recipientIds: number[];
   referenceIds: number[];
+  normativeRequirements: string[];
 }
 
 interface DocumentCriticalReviewerItem {
@@ -166,13 +169,10 @@ const communicationPlanFormSchema = z.object({
   channel: z.string().trim().min(1, "Informe o canal"),
   audience: z.string().trim().min(1, "Informe o público"),
   periodicity: z.string().trim().min(1, "Informe a periodicidade"),
-  requiresAcknowledgment: z.preprocess(
-    (value) => {
-      if (value === true || value === "yes") return true;
-      return false;
-    },
-    z.boolean(),
-  ),
+  requiresAcknowledgment: z.preprocess((value) => {
+    if (value === true || value === "yes") return true;
+    return false;
+  }, z.boolean()),
   notes: z.string().default(""),
 });
 
@@ -205,9 +205,9 @@ export default function DocumentDetailPage() {
   const [maxReachedEditStep, setMaxReachedEditStep] = useState(0);
   const [submitDialog, setSubmitDialog] = useState(false);
   const [submitChangeDescription, setSubmitChangeDescription] = useState("");
-  const [attachmentActionKey, setAttachmentActionKey] = useState<
-    string | null
-  >(null);
+  const [attachmentActionKey, setAttachmentActionKey] = useState<string | null>(
+    null,
+  );
   const [editForm, setEditForm] = useState<EditFormState | null>(null);
   const [editingCommunicationPlanId, setEditingCommunicationPlanId] = useState<
     number | undefined
@@ -276,7 +276,13 @@ export default function DocumentDetailPage() {
     orgId,
     selectedIds: editForm?.criticalReviewerIds ?? [],
     enabled: !!orgId && editDialogOpen,
-    initialUsers: ((doc as { criticalReviewers?: DocumentCriticalReviewerItem[] } | undefined)?.criticalReviewers ?? []).map((reviewer) => ({
+    initialUsers: (
+      (
+        doc as
+          | { criticalReviewers?: DocumentCriticalReviewerItem[] }
+          | undefined
+      )?.criticalReviewers ?? []
+    ).map((reviewer) => ({
       id: reviewer.userId!,
       name: reviewer.name!,
       email: "",
@@ -287,10 +293,12 @@ export default function DocumentDetailPage() {
     selectedIds: editForm?.referenceIds ?? [],
     enabled: !!orgId && editDialogOpen,
     excludeIds: [docId],
-    initialDocuments: doc?.references?.map((ref: DocumentDetailReferencesItem) => ({
-      id: ref.documentId!,
-      title: ref.title!,
-    })),
+    initialDocuments: doc?.references?.map(
+      (ref: DocumentDetailReferencesItem) => ({
+        id: ref.documentId!,
+        title: ref.title!,
+      }),
+    ),
   });
 
   usePageTitle(doc?.title);
@@ -304,7 +312,10 @@ export default function DocumentDetailPage() {
   const deleteAttachmentMut = useDeleteDocumentAttachment();
   const resetVersionsMut = useResetDocumentVersions();
   const deleteMut = useDeleteDocument();
-  const createCommunicationPlanMut = useDocumentCommunicationPlanMutation(orgId, docId);
+  const createCommunicationPlanMut = useDocumentCommunicationPlanMutation(
+    orgId,
+    docId,
+  );
   const updateCommunicationPlanMut = useDocumentCommunicationPlanMutation(
     orgId,
     docId,
@@ -387,7 +398,8 @@ export default function DocumentDetailPage() {
     (a: DocumentDetailApproversItem) => a.userId === user?.id,
   );
   const criticalReviewers =
-    ((doc as { criticalReviewers?: DocumentCriticalReviewerItem[] } | undefined)?.criticalReviewers ?? []);
+    (doc as { criticalReviewers?: DocumentCriticalReviewerItem[] } | undefined)
+      ?.criticalReviewers ?? [];
   const isCriticalReviewer = criticalReviewers.some(
     (reviewer) => reviewer.userId === user?.id,
   );
@@ -462,14 +474,14 @@ export default function DocumentDetailPage() {
       title: doc.title,
       type: doc.type,
       validityDate: doc.validityDate ?? "",
-      elaboratorIds: doc.elaborators?.map((e) => e.id).filter(Boolean) as number[] ?? [],
+      elaboratorIds:
+        (doc.elaborators?.map((e) => e.id).filter(Boolean) as number[]) ?? [],
       criticalReviewerIds: criticalReviewers
         .map((reviewer) => reviewer.userId)
         .filter(Boolean) as number[],
       unitIds:
-        doc.units
-          ?.map((u: DocumentDetailUnitsItem) => u.id!)
-          .filter(Boolean) ?? [],
+        doc.units?.map((u: DocumentDetailUnitsItem) => u.id!).filter(Boolean) ??
+        [],
       approverIds:
         doc.approvers
           ?.map((a: DocumentDetailApproversItem) => a.userId!)
@@ -482,6 +494,7 @@ export default function DocumentDetailPage() {
         doc.references
           ?.map((ref: DocumentDetailReferencesItem) => ref.documentId!)
           .filter(Boolean) ?? [],
+      normativeRequirements: doc.normativeRequirements ?? [],
     });
     setEditStep(0);
     setMaxReachedEditStep(0);
@@ -539,6 +552,7 @@ export default function DocumentDetailPage() {
         approverIds: editForm.approverIds,
         recipientIds: editForm.recipientIds,
         referenceIds: editForm.referenceIds,
+        normativeRequirements: editForm.normativeRequirements,
       } as never,
     });
     handleCloseEditDialog();
@@ -560,7 +574,8 @@ export default function DocumentDetailPage() {
             onClick={handleCompleteCriticalAnalysis}
             isLoading={completeCriticalAnalysisMut.isPending}
           >
-            <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Concluir análise crítica
+            <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Concluir análise
+            crítica
           </Button>
         )}
         {canSubmitForReview && doc.status === "draft" && (
@@ -886,6 +901,26 @@ export default function DocumentDetailPage() {
             </div>
           )}
 
+          {doc.normativeRequirements &&
+            doc.normativeRequirements.length > 0 && (
+              <div>
+                <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                  Requisitos normativos
+                </Label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {doc.normativeRequirements.map((requirement) => (
+                    <Badge
+                      key={requirement}
+                      variant="secondary"
+                      className="px-3 py-1 text-xs"
+                    >
+                      {requirement}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
           {isPolicyDocument && (
             <div className="space-y-4 rounded-2xl border border-border/60 p-4">
               <div className="flex items-center justify-between gap-3">
@@ -894,11 +929,16 @@ export default function DocumentDetailPage() {
                     Plano de comunicação SGQ
                   </Label>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Configure canais, públicos e periodicidade da política aprovada.
+                    Configure canais, públicos e periodicidade da política
+                    aprovada.
                   </p>
                 </div>
                 {canEdit && editingCommunicationPlanId ? (
-                  <Button variant="outline" size="sm" onClick={resetCommunicationPlanForm}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={resetCommunicationPlanForm}
+                  >
                     Cancelar edição
                   </Button>
                 ) : null}
@@ -946,7 +986,11 @@ export default function DocumentDetailPage() {
                     <Label>Exige ciência formal?</Label>
                     <Select
                       {...registerCommunicationPlan("requiresAcknowledgment")}
-                      value={watchedCommunicationPlan.requiresAcknowledgment ? "yes" : "no"}
+                      value={
+                        watchedCommunicationPlan.requiresAcknowledgment
+                          ? "yes"
+                          : "no"
+                      }
                     >
                       <option value="yes">Sim</option>
                       <option value="no">Não</option>
@@ -954,7 +998,10 @@ export default function DocumentDetailPage() {
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label>Observações</Label>
-                    <Textarea rows={3} {...registerCommunicationPlan("notes")} />
+                    <Textarea
+                      rows={3}
+                      {...registerCommunicationPlan("notes")}
+                    />
                   </div>
                   <div className="flex justify-end gap-2 md:col-span-2">
                     <Button
@@ -964,7 +1011,8 @@ export default function DocumentDetailPage() {
                             channel: values.channel.trim(),
                             audience: values.audience.trim(),
                             periodicity: values.periodicity.trim(),
-                            requiresAcknowledgment: values.requiresAcknowledgment,
+                            requiresAcknowledgment:
+                              values.requiresAcknowledgment,
                             notes: values.notes.trim() || null,
                           };
                           if (editingCommunicationPlanId) {
@@ -989,7 +1037,9 @@ export default function DocumentDetailPage() {
                           toast({
                             title: "Falha ao salvar plano de comunicação",
                             description:
-                              error instanceof Error ? error.message : "Tente novamente.",
+                              error instanceof Error
+                                ? error.message
+                                : "Tente novamente.",
                             variant: "destructive",
                           });
                         }
@@ -999,7 +1049,9 @@ export default function DocumentDetailPage() {
                         updateCommunicationPlanMut.isPending
                       }
                     >
-                      {editingCommunicationPlanId ? "Salvar mudanças" : "Adicionar plano"}
+                      {editingCommunicationPlanId
+                        ? "Salvar mudanças"
+                        : "Adicionar plano"}
                     </Button>
                   </div>
                 </div>
@@ -1026,7 +1078,8 @@ export default function DocumentDetailPage() {
                                 channel: plan.channel,
                                 audience: plan.audience,
                                 periodicity: plan.periodicity,
-                                requiresAcknowledgment: plan.requiresAcknowledgment,
+                                requiresAcknowledgment:
+                                  plan.requiresAcknowledgment,
                                 notes: plan.notes ?? "",
                               });
                             }}
@@ -1044,12 +1097,16 @@ export default function DocumentDetailPage() {
                                   planId: plan.id,
                                 });
                                 resetCommunicationPlanForm();
-                                toast({ title: "Plano de comunicação removido" });
+                                toast({
+                                  title: "Plano de comunicação removido",
+                                });
                               } catch (error) {
                                 toast({
                                   title: "Falha ao remover plano",
                                   description:
-                                    error instanceof Error ? error.message : "Tente novamente.",
+                                    error instanceof Error
+                                      ? error.message
+                                      : "Tente novamente.",
                                   variant: "destructive",
                                 });
                               }
@@ -1064,13 +1121,15 @@ export default function DocumentDetailPage() {
                       {plan.notes || "Sem observações registradas."}
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Última distribuição: {formatDateTime(plan.lastDistributedAt)}
+                      Última distribuição:{" "}
+                      {formatDateTime(plan.lastDistributedAt)}
                     </p>
                   </div>
                 ))}
                 {communicationPlans.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    Nenhum plano de comunicação SGQ cadastrado para esta política.
+                    Nenhum plano de comunicação SGQ cadastrado para esta
+                    política.
                   </p>
                 ) : null}
               </div>
@@ -1149,7 +1208,12 @@ export default function DocumentDetailPage() {
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         onClick={async () => {
                           if (!orgId) return;
-                          if (!confirm(`Deseja remover o anexo "${att.fileName}"?`)) return;
+                          if (
+                            !confirm(
+                              `Deseja remover o anexo "${att.fileName}"?`,
+                            )
+                          )
+                            return;
                           await deleteAttachmentMut.mutateAsync({
                             orgId,
                             docId,
@@ -1181,7 +1245,12 @@ export default function DocumentDetailPage() {
                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
                 onClick={async () => {
                   if (!orgId) return;
-                  if (!confirm("Deseja resetar todo o histórico de versões? Esta ação não pode ser desfeita.")) return;
+                  if (
+                    !confirm(
+                      "Deseja resetar todo o histórico de versões? Esta ação não pode ser desfeita.",
+                    )
+                  )
+                    return;
                   await resetVersionsMut.mutateAsync({ orgId, docId });
                   invalidate();
                 }}
@@ -1254,7 +1323,9 @@ export default function DocumentDetailPage() {
                       <div className="h-8 w-8 rounded-full bg-foreground/5 flex items-center justify-center text-xs font-medium">
                         {reviewer.name?.charAt(0).toUpperCase() || "?"}
                       </div>
-                      <span className="text-sm font-medium">{reviewer.name}</span>
+                      <span className="text-sm font-medium">
+                        {reviewer.name}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       {reviewer.status === "completed" ? (
@@ -1628,9 +1699,9 @@ export default function DocumentDetailPage() {
                     searchPlaceholder="Buscar documento de referência..."
                     emptyMessage="Nenhum documento encontrado."
                     options={referencePicker.options.map((d) => ({
-                        value: d.id,
-                        label: d.title,
-                      }))}
+                      value: d.id,
+                      label: d.title,
+                    }))}
                     selected={editForm.referenceIds}
                     onToggle={(id) =>
                       setEditForm({
@@ -1644,6 +1715,20 @@ export default function DocumentDetailPage() {
                     onSearchValueChange={referencePicker.setSearchValue}
                   />
                 </div>
+
+                <DocumentNormativeRequirementsField
+                  orgId={orgId}
+                  title={editForm.title}
+                  type={editForm.type}
+                  referenceIds={editForm.referenceIds}
+                  value={editForm.normativeRequirements}
+                  onChange={(nextValue) =>
+                    setEditForm({
+                      ...editForm,
+                      normativeRequirements: nextValue,
+                    })
+                  }
+                />
               </div>
             )}
 

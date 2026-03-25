@@ -22,6 +22,7 @@ import { resolveApiUrl } from "@/lib/api";
 import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
 import { useUserMultiPicker } from "@/hooks/use-user-multi-picker";
 import { useDocumentMultiPicker } from "@/hooks/use-document-multi-picker";
+import { DocumentNormativeRequirementsField } from "@/components/documents/document-normative-requirements-field";
 
 const TYPE_OPTIONS = [
   { value: "manual", label: "Manual" },
@@ -67,6 +68,7 @@ const createDocumentSchema = z.object({
     .array(z.number())
     .min(1, "Selecione ao menos um destinatário"),
   referenceIds: z.array(z.number()),
+  normativeRequirements: z.array(z.string()),
 });
 
 type CreateDocumentFormData = z.infer<typeof createDocumentSchema>;
@@ -106,6 +108,7 @@ export default function NovoDocumentoPage() {
       approverIds: [],
       recipientIds: [],
       referenceIds: [],
+      normativeRequirements: [],
     },
   });
 
@@ -115,6 +118,9 @@ export default function NovoDocumentoPage() {
   const approverIds = watch("approverIds");
   const recipientIds = watch("recipientIds");
   const referenceIds = watch("referenceIds");
+  const normativeRequirements = watch("normativeRequirements");
+  const title = watch("title");
+  const type = watch("type");
 
   const { data: units } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
@@ -232,6 +238,10 @@ export default function NovoDocumentoPage() {
             data.recipientIds.length > 0 ? data.recipientIds : undefined,
           referenceIds:
             data.referenceIds.length > 0 ? data.referenceIds : undefined,
+          normativeRequirements:
+            data.normativeRequirements.length > 0
+              ? data.normativeRequirements
+              : undefined,
           attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined,
         } as never,
       });
@@ -485,6 +495,19 @@ export default function NovoDocumentoPage() {
             onSearchValueChange={referencePicker.setSearchValue}
           />
         </div>
+
+        <DocumentNormativeRequirementsField
+          orgId={orgId}
+          title={title}
+          type={type}
+          referenceIds={referenceIds}
+          value={normativeRequirements}
+          onChange={(nextValue) =>
+            setValue("normativeRequirements", nextValue, {
+              shouldValidate: true,
+            })
+          }
+        />
 
         <div className="flex gap-3 pt-4 border-t border-border/40">
           <Button

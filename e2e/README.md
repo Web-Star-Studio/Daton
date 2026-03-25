@@ -1,5 +1,10 @@
 # Playwright E2E
 
+Os testes E2E são separados da suíte de integração do Vitest.
+
+- `pnpm test:integration` cobre testes de integração do backend com Postgres/MinIO locais.
+- `pnpm test:e2e` cobre fluxos completos da aplicação via Playwright.
+
 Local setup:
 
 `playwright.config.ts` loads `.env` and will fail fast unless `DATABASE_URL` and `JWT_SECRET` are already set. Set them before running the Docker, `pnpm`, or Playwright commands.

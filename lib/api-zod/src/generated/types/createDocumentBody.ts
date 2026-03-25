@@ -20,5 +20,6 @@ export interface CreateDocumentBody {
   approverIds: number[];
   recipientIds?: number[];
   referenceIds?: number[];
+  normativeRequirements?: string[];
   attachments?: CreateDocumentBodyAttachmentsItem[];
 }

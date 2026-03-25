@@ -70,6 +70,8 @@ export * from "./documentDetailCriticalReviewersItem";
 export * from "./documentDetailRecipientsItem";
 export * from "./documentDetailReferencesItem";
 export * from "./documentDetailUnitsItem";
+export * from "./documentNormativeRequirementsSuggestionBody";
+export * from "./documentNormativeRequirementsSuggestionResponse";
 export * from "./documentSummary";
 export * from "./documentVersion";
 export * from "./employee";

@@ -2504,6 +2504,7 @@ export interface DocumentDetail {
   attachments?: DocumentAttachment[];
   versions?: DocumentVersion[];
   communicationPlans?: DocumentCommunicationPlan[];
+  normativeRequirements?: string[];
 }
 
 export type CreateDocumentBodyType =
@@ -2538,6 +2539,7 @@ export interface CreateDocumentBody {
   approverIds: number[];
   recipientIds?: number[];
   referenceIds?: number[];
+  normativeRequirements?: string[];
   attachments?: CreateDocumentBodyAttachmentsItem[];
 }
 
@@ -2552,6 +2554,18 @@ export interface UpdateDocumentBody {
   approverIds?: number[];
   recipientIds?: number[];
   referenceIds?: number[];
+  normativeRequirements?: string[];
+}
+
+export interface DocumentNormativeRequirementsSuggestionBody {
+  title: string;
+  type: string;
+  referenceIds?: number[];
+  currentRequirements?: string[];
+}
+
+export interface DocumentNormativeRequirementsSuggestionResponse {
+  suggestions: string[];
 }
 
 export interface SubmitDocumentForReviewBody {

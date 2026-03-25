@@ -1837,6 +1837,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/DocumentDetail"
 
+  /organizations/{orgId}/documents/normative-requirements/suggestions:
+    post:
+      operationId: suggestDocumentNormativeRequirements
+      tags: [documents]
+      summary: Suggest normative requirements for a document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentNormativeRequirementsSuggestionBody"
+      responses:
+        "200":
+          description: Suggested normative requirements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentNormativeRequirementsSuggestionResponse"
+
   /organizations/{orgId}/documents/{docId}:
     get:
       operationId: getDocument
@@ -6911,7 +6936,17 @@ components:
 
     AppModule:
       type: string
-      enum: [documents, legislations, employees, units, departments, positions, governance, suppliers]
+      enum:
+        [
+          documents,
+          legislations,
+          employees,
+          units,
+          departments,
+          positions,
+          governance,
+          suppliers,
+        ]
 
     OrgUser:
       type: object
@@ -7012,15 +7047,37 @@ components:
 
     StrategicPlanRiskOpportunitySourceType:
       type: string
-      enum: [swot, audit, meeting, legislation, incident, internal_strategy, other]
+      enum:
+        [swot, audit, meeting, legislation, incident, internal_strategy, other]
 
     StrategicPlanRiskOpportunityStatus:
       type: string
-      enum: [identified, assessed, responding, awaiting_effectiveness, effective, ineffective, continuous, canceled]
+      enum:
+        [
+          identified,
+          assessed,
+          responding,
+          awaiting_effectiveness,
+          effective,
+          ineffective,
+          continuous,
+          canceled,
+        ]
 
     StrategicPlanRiskOpportunityResponseStrategy:
       type: string
-      enum: [mitigate, eliminate, accept, monitor, exploit, enhance, share, avoid, other]
+      enum:
+        [
+          mitigate,
+          eliminate,
+          accept,
+          monitor,
+          exploit,
+          enhance,
+          share,
+          avoid,
+          other,
+        ]
 
     StrategicPlanRiskOpportunityPriority:
       type: string
@@ -8349,7 +8406,15 @@ components:
 
     NonconformityStatus:
       type: string
-      enum: [open, under_analysis, action_in_progress, awaiting_effectiveness, closed, canceled]
+      enum:
+        [
+          open,
+          under_analysis,
+          action_in_progress,
+          awaiting_effectiveness,
+          closed,
+          canceled,
+        ]
 
     NonconformityEffectivenessResult:
       type: string
@@ -8366,7 +8431,16 @@ components:
     ManagementReviewInputType:
       type: string
       enum:
-        [policy, audit_summary, nc_summary, objective_status, risk_status, process_performance, customer_feedback, other]
+        [
+          policy,
+          audit_summary,
+          nc_summary,
+          objective_status,
+          risk_status,
+          process_performance,
+          customer_feedback,
+          other,
+        ]
 
     ManagementReviewOutputType:
       type: string
@@ -9657,6 +9731,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DocumentCommunicationPlan"
+        normativeRequirements:
+          type: array
+          items:
+            type: string
       required:
         - id
         - title
@@ -9672,7 +9750,16 @@ components:
           type: string
         type:
           type: string
-          enum: [manual, procedimento, instrucao, formulario, registro, politica, outro]
+          enum:
+            [
+              manual,
+              procedimento,
+              instrucao,
+              formulario,
+              registro,
+              politica,
+              outro,
+            ]
         validityDate:
           type: string
         elaboratorIds:
@@ -9703,6 +9790,10 @@ components:
           type: array
           items:
             type: integer
+        normativeRequirements:
+          type: array
+          items:
+            type: string
         attachments:
           type: array
           items:
@@ -9764,6 +9855,39 @@ components:
           type: array
           items:
             type: integer
+        normativeRequirements:
+          type: array
+          items:
+            type: string
+
+    DocumentNormativeRequirementsSuggestionBody:
+      type: object
+      properties:
+        title:
+          type: string
+        type:
+          type: string
+        referenceIds:
+          type: array
+          items:
+            type: integer
+        currentRequirements:
+          type: array
+          items:
+            type: string
+      required:
+        - title
+        - type
+
+    DocumentNormativeRequirementsSuggestionResponse:
+      type: object
+      properties:
+        suggestions:
+          type: array
+          items:
+            type: string
+      required:
+        - suggestions
 
     SubmitDocumentForReviewBody:
       type: object

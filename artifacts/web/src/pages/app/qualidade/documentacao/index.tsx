@@ -26,6 +26,7 @@ import { resolveApiUrl } from "@/lib/api";
 import { useEmployeeMultiPicker } from "@/hooks/use-employee-multi-picker";
 import { useUserMultiPicker } from "@/hooks/use-user-multi-picker";
 import { useDocumentMultiPicker } from "@/hooks/use-document-multi-picker";
+import { DocumentNormativeRequirementsField } from "@/components/documents/document-normative-requirements-field";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Análise crítica",
@@ -97,6 +98,7 @@ const createDocumentSchema = z.object({
     .array(z.number())
     .min(1, "Selecione ao menos um destinatário"),
   referenceIds: z.array(z.number()),
+  normativeRequirements: z.array(z.string()),
 });
 
 type CreateDocumentFormData = z.infer<typeof createDocumentSchema>;
@@ -230,7 +232,9 @@ export default function DocumentacaoPage() {
       });
       setSelectedIds(new Set());
       if (errors > 0) {
-        alert(`${errors} documento(s) não puderam ser excluídos. Verifique se estão em análise crítica ou rejeitados.`);
+        alert(
+          `${errors} documento(s) não puderam ser excluídos. Verifique se estão em análise crítica ou rejeitados.`,
+        );
       }
     } finally {
       setIsDeleting(false);
@@ -288,7 +292,7 @@ export default function DocumentacaoPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-      <div className="w-44">
+        <div className="w-44">
           <Label>Tipo</Label>
           <Select
             value={typeFilter}
@@ -306,9 +310,13 @@ export default function DocumentacaoPage() {
         <div className="flex items-end">
           <Button
             variant={typeFilter === "politica" ? "default" : "outline"}
-            onClick={() => setTypeFilter(typeFilter === "politica" ? "" : "politica")}
+            onClick={() =>
+              setTypeFilter(typeFilter === "politica" ? "" : "politica")
+            }
           >
-            {typeFilter === "politica" ? "Limpar filtro de política" : "Ver só políticas"}
+            {typeFilter === "politica"
+              ? "Limpar filtro de política"
+              : "Ver só políticas"}
           </Button>
         </div>
         <div className="w-44">
@@ -545,6 +553,7 @@ function CreateDocumentModal({
       approverIds: [],
       recipientIds: [],
       referenceIds: [],
+      normativeRequirements: [],
     },
   });
 
@@ -554,6 +563,9 @@ function CreateDocumentModal({
   const approverIds = watch("approverIds");
   const recipientIds = watch("recipientIds");
   const referenceIds = watch("referenceIds");
+  const normativeRequirements = watch("normativeRequirements");
+  const title = watch("title");
+  const type = watch("type");
 
   const { data: units } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId && open },
@@ -677,6 +689,10 @@ function CreateDocumentModal({
             data.recipientIds.length > 0 ? data.recipientIds : undefined,
           referenceIds:
             data.referenceIds.length > 0 ? data.referenceIds : undefined,
+          normativeRequirements:
+            data.normativeRequirements.length > 0
+              ? data.normativeRequirements
+              : undefined,
           attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined,
         } as never,
       });
@@ -755,7 +771,9 @@ function CreateDocumentModal({
                 {...register("title")}
               />
               {errors.title && (
-                <p className="mt-1 text-xs text-red-500">{errors.title.message}</p>
+                <p className="mt-1 text-xs text-red-500">
+                  {errors.title.message}
+                </p>
               )}
             </div>
 
@@ -772,7 +790,11 @@ function CreateDocumentModal({
               </div>
               <div>
                 <Label>Data de Validade *</Label>
-                <Input type="date" className="mt-2" {...register("validityDate")} />
+                <Input
+                  type="date"
+                  className="mt-2"
+                  {...register("validityDate")}
+                />
                 {errors.validityDate && (
                   <p className="mt-1 text-xs text-red-500">
                     {errors.validityDate.message}
@@ -933,6 +955,19 @@ function CreateDocumentModal({
                 onSearchValueChange={referencePicker.setSearchValue}
               />
             </div>
+
+            <DocumentNormativeRequirementsField
+              orgId={orgId}
+              title={title}
+              type={type}
+              referenceIds={referenceIds}
+              value={normativeRequirements}
+              onChange={(nextValue) =>
+                setValue("normativeRequirements", nextValue, {
+                  shouldValidate: true,
+                })
+              }
+            />
           </div>
         )}
 
@@ -1011,7 +1046,11 @@ function CreateDocumentModal({
             </Button>
           )}
           {step < steps.length - 1 ? (
-            <Button type="button" size="sm" onClick={() => void changeStep(step + 1)}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void changeStep(step + 1)}
+            >
               Próximo
             </Button>
           ) : (

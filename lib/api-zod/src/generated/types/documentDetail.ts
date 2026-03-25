@@ -35,4 +35,5 @@ export interface DocumentDetail {
   attachments?: DocumentAttachment[];
   versions?: DocumentVersion[];
   communicationPlans?: DocumentCommunicationPlan[];
+  normativeRequirements?: string[];
 }

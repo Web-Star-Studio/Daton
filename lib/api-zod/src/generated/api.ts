@@ -2665,6 +2665,7 @@ export const CreateDocumentBody = zod.object({
   approverIds: zod.array(zod.number()),
   recipientIds: zod.array(zod.number()).optional(),
   referenceIds: zod.array(zod.number()).optional(),
+  normativeRequirements: zod.array(zod.string()).optional(),
   attachments: zod
     .array(
       zod.object({
@@ -2675,6 +2676,24 @@ export const CreateDocumentBody = zod.object({
       }),
     )
     .optional(),
+});
+
+/**
+ * @summary Suggest normative requirements for a document
+ */
+export const SuggestDocumentNormativeRequirementsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const SuggestDocumentNormativeRequirementsBody = zod.object({
+  title: zod.string(),
+  type: zod.string(),
+  referenceIds: zod.array(zod.number()).optional(),
+  currentRequirements: zod.array(zod.string()).optional(),
+});
+
+export const SuggestDocumentNormativeRequirementsResponse = zod.object({
+  suggestions: zod.array(zod.string()),
 });
 
 /**
@@ -2813,6 +2832,7 @@ export const GetDocumentResponse = zod.object({
       }),
     )
     .optional(),
+  normativeRequirements: zod.array(zod.string()).optional(),
 });
 
 /**
@@ -2833,6 +2853,7 @@ export const UpdateDocumentBody = zod.object({
   approverIds: zod.array(zod.number()).optional(),
   recipientIds: zod.array(zod.number()).optional(),
   referenceIds: zod.array(zod.number()).optional(),
+  normativeRequirements: zod.array(zod.string()).optional(),
 });
 
 export const UpdateDocumentResponse = zod.object({
@@ -2963,6 +2984,7 @@ export const UpdateDocumentResponse = zod.object({
       }),
     )
     .optional(),
+  normativeRequirements: zod.array(zod.string()).optional(),
 });
 
 /**
@@ -3174,6 +3196,7 @@ export const CompleteDocumentCriticalAnalysisResponse = zod.object({
       }),
     )
     .optional(),
+  normativeRequirements: zod.array(zod.string()).optional(),
 });
 
 /**
@@ -3400,6 +3423,7 @@ export const SubmitDocumentForReviewResponse = zod.object({
       }),
     )
     .optional(),
+  normativeRequirements: zod.array(zod.string()).optional(),
 });
 
 /**
@@ -3542,6 +3566,7 @@ export const ApproveDocumentResponse = zod.object({
       }),
     )
     .optional(),
+  normativeRequirements: zod.array(zod.string()).optional(),
 });
 
 /**
@@ -3684,6 +3709,7 @@ export const RejectDocumentResponse = zod.object({
       }),
     )
     .optional(),
+  normativeRequirements: zod.array(zod.string()).optional(),
 });
 
 /**
@@ -3822,6 +3848,7 @@ export const DistributeDocumentResponse = zod.object({
       }),
     )
     .optional(),
+  normativeRequirements: zod.array(zod.string()).optional(),
 });
 
 /**
