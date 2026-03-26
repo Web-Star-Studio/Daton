@@ -355,6 +355,9 @@ async function seed() {
       "units",
       "departments",
       "positions",
+      "governance",
+      "suppliers",
+      "environmental",
     ];
 
     // Admin gets all modules

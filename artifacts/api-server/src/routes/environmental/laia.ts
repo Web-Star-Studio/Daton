@@ -251,6 +251,42 @@ async function getAssessmentRecipients(orgId: number): Promise<number[]> {
   return rows.map((row) => row.id);
 }
 
+async function assertRequirementLegislationsExist(
+  orgId: number,
+  requirements: z.infer<typeof requirementLinkSchema>[] | undefined,
+) {
+  const legalIds = Array.from(
+    new Set(
+      (requirements ?? [])
+        .filter((item) => item.type === "legal" && item.legislationId != null)
+        .map((item) => item.legislationId as number),
+    ),
+  );
+
+  if (legalIds.length === 0) {
+    return;
+  }
+
+  const rows = await db
+    .select({ id: legislationsTable.id })
+    .from(legislationsTable)
+    .where(
+      and(
+        eq(legislationsTable.organizationId, orgId),
+        inArray(legislationsTable.id, legalIds),
+      ),
+    );
+
+  const found = new Set(rows.map((row) => row.id));
+  const missing = legalIds.filter((id) => !found.has(id));
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Legislações inválidas para a organização: ${missing.join(", ")}`,
+    );
+  }
+}
+
 async function syncAssessmentRequirements(
   orgId: number,
   assessmentId: number,
@@ -1050,6 +1086,19 @@ router.post(
       return;
     }
 
+    try {
+      await assertRequirementLegislationsExist(
+        params.data.orgId,
+        body.data.requirements,
+      );
+    } catch (error) {
+      res.status(400).json({
+        error:
+          error instanceof Error ? error.message : "Requisitos legais inválidos",
+      });
+      return;
+    }
+
     const methodologyVersionId = await resolveMethodologyVersionId(
       params.data.orgId,
       body.data.methodologyVersionId,
@@ -1169,6 +1218,19 @@ router.patch(
     const body = assessmentBodySchema.partial().safeParse(req.body);
     if (!body.success) {
       res.status(400).json({ error: body.error.message });
+      return;
+    }
+
+    try {
+      await assertRequirementLegislationsExist(
+        params.data.orgId,
+        body.data.requirements,
+      );
+    } catch (error) {
+      res.status(400).json({
+        error:
+          error instanceof Error ? error.message : "Requisitos legais inválidos",
+      });
       return;
     }
 
@@ -1595,6 +1657,8 @@ router.post(
 
     for (const [index, row] of body.data.rows.entries()) {
       try {
+        await assertRequirementLegislationsExist(params.data.orgId, row.requirements);
+
         let sectorId = row.sectorId ?? null;
         if (!sectorId && row.sectorCode && row.sectorName) {
           const sectorUnitId = row.unitId ?? body.data.unitId ?? null;
