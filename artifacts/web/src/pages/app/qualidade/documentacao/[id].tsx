@@ -450,6 +450,8 @@ export default function DocumentDetailPage() {
     (role === "org_admin" || role === "operator") &&
     (doc?.status === "draft" || doc?.status === "rejected") &&
     isCriticalAnalysisComplete;
+  const canAcknowledge =
+    isRecipient && doc?.status === "distributed" && !myReceipt?.readAt;
 
   const handleSubmitForReview = async () => {
     if (!orgId || !submitChangeDescription.trim()) return;
@@ -651,6 +653,15 @@ export default function DocumentDetailPage() {
               </Button>
             </>
           )}
+        {canAcknowledge && (
+          <Button
+            size="sm"
+            onClick={handleAcknowledge}
+            isLoading={acknowledgeMut.isPending}
+          >
+            <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Dar ciência
+          </Button>
+        )}
         {doc.status === "draft" && (
           <Button
             size="sm"
