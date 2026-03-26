@@ -1390,15 +1390,26 @@ router.post(
       return;
     }
 
-    const suggestions = await getNormativeRequirementSuggestions({
-      orgId: params.data.orgId,
-      title: body.data.title,
-      type: body.data.type,
-      referenceIds,
-      currentRequirements: body.data.currentRequirements,
-    });
+    try {
+      const suggestions = await getNormativeRequirementSuggestions({
+        orgId: params.data.orgId,
+        title: body.data.title,
+        type: body.data.type,
+        referenceIds,
+        currentRequirements: body.data.currentRequirements,
+      });
 
-    res.json({ suggestions });
+      res.json({ suggestions });
+    } catch (error) {
+      console.error("Failed to suggest document normative requirements", {
+        orgId: params.data.orgId,
+        title: body.data.title,
+        error,
+      });
+      res.status(502).json({
+        error: "Não foi possível gerar sugestões por IA no momento.",
+      });
+    }
   },
 );
 

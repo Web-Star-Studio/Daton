@@ -816,6 +816,56 @@ describe("documents routes", () => {
       suggestions: ["ISO 9001:2015 4.4", "ISO 14001:2015 6.1.3"],
     });
     expect(createCompletionMock).toHaveBeenCalledTimes(1);
+    expect(createCompletionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gpt-5-mini-2025-08-07",
+        max_completion_tokens: 400,
+      }),
+    );
+    expect(createCompletionMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        max_tokens: expect.anything(),
+      }),
+    );
+  });
+
+  it("returns a stable json error when normative requirement suggestions fail", async () => {
+    const context = await createTestContext({
+      seed: "documents-normative-requirements-suggestions-error",
+    });
+    contexts.push(context);
+
+    createCompletionMock.mockRejectedValueOnce(
+      new Error("OpenAI request failed"),
+    );
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await request(app)
+      .post(
+        `/api/organizations/${context.organizationId}/documents/normative-requirements/suggestions`,
+      )
+      .set(authHeader(context))
+      .send({
+        title: "Procedimento de controle documental",
+        type: "procedimento",
+        referenceIds: [],
+        currentRequirements: [],
+      });
+
+    expect(response.status).toBe(502);
+    expect(response.body).toEqual({
+      error: "Não foi possível gerar sugestões por IA no momento.",
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Failed to suggest document normative requirements",
+      expect.objectContaining({
+        orgId: context.organizationId,
+        title: "Procedimento de controle documental",
+      }),
+    );
+
+    errorSpy.mockRestore();
   });
 
   it("allows SGQ communication plans only for policy documents and exposes them on detail", async () => {

@@ -939,45 +939,28 @@ function CreateDocumentModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <Label>Destinatários (protocolo de recebimento) *</Label>
-                <SearchableMultiSelect
-                  placeholder="Selecionar destinatários"
-                  searchPlaceholder="Buscar destinatário..."
-                  emptyMessage="Nenhum destinatário encontrado."
-                  options={recipientPicker.options.map((u) => ({
-                    value: u.id,
-                    label: u.name,
-                    keywords: [u.email],
-                  }))}
-                  selected={recipientIds}
-                  onToggle={(id) =>
-                    toggleMultiSelect("recipientIds", recipientIds, id)
-                  }
-                  onSearchValueChange={recipientPicker.setSearchValue}
-                />
-                {errors.recipientIds && (
-                  <p className="mt-1 text-xs text-red-500">
-                    {errors.recipientIds.message}
-                  </p>
-                )}
-              </div>
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Destinatários resolvidos
+            <div>
+              <Label>Destinatários (protocolo de recebimento) *</Label>
+              <SearchableMultiSelect
+                placeholder="Selecionar destinatários"
+                searchPlaceholder="Buscar destinatário..."
+                emptyMessage="Nenhum destinatário encontrado."
+                options={recipientPicker.options.map((u) => ({
+                  value: u.id,
+                  label: u.name,
+                  keywords: [u.email],
+                }))}
+                selected={recipientIds}
+                onToggle={(id) =>
+                  toggleMultiSelect("recipientIds", recipientIds, id)
+                }
+                onSearchValueChange={recipientPicker.setSearchValue}
+              />
+              {errors.recipientIds && (
+                <p className="mt-1 text-xs text-red-500">
+                  {errors.recipientIds.message}
                 </p>
-                <p className="mt-2 text-2xl font-semibold">
-                  {recipientResolution.totalContactCount}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {recipientResolution.totalContactCount === 0
-                    ? "Selecione usuários diretos ou grupos para compor a distribuição."
-                    : recipientResolution.nonOperationalContacts.length > 0
-                      ? `${recipientResolution.operationalUserCount} usuário(s) entram no fluxo e ${recipientResolution.nonOperationalContacts.length} contato(s) ficam só como referência.`
-                      : `${recipientResolution.operationalUserCount} usuário(s) entram no fluxo de recebimento e leitura.`}
-                </p>
-              </div>
+              )}
             </div>
           </div>
         )}

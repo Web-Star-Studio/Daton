@@ -105,5 +105,16 @@ describe("document normative requirements service", () => {
     expect(inArrayMock).toHaveBeenCalledWith("documents.id", [10]);
     expect(eqMock).toHaveBeenCalledWith("documents.organization_id", 42);
     expect(createCompletionMock).toHaveBeenCalledTimes(1);
+    expect(createCompletionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gpt-5-mini-2025-08-07",
+        max_completion_tokens: 400,
+      }),
+    );
+    expect(createCompletionMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        max_tokens: expect.anything(),
+      }),
+    );
   });
 });

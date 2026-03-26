@@ -95,7 +95,7 @@ export async function suggestNormativeRequirements(input: {
     ],
     response_format: { type: "json_object" },
     temperature: 0.1,
-    max_tokens: 400,
+    max_completion_tokens: 400,
   });
 
   const raw = response.choices[0]?.message?.content || "{}";

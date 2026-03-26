@@ -1751,21 +1751,6 @@ export default function DocumentDetailPage() {
                   />
                 </div>
 
-                <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Destinatários resolvidos
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold">
-                    {recipientResolution.totalContactCount}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {recipientResolution.totalContactCount === 0
-                      ? "Selecione usuários diretos ou grupos para compor a distribuição."
-                      : recipientResolution.nonOperationalContacts.length > 0
-                        ? `${recipientResolution.operationalUserCount} usuário(s) entram no fluxo e ${recipientResolution.nonOperationalContacts.length} contato(s) ficam só como referência.`
-                        : `${recipientResolution.operationalUserCount} usuário(s) entram no fluxo de recebimento e leitura.`}
-                  </p>
-                </div>
               </div>
             )}
 
