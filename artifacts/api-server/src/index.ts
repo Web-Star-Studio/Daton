@@ -1,5 +1,5 @@
 import app from "./app";
-import { startGovernanceMaintenanceScheduler } from "./lib/governance-scheduler";
+import { startManagementSystemMaintenanceScheduler } from "./lib/management-system-scheduler";
 import { seedQuestionnaire } from "./seeds/questionnaire";
 
 const rawPort = process.env["PORT"];
@@ -17,7 +17,7 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 seedQuestionnaire().catch(console.error);
-startGovernanceMaintenanceScheduler();
+startManagementSystemMaintenanceScheduler();
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);

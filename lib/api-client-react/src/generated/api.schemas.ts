@@ -191,6 +191,7 @@ export const AppModule = {
   positions: "positions",
   governance: "governance",
   suppliers: "suppliers",
+  environmental: "environmental",
 } as const;
 
 export interface MeResponse {

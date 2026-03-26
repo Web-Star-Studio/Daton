@@ -929,7 +929,12 @@ async function getDocumentDetail(docId: number, orgId: number) {
       usersTable,
       eq(sgqCommunicationPlansTable.createdById, usersTable.id),
     )
-    .where(eq(sgqCommunicationPlansTable.documentId, docId))
+    .where(
+      and(
+        eq(sgqCommunicationPlansTable.documentId, docId),
+        eq(sgqCommunicationPlansTable.contextType, "document"),
+      ),
+    )
     .orderBy(desc(sgqCommunicationPlansTable.updatedAt));
 
   return {
@@ -1508,6 +1513,9 @@ router.post(
 
     await db.insert(sgqCommunicationPlansTable).values({
       organizationId: params.data.orgId,
+      systemDomain: "sgq",
+      contextType: "document",
+      contextId: params.data.docId,
       documentId: params.data.docId,
       channel: body.data.channel,
       audience: body.data.audience,
@@ -1576,6 +1584,7 @@ router.patch(
           eq(sgqCommunicationPlansTable.id, params.data.planId),
           eq(sgqCommunicationPlansTable.documentId, params.data.docId),
           eq(sgqCommunicationPlansTable.organizationId, params.data.orgId),
+          eq(sgqCommunicationPlansTable.contextType, "document"),
         ),
       );
 
@@ -1653,6 +1662,7 @@ router.delete(
           eq(sgqCommunicationPlansTable.id, params.data.planId),
           eq(sgqCommunicationPlansTable.documentId, params.data.docId),
           eq(sgqCommunicationPlansTable.organizationId, params.data.orgId),
+          eq(sgqCommunicationPlansTable.contextType, "document"),
         ),
       );
 
@@ -2815,6 +2825,7 @@ router.post(
             and(
               eq(sgqCommunicationPlansTable.documentId, docId),
               eq(sgqCommunicationPlansTable.organizationId, orgId),
+              eq(sgqCommunicationPlansTable.contextType, "document"),
             ),
           );
       }
@@ -3033,6 +3044,7 @@ router.post(
           and(
             eq(sgqCommunicationPlansTable.documentId, docId),
             eq(sgqCommunicationPlansTable.organizationId, orgId),
+            eq(sgqCommunicationPlansTable.contextType, "document"),
           ),
         );
 

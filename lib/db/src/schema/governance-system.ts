@@ -96,6 +96,17 @@ export type ManagementReviewOutputType =
   | "resource"
   | "priority";
 export type ManagementReviewOutputStatus = "open" | "done" | "canceled";
+export type ManagementSystemDomain =
+  | "sgq"
+  | "sga"
+  | "sgsv"
+  | "esg"
+  | "governance";
+export type CommunicationContextType =
+  | "document"
+  | "laia_assessment"
+  | "laia_sector"
+  | "laia_unit_scope";
 
 export const sgqProcessesTable = pgTable(
   "sgq_processes",
@@ -188,9 +199,18 @@ export const sgqCommunicationPlansTable = pgTable("sgq_communication_plans", {
   organizationId: integer("organization_id")
     .notNull()
     .references(() => organizationsTable.id, { onDelete: "cascade" }),
-  documentId: integer("document_id")
+  systemDomain: text("system_domain")
     .notNull()
-    .references(() => documentsTable.id, { onDelete: "cascade" }),
+    .default("sgq")
+    .$type<ManagementSystemDomain>(),
+  contextType: text("context_type")
+    .notNull()
+    .default("document")
+    .$type<CommunicationContextType>(),
+  contextId: integer("context_id"),
+  documentId: integer("document_id").references(() => documentsTable.id, {
+    onDelete: "cascade",
+  }),
   channel: text("channel").notNull(),
   audience: text("audience").notNull(),
   periodicity: text("periodicity").notNull(),

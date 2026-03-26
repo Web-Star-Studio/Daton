@@ -26,6 +26,7 @@ export const APP_MODULES = [
   "positions",
   "governance",
   "suppliers",
+  "environmental",
 ] as const;
 export type AppModule = typeof APP_MODULES[number];
 

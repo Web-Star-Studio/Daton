@@ -14,6 +14,7 @@ import employeesRouter from "./employees";
 import departmentsRouter from "./departments";
 import positionsRouter from "./positions";
 import documentsRouter from "./documents";
+import environmentalRouter from "./environmental/index";
 import governanceRouter from "./governance/index";
 import notificationsRouter from "./notifications";
 import invitationsRouter from "./invitations";
@@ -102,6 +103,14 @@ router.use(
   positionsRouter,
 );
 router.use(requireAuth, requireCompletedOnboarding, documentsRouter);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("environmental", [
+    /^\/organizations\/[^/]+\/environmental(?:\/|$)/,
+  ]),
+  environmentalRouter,
+);
 router.use(
   requireAuth,
   requireCompletedOnboarding,

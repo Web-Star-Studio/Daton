@@ -6,6 +6,7 @@ import {
   Bell,
   Building2,
   ChevronRight,
+  Leaf,
   Landmark,
   LogOut,
   PanelLeftClose,
@@ -30,7 +31,8 @@ type AppModule =
   | "departments"
   | "positions"
   | "governance"
-  | "suppliers";
+  | "suppliers"
+  | "environmental";
 
 type NavLink = {
   href: string;
@@ -58,6 +60,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [organizacaoPopover, setOrganizacaoPopover] = useState(false);
   const [qualidadePopover, setQualidadePopover] = useState(false);
   const [governancaPopover, setGovernancaPopover] = useState(false);
+  const [ambientalPopover, setAmbientalPopover] = useState(false);
   const [configuracoesPopover, setConfiguracoesPopover] = useState(false);
   const [orgPopoverPos, setOrgPopoverPos] = useState<PopoverPosition>({
     top: 0,
@@ -71,6 +74,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     top: 0,
     left: 0,
   });
+  const [ambientalPopoverPos, setAmbientalPopoverPos] = useState<PopoverPosition>({
+    top: 0,
+    left: 0,
+  });
   const [configuracoesPopoverPos, setConfiguracoesPopoverPos] = useState<PopoverPosition>({
     left: 0,
     bottom: 0,
@@ -78,10 +85,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const organizacaoRef = useRef<HTMLDivElement>(null);
   const qualidadeRef = useRef<HTMLDivElement>(null);
   const governancaRef = useRef<HTMLDivElement>(null);
+  const ambientalRef = useRef<HTMLDivElement>(null);
   const configuracoesRef = useRef<HTMLDivElement>(null);
   const organizacaoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qualidadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const governancaTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ambientalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const configuracoesTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { headerActions, pageTitle } = useLayoutState();
   const orgId = organization?.id;
@@ -111,6 +120,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         clearTimeout(governancaTimeoutRef.current);
         governancaTimeoutRef.current = null;
       }
+      if (ambientalTimeoutRef.current) {
+        clearTimeout(ambientalTimeoutRef.current);
+        ambientalTimeoutRef.current = null;
+      }
       if (configuracoesTimeoutRef.current) {
         clearTimeout(configuracoesTimeoutRef.current);
         configuracoesTimeoutRef.current = null;
@@ -127,6 +140,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       { prefix: "/organizacao/departamentos", module: "departments" },
       { prefix: "/organizacao/cargos", module: "positions" },
       { prefix: "/governanca", module: "governance" },
+      { prefix: "/ambiental", module: "environmental" },
     ];
 
     const deniedRoute = moduleByPath.find(
@@ -228,6 +242,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           crumbs.push({ label: pageTitle });
         }
       }
+    } else if (normalizedLocation.startsWith("/ambiental")) {
+      crumbs.push({ label: "Ambiental" });
+
+      if (normalizedLocation.startsWith("/ambiental/laia")) {
+        crumbs.push({ label: "LAIA", href: "/ambiental/laia" });
+        if (pageTitle && normalizedLocation !== "/ambiental/laia") {
+          crumbs.push({ label: pageTitle });
+        }
+      }
     } else if (normalizedLocation.startsWith("/configuracoes")) {
       crumbs.push({ label: "Configurações" });
 
@@ -288,6 +311,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       ],
     },
   ];
+  const ambientalSections: NavSection[] = [
+    {
+      label: "Gestão Ambiental",
+      links: [{ href: "/ambiental/laia", label: "LAIA" }],
+    },
+  ];
 
   const configuracoesLinks: NavLink[] = [
     { href: "/configuracoes/perfil", label: "Perfil" },
@@ -296,6 +325,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const showQualidade = qualidadeLinks.length > 0;
   const showGovernanca = hasModuleAccess("governance");
+  const showAmbiental = hasModuleAccess("environmental");
 
   const openPopover = (
     ref: React.RefObject<HTMLDivElement | null>,
@@ -535,6 +565,46 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
+          {showAmbiental && (
+            <div
+              ref={ambientalRef}
+              onMouseEnter={() =>
+                openPopover(
+                  ambientalRef,
+                  setAmbientalPopoverPos,
+                  setAmbientalPopover,
+                  ambientalTimeoutRef,
+                )
+              }
+              onMouseLeave={() =>
+                closePopover(setAmbientalPopover, ambientalTimeoutRef)
+              }
+            >
+              <Link
+                href="/ambiental/laia"
+                className={cn(
+                  "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+                  isActive("/ambiental")
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <div className="flex items-center">
+                  <Leaf
+                    className={cn(
+                      "h-[18px] w-[18px] shrink-0",
+                      isSidebarOpen && "mr-2.5",
+                    )}
+                  />
+                  {isSidebarOpen && <span>Ambiental</span>}
+                </div>
+                {isSidebarOpen && (
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                )}
+              </Link>
+            </div>
+          )}
+
           {showQualidade && (
             <div
               ref={qualidadeRef}
@@ -597,6 +667,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             setGovernancaPopover,
             governancaPopoverPos,
             governancaTimeoutRef,
+          )}
+          {renderSectionPopover(
+            ambientalSections,
+            ambientalPopover,
+            setAmbientalPopover,
+            ambientalPopoverPos,
+            ambientalTimeoutRef,
           )}
         </div>
 

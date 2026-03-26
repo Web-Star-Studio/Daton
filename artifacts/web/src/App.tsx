@@ -34,6 +34,7 @@ import DocumentacaoPage from "@/pages/app/qualidade/documentacao";
 import DocumentDetailPage from "@/pages/app/qualidade/documentacao/[id]";
 import SuppliersPage from "@/pages/app/qualidade/fornecedores";
 import SupplierDetailPage from "@/pages/app/qualidade/fornecedores/[id]";
+import EnvironmentalLaiaPage from "@/pages/app/ambiental/laia";
 import ProfileSettingsPage from "@/pages/app/configuracoes/perfil";
 import SystemSettingsPage from "@/pages/app/configuracoes/sistema";
 import AcceptInvitePage from "@/pages/accept-invite";
@@ -122,6 +123,7 @@ function AppPages() {
       <Route path="/qualidade/documentacao/:id" component={DocumentDetailPage} />
       <Route path="/qualidade/fornecedores" component={SuppliersPage} />
       <Route path="/qualidade/fornecedores/:id" component={SupplierDetailPage} />
+      <Route path="/ambiental/laia" component={EnvironmentalLaiaPage} />
       <Route path="/configuracoes/perfil" component={ProfileSettingsPage} />
       <Route path="/configuracoes/sistema" component={SystemSettingsPage} />
       <Route path="/app" component={AppIndex} />
@@ -145,6 +147,7 @@ function AppPages() {
       <Route path="/app/qualidade/documentacao/:id" component={DocumentDetailPage} />
       <Route path="/app/qualidade/fornecedores" component={SuppliersPage} />
       <Route path="/app/qualidade/fornecedores/:id" component={SupplierDetailPage} />
+      <Route path="/app/ambiental/laia" component={EnvironmentalLaiaPage} />
       <Route path="/app/configuracoes/perfil" component={ProfileSettingsPage} />
       <Route path="/app/configuracoes/sistema" component={SystemSettingsPage} />
       <Route component={NotFound} />
@@ -161,6 +164,7 @@ function Router() {
     location.startsWith("/organizacao") ||
     location.startsWith("/governanca") ||
     location.startsWith("/qualidade") ||
+    location.startsWith("/ambiental") ||
     location.startsWith("/configuracoes");
   const isAppRoute = isAdminRoute || isOrgRoute;
   const isAuthRoute = location === "/" || location.startsWith("/auth");

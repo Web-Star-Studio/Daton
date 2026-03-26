@@ -72,6 +72,7 @@ const MODULE_LABELS: Record<string, string> = {
   positions: "Cargos",
   governance: "Governança",
   suppliers: "Fornecedores",
+  environmental: "Ambiental",
 };
 
 const ALL_MODULES: OrgUserModule[] = [
@@ -83,6 +84,7 @@ const ALL_MODULES: OrgUserModule[] = [
   "positions",
   "governance",
   "suppliers",
+  "environmental",
 ];
 
 const emptyCreateUserForm: CreateUserFormData = {

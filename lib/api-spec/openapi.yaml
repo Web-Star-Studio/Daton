@@ -7160,6 +7160,7 @@ components:
           positions,
           governance,
           suppliers,
+          environmental,
         ]
 
     OrgUser:
