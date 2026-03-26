@@ -63,6 +63,7 @@ import {
   normalizeNormativeRequirements,
 } from "../lib/document-normative-requirements";
 import {
+  listOrganizationContactGroups,
   validateOrgContactGroupIds,
 } from "./organization-contacts.shared";
 
@@ -845,19 +846,9 @@ async function getDocumentDetail(docId: number, orgId: number) {
   const linkedGroupIds = recipientGroupLinks.map((group) => group.groupId);
   const recipientGroups =
     linkedGroupIds.length > 0
-      ? await db
-          .select({
-            id: organizationContactGroupsTable.id,
-            name: organizationContactGroupsTable.name,
-            description: organizationContactGroupsTable.description,
-          })
-          .from(organizationContactGroupsTable)
-          .where(
-            and(
-              eq(organizationContactGroupsTable.organizationId, orgId),
-              inArray(organizationContactGroupsTable.id, linkedGroupIds),
-            ),
-          )
+      ? await listOrganizationContactGroups(orgId, {
+          groupIds: linkedGroupIds,
+        })
       : [];
   const directRecipients =
     directRecipientRows.length > 0 || linkedGroupIds.length > 0
@@ -868,7 +859,9 @@ async function getDocumentDetail(docId: number, orgId: number) {
           name: recipient.name,
           email: "",
         }));
-  const groupContacts: typeof organizationContactsTable.$inferSelect[] = [];
+  const groupContacts = recipientGroups.flatMap((group) =>
+    group.members.filter((member) => member.sourceType !== "system_user"),
+  );
 
   const refRows = await db
     .select({
@@ -1017,11 +1010,7 @@ async function getDocumentDetail(docId: number, orgId: number) {
       readAt: r.readAt instanceof Date ? r.readAt.toISOString() : r.readAt,
     })),
     directRecipients,
-    recipientGroups: recipientGroups.map((group) => ({
-      ...group,
-      memberCount: 0,
-      members: [],
-    })),
+    recipientGroups,
     groupContacts,
     references: refRows,
     attachments: attachmentRows.map((a) => ({
@@ -1234,7 +1223,11 @@ router.post(
       });
       return;
     }
-    if (recipientIds.length === 0 && recipientGroupIds.length === 0) {
+    if (
+      recipientIds.length === 0 &&
+      recipientGroupIds.length === 0 &&
+      body.data.type !== "politica"
+    ) {
       res.status(400).json({
         error: "Selecione ao menos um destinatário ou grupo",
       });
@@ -1813,10 +1806,12 @@ router.patch(
     const effectiveRecipientIds = nextRecipientIds ?? storedDirectRecipientIds ?? [];
     const effectiveRecipientGroupIds =
       nextRecipientGroupIds ?? storedRecipientGroupIds;
+    const effectiveType = body.data.type ?? existing.type;
 
     if (
       effectiveRecipientIds.length === 0 &&
-      effectiveRecipientGroupIds.length === 0
+      effectiveRecipientGroupIds.length === 0 &&
+      effectiveType !== "politica"
     ) {
       res.status(400).json({
         error: "Selecione ao menos um destinatário ou grupo",

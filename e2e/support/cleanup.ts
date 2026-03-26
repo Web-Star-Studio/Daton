@@ -8,6 +8,7 @@ import {
   documentElaboratorsTable,
   documentRecipientsTable,
   documentReferencesTable,
+  documentRecipientGroupLinksTable,
   documentsTable,
   documentUnitsTable,
   documentVersionsTable,
@@ -21,6 +22,9 @@ import {
   employeeTrainingsTable,
   employeeUnitsTable,
   legislationsTable,
+  organizationContactGroupMembersTable,
+  organizationContactGroupsTable,
+  organizationContactsTable,
   organizationsTable,
   positionsTable,
   supplierCategoriesTable,
@@ -52,6 +56,17 @@ import {
   userModulePermissionsTable,
   usersTable,
   notificationsTable,
+  correctiveActionsTable,
+  internalAuditChecklistItemsTable,
+  internalAuditFindingsTable,
+  internalAuditsTable,
+  managementReviewInputsTable,
+  managementReviewOutputsTable,
+  managementReviewsTable,
+  nonconformitiesTable,
+  sgqProcessInteractionsTable,
+  sgqProcessesTable,
+  sgqProcessRevisionsTable,
 } from "@workspace/db";
 
 type CleanupTransaction = Pick<typeof db, "delete">;
@@ -170,11 +185,53 @@ export async function cleanupTestData(prefix: string) {
       .where(inArray(legislationsTable.organizationId, orgIds));
     const legislationIds = legislations.map((legislation) => legislation.id);
 
+    const contacts = await tx
+      .select({ id: organizationContactsTable.id })
+      .from(organizationContactsTable)
+      .where(inArray(organizationContactsTable.organizationId, orgIds));
+    const contactIds = contacts.map((contact) => contact.id);
+
+    const contactGroups = await tx
+      .select({ id: organizationContactGroupsTable.id })
+      .from(organizationContactGroupsTable)
+      .where(inArray(organizationContactGroupsTable.organizationId, orgIds));
+    const contactGroupIds = contactGroups.map((group) => group.id);
+
     const plans = await tx
       .select({ id: strategicPlansTable.id })
       .from(strategicPlansTable)
       .where(inArray(strategicPlansTable.organizationId, orgIds));
     const planIds = plans.map((plan) => plan.id);
+
+    const sgqProcesses = await tx
+      .select({ id: sgqProcessesTable.id })
+      .from(sgqProcessesTable)
+      .where(inArray(sgqProcessesTable.organizationId, orgIds));
+    const sgqProcessIds = sgqProcesses.map((process) => process.id);
+
+    const internalAudits = await tx
+      .select({ id: internalAuditsTable.id })
+      .from(internalAuditsTable)
+      .where(inArray(internalAuditsTable.organizationId, orgIds));
+    const internalAuditIds = internalAudits.map((audit) => audit.id);
+
+    const internalAuditFindings = await tx
+      .select({ id: internalAuditFindingsTable.id })
+      .from(internalAuditFindingsTable)
+      .where(inArray(internalAuditFindingsTable.organizationId, orgIds));
+    const internalAuditFindingIds = internalAuditFindings.map((finding) => finding.id);
+
+    const nonconformities = await tx
+      .select({ id: nonconformitiesTable.id })
+      .from(nonconformitiesTable)
+      .where(inArray(nonconformitiesTable.organizationId, orgIds));
+    const nonconformityIds = nonconformities.map((nonconformity) => nonconformity.id);
+
+    const managementReviews = await tx
+      .select({ id: managementReviewsTable.id })
+      .from(managementReviewsTable)
+      .where(inArray(managementReviewsTable.organizationId, orgIds));
+    const managementReviewIds = managementReviews.map((review) => review.id);
 
     if (planIds.length > 0) {
       const actions = await tx
@@ -227,43 +284,52 @@ export async function cleanupTestData(prefix: string) {
         .where(inArray(strategicPlansTable.id, planIds));
     }
 
-    if (employeeIds.length > 0) {
-      if (documentIds.length > 0) {
-        await tx
-          .delete(documentElaboratorsTable)
-          .where(inArray(documentElaboratorsTable.documentId, documentIds));
-      }
+    if (managementReviewIds.length > 0) {
+      await tx
+        .delete(managementReviewInputsTable)
+        .where(inArray(managementReviewInputsTable.reviewId, managementReviewIds));
+      await tx
+        .delete(managementReviewOutputsTable)
+        .where(inArray(managementReviewOutputsTable.reviewId, managementReviewIds));
+      await tx
+        .delete(managementReviewsTable)
+        .where(inArray(managementReviewsTable.id, managementReviewIds));
+    }
 
-      const profileItems = await tx
-        .select({ id: employeeProfileItemsTable.id })
-        .from(employeeProfileItemsTable)
-        .where(inArray(employeeProfileItemsTable.employeeId, employeeIds));
-      const profileItemIds = profileItems.map((item) => item.id);
+    if (nonconformityIds.length > 0) {
+      await tx
+        .delete(correctiveActionsTable)
+        .where(inArray(correctiveActionsTable.nonconformityId, nonconformityIds));
+      await tx
+        .delete(nonconformitiesTable)
+        .where(inArray(nonconformitiesTable.id, nonconformityIds));
+    }
 
-      if (profileItemIds.length > 0) {
-        await tx
-          .delete(employeeProfileItemAttachmentsTable)
-          .where(
-            inArray(employeeProfileItemAttachmentsTable.itemId, profileItemIds),
-          );
-      }
+    if (internalAuditIds.length > 0) {
+      await tx
+        .delete(internalAuditChecklistItemsTable)
+        .where(inArray(internalAuditChecklistItemsTable.auditId, internalAuditIds));
+      await tx
+        .delete(internalAuditsTable)
+        .where(inArray(internalAuditsTable.id, internalAuditIds));
+    }
 
+    if (internalAuditFindingIds.length > 0) {
       await tx
-        .delete(employeeProfileItemsTable)
-        .where(inArray(employeeProfileItemsTable.employeeId, employeeIds));
+        .delete(internalAuditFindingsTable)
+        .where(inArray(internalAuditFindingsTable.id, internalAuditFindingIds));
+    }
+
+    if (sgqProcessIds.length > 0) {
       await tx
-        .delete(employeeCompetenciesTable)
-        .where(inArray(employeeCompetenciesTable.employeeId, employeeIds));
+        .delete(sgqProcessInteractionsTable)
+        .where(inArray(sgqProcessInteractionsTable.processId, sgqProcessIds));
       await tx
-        .delete(employeeTrainingsTable)
-        .where(inArray(employeeTrainingsTable.employeeId, employeeIds));
+        .delete(sgqProcessRevisionsTable)
+        .where(inArray(sgqProcessRevisionsTable.processId, sgqProcessIds));
       await tx
-        .delete(employeeAwarenessTable)
-        .where(inArray(employeeAwarenessTable.employeeId, employeeIds));
-      await tx
-        .delete(employeeUnitsTable)
-        .where(inArray(employeeUnitsTable.employeeId, employeeIds));
-      await tx.delete(employeesTable).where(inArray(employeesTable.id, employeeIds));
+        .delete(sgqProcessesTable)
+        .where(inArray(sgqProcessesTable.id, sgqProcessIds));
     }
 
     if (departmentIds.length > 0) {
@@ -317,6 +383,9 @@ export async function cleanupTestData(prefix: string) {
 
     if (documentIds.length > 0) {
       await tx
+        .delete(documentRecipientGroupLinksTable)
+        .where(inArray(documentRecipientGroupLinksTable.documentId, documentIds));
+      await tx
         .delete(documentVersionsTable)
         .where(inArray(documentVersionsTable.documentId, documentIds));
       await tx
@@ -346,6 +415,70 @@ export async function cleanupTestData(prefix: string) {
       await tx
         .delete(documentsTable)
         .where(inArray(documentsTable.id, documentIds));
+    }
+
+    if (contactGroupIds.length > 0) {
+      await tx
+        .delete(documentRecipientGroupLinksTable)
+        .where(inArray(documentRecipientGroupLinksTable.groupId, contactGroupIds));
+      await tx
+        .delete(organizationContactGroupMembersTable)
+        .where(
+          inArray(organizationContactGroupMembersTable.groupId, contactGroupIds),
+        );
+      await tx
+        .delete(organizationContactGroupsTable)
+        .where(inArray(organizationContactGroupsTable.id, contactGroupIds));
+    }
+
+    if (contactIds.length > 0) {
+      await tx
+        .delete(organizationContactGroupMembersTable)
+        .where(inArray(organizationContactGroupMembersTable.contactId, contactIds));
+      await tx
+        .delete(organizationContactsTable)
+        .where(inArray(organizationContactsTable.id, contactIds));
+    }
+
+    if (employeeIds.length > 0) {
+      if (documentIds.length > 0) {
+        await tx
+          .delete(documentElaboratorsTable)
+          .where(inArray(documentElaboratorsTable.documentId, documentIds));
+      }
+
+      const profileItems = await tx
+        .select({ id: employeeProfileItemsTable.id })
+        .from(employeeProfileItemsTable)
+        .where(inArray(employeeProfileItemsTable.employeeId, employeeIds));
+      const profileItemIds = profileItems.map((item) => item.id);
+
+      if (profileItemIds.length > 0) {
+        await tx
+          .delete(employeeProfileItemAttachmentsTable)
+          .where(
+            inArray(employeeProfileItemAttachmentsTable.itemId, profileItemIds),
+          );
+      }
+
+      await tx
+        .delete(employeeProfileItemsTable)
+        .where(inArray(employeeProfileItemsTable.employeeId, employeeIds));
+      await tx
+        .delete(employeeCompetenciesTable)
+        .where(inArray(employeeCompetenciesTable.employeeId, employeeIds));
+      await tx
+        .delete(employeeTrainingsTable)
+        .where(inArray(employeeTrainingsTable.employeeId, employeeIds));
+      await tx
+        .delete(employeeAwarenessTable)
+        .where(inArray(employeeAwarenessTable.employeeId, employeeIds));
+      await tx
+        .delete(employeeUnitsTable)
+        .where(inArray(employeeUnitsTable.employeeId, employeeIds));
+      await tx
+        .delete(employeesTable)
+        .where(inArray(employeesTable.id, employeeIds));
     }
 
     if (supplierTemplateIds.length > 0) {

@@ -113,6 +113,11 @@ describe("document normative requirements service", () => {
     );
     expect(createCompletionMock).not.toHaveBeenCalledWith(
       expect.objectContaining({
+        temperature: expect.anything(),
+      }),
+    );
+    expect(createCompletionMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({
         max_tokens: expect.anything(),
       }),
     );

@@ -114,7 +114,6 @@ async function autoTagLegislation(leg: Legislation): Promise<string[]> {
       { role: "user", content: `Analise esta legislação e selecione as tags aplicáveis:\n\n${content}` },
     ],
     response_format: { type: "json_object" },
-    temperature: 0.1,
     max_completion_tokens: 2000,
   });
 

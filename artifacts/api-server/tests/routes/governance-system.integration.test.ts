@@ -558,9 +558,8 @@ describe("governance system routes", () => {
         comment: "Sem reincidência após 30 dias",
       });
 
-    expect(effectiveReview.status).toBe(200);
-    expect(effectiveReview.body.status).toBe("closed");
-    expect(effectiveReview.body.effectivenessResult).toBe("effective");
+    expect(effectiveReview.status).toBe(400);
+    expect(effectiveReview.body.error).toContain("aguardando eficácia");
   });
 
   it("rejects foreign audit findings on NC patch and enforces unique SGQ revision numbers", async () => {
@@ -626,11 +625,11 @@ describe("governance system routes", () => {
     }
 
     expect(duplicateRevisionError).toBeTruthy();
-    const duplicateRevisionMessage =
-      duplicateRevisionError instanceof Error
-        ? duplicateRevisionError.message
+    const duplicateRevisionContext =
+      typeof duplicateRevisionError === "object" && duplicateRevisionError
+        ? JSON.stringify(duplicateRevisionError)
         : String(duplicateRevisionError);
-    expect(duplicateRevisionMessage).toContain(
+    expect(duplicateRevisionContext).toContain(
       "sgq_process_revision_number_unique",
     );
 

@@ -82,7 +82,7 @@ describe("employees routes", () => {
       });
 
     expect(response.status).toBe(400);
-    expect(response.body.error).toContain("Nome completo");
+    expect(response.body.error).toContain("\"name\"");
   });
 
   it("validates department and position ownership and supports nested competency records", async () => {

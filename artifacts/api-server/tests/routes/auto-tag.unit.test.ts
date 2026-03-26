@@ -135,6 +135,11 @@ describe("auto-tag route", () => {
     );
     expect(createCompletionMock).not.toHaveBeenCalledWith(
       expect.objectContaining({
+        temperature: expect.anything(),
+      }),
+    );
+    expect(createCompletionMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({
         max_tokens: expect.anything(),
       }),
     );

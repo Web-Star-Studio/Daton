@@ -37,6 +37,7 @@ import {
 } from "../../../../tests/support/backend";
 
 const contexts: TestOrgContext[] = [];
+let documentFixtureSequence = 0;
 
 afterEach(async () => {
   await Promise.all(
@@ -59,28 +60,29 @@ async function createDocumentForTest(
   const employee = await createEmployee(context, {
     name: `Elaborador ${context.prefix}`,
   });
+  const fixtureKey = documentFixtureSequence++;
   const criticalReviewer =
-    options?.criticalReviewerIds?.[0] !== undefined
+    options?.criticalReviewerIds !== undefined
       ? null
       : await createTestUser(context, {
           role: "analyst",
-          suffix: "critical-reviewer",
+          suffix: `critical-reviewer-${fixtureKey}`,
           modules: ["documents"],
         });
   const approver =
-    options?.approverIds?.[0] !== undefined
+    options?.approverIds !== undefined
       ? null
       : await createTestUser(context, {
           role: "operator",
-          suffix: "approver",
+          suffix: `approver-${fixtureKey}`,
           modules: ["documents"],
         });
   const recipient =
-    options?.recipientIds?.[0] !== undefined
+    options?.recipientIds !== undefined
       ? null
       : await createTestUser(context, {
           role: "operator",
-          suffix: "recipient",
+          suffix: `recipient-${fixtureKey}`,
           modules: ["documents"],
         });
 
@@ -820,6 +822,11 @@ describe("documents routes", () => {
       expect.objectContaining({
         model: "gpt-5-mini-2025-08-07",
         max_completion_tokens: 400,
+      }),
+    );
+    expect(createCompletionMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        temperature: expect.anything(),
       }),
     );
     expect(createCompletionMock).not.toHaveBeenCalledWith(

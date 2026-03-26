@@ -23,6 +23,22 @@ import productKnowledgeRouter from "./product-knowledge";
 import suppliersRouter from "./suppliers";
 const router: IRouter = Router();
 
+function requireModuleAccessForPaths(
+  moduleName: Parameters<typeof requireModuleAccess>[0],
+  patterns: RegExp[],
+) {
+  const middleware = requireModuleAccess(moduleName);
+
+  return (req: Parameters<typeof middleware>[0], res: Parameters<typeof middleware>[1], next: Parameters<typeof middleware>[2]) => {
+    if (!patterns.some((pattern) => pattern.test(req.path))) {
+      next();
+      return;
+    }
+
+    return middleware(req, res, next);
+  };
+}
+
 router.use(healthRouter);
 router.use(authRouter);
 router.use(storageRouter);
@@ -37,14 +53,74 @@ router.use(requireAuth, requireCompletedOnboarding, notificationsRouter);
 router.use(requireAuth, requireCompletedOnboarding, questionnaireRouter);
 router.use(requireAuth, requireCompletedOnboarding, autoTagRouter);
 
-router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("units"), unitsRouter);
-router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("legislations"), legislationsRouter);
-router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("legislations"), unitLegislationsRouter);
-router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("employees"), employeesRouter);
-router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("departments"), departmentsRouter);
-router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("positions"), positionsRouter);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("units", [/^\/organizations\/[^/]+\/units(?:\/|$)/]),
+  unitsRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("legislations", [
+    /^\/organizations\/[^/]+\/legislations(?:\/|$)/,
+    /^\/organizations\/[^/]+\/units\/[^/]+\/legislations(?:\/|$)/,
+  ]),
+  legislationsRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("legislations", [
+    /^\/organizations\/[^/]+\/legislations(?:\/|$)/,
+    /^\/organizations\/[^/]+\/units\/[^/]+\/legislations(?:\/|$)/,
+  ]),
+  unitLegislationsRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("employees", [
+    /^\/organizations\/[^/]+\/employees(?:\/|$)/,
+  ]),
+  employeesRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("departments", [
+    /^\/organizations\/[^/]+\/departments(?:\/|$)/,
+  ]),
+  departmentsRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("positions", [
+    /^\/organizations\/[^/]+\/positions(?:\/|$)/,
+  ]),
+  positionsRouter,
+);
 router.use(requireAuth, requireCompletedOnboarding, documentsRouter);
-router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("governance"), governanceRouter);
-router.use(requireAuth, requireCompletedOnboarding, requireModuleAccess("suppliers"), suppliersRouter);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("governance", [
+    /^\/organizations\/[^/]+\/governance(?:\/|$)/,
+  ]),
+  governanceRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("suppliers", [
+    /^\/organizations\/[^/]+\/supplier-categories(?:\/|$)/,
+    /^\/organizations\/[^/]+\/supplier-types(?:\/|$)/,
+    /^\/organizations\/[^/]+\/supplier-document-requirements(?:\/|$)/,
+    /^\/organizations\/[^/]+\/supplier-requirement-templates(?:\/|$)/,
+    /^\/organizations\/[^/]+\/suppliers(?:\/|$)/,
+  ]),
+  suppliersRouter,
+);
 
 export default router;
