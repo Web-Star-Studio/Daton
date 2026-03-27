@@ -213,6 +213,11 @@ export type SupplierDocumentSubmission = {
   categoryId: number | null;
   submissionStatus: string;
   adequacyStatus: string;
+  requestedReviewerId: number | null;
+  reviewedById: number | null;
+  reviewedAt: string | null;
+  reviewComment: string | null;
+  createdById: number | null;
   validityDate: string | null;
   exemptionReason: string | null;
   rejectionReason: string | null;
@@ -668,6 +673,21 @@ export function createSupplierDocumentSubmission(orgId: number, supplierId: numb
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export function reviewSupplierDocumentSubmission(
+  orgId: number,
+  supplierId: number,
+  submissionId: number,
+  body: Record<string, unknown>,
+) {
+  return apiJson(
+    `/api/organizations/${orgId}/suppliers/${supplierId}/document-submissions/${submissionId}/review`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 export function createSupplierDocumentReview(orgId: number, supplierId: number, body: Record<string, unknown>) {

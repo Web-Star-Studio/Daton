@@ -38,6 +38,7 @@ import {
   createSupplierRequirementCommunication,
   getSupplierDetail,
   listSupplierDocumentRequirements,
+  reviewSupplierDocumentSubmission,
   suppliersKeys,
   type SupplierAttachment,
   type SupplierDetail,
@@ -202,6 +203,25 @@ function ReadOnlyField({ label, value }: { label: string; value: string | number
   );
 }
 
+function documentSubmissionStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    pending: "Pendente",
+    approved: "Aprovado",
+    rejected: "Rejeitado",
+    exempt: "Isento",
+  };
+  return labels[status] || status;
+}
+
+function documentAdequacyLabel(status: string) {
+  const labels: Record<string, string> = {
+    under_review: "Em análise",
+    adequate: "Adequado",
+    not_adequate: "Não adequado",
+  };
+  return labels[status] || status;
+}
+
 export default function SupplierDetailPage() {
   const { id } = useParams<{ id: string }>();
   const supplierId = Number(id);
@@ -209,6 +229,7 @@ export default function SupplierDetailPage() {
   const orgId = organization?.id;
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("cadastro");
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<number | null>(null);
 
   const canManageGeneral = role === "org_admin" || role === "platform_admin";
   const canManageReceipts = canManageGeneral || role === "operator";
@@ -244,11 +265,20 @@ export default function SupplierDetailPage() {
     requirementId: "",
     submissionStatus: "pending",
     adequacyStatus: "under_review",
+    workflowAction: "request_review",
+    requestedReviewerId: "",
+    reviewComment: "",
     validityDate: "",
     observations: "",
     exemptionReason: "",
     rejectionReason: "",
     attachments: [] as SupplierAttachment[],
+  });
+  const [documentSubmissionReviewForm, setDocumentSubmissionReviewForm] = useState({
+    decision: "approved",
+    validityDate: "",
+    rejectionReason: "",
+    reviewComment: "",
   });
   const [documentReviewForm, setDocumentReviewForm] = useState({
     nextReviewDate: "",
@@ -313,17 +343,34 @@ export default function SupplierDetailPage() {
   };
 
   const documentSubmissionMutation = useMutation({
-    mutationFn: () =>
-      createSupplierDocumentSubmission(orgId!, supplierId, {
+    mutationFn: () => {
+      if (!documentSubmissionForm.requirementId) {
+        throw new Error("Selecione um requisito documental.");
+      }
+      if (
+        documentSubmissionForm.workflowAction === "request_review" &&
+        !documentSubmissionForm.requestedReviewerId
+      ) {
+        throw new Error("Selecione quem deverá aprovar a submissão.");
+      }
+
+      return createSupplierDocumentSubmission(orgId!, supplierId, {
         ...documentSubmissionForm,
         requirementId: Number(documentSubmissionForm.requirementId),
+        requestedReviewerId: documentSubmissionForm.requestedReviewerId
+          ? Number(documentSubmissionForm.requestedReviewerId)
+          : null,
         validityDate: documentSubmissionForm.validityDate || null,
-      }),
+      });
+    },
     onSuccess: () => {
       setDocumentSubmissionForm({
         requirementId: "",
         submissionStatus: "pending",
         adequacyStatus: "under_review",
+        workflowAction: "request_review",
+        requestedReviewerId: "",
+        reviewComment: "",
         validityDate: "",
         observations: "",
         exemptionReason: "",
@@ -332,6 +379,34 @@ export default function SupplierDetailPage() {
       });
       refresh();
     },
+  });
+
+  const documentSubmissionReviewMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedSubmission) {
+        throw new Error("Selecione uma submissão para revisar.");
+      }
+
+      return reviewSupplierDocumentSubmission(orgId!, supplierId, selectedSubmission.id, {
+        ...documentSubmissionReviewForm,
+        validityDate: documentSubmissionReviewForm.validityDate || null,
+      });
+    },
+    onSuccess: () => {
+      setDocumentSubmissionReviewForm({
+        decision: "approved",
+        validityDate: "",
+        rejectionReason: "",
+        reviewComment: "",
+      });
+      refresh();
+    },
+    onError: (error) =>
+      toast({
+        title: "Falha ao revisar submissão",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      }),
   });
 
   const documentReviewMutation = useMutation({
@@ -473,6 +548,17 @@ export default function SupplierDetailPage() {
   const offeringOptions = useMemo(
     () => (detail?.offerings || []).map((offering) => ({ value: offering.id, label: offering.name })),
     [detail?.offerings],
+  );
+  const usersById = useMemo(
+    () => new Map(users.map((user) => [user.id, user.name])),
+    [users],
+  );
+  const selectedSubmission = useMemo(
+    () =>
+      detail?.documents.submissions.find((submission) => submission.id === selectedSubmissionId) ||
+      detail?.documents.submissions[0] ||
+      null,
+    [detail?.documents.submissions, selectedSubmissionId],
   );
   const appliedDocumentThreshold = useMemo(() => {
     if (!detail || detail.types.length === 0) {
@@ -847,12 +933,29 @@ export default function SupplierDetailPage() {
               <CardContent>
                 <div className="space-y-3">
                   {detail.documents.submissions.map((submission) => (
-                    <div key={submission.id} className={cn(nestedPanelClass, "p-3")}>
+                    <button
+                      key={submission.id}
+                      type="button"
+                      className={cn(
+                        nestedPanelClass,
+                        "w-full p-3 text-left transition",
+                        selectedSubmission?.id === submission.id ? "border-primary bg-primary/5" : "",
+                      )}
+                      onClick={() => setSelectedSubmissionId(submission.id)}
+                    >
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <div className="font-medium">{submission.requirementName}</div>
                           <div className="text-xs text-muted-foreground">
-                            {submission.submissionStatus} · {submission.adequacyStatus} · peso {submission.weight}
+                            {documentSubmissionStatusLabel(submission.submissionStatus)} ·{" "}
+                            {documentAdequacyLabel(submission.adequacyStatus)} · peso {submission.weight}
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {submission.requestedReviewerId
+                              ? `Aguardando revisão de ${usersById.get(submission.requestedReviewerId) || `#${submission.requestedReviewerId}`}`
+                              : submission.reviewedById
+                                ? `Revisado por ${usersById.get(submission.reviewedById) || `#${submission.reviewedById}`}`
+                                : `Submetido por ${usersById.get(submission.createdById || 0) || "usuário do sistema"}`}
                           </div>
                         </div>
                         {submission.validityDate ? <Badge variant="secondary">{formatDate(submission.validityDate)}</Badge> : null}
@@ -860,9 +963,140 @@ export default function SupplierDetailPage() {
                       {submission.observations ? (
                         <p className="mt-2 text-sm text-muted-foreground">{submission.observations}</p>
                       ) : null}
-                    </div>
+                    </button>
                   ))}
                 </div>
+
+                {selectedSubmission ? (
+                  <div className="mt-5 space-y-4 border-t border-border/50 pt-5">
+                    <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="font-medium">{selectedSubmission.requirementName}</div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {documentSubmissionStatusLabel(selectedSubmission.submissionStatus)} ·{" "}
+                            {documentAdequacyLabel(selectedSubmission.adequacyStatus)}
+                          </div>
+                        </div>
+                        <Badge variant="secondary">Peso {selectedSubmission.weight}</Badge>
+                      </div>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <ReadOnlyField
+                          label="Submetido por"
+                          value={usersById.get(selectedSubmission.createdById || 0) || "Usuário do sistema"}
+                        />
+                        <ReadOnlyField
+                          label="Aprovador solicitado"
+                          value={selectedSubmission.requestedReviewerId ? usersById.get(selectedSubmission.requestedReviewerId) || `#${selectedSubmission.requestedReviewerId}` : "—"}
+                        />
+                        <ReadOnlyField
+                          label="Revisado por"
+                          value={selectedSubmission.reviewedById ? usersById.get(selectedSubmission.reviewedById) || `#${selectedSubmission.reviewedById}` : "—"}
+                        />
+                        <ReadOnlyField label="Revisado em" value={formatDate(selectedSubmission.reviewedAt)} />
+                      </div>
+                      {selectedSubmission.attachments.length > 0 ? (
+                        <div className="mt-4 space-y-2">
+                          <Label className="text-xs font-semibold text-muted-foreground">Anexos</Label>
+                          {selectedSubmission.attachments.map((attachment) => (
+                            <div
+                              key={attachment.objectPath}
+                              className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm"
+                            >
+                              <div className="font-medium">{attachment.fileName}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {attachment.contentType} · {formatFileSize(attachment.fileSize)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                      {selectedSubmission.reviewComment ? (
+                        <p className="mt-4 text-sm text-muted-foreground">{selectedSubmission.reviewComment}</p>
+                      ) : null}
+                    </div>
+
+                    <FieldSet>
+                      <FieldGroup>
+                        <h3 className="font-medium">Revisar submissão</h3>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <Field>
+                            <FieldLabel>Decisão</FieldLabel>
+                            <FieldContent>
+                              <Select
+                                value={documentSubmissionReviewForm.decision}
+                                onChange={(event) =>
+                                  setDocumentSubmissionReviewForm((current) => ({
+                                    ...current,
+                                    decision: event.target.value,
+                                  }))
+                                }
+                              >
+                                <option value="approved">Aprovar</option>
+                                <option value="rejected">Rejeitar</option>
+                                <option value="request_changes">Solicitar ajustes</option>
+                              </Select>
+                            </FieldContent>
+                          </Field>
+                          <Field>
+                            <FieldLabel>Validade</FieldLabel>
+                            <FieldContent>
+                              <Input
+                                type="date"
+                                value={documentSubmissionReviewForm.validityDate}
+                                onChange={(event) =>
+                                  setDocumentSubmissionReviewForm((current) => ({
+                                    ...current,
+                                    validityDate: event.target.value,
+                                  }))
+                                }
+                              />
+                            </FieldContent>
+                          </Field>
+                        </div>
+                        {documentSubmissionReviewForm.decision === "rejected" ? (
+                          <Field>
+                            <FieldLabel>Motivo da rejeição</FieldLabel>
+                            <FieldContent>
+                              <Textarea
+                                value={documentSubmissionReviewForm.rejectionReason}
+                                onChange={(event) =>
+                                  setDocumentSubmissionReviewForm((current) => ({
+                                    ...current,
+                                    rejectionReason: event.target.value,
+                                  }))
+                                }
+                              />
+                            </FieldContent>
+                          </Field>
+                        ) : null}
+                        <Field>
+                          <FieldLabel>Comentário da revisão</FieldLabel>
+                          <FieldContent>
+                            <Textarea
+                              value={documentSubmissionReviewForm.reviewComment}
+                              onChange={(event) =>
+                                setDocumentSubmissionReviewForm((current) => ({
+                                  ...current,
+                                  reviewComment: event.target.value,
+                                }))
+                              }
+                            />
+                          </FieldContent>
+                        </Field>
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            onClick={() => documentSubmissionReviewMutation.mutate()}
+                            isLoading={documentSubmissionReviewMutation.isPending}
+                          >
+                            Registrar revisão
+                          </Button>
+                        </div>
+                      </FieldGroup>
+                    </FieldSet>
+                  </div>
+                ) : null}
 
                 {canManageGeneral ? (
                   <div className="mt-5 border-t border-border/50 pt-5">
@@ -887,33 +1121,86 @@ export default function SupplierDetailPage() {
                         </Field>
                         <div className="grid gap-3 md:grid-cols-2">
                           <Field>
-                            <FieldLabel>Status da submissão</FieldLabel>
+                            <FieldLabel>Fluxo de aprovação</FieldLabel>
                             <FieldContent>
                               <Select
-                                value={documentSubmissionForm.submissionStatus}
-                                onChange={(event) => setDocumentSubmissionForm((current) => ({ ...current, submissionStatus: event.target.value }))}
+                                value={documentSubmissionForm.workflowAction}
+                                onChange={(event) =>
+                                  setDocumentSubmissionForm((current) => ({
+                                    ...current,
+                                    workflowAction: event.target.value,
+                                  }))
+                                }
                               >
-                                <option value="pending">Pendente</option>
-                                <option value="approved">Aprovado</option>
-                                <option value="rejected">Rejeitado</option>
-                                <option value="exempt">Isento</option>
+                                <option value="request_review">Enviar para aprovação</option>
+                                <option value="approve_now">Aprovar agora</option>
                               </Select>
                             </FieldContent>
                           </Field>
+                          {documentSubmissionForm.workflowAction === "request_review" ? (
+                            <Field>
+                              <FieldLabel>Aprovador</FieldLabel>
+                              <FieldContent>
+                                <Select
+                                  value={documentSubmissionForm.requestedReviewerId}
+                                  onChange={(event) =>
+                                    setDocumentSubmissionForm((current) => ({
+                                      ...current,
+                                      requestedReviewerId: event.target.value,
+                                    }))
+                                  }
+                                >
+                                  <option value="">Selecione o aprovador</option>
+                                  {users.map((user) => (
+                                    <option key={user.id} value={user.id}>
+                                      {user.name}
+                                    </option>
+                                  ))}
+                                </Select>
+                              </FieldContent>
+                            </Field>
+                          ) : (
+                            <Field>
+                              <FieldLabel>Decisão imediata</FieldLabel>
+                              <FieldContent>
+                                <Select
+                                  value={documentSubmissionForm.submissionStatus}
+                                  onChange={(event) =>
+                                    setDocumentSubmissionForm((current) => ({
+                                      ...current,
+                                      submissionStatus: event.target.value,
+                                    }))
+                                  }
+                                >
+                                  <option value="approved">Aprovado</option>
+                                  <option value="rejected">Rejeitado</option>
+                                  <option value="exempt">Isento</option>
+                                  <option value="pending">Pendente</option>
+                                </Select>
+                              </FieldContent>
+                            </Field>
+                          )}
+                        </div>
+                        {documentSubmissionForm.workflowAction === "approve_now" ? (
                           <Field>
                             <FieldLabel>Adequação</FieldLabel>
                             <FieldContent>
                               <Select
                                 value={documentSubmissionForm.adequacyStatus}
-                                onChange={(event) => setDocumentSubmissionForm((current) => ({ ...current, adequacyStatus: event.target.value }))}
+                                onChange={(event) =>
+                                  setDocumentSubmissionForm((current) => ({
+                                    ...current,
+                                    adequacyStatus: event.target.value,
+                                  }))
+                                }
                               >
-                                <option value="under_review">Em análise</option>
                                 <option value="adequate">Adequado</option>
                                 <option value="not_adequate">Não adequado</option>
+                                <option value="under_review">Em análise</option>
                               </Select>
                             </FieldContent>
                           </Field>
-                        </div>
+                        ) : null}
                         <Field>
                           <FieldLabel>Validade</FieldLabel>
                           <FieldContent>
@@ -921,6 +1208,21 @@ export default function SupplierDetailPage() {
                               type="date"
                               value={documentSubmissionForm.validityDate}
                               onChange={(event) => setDocumentSubmissionForm((current) => ({ ...current, validityDate: event.target.value }))}
+                            />
+                          </FieldContent>
+                        </Field>
+                        <Field>
+                          <FieldLabel>Comentário do envio</FieldLabel>
+                          <FieldContent>
+                            <Textarea
+                              placeholder="Explique o contexto da submissão ou a decisão tomada"
+                              value={documentSubmissionForm.reviewComment}
+                              onChange={(event) =>
+                                setDocumentSubmissionForm((current) => ({
+                                  ...current,
+                                  reviewComment: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>

@@ -156,11 +156,21 @@ const supplierDocumentSubmissionBodySchema = z.object({
   requirementId: z.coerce.number().int().positive(),
   submissionStatus: z.enum(["approved", "rejected", "pending", "exempt"]),
   adequacyStatus: z.enum(["adequate", "not_adequate", "under_review"]).default("under_review"),
+  workflowAction: z.enum(["approve_now", "request_review"]).default("approve_now"),
+  requestedReviewerId: z.coerce.number().int().positive().nullable().optional(),
+  reviewComment: z.string().trim().optional().nullable(),
   validityDate: z.string().date().optional().nullable(),
   exemptionReason: z.string().trim().optional().nullable(),
   rejectionReason: z.string().trim().optional().nullable(),
   observations: z.string().trim().optional().nullable(),
   attachments: z.array(attachmentSchema).default([]),
+});
+
+const supplierDocumentSubmissionReviewBodySchema = z.object({
+  decision: z.enum(["approved", "rejected", "request_changes"]),
+  validityDate: z.string().date().optional().nullable(),
+  rejectionReason: z.string().trim().optional().nullable(),
+  reviewComment: z.string().trim().optional().nullable(),
 });
 
 const supplierDocumentReviewBodySchema = z.object({
@@ -964,6 +974,11 @@ async function loadSupplierDetail(supplierId: number, orgId: number) {
           categoryId: supplierDocumentRequirementsTable.categoryId,
           submissionStatus: supplierDocumentSubmissionsTable.submissionStatus,
           adequacyStatus: supplierDocumentSubmissionsTable.adequacyStatus,
+          requestedReviewerId: supplierDocumentSubmissionsTable.requestedReviewerId,
+          reviewedById: supplierDocumentSubmissionsTable.reviewedById,
+          reviewedAt: supplierDocumentSubmissionsTable.reviewedAt,
+          reviewComment: supplierDocumentSubmissionsTable.reviewComment,
+          createdById: supplierDocumentSubmissionsTable.createdById,
           validityDate: supplierDocumentSubmissionsTable.validityDate,
           exemptionReason: supplierDocumentSubmissionsTable.exemptionReason,
           rejectionReason: supplierDocumentSubmissionsTable.rejectionReason,
@@ -1128,6 +1143,7 @@ async function loadSupplierDetail(supplierId: number, orgId: number) {
       submissions: submissions.map((submission) => ({
         ...submission,
         attachments: formatAttachments(submission.attachments),
+        reviewedAt: formatTimestamp(submission.reviewedAt),
         createdAt: formatTimestamp(submission.createdAt),
         updatedAt: formatTimestamp(submission.updatedAt),
       })),
@@ -2253,14 +2269,31 @@ router.post("/organizations/:orgId/suppliers/:supplierId/document-submissions", 
     res.status(400).json({ error: "Requisito documental inválido" });
     return;
   }
+  if (!(await ensureUserBelongsToOrg(body.data.requestedReviewerId, params.data.orgId))) {
+    res.status(400).json({ error: "Aprovador solicitado inválido para esta organização" });
+    return;
+  }
+
+  const submissionStatus =
+    body.data.workflowAction === "approve_now" ? body.data.submissionStatus : "pending";
+  const adequacyStatus =
+    body.data.workflowAction === "approve_now" ? body.data.adequacyStatus : "under_review";
+  const requestedReviewerId =
+    body.data.workflowAction === "request_review" ? body.data.requestedReviewerId ?? null : null;
+  const reviewedById = body.data.workflowAction === "approve_now" ? req.auth!.userId : null;
+  const reviewedAt = body.data.workflowAction === "approve_now" ? new Date() : null;
 
   const [upserted] = await db
     .insert(supplierDocumentSubmissionsTable)
     .values({
       supplierId: supplier.id,
       requirementId: body.data.requirementId,
-      submissionStatus: body.data.submissionStatus,
-      adequacyStatus: body.data.adequacyStatus,
+      submissionStatus,
+      adequacyStatus,
+      requestedReviewerId,
+      reviewedById,
+      reviewedAt,
+      reviewComment: normalizeOptionalString(body.data.reviewComment),
       validityDate: body.data.validityDate ?? null,
       exemptionReason: normalizeOptionalString(body.data.exemptionReason),
       rejectionReason: normalizeOptionalString(body.data.rejectionReason),
@@ -2271,8 +2304,12 @@ router.post("/organizations/:orgId/suppliers/:supplierId/document-submissions", 
     .onConflictDoUpdate({
       target: [supplierDocumentSubmissionsTable.supplierId, supplierDocumentSubmissionsTable.requirementId],
       set: {
-        submissionStatus: body.data.submissionStatus,
-        adequacyStatus: body.data.adequacyStatus,
+        submissionStatus,
+        adequacyStatus,
+        requestedReviewerId,
+        reviewedById,
+        reviewedAt,
+        reviewComment: normalizeOptionalString(body.data.reviewComment),
         validityDate: body.data.validityDate ?? null,
         exemptionReason: normalizeOptionalString(body.data.exemptionReason),
         rejectionReason: normalizeOptionalString(body.data.rejectionReason),
@@ -2284,6 +2321,71 @@ router.post("/organizations/:orgId/suppliers/:supplierId/document-submissions", 
     .returning();
 
   res.status(201).json(upserted);
+});
+
+router.post("/organizations/:orgId/suppliers/:supplierId/document-submissions/:submissionId/review", requireAuth, async (req, res): Promise<void> => {
+  const params = z.object({
+    orgId: z.coerce.number().int().positive(),
+    supplierId: z.coerce.number().int().positive(),
+    submissionId: z.coerce.number().int().positive(),
+  }).safeParse(req.params);
+  const body = supplierDocumentSubmissionReviewBodySchema.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const supplier = await getSupplierOrNull(params.data.supplierId, params.data.orgId);
+  if (!supplier) {
+    res.status(404).json({ error: "Fornecedor não encontrado" });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(supplierDocumentSubmissionsTable)
+    .where(
+      and(
+        eq(supplierDocumentSubmissionsTable.id, params.data.submissionId),
+        eq(supplierDocumentSubmissionsTable.supplierId, supplier.id),
+      ),
+    );
+  if (!existing) {
+    res.status(404).json({ error: "Submissão documental não encontrada" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(supplierDocumentSubmissionsTable)
+    .set({
+      submissionStatus:
+        body.data.decision === "approved"
+          ? "approved"
+          : body.data.decision === "rejected"
+            ? "rejected"
+            : "pending",
+      adequacyStatus:
+        body.data.decision === "approved"
+          ? "adequate"
+          : body.data.decision === "rejected"
+            ? "not_adequate"
+            : "under_review",
+      requestedReviewerId: null,
+      reviewedById: req.auth!.userId,
+      reviewedAt: new Date(),
+      reviewComment: normalizeOptionalString(body.data.reviewComment),
+      validityDate: body.data.validityDate ?? null,
+      rejectionReason:
+        body.data.decision === "rejected"
+          ? normalizeOptionalString(body.data.rejectionReason)
+          : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(supplierDocumentSubmissionsTable.id, existing.id))
+    .returning();
+
+  res.json(updated);
 });
 
 router.post("/organizations/:orgId/suppliers/:supplierId/document-reviews", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {

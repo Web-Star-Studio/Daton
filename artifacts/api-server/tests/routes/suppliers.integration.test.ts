@@ -471,6 +471,54 @@ describe("suppliers routes", () => {
     ]);
   });
 
+  it("supports document submission review by another user in the same organization", async () => {
+    const context = await createTestContext({ seed: "suppliers-document-review-flow" });
+    contexts.push(context);
+    const reviewer = await createTestUser(context, { suffix: "reviewer", modules: ["suppliers"] });
+    const requirement = await createSupplierDocumentRequirement(context, {
+      name: "Laudo atualizado",
+      weight: 2,
+    });
+    const supplier = await createSupplier(context, {
+      legalIdentifier: "55566677000188",
+      legalName: "Fornecedor revisão documental",
+    });
+
+    const submission = await request(app)
+      .post(`/api/organizations/${context.organizationId}/suppliers/${supplier.id}/document-submissions`)
+      .set(authHeader(context))
+      .send({
+        requirementId: requirement.id,
+        submissionStatus: "approved",
+        adequacyStatus: "adequate",
+        workflowAction: "request_review",
+        requestedReviewerId: reviewer.id,
+        reviewComment: "Favor validar o laudo anexado",
+      });
+
+    expect(submission.status).toBe(201);
+    expect(submission.body.submissionStatus).toBe("pending");
+    expect(submission.body.adequacyStatus).toBe("under_review");
+    expect(submission.body.requestedReviewerId).toBe(reviewer.id);
+    expect(submission.body.reviewedById).toBeNull();
+
+    const reviewed = await request(app)
+      .post(`/api/organizations/${context.organizationId}/suppliers/${supplier.id}/document-submissions/${submission.body.id}/review`)
+      .set({ Authorization: `Bearer ${reviewer.token}` })
+      .send({
+        decision: "approved",
+        reviewComment: "Documento validado",
+        validityDate: "2026-12-31",
+      });
+
+    expect(reviewed.status).toBe(200);
+    expect(reviewed.body.submissionStatus).toBe("approved");
+    expect(reviewed.body.adequacyStatus).toBe("adequate");
+    expect(reviewed.body.reviewedById).toBe(reviewer.id);
+    expect(reviewed.body.requestedReviewerId).toBeNull();
+    expect(reviewed.body.reviewComment).toBe("Documento validado");
+  });
+
   it("requires an apt document review before qualification and updates supplier status", async () => {
     const context = await createTestContext({
       seed: "suppliers-qualification",
