@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -12,14 +13,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import {
+  commitSupplierDocumentRequirementsImport,
   createSupplierDocumentRequirement,
+  exportSupplierDocumentRequirements,
   listSupplierCategories,
   listSupplierDocumentRequirements,
   listSupplierTypes,
+  previewSupplierDocumentRequirementsImport,
   suppliersKeys,
+  type SupplierDocumentRequirementImportInputRow,
+  type SupplierDocumentRequirementImportPreview,
   updateSupplierDocumentRequirement,
 } from "@/lib/suppliers-client";
-import { ArrowLeft, Plus } from "lucide-react";
+import {
+  downloadSupplierDocumentRequirementsWorkbook,
+  parseSupplierDocumentRequirementsWorkbook,
+} from "@/lib/supplier-document-requirements-workbook";
+import { ArrowLeft, Download, Plus, Upload } from "lucide-react";
 
 type RequirementFormState = {
   name: string;
@@ -53,31 +63,19 @@ export default function SupplierDocumentRequirementsPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [form, setForm] = useState<RequirementFormState>(emptyForm);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFileName, setImportFileName] = useState("");
+  const [importRows, setImportRows] = useState<SupplierDocumentRequirementImportInputRow[]>([]);
+  const [importPreview, setImportPreview] = useState<SupplierDocumentRequirementImportPreview | null>(null);
+
+  const resetImportState = () => {
+    setImportFileName("");
+    setImportRows([]);
+    setImportPreview(null);
+  };
 
   usePageTitle("Requisitos documentais");
   usePageSubtitle("Centralize o catálogo de documentos obrigatórios usados na análise dos fornecedores.");
-
-  useHeaderActions(
-    <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores")}>
-        <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-        Voltar
-      </Button>
-      {canManageSuppliers ? (
-        <Button
-          size="sm"
-          onClick={() => {
-            setIsCreatingNew(true);
-            setSelectedId(null);
-            setForm(emptyForm);
-          }}
-        >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Novo requisito
-        </Button>
-      ) : null}
-    </div>,
-  );
 
   const categoriesQuery = useQuery({
     queryKey: suppliersKeys.categories(orgId || 0),
@@ -128,6 +126,55 @@ export default function SupplierDocumentRequirementsPage() {
     queryClient.invalidateQueries({ queryKey: suppliersKeys.all });
   };
 
+  const exportMutation = useMutation({
+    mutationFn: () => exportSupplierDocumentRequirements(orgId!),
+    onSuccess: ({ rows }) => {
+      downloadSupplierDocumentRequirementsWorkbook(rows, "catalogo-requisitos-documentais.xlsx");
+    },
+    onError: (error) => {
+      toast({
+        title: "Falha ao exportar catálogo",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const previewImportMutation = useMutation({
+    mutationFn: (rows: SupplierDocumentRequirementImportInputRow[]) =>
+      previewSupplierDocumentRequirementsImport(orgId!, rows),
+    onSuccess: (preview) => {
+      setImportPreview(preview);
+    },
+    onError: (error) => {
+      toast({
+        title: "Falha ao analisar planilha",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const commitImportMutation = useMutation({
+    mutationFn: () => commitSupplierDocumentRequirementsImport(orgId!, importRows),
+    onSuccess: (result) => {
+      refresh();
+      setImportDialogOpen(false);
+      resetImportState();
+      toast({
+        title: "Catálogo importado",
+        description: `${result.created} criados e ${result.updated} atualizados.`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Falha ao importar catálogo",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const weight = Number(form.weight);
@@ -175,6 +222,85 @@ export default function SupplierDocumentRequirementsPage() {
       });
     },
   });
+
+  const handleImportFile = async (file: File | null) => {
+    if (!file) return;
+
+    try {
+      const parsedRows = await parseSupplierDocumentRequirementsWorkbook(file);
+      if (parsedRows.length === 0) {
+        throw new Error("A planilha não possui linhas de dados para importar.");
+      }
+      setImportFileName(file.name);
+      setImportRows(parsedRows);
+      previewImportMutation.mutate(parsedRows);
+    } catch (error) {
+      toast({
+        title: "Falha ao ler planilha",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores")}>
+        <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+        Voltar
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          const anchor = document.createElement("a");
+          anchor.href = "/templates/template_importacao_documentos.xlsx";
+          anchor.download = "template_importacao_documentos.xlsx";
+          anchor.click();
+        }}
+      >
+        <Download className="mr-1.5 h-3.5 w-3.5" />
+        Baixar modelo
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => exportMutation.mutate()}
+        disabled={!orgId || exportMutation.isPending}
+      >
+        <Download className="mr-1.5 h-3.5 w-3.5" />
+        {exportMutation.isPending ? "Exportando..." : "Exportar catálogo"}
+      </Button>
+      {canManageSuppliers ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            resetImportState();
+            setImportDialogOpen(true);
+          }}
+        >
+          <Upload className="mr-1.5 h-3.5 w-3.5" />
+          Importar planilha
+        </Button>
+      ) : null}
+      {canManageSuppliers ? (
+        <Button
+          size="sm"
+          onClick={() => {
+            setIsCreatingNew(true);
+            setSelectedId(null);
+            setForm(emptyForm);
+          }}
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Novo requisito
+        </Button>
+      ) : null}
+    </div>
+  );
+
+  useHeaderActions(headerActions);
 
   return (
     <div className="space-y-6">
@@ -357,6 +483,131 @@ export default function SupplierDocumentRequirementsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog
+        open={importDialogOpen}
+        onOpenChange={(open) => {
+          setImportDialogOpen(open);
+          if (!open) {
+            resetImportState();
+          }
+        }}
+        title="Importar catálogo documental"
+        size="lg"
+      >
+        <div className="space-y-5">
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+            Use o modelo oficial para importar ou atualizar o catálogo organizacional de requisitos documentais.
+            A importação só é liberada depois da prévia validada pela API.
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="requirements-workbook">Arquivo .xlsx</Label>
+            <Input
+              id="requirements-workbook"
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={(event) => void handleImportFile(event.target.files?.[0] || null)}
+              disabled={previewImportMutation.isPending || commitImportMutation.isPending}
+            />
+            {importFileName ? (
+              <p className="text-xs text-muted-foreground">Arquivo carregado: {importFileName}</p>
+            ) : null}
+          </div>
+
+          {importPreview ? (
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-4">
+                <Card>
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-muted-foreground">Linhas lidas</p>
+                    <p className="mt-1 text-xl font-semibold">{importPreview.summary.totalRows}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-muted-foreground">Criar</p>
+                    <p className="mt-1 text-xl font-semibold text-emerald-600">{importPreview.summary.createCount}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-muted-foreground">Atualizar</p>
+                    <p className="mt-1 text-xl font-semibold text-sky-600">{importPreview.summary.updateCount}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-muted-foreground">Com erro</p>
+                    <p className="mt-1 text-xl font-semibold text-red-600">{importPreview.summary.errorCount}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
+                {importPreview.rows.map((row) => (
+                  <div key={`${row.rowNumber}-${row.name}`} className="rounded-xl border border-border/60 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="font-medium">
+                          Linha {row.rowNumber} · {row.name || "Documento sem nome"}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Peso {row.weight ?? "—"} · {row.description || "Sem descrição"}
+                        </div>
+                      </div>
+                      <Badge
+                        variant={
+                          row.action === "create"
+                            ? "default"
+                            : row.action === "update"
+                              ? "secondary"
+                              : "destructive"
+                        }
+                      >
+                        {row.action === "create"
+                          ? "Criar"
+                          : row.action === "update"
+                            ? "Atualizar"
+                            : "Corrigir"}
+                      </Badge>
+                    </div>
+                    {row.errors.length > 0 ? (
+                      <ul className="mt-3 space-y-1 text-sm text-red-600">
+                        {row.errors.map((error) => (
+                          <li key={error}>- {error}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setImportDialogOpen(false);
+              resetImportState();
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={() => commitImportMutation.mutate()}
+            disabled={
+              !importPreview ||
+              importRows.length === 0 ||
+              importPreview.summary.errorCount > 0 ||
+              commitImportMutation.isPending
+            }
+          >
+            {commitImportMutation.isPending ? "Importando..." : "Confirmar importação"}
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </div>
   );
 }

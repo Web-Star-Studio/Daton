@@ -43,6 +43,33 @@ export type SupplierDocumentRequirement = {
   updatedAt: string;
 };
 
+export type SupplierDocumentRequirementImportRow = {
+  rowNumber: number;
+  name: string;
+  weight: number | null;
+  description: string | null;
+  action: "create" | "update" | "invalid";
+  existingRequirementId: number | null;
+  errors: string[];
+};
+
+export type SupplierDocumentRequirementImportPreview = {
+  rows: SupplierDocumentRequirementImportRow[];
+  summary: {
+    totalRows: number;
+    createCount: number;
+    updateCount: number;
+    errorCount: number;
+  };
+};
+
+export type SupplierDocumentRequirementImportInputRow = {
+  rowNumber?: number;
+  name?: string;
+  weight?: number | string;
+  description?: string | null;
+};
+
 export type SupplierListItem = {
   id: number;
   personType: "pj" | "pf";
@@ -421,6 +448,38 @@ export function updateSupplierDocumentRequirement(orgId: number, requirementId: 
       method: "PATCH",
       body: JSON.stringify(body),
     },
+  );
+}
+
+export function previewSupplierDocumentRequirementsImport(
+  orgId: number,
+  rows: SupplierDocumentRequirementImportInputRow[],
+) {
+  return apiJson<SupplierDocumentRequirementImportPreview>(
+    `/api/organizations/${orgId}/supplier-document-requirements/import-preview`,
+    {
+      method: "POST",
+      body: JSON.stringify({ rows }),
+    },
+  );
+}
+
+export function commitSupplierDocumentRequirementsImport(
+  orgId: number,
+  rows: SupplierDocumentRequirementImportInputRow[],
+) {
+  return apiJson<{ imported: number; created: number; updated: number }>(
+    `/api/organizations/${orgId}/supplier-document-requirements/import-commit`,
+    {
+      method: "POST",
+      body: JSON.stringify({ rows }),
+    },
+  );
+}
+
+export function exportSupplierDocumentRequirements(orgId: number) {
+  return apiJson<{ rows: Array<{ name: string; weight: number; description: string }> }>(
+    `/api/organizations/${orgId}/supplier-document-requirements/export`,
   );
 }
 

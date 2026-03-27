@@ -109,6 +109,17 @@ const supplierDocumentRequirementBodySchema = z.object({
   status: z.enum(["active", "inactive"]).default("active"),
 });
 
+const supplierDocumentRequirementImportBodySchema = z.object({
+  rows: z.array(
+    z.object({
+      rowNumber: z.coerce.number().int().positive().optional(),
+      name: z.unknown().optional(),
+      weight: z.unknown().optional(),
+      description: z.unknown().optional(),
+    }),
+  ).min(1),
+});
+
 const supplierDocumentSubmissionBodySchema = z.object({
   requirementId: z.coerce.number().int().positive(),
   submissionStatus: z.enum(["approved", "rejected", "pending", "exempt"]),
@@ -197,6 +208,90 @@ function normalizeOptionalString(value?: string | null): string | null {
   if (value === undefined || value === null) return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeImportCell(value: unknown): string {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeRequirementKey(name: string): string {
+  return normalizeImportCell(name).toLocaleLowerCase("pt-BR");
+}
+
+async function previewSupplierDocumentRequirementImport(
+  orgId: number,
+  rows: Array<{
+    rowNumber?: number;
+    name?: unknown;
+    weight?: unknown;
+    description?: unknown;
+  }>,
+) {
+  const existingRequirements = await db
+    .select({
+      id: supplierDocumentRequirementsTable.id,
+      name: supplierDocumentRequirementsTable.name,
+    })
+    .from(supplierDocumentRequirementsTable)
+    .where(eq(supplierDocumentRequirementsTable.organizationId, orgId));
+
+  const existingByName = new Map(
+    existingRequirements.map((requirement) => [
+      normalizeRequirementKey(requirement.name),
+      requirement,
+    ]),
+  );
+  const seenImportKeys = new Map<string, number>();
+
+  const previewRows = rows.map((row, index) => {
+    const rowNumber = row.rowNumber ?? index + 2;
+    const name = normalizeImportCell(row.name);
+    const description = normalizeOptionalString(normalizeImportCell(row.description));
+    const rawWeight = normalizeImportCell(row.weight);
+    const parsedWeight = rawWeight ? Number(rawWeight) : Number.NaN;
+    const errors: string[] = [];
+
+    if (!name) {
+      errors.push("Informe o nome do documento.");
+    }
+
+    if (!rawWeight || !Number.isInteger(parsedWeight) || parsedWeight < 1 || parsedWeight > 5) {
+      errors.push("O peso deve ser um número inteiro entre 1 e 5.");
+    }
+
+    const normalizedName = name ? normalizeRequirementKey(name) : "";
+    const duplicateRow = normalizedName ? seenImportKeys.get(normalizedName) : undefined;
+    if (normalizedName) {
+      if (duplicateRow) {
+        errors.push(`Documento repetido na planilha. A primeira ocorrência está na linha ${duplicateRow}.`);
+      } else {
+        seenImportKeys.set(normalizedName, rowNumber);
+      }
+    }
+
+    const existingRequirement = normalizedName ? existingByName.get(normalizedName) : undefined;
+    const action = errors.length > 0 ? "invalid" : existingRequirement ? "update" : "create";
+
+    return {
+      rowNumber,
+      name,
+      description,
+      weight: Number.isInteger(parsedWeight) ? parsedWeight : null,
+      action,
+      existingRequirementId: existingRequirement?.id ?? null,
+      errors,
+    };
+  });
+
+  return {
+    rows: previewRows,
+    summary: {
+      totalRows: previewRows.length,
+      createCount: previewRows.filter((row) => row.action === "create").length,
+      updateCount: previewRows.filter((row) => row.action === "update").length,
+      errorCount: previewRows.filter((row) => row.errors.length > 0).length,
+    },
+  };
 }
 
 function formatTimestamp(value: Date | string | null | undefined): string | null {
@@ -901,6 +996,103 @@ router.get("/organizations/:orgId/supplier-document-requirements", requireAuth, 
     .where(eq(supplierDocumentRequirementsTable.organizationId, params.data.orgId))
     .orderBy(supplierDocumentRequirementsTable.name);
   res.json(rows);
+});
+
+router.get("/organizations/:orgId/supplier-document-requirements/export", requireAuth, async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const rows = await db
+    .select({
+      name: supplierDocumentRequirementsTable.name,
+      weight: supplierDocumentRequirementsTable.weight,
+      description: supplierDocumentRequirementsTable.description,
+    })
+    .from(supplierDocumentRequirementsTable)
+    .where(eq(supplierDocumentRequirementsTable.organizationId, params.data.orgId))
+    .orderBy(supplierDocumentRequirementsTable.name);
+
+  res.json({
+    rows: rows.map((row) => ({
+      name: row.name,
+      weight: row.weight,
+      description: row.description ?? "",
+    })),
+  });
+});
+
+router.post("/organizations/:orgId/supplier-document-requirements/import-preview", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  const body = supplierDocumentRequirementImportBodySchema.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const preview = await previewSupplierDocumentRequirementImport(params.data.orgId, body.data.rows);
+  res.json(preview);
+});
+
+router.post("/organizations/:orgId/supplier-document-requirements/import-commit", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  const body = supplierDocumentRequirementImportBodySchema.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const preview = await previewSupplierDocumentRequirementImport(params.data.orgId, body.data.rows);
+  if (preview.summary.errorCount > 0) {
+    res.status(400).json({
+      error: "A importação contém linhas inválidas. Corrija a planilha e gere uma nova prévia.",
+      preview,
+    });
+    return;
+  }
+
+  const validRows = preview.rows.filter((row) => row.action === "create" || row.action === "update");
+
+  await db.transaction(async (tx) => {
+    for (const row of validRows) {
+      if (row.action === "update" && row.existingRequirementId) {
+        await tx
+          .update(supplierDocumentRequirementsTable)
+          .set({
+            name: row.name,
+            weight: row.weight ?? 1,
+            description: row.description,
+            status: "active",
+          })
+          .where(
+            and(
+              eq(supplierDocumentRequirementsTable.id, row.existingRequirementId),
+              eq(supplierDocumentRequirementsTable.organizationId, params.data.orgId),
+            ),
+          );
+        continue;
+      }
+
+      await tx.insert(supplierDocumentRequirementsTable).values({
+        organizationId: params.data.orgId,
+        name: row.name,
+        weight: row.weight ?? 1,
+        description: row.description,
+        status: "active",
+      });
+    }
+  });
+
+  res.status(201).json({
+    imported: validRows.length,
+    created: validRows.filter((row) => row.action === "create").length,
+    updated: validRows.filter((row) => row.action === "update").length,
+  });
 });
 
 router.post("/organizations/:orgId/supplier-document-requirements", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {

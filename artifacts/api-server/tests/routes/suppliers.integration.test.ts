@@ -130,6 +130,83 @@ describe("suppliers routes", () => {
     expect(updated.body.status).toBe("inactive");
   });
 
+  it("previews, commits and exports the supplier document requirements catalog", async () => {
+    const context = await createTestContext({ seed: "suppliers-document-import" });
+    contexts.push(context);
+
+    await createSupplierDocumentRequirement(context, {
+      name: "Certidão Federal",
+      weight: 4,
+    });
+
+    const preview = await request(app)
+      .post(`/api/organizations/${context.organizationId}/supplier-document-requirements/import-preview`)
+      .set(authHeader(context))
+      .send({
+        rows: [
+          {
+            rowNumber: 2,
+            name: "Certidão Federal",
+            weight: 5,
+            description: "Versão atualizada",
+          },
+          {
+            rowNumber: 3,
+            name: "Alvará municipal",
+            weight: 3,
+            description: "Documento obrigatório",
+          },
+        ],
+      });
+
+    expect(preview.status).toBe(200);
+    expect(preview.body.summary.createCount).toBe(1);
+    expect(preview.body.summary.updateCount).toBe(1);
+    expect(preview.body.summary.errorCount).toBe(0);
+
+    const commit = await request(app)
+      .post(`/api/organizations/${context.organizationId}/supplier-document-requirements/import-commit`)
+      .set(authHeader(context))
+      .send({
+        rows: [
+          {
+            rowNumber: 2,
+            name: "Certidão Federal",
+            weight: 5,
+            description: "Versão atualizada",
+          },
+          {
+            rowNumber: 3,
+            name: "Alvará municipal",
+            weight: 3,
+            description: "Documento obrigatório",
+          },
+        ],
+      });
+
+    expect(commit.status).toBe(201);
+    expect(commit.body.created).toBe(1);
+    expect(commit.body.updated).toBe(1);
+
+    const exportResponse = await request(app)
+      .get(`/api/organizations/${context.organizationId}/supplier-document-requirements/export`)
+      .set(authHeader(context));
+
+    expect(exportResponse.status).toBe(200);
+    expect(exportResponse.body.rows).toEqual([
+      {
+        name: "Alvará municipal",
+        weight: 3,
+        description: "Documento obrigatório",
+      },
+      {
+        name: "Certidão Federal",
+        weight: 5,
+        description: "Versão atualizada",
+      },
+    ]);
+  });
+
   it("requires an apt document review before qualification and updates supplier status", async () => {
     const context = await createTestContext({
       seed: "suppliers-qualification",
