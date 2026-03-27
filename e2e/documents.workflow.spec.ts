@@ -46,7 +46,7 @@ async function createUserWithDocumentsModule(
     suffix: string;
   },
 ) {
-  const email = `${prefix}-${options.suffix}@daton.e2e`;
+  const email = `${prefix}-${options.suffix}@e2e.daton.example`;
   const password = "DatonE2E!123";
 
   const user = await apiJson<{ id: number; name: string; email: string }>(
@@ -111,7 +111,7 @@ async function selectSearchableMultiOption(
   optionLabel: string,
 ) {
   const field = root.getByText(fieldLabel, { exact: true }).locator("xpath=..");
-  await field.getByRole("button").click();
+  await field.getByRole("combobox").click();
   await root.getByPlaceholder(searchPlaceholder).fill(optionLabel);
   await root.getByText(optionLabel, { exact: true }).click();
 }
@@ -437,7 +437,7 @@ test("creates catalog contacts and groups in system settings and resolves docume
     .getByText("Email", { exact: true })
     .locator("xpath=..")
     .locator("input")
-    .fill(`${prefix}-external@daton.e2e`);
+    .fill(`${prefix}-external@e2e.daton.example`);
   await contactDialog
     .getByText("Organização / empresa", { exact: true })
     .locator("xpath=..")
