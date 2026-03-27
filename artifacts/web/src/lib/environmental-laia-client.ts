@@ -44,6 +44,15 @@ export interface LaiaMethodology {
   versions: LaiaMethodologyVersion[];
 }
 
+export interface LaiaAssessmentListFilters {
+  q?: string;
+  unitId?: number;
+  sectorId?: number;
+  status?: "draft" | "active" | "archived";
+  category?: "desprezivel" | "moderado" | "critico";
+  significance?: "significant" | "not_significant";
+}
+
 export interface LaiaAssessmentListItem {
   id: number;
   unitId: number | null;
@@ -61,6 +70,102 @@ export interface LaiaAssessmentListItem {
   unitName: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+}
+
+export interface LaiaAssessmentRequirement {
+  id: number;
+  type: "legal" | "other" | "stakeholder" | "strategic";
+  title: string;
+  requirementReference: string | null;
+  description: string | null;
+  legislationId: number | null;
+  legislationTitle?: string | null;
+}
+
+export interface LaiaAssessmentCommunicationPlan {
+  id: number;
+  channel: string;
+  audience: string;
+  periodicity: string;
+  requiresAcknowledgment: boolean;
+  notes: string | null;
+  lastDistributedAt: string | null;
+}
+
+export interface LaiaMonitoringPlan {
+  id: number;
+  title: string;
+  objective: string;
+  method: string;
+  indicator: string | null;
+  frequency: string;
+  delayCriteria: string | null;
+  responsibleUserId: number | null;
+  status: "draft" | "active" | "overdue" | "completed" | "canceled";
+  nextDueAt: string | null;
+  lastCompletedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface LaiaAssessmentDetail {
+  id: number;
+  organizationId: number;
+  unitId: number | null;
+  sectorId: number | null;
+  methodologyVersionId: number | null;
+  aspectCode: string;
+  mode: "quick" | "complete";
+  status: "draft" | "active" | "archived";
+  activityOperation: string;
+  environmentalAspect: string;
+  environmentalImpact: string;
+  temporality: string | null;
+  operationalSituation: string | null;
+  incidence: string | null;
+  impactClass: string | null;
+  scope: string | null;
+  severity: string | null;
+  consequenceScore: number | null;
+  frequencyProbability: string | null;
+  frequencyProbabilityScore: number | null;
+  totalScore: number | null;
+  category: "desprezivel" | "moderado" | "critico" | null;
+  significance: "significant" | "not_significant" | null;
+  significanceReason: string | null;
+  hasLegalRequirements: boolean;
+  hasStakeholderDemand: boolean;
+  hasStrategicOption: boolean;
+  normalCondition: boolean;
+  abnormalCondition: boolean;
+  startupShutdown: boolean;
+  emergencyScenario: string | null;
+  changeContext: string | null;
+  lifecycleStages: string[];
+  controlLevel: "direct_control" | "influence" | "none";
+  influenceLevel: string | null;
+  outsourcedProcess: string | null;
+  supplierReference: string | null;
+  controlTypes: string[];
+  existingControls: string | null;
+  controlRequired: string | null;
+  controlResponsibleUserId: number | null;
+  controlDueAt: string | null;
+  communicationRequired: boolean;
+  communicationNotes: string | null;
+  reviewFrequencyDays: number | null;
+  nextReviewAt: string | null;
+  notes: string | null;
+  createdById: number | null;
+  updatedById: number | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  sectorName: string | null;
+  sectorCode: string | null;
+  unitName: string | null;
+  requirements: LaiaAssessmentRequirement[];
+  communicationPlans: LaiaAssessmentCommunicationPlan[];
+  monitoringPlans: LaiaMonitoringPlan[];
 }
 
 export interface LaiaRevisionChange {
@@ -120,17 +225,22 @@ export interface LaiaAssessmentInput {
   activityOperation: string;
   environmentalAspect: string;
   environmentalImpact: string;
+  temporality?: string | null;
   operationalSituation?: string | null;
+  incidence?: string | null;
+  impactClass?: string | null;
+  scope?: string | null;
+  severity?: string | null;
+  consequenceScore?: number | null;
+  frequencyProbability?: string | null;
+  frequencyProbabilityScore?: number | null;
   totalScore?: number | null;
   category?: "desprezivel" | "moderado" | "critico" | null;
   significance?: "significant" | "not_significant" | null;
   significanceReason?: string | null;
-  existingControls?: string | null;
-  controlRequired?: string | null;
-  communicationRequired?: boolean;
-  communicationNotes?: string | null;
-  reviewFrequencyDays?: number | null;
-  nextReviewAt?: string | null;
+  hasLegalRequirements?: boolean;
+  hasStakeholderDemand?: boolean;
+  hasStrategicOption?: boolean;
   normalCondition?: boolean;
   abnormalCondition?: boolean;
   startupShutdown?: boolean;
@@ -141,6 +251,16 @@ export interface LaiaAssessmentInput {
   influenceLevel?: string | null;
   outsourcedProcess?: string | null;
   supplierReference?: string | null;
+  controlTypes?: string[];
+  existingControls?: string | null;
+  controlRequired?: string | null;
+  controlResponsibleUserId?: number | null;
+  controlDueAt?: string | null;
+  communicationRequired?: boolean;
+  communicationNotes?: string | null;
+  reviewFrequencyDays?: number | null;
+  nextReviewAt?: string | null;
+  notes?: string | null;
   requirements?: LaiaAssessmentRequirementInput[];
   communicationPlans?: LaiaCommunicationPlanInput[];
 }
@@ -157,10 +277,7 @@ export interface LaiaMonitoringPlanInput {
   nextDueAt?: string | null;
 }
 
-async function laiaRequest<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
+async function laiaRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(resolveApiUrl(path), {
     ...init,
     headers: {
@@ -189,17 +306,37 @@ async function laiaRequest<T>(
   return response.json() as Promise<T>;
 }
 
+function buildLaiaQueryString(filters?: LaiaAssessmentListFilters) {
+  const params = new URLSearchParams();
+
+  if (filters?.q?.trim()) params.set("q", filters.q.trim());
+  if (filters?.unitId) params.set("unitId", String(filters.unitId));
+  if (filters?.sectorId) params.set("sectorId", String(filters.sectorId));
+  if (filters?.status) params.set("status", filters.status);
+  if (filters?.category) params.set("category", filters.category);
+  if (filters?.significance) params.set("significance", filters.significance);
+
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
 export const laiaKeys = {
   root: (orgId: number) => ["laia", orgId] as const,
   dashboard: (orgId: number) => ["laia", orgId, "dashboard"] as const,
   branchConfigs: (orgId: number) => ["laia", orgId, "branch-configs"] as const,
   sectors: (orgId: number) => ["laia", orgId, "sectors"] as const,
   methodology: (orgId: number) => ["laia", orgId, "methodology"] as const,
-  assessments: (orgId: number) => ["laia", orgId, "assessments"] as const,
+  assessments: (orgId: number, filters?: LaiaAssessmentListFilters) =>
+    ["laia", orgId, "assessments", filters ?? {}] as const,
+  assessment: (orgId: number, assessmentId: number) =>
+    ["laia", orgId, "assessment", assessmentId] as const,
   revisions: (orgId: number) => ["laia", orgId, "revisions"] as const,
 };
 
-async function invalidateLaia(queryClient: ReturnType<typeof useQueryClient>, orgId?: number) {
+async function invalidateLaia(
+  queryClient: ReturnType<typeof useQueryClient>,
+  orgId?: number,
+) {
   if (!orgId) return;
   await queryClient.invalidateQueries({ queryKey: laiaKeys.root(orgId) });
 }
@@ -209,6 +346,13 @@ function requireOrgId(orgId?: number): number {
     throw new Error("orgId is required");
   }
   return orgId;
+}
+
+function requireAssessmentId(assessmentId?: number): number {
+  if (!assessmentId) {
+    throw new Error("assessmentId is required");
+  }
+  return assessmentId;
 }
 
 export function useLaiaDashboard(orgId?: number) {
@@ -255,13 +399,27 @@ export function useLaiaMethodology(orgId?: number) {
   });
 }
 
-export function useLaiaAssessments(orgId?: number) {
+export function useLaiaAssessments(
+  orgId?: number,
+  filters?: LaiaAssessmentListFilters,
+) {
   return useQuery({
-    queryKey: laiaKeys.assessments(orgId || 0),
+    queryKey: laiaKeys.assessments(orgId || 0, filters),
     enabled: !!orgId,
     queryFn: () =>
       laiaRequest<LaiaAssessmentListItem[]>(
-        `/api/organizations/${orgId}/environmental/laia/assessments`,
+        `/api/organizations/${orgId}/environmental/laia/assessments${buildLaiaQueryString(filters)}`,
+      ),
+  });
+}
+
+export function useLaiaAssessment(orgId?: number, assessmentId?: number | null) {
+  return useQuery({
+    queryKey: laiaKeys.assessment(orgId || 0, assessmentId || 0),
+    enabled: !!orgId && !!assessmentId,
+    queryFn: () =>
+      laiaRequest<LaiaAssessmentDetail>(
+        `/api/organizations/${orgId}/environmental/laia/assessments/${assessmentId}`,
       ),
   });
 }
@@ -316,7 +474,11 @@ export function usePublishLaiaMethodology(orgId?: number) {
       notes?: string | null;
     }) => {
       const safeOrgId = requireOrgId(orgId);
-      return laiaRequest<{ methodologyId: number; activeVersionId: number; versionNumber: number }>(
+      return laiaRequest<{
+        methodologyId: number;
+        activeVersionId: number;
+        versionNumber: number;
+      }>(
         `/api/organizations/${safeOrgId}/environmental/laia/methodology`,
         {
           method: "PUT",
@@ -334,10 +496,32 @@ export function useCreateLaiaAssessment(orgId?: number) {
   return useMutation({
     mutationFn: (body: LaiaAssessmentInput) => {
       const safeOrgId = requireOrgId(orgId);
-      return laiaRequest<{ id: number }>(
+      return laiaRequest<LaiaAssessmentDetail>(
         `/api/organizations/${safeOrgId}/environmental/laia/assessments`,
         {
           method: "POST",
+          body: JSON.stringify(body),
+        },
+      );
+    },
+    onSuccess: async () => invalidateLaia(queryClient, orgId),
+  });
+}
+
+export function useUpdateLaiaAssessment(
+  orgId?: number,
+  assessmentId?: number | null,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: Partial<LaiaAssessmentInput>) => {
+      const safeOrgId = requireOrgId(orgId);
+      const safeAssessmentId = requireAssessmentId(assessmentId ?? undefined);
+      return laiaRequest<LaiaAssessmentDetail>(
+        `/api/organizations/${safeOrgId}/environmental/laia/assessments/${safeAssessmentId}`,
+        {
+          method: "PATCH",
           body: JSON.stringify(body),
         },
       );
@@ -351,7 +535,7 @@ export async function createLaiaMonitoringPlan(
   assessmentId: number,
   body: LaiaMonitoringPlanInput,
 ) {
-  return laiaRequest(
+  return laiaRequest<LaiaMonitoringPlan>(
     `/api/organizations/${orgId}/environmental/laia/assessments/${assessmentId}/monitoring-plans`,
     {
       method: "POST",
