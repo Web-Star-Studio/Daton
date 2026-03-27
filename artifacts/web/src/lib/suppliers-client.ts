@@ -43,6 +43,18 @@ export type SupplierDocumentRequirement = {
   updatedAt: string;
 };
 
+export type SupplierCatalogItem = {
+  id: number;
+  organizationId: number;
+  name: string;
+  offeringType: "product" | "service";
+  unitOfMeasure: string | null;
+  description: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type SupplierDocumentRequirementImportRow = {
   rowNumber: number;
   name: string;
@@ -157,6 +169,7 @@ export type SupplierListItem = {
 export type SupplierOffering = {
   id: number;
   supplierId: number;
+  catalogItemId: number | null;
   name: string;
   offeringType: "product" | "service";
   unitOfMeasure: string | null;
@@ -386,6 +399,7 @@ export const suppliersKeys = {
   categories: (orgId: number) => ["suppliers", orgId, "categories"] as const,
   types: (orgId: number) => ["suppliers", orgId, "types"] as const,
   requirements: (orgId: number) => ["suppliers", orgId, "requirements"] as const,
+  catalogItems: (orgId: number) => ["suppliers", orgId, "catalog-items"] as const,
   templates: (orgId: number) => ["suppliers", orgId, "templates"] as const,
 };
 
@@ -515,6 +529,36 @@ export function updateSupplierType(orgId: number, typeId: number, body: {
 
 export function listSupplierDocumentRequirements(orgId: number) {
   return apiJson<SupplierDocumentRequirement[]>(`/api/organizations/${orgId}/supplier-document-requirements`);
+}
+
+export function listSupplierCatalogItems(orgId: number) {
+  return apiJson<SupplierCatalogItem[]>(`/api/organizations/${orgId}/supplier-catalog-items`);
+}
+
+export function createSupplierCatalogItem(orgId: number, body: {
+  name: string;
+  offeringType: "product" | "service";
+  unitOfMeasure?: string | null;
+  description?: string | null;
+  status: string;
+}) {
+  return apiJson<SupplierCatalogItem>(`/api/organizations/${orgId}/supplier-catalog-items`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateSupplierCatalogItem(orgId: number, catalogItemId: number, body: {
+  name: string;
+  offeringType: "product" | "service";
+  unitOfMeasure?: string | null;
+  description?: string | null;
+  status: string;
+}) {
+  return apiJson<SupplierCatalogItem>(`/api/organizations/${orgId}/supplier-catalog-items/${catalogItemId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
 }
 
 export function createSupplierDocumentRequirement(orgId: number, body: {

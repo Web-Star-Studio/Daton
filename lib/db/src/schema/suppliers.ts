@@ -119,9 +119,24 @@ export const supplierTypeLinksTable = pgTable("supplier_type_links", {
   unique("supplier_type_link_unique").on(table.supplierId, table.typeId),
 ]);
 
+export const supplierCatalogItemsTable = pgTable("supplier_catalog_items", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
+  name: text("name").notNull(),
+  offeringType: text("offering_type").notNull().default("service"),
+  unitOfMeasure: text("unit_of_measure"),
+  description: text("description"),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  unique("supplier_catalog_item_org_name_unique").on(table.organizationId, table.name),
+]);
+
 export const supplierOfferingsTable = pgTable("supplier_offerings", {
   id: serial("id").primaryKey(),
   supplierId: integer("supplier_id").notNull().references(() => suppliersTable.id, { onDelete: "cascade" }),
+  catalogItemId: integer("catalog_item_id").references(() => supplierCatalogItemsTable.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   offeringType: text("offering_type").notNull().default("service"),
   unitOfMeasure: text("unit_of_measure"),

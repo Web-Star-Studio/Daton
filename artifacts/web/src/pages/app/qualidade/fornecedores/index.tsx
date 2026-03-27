@@ -394,6 +394,10 @@ export default function SuppliersPage() {
         <Tags className="mr-1.5 h-3.5 w-3.5" />
         Tipos
       </Button>
+      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/catalogo-itens")}>
+        <Package2 className="mr-1.5 h-3.5 w-3.5" />
+        Catálogo P/S
+      </Button>
       <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/categorias")}>
         <Settings2 className="mr-1.5 h-3.5 w-3.5" />
         Categorias

@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import {
   getSupplierDetail,
+  listSupplierCatalogItems,
   listSupplierCategories,
   listSupplierTypes,
   suppliersKeys,
@@ -43,6 +44,7 @@ type SupplierMasterForm = {
   categoryId: string;
   typeIds: number[];
   unitIds: number[];
+  catalogItemIds: number[];
   criticality: string;
   status: string;
   notes: string;
@@ -105,6 +107,11 @@ export default function SupplierMasterEditPage() {
     enabled: !!orgId,
     queryFn: () => listSupplierTypes(orgId!),
   });
+  const catalogItemsQuery = useQuery({
+    queryKey: suppliersKeys.catalogItems(orgId || 0),
+    enabled: !!orgId,
+    queryFn: () => listSupplierCatalogItems(orgId!),
+  });
   const unitsQuery = useListUnits(orgId!, {
     query: {
       queryKey: getListUnitsQueryKey(orgId!),
@@ -115,6 +122,7 @@ export default function SupplierMasterEditPage() {
   const detail = detailQuery.data;
   const categories = categoriesQuery.data || [];
   const types = typesQuery.data || [];
+  const catalogItems = catalogItemsQuery.data || [];
   const units = unitsQuery.data || [];
 
   useEffect(() => {
@@ -129,6 +137,9 @@ export default function SupplierMasterEditPage() {
       categoryId: detail.category ? String(detail.category.id) : "",
       typeIds: detail.types.map((type) => type.id),
       unitIds: detail.units.map((unit) => unit.id),
+      catalogItemIds: detail.offerings
+        .map((offering) => offering.catalogItemId)
+        .filter((catalogItemId): catalogItemId is number => catalogItemId !== null),
       criticality: detail.criticality,
       status: detail.status,
       notes: detail.notes || "",
@@ -168,6 +179,15 @@ export default function SupplierMasterEditPage() {
       })),
     [types],
   );
+  const catalogItemOptions = useMemo(
+    () =>
+      catalogItems.map((item) => ({
+        value: item.id,
+        label: item.name,
+        keywords: [item.offeringType, item.unitOfMeasure || "", item.status],
+      })),
+    [catalogItems],
+  );
 
   const updateForm = (updater: (current: SupplierMasterForm) => SupplierMasterForm) => {
     setForm((current) => (current ? updater(current) : current));
@@ -198,6 +218,7 @@ export default function SupplierMasterEditPage() {
         categoryId: form.categoryId ? Number(form.categoryId) : null,
         typeIds: form.typeIds,
         unitIds: form.unitIds,
+        catalogItemIds: form.catalogItemIds,
         criticality: form.criticality,
         status: form.status,
         notes: form.notes || null,
@@ -448,6 +469,27 @@ export default function SupplierMasterEditPage() {
                   </FieldContent>
                 </Field>
               </div>
+
+              <Field>
+                <FieldLabel>Produtos e serviços vinculados</FieldLabel>
+                <FieldContent>
+                  <SearchableMultiSelect
+                    options={catalogItemOptions}
+                    selected={form.catalogItemIds}
+                    onToggle={(id) =>
+                      updateForm((current) => ({
+                        ...current,
+                        catalogItemIds: current.catalogItemIds.includes(id)
+                          ? current.catalogItemIds.filter((value) => value !== id)
+                          : [...current.catalogItemIds, id],
+                      }))
+                    }
+                    placeholder="Selecione itens do catálogo"
+                    searchPlaceholder="Buscar item"
+                    emptyMessage="Nenhum item de catálogo encontrado."
+                  />
+                </FieldContent>
+              </Field>
 
               <Field>
                 <FieldLabel>Observações</FieldLabel>

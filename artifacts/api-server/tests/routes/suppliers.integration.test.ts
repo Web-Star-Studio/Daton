@@ -130,6 +130,91 @@ describe("suppliers routes", () => {
     expect(updated.body.status).toBe("inactive");
   });
 
+  it("reuses catalog items across suppliers and keeps downstream evaluations working", async () => {
+    const context = await createTestContext({ seed: "suppliers-catalog-items" });
+    contexts.push(context);
+
+    const category = await createSupplierCategory(context, "Insumos");
+    const type = await createSupplierType(context, {
+      name: "Fornecedor homologado",
+      categoryId: category.id,
+    });
+    const unit = await createUnit(context, "Matriz Catálogo");
+
+    const catalogItem = await request(app)
+      .post(`/api/organizations/${context.organizationId}/supplier-catalog-items`)
+      .set(authHeader(context))
+      .send({
+        name: "Kit de calibração",
+        offeringType: "product",
+        unitOfMeasure: "kit",
+        description: "Item reutilizável",
+        status: "active",
+      });
+
+    expect(catalogItem.status).toBe(201);
+
+    const firstSupplier = await request(app)
+      .post(`/api/organizations/${context.organizationId}/suppliers`)
+      .set(authHeader(context))
+      .send({
+        personType: "pj",
+        legalIdentifier: "11122233000144",
+        legalName: "Fornecedor catálogo A",
+        responsibleName: "Maria A",
+        email: "maria.a@example.com",
+        categoryId: category.id,
+        typeIds: [type.id],
+        unitIds: [unit.id],
+        catalogItemIds: [catalogItem.body.id],
+        status: "draft",
+        criticality: "medium",
+      });
+
+    const secondSupplier = await request(app)
+      .post(`/api/organizations/${context.organizationId}/suppliers`)
+      .set(authHeader(context))
+      .send({
+        personType: "pj",
+        legalIdentifier: "11122233000155",
+        legalName: "Fornecedor catálogo B",
+        responsibleName: "Maria B",
+        email: "maria.b@example.com",
+        categoryId: category.id,
+        typeIds: [type.id],
+        unitIds: [unit.id],
+        catalogItemIds: [catalogItem.body.id],
+        status: "draft",
+        criticality: "medium",
+      });
+
+    expect(firstSupplier.status).toBe(201);
+    expect(secondSupplier.status).toBe(201);
+    expect(firstSupplier.body.offerings).toHaveLength(1);
+    expect(secondSupplier.body.offerings).toHaveLength(1);
+    expect(firstSupplier.body.offerings[0].catalogItemId).toBe(catalogItem.body.id);
+    expect(secondSupplier.body.offerings[0].catalogItemId).toBe(catalogItem.body.id);
+
+    const performanceReview = await request(app)
+      .post(`/api/organizations/${context.organizationId}/suppliers/${firstSupplier.body.id}/performance-reviews`)
+      .set(authHeader(context))
+      .send({
+        offeringId: firstSupplier.body.offerings[0].id,
+        periodStart: "2026-01-01",
+        periodEnd: "2026-01-31",
+        qualityScore: 8,
+        deliveryScore: 9,
+        communicationScore: 8,
+        complianceScore: 9,
+        priceScore: 7,
+        conclusion: "maintain",
+        riskLevel: "low",
+      });
+
+    expect(performanceReview.status).toBe(201);
+    expect(performanceReview.body.offeringId).toBe(firstSupplier.body.offerings[0].id);
+  });
+
   it("previews, commits and exports the supplier document requirements catalog", async () => {
     const context = await createTestContext({ seed: "suppliers-document-import" });
     contexts.push(context);

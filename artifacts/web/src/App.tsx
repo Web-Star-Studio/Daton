@@ -34,6 +34,7 @@ import DocumentacaoPage from "@/pages/app/qualidade/documentacao";
 import DocumentDetailPage from "@/pages/app/qualidade/documentacao/[id]";
 import SuppliersPage from "@/pages/app/qualidade/fornecedores";
 import SupplierCategoriesPage from "@/pages/app/qualidade/fornecedores/categorias";
+import SupplierCatalogItemsPage from "@/pages/app/qualidade/fornecedores/catalogo-itens";
 import SupplierMasterEditPage from "@/pages/app/qualidade/fornecedores/[id]-cadastro";
 import SupplierDetailPage from "@/pages/app/qualidade/fornecedores/[id]";
 import SupplierDocumentRequirementsPage from "@/pages/app/qualidade/fornecedores/requisitos-documentais";
@@ -127,6 +128,7 @@ function AppPages() {
       <Route path="/qualidade/documentacao/:id" component={DocumentDetailPage} />
       <Route path="/qualidade/fornecedores" component={SuppliersPage} />
       <Route path="/qualidade/fornecedores/categorias" component={SupplierCategoriesPage} />
+      <Route path="/qualidade/fornecedores/catalogo-itens" component={SupplierCatalogItemsPage} />
       <Route path="/qualidade/fornecedores/tipos" component={SupplierTypesPage} />
       <Route path="/qualidade/fornecedores/requisitos-documentais" component={SupplierDocumentRequirementsPage} />
       <Route path="/qualidade/fornecedores/:id/cadastro" component={SupplierMasterEditPage} />
@@ -155,6 +157,7 @@ function AppPages() {
       <Route path="/app/qualidade/documentacao/:id" component={DocumentDetailPage} />
       <Route path="/app/qualidade/fornecedores" component={SuppliersPage} />
       <Route path="/app/qualidade/fornecedores/categorias" component={SupplierCategoriesPage} />
+      <Route path="/app/qualidade/fornecedores/catalogo-itens" component={SupplierCatalogItemsPage} />
       <Route path="/app/qualidade/fornecedores/tipos" component={SupplierTypesPage} />
       <Route path="/app/qualidade/fornecedores/requisitos-documentais" component={SupplierDocumentRequirementsPage} />
       <Route path="/app/qualidade/fornecedores/:id/cadastro" component={SupplierMasterEditPage} />

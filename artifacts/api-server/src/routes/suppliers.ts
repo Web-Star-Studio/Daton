@@ -8,6 +8,7 @@ import {
   suppliersTable,
   supplierUnitsTable,
   supplierTypeLinksTable,
+  supplierCatalogItemsTable,
   supplierOfferingsTable,
   supplierDocumentRequirementsTable,
   supplierDocumentSubmissionsTable,
@@ -90,6 +91,7 @@ const supplierBodySchema = z.object({
   notes: z.string().trim().optional().nullable(),
   unitIds: z.array(z.coerce.number().int().positive()).default([]),
   typeIds: z.array(z.coerce.number().int().positive()).default([]),
+  catalogItemIds: z.array(z.coerce.number().int().positive()).optional(),
 });
 
 const supplierImportBodySchema = z.object({
@@ -117,12 +119,16 @@ const supplierImportBodySchema = z.object({
   ).min(1),
 });
 
-const supplierOfferingBodySchema = z.object({
+const supplierCatalogItemBodySchema = z.object({
   name: z.string().trim().min(1),
   offeringType: z.enum(["product", "service"]),
   unitOfMeasure: z.string().trim().optional().nullable(),
   description: z.string().trim().optional().nullable(),
   status: z.enum(["active", "inactive"]).default("active"),
+});
+
+const supplierOfferingBodySchema = supplierCatalogItemBodySchema.extend({
+  catalogItemId: z.coerce.number().int().positive().nullable().optional(),
   isApprovedScope: z.boolean().default(false),
 });
 
@@ -637,6 +643,97 @@ async function ensureUnitsBelongToOrg(unitIds: number[], orgId: number): Promise
     .from(unitsTable)
     .where(and(eq(unitsTable.organizationId, orgId), inArray(unitsTable.id, unitIds)));
   return rows.length === unitIds.length;
+}
+
+async function ensureCatalogItemsBelongToOrg(catalogItemIds: number[], orgId: number): Promise<boolean> {
+  if (catalogItemIds.length === 0) return true;
+  const rows = await db
+    .select({ id: supplierCatalogItemsTable.id })
+    .from(supplierCatalogItemsTable)
+    .where(and(eq(supplierCatalogItemsTable.organizationId, orgId), inArray(supplierCatalogItemsTable.id, catalogItemIds)));
+  return rows.length === catalogItemIds.length;
+}
+
+async function syncSupplierCatalogAssociations(
+  tx: typeof db,
+  supplierId: number,
+  organizationId: number,
+  catalogItemIds: number[] | undefined,
+) {
+  if (!catalogItemIds) return;
+
+  const uniqueCatalogItemIds = Array.from(new Set(catalogItemIds));
+  const catalogItems = uniqueCatalogItemIds.length === 0
+    ? []
+    : await tx
+        .select()
+        .from(supplierCatalogItemsTable)
+        .where(
+          and(
+            eq(supplierCatalogItemsTable.organizationId, organizationId),
+            inArray(supplierCatalogItemsTable.id, uniqueCatalogItemIds),
+          ),
+        );
+
+  const catalogItemsById = new Map(catalogItems.map((item) => [item.id, item]));
+  const existingAssociations = await tx
+    .select({
+      id: supplierOfferingsTable.id,
+      catalogItemId: supplierOfferingsTable.catalogItemId,
+      isApprovedScope: supplierOfferingsTable.isApprovedScope,
+    })
+    .from(supplierOfferingsTable)
+    .where(eq(supplierOfferingsTable.supplierId, supplierId));
+
+  const existingByCatalogItemId = new Map(
+    existingAssociations
+      .filter((association) => association.catalogItemId !== null)
+      .map((association) => [association.catalogItemId as number, association]),
+  );
+
+  const catalogAssociationIdsToKeep = new Set(uniqueCatalogItemIds);
+  const associationIdsToDelete = existingAssociations
+    .filter(
+      (association) =>
+        association.catalogItemId !== null &&
+        !catalogAssociationIdsToKeep.has(association.catalogItemId),
+    )
+    .map((association) => association.id);
+
+  if (associationIdsToDelete.length > 0) {
+    await tx.delete(supplierOfferingsTable).where(inArray(supplierOfferingsTable.id, associationIdsToDelete));
+  }
+
+  for (const catalogItemId of uniqueCatalogItemIds) {
+    const catalogItem = catalogItemsById.get(catalogItemId);
+    if (!catalogItem) continue;
+
+    const existingAssociation = existingByCatalogItemId.get(catalogItemId);
+    if (existingAssociation) {
+      await tx
+        .update(supplierOfferingsTable)
+        .set({
+          name: catalogItem.name,
+          offeringType: catalogItem.offeringType,
+          unitOfMeasure: catalogItem.unitOfMeasure,
+          description: catalogItem.description,
+          status: catalogItem.status,
+        })
+        .where(eq(supplierOfferingsTable.id, existingAssociation.id));
+      continue;
+    }
+
+    await tx.insert(supplierOfferingsTable).values({
+      supplierId,
+      catalogItemId: catalogItem.id,
+      name: catalogItem.name,
+      offeringType: catalogItem.offeringType,
+      unitOfMeasure: catalogItem.unitOfMeasure,
+      description: catalogItem.description,
+      status: catalogItem.status,
+      isApprovedScope: 0,
+    });
+  }
 }
 
 async function ensureUserBelongsToOrg(userId: number | null | undefined, orgId: number): Promise<boolean> {
@@ -1251,6 +1348,95 @@ router.patch("/organizations/:orgId/supplier-types/:typeId", requireAuth, requir
   res.json(updated);
 });
 
+router.get("/organizations/:orgId/supplier-catalog-items", requireAuth, async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const rows = await db
+    .select()
+    .from(supplierCatalogItemsTable)
+    .where(eq(supplierCatalogItemsTable.organizationId, params.data.orgId))
+    .orderBy(supplierCatalogItemsTable.name);
+
+  res.json(rows);
+});
+
+router.post("/organizations/:orgId/supplier-catalog-items", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  const body = supplierCatalogItemBodySchema.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const [created] = await db
+    .insert(supplierCatalogItemsTable)
+    .values({
+      organizationId: params.data.orgId,
+      name: body.data.name,
+      offeringType: body.data.offeringType,
+      unitOfMeasure: normalizeOptionalString(body.data.unitOfMeasure),
+      description: normalizeOptionalString(body.data.description),
+      status: body.data.status,
+    })
+    .returning();
+
+  res.status(201).json(created);
+});
+
+router.patch("/organizations/:orgId/supplier-catalog-items/:catalogItemId", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
+  const params = z.object({
+    orgId: z.coerce.number().int().positive(),
+    catalogItemId: z.coerce.number().int().positive(),
+  }).safeParse(req.params);
+  const body = supplierCatalogItemBodySchema.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const [updated] = await db
+    .update(supplierCatalogItemsTable)
+    .set({
+      name: body.data.name,
+      offeringType: body.data.offeringType,
+      unitOfMeasure: normalizeOptionalString(body.data.unitOfMeasure),
+      description: normalizeOptionalString(body.data.description),
+      status: body.data.status,
+    })
+    .where(
+      and(
+        eq(supplierCatalogItemsTable.id, params.data.catalogItemId),
+        eq(supplierCatalogItemsTable.organizationId, params.data.orgId),
+      ),
+    )
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "Item de catálogo não encontrado" });
+    return;
+  }
+
+  await db
+    .update(supplierOfferingsTable)
+    .set({
+      name: updated.name,
+      offeringType: updated.offeringType,
+      unitOfMeasure: updated.unitOfMeasure,
+      description: updated.description,
+      status: updated.status,
+    })
+    .where(eq(supplierOfferingsTable.catalogItemId, updated.id));
+
+  res.json(updated);
+});
+
 router.get("/organizations/:orgId/supplier-document-requirements", requireAuth, async (req, res): Promise<void> => {
   const params = orgParamsSchema.safeParse(req.params);
   if (!params.success) {
@@ -1792,7 +1978,8 @@ router.post("/organizations/:orgId/suppliers", requireAuth, requireSupplierWrite
   const categoryOk = await ensureCategoryBelongsToOrg(body.data.categoryId, params.data.orgId);
   const typesOk = await ensureTypesBelongToOrg(body.data.typeIds, params.data.orgId);
   const unitsOk = await ensureUnitsBelongToOrg(body.data.unitIds, params.data.orgId);
-  if (!categoryOk || !typesOk || !unitsOk) {
+  const catalogItemsOk = await ensureCatalogItemsBelongToOrg(body.data.catalogItemIds || [], params.data.orgId);
+  if (!categoryOk || !typesOk || !unitsOk || !catalogItemsOk) {
     res.status(400).json({ error: "Referências inválidas para categoria, tipos ou unidades" });
     return;
   }
@@ -1843,6 +2030,8 @@ router.post("/organizations/:orgId/suppliers", requireAuth, requireSupplierWrite
       })));
     }
 
+    await syncSupplierCatalogAssociations(tx, created.id, params.data.orgId, body.data.catalogItemIds);
+
     return created;
   });
 
@@ -1884,7 +2073,8 @@ router.patch("/organizations/:orgId/suppliers/:supplierId", requireAuth, require
   const categoryOk = await ensureCategoryBelongsToOrg(body.data.categoryId, params.data.orgId);
   const typesOk = await ensureTypesBelongToOrg(body.data.typeIds, params.data.orgId);
   const unitsOk = await ensureUnitsBelongToOrg(body.data.unitIds, params.data.orgId);
-  if (!categoryOk || !typesOk || !unitsOk) {
+  const catalogItemsOk = await ensureCatalogItemsBelongToOrg(body.data.catalogItemIds || [], params.data.orgId);
+  if (!categoryOk || !typesOk || !unitsOk || !catalogItemsOk) {
     res.status(400).json({ error: "Referências inválidas para categoria, tipos ou unidades" });
     return;
   }
@@ -1933,6 +2123,8 @@ router.patch("/organizations/:orgId/suppliers/:supplierId", requireAuth, require
         typeId,
       })));
     }
+
+    await syncSupplierCatalogAssociations(tx, supplier.id, params.data.orgId, body.data.catalogItemIds);
   });
 
   const detail = await loadSupplierDetail(supplier.id, params.data.orgId);
@@ -1952,14 +2144,31 @@ router.post("/organizations/:orgId/suppliers/:supplierId/offerings", requireAuth
     res.status(404).json({ error: "Fornecedor não encontrado" });
     return;
   }
+  if (body.data.catalogItemId && !(await ensureCatalogItemsBelongToOrg([body.data.catalogItemId], params.data.orgId))) {
+    res.status(400).json({ error: "Item de catálogo inválido para esta organização" });
+    return;
+  }
+
+  const [catalogItem] = body.data.catalogItemId
+    ? await db
+        .select()
+        .from(supplierCatalogItemsTable)
+        .where(
+          and(
+            eq(supplierCatalogItemsTable.id, body.data.catalogItemId),
+            eq(supplierCatalogItemsTable.organizationId, params.data.orgId),
+          ),
+        )
+    : [];
 
   const [created] = await db.insert(supplierOfferingsTable).values({
     supplierId: supplier.id,
-    name: body.data.name,
-    offeringType: body.data.offeringType,
-    unitOfMeasure: normalizeOptionalString(body.data.unitOfMeasure),
-    description: normalizeOptionalString(body.data.description),
-    status: body.data.status,
+    catalogItemId: catalogItem?.id ?? null,
+    name: catalogItem?.name ?? body.data.name,
+    offeringType: catalogItem?.offeringType ?? body.data.offeringType,
+    unitOfMeasure: catalogItem?.unitOfMeasure ?? normalizeOptionalString(body.data.unitOfMeasure),
+    description: catalogItem?.description ?? normalizeOptionalString(body.data.description),
+    status: catalogItem?.status ?? body.data.status,
     isApprovedScope: body.data.isApprovedScope ? 1 : 0,
   }).returning();
 
@@ -1983,15 +2192,32 @@ router.patch("/organizations/:orgId/suppliers/:supplierId/offerings/:offeringId"
     res.status(404).json({ error: "Fornecedor não encontrado" });
     return;
   }
+  if (body.data.catalogItemId && !(await ensureCatalogItemsBelongToOrg([body.data.catalogItemId], params.data.orgId))) {
+    res.status(400).json({ error: "Item de catálogo inválido para esta organização" });
+    return;
+  }
+
+  const [catalogItem] = body.data.catalogItemId
+    ? await db
+        .select()
+        .from(supplierCatalogItemsTable)
+        .where(
+          and(
+            eq(supplierCatalogItemsTable.id, body.data.catalogItemId),
+            eq(supplierCatalogItemsTable.organizationId, params.data.orgId),
+          ),
+        )
+    : [];
 
   const [updated] = await db
     .update(supplierOfferingsTable)
     .set({
-      name: body.data.name,
-      offeringType: body.data.offeringType,
-      unitOfMeasure: normalizeOptionalString(body.data.unitOfMeasure),
-      description: normalizeOptionalString(body.data.description),
-      status: body.data.status,
+      catalogItemId: catalogItem?.id ?? null,
+      name: catalogItem?.name ?? body.data.name,
+      offeringType: catalogItem?.offeringType ?? body.data.offeringType,
+      unitOfMeasure: catalogItem?.unitOfMeasure ?? normalizeOptionalString(body.data.unitOfMeasure),
+      description: catalogItem?.description ?? normalizeOptionalString(body.data.description),
+      status: catalogItem?.status ?? body.data.status,
       isApprovedScope: body.data.isApprovedScope ? 1 : 0,
     })
     .where(and(eq(supplierOfferingsTable.id, params.data.offeringId), eq(supplierOfferingsTable.supplierId, supplier.id)))
