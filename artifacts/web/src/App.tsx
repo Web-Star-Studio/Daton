@@ -33,7 +33,10 @@ import LegislationDetailPage from "@/pages/app/qualidade/legislacoes/[id]";
 import DocumentacaoPage from "@/pages/app/qualidade/documentacao";
 import DocumentDetailPage from "@/pages/app/qualidade/documentacao/[id]";
 import SuppliersPage from "@/pages/app/qualidade/fornecedores";
+import SupplierCategoriesPage from "@/pages/app/qualidade/fornecedores/categorias";
 import SupplierDetailPage from "@/pages/app/qualidade/fornecedores/[id]";
+import SupplierDocumentRequirementsPage from "@/pages/app/qualidade/fornecedores/requisitos-documentais";
+import SupplierTypesPage from "@/pages/app/qualidade/fornecedores/tipos";
 import EnvironmentalLaiaPage from "@/pages/app/ambiental/laia";
 import ProfileSettingsPage from "@/pages/app/configuracoes/perfil";
 import SystemSettingsPage from "@/pages/app/configuracoes/sistema";
@@ -122,6 +125,9 @@ function AppPages() {
       <Route path="/qualidade/documentacao" component={DocumentacaoPage} />
       <Route path="/qualidade/documentacao/:id" component={DocumentDetailPage} />
       <Route path="/qualidade/fornecedores" component={SuppliersPage} />
+      <Route path="/qualidade/fornecedores/categorias" component={SupplierCategoriesPage} />
+      <Route path="/qualidade/fornecedores/tipos" component={SupplierTypesPage} />
+      <Route path="/qualidade/fornecedores/requisitos-documentais" component={SupplierDocumentRequirementsPage} />
       <Route path="/qualidade/fornecedores/:id" component={SupplierDetailPage} />
       <Route path="/ambiental/laia" component={EnvironmentalLaiaPage} />
       <Route path="/configuracoes/perfil" component={ProfileSettingsPage} />
@@ -146,6 +152,9 @@ function AppPages() {
       <Route path="/app/qualidade/documentacao" component={DocumentacaoPage} />
       <Route path="/app/qualidade/documentacao/:id" component={DocumentDetailPage} />
       <Route path="/app/qualidade/fornecedores" component={SuppliersPage} />
+      <Route path="/app/qualidade/fornecedores/categorias" component={SupplierCategoriesPage} />
+      <Route path="/app/qualidade/fornecedores/tipos" component={SupplierTypesPage} />
+      <Route path="/app/qualidade/fornecedores/requisitos-documentais" component={SupplierDocumentRequirementsPage} />
       <Route path="/app/qualidade/fornecedores/:id" component={SupplierDetailPage} />
       <Route path="/app/ambiental/laia" component={EnvironmentalLaiaPage} />
       <Route path="/app/configuracoes/perfil" component={ProfileSettingsPage} />

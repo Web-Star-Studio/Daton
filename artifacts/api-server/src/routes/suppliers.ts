@@ -25,6 +25,7 @@ import {
 import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
+const DEFAULT_SUPPLIER_DOCUMENT_THRESHOLD = 80;
 
 const orgParamsSchema = z.object({
   orgId: z.coerce.number().int().positive(),
@@ -58,6 +59,7 @@ const supplierCategoryBodySchema = z.object({
 const supplierTypeBodySchema = z.object({
   name: z.string().trim().min(1),
   description: z.string().trim().optional().nullable(),
+  documentThreshold: z.coerce.number().int().min(0).max(100).default(DEFAULT_SUPPLIER_DOCUMENT_THRESHOLD),
   status: z.enum(["active", "inactive"]).default("active"),
   categoryId: z.coerce.number().int().positive().nullable().optional(),
   parentTypeId: z.coerce.number().int().positive().nullable().optional(),
@@ -119,7 +121,6 @@ const supplierDocumentSubmissionBodySchema = z.object({
 });
 
 const supplierDocumentReviewBodySchema = z.object({
-  threshold: z.coerce.number().int().min(0).max(100).default(80),
   nextReviewDate: z.string().date().optional().nullable(),
   observations: z.string().trim().optional().nullable(),
 });
@@ -319,6 +320,20 @@ async function ensureReceiptCheckBelongsToSupplier(receiptCheckId: number | null
   return Boolean(receiptCheck);
 }
 
+async function resolveSupplierDocumentThreshold(supplierId: number): Promise<number> {
+  const rows = await db
+    .select({ documentThreshold: supplierTypesTable.documentThreshold })
+    .from(supplierTypeLinksTable)
+    .innerJoin(supplierTypesTable, eq(supplierTypeLinksTable.typeId, supplierTypesTable.id))
+    .where(eq(supplierTypeLinksTable.supplierId, supplierId));
+
+  if (rows.length === 0) {
+    return DEFAULT_SUPPLIER_DOCUMENT_THRESHOLD;
+  }
+
+  return rows.reduce((highest, row) => Math.max(highest, row.documentThreshold), 0);
+}
+
 async function preloadSupplierListData(
   suppliers: Array<{
     id: number;
@@ -463,7 +478,13 @@ async function loadSupplierDetail(supplierId: number, orgId: number) {
         .where(eq(supplierUnitsTable.supplierId, supplierId))
         .orderBy(unitsTable.name),
       db
-        .select({ id: supplierTypesTable.id, name: supplierTypesTable.name, categoryId: supplierTypesTable.categoryId, parentTypeId: supplierTypesTable.parentTypeId })
+        .select({
+          id: supplierTypesTable.id,
+          name: supplierTypesTable.name,
+          categoryId: supplierTypesTable.categoryId,
+          parentTypeId: supplierTypesTable.parentTypeId,
+          documentThreshold: supplierTypesTable.documentThreshold,
+        })
         .from(supplierTypeLinksTable)
         .innerJoin(supplierTypesTable, eq(supplierTypeLinksTable.typeId, supplierTypesTable.id))
         .where(eq(supplierTypeLinksTable.supplierId, supplierId))
@@ -1441,19 +1462,20 @@ router.post("/organizations/:orgId/suppliers/:supplierId/document-reviews", requ
     return;
   }
 
+  const threshold = await resolveSupplierDocumentThreshold(supplier.id);
   const included = submissions.filter((submission) => submission.submissionStatus !== "exempt");
   const totalPossible = included.reduce((sum, submission) => sum + submission.weight, 0);
   const points = included.reduce((sum, submission) => (
     submission.submissionStatus === "approved" ? sum + submission.weight : sum
   ), 0);
   const compliancePercentage = totalPossible === 0 ? 100 : Math.round((points / totalPossible) * 100);
-  const result = compliancePercentage >= body.data.threshold ? "apt" : "not_apt";
+  const result = compliancePercentage >= threshold ? "apt" : "not_apt";
 
   const [review] = await db.insert(supplierDocumentReviewsTable).values({
     supplierId: supplier.id,
     reviewedById: req.auth!.userId,
     compliancePercentage,
-    threshold: body.data.threshold,
+    threshold,
     result,
     nextReviewDate: body.data.nextReviewDate ?? null,
     criteriaSnapshot: submissions.map((submission) => ({

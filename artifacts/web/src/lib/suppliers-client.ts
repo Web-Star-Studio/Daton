@@ -24,6 +24,7 @@ export type SupplierType = {
   parentTypeId: number | null;
   name: string;
   description: string | null;
+  documentThreshold: number;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -238,7 +239,13 @@ export type SupplierDetail = {
   notes: string | null;
   category: { id: number; name: string } | null;
   units: Array<{ id: number; name: string }>;
-  types: Array<{ id: number; name: string; categoryId: number | null; parentTypeId: number | null }>;
+  types: Array<{
+    id: number;
+    name: string;
+    categoryId: number | null;
+    parentTypeId: number | null;
+    documentThreshold: number;
+  }>;
   offerings: SupplierOffering[];
   documentCompliancePercentage: number | null;
   documentReviewStatus: string | null;
@@ -339,6 +346,17 @@ export function createSupplierCategory(orgId: number, body: {
   });
 }
 
+export function updateSupplierCategory(orgId: number, categoryId: number, body: {
+  name: string;
+  description?: string | null;
+  status: string;
+}) {
+  return apiJson<SupplierCategory>(`/api/organizations/${orgId}/supplier-categories/${categoryId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
 export function listSupplierTypes(orgId: number) {
   return apiJson<SupplierType[]>(`/api/organizations/${orgId}/supplier-types`);
 }
@@ -347,11 +365,26 @@ export function createSupplierType(orgId: number, body: {
   name: string;
   description?: string | null;
   status: string;
+  documentThreshold: number;
   categoryId?: number | null;
   parentTypeId?: number | null;
 }) {
   return apiJson<SupplierType>(`/api/organizations/${orgId}/supplier-types`, {
     method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateSupplierType(orgId: number, typeId: number, body: {
+  name: string;
+  description?: string | null;
+  status: string;
+  documentThreshold: number;
+  categoryId?: number | null;
+  parentTypeId?: number | null;
+}) {
+  return apiJson<SupplierType>(`/api/organizations/${orgId}/supplier-types/${typeId}`, {
+    method: "PATCH",
     body: JSON.stringify(body),
   });
 }
@@ -372,6 +405,23 @@ export function createSupplierDocumentRequirement(orgId: number, body: {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export function updateSupplierDocumentRequirement(orgId: number, requirementId: number, body: {
+  name: string;
+  description?: string | null;
+  weight: number;
+  status: string;
+  categoryId?: number | null;
+  typeId?: number | null;
+}) {
+  return apiJson<SupplierDocumentRequirement>(
+    `/api/organizations/${orgId}/supplier-document-requirements/${requirementId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 export function listSupplierRequirementTemplates(orgId: number) {

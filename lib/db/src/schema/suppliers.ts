@@ -56,6 +56,7 @@ export const supplierTypesTable = pgTable("supplier_types", {
   parentTypeId: integer("parent_type_id").references((): AnyPgColumn => supplierTypesTable.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   description: text("description"),
+  documentThreshold: integer("document_threshold").notNull().default(80),
   status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

@@ -284,7 +284,6 @@ export default function SupplierDetailPage() {
     attachments: [] as SupplierAttachment[],
   });
   const [documentReviewForm, setDocumentReviewForm] = useState({
-    threshold: "80",
     nextReviewDate: "",
     observations: "",
   });
@@ -438,12 +437,11 @@ export default function SupplierDetailPage() {
   const documentReviewMutation = useMutation({
     mutationFn: () =>
       createSupplierDocumentReview(orgId!, supplierId, {
-        threshold: Number(documentReviewForm.threshold),
         nextReviewDate: documentReviewForm.nextReviewDate || null,
         observations: documentReviewForm.observations || null,
       }),
     onSuccess: () => {
-      setDocumentReviewForm({ threshold: "80", nextReviewDate: "", observations: "" });
+      setDocumentReviewForm({ nextReviewDate: "", observations: "" });
       refresh();
     },
   });
@@ -584,6 +582,16 @@ export default function SupplierDetailPage() {
     () => (detail?.offerings || []).map((offering) => ({ value: offering.id, label: offering.name })),
     [detail?.offerings],
   );
+  const appliedDocumentThreshold = useMemo(() => {
+    if (!detail || detail.types.length === 0) {
+      return 80;
+    }
+
+    return detail.types.reduce(
+      (highestThreshold, type) => Math.max(highestThreshold, type.documentThreshold),
+      0,
+    );
+  }, [detail]);
 
   const tabs = useMemo<SupplierTabConfig[]>(
     () => [
@@ -1358,7 +1366,7 @@ export default function SupplierDetailPage() {
                         <Badge variant="secondary">{review.compliancePercentage}%</Badge>
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        Threshold {review.threshold}% · próxima revisão {formatDate(review.nextReviewDate)}
+                        Threshold aplicado {review.threshold}% · próxima revisão {formatDate(review.nextReviewDate)}
                       </div>
                     </div>
                   ))}
@@ -1370,15 +1378,14 @@ export default function SupplierDetailPage() {
                       <FieldGroup>
                         <h3 className="font-medium">Registrar AVA1</h3>
                         <Field>
-                          <FieldLabel>Threshold (%)</FieldLabel>
+                          <FieldLabel>Threshold aplicado</FieldLabel>
                           <FieldContent>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={100}
-                              value={documentReviewForm.threshold}
-                              onChange={(event) => setDocumentReviewForm((current) => ({ ...current, threshold: event.target.value }))}
-                            />
+                            <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm">
+                              <span className="font-medium">{appliedDocumentThreshold}%</span>
+                              <span className="ml-2 text-muted-foreground">
+                                definido automaticamente pelos tipos vinculados ao fornecedor
+                              </span>
+                            </div>
                           </FieldContent>
                         </Field>
                         <Field>

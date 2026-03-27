@@ -19,19 +19,14 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import {
   createSupplier,
-  createSupplierCategory,
-  createSupplierDocumentRequirement,
   createSupplierRequirementTemplate,
-  createSupplierType,
   listSupplierCategories,
-  listSupplierDocumentRequirements,
-  listSupplierRequirementTemplates,
   listSupplierTypes,
   listSuppliers,
   suppliersKeys,
   type SupplierListItem,
 } from "@/lib/suppliers-client";
-import { Plus, Settings2, FileStack, ShieldCheck, Tags, Package2, Search, ChevronRight } from "lucide-react";
+import { Plus, ShieldCheck, Package2, Search, ChevronRight, FileStack, Tags, Settings2 } from "lucide-react";
 
 type SupplierFormState = {
   personType: "pj" | "pf";
@@ -113,22 +108,9 @@ export default function SuppliersPage() {
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
   const [createStep, setCreateStep] = useState(0);
   const [maxReachedCreateStep, setMaxReachedCreateStep] = useState(0);
-  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
-  const [typeDialogOpen, setTypeDialogOpen] = useState(false);
-  const [requirementDialogOpen, setRequirementDialogOpen] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
 
   const [supplierForm, setSupplierForm] = useState<SupplierFormState>(emptySupplierForm);
-  const [categoryForm, setCategoryForm] = useState({ name: "", description: "", status: "active" });
-  const [typeForm, setTypeForm] = useState({ name: "", description: "", status: "active", categoryId: "", parentTypeId: "" });
-  const [requirementForm, setRequirementForm] = useState({
-    name: "",
-    description: "",
-    weight: "1",
-    status: "active",
-    categoryId: "",
-    typeId: "",
-  });
   const [templateForm, setTemplateForm] = useState({
     title: "",
     content: "",
@@ -169,16 +151,6 @@ export default function SuppliersPage() {
     enabled: !!orgId,
     queryFn: () => listSupplierTypes(orgId!),
   });
-  const requirementsQuery = useQuery({
-    queryKey: suppliersKeys.requirements(orgId || 0),
-    enabled: !!orgId,
-    queryFn: () => listSupplierDocumentRequirements(orgId!),
-  });
-  const templatesQuery = useQuery({
-    queryKey: suppliersKeys.templates(orgId || 0),
-    enabled: !!orgId,
-    queryFn: () => listSupplierRequirementTemplates(orgId!),
-  });
   const unitsQuery = useListUnits(orgId!, {
     query: {
       queryKey: getListUnitsQueryKey(orgId!),
@@ -216,46 +188,6 @@ export default function SuppliersPage() {
     },
   });
 
-  const createCategoryMutation = useMutation({
-    mutationFn: () => createSupplierCategory(orgId!, categoryForm),
-    onSuccess: () => {
-      setCategoryDialogOpen(false);
-      setCategoryForm({ name: "", description: "", status: "active" });
-      queryClient.invalidateQueries({ queryKey: suppliersKeys.categories(orgId!) });
-    },
-  });
-
-  const createTypeMutation = useMutation({
-    mutationFn: () =>
-      createSupplierType(orgId!, {
-        ...typeForm,
-        categoryId: typeForm.categoryId ? Number(typeForm.categoryId) : null,
-        parentTypeId: typeForm.parentTypeId ? Number(typeForm.parentTypeId) : null,
-      }),
-    onSuccess: () => {
-      setTypeDialogOpen(false);
-      setTypeForm({ name: "", description: "", status: "active", categoryId: "", parentTypeId: "" });
-      queryClient.invalidateQueries({ queryKey: suppliersKeys.types(orgId!) });
-    },
-  });
-
-  const createRequirementMutation = useMutation({
-    mutationFn: () =>
-      createSupplierDocumentRequirement(orgId!, {
-        name: requirementForm.name,
-        description: requirementForm.description,
-        weight: Number(requirementForm.weight),
-        status: requirementForm.status,
-        categoryId: requirementForm.categoryId ? Number(requirementForm.categoryId) : null,
-        typeId: requirementForm.typeId ? Number(requirementForm.typeId) : null,
-      }),
-    onSuccess: () => {
-      setRequirementDialogOpen(false);
-      setRequirementForm({ name: "", description: "", weight: "1", status: "active", categoryId: "", typeId: "" });
-      queryClient.invalidateQueries({ queryKey: suppliersKeys.requirements(orgId!) });
-    },
-  });
-
   const createTemplateMutation = useMutation({
     mutationFn: () =>
       createSupplierRequirementTemplate(orgId!, {
@@ -275,8 +207,6 @@ export default function SuppliersPage() {
 
   const categories = categoriesQuery.data || [];
   const types = typesQuery.data || [];
-  const requirements = requirementsQuery.data || [];
-  const templates = templatesQuery.data || [];
   const suppliers = suppliersQuery.data || [];
   const units = unitsQuery.data || [];
 
@@ -310,21 +240,21 @@ export default function SuppliersPage() {
 
   const headerActions = canManageSuppliers ? (
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={() => setRequirementDialogOpen(true)}>
+      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/requisitos-documentais")}>
         <FileStack className="mr-1.5 h-3.5 w-3.5" />
-        Requisito documental
+        Requisitos documentais
       </Button>
       <Button variant="outline" size="sm" onClick={() => setTemplateDialogOpen(true)}>
         <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
         Template de requisito
       </Button>
-      <Button variant="outline" size="sm" onClick={() => setTypeDialogOpen(true)}>
+      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/tipos")}>
         <Tags className="mr-1.5 h-3.5 w-3.5" />
-        Tipo
+        Tipos
       </Button>
-      <Button variant="outline" size="sm" onClick={() => setCategoryDialogOpen(true)}>
+      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/categorias")}>
         <Settings2 className="mr-1.5 h-3.5 w-3.5" />
-        Categoria
+        Categorias
       </Button>
       <Button
         size="sm"
@@ -778,163 +708,6 @@ export default function SuppliersPage() {
               Criar fornecedor
             </Button>
           )}
-        </DialogFooter>
-      </Dialog>
-
-      {/* Category dialog */}
-      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen} title="Nova categoria" size="md">
-        <div className="grid grid-cols-1 gap-y-5">
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Nome</Label>
-            <Input
-              value={categoryForm.name}
-              onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))}
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-            <Textarea
-              value={categoryForm.description}
-              onChange={(event) => setCategoryForm((current) => ({ ...current, description: event.target.value }))}
-              className="mt-1"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>Cancelar</Button>
-          <Button onClick={() => createCategoryMutation.mutate()} isLoading={createCategoryMutation.isPending}>
-            Salvar categoria
-          </Button>
-        </DialogFooter>
-      </Dialog>
-
-      {/* Type dialog */}
-      <Dialog open={typeDialogOpen} onOpenChange={setTypeDialogOpen} title="Novo tipo" size="md">
-        <div className="grid grid-cols-1 gap-y-5">
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Nome</Label>
-            <Input
-              value={typeForm.name}
-              onChange={(event) => setTypeForm((current) => ({ ...current, name: event.target.value }))}
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Categoria</Label>
-            <Select
-              value={typeForm.categoryId}
-              onChange={(event) => setTypeForm((current) => ({ ...current, categoryId: event.target.value }))}
-              className="mt-1"
-            >
-              <option value="">Sem categoria</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Tipo pai</Label>
-            <Select
-              value={typeForm.parentTypeId}
-              onChange={(event) => setTypeForm((current) => ({ ...current, parentTypeId: event.target.value }))}
-              className="mt-1"
-            >
-              <option value="">Sem hierarquia</option>
-              {types.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-            <Textarea
-              value={typeForm.description}
-              onChange={(event) => setTypeForm((current) => ({ ...current, description: event.target.value }))}
-              className="mt-1"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setTypeDialogOpen(false)}>Cancelar</Button>
-          <Button onClick={() => createTypeMutation.mutate()} isLoading={createTypeMutation.isPending}>
-            Salvar tipo
-          </Button>
-        </DialogFooter>
-      </Dialog>
-
-      {/* Requirement dialog */}
-      <Dialog open={requirementDialogOpen} onOpenChange={setRequirementDialogOpen} title="Novo requisito documental" size="md">
-        <div className="space-y-5">
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Nome</Label>
-            <Input
-              value={requirementForm.name}
-              onChange={(event) => setRequirementForm((current) => ({ ...current, name: event.target.value }))}
-              className="mt-1"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Peso</Label>
-              <Input
-                type="number"
-                min={1}
-                max={5}
-                value={requirementForm.weight}
-                onChange={(event) => setRequirementForm((current) => ({ ...current, weight: event.target.value }))}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Categoria</Label>
-              <Select
-                value={requirementForm.categoryId}
-                onChange={(event) => setRequirementForm((current) => ({ ...current, categoryId: event.target.value }))}
-                className="mt-1"
-              >
-                <option value="">Sem categoria</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Tipo</Label>
-            <Select
-              value={requirementForm.typeId}
-              onChange={(event) => setRequirementForm((current) => ({ ...current, typeId: event.target.value }))}
-              className="mt-1"
-            >
-              <option value="">Sem tipo</option>
-              {types.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-            <Textarea
-              value={requirementForm.description}
-              onChange={(event) => setRequirementForm((current) => ({ ...current, description: event.target.value }))}
-              className="mt-1"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setRequirementDialogOpen(false)}>Cancelar</Button>
-          <Button onClick={() => createRequirementMutation.mutate()} isLoading={createRequirementMutation.isPending}>
-            Salvar requisito
-          </Button>
         </DialogFooter>
       </Dialog>
 

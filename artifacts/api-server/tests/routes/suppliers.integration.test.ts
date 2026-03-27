@@ -97,12 +97,50 @@ describe("suppliers routes", () => {
     expect(invalid.body.error).toContain("Referências inválidas");
   });
 
+  it("persists the document threshold on supplier types and keeps it editable via API", async () => {
+    const context = await createTestContext({ seed: "suppliers-type-threshold" });
+    contexts.push(context);
+    const category = await createSupplierCategory(context, "Serviços críticos");
+
+    const created = await request(app)
+      .post(`/api/organizations/${context.organizationId}/supplier-types`)
+      .set(authHeader(context))
+      .send({
+        name: "Laboratório externo",
+        categoryId: category.id,
+        documentThreshold: 92,
+        status: "active",
+      });
+
+    expect(created.status).toBe(201);
+    expect(created.body.documentThreshold).toBe(92);
+
+    const updated = await request(app)
+      .patch(`/api/organizations/${context.organizationId}/supplier-types/${created.body.id}`)
+      .set(authHeader(context))
+      .send({
+        name: "Laboratório externo",
+        categoryId: category.id,
+        documentThreshold: 88,
+        status: "inactive",
+      });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.documentThreshold).toBe(88);
+    expect(updated.body.status).toBe("inactive");
+  });
+
   it("requires an apt document review before qualification and updates supplier status", async () => {
     const context = await createTestContext({
       seed: "suppliers-qualification",
     });
     contexts.push(context);
     const category = await createSupplierCategory(context, "Materiais");
+    const type = await createSupplierType(context, {
+      name: "Fornecimento crítico",
+      categoryId: category.id,
+      documentThreshold: 90,
+    });
     const requirement = await createSupplierDocumentRequirement(context, {
       name: "Certidão fiscal",
       categoryId: category.id,
@@ -111,6 +149,7 @@ describe("suppliers routes", () => {
       legalIdentifier: `${context.prefix}-doc`,
       legalName: `Fornecedor documental ${context.prefix}`,
       categoryId: category.id,
+      typeIds: [type.id],
     });
     const offering = await createSupplierOffering(supplier.id, {
       name: "Insumo crítico",
@@ -153,11 +192,11 @@ describe("suppliers routes", () => {
       )
       .set(authHeader(context))
       .send({
-        threshold: 80,
         nextReviewDate: "2026-10-01",
       });
 
     expect(review.status).toBe(201);
+    expect(review.body.threshold).toBe(90);
 
     const afterReview = await getSupplierStatus(supplier.id);
     expect(afterReview?.documentReviewStatus).toBe("apt");
