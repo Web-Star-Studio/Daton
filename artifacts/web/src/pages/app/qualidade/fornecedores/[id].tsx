@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,17 +32,13 @@ import {
   createSupplierDocumentReview,
   createSupplierDocumentSubmission,
   createSupplierFailure,
-  createSupplierOffering,
   createSupplierPerformanceReview,
   createSupplierQualificationReview,
   createSupplierReceiptCheck,
   createSupplierRequirementCommunication,
   getSupplierDetail,
-  listSupplierCategories,
   listSupplierDocumentRequirements,
-  listSupplierTypes,
   suppliersKeys,
-  updateSupplier,
   type SupplierAttachment,
   type SupplierDetail,
 } from "@/lib/suppliers-client";
@@ -55,34 +51,10 @@ import {
   History,
   Package2,
   Receipt,
-  Save,
   ShieldCheck,
   Upload,
   X,
 } from "lucide-react";
-
-type SupplierProfileForm = {
-  personType: "pj" | "pf";
-  legalIdentifier: string;
-  legalName: string;
-  tradeName: string;
-  categoryId: string;
-  unitIds: number[];
-  typeIds: number[];
-  status: string;
-  criticality: string;
-  email: string;
-  phone: string;
-  website: string;
-  postalCode: string;
-  street: string;
-  streetNumber: string;
-  complement: string;
-  neighborhood: string;
-  city: string;
-  state: string;
-  notes: string;
-};
 
 type SupplierTabConfig = {
   value: "cadastro" | "documentos" | "homologacao" | "requisitos" | "desempenho" | "recebimentos" | "historico";
@@ -213,6 +185,23 @@ function criticalityLabel(criticality: SupplierDetail["criticality"]) {
   return labels[criticality];
 }
 
+function displayValue(value: string | number | null | undefined) {
+  if (value === null || value === undefined) return "—";
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : "—";
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: string | number | null | undefined }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-semibold text-muted-foreground">{label}</Label>
+      <div className="min-h-10 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm text-foreground">
+        {displayValue(value)}
+      </div>
+    </div>
+  );
+}
+
 export default function SupplierDetailPage() {
   const { id } = useParams<{ id: string }>();
   const supplierId = Number(id);
@@ -228,16 +217,6 @@ export default function SupplierDetailPage() {
     queryKey: suppliersKeys.detail(orgId || 0, supplierId),
     enabled: !!orgId && Number.isFinite(supplierId) && supplierId > 0,
     queryFn: () => getSupplierDetail(orgId!, supplierId),
-  });
-  const categoriesQuery = useQuery({
-    queryKey: suppliersKeys.categories(orgId || 0),
-    enabled: !!orgId,
-    queryFn: () => listSupplierCategories(orgId!),
-  });
-  const typesQuery = useQuery({
-    queryKey: suppliersKeys.types(orgId || 0),
-    enabled: !!orgId,
-    queryFn: () => listSupplierTypes(orgId!),
   });
   const requirementsQuery = useQuery({
     queryKey: suppliersKeys.requirements(orgId || 0),
@@ -258,21 +237,9 @@ export default function SupplierDetailPage() {
   });
 
   const detail = detailQuery.data;
-  const categories = categoriesQuery.data || [];
-  const types = typesQuery.data || [];
   const requirements = requirementsQuery.data || [];
   const units = unitsQuery.data || [];
   const users = usersQuery.data || [];
-
-  const [profileForm, setProfileForm] = useState<SupplierProfileForm | null>(null);
-  const [offeringForm, setOfferingForm] = useState({
-    name: "",
-    offeringType: "service",
-    unitOfMeasure: "",
-    description: "",
-    status: "active",
-    isApprovedScope: false,
-  });
   const [documentSubmissionForm, setDocumentSubmissionForm] = useState({
     requirementId: "",
     submissionStatus: "pending",
@@ -335,36 +302,6 @@ export default function SupplierDetailPage() {
     status: "open",
   });
 
-  const updateProfileForm = (updater: (current: SupplierProfileForm) => SupplierProfileForm) => {
-    setProfileForm((current) => (current ? updater(current) : current));
-  };
-
-  useEffect(() => {
-    if (!detail) return;
-    setProfileForm({
-      personType: detail.personType,
-      legalIdentifier: detail.legalIdentifier,
-      legalName: detail.legalName,
-      tradeName: detail.tradeName || "",
-      categoryId: detail.category ? String(detail.category.id) : "",
-      unitIds: detail.units.map((unit) => unit.id),
-      typeIds: detail.types.map((type) => type.id),
-      status: detail.status,
-      criticality: detail.criticality,
-      email: detail.email || "",
-      phone: detail.phone || "",
-      website: detail.website || "",
-      postalCode: detail.postalCode || "",
-      street: detail.street || "",
-      streetNumber: detail.streetNumber || "",
-      complement: detail.complement || "",
-      neighborhood: detail.neighborhood || "",
-      city: detail.city || "",
-      state: detail.state || "",
-      notes: detail.notes || "",
-    });
-  }, [detail]);
-
   usePageTitle(detail ? detail.tradeName || detail.legalName : "Fornecedor");
   usePageSubtitle(detail ? `${detail.legalIdentifier} · ${statusLabel(detail.status)}` : undefined);
 
@@ -374,43 +311,6 @@ export default function SupplierDetailPage() {
     queryClient.invalidateQueries({ queryKey: suppliersKeys.detail(orgId!, supplierId) });
     queryClient.invalidateQueries({ queryKey: suppliersKeys.list(orgId!, {}) });
   };
-
-  const updateSupplierMutation = useMutation({
-    mutationFn: () => {
-      if (!profileForm) {
-        throw new Error("Fornecedor ainda nao carregado.");
-      }
-
-      return updateSupplier(orgId!, supplierId, {
-        ...profileForm,
-        categoryId: profileForm.categoryId ? Number(profileForm.categoryId) : null,
-        unitIds: profileForm.unitIds,
-        typeIds: profileForm.typeIds,
-      });
-    },
-    onSuccess: refresh,
-    onError: (error) =>
-      toast({
-        title: "Falha ao salvar cadastro",
-        description: error instanceof Error ? error.message : "Tente novamente.",
-        variant: "destructive",
-      }),
-  });
-
-  const offeringMutation = useMutation({
-    mutationFn: () => createSupplierOffering(orgId!, supplierId, offeringForm),
-    onSuccess: () => {
-      setOfferingForm({
-        name: "",
-        offeringType: "service",
-        unitOfMeasure: "",
-        description: "",
-        status: "active",
-        isApprovedScope: false,
-      });
-      refresh();
-    },
-  });
 
   const documentSubmissionMutation = useMutation({
     mutationFn: () =>
@@ -570,14 +470,6 @@ export default function SupplierDetailPage() {
     },
   });
 
-  const typeOptions = useMemo(
-    () => types.map((type) => ({ value: type.id, label: type.name })),
-    [types],
-  );
-  const unitOptions = useMemo(
-    () => units.map((unit) => ({ value: unit.id, label: unit.name })),
-    [units],
-  );
   const offeringOptions = useMemo(
     () => (detail?.offerings || []).map((offering) => ({ value: offering.id, label: offering.name })),
     [detail?.offerings],
@@ -644,24 +536,9 @@ export default function SupplierDetailPage() {
     const renderActiveTabActions = () => {
       if (activeTab === "cadastro" && canManageGeneral) {
         return (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => offeringMutation.mutate()}
-              isLoading={offeringMutation.isPending}
-            >
-              Adicionar item
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => updateSupplierMutation.mutate()}
-              isLoading={updateSupplierMutation.isPending}
-            >
-              <Save className="mr-1.5 h-3.5 w-3.5" />
-              Salvar cadastro
-            </Button>
-          </>
+          <Link href={`/app/qualidade/fornecedores/${supplierId}/cadastro`}>
+            <Button size="sm">Alterar cadastro</Button>
+          </Link>
         );
       }
 
@@ -767,16 +644,14 @@ export default function SupplierDetailPage() {
     documentSubmissionMutation,
     failureMutation,
     handleReceiptSubmit,
-    offeringMutation,
     performanceMutation,
     qualificationMutation,
     receiptMutation,
-    updateSupplierMutation,
   ]);
 
   useHeaderActions(headerActions);
 
-  if (detailQuery.isLoading || !profileForm) {
+  if (detailQuery.isLoading) {
     return <div className="text-sm text-muted-foreground">Carregando fornecedor…</div>;
   }
 
@@ -874,269 +749,51 @@ export default function SupplierDetailPage() {
                 <CardTitle>Cadastro mestre</CardTitle>
               </CardHeader>
               <CardContent>
-                <FieldSet>
-                  <FieldGroup>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <Field>
-                        <FieldLabel>Tipo de pessoa</FieldLabel>
-                        <FieldContent>
-                          <Select
-                            value={profileForm.personType}
-                            onChange={(event) =>
-                              updateProfileForm((current) => ({ ...current, personType: event.target.value as "pj" | "pf" }))
-                            }
-                            disabled={!canManageGeneral}
-                          >
-                            <option value="pj">Pessoa jurídica</option>
-                            <option value="pf">Pessoa física</option>
-                          </Select>
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>{profileForm.personType === "pj" ? "CNPJ" : "CPF"}</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.legalIdentifier}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, legalIdentifier: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>{profileForm.personType === "pj" ? "Razão social" : "Nome completo"}</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.legalName}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, legalName: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Nome fantasia</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.tradeName}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, tradeName: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Categoria</FieldLabel>
-                        <FieldContent>
-                          <Select
-                            value={profileForm.categoryId}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, categoryId: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          >
-                            <option value="">Sem categoria</option>
-                            {categories.map((category) => (
-                              <option key={category.id} value={category.id}>
-                                {category.name}
-                              </option>
-                            ))}
-                          </Select>
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Status</FieldLabel>
-                        <FieldContent>
-                          <Select
-                            value={profileForm.status}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, status: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          >
-                            <option value="draft">Rascunho</option>
-                            <option value="pending_qualification">Pendente</option>
-                            <option value="approved">Aprovado</option>
-                            <option value="restricted">Restrito</option>
-                            <option value="blocked">Bloqueado</option>
-                            <option value="expired">Vencido</option>
-                            <option value="inactive">Inativo</option>
-                          </Select>
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Criticidade</FieldLabel>
-                        <FieldContent>
-                          <Select
-                            value={profileForm.criticality}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, criticality: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          >
-                            <option value="low">Baixa</option>
-                            <option value="medium">Média</option>
-                            <option value="high">Alta</option>
-                          </Select>
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>E-mail</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            type="email"
-                            value={profileForm.email}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, email: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Telefone</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            type="tel"
-                            value={profileForm.phone}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, phone: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Website</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            type="url"
-                            value={profileForm.website}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, website: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>CEP</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.postalCode}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, postalCode: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                    </div>
+                <div className="space-y-6">
+                  <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                    O cadastro mestre agora é consultivo nesta tela. Para alterar dados cadastrais, use a ação
+                    <span className="font-medium text-foreground"> Alterar cadastro</span> no topo da página.
+                  </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <Field>
-                        <FieldLabel>Unidades</FieldLabel>
-                        <FieldContent>
-                          <SearchableMultiSelect
-                            options={unitOptions}
-                            selected={profileForm.unitIds}
-                            onToggle={(id) =>
-                              updateProfileForm((current) => ({
-                                ...current,
-                                unitIds: current.unitIds.includes(id)
-                                  ? current.unitIds.filter((value) => value !== id)
-                                  : [...current.unitIds, id],
-                              }))
-                            }
-                            placeholder="Selecione unidades"
-                            searchPlaceholder="Buscar unidade"
-                            emptyMessage="Nenhuma unidade encontrada."
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Tipos</FieldLabel>
-                        <FieldContent>
-                          <SearchableMultiSelect
-                            options={typeOptions}
-                            selected={profileForm.typeIds}
-                            onToggle={(id) =>
-                              updateProfileForm((current) => ({
-                                ...current,
-                                typeIds: current.typeIds.includes(id)
-                                  ? current.typeIds.filter((value) => value !== id)
-                                  : [...current.typeIds, id],
-                              }))
-                            }
-                            placeholder="Selecione tipos"
-                            searchPlaceholder="Buscar tipo"
-                            emptyMessage="Nenhum tipo encontrado."
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                    </div>
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <ReadOnlyField label="Tipo de pessoa" value={personTypeLabel(detail.personType)} />
+                    <ReadOnlyField label={detail.personType === "pj" ? "CNPJ" : "CPF"} value={detail.legalIdentifier} />
+                    <ReadOnlyField label={detail.personType === "pj" ? "Razão social" : "Nome completo"} value={detail.legalName} />
+                    <ReadOnlyField label="Nome fantasia" value={detail.tradeName} />
+                    <ReadOnlyField label="Responsável" value={detail.responsibleName} />
+                    <ReadOnlyField label="Status cadastral" value={statusLabel(detail.status)} />
+                    <ReadOnlyField label="Categoria" value={detail.category?.name} />
+                    <ReadOnlyField label="Criticidade" value={criticalityLabel(detail.criticality)} />
+                    <ReadOnlyField
+                      label="Tipos de fornecedor"
+                      value={detail.types.map((type) => type.name).join(", ")}
+                    />
+                    <ReadOnlyField
+                      label="Unidades vinculadas"
+                      value={detail.units.map((unit) => unit.name).join(", ")}
+                    />
+                    <ReadOnlyField label="Inscrição estadual" value={detail.stateRegistration} />
+                    <ReadOnlyField label="Inscrição municipal" value={detail.municipalRegistration} />
+                    <ReadOnlyField label="RG" value={detail.rg} />
+                    <ReadOnlyField label="E-mail" value={detail.email} />
+                    <ReadOnlyField label="Telefone" value={detail.phone} />
+                    <ReadOnlyField label="Website" value={detail.website} />
+                    <ReadOnlyField label="CEP" value={detail.postalCode} />
+                    <ReadOnlyField label="Logradouro" value={detail.street} />
+                    <ReadOnlyField label="Número" value={detail.streetNumber} />
+                    <ReadOnlyField label="Complemento" value={detail.complement} />
+                    <ReadOnlyField label="Bairro" value={detail.neighborhood} />
+                    <ReadOnlyField label="Cidade" value={detail.city} />
+                    <ReadOnlyField label="UF" value={detail.state} />
+                  </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <Field>
-                        <FieldLabel>Rua</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.street}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, street: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Número</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.streetNumber}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, streetNumber: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Complemento</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.complement}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, complement: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Bairro</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.neighborhood}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, neighborhood: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Cidade</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.city}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, city: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>UF</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.state}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, state: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground">Observações</Label>
+                    <div className="min-h-24 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm text-foreground">
+                      {displayValue(detail.notes)}
                     </div>
-
-                    <Field>
-                      <FieldLabel>Observações</FieldLabel>
-                      <FieldContent>
-                        <Textarea
-                          rows={4}
-                          value={profileForm.notes}
-                          onChange={(event) => updateProfileForm((current) => ({ ...current, notes: event.target.value }))}
-                          disabled={!canManageGeneral}
-                        />
-                      </FieldContent>
-                    </Field>
-                  </FieldGroup>
-                </FieldSet>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -1172,68 +829,6 @@ export default function SupplierDetailPage() {
                     <p className="text-sm text-muted-foreground">Nenhum produto ou serviço cadastrado.</p>
                   ) : null}
                 </div>
-
-                {canManageGeneral ? (
-                  <div className="mt-5 border-t border-border/50 pt-5">
-                    <FieldSet>
-                      <FieldGroup>
-                        <h3 className="font-medium">Novo item</h3>
-                        <Field>
-                          <FieldContent>
-                            <Input
-                              placeholder="Nome do produto ou serviço"
-                              value={offeringForm.name}
-                              onChange={(event) => setOfferingForm((current) => ({ ...current, name: event.target.value }))}
-                            />
-                          </FieldContent>
-                        </Field>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <Field>
-                            <FieldLabel>Tipo</FieldLabel>
-                            <FieldContent>
-                              <Select
-                                value={offeringForm.offeringType}
-                                onChange={(event) => setOfferingForm((current) => ({ ...current, offeringType: event.target.value }))}
-                              >
-                                <option value="service">Serviço</option>
-                                <option value="product">Produto</option>
-                              </Select>
-                            </FieldContent>
-                          </Field>
-                          <Field>
-                            <FieldLabel>Unidade de medida</FieldLabel>
-                            <FieldContent>
-                              <Input
-                                placeholder="Unidade de medida"
-                                value={offeringForm.unitOfMeasure}
-                                onChange={(event) => setOfferingForm((current) => ({ ...current, unitOfMeasure: event.target.value }))}
-                              />
-                            </FieldContent>
-                          </Field>
-                        </div>
-                        <Field>
-                          <FieldContent>
-                            <Textarea
-                              placeholder="Descrição"
-                              value={offeringForm.description}
-                              onChange={(event) => setOfferingForm((current) => ({ ...current, description: event.target.value }))}
-                            />
-                          </FieldContent>
-                        </Field>
-                        <Field orientation="horizontal">
-                          <Checkbox
-                            id="offering-approved-scope"
-                            checked={offeringForm.isApprovedScope}
-                            onCheckedChange={(checked) =>
-                              setOfferingForm((current) => ({ ...current, isApprovedScope: checked === true }))
-                            }
-                          />
-                          <FieldLabel htmlFor="offering-approved-scope">Marcar como escopo aprovado</FieldLabel>
-                        </Field>
-                      </FieldGroup>
-                    </FieldSet>
-                  </div>
-                ) : null}
               </CardContent>
             </Card>
           </div>

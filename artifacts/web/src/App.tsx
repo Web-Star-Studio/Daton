@@ -34,6 +34,7 @@ import DocumentacaoPage from "@/pages/app/qualidade/documentacao";
 import DocumentDetailPage from "@/pages/app/qualidade/documentacao/[id]";
 import SuppliersPage from "@/pages/app/qualidade/fornecedores";
 import SupplierCategoriesPage from "@/pages/app/qualidade/fornecedores/categorias";
+import SupplierMasterEditPage from "@/pages/app/qualidade/fornecedores/[id]-cadastro";
 import SupplierDetailPage from "@/pages/app/qualidade/fornecedores/[id]";
 import SupplierDocumentRequirementsPage from "@/pages/app/qualidade/fornecedores/requisitos-documentais";
 import SupplierTypesPage from "@/pages/app/qualidade/fornecedores/tipos";
@@ -128,6 +129,7 @@ function AppPages() {
       <Route path="/qualidade/fornecedores/categorias" component={SupplierCategoriesPage} />
       <Route path="/qualidade/fornecedores/tipos" component={SupplierTypesPage} />
       <Route path="/qualidade/fornecedores/requisitos-documentais" component={SupplierDocumentRequirementsPage} />
+      <Route path="/qualidade/fornecedores/:id/cadastro" component={SupplierMasterEditPage} />
       <Route path="/qualidade/fornecedores/:id" component={SupplierDetailPage} />
       <Route path="/ambiental/laia" component={EnvironmentalLaiaPage} />
       <Route path="/configuracoes/perfil" component={ProfileSettingsPage} />
@@ -155,6 +157,7 @@ function AppPages() {
       <Route path="/app/qualidade/fornecedores/categorias" component={SupplierCategoriesPage} />
       <Route path="/app/qualidade/fornecedores/tipos" component={SupplierTypesPage} />
       <Route path="/app/qualidade/fornecedores/requisitos-documentais" component={SupplierDocumentRequirementsPage} />
+      <Route path="/app/qualidade/fornecedores/:id/cadastro" component={SupplierMasterEditPage} />
       <Route path="/app/qualidade/fornecedores/:id" component={SupplierDetailPage} />
       <Route path="/app/ambiental/laia" component={EnvironmentalLaiaPage} />
       <Route path="/app/configuracoes/perfil" component={ProfileSettingsPage} />

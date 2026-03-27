@@ -32,6 +32,11 @@ import {
   type SupplierImportPreview,
   type SupplierListItem,
 } from "@/lib/suppliers-client";
+import {
+  formatSupplierLegalIdentifier,
+  formatSupplierPostalCode,
+  supplierLegalIdentifierPlaceholder,
+} from "@/lib/supplier-formatters";
 import { downloadSuppliersWorkbook, parseSuppliersWorkbook } from "@/lib/suppliers-workbook";
 import {
   Download,
@@ -51,6 +56,7 @@ type SupplierFormState = {
   legalIdentifier: string;
   legalName: string;
   tradeName: string;
+  responsibleName: string;
   categoryId: string;
   unitIds: number[];
   typeIds: number[];
@@ -68,6 +74,7 @@ const emptySupplierForm: SupplierFormState = {
   legalIdentifier: "",
   legalName: "",
   tradeName: "",
+  responsibleName: "",
   categoryId: "",
   unitIds: [],
   typeIds: [],
@@ -421,6 +428,7 @@ export default function SuppliersPage() {
       legalIdentifier: supplierForm.legalIdentifier,
       legalName: supplierForm.legalName,
       tradeName: supplierForm.tradeName || null,
+      responsibleName: supplierForm.responsibleName || null,
       categoryId: supplierForm.categoryId ? Number(supplierForm.categoryId) : null,
       unitIds: supplierForm.unitIds,
       typeIds: supplierForm.typeIds,
@@ -428,6 +436,7 @@ export default function SuppliersPage() {
       criticality: supplierForm.criticality,
       email: supplierForm.email || null,
       phone: supplierForm.phone || null,
+      postalCode: supplierForm.postalCode || null,
       city: supplierForm.city || null,
       state: supplierForm.state || null,
       notes: supplierForm.notes || null,
@@ -646,7 +655,16 @@ export default function SuppliersPage() {
               <Label className="text-xs font-semibold text-muted-foreground">Tipo de pessoa</Label>
               <Select
                 value={supplierForm.personType}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, personType: event.target.value as "pj" | "pf" }))}
+                onChange={(event) =>
+                  setSupplierForm((current) => {
+                    const nextPersonType = event.target.value as "pj" | "pf";
+                    return {
+                      ...current,
+                      personType: nextPersonType,
+                      legalIdentifier: formatSupplierLegalIdentifier(current.legalIdentifier, nextPersonType),
+                    };
+                  })
+                }
                 className="mt-1"
               >
                 <option value="pj">Pessoa jurídica</option>
@@ -657,9 +675,14 @@ export default function SuppliersPage() {
               <Label className="text-xs font-semibold text-muted-foreground">{supplierForm.personType === "pj" ? "CNPJ" : "CPF"}</Label>
               <Input
                 value={supplierForm.legalIdentifier}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, legalIdentifier: event.target.value }))}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({
+                    ...current,
+                    legalIdentifier: formatSupplierLegalIdentifier(event.target.value, current.personType),
+                  }))
+                }
                 className="mt-1"
-                placeholder={supplierForm.personType === "pj" ? "00.000.000/0000-00" : "000.000.000-00"}
+                placeholder={supplierLegalIdentifierPlaceholder(supplierForm.personType)}
               />
             </div>
             <div>
@@ -678,6 +701,17 @@ export default function SuppliersPage() {
                 onChange={(event) => setSupplierForm((current) => ({ ...current, tradeName: event.target.value }))}
                 className="mt-1"
                 placeholder="Nome comercial"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Responsável {supplierForm.personType === "pj" ? "*" : ""}
+              </Label>
+              <Input
+                value={supplierForm.responsibleName}
+                onChange={(event) => setSupplierForm((current) => ({ ...current, responsibleName: event.target.value }))}
+                className="mt-1"
+                placeholder="Responsável pelo cadastro"
               />
             </div>
           </div>
@@ -779,7 +813,7 @@ export default function SuppliersPage() {
                 value={supplierForm.email}
                 onChange={(event) => setSupplierForm((current) => ({ ...current, email: event.target.value }))}
                 className="mt-1"
-                placeholder="contato@empresa.com"
+                placeholder={supplierForm.personType === "pj" ? "contato@empresa.com" : "Opcional"}
               />
             </div>
             <div>
@@ -804,8 +838,21 @@ export default function SuppliersPage() {
               <Label className="text-xs font-semibold text-muted-foreground">UF</Label>
               <Input
                 value={supplierForm.state}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, state: event.target.value }))}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({ ...current, state: event.target.value.toUpperCase().slice(0, 2) }))
+                }
                 className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">CEP</Label>
+              <Input
+                value={supplierForm.postalCode}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({ ...current, postalCode: formatSupplierPostalCode(event.target.value) }))
+                }
+                className="mt-1"
+                placeholder="00000-000"
               />
             </div>
             <div className="col-span-2">
