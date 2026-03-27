@@ -35,7 +35,6 @@ import {
   createSupplierPerformanceReview,
   createSupplierQualificationReview,
   createSupplierReceiptCheck,
-  createSupplierRequirementCommunication,
   getSupplierDetail,
   listSupplierDocumentRequirements,
   reviewSupplierDocumentSubmission,
@@ -58,7 +57,7 @@ import {
 } from "lucide-react";
 
 type SupplierTabConfig = {
-  value: "cadastro" | "documentos" | "homologacao" | "requisitos" | "desempenho" | "recebimentos" | "historico";
+  value: "cadastro" | "documentos" | "homologacao" | "recebimentos" | "historico" | "desempenho";
   label: string;
   icon: typeof ClipboardList;
   count?: number;
@@ -222,6 +221,15 @@ function documentAdequacyLabel(status: string) {
   return labels[status] || status;
 }
 
+function qualificationDecisionLabel(decision: string) {
+  const labels: Record<string, string> = {
+    approved: "Homologado",
+    approved_with_conditions: "Homologado com condições",
+    rejected: "Não homologado",
+  };
+  return labels[decision] || decision;
+}
+
 export default function SupplierDetailPage() {
   const { id } = useParams<{ id: string }>();
   const supplierId = Number(id);
@@ -290,11 +298,6 @@ export default function SupplierDetailPage() {
     notes: "",
     approvedOfferingIds: [] as number[],
     attachments: [] as SupplierAttachment[],
-  });
-  const [communicationForm, setCommunicationForm] = useState({
-    templateId: "",
-    status: "linked",
-    notes: "",
   });
   const [performanceForm, setPerformanceForm] = useState({
     offeringId: "",
@@ -439,19 +442,6 @@ export default function SupplierDetailPage() {
     },
   });
 
-  const communicationMutation = useMutation({
-    mutationFn: () =>
-      createSupplierRequirementCommunication(orgId!, supplierId, {
-        templateId: Number(communicationForm.templateId),
-        status: communicationForm.status,
-        notes: communicationForm.notes || null,
-      }),
-    onSuccess: () => {
-      setCommunicationForm({ templateId: "", status: "linked", notes: "" });
-      refresh();
-    },
-  });
-
   const performanceMutation = useMutation({
     mutationFn: () =>
       createSupplierPerformanceReview(orgId!, supplierId, {
@@ -587,18 +577,6 @@ export default function SupplierDetailPage() {
         count: detail?.qualificationReviews.length || 0,
       },
       {
-        value: "requisitos",
-        label: "Requisitos",
-        icon: ShieldCheck,
-        count: detail?.requirements.communications.length || 0,
-      },
-      {
-        value: "desempenho",
-        label: "Desempenho",
-        icon: ClipboardList,
-        count: detail?.performanceReviews.length || 0,
-      },
-      {
         value: "recebimentos",
         label: "Recebimentos",
         icon: Receipt,
@@ -609,6 +587,12 @@ export default function SupplierDetailPage() {
         label: "Histórico",
         icon: History,
         count: detail?.failures.length || 0,
+      },
+      {
+        value: "desempenho",
+        label: "Desempenho",
+        icon: ClipboardList,
+        count: detail?.performanceReviews.length || 0,
       },
     ],
     [detail],
@@ -658,18 +642,6 @@ export default function SupplierDetailPage() {
             isLoading={qualificationMutation.isPending}
           >
             Registrar homologação
-          </Button>
-        );
-      }
-
-      if (activeTab === "requisitos" && canManageGeneral) {
-        return (
-          <Button
-            size="sm"
-            onClick={() => communicationMutation.mutate()}
-            isLoading={communicationMutation.isPending}
-          >
-            Registrar comunicação
           </Button>
         );
       }
@@ -724,7 +696,6 @@ export default function SupplierDetailPage() {
     activeTab,
     canManageGeneral,
     canManageReceipts,
-    communicationMutation,
     detail,
     documentReviewMutation,
     documentSubmissionMutation,
@@ -800,7 +771,9 @@ export default function SupplierDetailPage() {
           <CardContent className="pt-6">
             <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Homologação</p>
             <p className="mt-3 text-2xl font-semibold">{detail.qualificationReviews.length}</p>
-            <p className="mt-2 text-sm text-muted-foreground">Válida até {formatDate(detail.qualifiedUntil)}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Decisão final sobre o fornecedor e o escopo aprovado
+            </p>
           </CardContent>
         </Card>
         <Card className={sectionCardClass}>
@@ -1319,17 +1292,21 @@ export default function SupplierDetailPage() {
           <Card className={sectionCardClass}>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Homologação e qualificação</CardTitle>
+                <CardTitle>Decisão final de homologação</CardTitle>
                 <Badge variant="secondary">{detail.qualificationReviews.length} revisão(ões)</Badge>
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid items-start gap-4 xl:grid-cols-[1.2fr_1fr]">
                 <div className="space-y-3">
+                  <div className={cn(nestedPanelClass, "p-4 text-sm text-muted-foreground")}>
+                    A homologação registra a decisão final do fornecedor após a análise documental
+                    (AVA1) e define quais itens permanecem aprovados para operação.
+                  </div>
                   {detail.qualificationReviews.map((review) => (
                     <div key={review.id} className={cn(nestedPanelClass, "p-3")}>
                       <div className="flex items-center justify-between gap-3">
-                        <div className="font-medium">{review.decision}</div>
+                        <div className="font-medium">{qualificationDecisionLabel(review.decision)}</div>
                         <Badge variant="secondary">{formatDate(review.validUntil)}</Badge>
                       </div>
                       {review.notes ? <p className="mt-2 text-sm text-muted-foreground">{review.notes}</p> : null}
@@ -1404,91 +1381,6 @@ export default function SupplierDetailPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* ── Requisitos ── */}
-        <TabsContent value="requisitos">
-          <div className="grid items-start gap-6 xl:grid-cols-[1.2fr_1fr]">
-            <Card className={sectionCardClass}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Comunicações registradas</CardTitle>
-                  <Badge variant="secondary">{detail.requirements.communications.length}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {detail.requirements.communications.map((communication) => (
-                    <div key={communication.id} className={cn(nestedPanelClass, "p-3")}>
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="font-medium">
-                          {communication.templateTitle} · v{communication.templateVersion}
-                        </div>
-                        <Badge variant="secondary">{communication.status}</Badge>
-                      </div>
-                      {communication.notes ? (
-                        <p className="mt-2 text-sm text-muted-foreground">{communication.notes}</p>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {canManageGeneral ? (
-              <Card className={sectionCardClass}>
-                <CardHeader>
-                  <CardTitle>Vincular requisito</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <FieldSet>
-                    <FieldGroup>
-                      <Field>
-                        <FieldLabel>Template</FieldLabel>
-                        <FieldContent>
-                          <Select
-                            value={communicationForm.templateId}
-                            onChange={(event) => setCommunicationForm((current) => ({ ...current, templateId: event.target.value }))}
-                          >
-                            <option value="">Selecione um template</option>
-                            {detail.requirements.templates.map((template) => (
-                              <option key={template.id} value={template.id}>
-                                {template.title} · v{template.version}
-                              </option>
-                            ))}
-                          </Select>
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Status</FieldLabel>
-                        <FieldContent>
-                          <Select
-                            value={communicationForm.status}
-                            onChange={(event) => setCommunicationForm((current) => ({ ...current, status: event.target.value }))}
-                          >
-                            <option value="linked">Vinculado</option>
-                            <option value="sent">Enviado</option>
-                            <option value="acknowledged">Ciente</option>
-                            <option value="superseded">Substituído</option>
-                          </Select>
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Notas</FieldLabel>
-                        <FieldContent>
-                          <Textarea
-                            placeholder="Notas da comunicação"
-                            value={communicationForm.notes}
-                            onChange={(event) => setCommunicationForm((current) => ({ ...current, notes: event.target.value }))}
-                          />
-                        </FieldContent>
-                      </Field>
-                    </FieldGroup>
-                  </FieldSet>
-                </CardContent>
-              </Card>
-            ) : null}
-          </div>
         </TabsContent>
 
         {/* ── Desempenho ── */}
@@ -1979,7 +1871,7 @@ export default function SupplierDetailPage() {
                   </div>
                   {detail.qualificationReviews.slice(0, 3).map((review) => (
                     <div key={`qual-${review.id}`} className="text-sm text-muted-foreground">
-                      Homologação {review.decision} em {formatDate(review.createdAt)}
+                      Homologação: {qualificationDecisionLabel(review.decision)} em {formatDate(review.createdAt)}
                     </div>
                   ))}
                   {detail.performanceReviews.slice(0, 3).map((review) => (

@@ -152,7 +152,7 @@ export default function SuppliersPage() {
   const canManageSuppliers = role === "org_admin" || role === "platform_admin";
 
   usePageTitle("Fornecedores");
-  usePageSubtitle("Cadastro, homologação, requisitos, desempenho e recebimento.");
+  usePageSubtitle("Cadastro, documentos, homologação, recebimentos, histórico e desempenho.");
 
   const supplierFilters = useMemo(
     () => ({
