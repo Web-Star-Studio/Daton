@@ -2,6 +2,18 @@ import express, { type Express } from "express";
 import cors from "cors";
 import router from "./routes";
 
+function isDevLoopbackOrigin(origin: string) {
+  try {
+    const parsed = new URL(origin);
+    return (
+      (parsed.protocol === "http:" || parsed.protocol === "https:") &&
+      (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1")
+    );
+  } catch {
+    return false;
+  }
+}
+
 function getAllowedOrigins(): string[] {
   const allowedOrigins = new Set<string>();
 
@@ -43,7 +55,8 @@ app.use(
       if (
         !origin ||
         allowedOrigins.length === 0 ||
-        allowedOrigins.includes(origin)
+        allowedOrigins.includes(origin) ||
+        (process.env.NODE_ENV !== "production" && isDevLoopbackOrigin(origin))
       ) {
         callback(null, true);
         return;

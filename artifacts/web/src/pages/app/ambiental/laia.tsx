@@ -488,6 +488,7 @@ export default function EnvironmentalLaiaPage() {
     useState<AssessmentFormState>(DEFAULT_ASSESSMENT_FORM);
 
   const isHydratingAssessmentRef = useRef(false);
+  const hydratedAssessmentIdRef = useRef<number | null>(null);
   const draftAutosaveErrorShownRef = useRef(false);
 
   const assessmentFilters = useMemo(
@@ -556,6 +557,7 @@ export default function EnvironmentalLaiaPage() {
   );
 
   const openAssessmentDialog = (session: AssessmentDialogSession) => {
+    hydratedAssessmentIdRef.current = null;
     setAssessmentSession(session);
     setAssessmentDialogOpen(true);
   };
@@ -583,6 +585,7 @@ export default function EnvironmentalLaiaPage() {
   };
 
   const resetAssessmentDialog = () => {
+    hydratedAssessmentIdRef.current = null;
     setAssessmentSession({
       mode: "create",
       assessmentId: null,
@@ -650,10 +653,20 @@ export default function EnvironmentalLaiaPage() {
   );
 
   useEffect(() => {
+    if (!assessmentDialogOpen) {
+      hydratedAssessmentIdRef.current = null;
+      return;
+    }
+
     if (!orgId || !assessmentDialogOpen) return;
 
     if (assessmentSession.assessmentId && assessmentDetail) {
+      if (hydratedAssessmentIdRef.current === assessmentSession.assessmentId) {
+        return;
+      }
+
       isHydratingAssessmentRef.current = true;
+      hydratedAssessmentIdRef.current = assessmentSession.assessmentId;
       setAssessmentForm(detailToAssessmentForm(assessmentDetail));
 
       const cached = readDraftCache(orgId);
@@ -671,6 +684,7 @@ export default function EnvironmentalLaiaPage() {
     }
 
     if (!assessmentSession.assessmentId) {
+      hydratedAssessmentIdRef.current = null;
       hydrateLocalDraft();
     }
   }, [
