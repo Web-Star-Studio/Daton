@@ -72,6 +72,7 @@ export const suppliersTable = pgTable("suppliers", {
   legalIdentifier: text("legal_identifier").notNull(),
   legalName: text("legal_name").notNull(),
   tradeName: text("trade_name"),
+  responsibleName: text("responsible_name"),
   stateRegistration: text("state_registration"),
   municipalRegistration: text("municipal_registration"),
   rg: text("rg"),

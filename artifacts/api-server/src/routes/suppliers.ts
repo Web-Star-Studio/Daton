@@ -71,6 +71,7 @@ const supplierBodySchema = z.object({
   legalIdentifier: z.string().trim().min(1),
   legalName: z.string().trim().min(1),
   tradeName: z.string().trim().optional().nullable(),
+  responsibleName: z.string().trim().optional().nullable(),
   stateRegistration: z.string().trim().optional().nullable(),
   municipalRegistration: z.string().trim().optional().nullable(),
   rg: z.string().trim().optional().nullable(),
@@ -89,6 +90,31 @@ const supplierBodySchema = z.object({
   notes: z.string().trim().optional().nullable(),
   unitIds: z.array(z.coerce.number().int().positive()).default([]),
   typeIds: z.array(z.coerce.number().int().positive()).default([]),
+});
+
+const supplierImportBodySchema = z.object({
+  rows: z.array(
+    z.object({
+      rowNumber: z.coerce.number().int().positive().optional(),
+      legalIdentifier: z.unknown().optional(),
+      personType: z.unknown().optional(),
+      legalName: z.unknown().optional(),
+      tradeName: z.unknown().optional(),
+      responsibleName: z.unknown().optional(),
+      phone: z.unknown().optional(),
+      email: z.unknown().optional(),
+      postalCode: z.unknown().optional(),
+      street: z.unknown().optional(),
+      streetNumber: z.unknown().optional(),
+      neighborhood: z.unknown().optional(),
+      city: z.unknown().optional(),
+      state: z.unknown().optional(),
+      unitNames: z.unknown().optional(),
+      categoryName: z.unknown().optional(),
+      typeNames: z.unknown().optional(),
+      notes: z.unknown().optional(),
+    }),
+  ).min(1),
 });
 
 const supplierOfferingBodySchema = z.object({
@@ -279,6 +305,248 @@ async function previewSupplierDocumentRequirementImport(
       weight: Number.isInteger(parsedWeight) ? parsedWeight : null,
       action,
       existingRequirementId: existingRequirement?.id ?? null,
+      errors,
+    };
+  });
+
+  return {
+    rows: previewRows,
+    summary: {
+      totalRows: previewRows.length,
+      createCount: previewRows.filter((row) => row.action === "create").length,
+      updateCount: previewRows.filter((row) => row.action === "update").length,
+      errorCount: previewRows.filter((row) => row.errors.length > 0).length,
+    },
+  };
+}
+
+function normalizeDigits(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function formatLegalIdentifier(value: string, personType: "pj" | "pf") {
+  const digits = normalizeDigits(value);
+  if (personType === "pj" && digits.length === 14) {
+    return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+  }
+  if (personType === "pf" && digits.length === 11) {
+    return digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+  }
+  return value;
+}
+
+function formatPostalCode(value: string | null | undefined) {
+  if (!value) return "";
+  const digits = normalizeDigits(value);
+  if (digits.length === 8) {
+    return digits.replace(/^(\d{5})(\d{3})$/, "$1-$2");
+  }
+  return value;
+}
+
+function normalizePersonType(value: unknown): "pj" | "pf" | null {
+  const normalized = normalizeImportCell(value).toLocaleLowerCase("pt-BR");
+  if (normalized === "pj" || normalized === "pessoa jurídica" || normalized === "pessoa juridica") {
+    return "pj";
+  }
+  if (normalized === "pf" || normalized === "pessoa física" || normalized === "pessoa fisica") {
+    return "pf";
+  }
+  return null;
+}
+
+function splitImportList(value: unknown) {
+  return normalizeImportCell(value)
+    .split(/[;,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+async function previewSupplierImport(
+  orgId: number,
+  rows: Array<{
+    rowNumber?: number;
+    legalIdentifier?: unknown;
+    personType?: unknown;
+    legalName?: unknown;
+    tradeName?: unknown;
+    responsibleName?: unknown;
+    phone?: unknown;
+    email?: unknown;
+    postalCode?: unknown;
+    street?: unknown;
+    streetNumber?: unknown;
+    neighborhood?: unknown;
+    city?: unknown;
+    state?: unknown;
+    unitNames?: unknown;
+    categoryName?: unknown;
+    typeNames?: unknown;
+    notes?: unknown;
+  }>,
+) {
+  const [existingSuppliers, units, categories, types] = await Promise.all([
+    db
+      .select({
+        id: suppliersTable.id,
+        legalIdentifier: suppliersTable.legalIdentifier,
+      })
+      .from(suppliersTable)
+      .where(eq(suppliersTable.organizationId, orgId)),
+    db
+      .select({ id: unitsTable.id, name: unitsTable.name })
+      .from(unitsTable)
+      .where(eq(unitsTable.organizationId, orgId)),
+    db
+      .select({ id: supplierCategoriesTable.id, name: supplierCategoriesTable.name })
+      .from(supplierCategoriesTable)
+      .where(eq(supplierCategoriesTable.organizationId, orgId)),
+    db
+      .select({ id: supplierTypesTable.id, name: supplierTypesTable.name })
+      .from(supplierTypesTable)
+      .where(eq(supplierTypesTable.organizationId, orgId)),
+  ]);
+
+  const suppliersByIdentifier = new Map(
+    existingSuppliers.map((supplier) => [normalizeDigits(supplier.legalIdentifier), supplier]),
+  );
+  const unitsByName = new Map(units.map((unit) => [normalizeRequirementKey(unit.name), unit]));
+  const categoriesByName = new Map(categories.map((category) => [normalizeRequirementKey(category.name), category]));
+  const typesByName = new Map(types.map((type) => [normalizeRequirementKey(type.name), type]));
+  const seenIdentifiers = new Map<string, number>();
+
+  const previewRows = rows.map((row, index) => {
+    const rowNumber = row.rowNumber ?? index + 2;
+    const personType = normalizePersonType(row.personType);
+    const legalIdentifier = normalizeImportCell(row.legalIdentifier);
+    const legalIdentifierDigits = normalizeDigits(legalIdentifier);
+    const legalName = normalizeImportCell(row.legalName);
+    const tradeName = normalizeOptionalString(normalizeImportCell(row.tradeName));
+    const responsibleName = normalizeOptionalString(normalizeImportCell(row.responsibleName));
+    const phone = normalizeOptionalString(normalizeImportCell(row.phone));
+    const email = normalizeOptionalString(normalizeImportCell(row.email));
+    const postalCode = normalizeOptionalString(normalizeImportCell(row.postalCode));
+    const street = normalizeOptionalString(normalizeImportCell(row.street));
+    const streetNumber = normalizeOptionalString(normalizeImportCell(row.streetNumber));
+    const neighborhood = normalizeOptionalString(normalizeImportCell(row.neighborhood));
+    const city = normalizeOptionalString(normalizeImportCell(row.city));
+    const state = normalizeOptionalString(normalizeImportCell(row.state));
+    const categoryName = normalizeImportCell(row.categoryName);
+    const unitNames = splitImportList(row.unitNames);
+    const typeNames = splitImportList(row.typeNames);
+    const notes = normalizeOptionalString(normalizeImportCell(row.notes));
+    const errors: string[] = [];
+
+    if (!personType) {
+      errors.push("Informe o tipo como PF ou PJ.");
+    }
+    if (!legalIdentifierDigits) {
+      errors.push("Informe o CNPJ/CPF.");
+    }
+    if (personType === "pj" && legalIdentifierDigits.length !== 14) {
+      errors.push("CNPJ inválido. Informe 14 dígitos.");
+    }
+    if (personType === "pf" && legalIdentifierDigits.length !== 11) {
+      errors.push("CPF inválido. Informe 11 dígitos.");
+    }
+    if (!legalName) {
+      errors.push("Informe a razão social ou nome.");
+    }
+    if (!phone) {
+      errors.push("Informe o telefone.");
+    }
+    if (!postalCode) {
+      errors.push("Informe o CEP.");
+    }
+    if (!street) {
+      errors.push("Informe o logradouro.");
+    }
+    if (!streetNumber) {
+      errors.push("Informe o número.");
+    }
+    if (!neighborhood) {
+      errors.push("Informe o bairro.");
+    }
+    if (!city) {
+      errors.push("Informe a cidade.");
+    }
+    if (!state) {
+      errors.push("Informe o estado.");
+    }
+    if (!categoryName) {
+      errors.push("Informe a categoria.");
+    }
+    if (unitNames.length === 0) {
+      errors.push("Informe ao menos uma unidade de negócio.");
+    }
+    if (typeNames.length === 0) {
+      errors.push("Informe ao menos um tipo de fornecedor.");
+    }
+    if (personType === "pj" && !responsibleName) {
+      errors.push("Informe o responsável para fornecedores PJ.");
+    }
+    if (personType === "pj" && !email) {
+      errors.push("Informe o email para fornecedores PJ.");
+    }
+    if (email && !z.string().email().safeParse(email).success) {
+      errors.push("Email inválido.");
+    }
+
+    const duplicateRow = legalIdentifierDigits ? seenIdentifiers.get(legalIdentifierDigits) : undefined;
+    if (legalIdentifierDigits) {
+      if (duplicateRow) {
+        errors.push(`Documento fiscal repetido na planilha. A primeira ocorrência está na linha ${duplicateRow}.`);
+      } else {
+        seenIdentifiers.set(legalIdentifierDigits, rowNumber);
+      }
+    }
+
+    const category = categoryName ? categoriesByName.get(normalizeRequirementKey(categoryName)) : undefined;
+    if (categoryName && !category) {
+      errors.push(`Categoria não encontrada: ${categoryName}.`);
+    }
+
+    const unitIds = unitNames.map((name) => unitsByName.get(normalizeRequirementKey(name))?.id ?? null);
+    unitNames.forEach((name, index) => {
+      if (!unitIds[index]) {
+        errors.push(`Unidade de negócio não encontrada: ${name}.`);
+      }
+    });
+
+    const typeIds = typeNames.map((name) => typesByName.get(normalizeRequirementKey(name))?.id ?? null);
+    typeNames.forEach((name, index) => {
+      if (!typeIds[index]) {
+        errors.push(`Tipo de fornecedor não encontrado: ${name}.`);
+      }
+    });
+
+    const existingSupplier = legalIdentifierDigits
+      ? suppliersByIdentifier.get(legalIdentifierDigits)
+      : undefined;
+    const action = errors.length > 0 ? "invalid" : existingSupplier ? "update" : "create";
+
+    return {
+      rowNumber,
+      action,
+      personType,
+      legalIdentifier,
+      legalIdentifierDigits,
+      legalName,
+      tradeName,
+      responsibleName,
+      phone,
+      email,
+      postalCode,
+      street,
+      streetNumber,
+      neighborhood,
+      city,
+      state,
+      notes,
+      categoryId: category?.id ?? null,
+      unitIds: unitIds.filter((value): value is number => Boolean(value)),
+      typeIds: typeIds.filter((value): value is number => Boolean(value)),
+      existingSupplierId: existingSupplier?.id ?? null,
       errors,
     };
   });
@@ -731,6 +999,7 @@ async function loadSupplierDetail(supplierId: number, orgId: number) {
     legalIdentifier: supplier.legalIdentifier,
     legalName: supplier.legalName,
     tradeName: supplier.tradeName,
+    responsibleName: supplier.responsibleName,
     stateRegistration: supplier.stateRegistration,
     municipalRegistration: supplier.municipalRegistration,
     rg: supplier.rg,
@@ -1283,6 +1552,7 @@ router.get("/organizations/:orgId/suppliers", requireAuth, async (req, res): Pro
       legalIdentifier: suppliersTable.legalIdentifier,
       legalName: suppliersTable.legalName,
       tradeName: suppliersTable.tradeName,
+      responsibleName: suppliersTable.responsibleName,
       status: suppliersTable.status,
       criticality: suppliersTable.criticality,
       documentCompliancePercentage: suppliersTable.documentCompliancePercentage,
@@ -1324,6 +1594,7 @@ router.get("/organizations/:orgId/suppliers", requireAuth, async (req, res): Pro
     legalIdentifier: supplier.legalIdentifier,
     legalName: supplier.legalName,
     tradeName: supplier.tradeName,
+    responsibleName: supplier.responsibleName,
     status: supplier.status,
     criticality: supplier.criticality,
     category: supplier.categoryId ? preloaded.categoriesById.get(supplier.categoryId) ?? null : null,
@@ -1339,6 +1610,174 @@ router.get("/organizations/:orgId/suppliers", requireAuth, async (req, res): Pro
   }));
 
   res.json(items);
+});
+
+router.get("/organizations/:orgId/suppliers/export", requireAuth, async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const rows = await db
+    .select({
+      id: suppliersTable.id,
+      categoryId: suppliersTable.categoryId,
+      personType: suppliersTable.personType,
+      legalIdentifier: suppliersTable.legalIdentifier,
+      legalName: suppliersTable.legalName,
+      tradeName: suppliersTable.tradeName,
+      responsibleName: suppliersTable.responsibleName,
+      phone: suppliersTable.phone,
+      email: suppliersTable.email,
+      postalCode: suppliersTable.postalCode,
+      street: suppliersTable.street,
+      streetNumber: suppliersTable.streetNumber,
+      neighborhood: suppliersTable.neighborhood,
+      city: suppliersTable.city,
+      state: suppliersTable.state,
+      notes: suppliersTable.notes,
+    })
+    .from(suppliersTable)
+    .where(eq(suppliersTable.organizationId, params.data.orgId))
+    .orderBy(suppliersTable.legalName);
+
+  const preloaded = await preloadSupplierListData(rows.map((row) => ({
+    id: row.id,
+    categoryId: row.categoryId,
+  })));
+
+  res.json({
+    rows: rows.map((row) => ({
+      legalIdentifier: formatLegalIdentifier(row.legalIdentifier, row.personType),
+      personType: row.personType.toUpperCase(),
+      legalName: row.legalName,
+      tradeName: row.tradeName ?? "",
+      responsibleName: row.responsibleName ?? "",
+      phone: row.phone ?? "",
+      email: row.email ?? "",
+      postalCode: formatPostalCode(row.postalCode),
+      street: row.street ?? "",
+      streetNumber: row.streetNumber ?? "",
+      neighborhood: row.neighborhood ?? "",
+      city: row.city ?? "",
+      state: row.state ?? "",
+      unitNames: (preloaded.unitsBySupplierId.get(row.id) ?? []).map((unit) => unit.name).join(", "),
+      categoryName: row.categoryId ? preloaded.categoriesById.get(row.categoryId)?.name ?? "" : "",
+      typeNames: (preloaded.typesBySupplierId.get(row.id) ?? []).map((type) => type.name).join(", "),
+      notes: row.notes ?? "",
+    })),
+  });
+});
+
+router.post("/organizations/:orgId/suppliers/import-preview", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  const body = supplierImportBodySchema.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const preview = await previewSupplierImport(params.data.orgId, body.data.rows);
+  res.json(preview);
+});
+
+router.post("/organizations/:orgId/suppliers/import-commit", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  const body = supplierImportBodySchema.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const preview = await previewSupplierImport(params.data.orgId, body.data.rows);
+  if (preview.summary.errorCount > 0) {
+    res.status(400).json({
+      error: "A importação contém linhas inválidas. Corrija a planilha e gere uma nova prévia.",
+      preview,
+    });
+    return;
+  }
+
+  const validRows = preview.rows.filter((row) => row.action === "create" || row.action === "update");
+
+  await db.transaction(async (tx) => {
+    for (const row of validRows) {
+      const payload = {
+        categoryId: row.categoryId,
+        personType: row.personType ?? "pj",
+        legalIdentifier: row.legalIdentifier,
+        legalName: row.legalName,
+        tradeName: row.tradeName,
+        responsibleName: row.responsibleName,
+        email: row.email,
+        phone: row.phone,
+        postalCode: row.postalCode,
+        street: row.street,
+        streetNumber: row.streetNumber,
+        neighborhood: row.neighborhood,
+        city: row.city,
+        state: row.state,
+        notes: row.notes,
+      };
+
+      let supplierId = row.existingSupplierId;
+      if (row.action === "update" && supplierId) {
+        const [updated] = await tx
+          .update(suppliersTable)
+          .set(payload)
+          .where(
+            and(
+              eq(suppliersTable.id, supplierId),
+              eq(suppliersTable.organizationId, params.data.orgId),
+            ),
+          )
+          .returning({ id: suppliersTable.id });
+        supplierId = updated?.id ?? supplierId;
+      } else {
+        const [created] = await tx
+          .insert(suppliersTable)
+          .values({
+            organizationId: params.data.orgId,
+            createdById: req.auth!.userId,
+            status: "draft",
+            criticality: "medium",
+            ...payload,
+          })
+          .returning({ id: suppliersTable.id });
+        supplierId = created.id;
+      }
+
+      await tx.delete(supplierUnitsTable).where(eq(supplierUnitsTable.supplierId, supplierId));
+      if (row.unitIds.length > 0) {
+        await tx.insert(supplierUnitsTable).values(
+          row.unitIds.map((unitId) => ({
+            supplierId,
+            unitId,
+          })),
+        );
+      }
+
+      await tx.delete(supplierTypeLinksTable).where(eq(supplierTypeLinksTable.supplierId, supplierId));
+      if (row.typeIds.length > 0) {
+        await tx.insert(supplierTypeLinksTable).values(
+          row.typeIds.map((typeId) => ({
+            supplierId,
+            typeId,
+          })),
+        );
+      }
+    }
+  });
+
+  res.status(201).json({
+    imported: validRows.length,
+    created: validRows.filter((row) => row.action === "create").length,
+    updated: validRows.filter((row) => row.action === "update").length,
+  });
 });
 
 router.post("/organizations/:orgId/suppliers", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
@@ -1364,6 +1803,7 @@ router.post("/organizations/:orgId/suppliers", requireAuth, requireSupplierWrite
     legalIdentifier: body.data.legalIdentifier,
     legalName: body.data.legalName,
     tradeName: normalizeOptionalString(body.data.tradeName),
+    responsibleName: normalizeOptionalString(body.data.responsibleName),
     stateRegistration: normalizeOptionalString(body.data.stateRegistration),
     municipalRegistration: normalizeOptionalString(body.data.municipalRegistration),
     rg: normalizeOptionalString(body.data.rg),
@@ -1458,6 +1898,7 @@ router.patch("/organizations/:orgId/suppliers/:supplierId", requireAuth, require
         legalIdentifier: body.data.legalIdentifier,
         legalName: body.data.legalName,
         tradeName: normalizeOptionalString(body.data.tradeName),
+        responsibleName: normalizeOptionalString(body.data.responsibleName),
         stateRegistration: normalizeOptionalString(body.data.stateRegistration),
         municipalRegistration: normalizeOptionalString(body.data.municipalRegistration),
         rg: normalizeOptionalString(body.data.rg),

@@ -70,12 +70,67 @@ export type SupplierDocumentRequirementImportInputRow = {
   description?: string | null;
 };
 
+export type SupplierImportInputRow = {
+  rowNumber?: number;
+  legalIdentifier?: string;
+  personType?: string;
+  legalName?: string;
+  tradeName?: string | null;
+  responsibleName?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  postalCode?: string | null;
+  street?: string | null;
+  streetNumber?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
+  unitNames?: string;
+  categoryName?: string;
+  typeNames?: string;
+  notes?: string | null;
+};
+
+export type SupplierImportPreview = {
+  rows: Array<{
+    rowNumber: number;
+    action: "create" | "update" | "invalid";
+    personType: "pj" | "pf" | null;
+    legalIdentifier: string;
+    legalIdentifierDigits: string;
+    legalName: string;
+    tradeName: string | null;
+    responsibleName: string | null;
+    phone: string | null;
+    email: string | null;
+    postalCode: string | null;
+    street: string | null;
+    streetNumber: string | null;
+    neighborhood: string | null;
+    city: string | null;
+    state: string | null;
+    notes: string | null;
+    categoryId: number | null;
+    unitIds: number[];
+    typeIds: number[];
+    existingSupplierId: number | null;
+    errors: string[];
+  }>;
+  summary: {
+    totalRows: number;
+    createCount: number;
+    updateCount: number;
+    errorCount: number;
+  };
+};
+
 export type SupplierListItem = {
   id: number;
   personType: "pj" | "pf";
   legalIdentifier: string;
   legalName: string;
   tradeName: string | null;
+  responsibleName: string | null;
   status: string;
   criticality: string;
   category: { id: number; name: string } | null;
@@ -248,6 +303,7 @@ export type SupplierDetail = {
   legalIdentifier: string;
   legalName: string;
   tradeName: string | null;
+  responsibleName: string | null;
   stateRegistration: string | null;
   municipalRegistration: string | null;
   rg: string | null;
@@ -356,6 +412,47 @@ export function listSuppliers(
 
 export function getSupplierDetail(orgId: number, supplierId: number) {
   return apiJson<SupplierDetail>(`/api/organizations/${orgId}/suppliers/${supplierId}`);
+}
+
+export function exportSuppliers(orgId: number) {
+  return apiJson<{
+    rows: Array<{
+      legalIdentifier: string;
+      personType: string;
+      legalName: string;
+      tradeName: string;
+      responsibleName: string;
+      phone: string;
+      email: string;
+      postalCode: string;
+      street: string;
+      streetNumber: string;
+      neighborhood: string;
+      city: string;
+      state: string;
+      unitNames: string;
+      categoryName: string;
+      typeNames: string;
+      notes: string;
+    }>;
+  }>(`/api/organizations/${orgId}/suppliers/export`);
+}
+
+export function previewSuppliersImport(orgId: number, rows: SupplierImportInputRow[]) {
+  return apiJson<SupplierImportPreview>(`/api/organizations/${orgId}/suppliers/import-preview`, {
+    method: "POST",
+    body: JSON.stringify({ rows }),
+  });
+}
+
+export function commitSuppliersImport(orgId: number, rows: SupplierImportInputRow[]) {
+  return apiJson<{ imported: number; created: number; updated: number }>(
+    `/api/organizations/${orgId}/suppliers/import-commit`,
+    {
+      method: "POST",
+      body: JSON.stringify({ rows }),
+    },
+  );
 }
 
 export function listSupplierCategories(orgId: number) {

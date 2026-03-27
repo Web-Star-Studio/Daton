@@ -207,6 +207,185 @@ describe("suppliers routes", () => {
     ]);
   });
 
+  it("previews, commits and exports suppliers from the workbook layout", async () => {
+    const context = await createTestContext({ seed: "suppliers-import-export" });
+    contexts.push(context);
+
+    const category = await createSupplierCategory(context, "Serviços laboratoriais");
+    const type = await createSupplierType(context, {
+      name: "Calibração",
+      categoryId: category.id,
+      documentThreshold: 87,
+    });
+    const unit = await createUnit(context, "Matriz Recife");
+    const existingSupplier = await createSupplier(context, {
+      legalIdentifier: "12345678000199",
+      legalName: "Fornecedor legado",
+      categoryId: category.id,
+      typeIds: [type.id],
+      unitIds: [unit.id],
+      personType: "pj",
+    });
+
+    const invalidPreview = await request(app)
+      .post(`/api/organizations/${context.organizationId}/suppliers/import-preview`)
+      .set(authHeader(context))
+      .send({
+        rows: [
+          {
+            rowNumber: 2,
+            legalIdentifier: "12.345.678/0001-99",
+            personType: "PJ",
+            legalName: "Fornecedor legado atualizado",
+            responsibleName: "Marina Souza",
+            phone: "(81) 98888-0000",
+            email: "marina@legado.example",
+            postalCode: "52000-000",
+            street: "Rua das Flores",
+            streetNumber: "120",
+            neighborhood: "Centro",
+            city: "Recife",
+            state: "PE",
+            unitNames: "Matriz Recife",
+            categoryName: "Serviços laboratoriais",
+            typeNames: "Calibração",
+            notes: "Atualizado por importação",
+          },
+          {
+            rowNumber: 3,
+            legalIdentifier: "987.654.321-00",
+            personType: "PF",
+            legalName: "João Técnico",
+            phone: "(81) 97777-0000",
+            postalCode: "52110-120",
+            street: "Av. Norte",
+            streetNumber: "45",
+            neighborhood: "Casa Amarela",
+            city: "Recife",
+            state: "PE",
+            unitNames: "Unidade inexistente",
+            categoryName: "Serviços laboratoriais",
+            typeNames: "Calibração",
+            notes: "Linha inválida",
+          },
+        ],
+      });
+
+    expect(invalidPreview.status).toBe(200);
+    expect(invalidPreview.body.summary.updateCount).toBe(1);
+    expect(invalidPreview.body.summary.errorCount).toBe(1);
+    expect(invalidPreview.body.rows[1].action).toBe("invalid");
+    expect(invalidPreview.body.rows[1].errors).toContain("Unidade de negócio não encontrada: Unidade inexistente.");
+
+    const validRows = [
+      {
+        rowNumber: 2,
+        legalIdentifier: "12.345.678/0001-99",
+        personType: "PJ",
+        legalName: "Fornecedor legado atualizado",
+        tradeName: "Legado Lab",
+        responsibleName: "Marina Souza",
+        phone: "(81) 98888-0000",
+        email: "marina@legado.example",
+        postalCode: "52000-000",
+        street: "Rua das Flores",
+        streetNumber: "120",
+        neighborhood: "Centro",
+        city: "Recife",
+        state: "PE",
+        unitNames: "Matriz Recife",
+        categoryName: "Serviços laboratoriais",
+        typeNames: "Calibração",
+        notes: "Atualizado por importação",
+      },
+      {
+        rowNumber: 3,
+        legalIdentifier: "98.765.432/0001-10",
+        personType: "PJ",
+        legalName: "Novo fornecedor importado",
+        tradeName: "Novo Lab",
+        responsibleName: "Carlos Lima",
+        phone: "(81) 97777-0000",
+        email: "carlos@novo.example",
+        postalCode: "52110-120",
+        street: "Av. Norte",
+        streetNumber: "45",
+        neighborhood: "Casa Amarela",
+        city: "Recife",
+        state: "PE",
+        unitNames: "Matriz Recife",
+        categoryName: "Serviços laboratoriais",
+        typeNames: "Calibração",
+        notes: "Criado por importação",
+      },
+    ];
+
+    const commit = await request(app)
+      .post(`/api/organizations/${context.organizationId}/suppliers/import-commit`)
+      .set(authHeader(context))
+      .send({ rows: validRows });
+
+    expect(commit.status).toBe(201);
+    expect(commit.body.created).toBe(1);
+    expect(commit.body.updated).toBe(1);
+
+    const detailResponse = await request(app)
+      .get(`/api/organizations/${context.organizationId}/suppliers/${existingSupplier.id}`)
+      .set(authHeader(context));
+
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body.legalName).toBe("Fornecedor legado atualizado");
+    expect(detailResponse.body.tradeName).toBe("Legado Lab");
+    expect(detailResponse.body.responsibleName).toBe("Marina Souza");
+    expect(detailResponse.body.postalCode).toBe("52000-000");
+
+    const exportResponse = await request(app)
+      .get(`/api/organizations/${context.organizationId}/suppliers/export`)
+      .set(authHeader(context));
+
+    expect(exportResponse.status).toBe(200);
+    expect(exportResponse.body.rows).toEqual([
+      {
+        legalIdentifier: "12.345.678/0001-99",
+        personType: "PJ",
+        legalName: "Fornecedor legado atualizado",
+        tradeName: "Legado Lab",
+        responsibleName: "Marina Souza",
+        phone: "(81) 98888-0000",
+        email: "marina@legado.example",
+        postalCode: "52000-000",
+        street: "Rua das Flores",
+        streetNumber: "120",
+        neighborhood: "Centro",
+        city: "Recife",
+        state: "PE",
+        unitNames: "Matriz Recife",
+        categoryName: "Serviços laboratoriais",
+        typeNames: "Calibração",
+        notes: "Atualizado por importação",
+      },
+      {
+        legalIdentifier: "98.765.432/0001-10",
+        personType: "PJ",
+        legalName: "Novo fornecedor importado",
+        tradeName: "Novo Lab",
+        responsibleName: "Carlos Lima",
+        phone: "(81) 97777-0000",
+        email: "carlos@novo.example",
+        postalCode: "52110-120",
+        street: "Av. Norte",
+        streetNumber: "45",
+        neighborhood: "Casa Amarela",
+        city: "Recife",
+        state: "PE",
+        unitNames: "Matriz Recife",
+        categoryName: "Serviços laboratoriais",
+        typeNames: "Calibração",
+        notes: "Criado por importação",
+      },
+    ]);
+  });
+
   it("requires an apt document review before qualification and updates supplier status", async () => {
     const context = await createTestContext({
       seed: "suppliers-qualification",
