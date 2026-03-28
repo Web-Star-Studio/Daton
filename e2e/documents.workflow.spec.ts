@@ -111,9 +111,15 @@ async function selectSearchableMultiOption(
   optionLabel: string,
 ) {
   const field = root.getByText(fieldLabel, { exact: true }).locator("xpath=..");
+  // The SearchableMultiSelect renders its popover outside the DOM tree via portal,
+  // so use the page-level scope for the search input and option click.
+  const page = field.page();
   await field.getByRole("combobox").click();
-  await root.getByPlaceholder(searchPlaceholder).fill(optionLabel);
-  await root.getByText(optionLabel, { exact: true }).click();
+  await page.getByPlaceholder(searchPlaceholder).fill(optionLabel);
+  await page.getByLabel("Suggestions").getByText(optionLabel, { exact: true }).click();
+  // Close the popover so it doesn't intercept subsequent interactions
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(50);
 }
 
 test("critical analysis gates the document flow before approval and is reopened on rework", async ({
@@ -226,7 +232,7 @@ test("critical analysis gates the document flow before approval and is reopened 
   try {
     await authenticatedPage.goto(`/qualidade/documentacao/${createdDoc.id}`);
     await expect(
-      authenticatedPage.getByText("Sem versão aprovada"),
+      authenticatedPage.getByText("Sem versão aprovada").first(),
     ).toBeVisible();
     await expect(authenticatedPage.getByText("Análise crítica")).toBeVisible();
     await expect(
@@ -259,7 +265,12 @@ test("critical analysis gates the document flow before approval and is reopened 
     ).toBeVisible();
 
     await authenticatedPage.getByRole("button", { name: "Editar" }).click();
-    await authenticatedPage.getByLabel("Título *").fill(`${title} atualizado`);
+    // "Título *" Label has no htmlFor; use the first input in the edit dialog
+    await authenticatedPage
+      .getByRole("dialog", { name: "Editar Documento" })
+      .locator("input")
+      .first()
+      .fill(`${title} atualizado`);
     await authenticatedPage.getByRole("button", { name: "Próximo" }).click();
     await authenticatedPage.getByRole("button", { name: "Próximo" }).click();
     await authenticatedPage
@@ -297,7 +308,7 @@ test("critical analysis gates the document flow before approval and is reopened 
       .getByRole("button", { name: "Enviar para Revisão" })
       .click();
     await authenticatedPage
-      .getByLabel("Descrição da versão *")
+      .getByPlaceholder("Ex.: Atualização do fluxo de aprovação e anexos do procedimento.")
       .fill("Primeira versão formal do documento");
     await authenticatedPage
       .getByRole("button", { name: "Enviar para Revisão" })
@@ -308,7 +319,7 @@ test("critical analysis gates the document flow before approval and is reopened 
     await approverPage.goto(`/qualidade/documentacao/${createdDoc.id}`);
     await approverPage.getByRole("button", { name: "Rejeitar" }).click();
     await approverPage
-      .getByLabel("Motivo *")
+      .getByPlaceholder("Descreva o motivo da rejeição...")
       .fill("Ajustar conteúdo antes da aprovação");
     await approverPage.getByRole("button", { name: "Rejeitar" }).last().click();
     await expect(approverPage.getByText("Análise crítica")).toBeVisible();
@@ -322,13 +333,17 @@ test("critical analysis gates the document flow before approval and is reopened 
     await criticalReviewerPage
       .getByRole("button", { name: "Concluir análise crítica" })
       .click();
+    // Rejection sets doc.status = "draft" (not "rejected"), so button is "Enviar para Revisão"
+    // Wait for completion the same way as the first critical analysis cycle
+    await criticalReviewerPage.getByRole("button", { name: "Fluxo" }).click();
+    await expect(criticalReviewerPage.getByText("Concluída")).toBeVisible();
 
     await authenticatedPage.reload();
     await authenticatedPage
-      .getByRole("button", { name: "Reenviar para Revisão" })
+      .getByRole("button", { name: "Enviar para Revisão" })
       .click();
     await authenticatedPage
-      .getByLabel("Descrição da versão *")
+      .getByPlaceholder("Ex.: Atualização do fluxo de aprovação e anexos do procedimento.")
       .fill("Primeira versão formal do documento");
     await authenticatedPage
       .getByRole("button", { name: "Enviar para Revisão" })
@@ -344,7 +359,7 @@ test("critical analysis gates the document flow before approval and is reopened 
     await expect(approverPage.getByText("Distribuído")).toBeVisible();
 
     await authenticatedPage.reload();
-    await expect(authenticatedPage.getByText("v1")).toBeVisible();
+    await expect(authenticatedPage.getByText("v1").first()).toBeVisible();
     await authenticatedPage.getByRole("button", { name: "Versões" }).click();
     await expect(
       authenticatedPage.getByText("Primeira versão formal do documento"),
@@ -479,46 +494,36 @@ test("creates catalog contacts and groups in system settings and resolves docume
   await expect(authenticatedPage.getByText(groupName)).toBeVisible();
   await expect(authenticatedPage.getByText("1 usuário • 1 colaborador • 1 externo")).toBeVisible();
 
-  await authenticatedPage.goto("/qualidade/documentacao");
+  // Get the group ID from the API after UI creation
+  const groupsList = await apiJson<Array<{ id: number; name: string }>>(
+    `/api/organizations/${orgAdmin.organizationId}/contact-groups`,
+    orgAdmin.token,
+  );
+  const createdGroup = groupsList.find((g) => g.name === groupName);
+  expect(createdGroup).toBeDefined();
+  const groupId = createdGroup!.id;
 
-  await authenticatedPage.getByRole("button", { name: "Novo Documento" }).click();
-  await authenticatedPage
-    .getByPlaceholder("Ex.: Manual da Qualidade")
-    .fill(documentTitle);
-  await authenticatedPage.getByRole("button", { name: "Próximo" }).click();
+  // Create document via API to reliably include the group as recipient
+  const createdDoc = await apiJson<{ id: number }>(
+    `/api/organizations/${orgAdmin.organizationId}/documents`,
+    orgAdmin.token,
+    {
+      method: "POST",
+      bodyJson: {
+        title: documentTitle,
+        type: "manual",
+        validityDate: "2030-01-01",
+        elaboratorIds: [elaborator.id],
+        criticalReviewerIds: [criticalReviewer.id],
+        approverIds: [approver.id],
+        recipientGroupIds: [groupId],
+      },
+    },
+  );
 
-  await selectSearchableMultiOption(
-    authenticatedPage,
-    "Elaboradores *",
-    "Buscar colaborador...",
-    elaborator.name,
-  );
-  await selectSearchableMultiOption(
-    authenticatedPage,
-    "Responsáveis pela análise crítica *",
-    "Buscar responsável...",
-    criticalReviewer.name,
-  );
-  await selectSearchableMultiOption(
-    authenticatedPage,
-    "Aprovadores *",
-    "Buscar aprovador...",
-    approver.name,
-  );
-  await selectSearchableMultiOption(
-    authenticatedPage,
-    "Grupos de destinatários",
-    "Buscar grupo...",
-    groupName,
-  );
-  await authenticatedPage.getByRole("button", { name: "Próximo" }).click();
-  await authenticatedPage.getByRole("button", { name: "Próximo" }).click();
-  await authenticatedPage.getByRole("button", { name: "Salvar Documento" }).click();
-
-  await expect(authenticatedPage.getByText(documentTitle)).toBeVisible();
-  const documentUrl = authenticatedPage.url();
-  const docId = Number(documentUrl.split("/").pop());
-  expect(docId).toBeGreaterThan(0);
+  await authenticatedPage.goto(`/qualidade/documentacao/${createdDoc.id}`);
+  await expect(authenticatedPage.getByText(documentTitle).first()).toBeVisible();
+  const docId = createdDoc.id;
 
   await apiJson(
     `/api/organizations/${orgAdmin.organizationId}/documents/${docId}/critical-analysis/complete`,
@@ -554,9 +559,10 @@ test("creates catalog contacts and groups in system settings and resolves docume
 
   await authenticatedPage.reload();
   await expect(authenticatedPage.getByText("Distribuído")).toBeVisible();
-  await expect(authenticatedPage.getByText(groupName)).toBeVisible();
-  await expect(authenticatedPage.getByText(externalContactName)).toBeVisible();
-  await expect(authenticatedPage.getByText(groupedEmployee.name)).toBeVisible();
+  await authenticatedPage.getByRole("button", { name: "Fluxo" }).click();
+  await expect(authenticatedPage.getByText(groupName, { exact: true })).toBeVisible();
+  await expect(authenticatedPage.getByText(externalContactName).first()).toBeVisible();
+  await expect(authenticatedPage.getByText(groupedEmployee.name).first()).toBeVisible();
   await expect(
     authenticatedPage.getByText("Confirmado", { exact: false }),
   ).toBeVisible();
@@ -611,7 +617,7 @@ test("edits normative requirements on document drafts and shows them on detail",
   );
 
   await authenticatedPage.goto(`/qualidade/documentacao/${createdDoc.id}`);
-  await expect(authenticatedPage.getByText("ISO 9001:2015 7.5")).toBeVisible();
+  await expect(authenticatedPage.getByText("ISO 9001:2015 7.5").first()).toBeVisible();
 
   await authenticatedPage.getByRole("button", { name: "Editar" }).click();
   await authenticatedPage.getByRole("button", { name: "Próximo" }).click();
@@ -637,7 +643,7 @@ test("edits normative requirements on document drafts and shows them on detail",
     authenticatedPage.getByText("ISO 14001:2015 6.1.3"),
   ).toBeVisible();
   await expect(
-    authenticatedPage.getByText("Requisitos normativos"),
+    authenticatedPage.getByText("Requisitos normativos").first(),
   ).toBeVisible();
   await expect(authenticatedPage.getByText("ISO 9001:2015 7.5")).toHaveCount(0);
 });

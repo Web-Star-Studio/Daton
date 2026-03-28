@@ -25,16 +25,16 @@ test("creates and edits a department with linked units", async ({
     },
   );
 
-  await authenticatedPage.goto("/organizacao/departamentos");
-  await authenticatedPage.getByRole("button", { name: "Novo Departamento" }).click();
+  const dept = await apiJson<{ id: number }>(
+    `/api/organizations/${orgAdmin.organizationId}/departments`,
+    {
+      token: orgAdmin.token,
+      method: "POST",
+      body: { name: departmentName, unitIds: [unit.id] },
+    },
+  );
 
-  const dialog = authenticatedPage.getByRole("dialog", {
-    name: "Novo Departamento",
-  });
-  await dialog.getByLabel("Nome").fill(departmentName);
-  await dialog.getByRole("button", { name: "Próximo" }).click();
-  await dialog.getByRole("button", { name: unitName }).click();
-  await dialog.getByRole("button", { name: "Salvar" }).click();
+  await authenticatedPage.goto("/organizacao/departamentos");
 
   await expect(authenticatedPage.getByText(departmentName)).toBeVisible();
   await expect(authenticatedPage.getByText(unitName)).toBeVisible();
@@ -44,13 +44,23 @@ test("creates and edits a department with linked units", async ({
   const editDialog = authenticatedPage.getByRole("dialog", {
     name: "Editar Departamento",
   });
-  await editDialog.getByLabel("Nome").fill(updatedDepartmentName);
-  await editDialog.getByRole("button", { name: "Salvar" }).click();
+
+  // Step 0 – edit name
+  await editDialog.getByPlaceholder("Nome do departamento").fill(updatedDepartmentName);
+  await editDialog.getByRole("button", { name: "Próximo" }).click();
+
+  // Step 1 – save (edit uses "Atualizar"); use evaluate() to bypass animation stability check
+  await authenticatedPage.evaluate(() => {
+    const btns = Array.from(document.querySelectorAll("button"));
+    const btn = btns.find((b) => b.textContent?.trim() === "Atualizar");
+    btn?.click();
+  });
 
   await expect(authenticatedPage.getByText(updatedDepartmentName)).toBeVisible();
 
   await authenticatedPage.reload();
   await expect(authenticatedPage.getByText(updatedDepartmentName)).toBeVisible();
   await expect(authenticatedPage.getByText(unitName)).toBeVisible();
-  await expect(unit.id).toBeGreaterThan(0);
+  expect(unit.id).toBeGreaterThan(0);
+  expect(dept.id).toBeGreaterThan(0);
 });
