@@ -24,6 +24,13 @@ import {
   type SupplierAttachment,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
+import {
+  buildSupplierDocumentRequirementImportPreview,
+  buildSupplierImportPreview,
+  readSupplierDocumentRequirementImportPreview,
+  readSupplierImportPreview,
+} from "../services/suppliers/imports";
+import { syncSupplierCatalogAssociations } from "../services/suppliers/catalog-sync";
 
 const router: IRouter = Router();
 const DEFAULT_SUPPLIER_DOCUMENT_THRESHOLD = 80;
@@ -119,6 +126,10 @@ const supplierImportBodySchema = z.object({
   ).min(1),
 });
 
+const supplierImportCommitBodySchema = z.object({
+  previewToken: z.string().trim().min(1),
+});
+
 const supplierCatalogItemBodySchema = z.object({
   name: z.string().trim().min(1),
   offeringType: z.enum(["product", "service"]),
@@ -150,6 +161,10 @@ const supplierDocumentRequirementImportBodySchema = z.object({
       description: z.unknown().optional(),
     }),
   ).min(1),
+});
+
+const supplierDocumentRequirementImportCommitBodySchema = z.object({
+  previewToken: z.string().trim().min(1),
 });
 
 const supplierDocumentSubmissionBodySchema = z.object({
@@ -252,92 +267,12 @@ function normalizeOptionalString(value?: string | null): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function normalizeImportCell(value: unknown): string {
-  return String(value ?? "").replace(/\s+/g, " ").trim();
-}
-
-function normalizeRequirementKey(name: string): string {
-  return normalizeImportCell(name).toLocaleLowerCase("pt-BR");
-}
-
-async function previewSupplierDocumentRequirementImport(
-  orgId: number,
-  rows: Array<{
-    rowNumber?: number;
-    name?: unknown;
-    weight?: unknown;
-    description?: unknown;
-  }>,
-) {
-  const existingRequirements = await db
-    .select({
-      id: supplierDocumentRequirementsTable.id,
-      name: supplierDocumentRequirementsTable.name,
-    })
-    .from(supplierDocumentRequirementsTable)
-    .where(eq(supplierDocumentRequirementsTable.organizationId, orgId));
-
-  const existingByName = new Map(
-    existingRequirements.map((requirement) => [
-      normalizeRequirementKey(requirement.name),
-      requirement,
-    ]),
-  );
-  const seenImportKeys = new Map<string, number>();
-
-  const previewRows = rows.map((row, index) => {
-    const rowNumber = row.rowNumber ?? index + 2;
-    const name = normalizeImportCell(row.name);
-    const description = normalizeOptionalString(normalizeImportCell(row.description));
-    const rawWeight = normalizeImportCell(row.weight);
-    const parsedWeight = rawWeight ? Number(rawWeight) : Number.NaN;
-    const errors: string[] = [];
-
-    if (!name) {
-      errors.push("Informe o nome do documento.");
-    }
-
-    if (!rawWeight || !Number.isInteger(parsedWeight) || parsedWeight < 1 || parsedWeight > 5) {
-      errors.push("O peso deve ser um número inteiro entre 1 e 5.");
-    }
-
-    const normalizedName = name ? normalizeRequirementKey(name) : "";
-    const duplicateRow = normalizedName ? seenImportKeys.get(normalizedName) : undefined;
-    if (normalizedName) {
-      if (duplicateRow) {
-        errors.push(`Documento repetido na planilha. A primeira ocorrência está na linha ${duplicateRow}.`);
-      } else {
-        seenImportKeys.set(normalizedName, rowNumber);
-      }
-    }
-
-    const existingRequirement = normalizedName ? existingByName.get(normalizedName) : undefined;
-    const action = errors.length > 0 ? "invalid" : existingRequirement ? "update" : "create";
-
-    return {
-      rowNumber,
-      name,
-      description,
-      weight: Number.isInteger(parsedWeight) ? parsedWeight : null,
-      action,
-      existingRequirementId: existingRequirement?.id ?? null,
-      errors,
-    };
-  });
-
-  return {
-    rows: previewRows,
-    summary: {
-      totalRows: previewRows.length,
-      createCount: previewRows.filter((row) => row.action === "create").length,
-      updateCount: previewRows.filter((row) => row.action === "update").length,
-      errorCount: previewRows.filter((row) => row.errors.length > 0).length,
-    },
-  };
-}
-
 function normalizeDigits(value: string) {
   return value.replace(/\D/g, "");
+}
+
+function toDbFlag(value: boolean) {
+  return value ? 1 : 0;
 }
 
 function formatLegalIdentifier(value: string, personType: "pj" | "pf") {
@@ -360,224 +295,6 @@ function formatPostalCode(value: string | null | undefined) {
   return value;
 }
 
-function normalizePersonType(value: unknown): "pj" | "pf" | null {
-  const normalized = normalizeImportCell(value).toLocaleLowerCase("pt-BR");
-  if (normalized === "pj" || normalized === "pessoa jurídica" || normalized === "pessoa juridica") {
-    return "pj";
-  }
-  if (normalized === "pf" || normalized === "pessoa física" || normalized === "pessoa fisica") {
-    return "pf";
-  }
-  return null;
-}
-
-function splitImportList(value: unknown) {
-  return normalizeImportCell(value)
-    .split(/[;,]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-async function previewSupplierImport(
-  orgId: number,
-  rows: Array<{
-    rowNumber?: number;
-    legalIdentifier?: unknown;
-    personType?: unknown;
-    legalName?: unknown;
-    tradeName?: unknown;
-    responsibleName?: unknown;
-    phone?: unknown;
-    email?: unknown;
-    postalCode?: unknown;
-    street?: unknown;
-    streetNumber?: unknown;
-    neighborhood?: unknown;
-    city?: unknown;
-    state?: unknown;
-    unitNames?: unknown;
-    categoryName?: unknown;
-    typeNames?: unknown;
-    notes?: unknown;
-  }>,
-) {
-  const [existingSuppliers, units, categories, types] = await Promise.all([
-    db
-      .select({
-        id: suppliersTable.id,
-        legalIdentifier: suppliersTable.legalIdentifier,
-      })
-      .from(suppliersTable)
-      .where(eq(suppliersTable.organizationId, orgId)),
-    db
-      .select({ id: unitsTable.id, name: unitsTable.name })
-      .from(unitsTable)
-      .where(eq(unitsTable.organizationId, orgId)),
-    db
-      .select({ id: supplierCategoriesTable.id, name: supplierCategoriesTable.name })
-      .from(supplierCategoriesTable)
-      .where(eq(supplierCategoriesTable.organizationId, orgId)),
-    db
-      .select({ id: supplierTypesTable.id, name: supplierTypesTable.name })
-      .from(supplierTypesTable)
-      .where(eq(supplierTypesTable.organizationId, orgId)),
-  ]);
-
-  const suppliersByIdentifier = new Map(
-    existingSuppliers.map((supplier) => [normalizeDigits(supplier.legalIdentifier), supplier]),
-  );
-  const unitsByName = new Map(units.map((unit) => [normalizeRequirementKey(unit.name), unit]));
-  const categoriesByName = new Map(categories.map((category) => [normalizeRequirementKey(category.name), category]));
-  const typesByName = new Map(types.map((type) => [normalizeRequirementKey(type.name), type]));
-  const seenIdentifiers = new Map<string, number>();
-
-  const previewRows = rows.map((row, index) => {
-    const rowNumber = row.rowNumber ?? index + 2;
-    const personType = normalizePersonType(row.personType);
-    const legalIdentifier = normalizeImportCell(row.legalIdentifier);
-    const legalIdentifierDigits = normalizeDigits(legalIdentifier);
-    const legalName = normalizeImportCell(row.legalName);
-    const tradeName = normalizeOptionalString(normalizeImportCell(row.tradeName));
-    const responsibleName = normalizeOptionalString(normalizeImportCell(row.responsibleName));
-    const phone = normalizeOptionalString(normalizeImportCell(row.phone));
-    const email = normalizeOptionalString(normalizeImportCell(row.email));
-    const postalCode = normalizeOptionalString(normalizeImportCell(row.postalCode));
-    const street = normalizeOptionalString(normalizeImportCell(row.street));
-    const streetNumber = normalizeOptionalString(normalizeImportCell(row.streetNumber));
-    const neighborhood = normalizeOptionalString(normalizeImportCell(row.neighborhood));
-    const city = normalizeOptionalString(normalizeImportCell(row.city));
-    const state = normalizeOptionalString(normalizeImportCell(row.state));
-    const categoryName = normalizeImportCell(row.categoryName);
-    const unitNames = splitImportList(row.unitNames);
-    const typeNames = splitImportList(row.typeNames);
-    const notes = normalizeOptionalString(normalizeImportCell(row.notes));
-    const errors: string[] = [];
-
-    if (!personType) {
-      errors.push("Informe o tipo como PF ou PJ.");
-    }
-    if (!legalIdentifierDigits) {
-      errors.push("Informe o CNPJ/CPF.");
-    }
-    if (personType === "pj" && legalIdentifierDigits.length !== 14) {
-      errors.push("CNPJ inválido. Informe 14 dígitos.");
-    }
-    if (personType === "pf" && legalIdentifierDigits.length !== 11) {
-      errors.push("CPF inválido. Informe 11 dígitos.");
-    }
-    if (!legalName) {
-      errors.push("Informe a razão social ou nome.");
-    }
-    if (!phone) {
-      errors.push("Informe o telefone.");
-    }
-    if (!postalCode) {
-      errors.push("Informe o CEP.");
-    }
-    if (!street) {
-      errors.push("Informe o logradouro.");
-    }
-    if (!streetNumber) {
-      errors.push("Informe o número.");
-    }
-    if (!neighborhood) {
-      errors.push("Informe o bairro.");
-    }
-    if (!city) {
-      errors.push("Informe a cidade.");
-    }
-    if (!state) {
-      errors.push("Informe o estado.");
-    }
-    if (!categoryName) {
-      errors.push("Informe a categoria.");
-    }
-    if (unitNames.length === 0) {
-      errors.push("Informe ao menos uma unidade de negócio.");
-    }
-    if (typeNames.length === 0) {
-      errors.push("Informe ao menos um tipo de fornecedor.");
-    }
-    if (personType === "pj" && !responsibleName) {
-      errors.push("Informe o responsável para fornecedores PJ.");
-    }
-    if (personType === "pj" && !email) {
-      errors.push("Informe o email para fornecedores PJ.");
-    }
-    if (email && !z.string().email().safeParse(email).success) {
-      errors.push("Email inválido.");
-    }
-
-    const duplicateRow = legalIdentifierDigits ? seenIdentifiers.get(legalIdentifierDigits) : undefined;
-    if (legalIdentifierDigits) {
-      if (duplicateRow) {
-        errors.push(`Documento fiscal repetido na planilha. A primeira ocorrência está na linha ${duplicateRow}.`);
-      } else {
-        seenIdentifiers.set(legalIdentifierDigits, rowNumber);
-      }
-    }
-
-    const category = categoryName ? categoriesByName.get(normalizeRequirementKey(categoryName)) : undefined;
-    if (categoryName && !category) {
-      errors.push(`Categoria não encontrada: ${categoryName}.`);
-    }
-
-    const unitIds = unitNames.map((name) => unitsByName.get(normalizeRequirementKey(name))?.id ?? null);
-    unitNames.forEach((name, index) => {
-      if (!unitIds[index]) {
-        errors.push(`Unidade de negócio não encontrada: ${name}.`);
-      }
-    });
-
-    const typeIds = typeNames.map((name) => typesByName.get(normalizeRequirementKey(name))?.id ?? null);
-    typeNames.forEach((name, index) => {
-      if (!typeIds[index]) {
-        errors.push(`Tipo de fornecedor não encontrado: ${name}.`);
-      }
-    });
-
-    const existingSupplier = legalIdentifierDigits
-      ? suppliersByIdentifier.get(legalIdentifierDigits)
-      : undefined;
-    const action = errors.length > 0 ? "invalid" : existingSupplier ? "update" : "create";
-
-    return {
-      rowNumber,
-      action,
-      personType,
-      legalIdentifier,
-      legalIdentifierDigits,
-      legalName,
-      tradeName,
-      responsibleName,
-      phone,
-      email,
-      postalCode,
-      street,
-      streetNumber,
-      neighborhood,
-      city,
-      state,
-      notes,
-      categoryId: category?.id ?? null,
-      unitIds: unitIds.filter((value): value is number => Boolean(value)),
-      typeIds: typeIds.filter((value): value is number => Boolean(value)),
-      existingSupplierId: existingSupplier?.id ?? null,
-      errors,
-    };
-  });
-
-  return {
-    rows: previewRows,
-    summary: {
-      totalRows: previewRows.length,
-      createCount: previewRows.filter((row) => row.action === "create").length,
-      updateCount: previewRows.filter((row) => row.action === "update").length,
-      errorCount: previewRows.filter((row) => row.errors.length > 0).length,
-    },
-  };
-}
-
 function formatTimestamp(value: Date | string | null | undefined): string | null {
   if (!value) return null;
   if (value instanceof Date) return value.toISOString();
@@ -588,7 +305,7 @@ function formatAttachments(attachments: SupplierAttachment[] | null | undefined)
   return Array.isArray(attachments) ? attachments : [];
 }
 
-function requireSupplierWrite(scope: "general" | "receipts") {
+function requireSupplierWrite(scope: "general" | "receipts" | "document_reviews") {
   return (req: Request, res: Response, next: NextFunction): void => {
     const role = req.auth?.role;
     if (!role) {
@@ -601,7 +318,7 @@ function requireSupplierWrite(scope: "general" | "receipts") {
       return;
     }
 
-    if (role === "operator" && scope === "receipts") {
+    if (role === "operator" && (scope === "receipts" || scope === "document_reviews")) {
       next();
       return;
     }
@@ -662,88 +379,6 @@ async function ensureCatalogItemsBelongToOrg(catalogItemIds: number[], orgId: nu
     .from(supplierCatalogItemsTable)
     .where(and(eq(supplierCatalogItemsTable.organizationId, orgId), inArray(supplierCatalogItemsTable.id, catalogItemIds)));
   return rows.length === catalogItemIds.length;
-}
-
-async function syncSupplierCatalogAssociations(
-  tx: typeof db,
-  supplierId: number,
-  organizationId: number,
-  catalogItemIds: number[] | undefined,
-) {
-  if (!catalogItemIds) return;
-
-  const uniqueCatalogItemIds = Array.from(new Set(catalogItemIds));
-  const catalogItems = uniqueCatalogItemIds.length === 0
-    ? []
-    : await tx
-        .select()
-        .from(supplierCatalogItemsTable)
-        .where(
-          and(
-            eq(supplierCatalogItemsTable.organizationId, organizationId),
-            inArray(supplierCatalogItemsTable.id, uniqueCatalogItemIds),
-          ),
-        );
-
-  const catalogItemsById = new Map(catalogItems.map((item) => [item.id, item]));
-  const existingAssociations = await tx
-    .select({
-      id: supplierOfferingsTable.id,
-      catalogItemId: supplierOfferingsTable.catalogItemId,
-      isApprovedScope: supplierOfferingsTable.isApprovedScope,
-    })
-    .from(supplierOfferingsTable)
-    .where(eq(supplierOfferingsTable.supplierId, supplierId));
-
-  const existingByCatalogItemId = new Map(
-    existingAssociations
-      .filter((association) => association.catalogItemId !== null)
-      .map((association) => [association.catalogItemId as number, association]),
-  );
-
-  const catalogAssociationIdsToKeep = new Set(uniqueCatalogItemIds);
-  const associationIdsToDelete = existingAssociations
-    .filter(
-      (association) =>
-        association.catalogItemId !== null &&
-        !catalogAssociationIdsToKeep.has(association.catalogItemId),
-    )
-    .map((association) => association.id);
-
-  if (associationIdsToDelete.length > 0) {
-    await tx.delete(supplierOfferingsTable).where(inArray(supplierOfferingsTable.id, associationIdsToDelete));
-  }
-
-  for (const catalogItemId of uniqueCatalogItemIds) {
-    const catalogItem = catalogItemsById.get(catalogItemId);
-    if (!catalogItem) continue;
-
-    const existingAssociation = existingByCatalogItemId.get(catalogItemId);
-    if (existingAssociation) {
-      await tx
-        .update(supplierOfferingsTable)
-        .set({
-          name: catalogItem.name,
-          offeringType: catalogItem.offeringType,
-          unitOfMeasure: catalogItem.unitOfMeasure,
-          description: catalogItem.description,
-          status: catalogItem.status,
-        })
-        .where(eq(supplierOfferingsTable.id, existingAssociation.id));
-      continue;
-    }
-
-    await tx.insert(supplierOfferingsTable).values({
-      supplierId,
-      catalogItemId: catalogItem.id,
-      name: catalogItem.name,
-      offeringType: catalogItem.offeringType,
-      unitOfMeasure: catalogItem.unitOfMeasure,
-      description: catalogItem.description,
-      status: catalogItem.status,
-      isApprovedScope: 0,
-    });
-  }
 }
 
 async function ensureUserBelongsToOrg(userId: number | null | undefined, orgId: number): Promise<boolean> {
@@ -1417,38 +1052,46 @@ router.patch("/organizations/:orgId/supplier-catalog-items/:catalogItemId", requ
   }
   if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
 
-  const [updated] = await db
-    .update(supplierCatalogItemsTable)
-    .set({
-      name: body.data.name,
-      offeringType: body.data.offeringType,
-      unitOfMeasure: normalizeOptionalString(body.data.unitOfMeasure),
-      description: normalizeOptionalString(body.data.description),
-      status: body.data.status,
-    })
-    .where(
-      and(
-        eq(supplierCatalogItemsTable.id, params.data.catalogItemId),
-        eq(supplierCatalogItemsTable.organizationId, params.data.orgId),
-      ),
-    )
-    .returning();
+  const updated = await db.transaction(async (tx) => {
+    const [nextItem] = await tx
+      .update(supplierCatalogItemsTable)
+      .set({
+        name: body.data.name,
+        offeringType: body.data.offeringType,
+        unitOfMeasure: normalizeOptionalString(body.data.unitOfMeasure),
+        description: normalizeOptionalString(body.data.description),
+        status: body.data.status,
+      })
+      .where(
+        and(
+          eq(supplierCatalogItemsTable.id, params.data.catalogItemId),
+          eq(supplierCatalogItemsTable.organizationId, params.data.orgId),
+        ),
+      )
+      .returning();
+
+    if (!nextItem) {
+      return null;
+    }
+
+    await tx
+      .update(supplierOfferingsTable)
+      .set({
+        name: nextItem.name,
+        offeringType: nextItem.offeringType,
+        unitOfMeasure: nextItem.unitOfMeasure,
+        description: nextItem.description,
+        status: nextItem.status,
+      })
+      .where(eq(supplierOfferingsTable.catalogItemId, nextItem.id));
+
+    return nextItem;
+  });
 
   if (!updated) {
     res.status(404).json({ error: "Item de catálogo não encontrado" });
     return;
   }
-
-  await db
-    .update(supplierOfferingsTable)
-    .set({
-      name: updated.name,
-      offeringType: updated.offeringType,
-      unitOfMeasure: updated.unitOfMeasure,
-      description: updated.description,
-      status: updated.status,
-    })
-    .where(eq(supplierOfferingsTable.catalogItemId, updated.id));
 
   res.json(updated);
 });
@@ -1505,20 +1148,26 @@ router.post("/organizations/:orgId/supplier-document-requirements/import-preview
   }
   if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
 
-  const preview = await previewSupplierDocumentRequirementImport(params.data.orgId, body.data.rows);
+  const preview = await buildSupplierDocumentRequirementImportPreview(params.data.orgId, body.data.rows);
   res.json(preview);
 });
 
 router.post("/organizations/:orgId/supplier-document-requirements/import-commit", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
   const params = orgParamsSchema.safeParse(req.params);
-  const body = supplierDocumentRequirementImportBodySchema.safeParse(req.body);
+  const body = supplierDocumentRequirementImportCommitBodySchema.safeParse(req.body);
   if (!params.success || !body.success) {
     res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
     return;
   }
   if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
 
-  const preview = await previewSupplierDocumentRequirementImport(params.data.orgId, body.data.rows);
+  let preview;
+  try {
+    preview = readSupplierDocumentRequirementImportPreview(params.data.orgId, body.data.previewToken);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Prévia de importação inválida." });
+    return;
+  }
   if (preview.summary.errorCount > 0) {
     res.status(400).json({
       error: "A importação contém linhas inválidas. Corrija a planilha e gere uma nova prévia.",
@@ -1538,7 +1187,6 @@ router.post("/organizations/:orgId/supplier-document-requirements/import-commit"
             name: row.name,
             weight: row.weight ?? 1,
             description: row.description,
-            status: "active",
           })
           .where(
             and(
@@ -1882,20 +1530,26 @@ router.post("/organizations/:orgId/suppliers/import-preview", requireAuth, requi
   }
   if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
 
-  const preview = await previewSupplierImport(params.data.orgId, body.data.rows);
+  const preview = await buildSupplierImportPreview(params.data.orgId, body.data.rows);
   res.json(preview);
 });
 
 router.post("/organizations/:orgId/suppliers/import-commit", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
   const params = orgParamsSchema.safeParse(req.params);
-  const body = supplierImportBodySchema.safeParse(req.body);
+  const body = supplierImportCommitBodySchema.safeParse(req.body);
   if (!params.success || !body.success) {
     res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
     return;
   }
   if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
 
-  const preview = await previewSupplierImport(params.data.orgId, body.data.rows);
+  let preview;
+  try {
+    preview = readSupplierImportPreview(params.data.orgId, body.data.previewToken);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Prévia de importação inválida." });
+    return;
+  }
   if (preview.summary.errorCount > 0) {
     res.status(400).json({
       error: "A importação contém linhas inválidas. Corrija a planilha e gere uma nova prévia.",
@@ -2185,7 +1839,7 @@ router.post("/organizations/:orgId/suppliers/:supplierId/offerings", requireAuth
     unitOfMeasure: catalogItem?.unitOfMeasure ?? normalizeOptionalString(body.data.unitOfMeasure),
     description: catalogItem?.description ?? normalizeOptionalString(body.data.description),
     status: catalogItem?.status ?? body.data.status,
-    isApprovedScope: body.data.isApprovedScope ? 1 : 0,
+    isApprovedScope: toDbFlag(body.data.isApprovedScope),
   }).returning();
 
   res.status(201).json(created);
@@ -2234,7 +1888,7 @@ router.patch("/organizations/:orgId/suppliers/:supplierId/offerings/:offeringId"
       unitOfMeasure: catalogItem?.unitOfMeasure ?? normalizeOptionalString(body.data.unitOfMeasure),
       description: catalogItem?.description ?? normalizeOptionalString(body.data.description),
       status: catalogItem?.status ?? body.data.status,
-      isApprovedScope: body.data.isApprovedScope ? 1 : 0,
+      isApprovedScope: toDbFlag(body.data.isApprovedScope),
     })
     .where(and(eq(supplierOfferingsTable.id, params.data.offeringId), eq(supplierOfferingsTable.supplierId, supplier.id)))
     .returning();
@@ -2323,7 +1977,7 @@ router.post("/organizations/:orgId/suppliers/:supplierId/document-submissions", 
   res.status(201).json(upserted);
 });
 
-router.post("/organizations/:orgId/suppliers/:supplierId/document-submissions/:submissionId/review", requireAuth, async (req, res): Promise<void> => {
+router.post("/organizations/:orgId/suppliers/:supplierId/document-submissions/:submissionId/review", requireAuth, requireSupplierWrite("document_reviews"), async (req, res): Promise<void> => {
   const params = z.object({
     orgId: z.coerce.number().int().positive(),
     supplierId: z.coerce.number().int().positive(),

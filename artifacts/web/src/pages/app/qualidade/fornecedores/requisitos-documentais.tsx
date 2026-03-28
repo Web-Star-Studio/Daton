@@ -29,6 +29,7 @@ import {
   downloadSupplierDocumentRequirementsWorkbook,
   parseSupplierDocumentRequirementsWorkbook,
 } from "@/lib/supplier-document-requirements-workbook";
+import { resolveAppAssetPath } from "@/lib/base-path";
 import { ArrowLeft, Download, Plus, Upload } from "lucide-react";
 
 type RequirementFormState = {
@@ -156,7 +157,12 @@ export default function SupplierDocumentRequirementsPage() {
   });
 
   const commitImportMutation = useMutation({
-    mutationFn: () => commitSupplierDocumentRequirementsImport(orgId!, importRows),
+    mutationFn: () => {
+      if (!importPreview?.previewToken) {
+        throw new Error("Gere a prévia da importação antes de confirmar.");
+      }
+      return commitSupplierDocumentRequirementsImport(orgId!, importPreview.previewToken);
+    },
     onSuccess: (result) => {
       refresh();
       setImportDialogOpen(false);
@@ -254,7 +260,7 @@ export default function SupplierDocumentRequirementsPage() {
         size="sm"
         onClick={() => {
           const anchor = document.createElement("a");
-          anchor.href = "/templates/template_importacao_documentos.xlsx";
+          anchor.href = resolveAppAssetPath("/templates/template_importacao_documentos.xlsx");
           anchor.download = "template_importacao_documentos.xlsx";
           anchor.click();
         }}

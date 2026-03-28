@@ -145,7 +145,9 @@ export const supplierOfferingsTable = pgTable("supplier_offerings", {
   isApprovedScope: integer("is_approved_scope").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  unique("supplier_offering_supplier_catalog_unique").on(table.supplierId, table.catalogItemId),
+]);
 
 export const supplierDocumentRequirementsTable = pgTable("supplier_document_requirements", {
   id: serial("id").primaryKey(),

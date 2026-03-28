@@ -37,6 +37,7 @@ import {
   formatSupplierPostalCode,
   supplierLegalIdentifierPlaceholder,
 } from "@/lib/supplier-formatters";
+import { resolveAppAssetPath } from "@/lib/base-path";
 import { downloadSuppliersWorkbook, parseSuppliersWorkbook } from "@/lib/suppliers-workbook";
 import {
   Download,
@@ -64,6 +65,7 @@ type SupplierFormState = {
   criticality: string;
   email: string;
   phone: string;
+  postalCode: string;
   city: string;
   state: string;
   notes: string;
@@ -82,6 +84,7 @@ const emptySupplierForm: SupplierFormState = {
   criticality: "medium",
   email: "",
   phone: "",
+  postalCode: "",
   city: "",
   state: "",
   notes: "",
@@ -243,6 +246,8 @@ export default function SuppliersPage() {
       setSupplierImportPreview(preview);
     },
     onError: (error) => {
+      setSupplierImportRows([]);
+      setSupplierImportPreview(null);
       toast({
         title: "Falha ao analisar planilha",
         description: error instanceof Error ? error.message : "Tente novamente.",
@@ -252,7 +257,12 @@ export default function SuppliersPage() {
   });
 
   const commitSupplierImportMutation = useMutation({
-    mutationFn: () => commitSuppliersImport(orgId!, supplierImportRows),
+    mutationFn: () => {
+      if (!supplierImportPreview?.previewToken) {
+        throw new Error("Gere a prévia da importação antes de confirmar.");
+      }
+      return commitSuppliersImport(orgId!, supplierImportPreview.previewToken);
+    },
     onSuccess: (result) => {
       resetSupplierImport();
       setSupplierImportDialogOpen(false);
@@ -324,6 +334,11 @@ export default function SuppliersPage() {
   const handleSupplierImportFile = async (file: File | null) => {
     if (!file) return;
 
+    setSupplierImportFileName("");
+    setSupplierImportRows([]);
+    setSupplierImportPreview(null);
+    previewSupplierImportMutation.reset();
+
     try {
       const parsedRows = await parseSuppliersWorkbook(file);
       if (parsedRows.length === 0) {
@@ -334,6 +349,10 @@ export default function SuppliersPage() {
       setSupplierImportRows(parsedRows);
       previewSupplierImportMutation.mutate(parsedRows);
     } catch (error) {
+      setSupplierImportFileName("");
+      setSupplierImportRows([]);
+      setSupplierImportPreview(null);
+      previewSupplierImportMutation.reset();
       toast({
         title: "Falha ao ler planilha",
         description: error instanceof Error ? error.message : "Tente novamente.",
@@ -354,7 +373,7 @@ export default function SuppliersPage() {
         size="sm"
         onClick={() => {
           const anchor = document.createElement("a");
-          anchor.href = "/templates/template_importacao_fornecedores.xlsx";
+          anchor.href = resolveAppAssetPath("/templates/template_importacao_fornecedores.xlsx");
           anchor.download = "template_importacao_fornecedores.xlsx";
           anchor.click();
         }}
@@ -871,7 +890,7 @@ export default function SuppliersPage() {
           </div>
         )}
 
-      <DialogFooter>
+        <DialogFooter>
           {createStep > 0 ? (
             <Button
               type="button"

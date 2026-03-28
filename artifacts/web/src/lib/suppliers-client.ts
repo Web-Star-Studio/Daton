@@ -66,6 +66,7 @@ export type SupplierDocumentRequirementImportRow = {
 };
 
 export type SupplierDocumentRequirementImportPreview = {
+  previewToken: string;
   rows: SupplierDocumentRequirementImportRow[];
   summary: {
     totalRows: number;
@@ -104,6 +105,7 @@ export type SupplierImportInputRow = {
 };
 
 export type SupplierImportPreview = {
+  previewToken: string;
   rows: Array<{
     rowNumber: number;
     action: "create" | "update" | "invalid";
@@ -464,12 +466,12 @@ export function previewSuppliersImport(orgId: number, rows: SupplierImportInputR
   });
 }
 
-export function commitSuppliersImport(orgId: number, rows: SupplierImportInputRow[]) {
+export function commitSuppliersImport(orgId: number, previewToken: string) {
   return apiJson<{ imported: number; created: number; updated: number }>(
     `/api/organizations/${orgId}/suppliers/import-commit`,
     {
       method: "POST",
-      body: JSON.stringify({ rows }),
+      body: JSON.stringify({ previewToken }),
     },
   );
 }
@@ -612,13 +614,13 @@ export function previewSupplierDocumentRequirementsImport(
 
 export function commitSupplierDocumentRequirementsImport(
   orgId: number,
-  rows: SupplierDocumentRequirementImportInputRow[],
+  previewToken: string,
 ) {
   return apiJson<{ imported: number; created: number; updated: number }>(
     `/api/organizations/${orgId}/supplier-document-requirements/import-commit`,
     {
       method: "POST",
-      body: JSON.stringify({ rows }),
+      body: JSON.stringify({ previewToken }),
     },
   );
 }

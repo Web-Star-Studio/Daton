@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
@@ -382,6 +383,12 @@ export default function SupplierDetailPage() {
       });
       refresh();
     },
+    onError: (error) =>
+      toast({
+        title: "Falha ao registrar submissão",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      }),
   });
 
   const documentSubmissionReviewMutation = useMutation({
@@ -544,10 +551,13 @@ export default function SupplierDetailPage() {
     [users],
   );
   const selectedSubmission = useMemo(
-    () =>
-      detail?.documents.submissions.find((submission) => submission.id === selectedSubmissionId) ||
-      detail?.documents.submissions[0] ||
-      null,
+    () => {
+      if (selectedSubmissionId === null) {
+        return null;
+      }
+
+      return detail?.documents.submissions.find((submission) => submission.id === selectedSubmissionId) || null;
+    },
     [detail?.documents.submissions, selectedSubmissionId],
   );
   const appliedDocumentThreshold = useMemo(() => {

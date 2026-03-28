@@ -1,6 +1,6 @@
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
-import { db, supplierFailuresTable } from "@workspace/db";
+import { db, supplierDocumentRequirementsTable, supplierFailuresTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import app from "../../src/app";
 import {
@@ -219,10 +219,19 @@ describe("suppliers routes", () => {
     const context = await createTestContext({ seed: "suppliers-document-import" });
     contexts.push(context);
 
-    await createSupplierDocumentRequirement(context, {
+    const existingRequirement = await createSupplierDocumentRequirement(context, {
       name: "Certidão Federal",
       weight: 4,
     });
+    await request(app)
+      .patch(`/api/organizations/${context.organizationId}/supplier-document-requirements/${existingRequirement.id}`)
+      .set(authHeader(context))
+      .send({
+        name: "Certidão Federal",
+        weight: 4,
+        description: null,
+        status: "inactive",
+      });
 
     const preview = await request(app)
       .post(`/api/organizations/${context.organizationId}/supplier-document-requirements/import-preview`)
@@ -245,33 +254,40 @@ describe("suppliers routes", () => {
       });
 
     expect(preview.status).toBe(200);
+    expect(preview.body.previewToken).toEqual(expect.any(String));
     expect(preview.body.summary.createCount).toBe(1);
     expect(preview.body.summary.updateCount).toBe(1);
     expect(preview.body.summary.errorCount).toBe(0);
+
+    const invalidCommit = await request(app)
+      .post(`/api/organizations/${context.organizationId}/supplier-document-requirements/import-commit`)
+      .set(authHeader(context))
+      .send({
+        previewToken: "token-invalido",
+      });
+
+    expect(invalidCommit.status).toBe(400);
+    expect(invalidCommit.body.error).toContain("Prévia de importação inválida");
 
     const commit = await request(app)
       .post(`/api/organizations/${context.organizationId}/supplier-document-requirements/import-commit`)
       .set(authHeader(context))
       .send({
-        rows: [
-          {
-            rowNumber: 2,
-            name: "Certidão Federal",
-            weight: 5,
-            description: "Versão atualizada",
-          },
-          {
-            rowNumber: 3,
-            name: "Alvará municipal",
-            weight: 3,
-            description: "Documento obrigatório",
-          },
-        ],
+        previewToken: preview.body.previewToken,
       });
 
     expect(commit.status).toBe(201);
     expect(commit.body.created).toBe(1);
     expect(commit.body.updated).toBe(1);
+
+    const [updatedRequirement] = await db
+      .select()
+      .from(supplierDocumentRequirementsTable)
+      .where(eq(supplierDocumentRequirementsTable.id, existingRequirement.id));
+
+    expect(updatedRequirement?.status).toBe("inactive");
+    expect(updatedRequirement?.weight).toBe(5);
+    expect(updatedRequirement?.description).toBe("Versão atualizada");
 
     const exportResponse = await request(app)
       .get(`/api/organizations/${context.organizationId}/supplier-document-requirements/export`)
@@ -357,6 +373,7 @@ describe("suppliers routes", () => {
       });
 
     expect(invalidPreview.status).toBe(200);
+    expect(invalidPreview.body.previewToken).toEqual(expect.any(String));
     expect(invalidPreview.body.summary.updateCount).toBe(1);
     expect(invalidPreview.body.summary.errorCount).toBe(1);
     expect(invalidPreview.body.rows[1].action).toBe("invalid");
@@ -370,17 +387,17 @@ describe("suppliers routes", () => {
         legalName: "Fornecedor legado atualizado",
         tradeName: "Legado Lab",
         responsibleName: "Marina Souza",
-        phone: "(81) 98888-0000",
+        phone: "",
         email: "marina@legado.example",
-        postalCode: "52000-000",
-        street: "Rua das Flores",
-        streetNumber: "120",
-        neighborhood: "Centro",
-        city: "Recife",
-        state: "PE",
-        unitNames: "Matriz Recife",
+        postalCode: "",
+        street: "",
+        streetNumber: "",
+        neighborhood: "",
+        city: "",
+        state: "",
+        unitNames: "Matriz Recife, Matriz Recife",
         categoryName: "Serviços laboratoriais",
-        typeNames: "Calibração",
+        typeNames: "Calibração; Calibração",
         notes: "Atualizado por importação",
       },
       {
@@ -390,14 +407,14 @@ describe("suppliers routes", () => {
         legalName: "Novo fornecedor importado",
         tradeName: "Novo Lab",
         responsibleName: "Carlos Lima",
-        phone: "(81) 97777-0000",
+        phone: "",
         email: "carlos@novo.example",
-        postalCode: "52110-120",
-        street: "Av. Norte",
-        streetNumber: "45",
-        neighborhood: "Casa Amarela",
-        city: "Recife",
-        state: "PE",
+        postalCode: "",
+        street: "",
+        streetNumber: "",
+        neighborhood: "",
+        city: "",
+        state: "",
         unitNames: "Matriz Recife",
         categoryName: "Serviços laboratoriais",
         typeNames: "Calibração",
@@ -405,10 +422,27 @@ describe("suppliers routes", () => {
       },
     ];
 
+    const validPreview = await request(app)
+      .post(`/api/organizations/${context.organizationId}/suppliers/import-preview`)
+      .set(authHeader(context))
+      .send({ rows: validRows });
+
+    expect(validPreview.status).toBe(200);
+    expect(validPreview.body.previewToken).toEqual(expect.any(String));
+    expect(validPreview.body.summary.errorCount).toBe(0);
+
+    const invalidCommit = await request(app)
+      .post(`/api/organizations/${context.organizationId}/suppliers/import-commit`)
+      .set(authHeader(context))
+      .send({ previewToken: "token-invalido" });
+
+    expect(invalidCommit.status).toBe(400);
+    expect(invalidCommit.body.error).toContain("Prévia de importação inválida");
+
     const commit = await request(app)
       .post(`/api/organizations/${context.organizationId}/suppliers/import-commit`)
       .set(authHeader(context))
-      .send({ rows: validRows });
+      .send({ previewToken: validPreview.body.previewToken });
 
     expect(commit.status).toBe(201);
     expect(commit.body.created).toBe(1);
@@ -422,7 +456,9 @@ describe("suppliers routes", () => {
     expect(detailResponse.body.legalName).toBe("Fornecedor legado atualizado");
     expect(detailResponse.body.tradeName).toBe("Legado Lab");
     expect(detailResponse.body.responsibleName).toBe("Marina Souza");
-    expect(detailResponse.body.postalCode).toBe("52000-000");
+    expect(detailResponse.body.postalCode).toBeNull();
+    expect(detailResponse.body.units).toHaveLength(1);
+    expect(detailResponse.body.types).toHaveLength(1);
 
     const exportResponse = await request(app)
       .get(`/api/organizations/${context.organizationId}/suppliers/export`)
@@ -436,14 +472,14 @@ describe("suppliers routes", () => {
         legalName: "Fornecedor legado atualizado",
         tradeName: "Legado Lab",
         responsibleName: "Marina Souza",
-        phone: "(81) 98888-0000",
+        phone: "",
         email: "marina@legado.example",
-        postalCode: "52000-000",
-        street: "Rua das Flores",
-        streetNumber: "120",
-        neighborhood: "Centro",
-        city: "Recife",
-        state: "PE",
+        postalCode: "",
+        street: "",
+        streetNumber: "",
+        neighborhood: "",
+        city: "",
+        state: "",
         unitNames: "Matriz Recife",
         categoryName: "Serviços laboratoriais",
         typeNames: "Calibração",
@@ -455,14 +491,14 @@ describe("suppliers routes", () => {
         legalName: "Novo fornecedor importado",
         tradeName: "Novo Lab",
         responsibleName: "Carlos Lima",
-        phone: "(81) 97777-0000",
+        phone: "",
         email: "carlos@novo.example",
-        postalCode: "52110-120",
-        street: "Av. Norte",
-        streetNumber: "45",
-        neighborhood: "Casa Amarela",
-        city: "Recife",
-        state: "PE",
+        postalCode: "",
+        street: "",
+        streetNumber: "",
+        neighborhood: "",
+        city: "",
+        state: "",
         unitNames: "Matriz Recife",
         categoryName: "Serviços laboratoriais",
         typeNames: "Calibração",
@@ -474,7 +510,8 @@ describe("suppliers routes", () => {
   it("supports document submission review by another user in the same organization", async () => {
     const context = await createTestContext({ seed: "suppliers-document-review-flow" });
     contexts.push(context);
-    const reviewer = await createTestUser(context, { suffix: "reviewer", modules: ["suppliers"] });
+    const reviewer = await createTestUser(context, { role: "operator", suffix: "reviewer", modules: ["suppliers"] });
+    const analyst = await createTestUser(context, { role: "analyst", suffix: "analyst", modules: ["suppliers"] });
     const requirement = await createSupplierDocumentRequirement(context, {
       name: "Laudo atualizado",
       weight: 2,
@@ -501,6 +538,15 @@ describe("suppliers routes", () => {
     expect(submission.body.adequacyStatus).toBe("under_review");
     expect(submission.body.requestedReviewerId).toBe(reviewer.id);
     expect(submission.body.reviewedById).toBeNull();
+
+    const deniedReview = await request(app)
+      .post(`/api/organizations/${context.organizationId}/suppliers/${supplier.id}/document-submissions/${submission.body.id}/review`)
+      .set({ Authorization: `Bearer ${analyst.token}` })
+      .send({
+        decision: "approved",
+      });
+
+    expect(deniedReview.status).toBe(403);
 
     const reviewed = await request(app)
       .post(`/api/organizations/${context.organizationId}/suppliers/${supplier.id}/document-submissions/${submission.body.id}/review`)

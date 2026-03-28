@@ -1,7 +1,17 @@
 import * as XLSX from "xlsx";
 import type { SupplierDocumentRequirementImportInputRow } from "@/lib/suppliers-client";
 
-const TEMPLATE_HEADERS = ["Nome do Documento *", "Peso (1-5) *", "Descrição"];
+const TEMPLATE_HEADERS = {
+  NAME: "Nome do Documento *",
+  WEIGHT: "Peso (1-5) *",
+  DESCRIPTION: "Descrição",
+} as const;
+
+const TEMPLATE_HEADER_ORDER = [
+  TEMPLATE_HEADERS.NAME,
+  TEMPLATE_HEADERS.WEIGHT,
+  TEMPLATE_HEADERS.DESCRIPTION,
+];
 
 function normalizeCell(value: unknown) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
@@ -25,9 +35,9 @@ export async function parseSupplierDocumentRequirementsWorkbook(file: File) {
 
   return rows.map((row, index) => ({
     rowNumber: index + 2,
-    name: normalizeCell(row["Nome do Documento *"]),
-    weight: normalizeCell(row["Peso (1-5) *"]),
-    description: normalizeCell(row["Descrição"]) || null,
+    name: normalizeCell(row[TEMPLATE_HEADERS.NAME]),
+    weight: normalizeCell(row[TEMPLATE_HEADERS.WEIGHT]),
+    description: normalizeCell(row[TEMPLATE_HEADERS.DESCRIPTION]) || null,
   })) satisfies SupplierDocumentRequirementImportInputRow[];
 }
 
@@ -37,11 +47,11 @@ export function downloadSupplierDocumentRequirementsWorkbook(
 ) {
   const worksheet = XLSX.utils.json_to_sheet(
     rows.map((row) => ({
-      [TEMPLATE_HEADERS[0]]: row.name,
-      [TEMPLATE_HEADERS[1]]: row.weight,
-      [TEMPLATE_HEADERS[2]]: row.description ?? "",
+      [TEMPLATE_HEADERS.NAME]: row.name,
+      [TEMPLATE_HEADERS.WEIGHT]: row.weight,
+      [TEMPLATE_HEADERS.DESCRIPTION]: row.description ?? "",
     })),
-    { header: TEMPLATE_HEADERS },
+    { header: TEMPLATE_HEADER_ORDER },
   );
   worksheet["!cols"] = [{ wch: 40 }, { wch: 14 }, { wch: 48 }];
 

@@ -81,6 +81,8 @@ export default function SupplierCatalogItemsPage() {
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: suppliersKeys.catalogItems(orgId!) });
+    queryClient.invalidateQueries({ queryKey: suppliersKeys.list(orgId!, {}) });
+    queryClient.invalidateQueries({ queryKey: suppliersKeys.all });
   };
 
   const saveMutation = useMutation({
