@@ -410,6 +410,7 @@ describe("issueAuthToken", () => {
   });
 });
 
+
 // ─── requireWriteAccess ──────────────────────────────────────────────────────
 
 describe("requireWriteAccess", () => {
