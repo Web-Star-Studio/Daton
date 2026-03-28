@@ -149,6 +149,15 @@ export const supplierOfferingsTable = pgTable("supplier_offerings", {
   unique("supplier_offering_supplier_catalog_unique").on(table.supplierId, table.catalogItemId),
 ]);
 
+export const supplierImportPreviewsTable = pgTable("supplier_import_previews", {
+  previewId: text("preview_id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizationsTable.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  rows: jsonb("rows").$type<unknown[]>().notNull().default(sql`'[]'::jsonb`),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const supplierDocumentRequirementsTable = pgTable("supplier_document_requirements", {
   id: serial("id").primaryKey(),
   organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),

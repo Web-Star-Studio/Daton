@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import jwt from "jsonwebtoken";
-import { eq } from "drizzle-orm";
+import { and, eq, lte, sql } from "drizzle-orm";
 import {
   db,
   supplierCategoriesTable,
   supplierDocumentRequirementsTable,
+  supplierImportPreviewsTable,
   supplierTypesTable,
   suppliersTable,
   unitsTable,
@@ -102,15 +103,8 @@ type PreviewTokenPayload = {
 
 type PreviewStoreRows = SupplierDocumentRequirementPreviewRow[] | SupplierImportPreviewRow[];
 
-type PreviewStoreEntry = {
-  kind: PreviewTokenKind;
-  orgId: number;
-  rows: PreviewStoreRows;
-  expiresAt: number;
-};
-
 const PREVIEW_TTL_MS = 15 * 60 * 1000;
-const previewStore = new Map<string, PreviewStoreEntry>();
+let previewStoreTableReady: Promise<void> | null = null;
 
 function getPreviewTokenSecret() {
   const secret = process.env.JWT_SECRET;
@@ -169,22 +163,39 @@ function summarizePreviewRows<T extends { action: string; errors: string[] }>(ro
   };
 }
 
-function cleanupExpiredPreviewEntries(now = Date.now()) {
-  for (const [previewId, entry] of previewStore.entries()) {
-    if (entry.expiresAt <= now) {
-      previewStore.delete(previewId);
-    }
+async function ensurePreviewStoreTable() {
+  if (!previewStoreTableReady) {
+    previewStoreTableReady = db.execute(sql`
+      CREATE TABLE IF NOT EXISTS supplier_import_previews (
+        preview_id text PRIMARY KEY,
+        organization_id integer NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        kind text NOT NULL,
+        rows jsonb NOT NULL DEFAULT '[]'::jsonb,
+        expires_at timestamptz NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
+      )
+    `).then(() => undefined);
   }
+
+  await previewStoreTableReady;
 }
 
-function persistPreviewRows(kind: PreviewTokenKind, orgId: number, rows: PreviewStoreRows) {
-  cleanupExpiredPreviewEntries();
+async function cleanupExpiredPreviewEntries(now = new Date()) {
+  await ensurePreviewStoreTable();
+  await db
+    .delete(supplierImportPreviewsTable)
+    .where(lte(supplierImportPreviewsTable.expiresAt, now));
+}
+
+async function persistPreviewRows(kind: PreviewTokenKind, orgId: number, rows: PreviewStoreRows) {
+  await cleanupExpiredPreviewEntries();
   const previewId = randomUUID();
-  previewStore.set(previewId, {
+  await db.insert(supplierImportPreviewsTable).values({
+    previewId,
+    organizationId: orgId,
     kind,
-    orgId,
     rows,
-    expiresAt: Date.now() + PREVIEW_TTL_MS,
+    expiresAt: new Date(Date.now() + PREVIEW_TTL_MS),
   });
   return previewId;
 }
@@ -204,11 +215,11 @@ function signPreviewToken(kind: PreviewTokenKind, orgId: number, previewId: stri
   );
 }
 
-function verifyPreviewToken(kind: "supplier-document-requirements-import", orgId: number, token: string): SupplierDocumentRequirementPreviewRow[];
-function verifyPreviewToken(kind: "suppliers-import", orgId: number, token: string): SupplierImportPreviewRow[];
-function verifyPreviewToken(kind: PreviewTokenKind, orgId: number, token: string) {
+async function verifyPreviewToken(kind: "supplier-document-requirements-import", orgId: number, token: string): Promise<SupplierDocumentRequirementPreviewRow[]>;
+async function verifyPreviewToken(kind: "suppliers-import", orgId: number, token: string): Promise<SupplierImportPreviewRow[]>;
+async function verifyPreviewToken(kind: PreviewTokenKind, orgId: number, token: string) {
   try {
-    cleanupExpiredPreviewEntries();
+    await cleanupExpiredPreviewEntries();
     const payload = jwt.verify(token, getPreviewTokenSecret(), {
       audience: kind,
     }) as PreviewTokenPayload;
@@ -217,12 +228,31 @@ function verifyPreviewToken(kind: PreviewTokenKind, orgId: number, token: string
       throw new Error("Prévia de importação inválida ou expirada.");
     }
 
-    const previewEntry = previewStore.get(payload.previewId);
-    if (!previewEntry || previewEntry.orgId !== orgId || previewEntry.kind !== kind) {
+    const [previewEntry] = await db
+      .select({
+        organizationId: supplierImportPreviewsTable.organizationId,
+        kind: supplierImportPreviewsTable.kind,
+        rows: supplierImportPreviewsTable.rows,
+        expiresAt: supplierImportPreviewsTable.expiresAt,
+      })
+      .from(supplierImportPreviewsTable)
+      .where(
+        and(
+          eq(supplierImportPreviewsTable.previewId, payload.previewId),
+          eq(supplierImportPreviewsTable.organizationId, orgId),
+          eq(supplierImportPreviewsTable.kind, kind),
+        ),
+      );
+
+    if (!previewEntry || previewEntry.organizationId !== orgId || previewEntry.kind !== kind) {
       throw new Error("Prévia de importação inválida ou expirada.");
     }
 
-    return previewEntry.rows;
+    if (previewEntry.expiresAt <= new Date()) {
+      throw new Error("Prévia de importação inválida ou expirada.");
+    }
+
+    return previewEntry.rows as PreviewStoreRows;
   } catch {
     throw new Error("Prévia de importação inválida ou expirada.");
   }
@@ -288,7 +318,7 @@ export async function buildSupplierDocumentRequirementImportPreview(
     } satisfies SupplierDocumentRequirementPreviewRow;
   });
 
-  const previewId = persistPreviewRows("supplier-document-requirements-import", orgId, previewRows);
+  const previewId = await persistPreviewRows("supplier-document-requirements-import", orgId, previewRows);
   return {
     previewToken: signPreviewToken("supplier-document-requirements-import", orgId, previewId),
     rows: previewRows,
@@ -299,13 +329,13 @@ export async function buildSupplierDocumentRequirementImportPreview(
 export function readSupplierDocumentRequirementImportPreview(
   orgId: number,
   previewToken: string,
-): SupplierDocumentRequirementPreview {
-  const rows = verifyPreviewToken("supplier-document-requirements-import", orgId, previewToken);
-  return {
+): Promise<SupplierDocumentRequirementPreview> {
+  const rowsPromise = verifyPreviewToken("supplier-document-requirements-import", orgId, previewToken);
+  return rowsPromise.then((rows) => ({
     previewToken,
     rows,
     summary: summarizePreviewRows(rows),
-  };
+  }));
 }
 
 export async function buildSupplierImportPreview(
@@ -448,7 +478,7 @@ export async function buildSupplierImportPreview(
     } satisfies SupplierImportPreviewRow;
   });
 
-  const previewId = persistPreviewRows("suppliers-import", orgId, previewRows);
+  const previewId = await persistPreviewRows("suppliers-import", orgId, previewRows);
   return {
     previewToken: signPreviewToken("suppliers-import", orgId, previewId),
     rows: previewRows,
@@ -459,11 +489,11 @@ export async function buildSupplierImportPreview(
 export function readSupplierImportPreview(
   orgId: number,
   previewToken: string,
-): SupplierImportPreview {
-  const rows = verifyPreviewToken("suppliers-import", orgId, previewToken);
-  return {
+): Promise<SupplierImportPreview> {
+  const rowsPromise = verifyPreviewToken("suppliers-import", orgId, previewToken);
+  return rowsPromise.then((rows) => ({
     previewToken,
     rows,
     summary: summarizePreviewRows(rows),
-  };
+  }));
 }

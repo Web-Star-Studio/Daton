@@ -1198,7 +1198,7 @@ router.post("/organizations/:orgId/supplier-document-requirements/import-commit"
 
   let preview;
   try {
-    preview = readSupplierDocumentRequirementImportPreview(params.data.orgId, body.data.previewToken);
+    preview = await readSupplierDocumentRequirementImportPreview(params.data.orgId, body.data.previewToken);
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : "Prévia de importação inválida." });
     return;
@@ -1580,7 +1580,7 @@ router.post("/organizations/:orgId/suppliers/import-commit", requireAuth, requir
 
   let preview;
   try {
-    preview = readSupplierImportPreview(params.data.orgId, body.data.previewToken);
+    preview = await readSupplierImportPreview(params.data.orgId, body.data.previewToken);
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : "Prévia de importação inválida." });
     return;

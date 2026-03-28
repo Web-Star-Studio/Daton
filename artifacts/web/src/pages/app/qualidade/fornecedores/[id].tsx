@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -62,6 +62,13 @@ type SupplierTabConfig = {
   label: string;
   icon: typeof ClipboardList;
   count?: number;
+};
+
+type DocumentSubmissionReviewFormState = {
+  decision: "approved" | "rejected" | "request_changes";
+  validityDate: string;
+  rejectionReason: string;
+  reviewComment: string;
 };
 
 function AttachmentUploader({
@@ -222,6 +229,17 @@ function documentAdequacyLabel(status: string) {
   return labels[status] || status;
 }
 
+function immediateAdequacyStatus(submissionStatus: "approved" | "rejected" | "exempt") {
+  switch (submissionStatus) {
+    case "approved":
+      return "adequate" as const;
+    case "rejected":
+      return "not_adequate" as const;
+    case "exempt":
+      return "adequate" as const;
+  }
+}
+
 function qualificationDecisionLabel(decision: string) {
   const labels: Record<string, string> = {
     approved: "Homologado",
@@ -270,6 +288,12 @@ export default function SupplierDetailPage() {
   const requirements = requirementsQuery.data || [];
   const units = unitsQuery.data || [];
   const users = usersQuery.data || [];
+  const defaultDocumentSubmissionReviewForm: DocumentSubmissionReviewFormState = {
+    decision: "approved",
+    validityDate: "",
+    rejectionReason: "",
+    reviewComment: "",
+  };
   const [documentSubmissionForm, setDocumentSubmissionForm] = useState({
     requirementId: "",
     submissionStatus: "pending",
@@ -283,11 +307,8 @@ export default function SupplierDetailPage() {
     rejectionReason: "",
     attachments: [] as SupplierAttachment[],
   });
-  const [documentSubmissionReviewForm, setDocumentSubmissionReviewForm] = useState({
-    decision: "approved",
-    validityDate: "",
-    rejectionReason: "",
-    reviewComment: "",
+  const [documentSubmissionReviewForm, setDocumentSubmissionReviewForm] = useState<DocumentSubmissionReviewFormState>({
+    ...defaultDocumentSubmissionReviewForm,
   });
   const [documentReviewForm, setDocumentReviewForm] = useState({
     nextReviewDate: "",
@@ -361,10 +382,12 @@ export default function SupplierDetailPage() {
       return createSupplierDocumentSubmission(orgId!, supplierId, {
         ...documentSubmissionForm,
         requirementId: Number(documentSubmissionForm.requirementId),
-        requestedReviewerId: documentSubmissionForm.requestedReviewerId
-          ? Number(documentSubmissionForm.requestedReviewerId)
-          : null,
         validityDate: documentSubmissionForm.validityDate || null,
+        ...(documentSubmissionForm.workflowAction === "request_review" && documentSubmissionForm.requestedReviewerId
+          ? {
+              requestedReviewerId: Number(documentSubmissionForm.requestedReviewerId),
+            }
+          : {}),
       });
     },
     onSuccess: () => {
@@ -404,10 +427,7 @@ export default function SupplierDetailPage() {
     },
     onSuccess: () => {
       setDocumentSubmissionReviewForm({
-        decision: "approved",
-        validityDate: "",
-        rejectionReason: "",
-        reviewComment: "",
+        ...defaultDocumentSubmissionReviewForm,
       });
       refresh();
     },
@@ -560,6 +580,23 @@ export default function SupplierDetailPage() {
     },
     [detail?.documents.submissions, selectedSubmissionId],
   );
+
+  useEffect(() => {
+    setDocumentSubmissionReviewForm({
+      ...defaultDocumentSubmissionReviewForm,
+    });
+  }, [selectedSubmissionId]);
+
+  useEffect(() => {
+    if (documentSubmissionReviewForm.decision === "rejected" || !documentSubmissionReviewForm.rejectionReason) {
+      return;
+    }
+
+    setDocumentSubmissionReviewForm((current) => ({
+      ...current,
+      rejectionReason: "",
+    }));
+  }, [documentSubmissionReviewForm.decision, documentSubmissionReviewForm.rejectionReason]);
   const appliedDocumentThreshold = useMemo(() => {
     if (!detail || detail.types.length === 0) {
       return 80;
@@ -1011,7 +1048,7 @@ export default function SupplierDetailPage() {
                                 onChange={(event) =>
                                   setDocumentSubmissionReviewForm((current) => ({
                                     ...current,
-                                    decision: event.target.value,
+                                    decision: event.target.value as DocumentSubmissionReviewFormState["decision"],
                                   }))
                                 }
                               >
@@ -1112,6 +1149,24 @@ export default function SupplierDetailPage() {
                                   setDocumentSubmissionForm((current) => ({
                                     ...current,
                                     workflowAction: event.target.value,
+                                    submissionStatus:
+                                      event.target.value === "approve_now"
+                                        ? current.submissionStatus === "approved" ||
+                                          current.submissionStatus === "rejected" ||
+                                          current.submissionStatus === "exempt"
+                                          ? current.submissionStatus
+                                          : "approved"
+                                        : "pending",
+                                    adequacyStatus:
+                                      event.target.value === "approve_now"
+                                        ? immediateAdequacyStatus(
+                                            current.submissionStatus === "approved" ||
+                                              current.submissionStatus === "rejected" ||
+                                              current.submissionStatus === "exempt"
+                                              ? current.submissionStatus
+                                              : "approved",
+                                          )
+                                        : "under_review",
                                   }))
                                 }
                               >
@@ -1155,13 +1210,15 @@ export default function SupplierDetailPage() {
                                     setDocumentSubmissionForm((current) => ({
                                       ...current,
                                       submissionStatus: event.target.value,
+                                      adequacyStatus: immediateAdequacyStatus(
+                                        event.target.value as "approved" | "rejected" | "exempt",
+                                      ),
                                     }))
                                   }
                                 >
                                   <option value="approved">Aprovado</option>
                                   <option value="rejected">Rejeitado</option>
                                   <option value="exempt">Isento</option>
-                                  <option value="pending">Pendente</option>
                                 </Select>
                               </FieldContent>
                             </Field>
@@ -1171,19 +1228,9 @@ export default function SupplierDetailPage() {
                           <Field>
                             <FieldLabel>Adequação</FieldLabel>
                             <FieldContent>
-                              <Select
-                                value={documentSubmissionForm.adequacyStatus}
-                                onChange={(event) =>
-                                  setDocumentSubmissionForm((current) => ({
-                                    ...current,
-                                    adequacyStatus: event.target.value,
-                                  }))
-                                }
-                              >
-                                <option value="adequate">Adequado</option>
-                                <option value="not_adequate">Não adequado</option>
-                                <option value="under_review">Em análise</option>
-                              </Select>
+                              <div className="min-h-9 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm text-foreground">
+                                {documentAdequacyLabel(documentSubmissionForm.adequacyStatus)}
+                              </div>
                             </FieldContent>
                           </Field>
                         ) : null}

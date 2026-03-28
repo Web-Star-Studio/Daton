@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import {
   createSupplierCatalogItem,
   listSupplierCatalogItems,
@@ -65,23 +66,23 @@ export default function SupplierCatalogItemsPage() {
     queryFn: () => listSupplierCatalogItems(orgId!),
   });
 
-  const items = catalogQuery.data || [];
-  const selectedItem = items.find((item) => item.id === selectedId) || null;
+  const items = catalogQuery.data;
+  const selectedItem = items?.find((item) => item.id === selectedId) || null;
 
   useEffect(() => {
-    if (isCreatingNew) return;
+    if (isCreatingNew || !catalogQuery.isSuccess || !items) return;
     if (items.length === 0) {
       setSelectedId(null);
       form.reset(emptyForm);
       return;
     }
-    if (!selectedId || !items.some((item) => item.id === selectedId)) {
+    if (selectedId === null) {
       setSelectedId(items[0].id);
     }
-  }, [form, isCreatingNew, items, selectedId]);
+  }, [catalogQuery.isSuccess, form, isCreatingNew, items, selectedId]);
 
   useEffect(() => {
-    if (!selectedItem || isCreatingNew) return;
+    if (!catalogQuery.isSuccess || !selectedItem || isCreatingNew) return;
     form.reset({
       name: selectedItem.name,
       offeringType: selectedItem.offeringType,
@@ -89,7 +90,7 @@ export default function SupplierCatalogItemsPage() {
       description: selectedItem.description || "",
       status: selectedItem.status as "active" | "inactive",
     });
-  }, [form, isCreatingNew, selectedItem]);
+  }, [catalogQuery.isSuccess, form, isCreatingNew, selectedItem]);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: suppliersKeys.catalogItems(orgId!) });
@@ -120,6 +121,14 @@ export default function SupplierCatalogItemsPage() {
       };
     },
     onSuccess: ({ action, item }) => {
+      queryClient.setQueryData(
+        suppliersKeys.catalogItems(orgId!),
+        (current: Awaited<ReturnType<typeof listSupplierCatalogItems>> | undefined) => {
+          const existingItems = current || [];
+          const nextWithoutItem = existingItems.filter((existingItem) => existingItem.id !== item.id);
+          return [...nextWithoutItem, item].sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
+        },
+      );
       refresh();
       setIsCreatingNew(false);
       setSelectedId(item.id);
@@ -169,20 +178,29 @@ export default function SupplierCatalogItemsPage() {
           <CardTitle>Itens cadastrados</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {items.length === 0 ? (
+          {catalogQuery.isSuccess && items && items.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
               Nenhum item cadastrado.
             </div>
+          ) : catalogQuery.isLoading ? (
+            <div className="rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+              Carregando itens...
+            </div>
+          ) : catalogQuery.isError ? (
+            <div className="rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+              Não foi possível carregar o catálogo.
+            </div>
           ) : (
-            items.map((item) => (
+            items?.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                className={`w-full rounded-xl border px-4 py-3 text-left transition ${
+                className={cn(
+                  "w-full rounded-xl border px-4 py-3 text-left transition",
                   selectedId === item.id && !isCreatingNew
                     ? "border-primary bg-primary/5"
-                    : "border-border/60 hover:border-border"
-                }`}
+                    : "border-border/60 hover:border-border",
+                )}
                 onClick={() => {
                   setIsCreatingNew(false);
                   setSelectedId(item.id);
