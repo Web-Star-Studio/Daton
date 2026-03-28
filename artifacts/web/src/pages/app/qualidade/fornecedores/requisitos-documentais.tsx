@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,19 +35,21 @@ import {
 import { resolveAppAssetPath } from "@/lib/base-path";
 import { ArrowLeft, Download, Plus, Upload } from "lucide-react";
 
-type RequirementFormState = {
-  name: string;
-  description: string;
-  weight: string;
-  categoryId: string;
-  typeId: string;
-  status: "active" | "inactive";
-};
+const requirementFormSchema = z.object({
+  name: z.string().trim().min(1, "Informe o nome do requisito documental."),
+  description: z.string(),
+  weight: z.coerce.number().int().min(1, "O peso deve ser entre 1 e 5.").max(5, "O peso deve ser entre 1 e 5."),
+  categoryId: z.string().trim().min(1, "Selecione uma categoria."),
+  typeId: z.string().trim().min(1, "Selecione um tipo de fornecedor."),
+  status: z.enum(["active", "inactive"]),
+});
 
-const emptyForm: RequirementFormState = {
+type RequirementFormValues = z.infer<typeof requirementFormSchema>;
+
+const emptyForm: RequirementFormValues = {
   name: "",
   description: "",
-  weight: "1",
+  weight: 1,
   categoryId: "",
   typeId: "",
   status: "active",
@@ -52,6 +57,10 @@ const emptyForm: RequirementFormState = {
 
 function requirementStatusLabel(status: string) {
   return status === "inactive" ? "Inativo" : "Ativo";
+}
+
+function FieldError({ message }: { message?: string }) {
+  return message ? <p className="mt-1.5 text-xs text-destructive">{message}</p> : null;
 }
 
 export default function SupplierDocumentRequirementsPage() {
@@ -63,11 +72,15 @@ export default function SupplierDocumentRequirementsPage() {
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
-  const [form, setForm] = useState<RequirementFormState>(emptyForm);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFileName, setImportFileName] = useState("");
   const [importRows, setImportRows] = useState<SupplierDocumentRequirementImportInputRow[]>([]);
   const [importPreview, setImportPreview] = useState<SupplierDocumentRequirementImportPreview | null>(null);
+
+  const form = useForm<RequirementFormValues>({
+    resolver: zodResolver(requirementFormSchema),
+    defaultValues: emptyForm,
+  });
 
   const resetImportState = () => {
     setImportFileName("");
@@ -103,25 +116,25 @@ export default function SupplierDocumentRequirementsPage() {
     if (isCreatingNew) return;
     if (requirements.length === 0) {
       setSelectedId(null);
-      setForm(emptyForm);
+      form.reset(emptyForm);
       return;
     }
     if (!selectedId || !requirements.some((requirement) => requirement.id === selectedId)) {
       setSelectedId(requirements[0].id);
     }
-  }, [isCreatingNew, requirements, selectedId]);
+  }, [form, isCreatingNew, requirements, selectedId]);
 
   useEffect(() => {
     if (!selectedRequirement || isCreatingNew) return;
-    setForm({
+    form.reset({
       name: selectedRequirement.name,
       description: selectedRequirement.description || "",
-      weight: String(selectedRequirement.weight),
+      weight: selectedRequirement.weight,
       categoryId: selectedRequirement.categoryId ? String(selectedRequirement.categoryId) : "",
       typeId: selectedRequirement.typeId ? String(selectedRequirement.typeId) : "",
       status: selectedRequirement.status as "active" | "inactive",
     });
-  }, [isCreatingNew, selectedRequirement]);
+  }, [form, isCreatingNew, selectedRequirement]);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: suppliersKeys.all });
@@ -182,22 +195,14 @@ export default function SupplierDocumentRequirementsPage() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      const weight = Number(form.weight);
-      if (!form.name.trim()) {
-        throw new Error("Informe o nome do requisito documental.");
-      }
-      if (!Number.isFinite(weight) || weight < 1 || weight > 5) {
-        throw new Error("O peso deve estar entre 1 e 5.");
-      }
-
+    mutationFn: async (values: RequirementFormValues) => {
       const payload = {
-        name: form.name.trim(),
-        description: form.description.trim() || null,
-        weight,
-        status: form.status,
-        categoryId: form.categoryId ? Number(form.categoryId) : null,
-        typeId: form.typeId ? Number(form.typeId) : null,
+        name: values.name.trim(),
+        description: values.description.trim() || null,
+        weight: values.weight,
+        status: values.status,
+        categoryId: Number(values.categoryId),
+        typeId: Number(values.typeId),
       };
 
       if (selectedRequirement && !isCreatingNew) {
@@ -216,6 +221,14 @@ export default function SupplierDocumentRequirementsPage() {
       refresh();
       setIsCreatingNew(false);
       setSelectedId(requirement.id);
+      form.reset({
+        name: requirement.name,
+        description: requirement.description || "",
+        weight: requirement.weight,
+        categoryId: requirement.categoryId ? String(requirement.categoryId) : "",
+        typeId: requirement.typeId ? String(requirement.typeId) : "",
+        status: requirement.status as "active" | "inactive",
+      });
       toast({
         title: action === "create" ? "Requisito criado" : "Requisito atualizado",
       });
@@ -232,6 +245,8 @@ export default function SupplierDocumentRequirementsPage() {
   const handleImportFile = async (file: File | null) => {
     if (!file) return;
 
+    resetImportState();
+    previewImportMutation.reset();
     try {
       const parsedRows = await parseSupplierDocumentRequirementsWorkbook(file);
       if (parsedRows.length === 0) {
@@ -241,6 +256,8 @@ export default function SupplierDocumentRequirementsPage() {
       setImportRows(parsedRows);
       previewImportMutation.mutate(parsedRows);
     } catch (error) {
+      resetImportState();
+      previewImportMutation.reset();
       toast({
         title: "Falha ao ler planilha",
         description: error instanceof Error ? error.message : "Tente novamente.",
@@ -296,7 +313,7 @@ export default function SupplierDocumentRequirementsPage() {
           onClick={() => {
             setIsCreatingNew(true);
             setSelectedId(null);
-            setForm(emptyForm);
+            form.reset(emptyForm);
           }}
         >
           <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -373,44 +390,44 @@ export default function SupplierDocumentRequirementsPage() {
                 <Label htmlFor="supplier-requirement-name">Nome</Label>
                 <Input
                   id="supplier-requirement-name"
-                  value={form.name}
-                  onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                  {...form.register("name")}
                   disabled={!canManageSuppliers}
                 />
+                <FieldError message={form.formState.errors.name?.message} />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="supplier-requirement-category">Categoria</Label>
                 <Select
                   id="supplier-requirement-category"
-                  value={form.categoryId}
-                  onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value }))}
+                  {...form.register("categoryId")}
                   disabled={!canManageSuppliers}
                 >
-                  <option value="">Sem categoria</option>
+                  <option value="">Selecione</option>
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name}
                     </option>
                   ))}
                 </Select>
+                <FieldError message={form.formState.errors.categoryId?.message} />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="supplier-requirement-type">Tipo</Label>
                 <Select
                   id="supplier-requirement-type"
-                  value={form.typeId}
-                  onChange={(event) => setForm((current) => ({ ...current, typeId: event.target.value }))}
+                  {...form.register("typeId")}
                   disabled={!canManageSuppliers}
                 >
-                  <option value="">Sem tipo</option>
+                  <option value="">Selecione</option>
                   {types.map((type) => (
                     <option key={type.id} value={type.id}>
                       {type.name}
                     </option>
                   ))}
                 </Select>
+                <FieldError message={form.formState.errors.typeId?.message} />
               </div>
 
               <div className="space-y-2">
@@ -420,28 +437,23 @@ export default function SupplierDocumentRequirementsPage() {
                   type="number"
                   min={1}
                   max={5}
-                  value={form.weight}
-                  onChange={(event) => setForm((current) => ({ ...current, weight: event.target.value }))}
+                  {...form.register("weight", { valueAsNumber: true })}
                   disabled={!canManageSuppliers}
                 />
+                <FieldError message={form.formState.errors.weight?.message} />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="supplier-requirement-status">Status</Label>
                 <Select
                   id="supplier-requirement-status"
-                  value={form.status}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      status: event.target.value as "active" | "inactive",
-                    }))
-                  }
+                  {...form.register("status")}
                   disabled={!canManageSuppliers}
                 >
                   <option value="active">Ativo</option>
                   <option value="inactive">Inativo</option>
                 </Select>
+                <FieldError message={form.formState.errors.status?.message} />
               </div>
             </div>
 
@@ -450,10 +462,10 @@ export default function SupplierDocumentRequirementsPage() {
               <Textarea
                 id="supplier-requirement-description"
                 placeholder="Explique quando esse documento é exigido e como deve ser analisado."
-                value={form.description}
-                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                {...form.register("description")}
                 disabled={!canManageSuppliers}
               />
+              <FieldError message={form.formState.errors.description?.message} />
             </div>
 
             {canManageSuppliers ? (
@@ -464,22 +476,26 @@ export default function SupplierDocumentRequirementsPage() {
                   onClick={() => {
                     setIsCreatingNew(false);
                     if (selectedRequirement) {
-                      setForm({
+                      form.reset({
                         name: selectedRequirement.name,
                         description: selectedRequirement.description || "",
-                        weight: String(selectedRequirement.weight),
+                        weight: selectedRequirement.weight,
                         categoryId: selectedRequirement.categoryId ? String(selectedRequirement.categoryId) : "",
                         typeId: selectedRequirement.typeId ? String(selectedRequirement.typeId) : "",
                         status: selectedRequirement.status as "active" | "inactive",
                       });
                     } else {
-                      setForm(emptyForm);
+                      form.reset(emptyForm);
                     }
                   }}
                 >
                   Descartar
                 </Button>
-                <Button type="button" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                <Button
+                  type="button"
+                  onClick={form.handleSubmit((values) => saveMutation.mutate(values))}
+                  disabled={saveMutation.isPending || (!isCreatingNew && !form.formState.isDirty)}
+                >
                   {saveMutation.isPending ? "Salvando..." : "Salvar requisito"}
                 </Button>
               </div>

@@ -215,6 +215,43 @@ describe("suppliers routes", () => {
     expect(performanceReview.body.offeringId).toBe(firstSupplier.body.offerings[0].id);
   });
 
+  it("accepts catalog-linked offerings without requiring manual fields", async () => {
+    const context = await createTestContext({ seed: "suppliers-offering-catalog-schema" });
+    contexts.push(context);
+
+    const supplier = await createSupplier(context, {
+      legalIdentifier: "22334455000166",
+      legalName: "Fornecedor catálogo schema",
+    });
+
+    const catalogItem = await request(app)
+      .post(`/api/organizations/${context.organizationId}/supplier-catalog-items`)
+      .set(authHeader(context))
+      .send({
+        name: "Item do catálogo",
+        offeringType: "service",
+        unitOfMeasure: "hora",
+        description: "Prestação recorrente",
+        status: "active",
+      });
+
+    expect(catalogItem.status).toBe(201);
+
+    const created = await request(app)
+      .post(`/api/organizations/${context.organizationId}/suppliers/${supplier.id}/offerings`)
+      .set(authHeader(context))
+      .send({
+        catalogItemId: catalogItem.body.id,
+        isApprovedScope: true,
+      });
+
+    expect(created.status).toBe(201);
+    expect(created.body.catalogItemId).toBe(catalogItem.body.id);
+    expect(created.body.name).toBe("Item do catálogo");
+    expect(created.body.offeringType).toBe("service");
+    expect(created.body.status).toBe("active");
+  });
+
   it("previews, commits and exports the supplier document requirements catalog", async () => {
     const context = await createTestContext({ seed: "suppliers-document-import" });
     contexts.push(context);
@@ -310,7 +347,8 @@ describe("suppliers routes", () => {
 
   it("previews, commits and exports suppliers from the workbook layout", async () => {
     const context = await createTestContext({ seed: "suppliers-import-export" });
-    contexts.push(context);
+    const foreignContext = await createTestContext({ seed: "suppliers-import-export-foreign" });
+    contexts.push(context, foreignContext);
 
     const category = await createSupplierCategory(context, "Serviços laboratoriais");
     const type = await createSupplierType(context, {
@@ -431,6 +469,14 @@ describe("suppliers routes", () => {
     expect(validPreview.body.previewToken).toEqual(expect.any(String));
     expect(validPreview.body.summary.errorCount).toBe(0);
 
+    const foreignCommit = await request(app)
+      .post(`/api/organizations/${foreignContext.organizationId}/suppliers/import-commit`)
+      .set(authHeader(foreignContext))
+      .send({ previewToken: validPreview.body.previewToken });
+
+    expect(foreignCommit.status).toBe(400);
+    expect(foreignCommit.body.error).toContain("Prévia de importação inválida");
+
     const invalidCommit = await request(app)
       .post(`/api/organizations/${context.organizationId}/suppliers/import-commit`)
       .set(authHeader(context))
@@ -507,10 +553,11 @@ describe("suppliers routes", () => {
     ]);
   });
 
-  it("supports document submission review by another user in the same organization", async () => {
+  it("supports document submission review by another authorized user in the same organization", async () => {
     const context = await createTestContext({ seed: "suppliers-document-review-flow" });
     contexts.push(context);
     const reviewer = await createTestUser(context, { role: "operator", suffix: "reviewer", modules: ["suppliers"] });
+    const backupReviewer = await createTestUser(context, { role: "operator", suffix: "backup", modules: ["suppliers"] });
     const analyst = await createTestUser(context, { role: "analyst", suffix: "analyst", modules: ["suppliers"] });
     const requirement = await createSupplierDocumentRequirement(context, {
       name: "Laudo atualizado",
@@ -550,7 +597,7 @@ describe("suppliers routes", () => {
 
     const reviewed = await request(app)
       .post(`/api/organizations/${context.organizationId}/suppliers/${supplier.id}/document-submissions/${submission.body.id}/review`)
-      .set({ Authorization: `Bearer ${reviewer.token}` })
+      .set({ Authorization: `Bearer ${backupReviewer.token}` })
       .send({
         decision: "approved",
         reviewComment: "Documento validado",
@@ -560,7 +607,7 @@ describe("suppliers routes", () => {
     expect(reviewed.status).toBe(200);
     expect(reviewed.body.submissionStatus).toBe("approved");
     expect(reviewed.body.adequacyStatus).toBe("adequate");
-    expect(reviewed.body.reviewedById).toBe(reviewer.id);
+    expect(reviewed.body.reviewedById).toBe(backupReviewer.id);
     expect(reviewed.body.requestedReviewerId).toBeNull();
     expect(reviewed.body.reviewComment).toBe("Documento validado");
   });

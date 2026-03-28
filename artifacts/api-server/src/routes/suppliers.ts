@@ -138,10 +138,45 @@ const supplierCatalogItemBodySchema = z.object({
   status: z.enum(["active", "inactive"]).default("active"),
 });
 
-const supplierOfferingBodySchema = supplierCatalogItemBodySchema.extend({
-  catalogItemId: z.coerce.number().int().positive().nullable().optional(),
-  isApprovedScope: z.boolean().default(false),
-});
+const supplierOfferingBodySchema = z
+  .object({
+    catalogItemId: z.coerce.number().int().positive().nullable().optional(),
+    name: z.string().trim().optional(),
+    offeringType: z.enum(["product", "service"]).optional(),
+    unitOfMeasure: z.string().trim().optional().nullable(),
+    description: z.string().trim().optional().nullable(),
+    status: z.enum(["active", "inactive"]).optional(),
+    isApprovedScope: z.boolean().default(false),
+  })
+  .superRefine((value, ctx) => {
+    if (value.catalogItemId) {
+      return;
+    }
+
+    if (!value.name?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["name"],
+        message: "Informe o nome do item.",
+      });
+    }
+
+    if (!value.offeringType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["offeringType"],
+        message: "Informe o tipo do item.",
+      });
+    }
+
+    if (!value.status) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["status"],
+        message: "Informe o status do item.",
+      });
+    }
+  });
 
 const supplierDocumentRequirementBodySchema = z.object({
   categoryId: z.coerce.number().int().positive().nullable().optional(),
@@ -1500,8 +1535,8 @@ router.get("/organizations/:orgId/suppliers/export", requireAuth, async (req, re
 
   res.json({
     rows: rows.map((row) => ({
-      legalIdentifier: formatLegalIdentifier(row.legalIdentifier, row.personType),
-      personType: row.personType.toUpperCase(),
+      legalIdentifier: formatLegalIdentifier(row.legalIdentifier, row.personType === "pf" ? "pf" : "pj"),
+      personType: row.personType === "pf" ? "PF" : "PJ",
       legalName: row.legalName,
       tradeName: row.tradeName ?? "",
       responsibleName: row.responsibleName ?? "",
@@ -1831,14 +1866,23 @@ router.post("/organizations/:orgId/suppliers/:supplierId/offerings", requireAuth
         )
     : [];
 
+  const offeringName = catalogItem?.name ?? body.data.name?.trim();
+  const offeringType = catalogItem?.offeringType ?? body.data.offeringType;
+  const offeringStatus = catalogItem?.status ?? body.data.status;
+
+  if (!offeringName || !offeringType || !offeringStatus) {
+    res.status(400).json({ error: "Dados insuficientes para salvar o item do fornecedor" });
+    return;
+  }
+
   const [created] = await db.insert(supplierOfferingsTable).values({
     supplierId: supplier.id,
     catalogItemId: catalogItem?.id ?? null,
-    name: catalogItem?.name ?? body.data.name,
-    offeringType: catalogItem?.offeringType ?? body.data.offeringType,
+    name: offeringName,
+    offeringType,
     unitOfMeasure: catalogItem?.unitOfMeasure ?? normalizeOptionalString(body.data.unitOfMeasure),
     description: catalogItem?.description ?? normalizeOptionalString(body.data.description),
-    status: catalogItem?.status ?? body.data.status,
+    status: offeringStatus,
     isApprovedScope: toDbFlag(body.data.isApprovedScope),
   }).returning();
 
@@ -1879,15 +1923,24 @@ router.patch("/organizations/:orgId/suppliers/:supplierId/offerings/:offeringId"
         )
     : [];
 
+  const offeringName = catalogItem?.name ?? body.data.name?.trim();
+  const offeringType = catalogItem?.offeringType ?? body.data.offeringType;
+  const offeringStatus = catalogItem?.status ?? body.data.status;
+
+  if (!offeringName || !offeringType || !offeringStatus) {
+    res.status(400).json({ error: "Dados insuficientes para salvar o item do fornecedor" });
+    return;
+  }
+
   const [updated] = await db
     .update(supplierOfferingsTable)
     .set({
       catalogItemId: catalogItem?.id ?? null,
-      name: catalogItem?.name ?? body.data.name,
-      offeringType: catalogItem?.offeringType ?? body.data.offeringType,
+      name: offeringName,
+      offeringType,
       unitOfMeasure: catalogItem?.unitOfMeasure ?? normalizeOptionalString(body.data.unitOfMeasure),
       description: catalogItem?.description ?? normalizeOptionalString(body.data.description),
-      status: catalogItem?.status ?? body.data.status,
+      status: offeringStatus,
       isApprovedScope: toDbFlag(body.data.isApprovedScope),
     })
     .where(and(eq(supplierOfferingsTable.id, params.data.offeringId), eq(supplierOfferingsTable.supplierId, supplier.id)))
@@ -2010,6 +2063,8 @@ router.post("/organizations/:orgId/suppliers/:supplierId/document-submissions/:s
     return;
   }
 
+  // A pessoa solicitada é um encaminhamento preferencial. A revisão continua
+  // aberta para qualquer usuário com permissão de escrita no fluxo documental.
   const [updated] = await db
     .update(supplierDocumentSubmissionsTable)
     .set({

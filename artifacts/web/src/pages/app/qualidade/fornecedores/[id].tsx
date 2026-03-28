@@ -1138,8 +1138,11 @@ export default function SupplierDetailPage() {
                                     <option key={user.id} value={user.id}>
                                       {user.name}
                                     </option>
-                                  ))}
+                                    ))}
                                 </Select>
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                  O aprovador solicitado é preferencial. Qualquer usuário autorizado no fluxo documental pode concluir a revisão.
+                                </p>
                               </FieldContent>
                             </Field>
                           ) : (

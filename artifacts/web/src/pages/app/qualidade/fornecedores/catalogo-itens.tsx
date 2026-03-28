@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,13 +21,15 @@ import {
 } from "@/lib/suppliers-client";
 import { ArrowLeft, Plus } from "lucide-react";
 
-type CatalogItemForm = {
-  name: string;
-  offeringType: "product" | "service";
-  unitOfMeasure: string;
-  description: string;
-  status: "active" | "inactive";
-};
+const catalogItemFormSchema = z.object({
+  name: z.string().trim().min(1, "Informe o nome do item."),
+  offeringType: z.enum(["product", "service"]),
+  unitOfMeasure: z.string(),
+  description: z.string(),
+  status: z.enum(["active", "inactive"]),
+});
+
+type CatalogItemForm = z.infer<typeof catalogItemFormSchema>;
 
 const emptyForm: CatalogItemForm = {
   name: "",
@@ -34,6 +39,10 @@ const emptyForm: CatalogItemForm = {
   status: "active",
 };
 
+function FieldError({ message }: { message?: string }) {
+  return message ? <p className="mt-1.5 text-xs text-destructive">{message}</p> : null;
+}
+
 export default function SupplierCatalogItemsPage() {
   const { organization, role } = useAuth();
   const orgId = organization?.id;
@@ -42,7 +51,10 @@ export default function SupplierCatalogItemsPage() {
   const canManageSuppliers = role === "org_admin" || role === "platform_admin";
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
-  const [form, setForm] = useState<CatalogItemForm>(emptyForm);
+  const form = useForm<CatalogItemForm>({
+    resolver: zodResolver(catalogItemFormSchema),
+    defaultValues: emptyForm,
+  });
 
   usePageTitle("Catálogo de produtos e serviços");
   usePageSubtitle("Cadastre itens reutilizáveis e vincule-os aos fornecedores sem recriar escopos locais.");
@@ -60,24 +72,24 @@ export default function SupplierCatalogItemsPage() {
     if (isCreatingNew) return;
     if (items.length === 0) {
       setSelectedId(null);
-      setForm(emptyForm);
+      form.reset(emptyForm);
       return;
     }
     if (!selectedId || !items.some((item) => item.id === selectedId)) {
       setSelectedId(items[0].id);
     }
-  }, [isCreatingNew, items, selectedId]);
+  }, [form, isCreatingNew, items, selectedId]);
 
   useEffect(() => {
     if (!selectedItem || isCreatingNew) return;
-    setForm({
+    form.reset({
       name: selectedItem.name,
       offeringType: selectedItem.offeringType,
       unitOfMeasure: selectedItem.unitOfMeasure || "",
       description: selectedItem.description || "",
       status: selectedItem.status as "active" | "inactive",
     });
-  }, [isCreatingNew, selectedItem]);
+  }, [form, isCreatingNew, selectedItem]);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: suppliersKeys.catalogItems(orgId!) });
@@ -86,15 +98,13 @@ export default function SupplierCatalogItemsPage() {
   };
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!form.name.trim()) throw new Error("Informe o nome do item.");
-
+    mutationFn: async (values: CatalogItemForm) => {
       const payload = {
-        name: form.name.trim(),
-        offeringType: form.offeringType,
-        unitOfMeasure: form.unitOfMeasure.trim() || null,
-        description: form.description.trim() || null,
-        status: form.status,
+        name: values.name.trim(),
+        offeringType: values.offeringType,
+        unitOfMeasure: values.unitOfMeasure.trim() || null,
+        description: values.description.trim() || null,
+        status: values.status,
       };
 
       if (selectedItem && !isCreatingNew) {
@@ -113,6 +123,13 @@ export default function SupplierCatalogItemsPage() {
       refresh();
       setIsCreatingNew(false);
       setSelectedId(item.id);
+      form.reset({
+        name: item.name,
+        offeringType: item.offeringType,
+        unitOfMeasure: item.unitOfMeasure || "",
+        description: item.description || "",
+        status: item.status as "active" | "inactive",
+      });
       toast({ title: action === "create" ? "Item criado" : "Item atualizado" });
     },
     onError: (error) =>
@@ -135,7 +152,7 @@ export default function SupplierCatalogItemsPage() {
           onClick={() => {
             setIsCreatingNew(true);
             setSelectedId(null);
-            setForm(emptyForm);
+            form.reset(emptyForm);
           }}
         >
           <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -192,55 +209,53 @@ export default function SupplierCatalogItemsPage() {
               <Label htmlFor="catalog-item-name">Nome</Label>
               <Input
                 id="catalog-item-name"
-                value={form.name}
-                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                {...form.register("name")}
                 disabled={!canManageSuppliers}
               />
+              <FieldError message={form.formState.errors.name?.message} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="catalog-item-type">Tipo</Label>
               <Select
                 id="catalog-item-type"
-                value={form.offeringType}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, offeringType: event.target.value as "product" | "service" }))
-                }
+                {...form.register("offeringType")}
                 disabled={!canManageSuppliers}
               >
                 <option value="service">Serviço</option>
                 <option value="product">Produto</option>
               </Select>
+              <FieldError message={form.formState.errors.offeringType?.message} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="catalog-item-status">Status</Label>
               <Select
                 id="catalog-item-status"
-                value={form.status}
-                onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as "active" | "inactive" }))}
+                {...form.register("status")}
                 disabled={!canManageSuppliers}
               >
                 <option value="active">Ativo</option>
                 <option value="inactive">Inativo</option>
               </Select>
+              <FieldError message={form.formState.errors.status?.message} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="catalog-item-uom">Unidade de medida</Label>
               <Input
                 id="catalog-item-uom"
-                value={form.unitOfMeasure}
-                onChange={(event) => setForm((current) => ({ ...current, unitOfMeasure: event.target.value }))}
+                {...form.register("unitOfMeasure")}
                 disabled={!canManageSuppliers}
               />
+              <FieldError message={form.formState.errors.unitOfMeasure?.message} />
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="catalog-item-description">Descrição</Label>
             <Textarea
               id="catalog-item-description"
-              value={form.description}
-              onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+              {...form.register("description")}
               disabled={!canManageSuppliers}
             />
+            <FieldError message={form.formState.errors.description?.message} />
           </div>
 
           {canManageSuppliers ? (
@@ -250,7 +265,7 @@ export default function SupplierCatalogItemsPage() {
                 onClick={() => {
                   setIsCreatingNew(false);
                   if (selectedItem) {
-                    setForm({
+                    form.reset({
                       name: selectedItem.name,
                       offeringType: selectedItem.offeringType,
                       unitOfMeasure: selectedItem.unitOfMeasure || "",
@@ -259,12 +274,15 @@ export default function SupplierCatalogItemsPage() {
                     });
                     return;
                   }
-                  setForm(emptyForm);
+                  form.reset(emptyForm);
                 }}
               >
                 Descartar
               </Button>
-              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              <Button
+                onClick={form.handleSubmit((values) => saveMutation.mutate(values))}
+                disabled={saveMutation.isPending || (!isCreatingNew && !form.formState.isDirty)}
+              >
                 {saveMutation.isPending ? "Salvando..." : "Salvar item"}
               </Button>
             </div>

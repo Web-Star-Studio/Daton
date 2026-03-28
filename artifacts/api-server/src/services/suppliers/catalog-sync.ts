@@ -5,12 +5,14 @@ import {
   supplierOfferingsTable,
 } from "@workspace/db";
 
+type CatalogSyncExecutor = Pick<typeof db, "select" | "insert" | "update" | "delete">;
+
 function toDbFlag(value: boolean) {
   return value ? 1 : 0;
 }
 
 export async function syncSupplierCatalogAssociations(
-  tx: typeof db,
+  tx: CatalogSyncExecutor,
   supplierId: number,
   organizationId: number,
   catalogItemIds: number[] | undefined,

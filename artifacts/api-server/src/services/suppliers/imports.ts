@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
 import {
@@ -93,17 +94,23 @@ type SupplierImportPreview = {
 
 type PreviewTokenKind = "supplier-document-requirements-import" | "suppliers-import";
 
-type SupplierDocumentRequirementPreviewTokenPayload = {
-  kind: "supplier-document-requirements-import";
+type PreviewTokenPayload = {
+  kind: PreviewTokenKind;
   orgId: number;
-  rows: SupplierDocumentRequirementPreviewRow[];
+  previewId: string;
 };
 
-type SupplierPreviewTokenPayload = {
-  kind: "suppliers-import";
+type PreviewStoreRows = SupplierDocumentRequirementPreviewRow[] | SupplierImportPreviewRow[];
+
+type PreviewStoreEntry = {
+  kind: PreviewTokenKind;
   orgId: number;
-  rows: SupplierImportPreviewRow[];
+  rows: PreviewStoreRows;
+  expiresAt: number;
 };
+
+const PREVIEW_TTL_MS = 15 * 60 * 1000;
+const previewStore = new Map<string, PreviewStoreEntry>();
 
 function getPreviewTokenSecret() {
   const secret = process.env.JWT_SECRET;
@@ -162,12 +169,32 @@ function summarizePreviewRows<T extends { action: string; errors: string[] }>(ro
   };
 }
 
-function signPreviewToken(kind: PreviewTokenKind, orgId: number, rows: SupplierDocumentRequirementPreviewRow[] | SupplierImportPreviewRow[]) {
+function cleanupExpiredPreviewEntries(now = Date.now()) {
+  for (const [previewId, entry] of previewStore.entries()) {
+    if (entry.expiresAt <= now) {
+      previewStore.delete(previewId);
+    }
+  }
+}
+
+function persistPreviewRows(kind: PreviewTokenKind, orgId: number, rows: PreviewStoreRows) {
+  cleanupExpiredPreviewEntries();
+  const previewId = randomUUID();
+  previewStore.set(previewId, {
+    kind,
+    orgId,
+    rows,
+    expiresAt: Date.now() + PREVIEW_TTL_MS,
+  });
+  return previewId;
+}
+
+function signPreviewToken(kind: PreviewTokenKind, orgId: number, previewId: string) {
   return jwt.sign(
     {
       kind,
       orgId,
-      rows,
+      previewId,
     },
     getPreviewTokenSecret(),
     {
@@ -181,15 +208,21 @@ function verifyPreviewToken(kind: "supplier-document-requirements-import", orgId
 function verifyPreviewToken(kind: "suppliers-import", orgId: number, token: string): SupplierImportPreviewRow[];
 function verifyPreviewToken(kind: PreviewTokenKind, orgId: number, token: string) {
   try {
+    cleanupExpiredPreviewEntries();
     const payload = jwt.verify(token, getPreviewTokenSecret(), {
       audience: kind,
-    }) as SupplierDocumentRequirementPreviewTokenPayload | SupplierPreviewTokenPayload;
+    }) as PreviewTokenPayload;
 
-    if (payload.orgId !== orgId || payload.kind !== kind || !Array.isArray(payload.rows)) {
+    if (payload.orgId !== orgId || payload.kind !== kind || !payload.previewId) {
       throw new Error("Prévia de importação inválida ou expirada.");
     }
 
-    return payload.rows;
+    const previewEntry = previewStore.get(payload.previewId);
+    if (!previewEntry || previewEntry.orgId !== orgId || previewEntry.kind !== kind) {
+      throw new Error("Prévia de importação inválida ou expirada.");
+    }
+
+    return previewEntry.rows;
   } catch {
     throw new Error("Prévia de importação inválida ou expirada.");
   }
@@ -255,8 +288,9 @@ export async function buildSupplierDocumentRequirementImportPreview(
     } satisfies SupplierDocumentRequirementPreviewRow;
   });
 
+  const previewId = persistPreviewRows("supplier-document-requirements-import", orgId, previewRows);
   return {
-    previewToken: signPreviewToken("supplier-document-requirements-import", orgId, previewRows),
+    previewToken: signPreviewToken("supplier-document-requirements-import", orgId, previewId),
     rows: previewRows,
     summary: summarizePreviewRows(previewRows),
   };
@@ -414,8 +448,9 @@ export async function buildSupplierImportPreview(
     } satisfies SupplierImportPreviewRow;
   });
 
+  const previewId = persistPreviewRows("suppliers-import", orgId, previewRows);
   return {
-    previewToken: signPreviewToken("suppliers-import", orgId, previewRows),
+    previewToken: signPreviewToken("suppliers-import", orgId, previewId),
     rows: previewRows,
     summary: summarizePreviewRows(previewRows),
   };
