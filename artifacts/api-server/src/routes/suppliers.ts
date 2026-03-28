@@ -8,6 +8,7 @@ import {
   suppliersTable,
   supplierUnitsTable,
   supplierTypeLinksTable,
+  supplierCatalogItemsTable,
   supplierOfferingsTable,
   supplierDocumentRequirementsTable,
   supplierDocumentSubmissionsTable,
@@ -23,8 +24,16 @@ import {
   type SupplierAttachment,
 } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
+import {
+  buildSupplierDocumentRequirementImportPreview,
+  buildSupplierImportPreview,
+  readSupplierDocumentRequirementImportPreview,
+  readSupplierImportPreview,
+} from "../services/suppliers/imports";
+import { syncSupplierCatalogAssociations } from "../services/suppliers/catalog-sync";
 
 const router: IRouter = Router();
+const DEFAULT_SUPPLIER_DOCUMENT_THRESHOLD = 80;
 
 const orgParamsSchema = z.object({
   orgId: z.coerce.number().int().positive(),
@@ -58,6 +67,7 @@ const supplierCategoryBodySchema = z.object({
 const supplierTypeBodySchema = z.object({
   name: z.string().trim().min(1),
   description: z.string().trim().optional().nullable(),
+  documentThreshold: z.coerce.number().int().min(0).max(100).default(DEFAULT_SUPPLIER_DOCUMENT_THRESHOLD),
   status: z.enum(["active", "inactive"]).default("active"),
   categoryId: z.coerce.number().int().positive().nullable().optional(),
   parentTypeId: z.coerce.number().int().positive().nullable().optional(),
@@ -69,6 +79,7 @@ const supplierBodySchema = z.object({
   legalIdentifier: z.string().trim().min(1),
   legalName: z.string().trim().min(1),
   tradeName: z.string().trim().optional().nullable(),
+  responsibleName: z.string().trim().optional().nullable(),
   stateRegistration: z.string().trim().optional().nullable(),
   municipalRegistration: z.string().trim().optional().nullable(),
   rg: z.string().trim().optional().nullable(),
@@ -87,16 +98,85 @@ const supplierBodySchema = z.object({
   notes: z.string().trim().optional().nullable(),
   unitIds: z.array(z.coerce.number().int().positive()).default([]),
   typeIds: z.array(z.coerce.number().int().positive()).default([]),
+  catalogItemIds: z.array(z.coerce.number().int().positive()).optional(),
 });
 
-const supplierOfferingBodySchema = z.object({
+const supplierImportBodySchema = z.object({
+  rows: z.array(
+    z.object({
+      rowNumber: z.coerce.number().int().positive().optional(),
+      legalIdentifier: z.unknown().optional(),
+      personType: z.unknown().optional(),
+      legalName: z.unknown().optional(),
+      tradeName: z.unknown().optional(),
+      responsibleName: z.unknown().optional(),
+      phone: z.unknown().optional(),
+      email: z.unknown().optional(),
+      postalCode: z.unknown().optional(),
+      street: z.unknown().optional(),
+      streetNumber: z.unknown().optional(),
+      neighborhood: z.unknown().optional(),
+      city: z.unknown().optional(),
+      state: z.unknown().optional(),
+      unitNames: z.unknown().optional(),
+      categoryName: z.unknown().optional(),
+      typeNames: z.unknown().optional(),
+      notes: z.unknown().optional(),
+    }),
+  ).min(1),
+});
+
+const supplierImportCommitBodySchema = z.object({
+  previewToken: z.string().trim().min(1),
+});
+
+const supplierCatalogItemBodySchema = z.object({
   name: z.string().trim().min(1),
   offeringType: z.enum(["product", "service"]),
   unitOfMeasure: z.string().trim().optional().nullable(),
   description: z.string().trim().optional().nullable(),
   status: z.enum(["active", "inactive"]).default("active"),
-  isApprovedScope: z.boolean().default(false),
 });
+
+const supplierOfferingBodySchema = z
+  .object({
+    catalogItemId: z.coerce.number().int().positive().nullable().optional(),
+    name: z.string().trim().optional(),
+    offeringType: z.enum(["product", "service"]).optional(),
+    unitOfMeasure: z.string().trim().optional().nullable(),
+    description: z.string().trim().optional().nullable(),
+    status: z.enum(["active", "inactive"]).optional(),
+    isApprovedScope: z.boolean().default(false),
+  })
+  .superRefine((value, ctx) => {
+    if (value.catalogItemId) {
+      return;
+    }
+
+    if (!value.name?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["name"],
+        message: "Informe o nome do item.",
+      });
+    }
+
+    if (!value.offeringType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["offeringType"],
+        message: "Informe o tipo do item.",
+      });
+    }
+
+    if (!value.status) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["status"],
+        message: "Informe o status do item.",
+      });
+    }
+  });
 
 const supplierDocumentRequirementBodySchema = z.object({
   categoryId: z.coerce.number().int().positive().nullable().optional(),
@@ -107,10 +187,28 @@ const supplierDocumentRequirementBodySchema = z.object({
   status: z.enum(["active", "inactive"]).default("active"),
 });
 
+const supplierDocumentRequirementImportBodySchema = z.object({
+  rows: z.array(
+    z.object({
+      rowNumber: z.coerce.number().int().positive().optional(),
+      name: z.unknown().optional(),
+      weight: z.unknown().optional(),
+      description: z.unknown().optional(),
+    }),
+  ).min(1),
+});
+
+const supplierDocumentRequirementImportCommitBodySchema = z.object({
+  previewToken: z.string().trim().min(1),
+});
+
 const supplierDocumentSubmissionBodySchema = z.object({
   requirementId: z.coerce.number().int().positive(),
   submissionStatus: z.enum(["approved", "rejected", "pending", "exempt"]),
   adequacyStatus: z.enum(["adequate", "not_adequate", "under_review"]).default("under_review"),
+  workflowAction: z.enum(["approve_now", "request_review"]).default("approve_now"),
+  requestedReviewerId: z.coerce.number().int().positive().nullable().optional(),
+  reviewComment: z.string().trim().optional().nullable(),
   validityDate: z.string().date().optional().nullable(),
   exemptionReason: z.string().trim().optional().nullable(),
   rejectionReason: z.string().trim().optional().nullable(),
@@ -118,8 +216,14 @@ const supplierDocumentSubmissionBodySchema = z.object({
   attachments: z.array(attachmentSchema).default([]),
 });
 
+const supplierDocumentSubmissionReviewBodySchema = z.object({
+  decision: z.enum(["approved", "rejected", "request_changes"]),
+  validityDate: z.string().date().optional().nullable(),
+  rejectionReason: z.string().trim().optional().nullable(),
+  reviewComment: z.string().trim().optional().nullable(),
+});
+
 const supplierDocumentReviewBodySchema = z.object({
-  threshold: z.coerce.number().int().min(0).max(100).default(80),
   nextReviewDate: z.string().date().optional().nullable(),
   observations: z.string().trim().optional().nullable(),
 });
@@ -198,6 +302,34 @@ function normalizeOptionalString(value?: string | null): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function normalizeDigits(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function toDbFlag(value: boolean) {
+  return value ? 1 : 0;
+}
+
+function formatLegalIdentifier(value: string, personType: "pj" | "pf") {
+  const digits = normalizeDigits(value);
+  if (personType === "pj" && digits.length === 14) {
+    return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+  }
+  if (personType === "pf" && digits.length === 11) {
+    return digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+  }
+  return value;
+}
+
+function formatPostalCode(value: string | null | undefined) {
+  if (!value) return "";
+  const digits = normalizeDigits(value);
+  if (digits.length === 8) {
+    return digits.replace(/^(\d{5})(\d{3})$/, "$1-$2");
+  }
+  return value;
+}
+
 function formatTimestamp(value: Date | string | null | undefined): string | null {
   if (!value) return null;
   if (value instanceof Date) return value.toISOString();
@@ -208,7 +340,7 @@ function formatAttachments(attachments: SupplierAttachment[] | null | undefined)
   return Array.isArray(attachments) ? attachments : [];
 }
 
-function requireSupplierWrite(scope: "general" | "receipts") {
+function requireSupplierWrite(scope: "general" | "receipts" | "document_reviews") {
   return (req: Request, res: Response, next: NextFunction): void => {
     const role = req.auth?.role;
     if (!role) {
@@ -221,7 +353,7 @@ function requireSupplierWrite(scope: "general" | "receipts") {
       return;
     }
 
-    if (role === "operator" && scope === "receipts") {
+    if (role === "operator" && (scope === "receipts" || scope === "document_reviews")) {
       next();
       return;
     }
@@ -275,6 +407,15 @@ async function ensureUnitsBelongToOrg(unitIds: number[], orgId: number): Promise
   return rows.length === unitIds.length;
 }
 
+async function ensureCatalogItemsBelongToOrg(catalogItemIds: number[], orgId: number): Promise<boolean> {
+  if (catalogItemIds.length === 0) return true;
+  const rows = await db
+    .select({ id: supplierCatalogItemsTable.id })
+    .from(supplierCatalogItemsTable)
+    .where(and(eq(supplierCatalogItemsTable.organizationId, orgId), inArray(supplierCatalogItemsTable.id, catalogItemIds)));
+  return rows.length === catalogItemIds.length;
+}
+
 async function ensureUserBelongsToOrg(userId: number | null | undefined, orgId: number): Promise<boolean> {
   if (!userId) return true;
   const [user] = await db
@@ -317,6 +458,20 @@ async function ensureReceiptCheckBelongsToSupplier(receiptCheckId: number | null
     .from(supplierReceiptChecksTable)
     .where(and(eq(supplierReceiptChecksTable.id, receiptCheckId), eq(supplierReceiptChecksTable.supplierId, supplierId)));
   return Boolean(receiptCheck);
+}
+
+async function resolveSupplierDocumentThreshold(supplierId: number): Promise<number> {
+  const rows = await db
+    .select({ documentThreshold: supplierTypesTable.documentThreshold })
+    .from(supplierTypeLinksTable)
+    .innerJoin(supplierTypesTable, eq(supplierTypeLinksTable.typeId, supplierTypesTable.id))
+    .where(eq(supplierTypeLinksTable.supplierId, supplierId));
+
+  if (rows.length === 0) {
+    return DEFAULT_SUPPLIER_DOCUMENT_THRESHOLD;
+  }
+
+  return rows.reduce((highest, row) => Math.max(highest, row.documentThreshold), 0);
 }
 
 async function preloadSupplierListData(
@@ -463,7 +618,13 @@ async function loadSupplierDetail(supplierId: number, orgId: number) {
         .where(eq(supplierUnitsTable.supplierId, supplierId))
         .orderBy(unitsTable.name),
       db
-        .select({ id: supplierTypesTable.id, name: supplierTypesTable.name, categoryId: supplierTypesTable.categoryId, parentTypeId: supplierTypesTable.parentTypeId })
+        .select({
+          id: supplierTypesTable.id,
+          name: supplierTypesTable.name,
+          categoryId: supplierTypesTable.categoryId,
+          parentTypeId: supplierTypesTable.parentTypeId,
+          documentThreshold: supplierTypesTable.documentThreshold,
+        })
         .from(supplierTypeLinksTable)
         .innerJoin(supplierTypesTable, eq(supplierTypeLinksTable.typeId, supplierTypesTable.id))
         .where(eq(supplierTypeLinksTable.supplierId, supplierId))
@@ -483,6 +644,11 @@ async function loadSupplierDetail(supplierId: number, orgId: number) {
           categoryId: supplierDocumentRequirementsTable.categoryId,
           submissionStatus: supplierDocumentSubmissionsTable.submissionStatus,
           adequacyStatus: supplierDocumentSubmissionsTable.adequacyStatus,
+          requestedReviewerId: supplierDocumentSubmissionsTable.requestedReviewerId,
+          reviewedById: supplierDocumentSubmissionsTable.reviewedById,
+          reviewedAt: supplierDocumentSubmissionsTable.reviewedAt,
+          reviewComment: supplierDocumentSubmissionsTable.reviewComment,
+          createdById: supplierDocumentSubmissionsTable.createdById,
           validityDate: supplierDocumentSubmissionsTable.validityDate,
           exemptionReason: supplierDocumentSubmissionsTable.exemptionReason,
           rejectionReason: supplierDocumentSubmissionsTable.rejectionReason,
@@ -615,6 +781,7 @@ async function loadSupplierDetail(supplierId: number, orgId: number) {
     legalIdentifier: supplier.legalIdentifier,
     legalName: supplier.legalName,
     tradeName: supplier.tradeName,
+    responsibleName: supplier.responsibleName,
     stateRegistration: supplier.stateRegistration,
     municipalRegistration: supplier.municipalRegistration,
     rg: supplier.rg,
@@ -646,6 +813,7 @@ async function loadSupplierDetail(supplierId: number, orgId: number) {
       submissions: submissions.map((submission) => ({
         ...submission,
         attachments: formatAttachments(submission.attachments),
+        reviewedAt: formatTimestamp(submission.reviewedAt),
         createdAt: formatTimestamp(submission.createdAt),
         updatedAt: formatTimestamp(submission.updatedAt),
       })),
@@ -866,6 +1034,103 @@ router.patch("/organizations/:orgId/supplier-types/:typeId", requireAuth, requir
   res.json(updated);
 });
 
+router.get("/organizations/:orgId/supplier-catalog-items", requireAuth, async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const rows = await db
+    .select()
+    .from(supplierCatalogItemsTable)
+    .where(eq(supplierCatalogItemsTable.organizationId, params.data.orgId))
+    .orderBy(supplierCatalogItemsTable.name);
+
+  res.json(rows);
+});
+
+router.post("/organizations/:orgId/supplier-catalog-items", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  const body = supplierCatalogItemBodySchema.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const [created] = await db
+    .insert(supplierCatalogItemsTable)
+    .values({
+      organizationId: params.data.orgId,
+      name: body.data.name,
+      offeringType: body.data.offeringType,
+      unitOfMeasure: normalizeOptionalString(body.data.unitOfMeasure),
+      description: normalizeOptionalString(body.data.description),
+      status: body.data.status,
+    })
+    .returning();
+
+  res.status(201).json(created);
+});
+
+router.patch("/organizations/:orgId/supplier-catalog-items/:catalogItemId", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
+  const params = z.object({
+    orgId: z.coerce.number().int().positive(),
+    catalogItemId: z.coerce.number().int().positive(),
+  }).safeParse(req.params);
+  const body = supplierCatalogItemBodySchema.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const updated = await db.transaction(async (tx) => {
+    const [nextItem] = await tx
+      .update(supplierCatalogItemsTable)
+      .set({
+        name: body.data.name,
+        offeringType: body.data.offeringType,
+        unitOfMeasure: normalizeOptionalString(body.data.unitOfMeasure),
+        description: normalizeOptionalString(body.data.description),
+        status: body.data.status,
+      })
+      .where(
+        and(
+          eq(supplierCatalogItemsTable.id, params.data.catalogItemId),
+          eq(supplierCatalogItemsTable.organizationId, params.data.orgId),
+        ),
+      )
+      .returning();
+
+    if (!nextItem) {
+      return null;
+    }
+
+    await tx
+      .update(supplierOfferingsTable)
+      .set({
+        name: nextItem.name,
+        offeringType: nextItem.offeringType,
+        unitOfMeasure: nextItem.unitOfMeasure,
+        description: nextItem.description,
+        status: nextItem.status,
+      })
+      .where(eq(supplierOfferingsTable.catalogItemId, nextItem.id));
+
+    return nextItem;
+  });
+
+  if (!updated) {
+    res.status(404).json({ error: "Item de catálogo não encontrado" });
+    return;
+  }
+
+  res.json(updated);
+});
+
 router.get("/organizations/:orgId/supplier-document-requirements", requireAuth, async (req, res): Promise<void> => {
   const params = orgParamsSchema.safeParse(req.params);
   if (!params.success) {
@@ -880,6 +1145,108 @@ router.get("/organizations/:orgId/supplier-document-requirements", requireAuth, 
     .where(eq(supplierDocumentRequirementsTable.organizationId, params.data.orgId))
     .orderBy(supplierDocumentRequirementsTable.name);
   res.json(rows);
+});
+
+router.get("/organizations/:orgId/supplier-document-requirements/export", requireAuth, async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const rows = await db
+    .select({
+      name: supplierDocumentRequirementsTable.name,
+      weight: supplierDocumentRequirementsTable.weight,
+      description: supplierDocumentRequirementsTable.description,
+    })
+    .from(supplierDocumentRequirementsTable)
+    .where(eq(supplierDocumentRequirementsTable.organizationId, params.data.orgId))
+    .orderBy(supplierDocumentRequirementsTable.name);
+
+  res.json({
+    rows: rows.map((row) => ({
+      name: row.name,
+      weight: row.weight,
+      description: row.description ?? "",
+    })),
+  });
+});
+
+router.post("/organizations/:orgId/supplier-document-requirements/import-preview", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  const body = supplierDocumentRequirementImportBodySchema.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const preview = await buildSupplierDocumentRequirementImportPreview(params.data.orgId, body.data.rows);
+  res.json(preview);
+});
+
+router.post("/organizations/:orgId/supplier-document-requirements/import-commit", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  const body = supplierDocumentRequirementImportCommitBodySchema.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  let preview;
+  try {
+    preview = await readSupplierDocumentRequirementImportPreview(params.data.orgId, body.data.previewToken);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Prévia de importação inválida." });
+    return;
+  }
+  if (preview.summary.errorCount > 0) {
+    res.status(400).json({
+      error: "A importação contém linhas inválidas. Corrija a planilha e gere uma nova prévia.",
+      preview,
+    });
+    return;
+  }
+
+  const validRows = preview.rows.filter((row) => row.action === "create" || row.action === "update");
+
+  await db.transaction(async (tx) => {
+    for (const row of validRows) {
+      if (row.action === "update" && row.existingRequirementId) {
+        await tx
+          .update(supplierDocumentRequirementsTable)
+          .set({
+            name: row.name,
+            weight: row.weight ?? 1,
+            description: row.description,
+          })
+          .where(
+            and(
+              eq(supplierDocumentRequirementsTable.id, row.existingRequirementId),
+              eq(supplierDocumentRequirementsTable.organizationId, params.data.orgId),
+            ),
+          );
+        continue;
+      }
+
+      await tx.insert(supplierDocumentRequirementsTable).values({
+        organizationId: params.data.orgId,
+        name: row.name,
+        weight: row.weight ?? 1,
+        description: row.description,
+        status: "active",
+      });
+    }
+  });
+
+  res.status(201).json({
+    imported: validRows.length,
+    created: validRows.filter((row) => row.action === "create").length,
+    updated: validRows.filter((row) => row.action === "update").length,
+  });
 });
 
 router.post("/organizations/:orgId/supplier-document-requirements", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
@@ -1070,6 +1437,7 @@ router.get("/organizations/:orgId/suppliers", requireAuth, async (req, res): Pro
       legalIdentifier: suppliersTable.legalIdentifier,
       legalName: suppliersTable.legalName,
       tradeName: suppliersTable.tradeName,
+      responsibleName: suppliersTable.responsibleName,
       status: suppliersTable.status,
       criticality: suppliersTable.criticality,
       documentCompliancePercentage: suppliersTable.documentCompliancePercentage,
@@ -1111,6 +1479,7 @@ router.get("/organizations/:orgId/suppliers", requireAuth, async (req, res): Pro
     legalIdentifier: supplier.legalIdentifier,
     legalName: supplier.legalName,
     tradeName: supplier.tradeName,
+    responsibleName: supplier.responsibleName,
     status: supplier.status,
     criticality: supplier.criticality,
     category: supplier.categoryId ? preloaded.categoriesById.get(supplier.categoryId) ?? null : null,
@@ -1128,6 +1497,180 @@ router.get("/organizations/:orgId/suppliers", requireAuth, async (req, res): Pro
   res.json(items);
 });
 
+router.get("/organizations/:orgId/suppliers/export", requireAuth, async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const rows = await db
+    .select({
+      id: suppliersTable.id,
+      categoryId: suppliersTable.categoryId,
+      personType: suppliersTable.personType,
+      legalIdentifier: suppliersTable.legalIdentifier,
+      legalName: suppliersTable.legalName,
+      tradeName: suppliersTable.tradeName,
+      responsibleName: suppliersTable.responsibleName,
+      phone: suppliersTable.phone,
+      email: suppliersTable.email,
+      postalCode: suppliersTable.postalCode,
+      street: suppliersTable.street,
+      streetNumber: suppliersTable.streetNumber,
+      neighborhood: suppliersTable.neighborhood,
+      city: suppliersTable.city,
+      state: suppliersTable.state,
+      notes: suppliersTable.notes,
+    })
+    .from(suppliersTable)
+    .where(eq(suppliersTable.organizationId, params.data.orgId))
+    .orderBy(suppliersTable.legalName);
+
+  const preloaded = await preloadSupplierListData(rows.map((row) => ({
+    id: row.id,
+    categoryId: row.categoryId,
+  })));
+
+  res.json({
+    rows: rows.map((row) => ({
+      legalIdentifier: formatLegalIdentifier(row.legalIdentifier, row.personType === "pf" ? "pf" : "pj"),
+      personType: row.personType === "pf" ? "PF" : "PJ",
+      legalName: row.legalName,
+      tradeName: row.tradeName ?? "",
+      responsibleName: row.responsibleName ?? "",
+      phone: row.phone ?? "",
+      email: row.email ?? "",
+      postalCode: formatPostalCode(row.postalCode),
+      street: row.street ?? "",
+      streetNumber: row.streetNumber ?? "",
+      neighborhood: row.neighborhood ?? "",
+      city: row.city ?? "",
+      state: row.state ?? "",
+      unitNames: (preloaded.unitsBySupplierId.get(row.id) ?? []).map((unit) => unit.name).join(", "),
+      categoryName: row.categoryId ? preloaded.categoriesById.get(row.categoryId)?.name ?? "" : "",
+      typeNames: (preloaded.typesBySupplierId.get(row.id) ?? []).map((type) => type.name).join(", "),
+      notes: row.notes ?? "",
+    })),
+  });
+});
+
+router.post("/organizations/:orgId/suppliers/import-preview", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  const body = supplierImportBodySchema.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const preview = await buildSupplierImportPreview(params.data.orgId, body.data.rows);
+  res.json(preview);
+});
+
+router.post("/organizations/:orgId/suppliers/import-commit", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
+  const params = orgParamsSchema.safeParse(req.params);
+  const body = supplierImportCommitBodySchema.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  let preview;
+  try {
+    preview = await readSupplierImportPreview(params.data.orgId, body.data.previewToken);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Prévia de importação inválida." });
+    return;
+  }
+  if (preview.summary.errorCount > 0) {
+    res.status(400).json({
+      error: "A importação contém linhas inválidas. Corrija a planilha e gere uma nova prévia.",
+      preview,
+    });
+    return;
+  }
+
+  const validRows = preview.rows.filter((row) => row.action === "create" || row.action === "update");
+
+  await db.transaction(async (tx) => {
+    for (const row of validRows) {
+      const payload = {
+        categoryId: row.categoryId,
+        personType: row.personType ?? "pj",
+        legalIdentifier: row.legalIdentifier,
+        legalName: row.legalName,
+        tradeName: row.tradeName,
+        responsibleName: row.responsibleName,
+        email: row.email,
+        phone: row.phone,
+        postalCode: row.postalCode,
+        street: row.street,
+        streetNumber: row.streetNumber,
+        neighborhood: row.neighborhood,
+        city: row.city,
+        state: row.state,
+        notes: row.notes,
+      };
+
+      let supplierId = row.existingSupplierId;
+      if (row.action === "update" && supplierId) {
+        const [updated] = await tx
+          .update(suppliersTable)
+          .set(payload)
+          .where(
+            and(
+              eq(suppliersTable.id, supplierId),
+              eq(suppliersTable.organizationId, params.data.orgId),
+            ),
+          )
+          .returning({ id: suppliersTable.id });
+        supplierId = updated?.id ?? supplierId;
+      } else {
+        const [created] = await tx
+          .insert(suppliersTable)
+          .values({
+            organizationId: params.data.orgId,
+            createdById: req.auth!.userId,
+            status: "draft",
+            criticality: "medium",
+            ...payload,
+          })
+          .returning({ id: suppliersTable.id });
+        supplierId = created.id;
+      }
+
+      await tx.delete(supplierUnitsTable).where(eq(supplierUnitsTable.supplierId, supplierId));
+      if (row.unitIds.length > 0) {
+        await tx.insert(supplierUnitsTable).values(
+          row.unitIds.map((unitId) => ({
+            supplierId,
+            unitId,
+          })),
+        );
+      }
+
+      await tx.delete(supplierTypeLinksTable).where(eq(supplierTypeLinksTable.supplierId, supplierId));
+      if (row.typeIds.length > 0) {
+        await tx.insert(supplierTypeLinksTable).values(
+          row.typeIds.map((typeId) => ({
+            supplierId,
+            typeId,
+          })),
+        );
+      }
+    }
+  });
+
+  res.status(201).json({
+    imported: validRows.length,
+    created: validRows.filter((row) => row.action === "create").length,
+    updated: validRows.filter((row) => row.action === "update").length,
+  });
+});
+
 router.post("/organizations/:orgId/suppliers", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
   const params = orgParamsSchema.safeParse(req.params);
   const body = supplierBodySchema.safeParse(req.body);
@@ -1140,7 +1683,8 @@ router.post("/organizations/:orgId/suppliers", requireAuth, requireSupplierWrite
   const categoryOk = await ensureCategoryBelongsToOrg(body.data.categoryId, params.data.orgId);
   const typesOk = await ensureTypesBelongToOrg(body.data.typeIds, params.data.orgId);
   const unitsOk = await ensureUnitsBelongToOrg(body.data.unitIds, params.data.orgId);
-  if (!categoryOk || !typesOk || !unitsOk) {
+  const catalogItemsOk = await ensureCatalogItemsBelongToOrg(body.data.catalogItemIds || [], params.data.orgId);
+  if (!categoryOk || !typesOk || !unitsOk || !catalogItemsOk) {
     res.status(400).json({ error: "Referências inválidas para categoria, tipos ou unidades" });
     return;
   }
@@ -1151,6 +1695,7 @@ router.post("/organizations/:orgId/suppliers", requireAuth, requireSupplierWrite
     legalIdentifier: body.data.legalIdentifier,
     legalName: body.data.legalName,
     tradeName: normalizeOptionalString(body.data.tradeName),
+    responsibleName: normalizeOptionalString(body.data.responsibleName),
     stateRegistration: normalizeOptionalString(body.data.stateRegistration),
     municipalRegistration: normalizeOptionalString(body.data.municipalRegistration),
     rg: normalizeOptionalString(body.data.rg),
@@ -1189,6 +1734,8 @@ router.post("/organizations/:orgId/suppliers", requireAuth, requireSupplierWrite
         typeId,
       })));
     }
+
+    await syncSupplierCatalogAssociations(tx, created.id, params.data.orgId, body.data.catalogItemIds);
 
     return created;
   });
@@ -1231,7 +1778,8 @@ router.patch("/organizations/:orgId/suppliers/:supplierId", requireAuth, require
   const categoryOk = await ensureCategoryBelongsToOrg(body.data.categoryId, params.data.orgId);
   const typesOk = await ensureTypesBelongToOrg(body.data.typeIds, params.data.orgId);
   const unitsOk = await ensureUnitsBelongToOrg(body.data.unitIds, params.data.orgId);
-  if (!categoryOk || !typesOk || !unitsOk) {
+  const catalogItemsOk = await ensureCatalogItemsBelongToOrg(body.data.catalogItemIds || [], params.data.orgId);
+  if (!categoryOk || !typesOk || !unitsOk || !catalogItemsOk) {
     res.status(400).json({ error: "Referências inválidas para categoria, tipos ou unidades" });
     return;
   }
@@ -1245,6 +1793,7 @@ router.patch("/organizations/:orgId/suppliers/:supplierId", requireAuth, require
         legalIdentifier: body.data.legalIdentifier,
         legalName: body.data.legalName,
         tradeName: normalizeOptionalString(body.data.tradeName),
+        responsibleName: normalizeOptionalString(body.data.responsibleName),
         stateRegistration: normalizeOptionalString(body.data.stateRegistration),
         municipalRegistration: normalizeOptionalString(body.data.municipalRegistration),
         rg: normalizeOptionalString(body.data.rg),
@@ -1279,6 +1828,8 @@ router.patch("/organizations/:orgId/suppliers/:supplierId", requireAuth, require
         typeId,
       })));
     }
+
+    await syncSupplierCatalogAssociations(tx, supplier.id, params.data.orgId, body.data.catalogItemIds);
   });
 
   const detail = await loadSupplierDetail(supplier.id, params.data.orgId);
@@ -1298,15 +1849,41 @@ router.post("/organizations/:orgId/suppliers/:supplierId/offerings", requireAuth
     res.status(404).json({ error: "Fornecedor não encontrado" });
     return;
   }
+  if (body.data.catalogItemId && !(await ensureCatalogItemsBelongToOrg([body.data.catalogItemId], params.data.orgId))) {
+    res.status(400).json({ error: "Item de catálogo inválido para esta organização" });
+    return;
+  }
+
+  const [catalogItem] = body.data.catalogItemId
+    ? await db
+        .select()
+        .from(supplierCatalogItemsTable)
+        .where(
+          and(
+            eq(supplierCatalogItemsTable.id, body.data.catalogItemId),
+            eq(supplierCatalogItemsTable.organizationId, params.data.orgId),
+          ),
+        )
+    : [];
+
+  const offeringName = catalogItem?.name ?? body.data.name?.trim();
+  const offeringType = catalogItem?.offeringType ?? body.data.offeringType;
+  const offeringStatus = catalogItem?.status ?? body.data.status;
+
+  if (!offeringName || !offeringType || !offeringStatus) {
+    res.status(400).json({ error: "Dados insuficientes para salvar o item do fornecedor" });
+    return;
+  }
 
   const [created] = await db.insert(supplierOfferingsTable).values({
     supplierId: supplier.id,
-    name: body.data.name,
-    offeringType: body.data.offeringType,
-    unitOfMeasure: normalizeOptionalString(body.data.unitOfMeasure),
-    description: normalizeOptionalString(body.data.description),
-    status: body.data.status,
-    isApprovedScope: body.data.isApprovedScope ? 1 : 0,
+    catalogItemId: catalogItem?.id ?? null,
+    name: offeringName,
+    offeringType,
+    unitOfMeasure: catalogItem?.unitOfMeasure ?? normalizeOptionalString(body.data.unitOfMeasure),
+    description: catalogItem?.description ?? normalizeOptionalString(body.data.description),
+    status: offeringStatus,
+    isApprovedScope: toDbFlag(body.data.isApprovedScope),
   }).returning();
 
   res.status(201).json(created);
@@ -1329,16 +1906,42 @@ router.patch("/organizations/:orgId/suppliers/:supplierId/offerings/:offeringId"
     res.status(404).json({ error: "Fornecedor não encontrado" });
     return;
   }
+  if (body.data.catalogItemId && !(await ensureCatalogItemsBelongToOrg([body.data.catalogItemId], params.data.orgId))) {
+    res.status(400).json({ error: "Item de catálogo inválido para esta organização" });
+    return;
+  }
+
+  const [catalogItem] = body.data.catalogItemId
+    ? await db
+        .select()
+        .from(supplierCatalogItemsTable)
+        .where(
+          and(
+            eq(supplierCatalogItemsTable.id, body.data.catalogItemId),
+            eq(supplierCatalogItemsTable.organizationId, params.data.orgId),
+          ),
+        )
+    : [];
+
+  const offeringName = catalogItem?.name ?? body.data.name?.trim();
+  const offeringType = catalogItem?.offeringType ?? body.data.offeringType;
+  const offeringStatus = catalogItem?.status ?? body.data.status;
+
+  if (!offeringName || !offeringType || !offeringStatus) {
+    res.status(400).json({ error: "Dados insuficientes para salvar o item do fornecedor" });
+    return;
+  }
 
   const [updated] = await db
     .update(supplierOfferingsTable)
     .set({
-      name: body.data.name,
-      offeringType: body.data.offeringType,
-      unitOfMeasure: normalizeOptionalString(body.data.unitOfMeasure),
-      description: normalizeOptionalString(body.data.description),
-      status: body.data.status,
-      isApprovedScope: body.data.isApprovedScope ? 1 : 0,
+      catalogItemId: catalogItem?.id ?? null,
+      name: offeringName,
+      offeringType,
+      unitOfMeasure: catalogItem?.unitOfMeasure ?? normalizeOptionalString(body.data.unitOfMeasure),
+      description: catalogItem?.description ?? normalizeOptionalString(body.data.description),
+      status: offeringStatus,
+      isApprovedScope: toDbFlag(body.data.isApprovedScope),
     })
     .where(and(eq(supplierOfferingsTable.id, params.data.offeringId), eq(supplierOfferingsTable.supplierId, supplier.id)))
     .returning();
@@ -1373,14 +1976,31 @@ router.post("/organizations/:orgId/suppliers/:supplierId/document-submissions", 
     res.status(400).json({ error: "Requisito documental inválido" });
     return;
   }
+  if (!(await ensureUserBelongsToOrg(body.data.requestedReviewerId, params.data.orgId))) {
+    res.status(400).json({ error: "Aprovador solicitado inválido para esta organização" });
+    return;
+  }
+
+  const submissionStatus =
+    body.data.workflowAction === "approve_now" ? body.data.submissionStatus : "pending";
+  const adequacyStatus =
+    body.data.workflowAction === "approve_now" ? body.data.adequacyStatus : "under_review";
+  const requestedReviewerId =
+    body.data.workflowAction === "request_review" ? body.data.requestedReviewerId ?? null : null;
+  const reviewedById = body.data.workflowAction === "approve_now" ? req.auth!.userId : null;
+  const reviewedAt = body.data.workflowAction === "approve_now" ? new Date() : null;
 
   const [upserted] = await db
     .insert(supplierDocumentSubmissionsTable)
     .values({
       supplierId: supplier.id,
       requirementId: body.data.requirementId,
-      submissionStatus: body.data.submissionStatus,
-      adequacyStatus: body.data.adequacyStatus,
+      submissionStatus,
+      adequacyStatus,
+      requestedReviewerId,
+      reviewedById,
+      reviewedAt,
+      reviewComment: normalizeOptionalString(body.data.reviewComment),
       validityDate: body.data.validityDate ?? null,
       exemptionReason: normalizeOptionalString(body.data.exemptionReason),
       rejectionReason: normalizeOptionalString(body.data.rejectionReason),
@@ -1391,8 +2011,12 @@ router.post("/organizations/:orgId/suppliers/:supplierId/document-submissions", 
     .onConflictDoUpdate({
       target: [supplierDocumentSubmissionsTable.supplierId, supplierDocumentSubmissionsTable.requirementId],
       set: {
-        submissionStatus: body.data.submissionStatus,
-        adequacyStatus: body.data.adequacyStatus,
+        submissionStatus,
+        adequacyStatus,
+        requestedReviewerId,
+        reviewedById,
+        reviewedAt,
+        reviewComment: normalizeOptionalString(body.data.reviewComment),
         validityDate: body.data.validityDate ?? null,
         exemptionReason: normalizeOptionalString(body.data.exemptionReason),
         rejectionReason: normalizeOptionalString(body.data.rejectionReason),
@@ -1404,6 +2028,73 @@ router.post("/organizations/:orgId/suppliers/:supplierId/document-submissions", 
     .returning();
 
   res.status(201).json(upserted);
+});
+
+router.post("/organizations/:orgId/suppliers/:supplierId/document-submissions/:submissionId/review", requireAuth, requireSupplierWrite("document_reviews"), async (req, res): Promise<void> => {
+  const params = z.object({
+    orgId: z.coerce.number().int().positive(),
+    supplierId: z.coerce.number().int().positive(),
+    submissionId: z.coerce.number().int().positive(),
+  }).safeParse(req.params);
+  const body = supplierDocumentSubmissionReviewBodySchema.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
+    return;
+  }
+  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
+
+  const supplier = await getSupplierOrNull(params.data.supplierId, params.data.orgId);
+  if (!supplier) {
+    res.status(404).json({ error: "Fornecedor não encontrado" });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(supplierDocumentSubmissionsTable)
+    .where(
+      and(
+        eq(supplierDocumentSubmissionsTable.id, params.data.submissionId),
+        eq(supplierDocumentSubmissionsTable.supplierId, supplier.id),
+      ),
+    );
+  if (!existing) {
+    res.status(404).json({ error: "Submissão documental não encontrada" });
+    return;
+  }
+
+  // A pessoa solicitada é um encaminhamento preferencial. A revisão continua
+  // aberta para qualquer usuário com permissão de escrita no fluxo documental.
+  const [updated] = await db
+    .update(supplierDocumentSubmissionsTable)
+    .set({
+      submissionStatus:
+        body.data.decision === "approved"
+          ? "approved"
+          : body.data.decision === "rejected"
+            ? "rejected"
+            : "pending",
+      adequacyStatus:
+        body.data.decision === "approved"
+          ? "adequate"
+          : body.data.decision === "rejected"
+            ? "not_adequate"
+            : "under_review",
+      requestedReviewerId: null,
+      reviewedById: req.auth!.userId,
+      reviewedAt: new Date(),
+      reviewComment: normalizeOptionalString(body.data.reviewComment),
+      validityDate: body.data.validityDate ?? null,
+      rejectionReason:
+        body.data.decision === "rejected"
+          ? normalizeOptionalString(body.data.rejectionReason)
+          : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(supplierDocumentSubmissionsTable.id, existing.id))
+    .returning();
+
+  res.json(updated);
 });
 
 router.post("/organizations/:orgId/suppliers/:supplierId/document-reviews", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
@@ -1441,19 +2132,20 @@ router.post("/organizations/:orgId/suppliers/:supplierId/document-reviews", requ
     return;
   }
 
+  const threshold = await resolveSupplierDocumentThreshold(supplier.id);
   const included = submissions.filter((submission) => submission.submissionStatus !== "exempt");
   const totalPossible = included.reduce((sum, submission) => sum + submission.weight, 0);
   const points = included.reduce((sum, submission) => (
     submission.submissionStatus === "approved" ? sum + submission.weight : sum
   ), 0);
   const compliancePercentage = totalPossible === 0 ? 100 : Math.round((points / totalPossible) * 100);
-  const result = compliancePercentage >= body.data.threshold ? "apt" : "not_apt";
+  const result = compliancePercentage >= threshold ? "apt" : "not_apt";
 
   const [review] = await db.insert(supplierDocumentReviewsTable).values({
     supplierId: supplier.id,
     reviewedById: req.auth!.userId,
     compliancePercentage,
-    threshold: body.data.threshold,
+    threshold,
     result,
     nextReviewDate: body.data.nextReviewDate ?? null,
     criteriaSnapshot: submissions.map((submission) => ({

@@ -56,6 +56,7 @@ export const supplierTypesTable = pgTable("supplier_types", {
   parentTypeId: integer("parent_type_id").references((): AnyPgColumn => supplierTypesTable.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   description: text("description"),
+  documentThreshold: integer("document_threshold").notNull().default(80),
   status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
@@ -71,6 +72,7 @@ export const suppliersTable = pgTable("suppliers", {
   legalIdentifier: text("legal_identifier").notNull(),
   legalName: text("legal_name").notNull(),
   tradeName: text("trade_name"),
+  responsibleName: text("responsible_name"),
   stateRegistration: text("state_registration"),
   municipalRegistration: text("municipal_registration"),
   rg: text("rg"),
@@ -117,9 +119,24 @@ export const supplierTypeLinksTable = pgTable("supplier_type_links", {
   unique("supplier_type_link_unique").on(table.supplierId, table.typeId),
 ]);
 
+export const supplierCatalogItemsTable = pgTable("supplier_catalog_items", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
+  name: text("name").notNull(),
+  offeringType: text("offering_type").notNull().default("service"),
+  unitOfMeasure: text("unit_of_measure"),
+  description: text("description"),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  unique("supplier_catalog_item_org_name_unique").on(table.organizationId, table.name),
+]);
+
 export const supplierOfferingsTable = pgTable("supplier_offerings", {
   id: serial("id").primaryKey(),
   supplierId: integer("supplier_id").notNull().references(() => suppliersTable.id, { onDelete: "cascade" }),
+  catalogItemId: integer("catalog_item_id").references(() => supplierCatalogItemsTable.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   offeringType: text("offering_type").notNull().default("service"),
   unitOfMeasure: text("unit_of_measure"),
@@ -128,6 +145,17 @@ export const supplierOfferingsTable = pgTable("supplier_offerings", {
   isApprovedScope: integer("is_approved_scope").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  unique("supplier_offering_supplier_catalog_unique").on(table.supplierId, table.catalogItemId),
+]);
+
+export const supplierImportPreviewsTable = pgTable("supplier_import_previews", {
+  previewId: text("preview_id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizationsTable.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  rows: jsonb("rows").$type<unknown[]>().notNull().default(sql`'[]'::jsonb`),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const supplierDocumentRequirementsTable = pgTable("supplier_document_requirements", {
@@ -149,6 +177,10 @@ export const supplierDocumentSubmissionsTable = pgTable("supplier_document_submi
   requirementId: integer("requirement_id").notNull().references(() => supplierDocumentRequirementsTable.id, { onDelete: "cascade" }),
   submissionStatus: text("submission_status").notNull().default("pending"),
   adequacyStatus: text("adequacy_status").notNull().default("under_review"),
+  requestedReviewerId: integer("requested_reviewer_id").references(() => usersTable.id, { onDelete: "set null" }),
+  reviewedById: integer("reviewed_by_id").references(() => usersTable.id, { onDelete: "set null" }),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  reviewComment: text("review_comment"),
   validityDate: date("validity_date"),
   exemptionReason: text("exemption_reason"),
   rejectionReason: text("rejection_reason"),

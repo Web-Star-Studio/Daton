@@ -8,6 +8,7 @@ import {
   getListUnitsQueryKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { DialogStepTabs } from "@/components/ui/dialog-step-tabs";
 import { Input } from "@/components/ui/input";
@@ -18,26 +19,45 @@ import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import {
+  commitSuppliersImport,
   createSupplier,
-  createSupplierCategory,
-  createSupplierDocumentRequirement,
   createSupplierRequirementTemplate,
-  createSupplierType,
+  exportSuppliers,
   listSupplierCategories,
-  listSupplierDocumentRequirements,
-  listSupplierRequirementTemplates,
   listSupplierTypes,
   listSuppliers,
+  previewSuppliersImport,
   suppliersKeys,
+  type SupplierImportInputRow,
+  type SupplierImportPreview,
   type SupplierListItem,
 } from "@/lib/suppliers-client";
-import { Plus, Settings2, FileStack, ShieldCheck, Tags, Package2, Search, ChevronRight } from "lucide-react";
+import {
+  formatSupplierLegalIdentifier,
+  formatSupplierPostalCode,
+  supplierLegalIdentifierPlaceholder,
+} from "@/lib/supplier-formatters";
+import { resolveAppAssetPath } from "@/lib/base-path";
+import { downloadSuppliersWorkbook, parseSuppliersWorkbook } from "@/lib/suppliers-workbook";
+import {
+  Download,
+  Plus,
+  ShieldCheck,
+  Package2,
+  Search,
+  ChevronRight,
+  FileStack,
+  Tags,
+  Settings2,
+  Upload,
+} from "lucide-react";
 
 type SupplierFormState = {
   personType: "pj" | "pf";
   legalIdentifier: string;
   legalName: string;
   tradeName: string;
+  responsibleName: string;
   categoryId: string;
   unitIds: number[];
   typeIds: number[];
@@ -45,6 +65,7 @@ type SupplierFormState = {
   criticality: string;
   email: string;
   phone: string;
+  postalCode: string;
   city: string;
   state: string;
   notes: string;
@@ -55,6 +76,7 @@ const emptySupplierForm: SupplierFormState = {
   legalIdentifier: "",
   legalName: "",
   tradeName: "",
+  responsibleName: "",
   categoryId: "",
   unitIds: [],
   typeIds: [],
@@ -62,6 +84,7 @@ const emptySupplierForm: SupplierFormState = {
   criticality: "medium",
   email: "",
   phone: "",
+  postalCode: "",
   city: "",
   state: "",
   notes: "",
@@ -111,24 +134,15 @@ export default function SuppliersPage() {
   const [unitFilter, setUnitFilter] = useState("");
 
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
+  const [supplierImportDialogOpen, setSupplierImportDialogOpen] = useState(false);
   const [createStep, setCreateStep] = useState(0);
   const [maxReachedCreateStep, setMaxReachedCreateStep] = useState(0);
-  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
-  const [typeDialogOpen, setTypeDialogOpen] = useState(false);
-  const [requirementDialogOpen, setRequirementDialogOpen] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [supplierImportFileName, setSupplierImportFileName] = useState("");
+  const [supplierImportRows, setSupplierImportRows] = useState<SupplierImportInputRow[]>([]);
+  const [supplierImportPreview, setSupplierImportPreview] = useState<SupplierImportPreview | null>(null);
 
   const [supplierForm, setSupplierForm] = useState<SupplierFormState>(emptySupplierForm);
-  const [categoryForm, setCategoryForm] = useState({ name: "", description: "", status: "active" });
-  const [typeForm, setTypeForm] = useState({ name: "", description: "", status: "active", categoryId: "", parentTypeId: "" });
-  const [requirementForm, setRequirementForm] = useState({
-    name: "",
-    description: "",
-    weight: "1",
-    status: "active",
-    categoryId: "",
-    typeId: "",
-  });
   const [templateForm, setTemplateForm] = useState({
     title: "",
     content: "",
@@ -141,7 +155,7 @@ export default function SuppliersPage() {
   const canManageSuppliers = role === "org_admin" || role === "platform_admin";
 
   usePageTitle("Fornecedores");
-  usePageSubtitle("Cadastro, homologação, requisitos, desempenho e recebimento.");
+  usePageSubtitle("Cadastro, documentos, homologação, recebimentos, histórico e desempenho.");
 
   const supplierFilters = useMemo(
     () => ({
@@ -169,16 +183,6 @@ export default function SuppliersPage() {
     enabled: !!orgId,
     queryFn: () => listSupplierTypes(orgId!),
   });
-  const requirementsQuery = useQuery({
-    queryKey: suppliersKeys.requirements(orgId || 0),
-    enabled: !!orgId,
-    queryFn: () => listSupplierDocumentRequirements(orgId!),
-  });
-  const templatesQuery = useQuery({
-    queryKey: suppliersKeys.templates(orgId || 0),
-    enabled: !!orgId,
-    queryFn: () => listSupplierRequirementTemplates(orgId!),
-  });
   const unitsQuery = useListUnits(orgId!, {
     query: {
       queryKey: getListUnitsQueryKey(orgId!),
@@ -190,6 +194,12 @@ export default function SuppliersPage() {
     setSupplierForm(emptySupplierForm);
     setCreateStep(0);
     setMaxReachedCreateStep(0);
+  };
+
+  const resetSupplierImport = () => {
+    setSupplierImportFileName("");
+    setSupplierImportRows([]);
+    setSupplierImportPreview(null);
   };
 
   const changeCreateStep = (targetStep: number) => {
@@ -216,43 +226,58 @@ export default function SuppliersPage() {
     },
   });
 
-  const createCategoryMutation = useMutation({
-    mutationFn: () => createSupplierCategory(orgId!, categoryForm),
-    onSuccess: () => {
-      setCategoryDialogOpen(false);
-      setCategoryForm({ name: "", description: "", status: "active" });
-      queryClient.invalidateQueries({ queryKey: suppliersKeys.categories(orgId!) });
+  const exportSuppliersMutation = useMutation({
+    mutationFn: () => exportSuppliers(orgId!),
+    onSuccess: ({ rows }) => {
+      downloadSuppliersWorkbook(rows, "cadastro-fornecedores.xlsx");
+    },
+    onError: (error) => {
+      toast({
+        title: "Falha ao exportar fornecedores",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      });
     },
   });
 
-  const createTypeMutation = useMutation({
-    mutationFn: () =>
-      createSupplierType(orgId!, {
-        ...typeForm,
-        categoryId: typeForm.categoryId ? Number(typeForm.categoryId) : null,
-        parentTypeId: typeForm.parentTypeId ? Number(typeForm.parentTypeId) : null,
-      }),
-    onSuccess: () => {
-      setTypeDialogOpen(false);
-      setTypeForm({ name: "", description: "", status: "active", categoryId: "", parentTypeId: "" });
-      queryClient.invalidateQueries({ queryKey: suppliersKeys.types(orgId!) });
+  const previewSupplierImportMutation = useMutation({
+    mutationFn: (rows: SupplierImportInputRow[]) => previewSuppliersImport(orgId!, rows),
+    onSuccess: (preview) => {
+      setSupplierImportPreview(preview);
+    },
+    onError: (error) => {
+      setSupplierImportRows([]);
+      setSupplierImportPreview(null);
+      toast({
+        title: "Falha ao analisar planilha",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      });
     },
   });
 
-  const createRequirementMutation = useMutation({
-    mutationFn: () =>
-      createSupplierDocumentRequirement(orgId!, {
-        name: requirementForm.name,
-        description: requirementForm.description,
-        weight: Number(requirementForm.weight),
-        status: requirementForm.status,
-        categoryId: requirementForm.categoryId ? Number(requirementForm.categoryId) : null,
-        typeId: requirementForm.typeId ? Number(requirementForm.typeId) : null,
-      }),
-    onSuccess: () => {
-      setRequirementDialogOpen(false);
-      setRequirementForm({ name: "", description: "", weight: "1", status: "active", categoryId: "", typeId: "" });
-      queryClient.invalidateQueries({ queryKey: suppliersKeys.requirements(orgId!) });
+  const commitSupplierImportMutation = useMutation({
+    mutationFn: () => {
+      if (!supplierImportPreview?.previewToken) {
+        throw new Error("Gere a prévia da importação antes de confirmar.");
+      }
+      return commitSuppliersImport(orgId!, supplierImportPreview.previewToken);
+    },
+    onSuccess: (result) => {
+      resetSupplierImport();
+      setSupplierImportDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: suppliersKeys.all });
+      toast({
+        title: "Fornecedores importados",
+        description: `${result.created} criados e ${result.updated} atualizados.`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Falha ao importar fornecedores",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -275,8 +300,6 @@ export default function SuppliersPage() {
 
   const categories = categoriesQuery.data || [];
   const types = typesQuery.data || [];
-  const requirements = requirementsQuery.data || [];
-  const templates = templatesQuery.data || [];
   const suppliers = suppliersQuery.data || [];
   const units = unitsQuery.data || [];
 
@@ -308,23 +331,95 @@ export default function SuppliersPage() {
     return { approved, restricted, blocked, withDocumentReview };
   }, [suppliers]);
 
+  const handleSupplierImportFile = async (file: File | null) => {
+    if (!file) return;
+
+    setSupplierImportFileName("");
+    setSupplierImportRows([]);
+    setSupplierImportPreview(null);
+    previewSupplierImportMutation.reset();
+
+    try {
+      const parsedRows = await parseSuppliersWorkbook(file);
+      if (parsedRows.length === 0) {
+        throw new Error("A planilha não possui linhas de dados para importar.");
+      }
+
+      setSupplierImportFileName(file.name);
+      setSupplierImportRows(parsedRows);
+      previewSupplierImportMutation.mutate(parsedRows);
+    } catch (error) {
+      setSupplierImportFileName("");
+      setSupplierImportRows([]);
+      setSupplierImportPreview(null);
+      previewSupplierImportMutation.reset();
+      toast({
+        title: "Falha ao ler planilha",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const supplierImportSourceByRowNumber = useMemo(
+    () => new Map(supplierImportRows.map((row) => [row.rowNumber ?? 0, row])),
+    [supplierImportRows],
+  );
+
   const headerActions = canManageSuppliers ? (
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={() => setRequirementDialogOpen(true)}>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          const anchor = document.createElement("a");
+          anchor.href = resolveAppAssetPath("/templates/template_importacao_fornecedores.xlsx");
+          anchor.download = "template_importacao_fornecedores.xlsx";
+          anchor.click();
+        }}
+      >
+        <Download className="mr-1.5 h-3.5 w-3.5" />
+        Baixar modelo
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => exportSuppliersMutation.mutate()}
+        disabled={exportSuppliersMutation.isPending}
+      >
+        <Download className="mr-1.5 h-3.5 w-3.5" />
+        {exportSuppliersMutation.isPending ? "Exportando..." : "Exportar fornecedores"}
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          resetSupplierImport();
+          setSupplierImportDialogOpen(true);
+        }}
+      >
+        <Upload className="mr-1.5 h-3.5 w-3.5" />
+        Importar planilha
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/requisitos-documentais")}>
         <FileStack className="mr-1.5 h-3.5 w-3.5" />
-        Requisito documental
+        Requisitos documentais
       </Button>
       <Button variant="outline" size="sm" onClick={() => setTemplateDialogOpen(true)}>
         <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
         Template de requisito
       </Button>
-      <Button variant="outline" size="sm" onClick={() => setTypeDialogOpen(true)}>
+      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/tipos")}>
         <Tags className="mr-1.5 h-3.5 w-3.5" />
-        Tipo
+        Tipos
       </Button>
-      <Button variant="outline" size="sm" onClick={() => setCategoryDialogOpen(true)}>
+      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/catalogo-itens")}>
+        <Package2 className="mr-1.5 h-3.5 w-3.5" />
+        Catálogo P/S
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/categorias")}>
         <Settings2 className="mr-1.5 h-3.5 w-3.5" />
-        Categoria
+        Categorias
       </Button>
       <Button
         size="sm"
@@ -356,6 +451,7 @@ export default function SuppliersPage() {
       legalIdentifier: supplierForm.legalIdentifier,
       legalName: supplierForm.legalName,
       tradeName: supplierForm.tradeName || null,
+      responsibleName: supplierForm.responsibleName || null,
       categoryId: supplierForm.categoryId ? Number(supplierForm.categoryId) : null,
       unitIds: supplierForm.unitIds,
       typeIds: supplierForm.typeIds,
@@ -363,6 +459,7 @@ export default function SuppliersPage() {
       criticality: supplierForm.criticality,
       email: supplierForm.email || null,
       phone: supplierForm.phone || null,
+      postalCode: supplierForm.postalCode || null,
       city: supplierForm.city || null,
       state: supplierForm.state || null,
       notes: supplierForm.notes || null,
@@ -581,7 +678,16 @@ export default function SuppliersPage() {
               <Label className="text-xs font-semibold text-muted-foreground">Tipo de pessoa</Label>
               <Select
                 value={supplierForm.personType}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, personType: event.target.value as "pj" | "pf" }))}
+                onChange={(event) =>
+                  setSupplierForm((current) => {
+                    const nextPersonType = event.target.value as "pj" | "pf";
+                    return {
+                      ...current,
+                      personType: nextPersonType,
+                      legalIdentifier: formatSupplierLegalIdentifier(current.legalIdentifier, nextPersonType),
+                    };
+                  })
+                }
                 className="mt-1"
               >
                 <option value="pj">Pessoa jurídica</option>
@@ -592,9 +698,14 @@ export default function SuppliersPage() {
               <Label className="text-xs font-semibold text-muted-foreground">{supplierForm.personType === "pj" ? "CNPJ" : "CPF"}</Label>
               <Input
                 value={supplierForm.legalIdentifier}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, legalIdentifier: event.target.value }))}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({
+                    ...current,
+                    legalIdentifier: formatSupplierLegalIdentifier(event.target.value, current.personType),
+                  }))
+                }
                 className="mt-1"
-                placeholder={supplierForm.personType === "pj" ? "00.000.000/0000-00" : "000.000.000-00"}
+                placeholder={supplierLegalIdentifierPlaceholder(supplierForm.personType)}
               />
             </div>
             <div>
@@ -613,6 +724,17 @@ export default function SuppliersPage() {
                 onChange={(event) => setSupplierForm((current) => ({ ...current, tradeName: event.target.value }))}
                 className="mt-1"
                 placeholder="Nome comercial"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Responsável {supplierForm.personType === "pj" ? "*" : ""}
+              </Label>
+              <Input
+                value={supplierForm.responsibleName}
+                onChange={(event) => setSupplierForm((current) => ({ ...current, responsibleName: event.target.value }))}
+                className="mt-1"
+                placeholder="Responsável pelo cadastro"
               />
             </div>
           </div>
@@ -714,7 +836,7 @@ export default function SuppliersPage() {
                 value={supplierForm.email}
                 onChange={(event) => setSupplierForm((current) => ({ ...current, email: event.target.value }))}
                 className="mt-1"
-                placeholder="contato@empresa.com"
+                placeholder={supplierForm.personType === "pj" ? "contato@empresa.com" : "Opcional"}
               />
             </div>
             <div>
@@ -739,8 +861,21 @@ export default function SuppliersPage() {
               <Label className="text-xs font-semibold text-muted-foreground">UF</Label>
               <Input
                 value={supplierForm.state}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, state: event.target.value }))}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({ ...current, state: event.target.value.toUpperCase().slice(0, 2) }))
+                }
                 className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">CEP</Label>
+              <Input
+                value={supplierForm.postalCode}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({ ...current, postalCode: formatSupplierPostalCode(event.target.value) }))
+                }
+                className="mt-1"
+                placeholder="00000-000"
               />
             </div>
             <div className="col-span-2">
@@ -781,159 +916,146 @@ export default function SuppliersPage() {
         </DialogFooter>
       </Dialog>
 
-      {/* Category dialog */}
-      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen} title="Nova categoria" size="md">
-        <div className="grid grid-cols-1 gap-y-5">
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Nome</Label>
-            <Input
-              value={categoryForm.name}
-              onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))}
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-            <Textarea
-              value={categoryForm.description}
-              onChange={(event) => setCategoryForm((current) => ({ ...current, description: event.target.value }))}
-              className="mt-1"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>Cancelar</Button>
-          <Button onClick={() => createCategoryMutation.mutate()} isLoading={createCategoryMutation.isPending}>
-            Salvar categoria
-          </Button>
-        </DialogFooter>
-      </Dialog>
-
-      {/* Type dialog */}
-      <Dialog open={typeDialogOpen} onOpenChange={setTypeDialogOpen} title="Novo tipo" size="md">
-        <div className="grid grid-cols-1 gap-y-5">
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Nome</Label>
-            <Input
-              value={typeForm.name}
-              onChange={(event) => setTypeForm((current) => ({ ...current, name: event.target.value }))}
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Categoria</Label>
-            <Select
-              value={typeForm.categoryId}
-              onChange={(event) => setTypeForm((current) => ({ ...current, categoryId: event.target.value }))}
-              className="mt-1"
-            >
-              <option value="">Sem categoria</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Tipo pai</Label>
-            <Select
-              value={typeForm.parentTypeId}
-              onChange={(event) => setTypeForm((current) => ({ ...current, parentTypeId: event.target.value }))}
-              className="mt-1"
-            >
-              <option value="">Sem hierarquia</option>
-              {types.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-            <Textarea
-              value={typeForm.description}
-              onChange={(event) => setTypeForm((current) => ({ ...current, description: event.target.value }))}
-              className="mt-1"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setTypeDialogOpen(false)}>Cancelar</Button>
-          <Button onClick={() => createTypeMutation.mutate()} isLoading={createTypeMutation.isPending}>
-            Salvar tipo
-          </Button>
-        </DialogFooter>
-      </Dialog>
-
-      {/* Requirement dialog */}
-      <Dialog open={requirementDialogOpen} onOpenChange={setRequirementDialogOpen} title="Novo requisito documental" size="md">
+      <Dialog
+        open={supplierImportDialogOpen}
+        onOpenChange={(open) => {
+          setSupplierImportDialogOpen(open);
+          if (!open) {
+            resetSupplierImport();
+          }
+        }}
+        title="Importar fornecedores"
+        size="lg"
+      >
         <div className="space-y-5">
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Nome</Label>
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+            Use o modelo oficial para importar ou atualizar fornecedores. A planilha é validada antes da gravação,
+            com erro por linha quando unidade, categoria ou tipo não existirem no cadastro.
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="suppliers-workbook">Arquivo .xlsx</Label>
             <Input
-              value={requirementForm.name}
-              onChange={(event) => setRequirementForm((current) => ({ ...current, name: event.target.value }))}
-              className="mt-1"
+              id="suppliers-workbook"
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={(event) => void handleSupplierImportFile(event.target.files?.[0] || null)}
+              disabled={previewSupplierImportMutation.isPending || commitSupplierImportMutation.isPending}
             />
+            {supplierImportFileName ? (
+              <p className="text-xs text-muted-foreground">Arquivo carregado: {supplierImportFileName}</p>
+            ) : null}
           </div>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Peso</Label>
-              <Input
-                type="number"
-                min={1}
-                max={5}
-                value={requirementForm.weight}
-                onChange={(event) => setRequirementForm((current) => ({ ...current, weight: event.target.value }))}
-                className="mt-1"
-              />
+
+          {supplierImportPreview ? (
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-4">
+                <Card>
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-muted-foreground">Linhas lidas</p>
+                    <p className="mt-1 text-xl font-semibold">{supplierImportPreview.summary.totalRows}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-muted-foreground">Criar</p>
+                    <p className="mt-1 text-xl font-semibold text-emerald-600">
+                      {supplierImportPreview.summary.createCount}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-muted-foreground">Atualizar</p>
+                    <p className="mt-1 text-xl font-semibold text-sky-600">
+                      {supplierImportPreview.summary.updateCount}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <p className="text-xs text-muted-foreground">Com erro</p>
+                    <p className="mt-1 text-xl font-semibold text-red-600">
+                      {supplierImportPreview.summary.errorCount}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
+                {supplierImportPreview.rows.map((row) => {
+                  const sourceRow = supplierImportSourceByRowNumber.get(row.rowNumber);
+                  const personTypeLabel = row.personType === "pj" ? "PJ" : row.personType === "pf" ? "PF" : "—";
+
+                  return (
+                    <div
+                      key={`${row.rowNumber}-${row.legalIdentifier}-${row.legalName}`}
+                      className="rounded-xl border border-border/60 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="font-medium">
+                            Linha {row.rowNumber} · {row.legalName || "Fornecedor sem nome"}
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {row.legalIdentifier || "Documento não informado"} · {personTypeLabel}
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {sourceRow?.categoryName || "Sem categoria"} ·{" "}
+                            {sourceRow?.typeNames || "Sem tipo"} ·{" "}
+                            {sourceRow?.unitNames || "Sem unidade"}
+                          </div>
+                        </div>
+                        <Badge
+                          variant={
+                            row.action === "create"
+                              ? "default"
+                              : row.action === "update"
+                                ? "secondary"
+                                : "destructive"
+                          }
+                        >
+                          {row.action === "create"
+                            ? "Criar"
+                            : row.action === "update"
+                              ? "Atualizar"
+                              : "Corrigir"}
+                        </Badge>
+                      </div>
+                      {row.errors.length > 0 ? (
+                        <ul className="mt-3 space-y-1 text-sm text-red-600">
+                          {row.errors.map((error) => (
+                            <li key={error}>- {error}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Categoria</Label>
-              <Select
-                value={requirementForm.categoryId}
-                onChange={(event) => setRequirementForm((current) => ({ ...current, categoryId: event.target.value }))}
-                className="mt-1"
-              >
-                <option value="">Sem categoria</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Tipo</Label>
-            <Select
-              value={requirementForm.typeId}
-              onChange={(event) => setRequirementForm((current) => ({ ...current, typeId: event.target.value }))}
-              className="mt-1"
-            >
-              <option value="">Sem tipo</option>
-              {types.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-            <Textarea
-              value={requirementForm.description}
-              onChange={(event) => setRequirementForm((current) => ({ ...current, description: event.target.value }))}
-              className="mt-1"
-            />
-          </div>
+          ) : null}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setRequirementDialogOpen(false)}>Cancelar</Button>
-          <Button onClick={() => createRequirementMutation.mutate()} isLoading={createRequirementMutation.isPending}>
-            Salvar requisito
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSupplierImportDialogOpen(false);
+              resetSupplierImport();
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={() => commitSupplierImportMutation.mutate()}
+            disabled={
+              !supplierImportPreview ||
+              supplierImportRows.length === 0 ||
+              supplierImportPreview.summary.errorCount > 0 ||
+              commitSupplierImportMutation.isPending
+            }
+          >
+            {commitSupplierImportMutation.isPending ? "Importando..." : "Confirmar importação"}
           </Button>
         </DialogFooter>
       </Dialog>
