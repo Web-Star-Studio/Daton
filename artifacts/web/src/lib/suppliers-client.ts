@@ -24,6 +24,7 @@ export type SupplierType = {
   parentTypeId: number | null;
   name: string;
   description: string | null;
+  documentThreshold: number;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -42,12 +43,108 @@ export type SupplierDocumentRequirement = {
   updatedAt: string;
 };
 
+export type SupplierCatalogItem = {
+  id: number;
+  organizationId: number;
+  name: string;
+  offeringType: "product" | "service";
+  unitOfMeasure: string | null;
+  description: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SupplierDocumentRequirementImportRow = {
+  rowNumber: number;
+  name: string;
+  weight: number | null;
+  description: string | null;
+  action: "create" | "update" | "invalid";
+  existingRequirementId: number | null;
+  errors: string[];
+};
+
+export type SupplierDocumentRequirementImportPreview = {
+  previewToken: string;
+  rows: SupplierDocumentRequirementImportRow[];
+  summary: {
+    totalRows: number;
+    createCount: number;
+    updateCount: number;
+    errorCount: number;
+  };
+};
+
+export type SupplierDocumentRequirementImportInputRow = {
+  rowNumber?: number;
+  name?: string;
+  weight?: number | string;
+  description?: string | null;
+};
+
+export type SupplierImportInputRow = {
+  rowNumber?: number;
+  legalIdentifier?: string;
+  personType?: string;
+  legalName?: string;
+  tradeName?: string | null;
+  responsibleName?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  postalCode?: string | null;
+  street?: string | null;
+  streetNumber?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
+  unitNames?: string;
+  categoryName?: string;
+  typeNames?: string;
+  notes?: string | null;
+};
+
+export type SupplierImportPreview = {
+  previewToken: string;
+  rows: Array<{
+    rowNumber: number;
+    action: "create" | "update" | "invalid";
+    personType: "pj" | "pf" | null;
+    legalIdentifier: string;
+    legalIdentifierDigits: string;
+    legalName: string;
+    tradeName: string | null;
+    responsibleName: string | null;
+    phone: string | null;
+    email: string | null;
+    postalCode: string | null;
+    street: string | null;
+    streetNumber: string | null;
+    neighborhood: string | null;
+    city: string | null;
+    state: string | null;
+    notes: string | null;
+    categoryId: number | null;
+    unitIds: number[];
+    typeIds: number[];
+    existingSupplierId: number | null;
+    errors: string[];
+  }>;
+  summary: {
+    totalRows: number;
+    createCount: number;
+    updateCount: number;
+    errorCount: number;
+  };
+};
+
 export type SupplierListItem = {
   id: number;
   personType: "pj" | "pf";
   legalIdentifier: string;
   legalName: string;
   tradeName: string | null;
+  responsibleName: string | null;
   status: string;
   criticality: string;
   category: { id: number; name: string } | null;
@@ -74,6 +171,7 @@ export type SupplierListItem = {
 export type SupplierOffering = {
   id: number;
   supplierId: number;
+  catalogItemId: number | null;
   name: string;
   offeringType: "product" | "service";
   unitOfMeasure: string | null;
@@ -117,6 +215,11 @@ export type SupplierDocumentSubmission = {
   categoryId: number | null;
   submissionStatus: string;
   adequacyStatus: string;
+  requestedReviewerId: number | null;
+  reviewedById: number | null;
+  reviewedAt: string | null;
+  reviewComment: string | null;
+  createdById: number | null;
   validityDate: string | null;
   exemptionReason: string | null;
   rejectionReason: string | null;
@@ -220,6 +323,7 @@ export type SupplierDetail = {
   legalIdentifier: string;
   legalName: string;
   tradeName: string | null;
+  responsibleName: string | null;
   stateRegistration: string | null;
   municipalRegistration: string | null;
   rg: string | null;
@@ -238,7 +342,13 @@ export type SupplierDetail = {
   notes: string | null;
   category: { id: number; name: string } | null;
   units: Array<{ id: number; name: string }>;
-  types: Array<{ id: number; name: string; categoryId: number | null; parentTypeId: number | null }>;
+  types: Array<{
+    id: number;
+    name: string;
+    categoryId: number | null;
+    parentTypeId: number | null;
+    documentThreshold: number;
+  }>;
   offerings: SupplierOffering[];
   documentCompliancePercentage: number | null;
   documentReviewStatus: string | null;
@@ -296,6 +406,7 @@ export const suppliersKeys = {
   categories: (orgId: number) => ["suppliers", orgId, "categories"] as const,
   types: (orgId: number) => ["suppliers", orgId, "types"] as const,
   requirements: (orgId: number) => ["suppliers", orgId, "requirements"] as const,
+  catalogItems: (orgId: number) => ["suppliers", orgId, "catalog-items"] as const,
   templates: (orgId: number) => ["suppliers", orgId, "templates"] as const,
 };
 
@@ -324,6 +435,47 @@ export function getSupplierDetail(orgId: number, supplierId: number) {
   return apiJson<SupplierDetail>(`/api/organizations/${orgId}/suppliers/${supplierId}`);
 }
 
+export function exportSuppliers(orgId: number) {
+  return apiJson<{
+    rows: Array<{
+      legalIdentifier: string;
+      personType: string;
+      legalName: string;
+      tradeName: string;
+      responsibleName: string;
+      phone: string;
+      email: string;
+      postalCode: string;
+      street: string;
+      streetNumber: string;
+      neighborhood: string;
+      city: string;
+      state: string;
+      unitNames: string;
+      categoryName: string;
+      typeNames: string;
+      notes: string;
+    }>;
+  }>(`/api/organizations/${orgId}/suppliers/export`);
+}
+
+export function previewSuppliersImport(orgId: number, rows: SupplierImportInputRow[]) {
+  return apiJson<SupplierImportPreview>(`/api/organizations/${orgId}/suppliers/import-preview`, {
+    method: "POST",
+    body: JSON.stringify({ rows }),
+  });
+}
+
+export function commitSuppliersImport(orgId: number, previewToken: string) {
+  return apiJson<{ imported: number; created: number; updated: number }>(
+    `/api/organizations/${orgId}/suppliers/import-commit`,
+    {
+      method: "POST",
+      body: JSON.stringify({ previewToken }),
+    },
+  );
+}
+
 export function listSupplierCategories(orgId: number) {
   return apiJson<SupplierCategory[]>(`/api/organizations/${orgId}/supplier-categories`);
 }
@@ -339,6 +491,17 @@ export function createSupplierCategory(orgId: number, body: {
   });
 }
 
+export function updateSupplierCategory(orgId: number, categoryId: number, body: {
+  name: string;
+  description?: string | null;
+  status: string;
+}) {
+  return apiJson<SupplierCategory>(`/api/organizations/${orgId}/supplier-categories/${categoryId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
 export function listSupplierTypes(orgId: number) {
   return apiJson<SupplierType[]>(`/api/organizations/${orgId}/supplier-types`);
 }
@@ -347,6 +510,7 @@ export function createSupplierType(orgId: number, body: {
   name: string;
   description?: string | null;
   status: string;
+  documentThreshold: number;
   categoryId?: number | null;
   parentTypeId?: number | null;
 }) {
@@ -356,8 +520,52 @@ export function createSupplierType(orgId: number, body: {
   });
 }
 
+export function updateSupplierType(orgId: number, typeId: number, body: {
+  name: string;
+  description?: string | null;
+  status: string;
+  documentThreshold: number;
+  categoryId?: number | null;
+  parentTypeId?: number | null;
+}) {
+  return apiJson<SupplierType>(`/api/organizations/${orgId}/supplier-types/${typeId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
 export function listSupplierDocumentRequirements(orgId: number) {
   return apiJson<SupplierDocumentRequirement[]>(`/api/organizations/${orgId}/supplier-document-requirements`);
+}
+
+export function listSupplierCatalogItems(orgId: number) {
+  return apiJson<SupplierCatalogItem[]>(`/api/organizations/${orgId}/supplier-catalog-items`);
+}
+
+export function createSupplierCatalogItem(orgId: number, body: {
+  name: string;
+  offeringType: "product" | "service";
+  unitOfMeasure?: string | null;
+  description?: string | null;
+  status: string;
+}) {
+  return apiJson<SupplierCatalogItem>(`/api/organizations/${orgId}/supplier-catalog-items`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateSupplierCatalogItem(orgId: number, catalogItemId: number, body: {
+  name: string;
+  offeringType: "product" | "service";
+  unitOfMeasure?: string | null;
+  description?: string | null;
+  status: string;
+}) {
+  return apiJson<SupplierCatalogItem>(`/api/organizations/${orgId}/supplier-catalog-items/${catalogItemId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
 }
 
 export function createSupplierDocumentRequirement(orgId: number, body: {
@@ -372,6 +580,55 @@ export function createSupplierDocumentRequirement(orgId: number, body: {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export function updateSupplierDocumentRequirement(orgId: number, requirementId: number, body: {
+  name: string;
+  description?: string | null;
+  weight: number;
+  status: string;
+  categoryId?: number | null;
+  typeId?: number | null;
+}) {
+  return apiJson<SupplierDocumentRequirement>(
+    `/api/organizations/${orgId}/supplier-document-requirements/${requirementId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function previewSupplierDocumentRequirementsImport(
+  orgId: number,
+  rows: SupplierDocumentRequirementImportInputRow[],
+) {
+  return apiJson<SupplierDocumentRequirementImportPreview>(
+    `/api/organizations/${orgId}/supplier-document-requirements/import-preview`,
+    {
+      method: "POST",
+      body: JSON.stringify({ rows }),
+    },
+  );
+}
+
+export function commitSupplierDocumentRequirementsImport(
+  orgId: number,
+  previewToken: string,
+) {
+  return apiJson<{ imported: number; created: number; updated: number }>(
+    `/api/organizations/${orgId}/supplier-document-requirements/import-commit`,
+    {
+      method: "POST",
+      body: JSON.stringify({ previewToken }),
+    },
+  );
+}
+
+export function exportSupplierDocumentRequirements(orgId: number) {
+  return apiJson<{ rows: Array<{ name: string; weight: number; description: string }> }>(
+    `/api/organizations/${orgId}/supplier-document-requirements/export`,
+  );
 }
 
 export function listSupplierRequirementTemplates(orgId: number) {
@@ -418,6 +675,21 @@ export function createSupplierDocumentSubmission(orgId: number, supplierId: numb
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export function reviewSupplierDocumentSubmission(
+  orgId: number,
+  supplierId: number,
+  submissionId: number,
+  body: Record<string, unknown>,
+) {
+  return apiJson(
+    `/api/organizations/${orgId}/suppliers/${supplierId}/document-submissions/${submissionId}/review`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 export function createSupplierDocumentReview(orgId: number, supplierId: number, body: Record<string, unknown>) {

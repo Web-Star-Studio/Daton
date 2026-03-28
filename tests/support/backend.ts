@@ -238,6 +238,7 @@ export async function createSupplierType(
     name: string;
     categoryId?: number | null;
     parentTypeId?: number | null;
+    documentThreshold?: number;
   },
 ) {
   const [type] = await db
@@ -247,6 +248,7 @@ export async function createSupplierType(
       name: options.name,
       categoryId: options.categoryId ?? null,
       parentTypeId: options.parentTypeId ?? null,
+      documentThreshold: options.documentThreshold ?? 80,
       status: "active",
     })
     .returning();

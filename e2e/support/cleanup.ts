@@ -32,6 +32,7 @@ import {
   supplierDocumentReviewsTable,
   supplierDocumentSubmissionsTable,
   supplierFailuresTable,
+  supplierCatalogItemsTable,
   supplierOfferingsTable,
   supplierPerformanceReviewsTable,
   supplierQualificationReviewsTable,
@@ -172,6 +173,12 @@ export async function cleanupTestData(prefix: string) {
     const supplierRequirementIds = supplierRequirements.map(
       (requirement) => requirement.id,
     );
+
+    const supplierCatalogItems = await tx
+      .select({ id: supplierCatalogItemsTable.id })
+      .from(supplierCatalogItemsTable)
+      .where(inArray(supplierCatalogItemsTable.organizationId, orgIds));
+    const supplierCatalogItemIds = supplierCatalogItems.map((item) => item.id);
 
     const supplierTemplates = await tx
       .select({ id: supplierRequirementTemplatesTable.id })
@@ -509,6 +516,15 @@ export async function cleanupTestData(prefix: string) {
         .where(
           inArray(supplierDocumentRequirementsTable.id, supplierRequirementIds),
         );
+    }
+
+    if (supplierCatalogItemIds.length > 0) {
+      await tx
+        .delete(supplierOfferingsTable)
+        .where(inArray(supplierOfferingsTable.catalogItemId, supplierCatalogItemIds));
+      await tx
+        .delete(supplierCatalogItemsTable)
+        .where(inArray(supplierCatalogItemsTable.id, supplierCatalogItemIds));
     }
 
     if (supplierTypeIds.length > 0) {

@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
@@ -32,17 +33,13 @@ import {
   createSupplierDocumentReview,
   createSupplierDocumentSubmission,
   createSupplierFailure,
-  createSupplierOffering,
   createSupplierPerformanceReview,
   createSupplierQualificationReview,
   createSupplierReceiptCheck,
-  createSupplierRequirementCommunication,
   getSupplierDetail,
-  listSupplierCategories,
   listSupplierDocumentRequirements,
-  listSupplierTypes,
+  reviewSupplierDocumentSubmission,
   suppliersKeys,
-  updateSupplier,
   type SupplierAttachment,
   type SupplierDetail,
 } from "@/lib/suppliers-client";
@@ -55,40 +52,23 @@ import {
   History,
   Package2,
   Receipt,
-  Save,
   ShieldCheck,
   Upload,
   X,
 } from "lucide-react";
 
-type SupplierProfileForm = {
-  personType: "pj" | "pf";
-  legalIdentifier: string;
-  legalName: string;
-  tradeName: string;
-  categoryId: string;
-  unitIds: number[];
-  typeIds: number[];
-  status: string;
-  criticality: string;
-  email: string;
-  phone: string;
-  website: string;
-  postalCode: string;
-  street: string;
-  streetNumber: string;
-  complement: string;
-  neighborhood: string;
-  city: string;
-  state: string;
-  notes: string;
-};
-
 type SupplierTabConfig = {
-  value: "cadastro" | "documentos" | "homologacao" | "requisitos" | "desempenho" | "recebimentos" | "historico";
+  value: "cadastro" | "documentos" | "homologacao" | "recebimentos" | "historico" | "desempenho";
   label: string;
   icon: typeof ClipboardList;
   count?: number;
+};
+
+type DocumentSubmissionReviewFormState = {
+  decision: "approved" | "rejected" | "request_changes";
+  validityDate: string;
+  rejectionReason: string;
+  reviewComment: string;
 };
 
 function AttachmentUploader({
@@ -213,6 +193,62 @@ function criticalityLabel(criticality: SupplierDetail["criticality"]) {
   return labels[criticality];
 }
 
+function displayValue(value: string | number | null | undefined) {
+  if (value === null || value === undefined) return "—";
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : "—";
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: string | number | null | undefined }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-semibold text-muted-foreground">{label}</Label>
+      <div className="min-h-10 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm text-foreground">
+        {displayValue(value)}
+      </div>
+    </div>
+  );
+}
+
+function documentSubmissionStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    pending: "Pendente",
+    approved: "Aprovado",
+    rejected: "Rejeitado",
+    exempt: "Isento",
+  };
+  return labels[status] || status;
+}
+
+function documentAdequacyLabel(status: string) {
+  const labels: Record<string, string> = {
+    under_review: "Em análise",
+    adequate: "Adequado",
+    not_adequate: "Não adequado",
+  };
+  return labels[status] || status;
+}
+
+function immediateAdequacyStatus(submissionStatus: "approved" | "rejected" | "exempt") {
+  switch (submissionStatus) {
+    case "approved":
+      return "adequate" as const;
+    case "rejected":
+      return "not_adequate" as const;
+    case "exempt":
+      return "adequate" as const;
+  }
+}
+
+function qualificationDecisionLabel(decision: string) {
+  const labels: Record<string, string> = {
+    approved: "Homologado",
+    approved_with_conditions: "Homologado com condições",
+    rejected: "Não homologado",
+  };
+  return labels[decision] || decision;
+}
+
 export default function SupplierDetailPage() {
   const { id } = useParams<{ id: string }>();
   const supplierId = Number(id);
@@ -220,6 +256,7 @@ export default function SupplierDetailPage() {
   const orgId = organization?.id;
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("cadastro");
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<number | null>(null);
 
   const canManageGeneral = role === "org_admin" || role === "platform_admin";
   const canManageReceipts = canManageGeneral || role === "operator";
@@ -228,16 +265,6 @@ export default function SupplierDetailPage() {
     queryKey: suppliersKeys.detail(orgId || 0, supplierId),
     enabled: !!orgId && Number.isFinite(supplierId) && supplierId > 0,
     queryFn: () => getSupplierDetail(orgId!, supplierId),
-  });
-  const categoriesQuery = useQuery({
-    queryKey: suppliersKeys.categories(orgId || 0),
-    enabled: !!orgId,
-    queryFn: () => listSupplierCategories(orgId!),
-  });
-  const typesQuery = useQuery({
-    queryKey: suppliersKeys.types(orgId || 0),
-    enabled: !!orgId,
-    queryFn: () => listSupplierTypes(orgId!),
   });
   const requirementsQuery = useQuery({
     queryKey: suppliersKeys.requirements(orgId || 0),
@@ -258,33 +285,32 @@ export default function SupplierDetailPage() {
   });
 
   const detail = detailQuery.data;
-  const categories = categoriesQuery.data || [];
-  const types = typesQuery.data || [];
   const requirements = requirementsQuery.data || [];
   const units = unitsQuery.data || [];
   const users = usersQuery.data || [];
-
-  const [profileForm, setProfileForm] = useState<SupplierProfileForm | null>(null);
-  const [offeringForm, setOfferingForm] = useState({
-    name: "",
-    offeringType: "service",
-    unitOfMeasure: "",
-    description: "",
-    status: "active",
-    isApprovedScope: false,
-  });
+  const defaultDocumentSubmissionReviewForm: DocumentSubmissionReviewFormState = {
+    decision: "approved",
+    validityDate: "",
+    rejectionReason: "",
+    reviewComment: "",
+  };
   const [documentSubmissionForm, setDocumentSubmissionForm] = useState({
     requirementId: "",
     submissionStatus: "pending",
     adequacyStatus: "under_review",
+    workflowAction: "request_review",
+    requestedReviewerId: "",
+    reviewComment: "",
     validityDate: "",
     observations: "",
     exemptionReason: "",
     rejectionReason: "",
     attachments: [] as SupplierAttachment[],
   });
+  const [documentSubmissionReviewForm, setDocumentSubmissionReviewForm] = useState<DocumentSubmissionReviewFormState>({
+    ...defaultDocumentSubmissionReviewForm,
+  });
   const [documentReviewForm, setDocumentReviewForm] = useState({
-    threshold: "80",
     nextReviewDate: "",
     observations: "",
   });
@@ -294,11 +320,6 @@ export default function SupplierDetailPage() {
     notes: "",
     approvedOfferingIds: [] as number[],
     attachments: [] as SupplierAttachment[],
-  });
-  const [communicationForm, setCommunicationForm] = useState({
-    templateId: "",
-    status: "linked",
-    notes: "",
   });
   const [performanceForm, setPerformanceForm] = useState({
     offeringId: "",
@@ -336,36 +357,6 @@ export default function SupplierDetailPage() {
     status: "open",
   });
 
-  const updateProfileForm = (updater: (current: SupplierProfileForm) => SupplierProfileForm) => {
-    setProfileForm((current) => (current ? updater(current) : current));
-  };
-
-  useEffect(() => {
-    if (!detail) return;
-    setProfileForm({
-      personType: detail.personType,
-      legalIdentifier: detail.legalIdentifier,
-      legalName: detail.legalName,
-      tradeName: detail.tradeName || "",
-      categoryId: detail.category ? String(detail.category.id) : "",
-      unitIds: detail.units.map((unit) => unit.id),
-      typeIds: detail.types.map((type) => type.id),
-      status: detail.status,
-      criticality: detail.criticality,
-      email: detail.email || "",
-      phone: detail.phone || "",
-      website: detail.website || "",
-      postalCode: detail.postalCode || "",
-      street: detail.street || "",
-      streetNumber: detail.streetNumber || "",
-      complement: detail.complement || "",
-      neighborhood: detail.neighborhood || "",
-      city: detail.city || "",
-      state: detail.state || "",
-      notes: detail.notes || "",
-    });
-  }, [detail]);
-
   usePageTitle(detail ? detail.tradeName || detail.legalName : "Fornecedor");
   usePageSubtitle(detail ? `${detail.legalIdentifier} · ${statusLabel(detail.status)}` : undefined);
 
@@ -376,55 +367,37 @@ export default function SupplierDetailPage() {
     queryClient.invalidateQueries({ queryKey: suppliersKeys.list(orgId!, {}) });
   };
 
-  const updateSupplierMutation = useMutation({
+  const documentSubmissionMutation = useMutation({
     mutationFn: () => {
-      if (!profileForm) {
-        throw new Error("Fornecedor ainda nao carregado.");
+      if (!documentSubmissionForm.requirementId) {
+        throw new Error("Selecione um requisito documental.");
+      }
+      if (
+        documentSubmissionForm.workflowAction === "request_review" &&
+        !documentSubmissionForm.requestedReviewerId
+      ) {
+        throw new Error("Selecione quem deverá aprovar a submissão.");
       }
 
-      return updateSupplier(orgId!, supplierId, {
-        ...profileForm,
-        categoryId: profileForm.categoryId ? Number(profileForm.categoryId) : null,
-        unitIds: profileForm.unitIds,
-        typeIds: profileForm.typeIds,
-      });
-    },
-    onSuccess: refresh,
-    onError: (error) =>
-      toast({
-        title: "Falha ao salvar cadastro",
-        description: error instanceof Error ? error.message : "Tente novamente.",
-        variant: "destructive",
-      }),
-  });
-
-  const offeringMutation = useMutation({
-    mutationFn: () => createSupplierOffering(orgId!, supplierId, offeringForm),
-    onSuccess: () => {
-      setOfferingForm({
-        name: "",
-        offeringType: "service",
-        unitOfMeasure: "",
-        description: "",
-        status: "active",
-        isApprovedScope: false,
-      });
-      refresh();
-    },
-  });
-
-  const documentSubmissionMutation = useMutation({
-    mutationFn: () =>
-      createSupplierDocumentSubmission(orgId!, supplierId, {
+      return createSupplierDocumentSubmission(orgId!, supplierId, {
         ...documentSubmissionForm,
         requirementId: Number(documentSubmissionForm.requirementId),
         validityDate: documentSubmissionForm.validityDate || null,
-      }),
+        ...(documentSubmissionForm.workflowAction === "request_review" && documentSubmissionForm.requestedReviewerId
+          ? {
+              requestedReviewerId: Number(documentSubmissionForm.requestedReviewerId),
+            }
+          : {}),
+      });
+    },
     onSuccess: () => {
       setDocumentSubmissionForm({
         requirementId: "",
         submissionStatus: "pending",
         adequacyStatus: "under_review",
+        workflowAction: "request_review",
+        requestedReviewerId: "",
+        reviewComment: "",
         validityDate: "",
         observations: "",
         exemptionReason: "",
@@ -433,17 +406,47 @@ export default function SupplierDetailPage() {
       });
       refresh();
     },
+    onError: (error) =>
+      toast({
+        title: "Falha ao registrar submissão",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      }),
+  });
+
+  const documentSubmissionReviewMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedSubmission) {
+        throw new Error("Selecione uma submissão para revisar.");
+      }
+
+      return reviewSupplierDocumentSubmission(orgId!, supplierId, selectedSubmission.id, {
+        ...documentSubmissionReviewForm,
+        validityDate: documentSubmissionReviewForm.validityDate || null,
+      });
+    },
+    onSuccess: () => {
+      setDocumentSubmissionReviewForm({
+        ...defaultDocumentSubmissionReviewForm,
+      });
+      refresh();
+    },
+    onError: (error) =>
+      toast({
+        title: "Falha ao revisar submissão",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      }),
   });
 
   const documentReviewMutation = useMutation({
     mutationFn: () =>
       createSupplierDocumentReview(orgId!, supplierId, {
-        threshold: Number(documentReviewForm.threshold),
         nextReviewDate: documentReviewForm.nextReviewDate || null,
         observations: documentReviewForm.observations || null,
       }),
     onSuccess: () => {
-      setDocumentReviewForm({ threshold: "80", nextReviewDate: "", observations: "" });
+      setDocumentReviewForm({ nextReviewDate: "", observations: "" });
       refresh();
     },
   });
@@ -462,19 +465,6 @@ export default function SupplierDetailPage() {
         approvedOfferingIds: [],
         attachments: [],
       });
-      refresh();
-    },
-  });
-
-  const communicationMutation = useMutation({
-    mutationFn: () =>
-      createSupplierRequirementCommunication(orgId!, supplierId, {
-        templateId: Number(communicationForm.templateId),
-        status: communicationForm.status,
-        notes: communicationForm.notes || null,
-      }),
-    onSuccess: () => {
-      setCommunicationForm({ templateId: "", status: "linked", notes: "" });
       refresh();
     },
   });
@@ -572,18 +562,51 @@ export default function SupplierDetailPage() {
     },
   });
 
-  const typeOptions = useMemo(
-    () => types.map((type) => ({ value: type.id, label: type.name })),
-    [types],
-  );
-  const unitOptions = useMemo(
-    () => units.map((unit) => ({ value: unit.id, label: unit.name })),
-    [units],
-  );
   const offeringOptions = useMemo(
     () => (detail?.offerings || []).map((offering) => ({ value: offering.id, label: offering.name })),
     [detail?.offerings],
   );
+  const usersById = useMemo(
+    () => new Map(users.map((user) => [user.id, user.name])),
+    [users],
+  );
+  const selectedSubmission = useMemo(
+    () => {
+      if (selectedSubmissionId === null) {
+        return null;
+      }
+
+      return detail?.documents.submissions.find((submission) => submission.id === selectedSubmissionId) || null;
+    },
+    [detail?.documents.submissions, selectedSubmissionId],
+  );
+
+  useEffect(() => {
+    setDocumentSubmissionReviewForm({
+      ...defaultDocumentSubmissionReviewForm,
+    });
+  }, [selectedSubmissionId]);
+
+  useEffect(() => {
+    if (documentSubmissionReviewForm.decision === "rejected" || !documentSubmissionReviewForm.rejectionReason) {
+      return;
+    }
+
+    setDocumentSubmissionReviewForm((current) => ({
+      ...current,
+      rejectionReason: "",
+    }));
+  }, [documentSubmissionReviewForm.decision, documentSubmissionReviewForm.rejectionReason]);
+  const appliedDocumentThreshold = useMemo(() => {
+    if (!detail || detail.types.length === 0) {
+      return 80;
+    }
+
+    return detail.types.reduce(
+      (highestThreshold, type) => Math.max(highestThreshold, type.documentThreshold),
+      0,
+    );
+  }, [detail]);
 
   const tabs = useMemo<SupplierTabConfig[]>(
     () => [
@@ -601,18 +624,6 @@ export default function SupplierDetailPage() {
         count: detail?.qualificationReviews.length || 0,
       },
       {
-        value: "requisitos",
-        label: "Requisitos",
-        icon: ShieldCheck,
-        count: detail?.requirements.communications.length || 0,
-      },
-      {
-        value: "desempenho",
-        label: "Desempenho",
-        icon: ClipboardList,
-        count: detail?.performanceReviews.length || 0,
-      },
-      {
         value: "recebimentos",
         label: "Recebimentos",
         icon: Receipt,
@@ -623,6 +634,12 @@ export default function SupplierDetailPage() {
         label: "Histórico",
         icon: History,
         count: detail?.failures.length || 0,
+      },
+      {
+        value: "desempenho",
+        label: "Desempenho",
+        icon: ClipboardList,
+        count: detail?.performanceReviews.length || 0,
       },
     ],
     [detail],
@@ -636,24 +653,9 @@ export default function SupplierDetailPage() {
     const renderActiveTabActions = () => {
       if (activeTab === "cadastro" && canManageGeneral) {
         return (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => offeringMutation.mutate()}
-              isLoading={offeringMutation.isPending}
-            >
-              Adicionar item
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => updateSupplierMutation.mutate()}
-              isLoading={updateSupplierMutation.isPending}
-            >
-              <Save className="mr-1.5 h-3.5 w-3.5" />
-              Salvar cadastro
-            </Button>
-          </>
+          <Link href={`/app/qualidade/fornecedores/${supplierId}/cadastro`}>
+            <Button size="sm">Alterar cadastro</Button>
+          </Link>
         );
       }
 
@@ -687,18 +689,6 @@ export default function SupplierDetailPage() {
             isLoading={qualificationMutation.isPending}
           >
             Registrar homologação
-          </Button>
-        );
-      }
-
-      if (activeTab === "requisitos" && canManageGeneral) {
-        return (
-          <Button
-            size="sm"
-            onClick={() => communicationMutation.mutate()}
-            isLoading={communicationMutation.isPending}
-          >
-            Registrar comunicação
           </Button>
         );
       }
@@ -753,22 +743,19 @@ export default function SupplierDetailPage() {
     activeTab,
     canManageGeneral,
     canManageReceipts,
-    communicationMutation,
     detail,
     documentReviewMutation,
     documentSubmissionMutation,
     failureMutation,
     handleReceiptSubmit,
-    offeringMutation,
     performanceMutation,
     qualificationMutation,
     receiptMutation,
-    updateSupplierMutation,
   ]);
 
   useHeaderActions(headerActions);
 
-  if (detailQuery.isLoading || !profileForm) {
+  if (detailQuery.isLoading) {
     return <div className="text-sm text-muted-foreground">Carregando fornecedor…</div>;
   }
 
@@ -831,7 +818,9 @@ export default function SupplierDetailPage() {
           <CardContent className="pt-6">
             <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Homologação</p>
             <p className="mt-3 text-2xl font-semibold">{detail.qualificationReviews.length}</p>
-            <p className="mt-2 text-sm text-muted-foreground">Válida até {formatDate(detail.qualifiedUntil)}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Decisão final sobre o fornecedor e o escopo aprovado
+            </p>
           </CardContent>
         </Card>
         <Card className={sectionCardClass}>
@@ -866,269 +855,51 @@ export default function SupplierDetailPage() {
                 <CardTitle>Cadastro mestre</CardTitle>
               </CardHeader>
               <CardContent>
-                <FieldSet>
-                  <FieldGroup>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <Field>
-                        <FieldLabel>Tipo de pessoa</FieldLabel>
-                        <FieldContent>
-                          <Select
-                            value={profileForm.personType}
-                            onChange={(event) =>
-                              updateProfileForm((current) => ({ ...current, personType: event.target.value as "pj" | "pf" }))
-                            }
-                            disabled={!canManageGeneral}
-                          >
-                            <option value="pj">Pessoa jurídica</option>
-                            <option value="pf">Pessoa física</option>
-                          </Select>
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>{profileForm.personType === "pj" ? "CNPJ" : "CPF"}</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.legalIdentifier}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, legalIdentifier: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>{profileForm.personType === "pj" ? "Razão social" : "Nome completo"}</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.legalName}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, legalName: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Nome fantasia</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.tradeName}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, tradeName: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Categoria</FieldLabel>
-                        <FieldContent>
-                          <Select
-                            value={profileForm.categoryId}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, categoryId: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          >
-                            <option value="">Sem categoria</option>
-                            {categories.map((category) => (
-                              <option key={category.id} value={category.id}>
-                                {category.name}
-                              </option>
-                            ))}
-                          </Select>
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Status</FieldLabel>
-                        <FieldContent>
-                          <Select
-                            value={profileForm.status}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, status: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          >
-                            <option value="draft">Rascunho</option>
-                            <option value="pending_qualification">Pendente</option>
-                            <option value="approved">Aprovado</option>
-                            <option value="restricted">Restrito</option>
-                            <option value="blocked">Bloqueado</option>
-                            <option value="expired">Vencido</option>
-                            <option value="inactive">Inativo</option>
-                          </Select>
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Criticidade</FieldLabel>
-                        <FieldContent>
-                          <Select
-                            value={profileForm.criticality}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, criticality: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          >
-                            <option value="low">Baixa</option>
-                            <option value="medium">Média</option>
-                            <option value="high">Alta</option>
-                          </Select>
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>E-mail</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            type="email"
-                            value={profileForm.email}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, email: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Telefone</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            type="tel"
-                            value={profileForm.phone}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, phone: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Website</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            type="url"
-                            value={profileForm.website}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, website: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>CEP</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.postalCode}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, postalCode: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                    </div>
+                <div className="space-y-6">
+                  <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                    O cadastro mestre agora é consultivo nesta tela. Para alterar dados cadastrais, use a ação
+                    <span className="font-medium text-foreground"> Alterar cadastro</span> no topo da página.
+                  </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <Field>
-                        <FieldLabel>Unidades</FieldLabel>
-                        <FieldContent>
-                          <SearchableMultiSelect
-                            options={unitOptions}
-                            selected={profileForm.unitIds}
-                            onToggle={(id) =>
-                              updateProfileForm((current) => ({
-                                ...current,
-                                unitIds: current.unitIds.includes(id)
-                                  ? current.unitIds.filter((value) => value !== id)
-                                  : [...current.unitIds, id],
-                              }))
-                            }
-                            placeholder="Selecione unidades"
-                            searchPlaceholder="Buscar unidade"
-                            emptyMessage="Nenhuma unidade encontrada."
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Tipos</FieldLabel>
-                        <FieldContent>
-                          <SearchableMultiSelect
-                            options={typeOptions}
-                            selected={profileForm.typeIds}
-                            onToggle={(id) =>
-                              updateProfileForm((current) => ({
-                                ...current,
-                                typeIds: current.typeIds.includes(id)
-                                  ? current.typeIds.filter((value) => value !== id)
-                                  : [...current.typeIds, id],
-                              }))
-                            }
-                            placeholder="Selecione tipos"
-                            searchPlaceholder="Buscar tipo"
-                            emptyMessage="Nenhum tipo encontrado."
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                    </div>
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <ReadOnlyField label="Tipo de pessoa" value={personTypeLabel(detail.personType)} />
+                    <ReadOnlyField label={detail.personType === "pj" ? "CNPJ" : "CPF"} value={detail.legalIdentifier} />
+                    <ReadOnlyField label={detail.personType === "pj" ? "Razão social" : "Nome completo"} value={detail.legalName} />
+                    <ReadOnlyField label="Nome fantasia" value={detail.tradeName} />
+                    <ReadOnlyField label="Responsável" value={detail.responsibleName} />
+                    <ReadOnlyField label="Status cadastral" value={statusLabel(detail.status)} />
+                    <ReadOnlyField label="Categoria" value={detail.category?.name} />
+                    <ReadOnlyField label="Criticidade" value={criticalityLabel(detail.criticality)} />
+                    <ReadOnlyField
+                      label="Tipos de fornecedor"
+                      value={detail.types.map((type) => type.name).join(", ")}
+                    />
+                    <ReadOnlyField
+                      label="Unidades vinculadas"
+                      value={detail.units.map((unit) => unit.name).join(", ")}
+                    />
+                    <ReadOnlyField label="Inscrição estadual" value={detail.stateRegistration} />
+                    <ReadOnlyField label="Inscrição municipal" value={detail.municipalRegistration} />
+                    <ReadOnlyField label="RG" value={detail.rg} />
+                    <ReadOnlyField label="E-mail" value={detail.email} />
+                    <ReadOnlyField label="Telefone" value={detail.phone} />
+                    <ReadOnlyField label="Website" value={detail.website} />
+                    <ReadOnlyField label="CEP" value={detail.postalCode} />
+                    <ReadOnlyField label="Logradouro" value={detail.street} />
+                    <ReadOnlyField label="Número" value={detail.streetNumber} />
+                    <ReadOnlyField label="Complemento" value={detail.complement} />
+                    <ReadOnlyField label="Bairro" value={detail.neighborhood} />
+                    <ReadOnlyField label="Cidade" value={detail.city} />
+                    <ReadOnlyField label="UF" value={detail.state} />
+                  </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <Field>
-                        <FieldLabel>Rua</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.street}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, street: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Número</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.streetNumber}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, streetNumber: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Complemento</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.complement}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, complement: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Bairro</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.neighborhood}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, neighborhood: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Cidade</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.city}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, city: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>UF</FieldLabel>
-                        <FieldContent>
-                          <Input
-                            value={profileForm.state}
-                            onChange={(event) => updateProfileForm((current) => ({ ...current, state: event.target.value }))}
-                            disabled={!canManageGeneral}
-                          />
-                        </FieldContent>
-                      </Field>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground">Observações</Label>
+                    <div className="min-h-24 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm text-foreground">
+                      {displayValue(detail.notes)}
                     </div>
-
-                    <Field>
-                      <FieldLabel>Observações</FieldLabel>
-                      <FieldContent>
-                        <Textarea
-                          rows={4}
-                          value={profileForm.notes}
-                          onChange={(event) => updateProfileForm((current) => ({ ...current, notes: event.target.value }))}
-                          disabled={!canManageGeneral}
-                        />
-                      </FieldContent>
-                    </Field>
-                  </FieldGroup>
-                </FieldSet>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -1164,68 +935,6 @@ export default function SupplierDetailPage() {
                     <p className="text-sm text-muted-foreground">Nenhum produto ou serviço cadastrado.</p>
                   ) : null}
                 </div>
-
-                {canManageGeneral ? (
-                  <div className="mt-5 border-t border-border/50 pt-5">
-                    <FieldSet>
-                      <FieldGroup>
-                        <h3 className="font-medium">Novo item</h3>
-                        <Field>
-                          <FieldContent>
-                            <Input
-                              placeholder="Nome do produto ou serviço"
-                              value={offeringForm.name}
-                              onChange={(event) => setOfferingForm((current) => ({ ...current, name: event.target.value }))}
-                            />
-                          </FieldContent>
-                        </Field>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <Field>
-                            <FieldLabel>Tipo</FieldLabel>
-                            <FieldContent>
-                              <Select
-                                value={offeringForm.offeringType}
-                                onChange={(event) => setOfferingForm((current) => ({ ...current, offeringType: event.target.value }))}
-                              >
-                                <option value="service">Serviço</option>
-                                <option value="product">Produto</option>
-                              </Select>
-                            </FieldContent>
-                          </Field>
-                          <Field>
-                            <FieldLabel>Unidade de medida</FieldLabel>
-                            <FieldContent>
-                              <Input
-                                placeholder="Unidade de medida"
-                                value={offeringForm.unitOfMeasure}
-                                onChange={(event) => setOfferingForm((current) => ({ ...current, unitOfMeasure: event.target.value }))}
-                              />
-                            </FieldContent>
-                          </Field>
-                        </div>
-                        <Field>
-                          <FieldContent>
-                            <Textarea
-                              placeholder="Descrição"
-                              value={offeringForm.description}
-                              onChange={(event) => setOfferingForm((current) => ({ ...current, description: event.target.value }))}
-                            />
-                          </FieldContent>
-                        </Field>
-                        <Field orientation="horizontal">
-                          <Checkbox
-                            id="offering-approved-scope"
-                            checked={offeringForm.isApprovedScope}
-                            onCheckedChange={(checked) =>
-                              setOfferingForm((current) => ({ ...current, isApprovedScope: checked === true }))
-                            }
-                          />
-                          <FieldLabel htmlFor="offering-approved-scope">Marcar como escopo aprovado</FieldLabel>
-                        </Field>
-                      </FieldGroup>
-                    </FieldSet>
-                  </div>
-                ) : null}
               </CardContent>
             </Card>
           </div>
@@ -1244,12 +953,29 @@ export default function SupplierDetailPage() {
               <CardContent>
                 <div className="space-y-3">
                   {detail.documents.submissions.map((submission) => (
-                    <div key={submission.id} className={cn(nestedPanelClass, "p-3")}>
+                    <button
+                      key={submission.id}
+                      type="button"
+                      className={cn(
+                        nestedPanelClass,
+                        "w-full p-3 text-left transition",
+                        selectedSubmission?.id === submission.id ? "border-primary bg-primary/5" : "",
+                      )}
+                      onClick={() => setSelectedSubmissionId(submission.id)}
+                    >
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <div className="font-medium">{submission.requirementName}</div>
                           <div className="text-xs text-muted-foreground">
-                            {submission.submissionStatus} · {submission.adequacyStatus} · peso {submission.weight}
+                            {documentSubmissionStatusLabel(submission.submissionStatus)} ·{" "}
+                            {documentAdequacyLabel(submission.adequacyStatus)} · peso {submission.weight}
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {submission.requestedReviewerId
+                              ? `Aguardando revisão de ${usersById.get(submission.requestedReviewerId) || `#${submission.requestedReviewerId}`}`
+                              : submission.reviewedById
+                                ? `Revisado por ${usersById.get(submission.reviewedById) || `#${submission.reviewedById}`}`
+                                : `Submetido por ${usersById.get(submission.createdById || 0) || "usuário do sistema"}`}
                           </div>
                         </div>
                         {submission.validityDate ? <Badge variant="secondary">{formatDate(submission.validityDate)}</Badge> : null}
@@ -1257,9 +983,140 @@ export default function SupplierDetailPage() {
                       {submission.observations ? (
                         <p className="mt-2 text-sm text-muted-foreground">{submission.observations}</p>
                       ) : null}
-                    </div>
+                    </button>
                   ))}
                 </div>
+
+                {selectedSubmission ? (
+                  <div className="mt-5 space-y-4 border-t border-border/50 pt-5">
+                    <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="font-medium">{selectedSubmission.requirementName}</div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {documentSubmissionStatusLabel(selectedSubmission.submissionStatus)} ·{" "}
+                            {documentAdequacyLabel(selectedSubmission.adequacyStatus)}
+                          </div>
+                        </div>
+                        <Badge variant="secondary">Peso {selectedSubmission.weight}</Badge>
+                      </div>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <ReadOnlyField
+                          label="Submetido por"
+                          value={usersById.get(selectedSubmission.createdById || 0) || "Usuário do sistema"}
+                        />
+                        <ReadOnlyField
+                          label="Aprovador solicitado"
+                          value={selectedSubmission.requestedReviewerId ? usersById.get(selectedSubmission.requestedReviewerId) || `#${selectedSubmission.requestedReviewerId}` : "—"}
+                        />
+                        <ReadOnlyField
+                          label="Revisado por"
+                          value={selectedSubmission.reviewedById ? usersById.get(selectedSubmission.reviewedById) || `#${selectedSubmission.reviewedById}` : "—"}
+                        />
+                        <ReadOnlyField label="Revisado em" value={formatDate(selectedSubmission.reviewedAt)} />
+                      </div>
+                      {selectedSubmission.attachments.length > 0 ? (
+                        <div className="mt-4 space-y-2">
+                          <Label className="text-xs font-semibold text-muted-foreground">Anexos</Label>
+                          {selectedSubmission.attachments.map((attachment) => (
+                            <div
+                              key={attachment.objectPath}
+                              className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm"
+                            >
+                              <div className="font-medium">{attachment.fileName}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {attachment.contentType} · {formatFileSize(attachment.fileSize)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                      {selectedSubmission.reviewComment ? (
+                        <p className="mt-4 text-sm text-muted-foreground">{selectedSubmission.reviewComment}</p>
+                      ) : null}
+                    </div>
+
+                    <FieldSet>
+                      <FieldGroup>
+                        <h3 className="font-medium">Revisar submissão</h3>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <Field>
+                            <FieldLabel>Decisão</FieldLabel>
+                            <FieldContent>
+                              <Select
+                                value={documentSubmissionReviewForm.decision}
+                                onChange={(event) =>
+                                  setDocumentSubmissionReviewForm((current) => ({
+                                    ...current,
+                                    decision: event.target.value as DocumentSubmissionReviewFormState["decision"],
+                                  }))
+                                }
+                              >
+                                <option value="approved">Aprovar</option>
+                                <option value="rejected">Rejeitar</option>
+                                <option value="request_changes">Solicitar ajustes</option>
+                              </Select>
+                            </FieldContent>
+                          </Field>
+                          <Field>
+                            <FieldLabel>Validade</FieldLabel>
+                            <FieldContent>
+                              <Input
+                                type="date"
+                                value={documentSubmissionReviewForm.validityDate}
+                                onChange={(event) =>
+                                  setDocumentSubmissionReviewForm((current) => ({
+                                    ...current,
+                                    validityDate: event.target.value,
+                                  }))
+                                }
+                              />
+                            </FieldContent>
+                          </Field>
+                        </div>
+                        {documentSubmissionReviewForm.decision === "rejected" ? (
+                          <Field>
+                            <FieldLabel>Motivo da rejeição</FieldLabel>
+                            <FieldContent>
+                              <Textarea
+                                value={documentSubmissionReviewForm.rejectionReason}
+                                onChange={(event) =>
+                                  setDocumentSubmissionReviewForm((current) => ({
+                                    ...current,
+                                    rejectionReason: event.target.value,
+                                  }))
+                                }
+                              />
+                            </FieldContent>
+                          </Field>
+                        ) : null}
+                        <Field>
+                          <FieldLabel>Comentário da revisão</FieldLabel>
+                          <FieldContent>
+                            <Textarea
+                              value={documentSubmissionReviewForm.reviewComment}
+                              onChange={(event) =>
+                                setDocumentSubmissionReviewForm((current) => ({
+                                  ...current,
+                                  reviewComment: event.target.value,
+                                }))
+                              }
+                            />
+                          </FieldContent>
+                        </Field>
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            onClick={() => documentSubmissionReviewMutation.mutate()}
+                            isLoading={documentSubmissionReviewMutation.isPending}
+                          >
+                            Registrar revisão
+                          </Button>
+                        </div>
+                      </FieldGroup>
+                    </FieldSet>
+                  </div>
+                ) : null}
 
                 {canManageGeneral ? (
                   <div className="mt-5 border-t border-border/50 pt-5">
@@ -1284,33 +1141,99 @@ export default function SupplierDetailPage() {
                         </Field>
                         <div className="grid gap-3 md:grid-cols-2">
                           <Field>
-                            <FieldLabel>Status da submissão</FieldLabel>
+                            <FieldLabel>Fluxo de aprovação</FieldLabel>
                             <FieldContent>
                               <Select
-                                value={documentSubmissionForm.submissionStatus}
-                                onChange={(event) => setDocumentSubmissionForm((current) => ({ ...current, submissionStatus: event.target.value }))}
+                                value={documentSubmissionForm.workflowAction}
+                                onChange={(event) =>
+                                  setDocumentSubmissionForm((current) => ({
+                                    ...current,
+                                    workflowAction: event.target.value,
+                                    submissionStatus:
+                                      event.target.value === "approve_now"
+                                        ? current.submissionStatus === "approved" ||
+                                          current.submissionStatus === "rejected" ||
+                                          current.submissionStatus === "exempt"
+                                          ? current.submissionStatus
+                                          : "approved"
+                                        : "pending",
+                                    adequacyStatus:
+                                      event.target.value === "approve_now"
+                                        ? immediateAdequacyStatus(
+                                            current.submissionStatus === "approved" ||
+                                              current.submissionStatus === "rejected" ||
+                                              current.submissionStatus === "exempt"
+                                              ? current.submissionStatus
+                                              : "approved",
+                                          )
+                                        : "under_review",
+                                  }))
+                                }
                               >
-                                <option value="pending">Pendente</option>
-                                <option value="approved">Aprovado</option>
-                                <option value="rejected">Rejeitado</option>
-                                <option value="exempt">Isento</option>
+                                <option value="request_review">Enviar para aprovação</option>
+                                <option value="approve_now">Aprovar agora</option>
                               </Select>
                             </FieldContent>
                           </Field>
+                          {documentSubmissionForm.workflowAction === "request_review" ? (
+                            <Field>
+                              <FieldLabel>Aprovador</FieldLabel>
+                              <FieldContent>
+                                <Select
+                                  value={documentSubmissionForm.requestedReviewerId}
+                                  onChange={(event) =>
+                                    setDocumentSubmissionForm((current) => ({
+                                      ...current,
+                                      requestedReviewerId: event.target.value,
+                                    }))
+                                  }
+                                >
+                                  <option value="">Selecione o aprovador</option>
+                                  {users.map((user) => (
+                                    <option key={user.id} value={user.id}>
+                                      {user.name}
+                                    </option>
+                                    ))}
+                                </Select>
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                  O aprovador solicitado é preferencial. Qualquer usuário autorizado no fluxo documental pode concluir a revisão.
+                                </p>
+                              </FieldContent>
+                            </Field>
+                          ) : (
+                            <Field>
+                              <FieldLabel>Decisão imediata</FieldLabel>
+                              <FieldContent>
+                                <Select
+                                  value={documentSubmissionForm.submissionStatus}
+                                  onChange={(event) =>
+                                    setDocumentSubmissionForm((current) => ({
+                                      ...current,
+                                      submissionStatus: event.target.value,
+                                      adequacyStatus: immediateAdequacyStatus(
+                                        event.target.value as "approved" | "rejected" | "exempt",
+                                      ),
+                                    }))
+                                  }
+                                >
+                                  <option value="approved">Aprovado</option>
+                                  <option value="rejected">Rejeitado</option>
+                                  <option value="exempt">Isento</option>
+                                </Select>
+                              </FieldContent>
+                            </Field>
+                          )}
+                        </div>
+                        {documentSubmissionForm.workflowAction === "approve_now" ? (
                           <Field>
                             <FieldLabel>Adequação</FieldLabel>
                             <FieldContent>
-                              <Select
-                                value={documentSubmissionForm.adequacyStatus}
-                                onChange={(event) => setDocumentSubmissionForm((current) => ({ ...current, adequacyStatus: event.target.value }))}
-                              >
-                                <option value="under_review">Em análise</option>
-                                <option value="adequate">Adequado</option>
-                                <option value="not_adequate">Não adequado</option>
-                              </Select>
+                              <div className="min-h-9 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm text-foreground">
+                                {documentAdequacyLabel(documentSubmissionForm.adequacyStatus)}
+                              </div>
                             </FieldContent>
                           </Field>
-                        </div>
+                        ) : null}
                         <Field>
                           <FieldLabel>Validade</FieldLabel>
                           <FieldContent>
@@ -1318,6 +1241,21 @@ export default function SupplierDetailPage() {
                               type="date"
                               value={documentSubmissionForm.validityDate}
                               onChange={(event) => setDocumentSubmissionForm((current) => ({ ...current, validityDate: event.target.value }))}
+                            />
+                          </FieldContent>
+                        </Field>
+                        <Field>
+                          <FieldLabel>Comentário do envio</FieldLabel>
+                          <FieldContent>
+                            <Textarea
+                              placeholder="Explique o contexto da submissão ou a decisão tomada"
+                              value={documentSubmissionForm.reviewComment}
+                              onChange={(event) =>
+                                setDocumentSubmissionForm((current) => ({
+                                  ...current,
+                                  reviewComment: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
@@ -1358,7 +1296,7 @@ export default function SupplierDetailPage() {
                         <Badge variant="secondary">{review.compliancePercentage}%</Badge>
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        Threshold {review.threshold}% · próxima revisão {formatDate(review.nextReviewDate)}
+                        Threshold aplicado {review.threshold}% · próxima revisão {formatDate(review.nextReviewDate)}
                       </div>
                     </div>
                   ))}
@@ -1370,15 +1308,14 @@ export default function SupplierDetailPage() {
                       <FieldGroup>
                         <h3 className="font-medium">Registrar AVA1</h3>
                         <Field>
-                          <FieldLabel>Threshold (%)</FieldLabel>
+                          <FieldLabel>Threshold aplicado</FieldLabel>
                           <FieldContent>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={100}
-                              value={documentReviewForm.threshold}
-                              onChange={(event) => setDocumentReviewForm((current) => ({ ...current, threshold: event.target.value }))}
-                            />
+                            <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm">
+                              <span className="font-medium">{appliedDocumentThreshold}%</span>
+                              <span className="ml-2 text-muted-foreground">
+                                definido automaticamente pelos tipos vinculados ao fornecedor
+                              </span>
+                            </div>
                           </FieldContent>
                         </Field>
                         <Field>
@@ -1415,17 +1352,21 @@ export default function SupplierDetailPage() {
           <Card className={sectionCardClass}>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Homologação e qualificação</CardTitle>
+                <CardTitle>Decisão final de homologação</CardTitle>
                 <Badge variant="secondary">{detail.qualificationReviews.length} revisão(ões)</Badge>
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid items-start gap-4 xl:grid-cols-[1.2fr_1fr]">
                 <div className="space-y-3">
+                  <div className={cn(nestedPanelClass, "p-4 text-sm text-muted-foreground")}>
+                    A homologação registra a decisão final do fornecedor após a análise documental
+                    (AVA1) e define quais itens permanecem aprovados para operação.
+                  </div>
                   {detail.qualificationReviews.map((review) => (
                     <div key={review.id} className={cn(nestedPanelClass, "p-3")}>
                       <div className="flex items-center justify-between gap-3">
-                        <div className="font-medium">{review.decision}</div>
+                        <div className="font-medium">{qualificationDecisionLabel(review.decision)}</div>
                         <Badge variant="secondary">{formatDate(review.validUntil)}</Badge>
                       </div>
                       {review.notes ? <p className="mt-2 text-sm text-muted-foreground">{review.notes}</p> : null}
@@ -1500,91 +1441,6 @@ export default function SupplierDetailPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* ── Requisitos ── */}
-        <TabsContent value="requisitos">
-          <div className="grid items-start gap-6 xl:grid-cols-[1.2fr_1fr]">
-            <Card className={sectionCardClass}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Comunicações registradas</CardTitle>
-                  <Badge variant="secondary">{detail.requirements.communications.length}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {detail.requirements.communications.map((communication) => (
-                    <div key={communication.id} className={cn(nestedPanelClass, "p-3")}>
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="font-medium">
-                          {communication.templateTitle} · v{communication.templateVersion}
-                        </div>
-                        <Badge variant="secondary">{communication.status}</Badge>
-                      </div>
-                      {communication.notes ? (
-                        <p className="mt-2 text-sm text-muted-foreground">{communication.notes}</p>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {canManageGeneral ? (
-              <Card className={sectionCardClass}>
-                <CardHeader>
-                  <CardTitle>Vincular requisito</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <FieldSet>
-                    <FieldGroup>
-                      <Field>
-                        <FieldLabel>Template</FieldLabel>
-                        <FieldContent>
-                          <Select
-                            value={communicationForm.templateId}
-                            onChange={(event) => setCommunicationForm((current) => ({ ...current, templateId: event.target.value }))}
-                          >
-                            <option value="">Selecione um template</option>
-                            {detail.requirements.templates.map((template) => (
-                              <option key={template.id} value={template.id}>
-                                {template.title} · v{template.version}
-                              </option>
-                            ))}
-                          </Select>
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Status</FieldLabel>
-                        <FieldContent>
-                          <Select
-                            value={communicationForm.status}
-                            onChange={(event) => setCommunicationForm((current) => ({ ...current, status: event.target.value }))}
-                          >
-                            <option value="linked">Vinculado</option>
-                            <option value="sent">Enviado</option>
-                            <option value="acknowledged">Ciente</option>
-                            <option value="superseded">Substituído</option>
-                          </Select>
-                        </FieldContent>
-                      </Field>
-                      <Field>
-                        <FieldLabel>Notas</FieldLabel>
-                        <FieldContent>
-                          <Textarea
-                            placeholder="Notas da comunicação"
-                            value={communicationForm.notes}
-                            onChange={(event) => setCommunicationForm((current) => ({ ...current, notes: event.target.value }))}
-                          />
-                        </FieldContent>
-                      </Field>
-                    </FieldGroup>
-                  </FieldSet>
-                </CardContent>
-              </Card>
-            ) : null}
-          </div>
         </TabsContent>
 
         {/* ── Desempenho ── */}
@@ -2075,7 +1931,7 @@ export default function SupplierDetailPage() {
                   </div>
                   {detail.qualificationReviews.slice(0, 3).map((review) => (
                     <div key={`qual-${review.id}`} className="text-sm text-muted-foreground">
-                      Homologação {review.decision} em {formatDate(review.createdAt)}
+                      Homologação: {qualificationDecisionLabel(review.decision)} em {formatDate(review.createdAt)}
                     </div>
                   ))}
                   {detail.performanceReviews.slice(0, 3).map((review) => (
