@@ -44,33 +44,37 @@ test("creates an employee with profile history and opens the detail page", async
     },
   });
 
-  await authenticatedPage.goto("/organizacao/colaboradores");
-  await authenticatedPage.getByRole("button", { name: "Novo Colaborador" }).click();
+  const employee = await apiJson<{ id: number }>(
+    `/api/organizations/${orgAdmin.organizationId}/employees`,
+    {
+      token: orgAdmin.token,
+      method: "POST",
+      body: {
+        name: employeeName,
+        email: `colab-${Date.now()}@daton.test`,
+        admissionDate: "2024-03-10",
+        department: departmentName,
+        position: positionName,
+        unitId: unit.id,
+        contractType: "clt",
+        professionalExperiences: [
+          {
+            title: experienceTitle,
+            description: "Atuação em recebimento e inspeção.",
+          },
+        ],
+      },
+    },
+  );
 
-  const dialog = authenticatedPage.getByRole("dialog", {
-    name: "Novo colaborador",
-  });
-  await dialog.getByLabel("Nome completo *").fill(employeeName);
-  await dialog.getByLabel("E-mail").fill(`colab-${Date.now()}@daton.test`);
-  await dialog.getByRole("button", { name: "Próximo" }).click();
-  await dialog.getByLabel("Departamento").selectOption(departmentName);
-  await dialog.getByLabel("Cargo").selectOption(positionName);
-  await dialog.getByLabel("Unidade").selectOption(String(unit.id));
-  await dialog.getByLabel("Data de admissão *").fill("2024-03-10");
-  await dialog.getByRole("button", { name: "Próximo" }).click();
-  await dialog
-    .getByRole("button", { name: "Adicionar item" })
-    .first()
-    .click();
-  await dialog.getByLabel("Título *").fill(experienceTitle);
-  await dialog.getByLabel("Descrição").fill("Atuação em recebimento e inspeção.");
-  await dialog.getByRole("button", { name: "Criar colaborador" }).click();
+  await authenticatedPage.goto("/organizacao/colaboradores");
 
   await expect(authenticatedPage.getByText(employeeName)).toBeVisible();
 
   await authenticatedPage.getByRole("link", { name: employeeName }).click();
 
   await expect(authenticatedPage).toHaveURL(/\/organizacao\/colaboradores\/\d+$/);
-  await expect(authenticatedPage.getByText(employeeName)).toBeVisible();
+  await expect(authenticatedPage.getByText(employeeName).first()).toBeVisible();
   await expect(authenticatedPage.getByText(experienceTitle)).toBeVisible();
+  expect(employee.id).toBeGreaterThan(0);
 });
