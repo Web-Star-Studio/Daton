@@ -332,6 +332,85 @@ describe("requireCompletedOnboarding", () => {
   });
 });
 
+// ─── issueAuthTokenFromState ──────────────────────────────────────────────────
+
+import { issueAuthTokenFromState, issueAuthToken } from "../../src/middlewares/auth";
+
+describe("issueAuthTokenFromState", () => {
+  it("returns a JWT that decodes to the supplied payload", () => {
+    const orgId = uniqueOrgId();
+    const token = issueAuthTokenFromState({
+      userId: 7,
+      organizationId: orgId,
+      role: "org_admin",
+      authVersion: 3,
+      onboardingStatus: "completed",
+    });
+
+    const decoded = jwt.verify(token, TEST_JWT_SECRET) as Record<string, unknown>;
+    expect(decoded.userId).toBe(7);
+    expect(decoded.organizationId).toBe(orgId);
+    expect(decoded.role).toBe("org_admin");
+    expect(decoded.organizationAuthVersion).toBe(3);
+    expect(decoded.onboardingStatus).toBe("completed");
+  });
+
+  it("warms the cache so requireAuth skips the DB lookup", async () => {
+    const orgId = uniqueOrgId();
+    issueAuthTokenFromState({
+      userId: 1,
+      organizationId: orgId,
+      role: "operator",
+      authVersion: 1,
+      onboardingStatus: "completed",
+    });
+
+    // Re-issue a token for the same org — the DB mock should NOT be called
+    // because issueAuthTokenFromState populated the cache.
+    const token = makeToken(orgId, { organizationAuthVersion: 1 });
+    const req = makeReq({ headers: { authorization: `Bearer ${token}` } });
+    const { res } = makeRes();
+    const next = makeNext();
+
+    selectMock.mockReset(); // ensure it starts at 0 calls
+    await requireAuth(req, res, next);
+
+    expect(selectMock).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalled();
+  });
+});
+
+// ─── issueAuthToken ───────────────────────────────────────────────────────────
+
+describe("issueAuthToken", () => {
+  beforeEach(() => {
+    selectMock.mockReset();
+    fromMock.mockReset();
+    whereMock.mockReset();
+    whereMock.mockResolvedValue([{ authVersion: 2, onboardingStatus: "completed" }]);
+    fromMock.mockReturnValue({ where: whereMock });
+    selectMock.mockReturnValue({ from: fromMock });
+  });
+
+  it("returns a signed JWT using state fetched from the DB", async () => {
+    const orgId = uniqueOrgId();
+    const token = await issueAuthToken({ userId: 5, organizationId: orgId, role: "operator" });
+    const decoded = jwt.verify(token, TEST_JWT_SECRET) as Record<string, unknown>;
+    expect(decoded.userId).toBe(5);
+    expect(decoded.organizationAuthVersion).toBe(2);
+    expect(decoded.onboardingStatus).toBe("completed");
+  });
+
+  it("throws when the organization is not found", async () => {
+    whereMock.mockResolvedValue([]);
+    const orgId = uniqueOrgId();
+    await expect(
+      issueAuthToken({ userId: 1, organizationId: orgId, role: "operator" }),
+    ).rejects.toThrow("Organization not found while issuing auth token");
+  });
+});
+
+
 // ─── requireWriteAccess ──────────────────────────────────────────────────────
 
 describe("requireWriteAccess", () => {

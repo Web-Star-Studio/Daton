@@ -77,7 +77,7 @@ test("creates and treats a risk item from the governance UI", async ({
   await riskDialog
     .locator("select")
     .nth(4)
-    .selectOption({ label: orgAdmin.adminFullName });
+    .selectOption({ label: orgAdmin.adminFullName.toUpperCase() });
   await riskDialog.locator('input[type="number"]').nth(0).fill("4");
   await riskDialog.locator('input[type="number"]').nth(1).fill("4");
   await riskDialog.locator('input[type="date"]').fill(inputDate(45));
