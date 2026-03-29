@@ -11,6 +11,8 @@ test("creates a supplier, adds an offering and registers a receipt", async ({
   const supplierName = `Fornecedor ${Date.now()}`;
   const offeringName = `Item ${Date.now()}`;
   const receiptDescription = `Recebimento ${Date.now()}`;
+  const cnpj = `12.345.678/0001-${String(Date.now()).slice(-2)}`;
+  const supplierEmail = `supplier-${Date.now()}@daton.test`;
 
   const category = await apiJson<{ id: number }>(
     `/api/organizations/${orgAdmin.organizationId}/supplier-categories`,
@@ -46,6 +48,16 @@ test("creates a supplier, adds an offering and registers a receipt", async ({
     },
   );
 
+  // Create catalog item so it can be linked to the supplier as an offering
+  const catalogItem = await apiJson<{ id: number }>(
+    `/api/organizations/${orgAdmin.organizationId}/supplier-catalog-items`,
+    {
+      token: orgAdmin.token,
+      method: "POST",
+      body: { name: offeringName, offeringType: "service", status: "active" },
+    },
+  );
+
   await authenticatedPage.goto("/qualidade/fornecedores");
   await authenticatedPage.getByRole("button", { name: "Novo fornecedor" }).click();
 
@@ -53,7 +65,7 @@ test("creates a supplier, adds an offering and registers a receipt", async ({
 
   // Step 0 – Identificação (labels use className, no htmlFor; use placeholders)
   await dialog.getByPlaceholder("Razão social da empresa").fill(supplierName);
-  await dialog.getByPlaceholder("00.000.000/0000-00").fill(`12.345.678/0001-${String(Date.now()).slice(-2)}`);
+  await dialog.getByPlaceholder("00.000.000/0000-00").fill(cnpj);
   await dialog.getByRole("button", { name: "Próximo" }).click();
 
   // Step 1 – Classificação
@@ -79,18 +91,33 @@ test("creates a supplier, adds an offering and registers a receipt", async ({
   await dialog.getByRole("button", { name: "Próximo" }).click();
 
   // Step 2 – Contato
-  await dialog.getByPlaceholder("contato@empresa.com").fill(`supplier-${Date.now()}@daton.test`);
+  await dialog.getByPlaceholder("contato@empresa.com").fill(supplierEmail);
   await dialog.getByRole("button", { name: "Criar fornecedor" }).click();
 
   await expect(authenticatedPage).toHaveURL(/\/(?:app\/)?qualidade\/fornecedores\/\d+$/);
   await expect(authenticatedPage.getByText(supplierName).first()).toBeVisible();
 
-  await authenticatedPage.getByPlaceholder("Nome do produto ou serviço").fill(offeringName);
-  await authenticatedPage
-    .getByRole("checkbox", { name: "Marcar como escopo aprovado" })
-    .click();
-  await authenticatedPage.getByRole("button", { name: "Adicionar item" }).click();
+  // Link the catalog item to the supplier via API (offerings are now managed through catalog items)
+  const supplierId = Number(authenticatedPage.url().match(/\/fornecedores\/(\d+)/)?.[1]);
+  await apiJson(
+    `/api/organizations/${orgAdmin.organizationId}/suppliers/${supplierId}`,
+    {
+      token: orgAdmin.token,
+      method: "PATCH",
+      body: {
+        personType: "pj",
+        legalIdentifier: cnpj,
+        legalName: supplierName,
+        categoryId: category.id,
+        typeIds: [type.id],
+        unitIds: [unit.id],
+        catalogItemIds: [catalogItem.id],
+        email: supplierEmail,
+      },
+    },
+  );
 
+  await authenticatedPage.reload();
   await expect(authenticatedPage.getByText(offeringName)).toBeVisible();
 
   await authenticatedPage.getByRole("tab", { name: "Recebimentos" }).click();
