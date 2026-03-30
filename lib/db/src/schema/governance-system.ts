@@ -11,6 +11,7 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
+import { positionsTable } from "./departments";
 import { documentsTable } from "./documents";
 import { organizationsTable } from "./organizations";
 import { strategicPlanRiskOpportunityItemsTable, strategicPlansTable } from "./strategic-plans";
@@ -107,6 +108,11 @@ export type CommunicationContextType =
   | "laia_assessment"
   | "laia_sector"
   | "laia_unit_scope";
+export type KnowledgeAssetLossRiskLevel =
+  | "low"
+  | "medium"
+  | "high"
+  | "critical";
 
 export const sgqProcessesTable = pgTable(
   "sgq_processes",
@@ -230,6 +236,60 @@ export const sgqCommunicationPlansTable = pgTable("sgq_communication_plans", {
     .notNull()
     .defaultNow()
     .$onUpdate(() => new Date()),
+});
+
+export const knowledgeAssetsTable = pgTable("knowledge_assets", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizationsTable.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  lossRiskLevel: text("loss_risk_level")
+    .notNull()
+    .default("medium")
+    .$type<KnowledgeAssetLossRiskLevel>(),
+  retentionMethod: text("retention_method"),
+  successionPlan: text("succession_plan"),
+  evidenceAttachments: jsonb("evidence_attachments")
+    .$type<GovernanceSystemAttachment[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  evidenceValidUntil: date("evidence_valid_until"),
+  createdById: integer("created_by_id")
+    .notNull()
+    .references(() => usersTable.id),
+  updatedById: integer("updated_by_id")
+    .notNull()
+    .references(() => usersTable.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const knowledgeAssetLinksTable = pgTable("knowledge_asset_links", {
+  id: serial("id").primaryKey(),
+  knowledgeAssetId: integer("knowledge_asset_id")
+    .notNull()
+    .references(() => knowledgeAssetsTable.id, { onDelete: "cascade" }),
+  processId: integer("process_id").references(() => sgqProcessesTable.id, {
+    onDelete: "cascade",
+  }),
+  positionId: integer("position_id").references(() => positionsTable.id, {
+    onDelete: "cascade",
+  }),
+  documentId: integer("document_id").references(() => documentsTable.id, {
+    onDelete: "cascade",
+  }),
+  riskOpportunityItemId: integer("risk_opportunity_item_id").references(
+    () => strategicPlanRiskOpportunityItemsTable.id,
+    {
+      onDelete: "cascade",
+    },
+  ),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const internalAuditsTable = pgTable("internal_audits", {

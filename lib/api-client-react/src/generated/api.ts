@@ -38,6 +38,7 @@ import type {
   CreateInternalAuditBody,
   CreateInternalAuditFindingBody,
   CreateInvitationBody,
+  CreateKnowledgeAssetBody,
   CreateLegislationBody,
   CreateManagementReviewBody,
   CreateManagementReviewInputBody,
@@ -87,6 +88,7 @@ import type {
   InternalAuditFinding,
   InvitationResponse,
   InviteTokenInfo,
+  KnowledgeAssetDetail,
   Legislation,
   LegislationDetail,
   LinkEmployeeUnit201,
@@ -97,6 +99,7 @@ import type {
   ListGovernanceRiskOpportunityItemsParams,
   ListInternalAuditsParams,
   ListInvitations200,
+  ListKnowledgeAssetsParams,
   ListLegislationsParams,
   ListManagementReviewsParams,
   ListNonconformitiesParams,
@@ -123,6 +126,7 @@ import type {
   PaginatedEmployeeCompetencyGaps,
   PaginatedEmployees,
   PaginatedInternalAudits,
+  PaginatedKnowledgeAssets,
   PaginatedManagementReviews,
   PaginatedNonconformities,
   PaginatedOrganizationTrainings,
@@ -163,6 +167,7 @@ import type {
   UpdateEmployeeProfileItemBody,
   UpdateInternalAuditBody,
   UpdateInternalAuditFindingBody,
+  UpdateKnowledgeAssetBody,
   UpdateLegislationBody,
   UpdateManagementReviewBody,
   UpdateManagementReviewInputBody,
@@ -15225,6 +15230,503 @@ export const useDeleteStrategicPlanRiskOpportunityItem = <
   return useMutation(
     getDeleteStrategicPlanRiskOpportunityItemMutationOptions(options),
   );
+};
+
+/**
+ * @summary List critical knowledge assets
+ */
+export const getListKnowledgeAssetsUrl = (
+  orgId: number,
+  params?: ListKnowledgeAssetsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/governance/knowledge-assets?${stringifiedParams}`
+    : `/api/organizations/${orgId}/governance/knowledge-assets`;
+};
+
+export const listKnowledgeAssets = async (
+  orgId: number,
+  params?: ListKnowledgeAssetsParams,
+  options?: RequestInit,
+): Promise<PaginatedKnowledgeAssets> => {
+  return customFetch<PaginatedKnowledgeAssets>(
+    getListKnowledgeAssetsUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListKnowledgeAssetsQueryKey = (
+  orgId: number,
+  params?: ListKnowledgeAssetsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/knowledge-assets`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListKnowledgeAssetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listKnowledgeAssets>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListKnowledgeAssetsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listKnowledgeAssets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListKnowledgeAssetsQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listKnowledgeAssets>>
+  > = ({ signal }) =>
+    listKnowledgeAssets(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listKnowledgeAssets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListKnowledgeAssetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listKnowledgeAssets>>
+>;
+export type ListKnowledgeAssetsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List critical knowledge assets
+ */
+
+export function useListKnowledgeAssets<
+  TData = Awaited<ReturnType<typeof listKnowledgeAssets>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListKnowledgeAssetsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listKnowledgeAssets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListKnowledgeAssetsQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a critical knowledge asset
+ */
+export const getCreateKnowledgeAssetUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/governance/knowledge-assets`;
+};
+
+export const createKnowledgeAsset = async (
+  orgId: number,
+  createKnowledgeAssetBody: CreateKnowledgeAssetBody,
+  options?: RequestInit,
+): Promise<KnowledgeAssetDetail> => {
+  return customFetch<KnowledgeAssetDetail>(getCreateKnowledgeAssetUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createKnowledgeAssetBody),
+  });
+};
+
+export const getCreateKnowledgeAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createKnowledgeAsset>>,
+    TError,
+    { orgId: number; data: BodyType<CreateKnowledgeAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createKnowledgeAsset>>,
+  TError,
+  { orgId: number; data: BodyType<CreateKnowledgeAssetBody> },
+  TContext
+> => {
+  const mutationKey = ["createKnowledgeAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createKnowledgeAsset>>,
+    { orgId: number; data: BodyType<CreateKnowledgeAssetBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createKnowledgeAsset(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateKnowledgeAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createKnowledgeAsset>>
+>;
+export type CreateKnowledgeAssetMutationBody =
+  BodyType<CreateKnowledgeAssetBody>;
+export type CreateKnowledgeAssetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a critical knowledge asset
+ */
+export const useCreateKnowledgeAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createKnowledgeAsset>>,
+    TError,
+    { orgId: number; data: BodyType<CreateKnowledgeAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createKnowledgeAsset>>,
+  TError,
+  { orgId: number; data: BodyType<CreateKnowledgeAssetBody> },
+  TContext
+> => {
+  return useMutation(getCreateKnowledgeAssetMutationOptions(options));
+};
+
+/**
+ * @summary Get critical knowledge asset detail
+ */
+export const getGetKnowledgeAssetUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/governance/knowledge-assets/${assetId}`;
+};
+
+export const getKnowledgeAsset = async (
+  orgId: number,
+  assetId: number,
+  options?: RequestInit,
+): Promise<KnowledgeAssetDetail> => {
+  return customFetch<KnowledgeAssetDetail>(
+    getGetKnowledgeAssetUrl(orgId, assetId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetKnowledgeAssetQueryKey = (
+  orgId: number,
+  assetId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/knowledge-assets/${assetId}`,
+  ] as const;
+};
+
+export const getGetKnowledgeAssetQueryOptions = <
+  TData = Awaited<ReturnType<typeof getKnowledgeAsset>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getKnowledgeAsset>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetKnowledgeAssetQueryKey(orgId, assetId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getKnowledgeAsset>>
+  > = ({ signal }) =>
+    getKnowledgeAsset(orgId, assetId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && assetId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getKnowledgeAsset>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetKnowledgeAssetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getKnowledgeAsset>>
+>;
+export type GetKnowledgeAssetQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get critical knowledge asset detail
+ */
+
+export function useGetKnowledgeAsset<
+  TData = Awaited<ReturnType<typeof getKnowledgeAsset>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getKnowledgeAsset>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetKnowledgeAssetQueryOptions(
+    orgId,
+    assetId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a critical knowledge asset
+ */
+export const getUpdateKnowledgeAssetUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/governance/knowledge-assets/${assetId}`;
+};
+
+export const updateKnowledgeAsset = async (
+  orgId: number,
+  assetId: number,
+  updateKnowledgeAssetBody: UpdateKnowledgeAssetBody,
+  options?: RequestInit,
+): Promise<KnowledgeAssetDetail> => {
+  return customFetch<KnowledgeAssetDetail>(
+    getUpdateKnowledgeAssetUrl(orgId, assetId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateKnowledgeAssetBody),
+    },
+  );
+};
+
+export const getUpdateKnowledgeAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateKnowledgeAsset>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      data: BodyType<UpdateKnowledgeAssetBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateKnowledgeAsset>>,
+  TError,
+  { orgId: number; assetId: number; data: BodyType<UpdateKnowledgeAssetBody> },
+  TContext
+> => {
+  const mutationKey = ["updateKnowledgeAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateKnowledgeAsset>>,
+    { orgId: number; assetId: number; data: BodyType<UpdateKnowledgeAssetBody> }
+  > = (props) => {
+    const { orgId, assetId, data } = props ?? {};
+
+    return updateKnowledgeAsset(orgId, assetId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateKnowledgeAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateKnowledgeAsset>>
+>;
+export type UpdateKnowledgeAssetMutationBody =
+  BodyType<UpdateKnowledgeAssetBody>;
+export type UpdateKnowledgeAssetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a critical knowledge asset
+ */
+export const useUpdateKnowledgeAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateKnowledgeAsset>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      data: BodyType<UpdateKnowledgeAssetBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateKnowledgeAsset>>,
+  TError,
+  { orgId: number; assetId: number; data: BodyType<UpdateKnowledgeAssetBody> },
+  TContext
+> => {
+  return useMutation(getUpdateKnowledgeAssetMutationOptions(options));
+};
+
+/**
+ * @summary Delete a critical knowledge asset
+ */
+export const getDeleteKnowledgeAssetUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/governance/knowledge-assets/${assetId}`;
+};
+
+export const deleteKnowledgeAsset = async (
+  orgId: number,
+  assetId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteKnowledgeAssetUrl(orgId, assetId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteKnowledgeAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteKnowledgeAsset>>,
+    TError,
+    { orgId: number; assetId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteKnowledgeAsset>>,
+  TError,
+  { orgId: number; assetId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteKnowledgeAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteKnowledgeAsset>>,
+    { orgId: number; assetId: number }
+  > = (props) => {
+    const { orgId, assetId } = props ?? {};
+
+    return deleteKnowledgeAsset(orgId, assetId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteKnowledgeAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteKnowledgeAsset>>
+>;
+
+export type DeleteKnowledgeAssetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a critical knowledge asset
+ */
+export const useDeleteKnowledgeAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteKnowledgeAsset>>,
+    TError,
+    { orgId: number; assetId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteKnowledgeAsset>>,
+  TError,
+  { orgId: number; assetId: number },
+  TContext
+> => {
+  return useMutation(getDeleteKnowledgeAssetMutationOptions(options));
 };
 
 /**

@@ -64,6 +64,8 @@ import {
   internalAuditChecklistItemsTable,
   internalAuditFindingsTable,
   internalAuditsTable,
+  knowledgeAssetLinksTable,
+  knowledgeAssetsTable,
   managementReviewInputsTable,
   managementReviewOutputsTable,
   managementReviewsTable,
@@ -251,6 +253,12 @@ export async function cleanupTestData(prefix: string) {
       .where(inArray(managementReviewsTable.organizationId, orgIds));
     const managementReviewIds = managementReviews.map((review) => review.id);
 
+    const knowledgeAssets = await tx
+      .select({ id: knowledgeAssetsTable.id })
+      .from(knowledgeAssetsTable)
+      .where(inArray(knowledgeAssetsTable.organizationId, orgIds));
+    const knowledgeAssetIds = knowledgeAssets.map((asset) => asset.id);
+
     if (planIds.length > 0) {
       const actions = await tx
         .select({ id: strategicPlanActionsTable.id })
@@ -356,6 +364,15 @@ export async function cleanupTestData(prefix: string) {
       await tx
         .delete(sgqProcessesTable)
         .where(inArray(sgqProcessesTable.id, sgqProcessIds));
+    }
+
+    if (knowledgeAssetIds.length > 0) {
+      await tx
+        .delete(knowledgeAssetLinksTable)
+        .where(inArray(knowledgeAssetLinksTable.knowledgeAssetId, knowledgeAssetIds));
+      await tx
+        .delete(knowledgeAssetsTable)
+        .where(inArray(knowledgeAssetsTable.id, knowledgeAssetIds));
     }
 
     if (departmentIds.length > 0) {

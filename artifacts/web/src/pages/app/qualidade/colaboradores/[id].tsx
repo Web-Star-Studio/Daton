@@ -3285,9 +3285,10 @@ function ConscientizacaoTab({
 
 export default function ColaboradorDetailPage() {
   const { user } = useAuth();
-  const { canWriteModule } = usePermissions();
+  const { canWriteModule, hasModuleAccess } = usePermissions();
   const orgId = user?.organizationId;
   const canWriteEmployees = canWriteModule("employees");
+  const canAccessGovernance = hasModuleAccess("governance");
   const params = useParams<{ id: string }>();
   const empId = Number(params?.id);
   const [location, navigate] = useLocation();
@@ -3304,6 +3305,17 @@ export default function ColaboradorDetailPage() {
   const { data: positions = [] } = useListPositions(orgId!, {
     query: { queryKey: getListPositionsQueryKey(orgId!), enabled: !!orgId },
   });
+  const employeePositionRecord = useMemo(
+    () =>
+      employee?.position
+        ? positions.find(
+            (position) =>
+              position.name.trim().toLowerCase() ===
+              employee.position!.trim().toLowerCase(),
+          ) ?? null
+        : null,
+    [employee?.position, positions],
+  );
   const updateMutation = useUpdateEmployee();
   const deleteMutation = useDeleteEmployee();
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -3473,10 +3485,27 @@ export default function ColaboradorDetailPage() {
             </Button>
           </>
         )}
+        {canAccessGovernance && employeePositionRecord ? (
+          <Link
+            href={`/governanca/conhecimento-critico?positionId=${employeePositionRecord.id}`}
+          >
+            <Button variant="outline" size="sm" className="cursor-pointer">
+              <Lightbulb className="h-3.5 w-3.5 mr-1.5" />
+              Conhecimento do cargo
+            </Button>
+          </Link>
+        ) : null}
         {addButton}
       </div>
     );
-  }, [employee, canWriteEmployees, handleArchive, activeTab]);
+  }, [
+    employee,
+    canAccessGovernance,
+    canWriteEmployees,
+    employeePositionRecord,
+    handleArchive,
+    activeTab,
+  ]);
 
   useHeaderActions(headerActions);
 

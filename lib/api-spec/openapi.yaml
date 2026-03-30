@@ -4701,6 +4701,154 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /organizations/{orgId}/governance/knowledge-assets:
+    get:
+      operationId: listKnowledgeAssets
+      tags: [governance]
+      summary: List critical knowledge assets
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: processId
+          in: query
+          schema:
+            type: integer
+        - name: positionId
+          in: query
+          schema:
+            type: integer
+        - name: documentId
+          in: query
+          schema:
+            type: integer
+        - name: riskOpportunityItemId
+          in: query
+          schema:
+            type: integer
+        - name: lossRiskLevel
+          in: query
+          schema:
+            $ref: "#/components/schemas/KnowledgeAssetLossRiskLevel"
+        - name: evidenceStatus
+          in: query
+          schema:
+            $ref: "#/components/schemas/KnowledgeAssetEvidenceStatus"
+      responses:
+        "200":
+          description: Paginated critical knowledge assets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedKnowledgeAssets"
+    post:
+      operationId: createKnowledgeAsset
+      tags: [governance]
+      summary: Create a critical knowledge asset
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateKnowledgeAssetBody"
+      responses:
+        "201":
+          description: Critical knowledge asset created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeAssetDetail"
+
+  /organizations/{orgId}/governance/knowledge-assets/{assetId}:
+    get:
+      operationId: getKnowledgeAsset
+      tags: [governance]
+      summary: Get critical knowledge asset detail
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Critical knowledge asset detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeAssetDetail"
+    patch:
+      operationId: updateKnowledgeAsset
+      tags: [governance]
+      summary: Update a critical knowledge asset
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateKnowledgeAssetBody"
+      responses:
+        "200":
+          description: Updated critical knowledge asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeAssetDetail"
+    delete:
+      operationId: deleteKnowledgeAsset
+      tags: [governance]
+      summary: Delete a critical knowledge asset
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Critical knowledge asset deleted
+
   /organizations/{orgId}/governance/sgq-processes:
     get:
       operationId: listSgqProcesses
@@ -9397,6 +9545,207 @@ components:
         - pageSize
         - total
         - totalPages
+
+    KnowledgeAssetLossRiskLevel:
+      type: string
+      enum: [low, medium, high, critical]
+
+    KnowledgeAssetEvidenceStatus:
+      type: string
+      enum: [missing, expired, valid]
+
+    KnowledgeAssetLinkInput:
+      type: object
+      properties:
+        processId:
+          type: integer
+          nullable: true
+        positionId:
+          type: integer
+          nullable: true
+        documentId:
+          type: integer
+          nullable: true
+        riskOpportunityItemId:
+          type: integer
+          nullable: true
+
+    KnowledgeAssetLink:
+      type: object
+      properties:
+        id:
+          type: integer
+        processId:
+          type: integer
+          nullable: true
+        processName:
+          type: string
+          nullable: true
+        positionId:
+          type: integer
+          nullable: true
+        positionName:
+          type: string
+          nullable: true
+        documentId:
+          type: integer
+          nullable: true
+        documentTitle:
+          type: string
+          nullable: true
+        riskOpportunityItemId:
+          type: integer
+          nullable: true
+        riskOpportunityItemLabel:
+          type: string
+          nullable: true
+        riskOpportunityPlanTitle:
+          type: string
+          nullable: true
+      required:
+        - id
+
+    KnowledgeAssetListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        lossRiskLevel:
+          $ref: "#/components/schemas/KnowledgeAssetLossRiskLevel"
+        retentionMethod:
+          type: string
+          nullable: true
+        successionPlan:
+          type: string
+          nullable: true
+        evidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        evidenceValidUntil:
+          type: string
+          format: date
+          nullable: true
+        evidenceStatus:
+          $ref: "#/components/schemas/KnowledgeAssetEvidenceStatus"
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeAssetLink"
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - organizationId
+        - title
+        - lossRiskLevel
+        - evidenceAttachments
+        - evidenceStatus
+        - links
+
+    KnowledgeAssetDetail:
+      allOf:
+        - $ref: "#/components/schemas/KnowledgeAssetListItem"
+        - type: object
+          properties:
+            createdById:
+              type: integer
+            createdByName:
+              type: string
+              nullable: true
+            updatedById:
+              type: integer
+            updatedByName:
+              type: string
+              nullable: true
+          required:
+            - createdById
+            - updatedById
+
+    PaginatedKnowledgeAssets:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeAssetListItem"
+        pagination:
+          $ref: "#/components/schemas/PaginatedResponseMeta"
+      required:
+        - data
+        - pagination
+
+    CreateKnowledgeAssetBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        lossRiskLevel:
+          $ref: "#/components/schemas/KnowledgeAssetLossRiskLevel"
+        retentionMethod:
+          type: string
+          nullable: true
+        successionPlan:
+          type: string
+          nullable: true
+        evidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        evidenceValidUntil:
+          type: string
+          format: date
+          nullable: true
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeAssetLinkInput"
+      required:
+        - title
+        - links
+
+    UpdateKnowledgeAssetBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        lossRiskLevel:
+          $ref: "#/components/schemas/KnowledgeAssetLossRiskLevel"
+        retentionMethod:
+          type: string
+          nullable: true
+        successionPlan:
+          type: string
+          nullable: true
+        evidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        evidenceValidUntil:
+          type: string
+          format: date
+          nullable: true
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/KnowledgeAssetLinkInput"
 
     GovernanceSgqProcessStatus:
       type: string

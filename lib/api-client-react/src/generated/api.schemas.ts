@@ -2137,6 +2137,95 @@ export interface PaginatedResponseMeta {
   totalPages: number;
 }
 
+export type KnowledgeAssetLossRiskLevel =
+  (typeof KnowledgeAssetLossRiskLevel)[keyof typeof KnowledgeAssetLossRiskLevel];
+
+export const KnowledgeAssetLossRiskLevel = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+  critical: "critical",
+} as const;
+
+export type KnowledgeAssetEvidenceStatus =
+  (typeof KnowledgeAssetEvidenceStatus)[keyof typeof KnowledgeAssetEvidenceStatus];
+
+export const KnowledgeAssetEvidenceStatus = {
+  missing: "missing",
+  expired: "expired",
+  valid: "valid",
+} as const;
+
+export interface KnowledgeAssetLinkInput {
+  processId?: number | null;
+  positionId?: number | null;
+  documentId?: number | null;
+  riskOpportunityItemId?: number | null;
+}
+
+export interface KnowledgeAssetLink {
+  id: number;
+  processId?: number | null;
+  processName?: string | null;
+  positionId?: number | null;
+  positionName?: string | null;
+  documentId?: number | null;
+  documentTitle?: string | null;
+  riskOpportunityItemId?: number | null;
+  riskOpportunityItemLabel?: string | null;
+  riskOpportunityPlanTitle?: string | null;
+}
+
+export interface KnowledgeAssetListItem {
+  id: number;
+  organizationId: number;
+  title: string;
+  description?: string | null;
+  lossRiskLevel: KnowledgeAssetLossRiskLevel;
+  retentionMethod?: string | null;
+  successionPlan?: string | null;
+  evidenceAttachments: GovernanceSystemAttachment[];
+  evidenceValidUntil?: string | null;
+  evidenceStatus: KnowledgeAssetEvidenceStatus;
+  links: KnowledgeAssetLink[];
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export type KnowledgeAssetDetail = KnowledgeAssetListItem & {
+  createdById: number;
+  createdByName?: string | null;
+  updatedById: number;
+  updatedByName?: string | null;
+};
+
+export interface PaginatedKnowledgeAssets {
+  data: KnowledgeAssetListItem[];
+  pagination: PaginatedResponseMeta;
+}
+
+export interface CreateKnowledgeAssetBody {
+  title: string;
+  description?: string | null;
+  lossRiskLevel?: KnowledgeAssetLossRiskLevel;
+  retentionMethod?: string | null;
+  successionPlan?: string | null;
+  evidenceAttachments?: GovernanceSystemAttachment[];
+  evidenceValidUntil?: string | null;
+  links: KnowledgeAssetLinkInput[];
+}
+
+export interface UpdateKnowledgeAssetBody {
+  title?: string;
+  description?: string | null;
+  lossRiskLevel?: KnowledgeAssetLossRiskLevel;
+  retentionMethod?: string | null;
+  successionPlan?: string | null;
+  evidenceAttachments?: GovernanceSystemAttachment[];
+  evidenceValidUntil?: string | null;
+  links?: KnowledgeAssetLinkInput[];
+}
+
 export type GovernanceSgqProcessStatus =
   (typeof GovernanceSgqProcessStatus)[keyof typeof GovernanceSgqProcessStatus];
 
@@ -3308,6 +3397,18 @@ export type ListGovernanceRiskOpportunityItemsParams = {
   ownerUserId?: number;
   unitId?: number;
   sourceType?: StrategicPlanRiskOpportunitySourceType;
+};
+
+export type ListKnowledgeAssetsParams = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  processId?: number;
+  positionId?: number;
+  documentId?: number;
+  riskOpportunityItemId?: number;
+  lossRiskLevel?: KnowledgeAssetLossRiskLevel;
+  evidenceStatus?: KnowledgeAssetEvidenceStatus;
 };
 
 export type ListSgqProcessesParams = {

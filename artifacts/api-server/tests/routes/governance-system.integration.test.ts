@@ -2,6 +2,8 @@ import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   db,
+  knowledgeAssetLinksTable,
+  knowledgeAssetsTable,
   sgqProcessRevisionsTable,
   strategicPlanRiskOpportunityItemsTable,
   strategicPlansTable,
@@ -10,6 +12,7 @@ import app from "../../src/app";
 import {
   authHeader,
   cleanupTestContext,
+  createPosition,
   createEmployee,
   createTestContext,
   createTestUser,
@@ -81,7 +84,247 @@ async function createStrategicPlanForTest(context: TestOrgContext) {
   return plan;
 }
 
+async function createRiskOpportunityItemForTest(
+  context: TestOrgContext,
+  planId: number,
+  title: string,
+) {
+  const [item] = await db
+    .insert(strategicPlanRiskOpportunityItemsTable)
+    .values({
+      organizationId: context.organizationId,
+      planId,
+      type: "risk",
+      sourceType: "meeting",
+      title,
+      description: `${title} descrição`,
+      status: "identified",
+      sortOrder: 0,
+    })
+    .returning({ id: strategicPlanRiskOpportunityItemsTable.id });
+
+  return item;
+}
+
 describe("governance system routes", () => {
+  it("creates, filters, updates and deletes critical knowledge assets with derived evidence status", async () => {
+    const context = await createTestContext({
+      seed: "governance-system-knowledge-assets",
+    });
+    contexts.push(context);
+
+    const position = await createPosition(context, {
+      name: `Especialista SGQ ${context.prefix}`,
+    });
+    const processResponse = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/sgq-processes`)
+      .set(authHeader(context))
+      .send({
+        name: `Processo Conhecimento ${context.prefix}`,
+        objective: "Manter conhecimento crítico rastreável.",
+      });
+
+    expect(processResponse.status).toBe(201);
+
+    const document = await createDocumentForTest(context, {
+      type: "manual",
+    });
+    const plan = await createStrategicPlanForTest(context);
+    const riskItem = await createRiskOpportunityItemForTest(
+      context,
+      plan.id,
+      `Risco de perda ${context.prefix}`,
+    );
+
+    const created = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/knowledge-assets`)
+      .set(authHeader(context))
+      .send({
+        title: `Conhecimento Crítico ${context.prefix}`,
+        description: "Conhecimento sobre fluxo de auditoria interna.",
+        lossRiskLevel: "high",
+        retentionMethod: "Procedimento documentado e mentoria assistida.",
+        successionPlan: "Treinar dois substitutos diretos.",
+        links: [
+          { processId: processResponse.body.id },
+          { positionId: position.id },
+          { documentId: document.id },
+          { riskOpportunityItemId: riskItem.id },
+        ],
+      });
+
+    expect(created.status).toBe(201);
+    expect(created.body.evidenceStatus).toBe("missing");
+    expect(created.body.links).toHaveLength(4);
+
+    const listedByPosition = await request(app)
+      .get(`/api/organizations/${context.organizationId}/governance/knowledge-assets`)
+      .query({
+        page: 1,
+        pageSize: 10,
+        positionId: position.id,
+        evidenceStatus: "missing",
+      })
+      .set(authHeader(context));
+
+    expect(listedByPosition.status).toBe(200);
+    expect(listedByPosition.body.data).toHaveLength(1);
+    expect(listedByPosition.body.data[0].title).toContain("Conhecimento Crítico");
+
+    const updated = await request(app)
+      .patch(
+        `/api/organizations/${context.organizationId}/governance/knowledge-assets/${created.body.id}`,
+      )
+      .set(authHeader(context))
+      .send({
+        evidenceAttachments: [
+          {
+            fileName: "procedimento.pdf",
+            fileSize: 1024,
+            contentType: "application/pdf",
+            objectPath: "/knowledge/procedimento.pdf",
+          },
+        ],
+        evidenceValidUntil: "2020-01-01",
+        links: [{ positionId: position.id }],
+      });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.evidenceStatus).toBe("expired");
+    expect(updated.body.links).toHaveLength(1);
+    expect(updated.body.links[0].positionName).toBe(position.name);
+
+    const expiredList = await request(app)
+      .get(`/api/organizations/${context.organizationId}/governance/knowledge-assets`)
+      .query({
+        page: 1,
+        pageSize: 10,
+        evidenceStatus: "expired",
+      })
+      .set(authHeader(context));
+
+    expect(expiredList.status).toBe(200);
+    expect(expiredList.body.data).toHaveLength(1);
+    expect(expiredList.body.data[0].evidenceStatus).toBe("expired");
+
+    const validUpdate = await request(app)
+      .patch(
+        `/api/organizations/${context.organizationId}/governance/knowledge-assets/${created.body.id}`,
+      )
+      .set(authHeader(context))
+      .send({
+        evidenceValidUntil: "2035-01-01",
+      });
+
+    expect(validUpdate.status).toBe(200);
+    expect(validUpdate.body.evidenceStatus).toBe("valid");
+
+    const deleteResponse = await request(app)
+      .delete(
+        `/api/organizations/${context.organizationId}/governance/knowledge-assets/${created.body.id}`,
+      )
+      .set(authHeader(context));
+
+    expect(deleteResponse.status).toBe(204);
+
+    const [remainingAssets, remainingLinks] = await Promise.all([
+      db
+        .select({ id: knowledgeAssetsTable.id })
+        .from(knowledgeAssetsTable)
+        .where(eq(knowledgeAssetsTable.organizationId, context.organizationId)),
+      db
+        .select({ id: knowledgeAssetLinksTable.id })
+        .from(knowledgeAssetLinksTable),
+    ]);
+    expect(remainingAssets).toHaveLength(0);
+    expect(remainingLinks).toHaveLength(0);
+  });
+
+  it("rejects critical knowledge assets without valid contextual ownership", async () => {
+    const context = await createTestContext({
+      seed: "governance-system-knowledge-ownership",
+    });
+    const foreignContext = await createTestContext({
+      seed: "governance-system-knowledge-ownership-foreign",
+    });
+    contexts.push(context, foreignContext);
+
+    const foreignPosition = await createPosition(foreignContext, {
+      name: `Cargo externo ${foreignContext.prefix}`,
+    });
+    const foreignDocument = await createDocumentForTest(foreignContext);
+    const foreignPlan = await createStrategicPlanForTest(foreignContext);
+    const foreignRiskItem = await createRiskOpportunityItemForTest(
+      foreignContext,
+      foreignPlan.id,
+      `Risco externo ${foreignContext.prefix}`,
+    );
+
+    const foreignProcessResponse = await request(app)
+      .post(`/api/organizations/${foreignContext.organizationId}/governance/sgq-processes`)
+      .set(authHeader(foreignContext))
+      .send({
+        name: `Processo externo ${foreignContext.prefix}`,
+        objective: "Fluxo externo",
+      });
+
+    expect(foreignProcessResponse.status).toBe(201);
+
+    const noLinks = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/knowledge-assets`)
+      .set(authHeader(context))
+      .send({
+        title: "Sem contexto",
+        links: [],
+      });
+
+    expect(noLinks.status).toBe(400);
+
+    const invalidProcess = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/knowledge-assets`)
+      .set(authHeader(context))
+      .send({
+        title: "Conhecimento inválido",
+        links: [{ processId: foreignProcessResponse.body.id }],
+      });
+
+    expect(invalidProcess.status).toBe(400);
+    expect(invalidProcess.body.error).toContain("Processo SGQ inválido");
+
+    const invalidPosition = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/knowledge-assets`)
+      .set(authHeader(context))
+      .send({
+        title: "Conhecimento inválido",
+        links: [{ positionId: foreignPosition.id }],
+      });
+
+    expect(invalidPosition.status).toBe(400);
+    expect(invalidPosition.body.error).toContain("Cargo inválido");
+
+    const invalidDocument = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/knowledge-assets`)
+      .set(authHeader(context))
+      .send({
+        title: "Conhecimento inválido",
+        links: [{ documentId: foreignDocument.id }],
+      });
+
+    expect(invalidDocument.status).toBe(400);
+    expect(invalidDocument.body.error).toContain("Documento inválido");
+
+    const invalidRiskItem = await request(app)
+      .post(`/api/organizations/${context.organizationId}/governance/knowledge-assets`)
+      .set(authHeader(context))
+      .send({
+        title: "Conhecimento inválido",
+        links: [{ riskOpportunityItemId: foreignRiskItem.id }],
+      });
+
+    expect(invalidRiskItem.status).toBe(400);
+    expect(invalidRiskItem.body.error).toContain("Risco/Oportunidade inválido");
+  });
+
   it("creates SGQ processes, paginates results and records revisions while blocking invalid interactions", async () => {
     const context = await createTestContext({
       seed: "governance-system-processes",

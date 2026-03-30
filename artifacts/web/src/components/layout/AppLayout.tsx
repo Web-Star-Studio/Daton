@@ -213,6 +213,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           label: "Riscos e Oportunidades",
           href: "/governanca/riscos-oportunidades",
         });
+      } else if (normalizedLocation.startsWith("/governanca/conhecimento-critico")) {
+        crumbs.push({
+          label: "Conhecimento Crítico",
+          href: "/governanca/conhecimento-critico",
+        });
       } else if (normalizedLocation.startsWith("/governanca/processos-sgq")) {
         crumbs.push({
           label: "Processos SGQ",
@@ -305,6 +310,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       label: "Gestão do Sistema",
       links: [
         { href: "/governanca/processos-sgq", label: "Processos SGQ" },
+        { href: "/governanca/conhecimento-critico", label: "Conhecimento Crítico" },
         { href: "/governanca/auditorias", label: "Auditorias" },
         { href: "/governanca/nao-conformidades", label: "Não Conformidades" },
         { href: "/governanca/analises-criticas", label: "Análises Críticas" },

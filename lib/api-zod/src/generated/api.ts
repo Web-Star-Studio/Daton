@@ -10087,6 +10087,309 @@ export const DeleteStrategicPlanRiskOpportunityItemParams = zod.object({
 });
 
 /**
+ * @summary List critical knowledge assets
+ */
+export const ListKnowledgeAssetsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListKnowledgeAssetsQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+  search: zod.coerce.string().optional(),
+  processId: zod.coerce.number().optional(),
+  positionId: zod.coerce.number().optional(),
+  documentId: zod.coerce.number().optional(),
+  riskOpportunityItemId: zod.coerce.number().optional(),
+  lossRiskLevel: zod.enum(["low", "medium", "high", "critical"]).optional(),
+  evidenceStatus: zod.enum(["missing", "expired", "valid"]).optional(),
+});
+
+export const listKnowledgeAssetsResponseDataItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const listKnowledgeAssetsResponseDataItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const ListKnowledgeAssetsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      organizationId: zod.number(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      lossRiskLevel: zod.enum(["low", "medium", "high", "critical"]),
+      retentionMethod: zod.string().nullish(),
+      successionPlan: zod.string().nullish(),
+      evidenceAttachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(
+              listKnowledgeAssetsResponseDataItemEvidenceAttachmentsItemOneFileSizeMax,
+            ),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              listKnowledgeAssetsResponseDataItemEvidenceAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      evidenceValidUntil: zod.string().date().nullish(),
+      evidenceStatus: zod.enum(["missing", "expired", "valid"]),
+      links: zod.array(
+        zod.object({
+          id: zod.number(),
+          processId: zod.number().nullish(),
+          processName: zod.string().nullish(),
+          positionId: zod.number().nullish(),
+          positionName: zod.string().nullish(),
+          documentId: zod.number().nullish(),
+          documentTitle: zod.string().nullish(),
+          riskOpportunityItemId: zod.number().nullish(),
+          riskOpportunityItemLabel: zod.string().nullish(),
+          riskOpportunityPlanTitle: zod.string().nullish(),
+        }),
+      ),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    pageSize: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary Create a critical knowledge asset
+ */
+export const CreateKnowledgeAssetParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const createKnowledgeAssetBodyEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const createKnowledgeAssetBodyEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const CreateKnowledgeAssetBody = zod.object({
+  title: zod.string(),
+  description: zod.string().nullish(),
+  lossRiskLevel: zod.enum(["low", "medium", "high", "critical"]).optional(),
+  retentionMethod: zod.string().nullish(),
+  successionPlan: zod.string().nullish(),
+  evidenceAttachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(createKnowledgeAssetBodyEvidenceAttachmentsItemOneFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            createKnowledgeAssetBodyEvidenceAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    )
+    .optional(),
+  evidenceValidUntil: zod.string().date().nullish(),
+  links: zod.array(
+    zod.object({
+      processId: zod.number().nullish(),
+      positionId: zod.number().nullish(),
+      documentId: zod.number().nullish(),
+      riskOpportunityItemId: zod.number().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get critical knowledge asset detail
+ */
+export const GetKnowledgeAssetParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const getKnowledgeAssetResponseOneEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getKnowledgeAssetResponseOneEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const GetKnowledgeAssetResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    title: zod.string(),
+    description: zod.string().nullish(),
+    lossRiskLevel: zod.enum(["low", "medium", "high", "critical"]),
+    retentionMethod: zod.string().nullish(),
+    successionPlan: zod.string().nullish(),
+    evidenceAttachments: zod.array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(
+            getKnowledgeAssetResponseOneEvidenceAttachmentsItemOneFileSizeMax,
+          ),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            getKnowledgeAssetResponseOneEvidenceAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    ),
+    evidenceValidUntil: zod.string().date().nullish(),
+    evidenceStatus: zod.enum(["missing", "expired", "valid"]),
+    links: zod.array(
+      zod.object({
+        id: zod.number(),
+        processId: zod.number().nullish(),
+        processName: zod.string().nullish(),
+        positionId: zod.number().nullish(),
+        positionName: zod.string().nullish(),
+        documentId: zod.number().nullish(),
+        documentTitle: zod.string().nullish(),
+        riskOpportunityItemId: zod.number().nullish(),
+        riskOpportunityItemLabel: zod.string().nullish(),
+        riskOpportunityPlanTitle: zod.string().nullish(),
+      }),
+    ),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      createdById: zod.number(),
+      createdByName: zod.string().nullish(),
+      updatedById: zod.number(),
+      updatedByName: zod.string().nullish(),
+    }),
+  );
+
+/**
+ * @summary Update a critical knowledge asset
+ */
+export const UpdateKnowledgeAssetParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const updateKnowledgeAssetBodyEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateKnowledgeAssetBodyEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateKnowledgeAssetBody = zod.object({
+  title: zod.string().optional(),
+  description: zod.string().nullish(),
+  lossRiskLevel: zod.enum(["low", "medium", "high", "critical"]).optional(),
+  retentionMethod: zod.string().nullish(),
+  successionPlan: zod.string().nullish(),
+  evidenceAttachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(updateKnowledgeAssetBodyEvidenceAttachmentsItemOneFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            updateKnowledgeAssetBodyEvidenceAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    )
+    .optional(),
+  evidenceValidUntil: zod.string().date().nullish(),
+  links: zod
+    .array(
+      zod.object({
+        processId: zod.number().nullish(),
+        positionId: zod.number().nullish(),
+        documentId: zod.number().nullish(),
+        riskOpportunityItemId: zod.number().nullish(),
+      }),
+    )
+    .optional(),
+});
+
+export const updateKnowledgeAssetResponseOneEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateKnowledgeAssetResponseOneEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateKnowledgeAssetResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    title: zod.string(),
+    description: zod.string().nullish(),
+    lossRiskLevel: zod.enum(["low", "medium", "high", "critical"]),
+    retentionMethod: zod.string().nullish(),
+    successionPlan: zod.string().nullish(),
+    evidenceAttachments: zod.array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(
+            updateKnowledgeAssetResponseOneEvidenceAttachmentsItemOneFileSizeMax,
+          ),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            updateKnowledgeAssetResponseOneEvidenceAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    ),
+    evidenceValidUntil: zod.string().date().nullish(),
+    evidenceStatus: zod.enum(["missing", "expired", "valid"]),
+    links: zod.array(
+      zod.object({
+        id: zod.number(),
+        processId: zod.number().nullish(),
+        processName: zod.string().nullish(),
+        positionId: zod.number().nullish(),
+        positionName: zod.string().nullish(),
+        documentId: zod.number().nullish(),
+        documentTitle: zod.string().nullish(),
+        riskOpportunityItemId: zod.number().nullish(),
+        riskOpportunityItemLabel: zod.string().nullish(),
+        riskOpportunityPlanTitle: zod.string().nullish(),
+      }),
+    ),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      createdById: zod.number(),
+      createdByName: zod.string().nullish(),
+      updatedById: zod.number(),
+      updatedByName: zod.string().nullish(),
+    }),
+  );
+
+/**
+ * @summary Delete a critical knowledge asset
+ */
+export const DeleteKnowledgeAssetParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+/**
  * @summary List SGQ processes
  */
 export const ListSgqProcessesParams = zod.object({
