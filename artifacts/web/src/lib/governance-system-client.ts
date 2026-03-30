@@ -1,16 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  getGetKnowledgeAssetQueryKey,
   getGetDocumentQueryKey,
   getGetInternalAuditQueryKey,
+  getListKnowledgeAssetsQueryKey,
   getGetManagementReviewQueryKey,
   getGetNonconformityQueryKey,
   getGetSgqProcessQueryKey,
+  useCreateKnowledgeAsset,
   getListDocumentCommunicationPlansQueryKey,
   getListInternalAuditsQueryKey,
+  useDeleteKnowledgeAsset,
+  useGetKnowledgeAsset,
   getListManagementReviewsQueryKey,
+  useListKnowledgeAssets,
   getListNonconformitiesQueryKey,
   getListSgqProcessesQueryKey,
   listSgqProcesses,
+  useUpdateKnowledgeAsset,
   useCreateCorrectiveAction,
   useCreateDocumentCommunicationPlan,
   useCreateInternalAudit,
@@ -48,6 +55,7 @@ import {
   type CorrectiveAction,
   type CreateCorrectiveActionBody,
   type CreateInternalAuditBody,
+  type CreateKnowledgeAssetBody,
   type CreateInternalAuditFindingBody,
   type CreateManagementReviewBody,
   type CreateManagementReviewInputBody,
@@ -57,6 +65,12 @@ import {
   type DocumentCommunicationPlan,
   type DocumentCommunicationPlanBody,
   type GovernanceSystemAttachment as Attachment,
+  type KnowledgeAssetDetail,
+  type KnowledgeAssetLink,
+  type KnowledgeAssetListItem as KnowledgeAssetSummary,
+  type KnowledgeAssetLossRiskLevel,
+  type KnowledgeAssetEvidenceStatus,
+  type ListKnowledgeAssetsParams,
   type InternalAuditChecklistItem,
   type InternalAuditDetail,
   type InternalAuditFinding,
@@ -72,6 +86,7 @@ import {
   type NonconformityDetail,
   type NonconformityListItem as NonconformitySummary,
   type PaginatedInternalAudits,
+  type PaginatedKnowledgeAssets,
   type PaginatedManagementReviews,
   type PaginatedNonconformities,
   type PaginatedSgqProcesses,
@@ -83,6 +98,7 @@ import {
   type UpdateDocumentCommunicationPlanBody,
   type UpdateInternalAuditBody,
   type UpdateInternalAuditFindingBody,
+  type UpdateKnowledgeAssetBody,
   type UpdateManagementReviewBody,
   type UpdateManagementReviewInputBody,
   type UpdateManagementReviewOutputBody,
@@ -98,6 +114,11 @@ export type {
   InternalAuditDetail,
   InternalAuditFinding,
   InternalAuditSummary,
+  KnowledgeAssetDetail,
+  KnowledgeAssetLink,
+  KnowledgeAssetSummary,
+  KnowledgeAssetLossRiskLevel,
+  KnowledgeAssetEvidenceStatus,
   ManagementReviewDetail,
   ManagementReviewInput,
   ManagementReviewOutput,
@@ -153,6 +174,85 @@ async function invalidateGovernanceManagementReviews(
       queryKey: getGetManagementReviewQueryKey(orgId, reviewId),
     });
   }
+}
+
+async function invalidateGovernanceKnowledgeAssets(
+  queryClient: ReturnType<typeof useQueryClient>,
+  orgId: number,
+  assetId?: number,
+) {
+  await queryClient.invalidateQueries({ queryKey: getListKnowledgeAssetsQueryKey(orgId) });
+  if (assetId) {
+    await queryClient.invalidateQueries({
+      queryKey: getGetKnowledgeAssetQueryKey(orgId, assetId),
+    });
+  }
+}
+
+export function useKnowledgeAssets(orgId?: number, params?: ListKnowledgeAssetsParams) {
+  return useListKnowledgeAssets(orgId ?? 0, params, {
+    query: {
+      enabled: !!orgId,
+      queryKey: getListKnowledgeAssetsQueryKey(orgId ?? 0, params),
+    },
+  });
+}
+
+export function useKnowledgeAsset(orgId?: number, assetId?: number) {
+  return useGetKnowledgeAsset(orgId ?? 0, assetId ?? 0, {
+    query: {
+      enabled: !!orgId && !!assetId,
+      queryKey: getGetKnowledgeAssetQueryKey(orgId ?? 0, assetId ?? 0),
+    },
+  });
+}
+
+export function useKnowledgeAssetMutation(orgId?: number, assetId?: number) {
+  const queryClient = useQueryClient();
+  const createMutation = useCreateKnowledgeAsset();
+  const updateMutation = useUpdateKnowledgeAsset();
+
+  return useMutation({
+    mutationFn: async (payload: {
+      method: "POST" | "PATCH";
+      body: CreateKnowledgeAssetBody | UpdateKnowledgeAssetBody;
+    }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      if (payload.method === "POST") {
+        return createMutation.mutateAsync({
+          orgId: validOrgId,
+          data: payload.body as CreateKnowledgeAssetBody,
+        });
+      }
+      const validAssetId = assertNumberId(assetId, "Conhecimento crítico");
+      return updateMutation.mutateAsync({
+        orgId: validOrgId,
+        assetId: validAssetId,
+        data: payload.body as UpdateKnowledgeAssetBody,
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceKnowledgeAssets(queryClient, orgId, data.id);
+    },
+  });
+}
+
+export function useDeleteKnowledgeAssetMutation(orgId?: number) {
+  const queryClient = useQueryClient();
+  const deleteMutation = useDeleteKnowledgeAsset();
+
+  return useMutation({
+    mutationFn: async (assetId: number) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      await deleteMutation.mutateAsync({ orgId: validOrgId, assetId });
+      return assetId;
+    },
+    onSuccess: async (assetId) => {
+      if (!orgId) return;
+      await invalidateGovernanceKnowledgeAssets(queryClient, orgId, assetId);
+    },
+  });
 }
 
 export function useSgqProcesses(orgId?: number, params?: ListSgqProcessesParams) {

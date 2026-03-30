@@ -7,18 +7,28 @@
  */
 import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
 import type { EmployeeTrainingStatus } from "./employeeTrainingStatus";
+import type { EmployeeTrainingTargetCompetencyType } from "./employeeTrainingTargetCompetencyType";
+import type { TrainingEffectivenessReview } from "./trainingEffectivenessReview";
 
 export interface EmployeeTraining {
   id: number;
   employeeId: number;
   title: string;
   description?: string | null;
+  objective?: string | null;
   institution?: string | null;
+  targetCompetencyName?: string | null;
+  targetCompetencyType?: EmployeeTrainingTargetCompetencyType;
+  targetCompetencyLevel?: number | null;
+  evaluationMethod?: string | null;
+  renewalMonths?: number | null;
   workloadHours?: number | null;
   completionDate?: string | null;
   expirationDate?: string | null;
   status: EmployeeTrainingStatus;
   attachments: EmployeeRecordAttachment[];
+  latestEffectivenessReview?: TrainingEffectivenessReview | null;
+  effectivenessReviews: TrainingEffectivenessReview[];
   createdAt?: string;
   updatedAt?: string;
 }

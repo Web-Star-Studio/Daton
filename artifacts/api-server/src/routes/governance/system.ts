@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Response } from "express";
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -8,10 +8,13 @@ import {
   internalAuditChecklistItemsTable,
   internalAuditFindingsTable,
   internalAuditsTable,
+  knowledgeAssetsTable,
+  knowledgeAssetLinksTable,
   managementReviewInputsTable,
   managementReviewOutputsTable,
   managementReviewsTable,
   nonconformitiesTable,
+  positionsTable,
   sgqProcessesTable,
   sgqProcessInteractionsTable,
   sgqProcessRevisionsTable,
@@ -56,6 +59,9 @@ const reviewInputParamsSchema = reviewParamsSchema.extend({
 });
 const reviewOutputParamsSchema = reviewParamsSchema.extend({
   outputId: z.coerce.number().int().positive(),
+});
+const knowledgeAssetParamsSchema = orgParamsSchema.extend({
+  assetId: z.coerce.number().int().positive(),
 });
 
 const attachmentSchema = z.object({
@@ -278,6 +284,61 @@ const managementReviewOutputBodySchema = z.object({
   status: z.enum(["open", "done", "canceled"]).default("open"),
 });
 
+const knowledgeAssetLinkInputSchema = z
+  .object({
+    processId: z.number().int().positive().nullable().optional(),
+    positionId: z.number().int().positive().nullable().optional(),
+    documentId: z.number().int().positive().nullable().optional(),
+    riskOpportunityItemId: z.number().int().positive().nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    const populatedCount = [
+      value.processId,
+      value.positionId,
+      value.documentId,
+      value.riskOpportunityItemId,
+    ].filter((item) => item != null).length;
+
+    if (populatedCount !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Cada vínculo deve apontar para exatamente um contexto: processo, cargo, documento ou risco/oportunidade",
+      });
+    }
+  });
+
+const knowledgeAssetCreateBodySchema = z.object({
+  title: z.string().trim().min(1),
+  description: z.string().nullable().optional(),
+  lossRiskLevel: z.enum(["low", "medium", "high", "critical"]).default("medium"),
+  retentionMethod: z.string().nullable().optional(),
+  successionPlan: z.string().nullable().optional(),
+  evidenceAttachments: z.array(attachmentSchema).default([]),
+  evidenceValidUntil: dateStringSchema.nullable().optional(),
+  links: z.array(knowledgeAssetLinkInputSchema).min(1),
+});
+
+const knowledgeAssetUpdateBodySchema = z.object({
+  title: z.string().trim().min(1).optional(),
+  description: z.string().nullable().optional(),
+  lossRiskLevel: z.enum(["low", "medium", "high", "critical"]).optional(),
+  retentionMethod: z.string().nullable().optional(),
+  successionPlan: z.string().nullable().optional(),
+  evidenceAttachments: z.array(attachmentSchema).optional(),
+  evidenceValidUntil: dateStringSchema.nullable().optional(),
+  links: z.array(knowledgeAssetLinkInputSchema).min(1).optional(),
+});
+
+const listKnowledgeAssetsQuerySchema = paginationSchema.extend({
+  processId: z.coerce.number().int().positive().optional(),
+  positionId: z.coerce.number().int().positive().optional(),
+  documentId: z.coerce.number().int().positive().optional(),
+  riskOpportunityItemId: z.coerce.number().int().positive().optional(),
+  lossRiskLevel: z.enum(["low", "medium", "high", "critical"]).optional(),
+  evidenceStatus: z.enum(["missing", "expired", "valid"]).optional(),
+});
+
 type MutationTx = Pick<typeof db, "select" | "insert" | "update" | "delete">;
 type ProcessUpdateValues = Partial<typeof sgqProcessesTable.$inferInsert>;
 type AuditUpdateValues = Partial<typeof internalAuditsTable.$inferInsert>;
@@ -287,6 +348,8 @@ type CorrectiveActionUpdateValues = Partial<typeof correctiveActionsTable.$infer
 type ManagementReviewUpdateValues = Partial<typeof managementReviewsTable.$inferInsert>;
 type ManagementReviewInputUpdateValues = Partial<typeof managementReviewInputsTable.$inferInsert>;
 type ManagementReviewOutputUpdateValues = Partial<typeof managementReviewOutputsTable.$inferInsert>;
+type KnowledgeAssetUpdateValues = Partial<typeof knowledgeAssetsTable.$inferInsert>;
+type ChecklistItemInput = z.infer<typeof checklistItemInputSchema>;
 type ProcessInteractionState = {
   relatedProcessId: number;
   direction: "upstream" | "downstream";
@@ -303,6 +366,19 @@ type ProcessSnapshotState = {
   status: "active" | "inactive";
   attachments: GovernanceSystemAttachment[];
   interactions: ProcessInteractionState[];
+};
+type KnowledgeAssetLinkInput = z.infer<typeof knowledgeAssetLinkInputSchema>;
+type KnowledgeAssetLinkDetail = {
+  id: number;
+  processId: number | null;
+  processName: string | null;
+  positionId: number | null;
+  positionName: string | null;
+  documentId: number | null;
+  documentTitle: string | null;
+  riskOpportunityItemId: number | null;
+  riskOpportunityItemLabel: string | null;
+  riskOpportunityPlanTitle: string | null;
 };
 
 function isoDateTime(value: Date | null | undefined): string | null {
@@ -329,6 +405,30 @@ function buildContainsPattern(value: string) {
 
 function normalizeNullableText(value: string | null | undefined) {
   return value ?? null;
+}
+
+function normalizeDateOnlyValue(value: Date | string | null | undefined) {
+  if (!value) return null;
+  if (typeof value === "string") return value;
+  return value.toISOString().slice(0, 10);
+}
+
+function computeKnowledgeAssetEvidenceStatus(
+  attachments?: GovernanceSystemAttachment[] | null,
+  evidenceValidUntil?: Date | string | null,
+) {
+  if (!attachments || attachments.length === 0) {
+    return "missing" as const;
+  }
+
+  const normalizedValidUntil = normalizeDateOnlyValue(evidenceValidUntil);
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (normalizedValidUntil && normalizedValidUntil < today) {
+    return "expired" as const;
+  }
+
+  return "valid" as const;
 }
 
 function normalizeProcessInteractionsForComparison(
@@ -450,6 +550,226 @@ async function validateOrgRiskItems(itemIds: number[], orgId: number): Promise<b
       ),
     );
   return rows.length === itemIds.length;
+}
+
+async function validateOrgPositions(positionIds: number[], orgId: number): Promise<boolean> {
+  if (positionIds.length === 0) return true;
+  const rows = await db
+    .select({ id: positionsTable.id })
+    .from(positionsTable)
+    .where(and(inArray(positionsTable.id, positionIds), eq(positionsTable.organizationId, orgId)));
+  return rows.length === positionIds.length;
+}
+
+async function validateKnowledgeAssetLinks(links: KnowledgeAssetLinkInput[], orgId: number) {
+  const processIds = links
+    .map((link) => link.processId)
+    .filter((value): value is number => !!value);
+  const positionIds = links
+    .map((link) => link.positionId)
+    .filter((value): value is number => !!value);
+  const documentIds = links
+    .map((link) => link.documentId)
+    .filter((value): value is number => !!value);
+  const riskItemIds = links
+    .map((link) => link.riskOpportunityItemId)
+    .filter((value): value is number => !!value);
+
+  if (!(await validateOrgProcesses(processIds, orgId))) {
+    throw new Error("INVALID_KNOWLEDGE_ASSET_PROCESS");
+  }
+  if (!(await validateOrgPositions(positionIds, orgId))) {
+    throw new Error("INVALID_KNOWLEDGE_ASSET_POSITION");
+  }
+  if (!(await validateOrgDocuments(documentIds, orgId))) {
+    throw new Error("INVALID_KNOWLEDGE_ASSET_DOCUMENT");
+  }
+  if (!(await validateOrgRiskItems(riskItemIds, orgId))) {
+    throw new Error("INVALID_KNOWLEDGE_ASSET_RISK_ITEM");
+  }
+}
+
+async function syncKnowledgeAssetLinks(
+  tx: MutationTx,
+  assetId: number,
+  links: KnowledgeAssetLinkInput[],
+) {
+  await tx
+    .delete(knowledgeAssetLinksTable)
+    .where(eq(knowledgeAssetLinksTable.knowledgeAssetId, assetId));
+
+  if (links.length === 0) return;
+
+  await tx.insert(knowledgeAssetLinksTable).values(
+    links.map((link) => ({
+      knowledgeAssetId: assetId,
+      processId: link.processId ?? null,
+      positionId: link.positionId ?? null,
+      documentId: link.documentId ?? null,
+      riskOpportunityItemId: link.riskOpportunityItemId ?? null,
+    })),
+  );
+}
+
+async function listKnowledgeAssetLinkDetails(assetIds: number[]) {
+  const uniqueAssetIds = [...new Set(assetIds)];
+  if (uniqueAssetIds.length === 0) {
+    return new Map<number, KnowledgeAssetLinkDetail[]>();
+  }
+
+  const linkRows = await db
+    .select()
+    .from(knowledgeAssetLinksTable)
+    .where(inArray(knowledgeAssetLinksTable.knowledgeAssetId, uniqueAssetIds))
+    .orderBy(asc(knowledgeAssetLinksTable.id));
+
+  const processIds = linkRows
+    .map((row) => row.processId)
+    .filter((value): value is number => value != null);
+  const positionIds = linkRows
+    .map((row) => row.positionId)
+    .filter((value): value is number => value != null);
+  const documentIds = linkRows
+    .map((row) => row.documentId)
+    .filter((value): value is number => value != null);
+  const riskItemIds = linkRows
+    .map((row) => row.riskOpportunityItemId)
+    .filter((value): value is number => value != null);
+
+  const [processes, positions, documents, riskItems] = await Promise.all([
+    processIds.length > 0
+      ? db
+          .select({ id: sgqProcessesTable.id, name: sgqProcessesTable.name })
+          .from(sgqProcessesTable)
+          .where(inArray(sgqProcessesTable.id, [...new Set(processIds)]))
+      : Promise.resolve([]),
+    positionIds.length > 0
+      ? db
+          .select({ id: positionsTable.id, name: positionsTable.name })
+          .from(positionsTable)
+          .where(inArray(positionsTable.id, [...new Set(positionIds)]))
+      : Promise.resolve([]),
+    documentIds.length > 0
+      ? db
+          .select({ id: documentsTable.id, title: documentsTable.title })
+          .from(documentsTable)
+          .where(inArray(documentsTable.id, [...new Set(documentIds)]))
+      : Promise.resolve([]),
+    riskItemIds.length > 0
+      ? db
+          .select({
+            id: strategicPlanRiskOpportunityItemsTable.id,
+            description: strategicPlanRiskOpportunityItemsTable.description,
+            type: strategicPlanRiskOpportunityItemsTable.type,
+            planTitle: strategicPlansTable.title,
+          })
+          .from(strategicPlanRiskOpportunityItemsTable)
+          .innerJoin(
+            strategicPlansTable,
+            eq(strategicPlanRiskOpportunityItemsTable.planId, strategicPlansTable.id),
+          )
+          .where(
+            inArray(
+              strategicPlanRiskOpportunityItemsTable.id,
+              [...new Set(riskItemIds)],
+            ),
+          )
+      : Promise.resolve([]),
+  ]);
+
+  const processMap = new Map(processes.map((item) => [item.id, item.name]));
+  const positionMap = new Map(positions.map((item) => [item.id, item.name]));
+  const documentMap = new Map(documents.map((item) => [item.id, item.title]));
+  const riskItemMap = new Map(
+    riskItems.map((item) => [
+      item.id,
+      {
+        label: `${item.type === "opportunity" ? "Oportunidade" : "Risco"} · ${item.description}`,
+        planTitle: item.planTitle,
+      },
+    ]),
+  );
+
+  const grouped = new Map<number, KnowledgeAssetLinkDetail[]>();
+  for (const row of linkRows) {
+    const current = grouped.get(row.knowledgeAssetId) ?? [];
+    const riskItem = row.riskOpportunityItemId
+      ? riskItemMap.get(row.riskOpportunityItemId) ?? null
+      : null;
+    current.push({
+      id: row.id,
+      processId: row.processId ?? null,
+      processName: row.processId ? processMap.get(row.processId) ?? null : null,
+      positionId: row.positionId ?? null,
+      positionName: row.positionId ? positionMap.get(row.positionId) ?? null : null,
+      documentId: row.documentId ?? null,
+      documentTitle: row.documentId ? documentMap.get(row.documentId) ?? null : null,
+      riskOpportunityItemId: row.riskOpportunityItemId ?? null,
+      riskOpportunityItemLabel: riskItem?.label ?? null,
+      riskOpportunityPlanTitle: riskItem?.planTitle ?? null,
+    });
+    grouped.set(row.knowledgeAssetId, current);
+  }
+
+  return grouped;
+}
+
+async function getKnowledgeAssetRecord(assetId: number, orgId: number) {
+  const [asset] = await db
+    .select()
+    .from(knowledgeAssetsTable)
+    .where(and(eq(knowledgeAssetsTable.id, assetId), eq(knowledgeAssetsTable.organizationId, orgId)));
+  return asset ?? null;
+}
+
+async function getKnowledgeAssetDetail(assetId: number, orgId: number) {
+  const [asset] = await db
+    .select({
+      id: knowledgeAssetsTable.id,
+      organizationId: knowledgeAssetsTable.organizationId,
+      title: knowledgeAssetsTable.title,
+      description: knowledgeAssetsTable.description,
+      lossRiskLevel: knowledgeAssetsTable.lossRiskLevel,
+      retentionMethod: knowledgeAssetsTable.retentionMethod,
+      successionPlan: knowledgeAssetsTable.successionPlan,
+      evidenceAttachments: knowledgeAssetsTable.evidenceAttachments,
+      evidenceValidUntil: knowledgeAssetsTable.evidenceValidUntil,
+      createdById: knowledgeAssetsTable.createdById,
+      updatedById: knowledgeAssetsTable.updatedById,
+      createdAt: knowledgeAssetsTable.createdAt,
+      updatedAt: knowledgeAssetsTable.updatedAt,
+    })
+    .from(knowledgeAssetsTable)
+    .where(and(eq(knowledgeAssetsTable.id, assetId), eq(knowledgeAssetsTable.organizationId, orgId)));
+
+  if (!asset) return null;
+
+  const userIds = [...new Set([asset.createdById, asset.updatedById])];
+  const [linksByAsset, users] = await Promise.all([
+    listKnowledgeAssetLinkDetails([asset.id]),
+    db
+      .select({ id: usersTable.id, name: usersTable.name })
+      .from(usersTable)
+      .where(inArray(usersTable.id, userIds)),
+  ]);
+  const userMap = new Map(users.map((user) => [user.id, user.name]));
+  const evidenceAttachments = normalizeAttachments(asset.evidenceAttachments);
+  const evidenceValidUntil = normalizeDateOnlyValue(asset.evidenceValidUntil);
+
+  return {
+    ...asset,
+    createdByName: userMap.get(asset.createdById) ?? null,
+    updatedByName: userMap.get(asset.updatedById) ?? null,
+    createdAt: isoDateTime(asset.createdAt),
+    updatedAt: isoDateTime(asset.updatedAt),
+    evidenceAttachments,
+    evidenceValidUntil,
+    evidenceStatus: computeKnowledgeAssetEvidenceStatus(
+      evidenceAttachments,
+      evidenceValidUntil,
+    ),
+    links: linksByAsset.get(asset.id) ?? [],
+  };
 }
 
 async function getProcessRecord(processId: number, orgId: number) {
@@ -954,7 +1274,7 @@ async function assertAuditCanComplete(auditId: number) {
 function parseOrReject<T extends z.ZodTypeAny>(
   schema: T,
   payload: unknown,
-  res: Parameters<IRouter["get"]>[1],
+  res: Response,
 ) {
   const parsed = schema.safeParse(payload);
   if (!parsed.success) {
@@ -963,6 +1283,378 @@ function parseOrReject<T extends z.ZodTypeAny>(
   }
   return parsed.data;
 }
+
+router.get("/organizations/:orgId/governance/knowledge-assets", async (req, res): Promise<void> => {
+  const params = parseOrReject(orgParamsSchema, req.params, res);
+  if (!params) return;
+  if (params.orgId !== req.auth!.organizationId) {
+    res.status(403).json({ error: "Acesso negado" });
+    return;
+  }
+
+  const query = parseOrReject(listKnowledgeAssetsQuerySchema, req.query, res);
+  if (!query) return;
+
+  if (query.processId && !(await validateOrgProcesses([query.processId], params.orgId))) {
+    res.status(400).json({ error: "Processo SGQ inválido" });
+    return;
+  }
+  if (query.positionId && !(await validateOrgPositions([query.positionId], params.orgId))) {
+    res.status(400).json({ error: "Cargo inválido" });
+    return;
+  }
+  if (query.documentId && !(await validateOrgDocuments([query.documentId], params.orgId))) {
+    res.status(400).json({ error: "Documento inválido" });
+    return;
+  }
+  if (
+    query.riskOpportunityItemId &&
+    !(await validateOrgRiskItems([query.riskOpportunityItemId], params.orgId))
+  ) {
+    res.status(400).json({ error: "Risco/Oportunidade inválido" });
+    return;
+  }
+
+  const assetIdFilters: number[][] = [];
+
+  if (query.processId) {
+    const rows = await db
+      .select({ knowledgeAssetId: knowledgeAssetLinksTable.knowledgeAssetId })
+      .from(knowledgeAssetLinksTable)
+      .where(eq(knowledgeAssetLinksTable.processId, query.processId));
+    assetIdFilters.push(rows.map((row) => row.knowledgeAssetId));
+  }
+  if (query.positionId) {
+    const rows = await db
+      .select({ knowledgeAssetId: knowledgeAssetLinksTable.knowledgeAssetId })
+      .from(knowledgeAssetLinksTable)
+      .where(eq(knowledgeAssetLinksTable.positionId, query.positionId));
+    assetIdFilters.push(rows.map((row) => row.knowledgeAssetId));
+  }
+  if (query.documentId) {
+    const rows = await db
+      .select({ knowledgeAssetId: knowledgeAssetLinksTable.knowledgeAssetId })
+      .from(knowledgeAssetLinksTable)
+      .where(eq(knowledgeAssetLinksTable.documentId, query.documentId));
+    assetIdFilters.push(rows.map((row) => row.knowledgeAssetId));
+  }
+  if (query.riskOpportunityItemId) {
+    const rows = await db
+      .select({ knowledgeAssetId: knowledgeAssetLinksTable.knowledgeAssetId })
+      .from(knowledgeAssetLinksTable)
+      .where(eq(knowledgeAssetLinksTable.riskOpportunityItemId, query.riskOpportunityItemId));
+    assetIdFilters.push(rows.map((row) => row.knowledgeAssetId));
+  }
+
+  if (assetIdFilters.some((item) => item.length === 0)) {
+    res.json({
+      data: [],
+      pagination: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total: 0,
+        totalPages: 0,
+      },
+    });
+    return;
+  }
+
+  const intersectedAssetIds =
+    assetIdFilters.length === 0
+      ? null
+      : assetIdFilters.reduce<number[]>((accumulator, current) => {
+          if (accumulator.length === 0) return [...new Set(current)];
+          const currentSet = new Set(current);
+          return accumulator.filter((id) => currentSet.has(id));
+        }, []);
+
+  if (intersectedAssetIds && intersectedAssetIds.length === 0) {
+    res.json({
+      data: [],
+      pagination: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total: 0,
+        totalPages: 0,
+      },
+    });
+    return;
+  }
+
+  const conditions = [eq(knowledgeAssetsTable.organizationId, params.orgId)];
+  if (query.search) {
+    const pattern = buildContainsPattern(query.search);
+    conditions.push(
+      or(
+        ilike(knowledgeAssetsTable.title, pattern),
+        ilike(knowledgeAssetsTable.description, pattern),
+      )!,
+    );
+  }
+  if (query.lossRiskLevel) {
+    conditions.push(eq(knowledgeAssetsTable.lossRiskLevel, query.lossRiskLevel));
+  }
+  if (intersectedAssetIds) {
+    conditions.push(inArray(knowledgeAssetsTable.id, intersectedAssetIds));
+  }
+  if (query.evidenceStatus === "missing") {
+    conditions.push(sql`${knowledgeAssetsTable.evidenceAttachments} = '[]'::jsonb`);
+  } else if (query.evidenceStatus === "expired") {
+    conditions.push(sql`${knowledgeAssetsTable.evidenceAttachments} <> '[]'::jsonb`);
+    conditions.push(sql`${knowledgeAssetsTable.evidenceValidUntil} < CURRENT_DATE`);
+  } else if (query.evidenceStatus === "valid") {
+    conditions.push(sql`${knowledgeAssetsTable.evidenceAttachments} <> '[]'::jsonb`);
+    conditions.push(
+      sql`(${knowledgeAssetsTable.evidenceValidUntil} IS NULL OR ${knowledgeAssetsTable.evidenceValidUntil} >= CURRENT_DATE)`,
+    );
+  }
+
+  const whereClause = and(...conditions);
+  const offset = (query.page - 1) * query.pageSize;
+
+  const [totalResult] = await db
+    .select({ total: count() })
+    .from(knowledgeAssetsTable)
+    .where(whereClause);
+
+  const rows = await db
+    .select({
+      id: knowledgeAssetsTable.id,
+      organizationId: knowledgeAssetsTable.organizationId,
+      title: knowledgeAssetsTable.title,
+      description: knowledgeAssetsTable.description,
+      lossRiskLevel: knowledgeAssetsTable.lossRiskLevel,
+      retentionMethod: knowledgeAssetsTable.retentionMethod,
+      successionPlan: knowledgeAssetsTable.successionPlan,
+      evidenceAttachments: knowledgeAssetsTable.evidenceAttachments,
+      evidenceValidUntil: knowledgeAssetsTable.evidenceValidUntil,
+      createdAt: knowledgeAssetsTable.createdAt,
+      updatedAt: knowledgeAssetsTable.updatedAt,
+    })
+    .from(knowledgeAssetsTable)
+    .where(whereClause)
+    .orderBy(desc(knowledgeAssetsTable.updatedAt), desc(knowledgeAssetsTable.id))
+    .limit(query.pageSize)
+    .offset(offset);
+
+  const linksByAsset = await listKnowledgeAssetLinkDetails(rows.map((row) => row.id));
+
+  res.json({
+    data: rows.map((row) => {
+      const evidenceAttachments = normalizeAttachments(row.evidenceAttachments);
+      const evidenceValidUntil = normalizeDateOnlyValue(row.evidenceValidUntil);
+      return {
+        ...row,
+        createdAt: isoDateTime(row.createdAt),
+        updatedAt: isoDateTime(row.updatedAt),
+        evidenceAttachments,
+        evidenceValidUntil,
+        evidenceStatus: computeKnowledgeAssetEvidenceStatus(
+          evidenceAttachments,
+          evidenceValidUntil,
+        ),
+        links: linksByAsset.get(row.id) ?? [],
+      };
+    }),
+    pagination: {
+      page: query.page,
+      pageSize: query.pageSize,
+      total: totalResult.total,
+      totalPages: Math.ceil(totalResult.total / query.pageSize),
+    },
+  });
+});
+
+router.post(
+  "/organizations/:orgId/governance/knowledge-assets",
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = parseOrReject(orgParamsSchema, req.params, res);
+    if (!params) return;
+    if (params.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+
+    const body = parseOrReject(knowledgeAssetCreateBodySchema, req.body, res);
+    if (!body) return;
+
+    try {
+      await validateKnowledgeAssetLinks(body.links, params.orgId);
+
+      const [asset] = await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(knowledgeAssetsTable)
+          .values({
+            organizationId: params.orgId,
+            title: body.title.trim(),
+            description: normalizeNullableText(body.description),
+            lossRiskLevel: body.lossRiskLevel,
+            retentionMethod: normalizeNullableText(body.retentionMethod),
+            successionPlan: normalizeNullableText(body.successionPlan),
+            evidenceAttachments: body.evidenceAttachments,
+            evidenceValidUntil: normalizeDate(body.evidenceValidUntil),
+            createdById: req.auth!.userId,
+            updatedById: req.auth!.userId,
+          })
+          .returning();
+
+        await syncKnowledgeAssetLinks(tx, created.id, body.links);
+        return [created] as const;
+      });
+
+      res.status(201).json(await getKnowledgeAssetDetail(asset.id, params.orgId));
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === "INVALID_KNOWLEDGE_ASSET_PROCESS") {
+          res.status(400).json({ error: "Processo SGQ inválido" });
+          return;
+        }
+        if (error.message === "INVALID_KNOWLEDGE_ASSET_POSITION") {
+          res.status(400).json({ error: "Cargo inválido" });
+          return;
+        }
+        if (error.message === "INVALID_KNOWLEDGE_ASSET_DOCUMENT") {
+          res.status(400).json({ error: "Documento inválido" });
+          return;
+        }
+        if (error.message === "INVALID_KNOWLEDGE_ASSET_RISK_ITEM") {
+          res.status(400).json({ error: "Risco/Oportunidade inválido" });
+          return;
+        }
+      }
+      throw error;
+    }
+  },
+);
+
+router.get(
+  "/organizations/:orgId/governance/knowledge-assets/:assetId",
+  async (req, res): Promise<void> => {
+    const params = parseOrReject(knowledgeAssetParamsSchema, req.params, res);
+    if (!params) return;
+    if (params.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+
+    const detail = await getKnowledgeAssetDetail(params.assetId, params.orgId);
+    if (!detail) {
+      res.status(404).json({ error: "Conhecimento crítico não encontrado" });
+      return;
+    }
+
+    res.json(detail);
+  },
+);
+
+router.patch(
+  "/organizations/:orgId/governance/knowledge-assets/:assetId",
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = parseOrReject(knowledgeAssetParamsSchema, req.params, res);
+    if (!params) return;
+    if (params.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+
+    const body = parseOrReject(knowledgeAssetUpdateBodySchema, req.body, res);
+    if (!body) return;
+
+    const asset = await getKnowledgeAssetRecord(params.assetId, params.orgId);
+    if (!asset) {
+      res.status(404).json({ error: "Conhecimento crítico não encontrado" });
+      return;
+    }
+
+    try {
+      if (body.links) {
+        await validateKnowledgeAssetLinks(body.links, params.orgId);
+      }
+
+      const updateData: KnowledgeAssetUpdateValues = {
+        updatedById: req.auth!.userId,
+      };
+      if (body.title !== undefined) updateData.title = body.title.trim();
+      if (body.description !== undefined) {
+        updateData.description = normalizeNullableText(body.description);
+      }
+      if (body.lossRiskLevel !== undefined) {
+        updateData.lossRiskLevel = body.lossRiskLevel;
+      }
+      if (body.retentionMethod !== undefined) {
+        updateData.retentionMethod = normalizeNullableText(body.retentionMethod);
+      }
+      if (body.successionPlan !== undefined) {
+        updateData.successionPlan = normalizeNullableText(body.successionPlan);
+      }
+      if (body.evidenceAttachments !== undefined) {
+        updateData.evidenceAttachments = body.evidenceAttachments;
+      }
+      if (body.evidenceValidUntil !== undefined) {
+        updateData.evidenceValidUntil = normalizeDate(body.evidenceValidUntil);
+      }
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(knowledgeAssetsTable)
+          .set(updateData)
+          .where(eq(knowledgeAssetsTable.id, params.assetId));
+
+        if (body.links) {
+          await syncKnowledgeAssetLinks(tx, params.assetId, body.links);
+        }
+      });
+
+      res.json(await getKnowledgeAssetDetail(params.assetId, params.orgId));
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === "INVALID_KNOWLEDGE_ASSET_PROCESS") {
+          res.status(400).json({ error: "Processo SGQ inválido" });
+          return;
+        }
+        if (error.message === "INVALID_KNOWLEDGE_ASSET_POSITION") {
+          res.status(400).json({ error: "Cargo inválido" });
+          return;
+        }
+        if (error.message === "INVALID_KNOWLEDGE_ASSET_DOCUMENT") {
+          res.status(400).json({ error: "Documento inválido" });
+          return;
+        }
+        if (error.message === "INVALID_KNOWLEDGE_ASSET_RISK_ITEM") {
+          res.status(400).json({ error: "Risco/Oportunidade inválido" });
+          return;
+        }
+      }
+      throw error;
+    }
+  },
+);
+
+router.delete(
+  "/organizations/:orgId/governance/knowledge-assets/:assetId",
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = parseOrReject(knowledgeAssetParamsSchema, req.params, res);
+    if (!params) return;
+    if (params.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+
+    const asset = await getKnowledgeAssetRecord(params.assetId, params.orgId);
+    if (!asset) {
+      res.status(404).json({ error: "Conhecimento crítico não encontrado" });
+      return;
+    }
+
+    await db
+      .delete(knowledgeAssetsTable)
+      .where(eq(knowledgeAssetsTable.id, params.assetId));
+    res.sendStatus(204);
+  },
+);
 
 router.get("/organizations/:orgId/governance/sgq-processes", async (req, res): Promise<void> => {
   const params = parseOrReject(orgParamsSchema, req.params, res);
@@ -1575,7 +2267,7 @@ router.put(
 
       if (body.items.length > 0) {
         await tx.insert(internalAuditChecklistItemsTable).values(
-          body.items.map((item, index) => ({
+          body.items.map((item: ChecklistItemInput, index: number) => ({
             auditId: params.auditId,
             label: item.label,
             requirementRef: item.requirementRef ?? null,

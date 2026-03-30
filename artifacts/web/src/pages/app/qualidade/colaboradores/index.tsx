@@ -13,7 +13,11 @@ import {
   getListDepartmentsQueryKey,
   getListPositionsQueryKey,
 } from "@workspace/api-client-react";
-import type { CreateEmployeeBody, Employee, PaginatedEmployeesPagination } from "@workspace/api-client-react";
+import type {
+  CreateEmployeeBody,
+  Employee,
+  PaginatedEmployeesPagination,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +33,14 @@ import {
   validateProfileItemUploadSelection,
   type UploadedFileRef,
 } from "@/lib/uploads";
-import { Plus, Search, Users, ChevronRight, ChevronLeft, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Users,
+  ChevronRight,
+  ChevronLeft,
+  Trash2,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -66,7 +77,8 @@ function formatCpfInput(value: string): string {
 
   if (digits.length <= 3) return digits;
   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
-  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  if (digits.length <= 9)
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 }
 
@@ -100,7 +112,11 @@ function ProfileDraftListSection({
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
 
   const updateItem = (tempId: string, patch: Partial<ProfileDraftItem>) => {
-    onChange(items.map((item) => (item.tempId === tempId ? { ...item, ...patch } : item)));
+    onChange(
+      items.map((item) =>
+        item.tempId === tempId ? { ...item, ...patch } : item,
+      ),
+    );
   };
 
   const removeItem = (tempId: string) => {
@@ -112,7 +128,10 @@ function ProfileDraftListSection({
 
     const selectedFiles = Array.from(files);
     const targetItem = items.find((item) => item.tempId === tempId);
-    const validationError = validateProfileItemUploadSelection(selectedFiles, targetItem?.attachments.length || 0);
+    const validationError = validateProfileItemUploadSelection(
+      selectedFiles,
+      targetItem?.attachments.length || 0,
+    );
     if (validationError) {
       toast({
         title: "Limite de anexos excedido",
@@ -126,15 +145,20 @@ function ProfileDraftListSection({
     try {
       const uploadedFiles = await uploadFilesToStorage(selectedFiles);
 
-      onChange(items.map((item) => (
-        item.tempId === tempId
-          ? { ...item, attachments: [...item.attachments, ...uploadedFiles] }
-          : item
-      )));
+      onChange(
+        items.map((item) =>
+          item.tempId === tempId
+            ? { ...item, attachments: [...item.attachments, ...uploadedFiles] }
+            : item,
+        ),
+      );
     } catch (error) {
       toast({
         title: "Falha ao enviar anexo",
-        description: error instanceof Error ? error.message : "Não foi possível enviar o arquivo.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível enviar o arquivo.",
         variant: "destructive",
       });
     } finally {
@@ -147,9 +171,16 @@ function ProfileDraftListSection({
       <div className="mb-3 flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-foreground">{label}</p>
-          {items.length === 0 && <p className="text-xs text-muted-foreground">{emptyText}</p>}
+          {items.length === 0 && (
+            <p className="text-xs text-muted-foreground">{emptyText}</p>
+          )}
         </div>
-        <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, createEmptyProfileDraftItem()])}>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => onChange([...items, createEmptyProfileDraftItem()])}
+        >
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           Adicionar item
         </Button>
@@ -162,44 +193,68 @@ function ProfileDraftListSection({
       ) : (
         <div className="space-y-3">
           {items.map((item, index) => (
-            <div key={item.tempId} className="rounded-lg border border-border/60 bg-secondary/20 p-3">
+            <div
+              key={item.tempId}
+              className="rounded-lg border border-border/60 bg-secondary/20 p-3"
+            >
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-medium text-foreground">Item {index + 1}</p>
-                <button type="button" onClick={() => removeItem(item.tempId)} className="text-muted-foreground hover:text-destructive">
+                <p className="text-sm font-medium text-foreground">
+                  Item {index + 1}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => removeItem(item.tempId)}
+                  className="text-muted-foreground hover:text-destructive"
+                >
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
 
               <div className="space-y-3">
                 <div>
-                  <Label className="text-xs font-semibold text-muted-foreground">Título *</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Título *
+                  </Label>
                   <Input
                     value={item.title}
-                    onChange={(event) => updateItem(item.tempId, { title: event.target.value })}
+                    onChange={(event) =>
+                      updateItem(item.tempId, { title: event.target.value })
+                    }
                     className="mt-1"
                     placeholder="Ex: Analista de SGI na Empresa X"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Descrição
+                  </Label>
                   <Textarea
                     value={item.description}
-                    onChange={(event) => updateItem(item.tempId, { description: event.target.value })}
+                    onChange={(event) =>
+                      updateItem(item.tempId, {
+                        description: event.target.value,
+                      })
+                    }
                     className="mt-1 min-h-24"
                     placeholder="Detalhes relevantes do item, escopo, período, curso, certificado, etc."
                   />
                 </div>
                 <div>
                   <ProfileItemAttachmentsField
-                    attachments={item.attachments.map((attachment, attachmentIndex) => ({
-                      id: `${attachment.objectPath}-${attachmentIndex}`,
-                      fileName: attachment.fileName,
-                      fileSize: attachment.fileSize,
-                      objectPath: attachment.objectPath,
-                      onRemove: () => updateItem(item.tempId, {
-                        attachments: item.attachments.filter((_, indexValue) => indexValue !== attachmentIndex),
+                    attachments={item.attachments.map(
+                      (attachment, attachmentIndex) => ({
+                        id: `${attachment.objectPath}-${attachmentIndex}`,
+                        fileName: attachment.fileName,
+                        fileSize: attachment.fileSize,
+                        objectPath: attachment.objectPath,
+                        onRemove: () =>
+                          updateItem(item.tempId, {
+                            attachments: item.attachments.filter(
+                              (_, indexValue) => indexValue !== attachmentIndex,
+                            ),
+                          }),
                       }),
-                    }))}
+                    )}
                     onUpload={(selectedFiles) => {
                       void handleUpload(item.tempId, selectedFiles);
                     }}
@@ -229,8 +284,12 @@ export default function ColaboradoresPage() {
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [createStep, setCreateStep] = useState(0);
   const [maxReachedCreateStep, setMaxReachedCreateStep] = useState(0);
-  const [professionalExperiences, setProfessionalExperiences] = useState<ProfileDraftItem[]>([]);
-  const [educationCertifications, setEducationCertifications] = useState<ProfileDraftItem[]>([]);
+  const [professionalExperiences, setProfessionalExperiences] = useState<
+    ProfileDraftItem[]
+  >([]);
+  const [educationCertifications, setEducationCertifications] = useState<
+    ProfileDraftItem[]
+  >([]);
 
   const { data: result, isLoading } = useListEmployees(orgId!, {
     search: search || undefined,
@@ -242,7 +301,8 @@ export default function ColaboradoresPage() {
   });
 
   const employees: Employee[] = result?.data ?? [];
-  const pagination: PaginatedEmployeesPagination | undefined = result?.pagination;
+  const pagination: PaginatedEmployeesPagination | undefined =
+    result?.pagination;
 
   const { data: units = [] } = useListUnits(orgId!);
   const { data: departments = [] } = useListDepartments(orgId!, {
@@ -274,8 +334,13 @@ export default function ColaboradoresPage() {
     setSelectedIds(new Set());
   }, [search, statusFilter, unitFilter, positionFilter, page]);
 
-  const allSelectableIds = useMemo(() => employees.map((e) => e.id), [employees]);
-  const allSelected = allSelectableIds.length > 0 && allSelectableIds.every((id) => selectedIds.has(id));
+  const allSelectableIds = useMemo(
+    () => employees.map((e) => e.id),
+    [employees],
+  );
+  const allSelected =
+    allSelectableIds.length > 0 &&
+    allSelectableIds.every((id) => selectedIds.has(id));
 
   const toggleAll = () => {
     if (allSelected) setSelectedIds(new Set());
@@ -295,9 +360,13 @@ export default function ColaboradoresPage() {
     setIsDeleting(true);
     try {
       for (const id of selectedIds) {
-        try { await deleteEmpMut.mutateAsync({ orgId: orgId!, empId: id }); } catch {}
+        try {
+          await deleteEmpMut.mutateAsync({ orgId: orgId!, empId: id });
+        } catch {}
       }
-      queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey(orgId!) });
+      queryClient.invalidateQueries({
+        queryKey: getListEmployeesQueryKey(orgId!),
+      });
       setSelectedIds(new Set());
     } finally {
       setIsDeleting(false);
@@ -331,7 +400,13 @@ export default function ColaboradoresPage() {
       }
 
       if (createStep === 1) {
-        const valid = await trigger(["department", "position", "unitId", "contractType", "admissionDate"]);
+        const valid = await trigger([
+          "department",
+          "position",
+          "unitId",
+          "contractType",
+          "admissionDate",
+        ]);
         if (!valid) return;
       }
     }
@@ -341,12 +416,17 @@ export default function ColaboradoresPage() {
   };
 
   const onCreateSubmit = async (data: CreateEmployeeBody) => {
-    const invalidExperience = professionalExperiences.find((item) => item.title.trim().length === 0);
-    const invalidEducation = educationCertifications.find((item) => item.title.trim().length === 0);
+    const invalidExperience = professionalExperiences.find(
+      (item) => item.title.trim().length === 0,
+    );
+    const invalidEducation = educationCertifications.find(
+      (item) => item.title.trim().length === 0,
+    );
     if (invalidExperience || invalidEducation) {
       toast({
         title: "Itens incompletos",
-        description: "Todos os itens de experiências e educação/certificações precisam ter título.",
+        description:
+          "Todos os itens de experiências e educação/certificações precisam ter título.",
         variant: "destructive",
       });
       return;
@@ -361,32 +441,43 @@ export default function ColaboradoresPage() {
       ...(data.phone ? { phone: data.phone } : {}),
       ...(data.department ? { department: data.department } : {}),
       ...(data.position ? { position: data.position } : {}),
-      ...(professionalExperiences.length > 0 ? {
-        professionalExperiences: professionalExperiences.map((item) => ({
-          title: item.title.trim(),
-          description: item.description.trim() || undefined,
-          attachments: item.attachments.length > 0 ? item.attachments : undefined,
-        })),
-      } : {}),
-      ...(educationCertifications.length > 0 ? {
-        educationCertifications: educationCertifications.map((item) => ({
-          title: item.title.trim(),
-          description: item.description.trim() || undefined,
-          attachments: item.attachments.length > 0 ? item.attachments : undefined,
-        })),
-      } : {}),
+      ...(professionalExperiences.length > 0
+        ? {
+            professionalExperiences: professionalExperiences.map((item) => ({
+              title: item.title.trim(),
+              description: item.description.trim() || undefined,
+              attachments:
+                item.attachments.length > 0 ? item.attachments : undefined,
+            })),
+          }
+        : {}),
+      ...(educationCertifications.length > 0
+        ? {
+            educationCertifications: educationCertifications.map((item) => ({
+              title: item.title.trim(),
+              description: item.description.trim() || undefined,
+              attachments:
+                item.attachments.length > 0 ? item.attachments : undefined,
+            })),
+          }
+        : {}),
       ...(typeof data.unitId === "number" ? { unitId: data.unitId } : {}),
     };
 
     try {
       await createMutation.mutateAsync({ orgId: orgId!, data: payload });
-      queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey(orgId!) });
+      queryClient.invalidateQueries({
+        queryKey: getListEmployeesQueryKey(orgId!),
+      });
       setCreateOpen(false);
       resetCreateForm();
     } catch (error) {
       toast({
         title: "Falha ao criar colaborador",
-        description: error instanceof Error ? error.message : "Não foi possível criar o colaborador.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível criar o colaborador.",
         variant: "destructive",
       });
     }
@@ -406,31 +497,47 @@ export default function ColaboradoresPage() {
             {selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}
           </span>
           {canWriteEmployees && (
-            <Button size="sm" variant="destructive" onClick={() => setConfirmDeleteOpen(true)} isLoading={isDeleting}>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setConfirmDeleteOpen(true)}
+              isLoading={isDeleting}
+            >
               <Trash2 className="h-3.5 w-3.5 mr-1.5" />
               Desativar ({selectedIds.size})
             </Button>
           )}
-          <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSelectedIds(new Set())}
+          >
             Cancelar
           </Button>
         </div>
       );
     }
     return (
-      canWriteEmployees ? (
-        <Button
-          size="sm"
-          onClick={() => {
-            setCreateStep(0);
-            setMaxReachedCreateStep(0);
-            setCreateOpen(true);
-          }}
-        >
-          <Plus className="h-3.5 w-3.5 mr-1.5" />
-          Novo Colaborador
-        </Button>
-      ) : null
+      <div className="flex items-center gap-2">
+        <Link href="/organizacao/colaboradores/treinamentos">
+          <Button size="sm" variant="outline">
+            Treinamentos
+          </Button>
+        </Link>
+        {canWriteEmployees ? (
+          <Button
+            size="sm"
+            onClick={() => {
+              setCreateStep(0);
+              setMaxReachedCreateStep(0);
+              setCreateOpen(true);
+            }}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            Novo Colaborador
+          </Button>
+        ) : null}
+      </div>
     );
   }, [canWriteModule, isDeleting, orgId, selectedIds]);
 
@@ -444,19 +551,31 @@ export default function ColaboradoresPage() {
         <div className="grid grid-cols-4 gap-4">
           <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
             <p className="text-xs font-medium text-muted-foreground">Total</p>
-            <p className="text-xl font-semibold text-foreground mt-0.5">{stats.total}</p>
+            <p className="text-xl font-semibold text-foreground mt-0.5">
+              {stats.total}
+            </p>
           </div>
           <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
             <p className="text-xs font-medium text-muted-foreground">Ativos</p>
-            <p className="text-xl font-semibold text-emerald-600 mt-0.5">{stats.active}</p>
+            <p className="text-xl font-semibold text-emerald-600 mt-0.5">
+              {stats.active}
+            </p>
           </div>
           <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
-            <p className="text-xs font-medium text-muted-foreground">Inativos</p>
-            <p className="text-xl font-semibold text-gray-500 mt-0.5">{stats.inactive}</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              Inativos
+            </p>
+            <p className="text-xl font-semibold text-gray-500 mt-0.5">
+              {stats.inactive}
+            </p>
           </div>
           <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
-            <p className="text-xs font-medium text-muted-foreground">Afastados</p>
-            <p className="text-xl font-semibold text-amber-600 mt-0.5">{stats.onLeave}</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              Afastados
+            </p>
+            <p className="text-xl font-semibold text-amber-600 mt-0.5">
+              {stats.onLeave}
+            </p>
           </div>
         </div>
 
@@ -466,13 +585,19 @@ export default function ColaboradoresPage() {
             <Input
               placeholder="Buscar por nome ou CPF..."
               value={search}
-              onChange={(e) => { setSearch(e.target.value); handleFilterChange(); }}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                handleFilterChange();
+              }}
               className="pl-9 h-9 text-[13px]"
             />
           </div>
           <Select
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); handleFilterChange(); }}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              handleFilterChange();
+            }}
             className="h-9 text-[13px] w-36"
           >
             <option value="">Todos os status</option>
@@ -482,26 +607,40 @@ export default function ColaboradoresPage() {
           </Select>
           <Select
             value={unitFilter}
-            onChange={(e) => { setUnitFilter(e.target.value); handleFilterChange(); }}
+            onChange={(e) => {
+              setUnitFilter(e.target.value);
+              handleFilterChange();
+            }}
             className="h-9 text-[13px] w-44"
           >
             <option value="">Todas as unidades</option>
-            {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            {units.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
           </Select>
           <Input
             placeholder="Filtrar por cargo..."
             value={positionFilter}
-            onChange={(e) => { setPositionFilter(e.target.value); handleFilterChange(); }}
+            onChange={(e) => {
+              setPositionFilter(e.target.value);
+              handleFilterChange();
+            }}
             className="h-9 text-[13px] w-44"
           />
         </div>
 
         {isLoading ? (
-          <div className="text-center py-16 text-[13px] text-muted-foreground">Carregando...</div>
+          <div className="text-center py-16 text-[13px] text-muted-foreground">
+            Carregando...
+          </div>
         ) : employees.length === 0 ? (
           <div className="text-center py-16">
             <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-[13px] text-muted-foreground">Nenhum colaborador encontrado</p>
+            <p className="text-[13px] text-muted-foreground">
+              Nenhum colaborador encontrado
+            </p>
             {canWriteModule("employees") && (
               <Button
                 size="sm"
@@ -530,14 +669,26 @@ export default function ColaboradoresPage() {
                         checked={allSelected}
                         onChange={toggleAll}
                         className="rounded border-border text-primary cursor-pointer"
-                        disabled={!canWriteModule("employees") || employees.length === 0}
+                        disabled={
+                          !canWriteModule("employees") || employees.length === 0
+                        }
                       />
                     </th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Nome</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Cargo</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Unidade</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Vínculo</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Status</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Nome
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Cargo
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Unidade
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Vínculo
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Status
+                    </th>
                     <th className="w-8"></th>
                   </tr>
                 </thead>
@@ -545,7 +696,10 @@ export default function ColaboradoresPage() {
                   {employees.map((emp) => {
                     const isSelected = selectedIds.has(emp.id);
                     return (
-                      <tr key={emp.id} className={`border-b border-border/40 last:border-0 transition-colors ${isSelected ? "bg-primary/5" : "hover:bg-secondary/30"}`}>
+                      <tr
+                        key={emp.id}
+                        className={`border-b border-border/40 last:border-0 transition-colors ${isSelected ? "bg-primary/5" : "hover:bg-secondary/30"}`}
+                      >
                         <td className="px-3 py-3 w-10">
                           <input
                             type="checkbox"
@@ -556,16 +710,34 @@ export default function ColaboradoresPage() {
                           />
                         </td>
                         <td className="px-4 py-3">
-                          <Link href={`/organizacao/colaboradores/${emp.id}`} className="cursor-pointer">
-                            <p className="text-[13px] font-medium text-foreground hover:text-primary transition-colors">{emp.name}</p>
-                            {emp.email && <p className="text-xs text-muted-foreground mt-0.5">{emp.email}</p>}
+                          <Link
+                            href={`/organizacao/colaboradores/${emp.id}`}
+                            className="cursor-pointer"
+                          >
+                            <p className="text-[13px] font-medium text-foreground hover:text-primary transition-colors">
+                              {emp.name}
+                            </p>
+                            {emp.email && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {emp.email}
+                              </p>
+                            )}
                           </Link>
                         </td>
-                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{emp.position || "—"}</td>
-                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{emp.unitName || "—"}</td>
-                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{CONTRACT_LABELS[emp.contractType] || emp.contractType}</td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                          {emp.position || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                          {emp.unitName || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                          {CONTRACT_LABELS[emp.contractType] ||
+                            emp.contractType}
+                        </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[emp.status] || "bg-gray-50 text-gray-500 border-gray-200"}`}>
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[emp.status] || "bg-gray-50 text-gray-500 border-gray-200"}`}
+                          >
                             {STATUS_LABELS[emp.status] || emp.status}
                           </span>
                         </td>
@@ -584,14 +756,19 @@ export default function ColaboradoresPage() {
             {pagination && pagination.totalPages > 1 && (
               <div className="flex items-center justify-between pt-2">
                 <p className="text-xs text-muted-foreground">
-                  Mostrando {((pagination.page - 1) * pagination.pageSize) + 1}–{Math.min(pagination.page * pagination.pageSize, pagination.total)} de {pagination.total}
+                  Mostrando {(pagination.page - 1) * pagination.pageSize + 1}–
+                  {Math.min(
+                    pagination.page * pagination.pageSize,
+                    pagination.total,
+                  )}{" "}
+                  de {pagination.total}
                 </p>
                 <div className="flex items-center gap-1">
                   <Button
                     size="sm"
                     variant="outline"
                     disabled={pagination.page <= 1}
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
                     className="h-8 px-2"
                   >
                     <ChevronLeft className="h-3.5 w-3.5" />
@@ -603,7 +780,7 @@ export default function ColaboradoresPage() {
                     size="sm"
                     variant="outline"
                     disabled={pagination.page >= pagination.totalPages}
-                    onClick={() => setPage(p => p + 1)}
+                    onClick={() => setPage((p) => p + 1)}
                     className="h-8 px-2"
                   >
                     <ChevronRight className="h-3.5 w-3.5" />
@@ -644,7 +821,9 @@ export default function ColaboradoresPage() {
           {createStep === 0 && (
             <div className="grid grid-cols-2 gap-x-8 gap-y-5">
               <div>
-                <Label className="text-xs font-semibold text-muted-foreground">CPF</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  CPF
+                </Label>
                 <Input
                   {...register("cpf", {
                     setValueAs: toRequiredString,
@@ -657,10 +836,16 @@ export default function ColaboradoresPage() {
                   inputMode="numeric"
                   maxLength={14}
                 />
-                {errors.cpf && <p className="mt-1.5 text-xs text-destructive">{errors.cpf.message}</p>}
+                {errors.cpf && (
+                  <p className="mt-1.5 text-xs text-destructive">
+                    {errors.cpf.message}
+                  </p>
+                )}
               </div>
               <div>
-                <Label className="text-xs font-semibold text-muted-foreground">Nome completo *</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Nome completo *
+                </Label>
                 <Input
                   {...register("name", {
                     required: "Nome completo é obrigatório",
@@ -669,10 +854,16 @@ export default function ColaboradoresPage() {
                   className="mt-1"
                   placeholder="Nome completo do funcionário"
                 />
-                {errors.name && <p className="mt-1.5 text-xs text-destructive">{errors.name.message}</p>}
+                {errors.name && (
+                  <p className="mt-1.5 text-xs text-destructive">
+                    {errors.name.message}
+                  </p>
+                )}
               </div>
               <div>
-                <Label className="text-xs font-semibold text-muted-foreground">E-mail</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  E-mail
+                </Label>
                 <Input
                   {...register("email", {
                     setValueAs: toOptionalString,
@@ -683,7 +874,9 @@ export default function ColaboradoresPage() {
                 />
               </div>
               <div>
-                <Label className="text-xs font-semibold text-muted-foreground">Telefone</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Telefone
+                </Label>
                 <Input
                   {...register("phone", {
                     setValueAs: toOptionalString,
@@ -698,7 +891,9 @@ export default function ColaboradoresPage() {
           {createStep === 1 && (
             <div className="grid grid-cols-2 gap-x-8 gap-y-5">
               <div>
-                <Label className="text-xs font-semibold text-muted-foreground">Departamento</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Departamento
+                </Label>
                 <Select
                   {...register("department", {
                     setValueAs: (value) => value || undefined,
@@ -714,7 +909,9 @@ export default function ColaboradoresPage() {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs font-semibold text-muted-foreground">Cargo</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Cargo
+                </Label>
                 <Select
                   {...register("position", {
                     setValueAs: (value) => value || undefined,
@@ -730,9 +927,13 @@ export default function ColaboradoresPage() {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs font-semibold text-muted-foreground">Unidade</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Unidade
+                </Label>
                 <Select
-                  {...register("unitId", { setValueAs: (v) => v ? Number(v) : undefined })}
+                  {...register("unitId", {
+                    setValueAs: (v) => (v ? Number(v) : undefined),
+                  })}
                   className="mt-1 h-10 text-[13px]"
                 >
                   <option value="">Selecionar unidade</option>
@@ -744,8 +945,13 @@ export default function ColaboradoresPage() {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs font-semibold text-muted-foreground">Tipo de contrato</Label>
-                <select {...register("contractType")} className="mt-1 flex h-10 w-full appearance-none border-b border-input bg-transparent px-0 py-2 text-[13px] transition-colors cursor-pointer focus:border-foreground focus:outline-none">
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Tipo de contrato
+                </Label>
+                <select
+                  {...register("contractType")}
+                  className="mt-1 flex h-10 w-full appearance-none border-b border-input bg-transparent px-0 py-2 text-[13px] transition-colors cursor-pointer focus:border-foreground focus:outline-none"
+                >
                   <option value="clt">CLT</option>
                   <option value="pj">PJ</option>
                   <option value="intern">Estagiário</option>
@@ -753,7 +959,9 @@ export default function ColaboradoresPage() {
                 </select>
               </div>
               <div>
-                <Label className="text-xs font-semibold text-muted-foreground">Data de admissão *</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Data de admissão *
+                </Label>
                 <Input
                   {...register("admissionDate", {
                     required: "Data de admissão é obrigatória",
@@ -762,7 +970,11 @@ export default function ColaboradoresPage() {
                   className="mt-1"
                   type="date"
                 />
-                {errors.admissionDate && <p className="mt-1.5 text-xs text-destructive">{errors.admissionDate.message}</p>}
+                {errors.admissionDate && (
+                  <p className="mt-1.5 text-xs text-destructive">
+                    {errors.admissionDate.message}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -796,7 +1008,15 @@ export default function ColaboradoresPage() {
                 Anterior
               </Button>
             ) : (
-              <Button type="button" variant="outline" size="sm" onClick={() => { setCreateOpen(false); resetCreateForm(); }}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCreateOpen(false);
+                  resetCreateForm();
+                }}
+              >
                 Cancelar
               </Button>
             )}
@@ -811,7 +1031,11 @@ export default function ColaboradoresPage() {
                 Próximo
               </Button>
             ) : (
-              <Button type="submit" size="sm" disabled={createMutation.isPending}>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={createMutation.isPending}
+              >
                 {createMutation.isPending ? "Criando..." : "Criar colaborador"}
               </Button>
             )}
@@ -819,13 +1043,34 @@ export default function ColaboradoresPage() {
         </form>
       </Dialog>
 
-      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen} title="Confirmar Desativação">
+      <Dialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Confirmar Desativação"
+      >
         <p className="text-sm text-muted-foreground mt-2">
-          Tem certeza que deseja desativar {selectedIds.size} colaborador{selectedIds.size > 1 ? "es" : ""}? Os registros serão marcados como inativos.
+          Tem certeza que deseja desativar {selectedIds.size} colaborador
+          {selectedIds.size > 1 ? "es" : ""}? Os registros serão marcados como
+          inativos.
         </p>
         <DialogFooter>
-          <Button type="button" variant="outline" size="sm" onClick={() => setConfirmDeleteOpen(false)}>Cancelar</Button>
-          <Button type="button" variant="destructive" size="sm" onClick={executeBulkDelete} isLoading={isDeleting}>Desativar</Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirmDeleteOpen(false)}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={executeBulkDelete}
+            isLoading={isDeleting}
+          >
+            Desativar
+          </Button>
         </DialogFooter>
       </Dialog>
     </>

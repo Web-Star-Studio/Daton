@@ -21,6 +21,8 @@ import {
   employeesTable,
   employeeTrainingsTable,
   employeeUnitsTable,
+  positionCompetencyMatrixRevisionsTable,
+  positionCompetencyRequirementsTable,
   legislationsTable,
   organizationContactGroupMembersTable,
   organizationContactGroupsTable,
@@ -52,6 +54,7 @@ import {
   strategicPlansTable,
   strategicPlanRevisionsTable,
   strategicPlanSwotItemsTable,
+  trainingEffectivenessReviewsTable,
   unitLegislationsTable,
   unitsTable,
   userModulePermissionsTable,
@@ -61,6 +64,8 @@ import {
   internalAuditChecklistItemsTable,
   internalAuditFindingsTable,
   internalAuditsTable,
+  knowledgeAssetLinksTable,
+  knowledgeAssetsTable,
   managementReviewInputsTable,
   managementReviewOutputsTable,
   managementReviewsTable,
@@ -158,7 +163,9 @@ export async function cleanupTestData(prefix: string) {
       .select({ id: supplierCategoriesTable.id })
       .from(supplierCategoriesTable)
       .where(inArray(supplierCategoriesTable.organizationId, orgIds));
-    const supplierCategoryIds = supplierCategories.map((category) => category.id);
+    const supplierCategoryIds = supplierCategories.map(
+      (category) => category.id,
+    );
 
     const supplierTypes = await tx
       .select({ id: supplierTypesTable.id })
@@ -184,7 +191,9 @@ export async function cleanupTestData(prefix: string) {
       .select({ id: supplierRequirementTemplatesTable.id })
       .from(supplierRequirementTemplatesTable)
       .where(inArray(supplierRequirementTemplatesTable.organizationId, orgIds));
-    const supplierTemplateIds = supplierTemplates.map((template) => template.id);
+    const supplierTemplateIds = supplierTemplates.map(
+      (template) => template.id,
+    );
 
     const legislations = await tx
       .select({ id: legislationsTable.id })
@@ -226,19 +235,29 @@ export async function cleanupTestData(prefix: string) {
       .select({ id: internalAuditFindingsTable.id })
       .from(internalAuditFindingsTable)
       .where(inArray(internalAuditFindingsTable.organizationId, orgIds));
-    const internalAuditFindingIds = internalAuditFindings.map((finding) => finding.id);
+    const internalAuditFindingIds = internalAuditFindings.map(
+      (finding) => finding.id,
+    );
 
     const nonconformities = await tx
       .select({ id: nonconformitiesTable.id })
       .from(nonconformitiesTable)
       .where(inArray(nonconformitiesTable.organizationId, orgIds));
-    const nonconformityIds = nonconformities.map((nonconformity) => nonconformity.id);
+    const nonconformityIds = nonconformities.map(
+      (nonconformity) => nonconformity.id,
+    );
 
     const managementReviews = await tx
       .select({ id: managementReviewsTable.id })
       .from(managementReviewsTable)
       .where(inArray(managementReviewsTable.organizationId, orgIds));
     const managementReviewIds = managementReviews.map((review) => review.id);
+
+    const knowledgeAssets = await tx
+      .select({ id: knowledgeAssetsTable.id })
+      .from(knowledgeAssetsTable)
+      .where(inArray(knowledgeAssetsTable.organizationId, orgIds));
+    const knowledgeAssetIds = knowledgeAssets.map((asset) => asset.id);
 
     if (planIds.length > 0) {
       const actions = await tx
@@ -294,10 +313,14 @@ export async function cleanupTestData(prefix: string) {
     if (managementReviewIds.length > 0) {
       await tx
         .delete(managementReviewInputsTable)
-        .where(inArray(managementReviewInputsTable.reviewId, managementReviewIds));
+        .where(
+          inArray(managementReviewInputsTable.reviewId, managementReviewIds),
+        );
       await tx
         .delete(managementReviewOutputsTable)
-        .where(inArray(managementReviewOutputsTable.reviewId, managementReviewIds));
+        .where(
+          inArray(managementReviewOutputsTable.reviewId, managementReviewIds),
+        );
       await tx
         .delete(managementReviewsTable)
         .where(inArray(managementReviewsTable.id, managementReviewIds));
@@ -306,7 +329,9 @@ export async function cleanupTestData(prefix: string) {
     if (nonconformityIds.length > 0) {
       await tx
         .delete(correctiveActionsTable)
-        .where(inArray(correctiveActionsTable.nonconformityId, nonconformityIds));
+        .where(
+          inArray(correctiveActionsTable.nonconformityId, nonconformityIds),
+        );
       await tx
         .delete(nonconformitiesTable)
         .where(inArray(nonconformitiesTable.id, nonconformityIds));
@@ -315,7 +340,9 @@ export async function cleanupTestData(prefix: string) {
     if (internalAuditIds.length > 0) {
       await tx
         .delete(internalAuditChecklistItemsTable)
-        .where(inArray(internalAuditChecklistItemsTable.auditId, internalAuditIds));
+        .where(
+          inArray(internalAuditChecklistItemsTable.auditId, internalAuditIds),
+        );
       await tx
         .delete(internalAuditsTable)
         .where(inArray(internalAuditsTable.id, internalAuditIds));
@@ -339,6 +366,15 @@ export async function cleanupTestData(prefix: string) {
         .where(inArray(sgqProcessesTable.id, sgqProcessIds));
     }
 
+    if (knowledgeAssetIds.length > 0) {
+      await tx
+        .delete(knowledgeAssetLinksTable)
+        .where(inArray(knowledgeAssetLinksTable.knowledgeAssetId, knowledgeAssetIds));
+      await tx
+        .delete(knowledgeAssetsTable)
+        .where(inArray(knowledgeAssetsTable.id, knowledgeAssetIds));
+    }
+
     if (departmentIds.length > 0) {
       await tx
         .delete(departmentUnitsTable)
@@ -349,6 +385,19 @@ export async function cleanupTestData(prefix: string) {
     }
 
     if (positionIds.length > 0) {
+      await tx
+        .delete(positionCompetencyMatrixRevisionsTable)
+        .where(
+          inArray(
+            positionCompetencyMatrixRevisionsTable.positionId,
+            positionIds,
+          ),
+        );
+      await tx
+        .delete(positionCompetencyRequirementsTable)
+        .where(
+          inArray(positionCompetencyRequirementsTable.positionId, positionIds),
+        );
       await tx
         .delete(positionsTable)
         .where(inArray(positionsTable.id, positionIds));
@@ -363,19 +412,30 @@ export async function cleanupTestData(prefix: string) {
         .where(inArray(supplierReceiptChecksTable.supplierId, supplierIds));
       await tx
         .delete(supplierPerformanceReviewsTable)
-        .where(inArray(supplierPerformanceReviewsTable.supplierId, supplierIds));
+        .where(
+          inArray(supplierPerformanceReviewsTable.supplierId, supplierIds),
+        );
       await tx
         .delete(supplierQualificationReviewsTable)
-        .where(inArray(supplierQualificationReviewsTable.supplierId, supplierIds));
+        .where(
+          inArray(supplierQualificationReviewsTable.supplierId, supplierIds),
+        );
       await tx
         .delete(supplierRequirementCommunicationsTable)
-        .where(inArray(supplierRequirementCommunicationsTable.supplierId, supplierIds));
+        .where(
+          inArray(
+            supplierRequirementCommunicationsTable.supplierId,
+            supplierIds,
+          ),
+        );
       await tx
         .delete(supplierDocumentReviewsTable)
         .where(inArray(supplierDocumentReviewsTable.supplierId, supplierIds));
       await tx
         .delete(supplierDocumentSubmissionsTable)
-        .where(inArray(supplierDocumentSubmissionsTable.supplierId, supplierIds));
+        .where(
+          inArray(supplierDocumentSubmissionsTable.supplierId, supplierIds),
+        );
       await tx
         .delete(supplierOfferingsTable)
         .where(inArray(supplierOfferingsTable.supplierId, supplierIds));
@@ -385,13 +445,17 @@ export async function cleanupTestData(prefix: string) {
       await tx
         .delete(supplierUnitsTable)
         .where(inArray(supplierUnitsTable.supplierId, supplierIds));
-      await tx.delete(suppliersTable).where(inArray(suppliersTable.id, supplierIds));
+      await tx
+        .delete(suppliersTable)
+        .where(inArray(suppliersTable.id, supplierIds));
     }
 
     if (documentIds.length > 0) {
       await tx
         .delete(documentRecipientGroupLinksTable)
-        .where(inArray(documentRecipientGroupLinksTable.documentId, documentIds));
+        .where(
+          inArray(documentRecipientGroupLinksTable.documentId, documentIds),
+        );
       await tx
         .delete(documentVersionsTable)
         .where(inArray(documentVersionsTable.documentId, documentIds));
@@ -427,11 +491,16 @@ export async function cleanupTestData(prefix: string) {
     if (contactGroupIds.length > 0) {
       await tx
         .delete(documentRecipientGroupLinksTable)
-        .where(inArray(documentRecipientGroupLinksTable.groupId, contactGroupIds));
+        .where(
+          inArray(documentRecipientGroupLinksTable.groupId, contactGroupIds),
+        );
       await tx
         .delete(organizationContactGroupMembersTable)
         .where(
-          inArray(organizationContactGroupMembersTable.groupId, contactGroupIds),
+          inArray(
+            organizationContactGroupMembersTable.groupId,
+            contactGroupIds,
+          ),
         );
       await tx
         .delete(organizationContactGroupsTable)
@@ -441,7 +510,9 @@ export async function cleanupTestData(prefix: string) {
     if (contactIds.length > 0) {
       await tx
         .delete(organizationContactGroupMembersTable)
-        .where(inArray(organizationContactGroupMembersTable.contactId, contactIds));
+        .where(
+          inArray(organizationContactGroupMembersTable.contactId, contactIds),
+        );
       await tx
         .delete(organizationContactsTable)
         .where(inArray(organizationContactsTable.id, contactIds));
@@ -459,12 +530,24 @@ export async function cleanupTestData(prefix: string) {
         .from(employeeProfileItemsTable)
         .where(inArray(employeeProfileItemsTable.employeeId, employeeIds));
       const profileItemIds = profileItems.map((item) => item.id);
+      const trainings = await tx
+        .select({ id: employeeTrainingsTable.id })
+        .from(employeeTrainingsTable)
+        .where(inArray(employeeTrainingsTable.employeeId, employeeIds));
+      const trainingIds = trainings.map((training) => training.id);
 
       if (profileItemIds.length > 0) {
         await tx
           .delete(employeeProfileItemAttachmentsTable)
           .where(
             inArray(employeeProfileItemAttachmentsTable.itemId, profileItemIds),
+          );
+      }
+      if (trainingIds.length > 0) {
+        await tx
+          .delete(trainingEffectivenessReviewsTable)
+          .where(
+            inArray(trainingEffectivenessReviewsTable.trainingId, trainingIds),
           );
       }
 
@@ -499,7 +582,9 @@ export async function cleanupTestData(prefix: string) {
         );
       await tx
         .delete(supplierRequirementTemplatesTable)
-        .where(inArray(supplierRequirementTemplatesTable.id, supplierTemplateIds));
+        .where(
+          inArray(supplierRequirementTemplatesTable.id, supplierTemplateIds),
+        );
     }
 
     if (supplierRequirementIds.length > 0) {
@@ -521,7 +606,9 @@ export async function cleanupTestData(prefix: string) {
     if (supplierCatalogItemIds.length > 0) {
       await tx
         .delete(supplierOfferingsTable)
-        .where(inArray(supplierOfferingsTable.catalogItemId, supplierCatalogItemIds));
+        .where(
+          inArray(supplierOfferingsTable.catalogItemId, supplierCatalogItemIds),
+        );
       await tx
         .delete(supplierCatalogItemsTable)
         .where(inArray(supplierCatalogItemsTable.id, supplierCatalogItemIds));

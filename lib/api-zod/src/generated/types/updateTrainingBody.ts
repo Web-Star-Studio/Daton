@@ -7,11 +7,23 @@
  */
 import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
 import type { UpdateTrainingBodyStatus } from "./updateTrainingBodyStatus";
+import type { UpdateTrainingBodyTargetCompetencyType } from "./updateTrainingBodyTargetCompetencyType";
 
 export interface UpdateTrainingBody {
   title?: string;
   description?: string;
+  objective?: string;
   institution?: string;
+  targetCompetencyName?: string;
+  targetCompetencyType?: UpdateTrainingBodyTargetCompetencyType;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  targetCompetencyLevel?: number;
+  evaluationMethod?: string;
+  /** @minimum 1 */
+  renewalMonths?: number;
   workloadHours?: number;
   completionDate?: string;
   expirationDate?: string;

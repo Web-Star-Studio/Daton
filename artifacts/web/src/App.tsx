@@ -17,12 +17,14 @@ import OrganizacaoUnitsPage from "@/pages/app/organizacao/unidades";
 import OrganizacaoDepartmentsPage from "@/pages/app/organizacao/departamentos";
 import OrganizacaoPositionsPage from "@/pages/app/organizacao/cargos";
 import OrganizacaoEmployeesPage from "@/pages/app/organizacao/colaboradores";
+import OrganizacaoEmployeeTrainingsPage from "@/pages/app/organizacao/colaboradores/treinamentos";
 import OrganizacaoEmployeeDetailPage from "@/pages/app/organizacao/colaboradores/[id]";
 import UnitDetailPage from "@/pages/app/organizacao/unidades/[id]";
 import GovernancePage from "@/pages/app/governanca";
 import GovernanceDetailPage from "@/pages/app/governanca/[id]";
 import GovernanceManagementReviewsPage from "@/pages/app/governanca/analises-criticas";
 import GovernanceAuditsPage from "@/pages/app/governanca/auditorias";
+import GovernanceKnowledgeAssetsPage from "@/pages/app/governanca/conhecimento-critico";
 import GovernanceNonconformitiesPage from "@/pages/app/governanca/nao-conformidades";
 import GovernanceProcessesPage from "@/pages/app/governanca/processos-sgq";
 import GovernanceRiskOpportunityPage from "@/pages/app/governanca/riscos-oportunidades";
@@ -71,7 +73,9 @@ function UserScopedThemeProvider({ children }: { children: React.ReactNode }) {
     const currentStoredTheme = window.localStorage.getItem(storageKey);
     if (currentStoredTheme) return;
 
-    const legacyStoredTheme = window.localStorage.getItem(LEGACY_THEME_STORAGE_KEY);
+    const legacyStoredTheme = window.localStorage.getItem(
+      LEGACY_THEME_STORAGE_KEY,
+    );
     if (!legacyStoredTheme) return;
 
     window.localStorage.setItem(storageKey, legacyStoredTheme);
@@ -99,7 +103,10 @@ function AdminPages() {
   return (
     <Switch>
       <Route path="/admin" component={AdminDashboardPage} />
-      <Route path="/admin/base-conhecimento" component={ProductKnowledgeAdminPage} />
+      <Route
+        path="/admin/base-conhecimento"
+        component={ProductKnowledgeAdminPage}
+      />
       <Route component={NotFound} />
     </Switch>
   );
@@ -109,59 +116,180 @@ function AppPages() {
   return (
     <Switch>
       <Route path="/organizacao" component={OrganizacaoOverviewPage} />
-      <Route path="/organizacao/colaboradores" component={OrganizacaoEmployeesPage} />
-      <Route path="/organizacao/colaboradores/:id" component={OrganizacaoEmployeeDetailPage} />
+      <Route
+        path="/organizacao/colaboradores"
+        component={OrganizacaoEmployeesPage}
+      />
+      <Route
+        path="/organizacao/colaboradores/treinamentos"
+        component={OrganizacaoEmployeeTrainingsPage}
+      />
+      <Route
+        path="/organizacao/colaboradores/:id"
+        component={OrganizacaoEmployeeDetailPage}
+      />
       <Route path="/organizacao/unidades" component={OrganizacaoUnitsPage} />
       <Route path="/organizacao/unidades/:id" component={UnitDetailPage} />
-      <Route path="/organizacao/departamentos" component={OrganizacaoDepartmentsPage} />
+      <Route
+        path="/organizacao/departamentos"
+        component={OrganizacaoDepartmentsPage}
+      />
       <Route path="/organizacao/cargos" component={OrganizacaoPositionsPage} />
       <Route path="/governanca/planejamento" component={GovernancePage} />
-      <Route path="/governanca/planejamento/:id" component={GovernanceDetailPage} />
-      <Route path="/governanca/riscos-oportunidades" component={GovernanceRiskOpportunityPage} />
-      <Route path="/governanca/processos-sgq" component={GovernanceProcessesPage} />
+      <Route
+        path="/governanca/planejamento/:id"
+        component={GovernanceDetailPage}
+      />
+      <Route
+        path="/governanca/riscos-oportunidades"
+        component={GovernanceRiskOpportunityPage}
+      />
+      <Route
+        path="/governanca/processos-sgq"
+        component={GovernanceProcessesPage}
+      />
+      <Route
+        path="/governanca/conhecimento-critico"
+        component={GovernanceKnowledgeAssetsPage}
+      />
       <Route path="/governanca/auditorias" component={GovernanceAuditsPage} />
-      <Route path="/governanca/nao-conformidades" component={GovernanceNonconformitiesPage} />
-      <Route path="/governanca/analises-criticas" component={GovernanceManagementReviewsPage} />
+      <Route
+        path="/governanca/nao-conformidades"
+        component={GovernanceNonconformitiesPage}
+      />
+      <Route
+        path="/governanca/analises-criticas"
+        component={GovernanceManagementReviewsPage}
+      />
       <Route path="/qualidade/legislacoes" component={LegislacoesPage} />
-      <Route path="/qualidade/legislacoes/:id" component={LegislationDetailPage} />
+      <Route
+        path="/qualidade/legislacoes/:id"
+        component={LegislationDetailPage}
+      />
       <Route path="/qualidade/documentacao" component={DocumentacaoPage} />
-      <Route path="/qualidade/documentacao/:id" component={DocumentDetailPage} />
+      <Route
+        path="/qualidade/documentacao/:id"
+        component={DocumentDetailPage}
+      />
       <Route path="/qualidade/fornecedores" component={SuppliersPage} />
-      <Route path="/qualidade/fornecedores/categorias" component={SupplierCategoriesPage} />
-      <Route path="/qualidade/fornecedores/catalogo-itens" component={SupplierCatalogItemsPage} />
-      <Route path="/qualidade/fornecedores/tipos" component={SupplierTypesPage} />
-      <Route path="/qualidade/fornecedores/requisitos-documentais" component={SupplierDocumentRequirementsPage} />
-      <Route path="/qualidade/fornecedores/:id/cadastro" component={SupplierMasterEditPage} />
-      <Route path="/qualidade/fornecedores/:id" component={SupplierDetailPage} />
+      <Route
+        path="/qualidade/fornecedores/categorias"
+        component={SupplierCategoriesPage}
+      />
+      <Route
+        path="/qualidade/fornecedores/catalogo-itens"
+        component={SupplierCatalogItemsPage}
+      />
+      <Route
+        path="/qualidade/fornecedores/tipos"
+        component={SupplierTypesPage}
+      />
+      <Route
+        path="/qualidade/fornecedores/requisitos-documentais"
+        component={SupplierDocumentRequirementsPage}
+      />
+      <Route
+        path="/qualidade/fornecedores/:id/cadastro"
+        component={SupplierMasterEditPage}
+      />
+      <Route
+        path="/qualidade/fornecedores/:id"
+        component={SupplierDetailPage}
+      />
       <Route path="/ambiental/laia" component={EnvironmentalLaiaPage} />
       <Route path="/configuracoes/perfil" component={ProfileSettingsPage} />
       <Route path="/configuracoes/sistema" component={SystemSettingsPage} />
       <Route path="/app" component={AppIndex} />
       <Route path="/app/organizacao" component={OrganizacaoOverviewPage} />
-      <Route path="/app/organizacao/colaboradores" component={OrganizacaoEmployeesPage} />
-      <Route path="/app/organizacao/colaboradores/:id" component={OrganizacaoEmployeeDetailPage} />
-      <Route path="/app/organizacao/unidades" component={OrganizacaoUnitsPage} />
+      <Route
+        path="/app/organizacao/colaboradores"
+        component={OrganizacaoEmployeesPage}
+      />
+      <Route
+        path="/app/organizacao/colaboradores/treinamentos"
+        component={OrganizacaoEmployeeTrainingsPage}
+      />
+      <Route
+        path="/app/organizacao/colaboradores/:id"
+        component={OrganizacaoEmployeeDetailPage}
+      />
+      <Route
+        path="/app/organizacao/unidades"
+        component={OrganizacaoUnitsPage}
+      />
       <Route path="/app/organizacao/unidades/:id" component={UnitDetailPage} />
-      <Route path="/app/organizacao/departamentos" component={OrganizacaoDepartmentsPage} />
-      <Route path="/app/organizacao/cargos" component={OrganizacaoPositionsPage} />
+      <Route
+        path="/app/organizacao/departamentos"
+        component={OrganizacaoDepartmentsPage}
+      />
+      <Route
+        path="/app/organizacao/cargos"
+        component={OrganizacaoPositionsPage}
+      />
       <Route path="/app/governanca/planejamento" component={GovernancePage} />
-      <Route path="/app/governanca/planejamento/:id" component={GovernanceDetailPage} />
-      <Route path="/app/governanca/riscos-oportunidades" component={GovernanceRiskOpportunityPage} />
-      <Route path="/app/governanca/processos-sgq" component={GovernanceProcessesPage} />
-      <Route path="/app/governanca/auditorias" component={GovernanceAuditsPage} />
-      <Route path="/app/governanca/nao-conformidades" component={GovernanceNonconformitiesPage} />
-      <Route path="/app/governanca/analises-criticas" component={GovernanceManagementReviewsPage} />
+      <Route
+        path="/app/governanca/planejamento/:id"
+        component={GovernanceDetailPage}
+      />
+      <Route
+        path="/app/governanca/riscos-oportunidades"
+        component={GovernanceRiskOpportunityPage}
+      />
+      <Route
+        path="/app/governanca/processos-sgq"
+        component={GovernanceProcessesPage}
+      />
+      <Route
+        path="/app/governanca/conhecimento-critico"
+        component={GovernanceKnowledgeAssetsPage}
+      />
+      <Route
+        path="/app/governanca/auditorias"
+        component={GovernanceAuditsPage}
+      />
+      <Route
+        path="/app/governanca/nao-conformidades"
+        component={GovernanceNonconformitiesPage}
+      />
+      <Route
+        path="/app/governanca/analises-criticas"
+        component={GovernanceManagementReviewsPage}
+      />
       <Route path="/app/qualidade/legislacoes" component={LegislacoesPage} />
-      <Route path="/app/qualidade/legislacoes/:id" component={LegislationDetailPage} />
+      <Route
+        path="/app/qualidade/legislacoes/:id"
+        component={LegislationDetailPage}
+      />
       <Route path="/app/qualidade/documentacao" component={DocumentacaoPage} />
-      <Route path="/app/qualidade/documentacao/:id" component={DocumentDetailPage} />
+      <Route
+        path="/app/qualidade/documentacao/:id"
+        component={DocumentDetailPage}
+      />
       <Route path="/app/qualidade/fornecedores" component={SuppliersPage} />
-      <Route path="/app/qualidade/fornecedores/categorias" component={SupplierCategoriesPage} />
-      <Route path="/app/qualidade/fornecedores/catalogo-itens" component={SupplierCatalogItemsPage} />
-      <Route path="/app/qualidade/fornecedores/tipos" component={SupplierTypesPage} />
-      <Route path="/app/qualidade/fornecedores/requisitos-documentais" component={SupplierDocumentRequirementsPage} />
-      <Route path="/app/qualidade/fornecedores/:id/cadastro" component={SupplierMasterEditPage} />
-      <Route path="/app/qualidade/fornecedores/:id" component={SupplierDetailPage} />
+      <Route
+        path="/app/qualidade/fornecedores/categorias"
+        component={SupplierCategoriesPage}
+      />
+      <Route
+        path="/app/qualidade/fornecedores/catalogo-itens"
+        component={SupplierCatalogItemsPage}
+      />
+      <Route
+        path="/app/qualidade/fornecedores/tipos"
+        component={SupplierTypesPage}
+      />
+      <Route
+        path="/app/qualidade/fornecedores/requisitos-documentais"
+        component={SupplierDocumentRequirementsPage}
+      />
+      <Route
+        path="/app/qualidade/fornecedores/:id/cadastro"
+        component={SupplierMasterEditPage}
+      />
+      <Route
+        path="/app/qualidade/fornecedores/:id"
+        component={SupplierDetailPage}
+      />
       <Route path="/app/ambiental/laia" component={EnvironmentalLaiaPage} />
       <Route path="/app/configuracoes/perfil" component={ProfileSettingsPage} />
       <Route path="/app/configuracoes/sistema" component={SystemSettingsPage} />
@@ -190,10 +318,20 @@ function Router() {
     if (isLoading) return null;
     if (!isAuthenticated && (isAppRoute || isOnboardingRoute)) return "/auth";
     if (isAuthenticated && isAuthRoute && isPlatformAdmin) return "/admin";
-    if (isAuthenticated && onboardingPending && !isOnboardingRoute && !isPlatformAdmin) {
+    if (
+      isAuthenticated &&
+      onboardingPending &&
+      !isOnboardingRoute &&
+      !isPlatformAdmin
+    ) {
       return "/onboarding/organizacao";
     }
-    if (isAuthenticated && !onboardingPending && (isOnboardingRoute || isAuthRoute)) return "/organizacao";
+    if (
+      isAuthenticated &&
+      !onboardingPending &&
+      (isOnboardingRoute || isAuthRoute)
+    )
+      return "/organizacao";
     return null;
   }, [
     isAppRoute,
@@ -247,7 +385,10 @@ function Router() {
     <Switch>
       <Route path="/" component={AuthPage} />
       <Route path="/auth" component={AuthPage} />
-      <Route path="/onboarding/organizacao" component={OnboardingOrganizationPage} />
+      <Route
+        path="/onboarding/organizacao"
+        component={OnboardingOrganizationPage}
+      />
       <Route path="/convite/:token" component={AcceptInvitePage} />
       <Route component={NotFound} />
     </Switch>

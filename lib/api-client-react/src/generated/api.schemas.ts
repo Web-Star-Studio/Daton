@@ -749,6 +749,16 @@ export interface EmployeeCompetency {
   updatedAt?: string;
 }
 
+export type EmployeeTrainingTargetCompetencyType =
+  | (typeof EmployeeTrainingTargetCompetencyType)[keyof typeof EmployeeTrainingTargetCompetencyType]
+  | null;
+
+export const EmployeeTrainingTargetCompetencyType = {
+  formacao: "formacao",
+  experiencia: "experiencia",
+  habilidade: "habilidade",
+} as const;
+
 export type EmployeeTrainingStatus =
   (typeof EmployeeTrainingStatus)[keyof typeof EmployeeTrainingStatus];
 
@@ -758,17 +768,104 @@ export const EmployeeTrainingStatus = {
   vencido: "vencido",
 } as const;
 
+export interface TrainingEffectivenessReview {
+  id: number;
+  trainingId: number;
+  evaluatorUserId: number;
+  evaluatorName?: string | null;
+  evaluationDate: string;
+  /**
+   * @minimum 0
+   * @maximum 10
+   */
+  score?: number | null;
+  isEffective?: boolean | null;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  resultLevel?: number | null;
+  comments?: string | null;
+  attachments: EmployeeRecordAttachment[];
+  createdAt?: string;
+}
+
 export interface EmployeeTraining {
   id: number;
   employeeId: number;
   title: string;
   description?: string | null;
+  objective?: string | null;
   institution?: string | null;
+  targetCompetencyName?: string | null;
+  targetCompetencyType?: EmployeeTrainingTargetCompetencyType;
+  targetCompetencyLevel?: number | null;
+  evaluationMethod?: string | null;
+  renewalMonths?: number | null;
   workloadHours?: number | null;
   completionDate?: string | null;
   expirationDate?: string | null;
   status: EmployeeTrainingStatus;
   attachments: EmployeeRecordAttachment[];
+  latestEffectivenessReview?: TrainingEffectivenessReview | null;
+  effectivenessReviews: TrainingEffectivenessReview[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type OrganizationTrainingTargetCompetencyType =
+  | (typeof OrganizationTrainingTargetCompetencyType)[keyof typeof OrganizationTrainingTargetCompetencyType]
+  | null;
+
+export const OrganizationTrainingTargetCompetencyType = {
+  formacao: "formacao",
+  experiencia: "experiencia",
+  habilidade: "habilidade",
+} as const;
+
+export type OrganizationTrainingStatus =
+  (typeof OrganizationTrainingStatus)[keyof typeof OrganizationTrainingStatus];
+
+export const OrganizationTrainingStatus = {
+  pendente: "pendente",
+  concluido: "concluido",
+  vencido: "vencido",
+} as const;
+
+export type OrganizationTrainingEffectivenessStatus =
+  | (typeof OrganizationTrainingEffectivenessStatus)[keyof typeof OrganizationTrainingEffectivenessStatus]
+  | null;
+
+export const OrganizationTrainingEffectivenessStatus = {
+  pending: "pending",
+  effective: "effective",
+  ineffective: "ineffective",
+} as const;
+
+export interface OrganizationTraining {
+  id: number;
+  employeeId: number;
+  employeeName: string;
+  employeePosition?: string | null;
+  employeeDepartment?: string | null;
+  unitId?: number | null;
+  unitName?: string | null;
+  title: string;
+  description?: string | null;
+  objective?: string | null;
+  institution?: string | null;
+  targetCompetencyName?: string | null;
+  targetCompetencyType?: OrganizationTrainingTargetCompetencyType;
+  targetCompetencyLevel?: number | null;
+  evaluationMethod?: string | null;
+  renewalMonths?: number | null;
+  workloadHours?: number | null;
+  completionDate?: string | null;
+  expirationDate?: string | null;
+  status: OrganizationTrainingStatus;
+  effectivenessStatus?: OrganizationTrainingEffectivenessStatus;
+  attachments: EmployeeRecordAttachment[];
+  latestEffectivenessReview?: TrainingEffectivenessReview | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -779,11 +876,107 @@ export interface EmployeeAwareness {
   topic: string;
   description?: string | null;
   date: string;
+  policyDocumentId?: number | null;
+  policyDocumentTitle?: string | null;
+  documentId?: number | null;
+  documentTitle?: string | null;
+  processId?: number | null;
+  processName?: string | null;
+  objectiveId?: number | null;
+  objectiveLabel?: string | null;
   verificationMethod?: string | null;
   result?: string | null;
   attachments: EmployeeRecordAttachment[];
   createdAt?: string;
   updatedAt?: string;
+}
+
+export type PositionCompetencyRequirementCompetencyType =
+  (typeof PositionCompetencyRequirementCompetencyType)[keyof typeof PositionCompetencyRequirementCompetencyType];
+
+export const PositionCompetencyRequirementCompetencyType = {
+  formacao: "formacao",
+  experiencia: "experiencia",
+  habilidade: "habilidade",
+} as const;
+
+export interface PositionCompetencyRequirement {
+  id: number;
+  positionId: number;
+  competencyName: string;
+  competencyType: PositionCompetencyRequirementCompetencyType;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  requiredLevel: number;
+  notes?: string | null;
+  /** @minimum 0 */
+  sortOrder: number;
+  createdById: number;
+  updatedById: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PositionCompetencyMatrixRevision {
+  id: number;
+  positionId: number;
+  revisionNumber: number;
+  createdById: number;
+  createdByName?: string | null;
+  createdAt?: string;
+  snapshot: PositionCompetencyRequirement[];
+}
+
+export type EmployeeCompetencyGapCompetencyType =
+  (typeof EmployeeCompetencyGapCompetencyType)[keyof typeof EmployeeCompetencyGapCompetencyType];
+
+export const EmployeeCompetencyGapCompetencyType = {
+  formacao: "formacao",
+  experiencia: "experiencia",
+  habilidade: "habilidade",
+} as const;
+
+export interface EmployeeCompetencyGap {
+  employeeId: number;
+  employeeName: string;
+  employeePosition?: string | null;
+  employeeDepartment?: string | null;
+  unitId?: number | null;
+  unitName?: string | null;
+  positionId?: number | null;
+  competencyName: string;
+  competencyType: EmployeeCompetencyGapCompetencyType;
+  requiredLevel: number;
+  acquiredLevel: number;
+  gapLevel: number;
+  critical: boolean;
+  relatedTrainingCount: number;
+}
+
+export type PaginatedOrganizationTrainingsPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export interface PaginatedOrganizationTrainings {
+  data: OrganizationTraining[];
+  pagination: PaginatedOrganizationTrainingsPagination;
+}
+
+export type PaginatedEmployeeCompetencyGapsPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export interface PaginatedEmployeeCompetencyGaps {
+  data: EmployeeCompetencyGap[];
+  pagination: PaginatedEmployeeCompetencyGapsPagination;
 }
 
 export type PaginatedEmployeesPagination = {
@@ -961,6 +1154,15 @@ export interface CreateCompetencyBody {
   attachments?: EmployeeRecordAttachment[];
 }
 
+export type CreateTrainingBodyTargetCompetencyType =
+  (typeof CreateTrainingBodyTargetCompetencyType)[keyof typeof CreateTrainingBodyTargetCompetencyType];
+
+export const CreateTrainingBodyTargetCompetencyType = {
+  formacao: "formacao",
+  experiencia: "experiencia",
+  habilidade: "habilidade",
+} as const;
+
 export type CreateTrainingBodyStatus =
   (typeof CreateTrainingBodyStatus)[keyof typeof CreateTrainingBodyStatus];
 
@@ -973,7 +1175,18 @@ export const CreateTrainingBodyStatus = {
 export interface CreateTrainingBody {
   title: string;
   description?: string;
+  objective?: string;
   institution?: string;
+  targetCompetencyName?: string;
+  targetCompetencyType?: CreateTrainingBodyTargetCompetencyType;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  targetCompetencyLevel?: number;
+  evaluationMethod?: string;
+  /** @minimum 1 */
+  renewalMonths?: number;
   workloadHours?: number;
   completionDate?: string;
   expirationDate?: string;
@@ -986,6 +1199,10 @@ export interface CreateAwarenessBody {
   topic: string;
   description?: string;
   date: string;
+  policyDocumentId?: number | null;
+  documentId?: number | null;
+  processId?: number | null;
+  objectiveId?: number | null;
   verificationMethod?: string;
   result?: string;
   /** @maxItems 10 */
@@ -1020,6 +1237,15 @@ export interface UpdateCompetencyBody {
   attachments?: EmployeeRecordAttachment[];
 }
 
+export type UpdateTrainingBodyTargetCompetencyType =
+  (typeof UpdateTrainingBodyTargetCompetencyType)[keyof typeof UpdateTrainingBodyTargetCompetencyType];
+
+export const UpdateTrainingBodyTargetCompetencyType = {
+  formacao: "formacao",
+  experiencia: "experiencia",
+  habilidade: "habilidade",
+} as const;
+
 export type UpdateTrainingBodyStatus =
   (typeof UpdateTrainingBodyStatus)[keyof typeof UpdateTrainingBodyStatus];
 
@@ -1032,7 +1258,18 @@ export const UpdateTrainingBodyStatus = {
 export interface UpdateTrainingBody {
   title?: string;
   description?: string;
+  objective?: string;
   institution?: string;
+  targetCompetencyName?: string;
+  targetCompetencyType?: UpdateTrainingBodyTargetCompetencyType;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  targetCompetencyLevel?: number;
+  evaluationMethod?: string;
+  /** @minimum 1 */
+  renewalMonths?: number;
   workloadHours?: number;
   completionDate?: string;
   expirationDate?: string;
@@ -1045,10 +1282,78 @@ export interface UpdateAwarenessBody {
   topic?: string;
   description?: string;
   date?: string;
+  policyDocumentId?: number | null;
+  documentId?: number | null;
+  processId?: number | null;
+  objectiveId?: number | null;
   verificationMethod?: string;
   result?: string;
   /** @maxItems 10 */
   attachments?: EmployeeRecordAttachment[];
+}
+
+export interface CreateTrainingEffectivenessReviewBody {
+  evaluationDate: string;
+  /**
+   * @minimum 0
+   * @maximum 10
+   */
+  score?: number;
+  isEffective: boolean;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  resultLevel?: number;
+  comments?: string;
+  /** @maxItems 10 */
+  attachments?: EmployeeRecordAttachment[];
+}
+
+export type CreatePositionCompetencyRequirementBodyCompetencyType =
+  (typeof CreatePositionCompetencyRequirementBodyCompetencyType)[keyof typeof CreatePositionCompetencyRequirementBodyCompetencyType];
+
+export const CreatePositionCompetencyRequirementBodyCompetencyType = {
+  formacao: "formacao",
+  experiencia: "experiencia",
+  habilidade: "habilidade",
+} as const;
+
+export interface CreatePositionCompetencyRequirementBody {
+  /** @minLength 1 */
+  competencyName: string;
+  competencyType: CreatePositionCompetencyRequirementBodyCompetencyType;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  requiredLevel: number;
+  notes?: string;
+  /** @minimum 0 */
+  sortOrder?: number;
+}
+
+export type UpdatePositionCompetencyRequirementBodyCompetencyType =
+  (typeof UpdatePositionCompetencyRequirementBodyCompetencyType)[keyof typeof UpdatePositionCompetencyRequirementBodyCompetencyType];
+
+export const UpdatePositionCompetencyRequirementBodyCompetencyType = {
+  formacao: "formacao",
+  experiencia: "experiencia",
+  habilidade: "habilidade",
+} as const;
+
+export interface UpdatePositionCompetencyRequirementBody {
+  /** @minLength 1 */
+  competencyName?: string;
+  competencyType?: UpdatePositionCompetencyRequirementBodyCompetencyType;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  requiredLevel?: number;
+  notes?: string;
+  /** @minimum 0 */
+  sortOrder?: number;
 }
 
 export interface Department {
@@ -1830,6 +2135,102 @@ export interface PaginatedResponseMeta {
   pageSize: number;
   total: number;
   totalPages: number;
+}
+
+export type KnowledgeAssetLossRiskLevel =
+  (typeof KnowledgeAssetLossRiskLevel)[keyof typeof KnowledgeAssetLossRiskLevel];
+
+export const KnowledgeAssetLossRiskLevel = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+  critical: "critical",
+} as const;
+
+export type KnowledgeAssetEvidenceStatus =
+  (typeof KnowledgeAssetEvidenceStatus)[keyof typeof KnowledgeAssetEvidenceStatus];
+
+export const KnowledgeAssetEvidenceStatus = {
+  missing: "missing",
+  expired: "expired",
+  valid: "valid",
+} as const;
+
+export type KnowledgeAssetLinkInput =
+  | {
+      processId: number;
+    }
+  | {
+      positionId: number;
+    }
+  | {
+      documentId: number;
+    }
+  | {
+      riskOpportunityItemId: number;
+    };
+
+export interface KnowledgeAssetLink {
+  id: number;
+  processId?: number | null;
+  processName?: string | null;
+  positionId?: number | null;
+  positionName?: string | null;
+  documentId?: number | null;
+  documentTitle?: string | null;
+  riskOpportunityItemId?: number | null;
+  riskOpportunityItemLabel?: string | null;
+  riskOpportunityPlanTitle?: string | null;
+}
+
+export interface KnowledgeAssetListItem {
+  id: number;
+  organizationId: number;
+  title: string;
+  description?: string | null;
+  lossRiskLevel: KnowledgeAssetLossRiskLevel;
+  retentionMethod?: string | null;
+  successionPlan?: string | null;
+  evidenceAttachments: GovernanceSystemAttachment[];
+  evidenceValidUntil?: string | null;
+  evidenceStatus: KnowledgeAssetEvidenceStatus;
+  links: KnowledgeAssetLink[];
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export type KnowledgeAssetDetail = KnowledgeAssetListItem & {
+  createdById: number;
+  createdByName?: string | null;
+  updatedById: number;
+  updatedByName?: string | null;
+};
+
+export interface PaginatedKnowledgeAssets {
+  data: KnowledgeAssetListItem[];
+  pagination: PaginatedResponseMeta;
+}
+
+export interface CreateKnowledgeAssetBody {
+  title: string;
+  description?: string | null;
+  lossRiskLevel?: KnowledgeAssetLossRiskLevel;
+  retentionMethod?: string | null;
+  successionPlan?: string | null;
+  evidenceAttachments?: GovernanceSystemAttachment[];
+  evidenceValidUntil?: string | null;
+  links: KnowledgeAssetLinkInput[];
+}
+
+export interface UpdateKnowledgeAssetBody {
+  title?: string;
+  description?: string | null;
+  lossRiskLevel?: KnowledgeAssetLossRiskLevel;
+  retentionMethod?: string | null;
+  successionPlan?: string | null;
+  evidenceAttachments?: GovernanceSystemAttachment[];
+  evidenceValidUntil?: string | null;
+  links?: KnowledgeAssetLinkInput[];
 }
 
 export type GovernanceSgqProcessStatus =
@@ -2843,6 +3244,64 @@ export type ListEmployeesParams = {
   pageSize?: number;
 };
 
+export type ListOrganizationTrainingsParams = {
+  search?: string;
+  employeeId?: number;
+  unitId?: number;
+  department?: string;
+  position?: string;
+  status?: ListOrganizationTrainingsStatus;
+  /**
+   * @minimum 1
+   */
+  expiringWithinDays?: number;
+  effectivenessStatus?: ListOrganizationTrainingsEffectivenessStatus;
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  pageSize?: number;
+};
+
+export type ListOrganizationTrainingsStatus =
+  (typeof ListOrganizationTrainingsStatus)[keyof typeof ListOrganizationTrainingsStatus];
+
+export const ListOrganizationTrainingsStatus = {
+  pendente: "pendente",
+  concluido: "concluido",
+  vencido: "vencido",
+} as const;
+
+export type ListOrganizationTrainingsEffectivenessStatus =
+  (typeof ListOrganizationTrainingsEffectivenessStatus)[keyof typeof ListOrganizationTrainingsEffectivenessStatus];
+
+export const ListOrganizationTrainingsEffectivenessStatus = {
+  pending: "pending",
+  effective: "effective",
+  ineffective: "ineffective",
+} as const;
+
+export type ListEmployeeCompetencyGapsParams = {
+  search?: string;
+  unitId?: number;
+  department?: string;
+  position?: string;
+  criticalOnly?: boolean;
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  pageSize?: number;
+};
+
 export type LinkEmployeeUnitBody = {
   unitId: number;
 };
@@ -2945,6 +3404,25 @@ export type ListGovernanceRiskOpportunityItemsParams = {
   ownerUserId?: number;
   unitId?: number;
   sourceType?: StrategicPlanRiskOpportunitySourceType;
+};
+
+export type ListKnowledgeAssetsParams = {
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  pageSize?: number;
+  search?: string;
+  processId?: number;
+  positionId?: number;
+  documentId?: number;
+  riskOpportunityItemId?: number;
+  lossRiskLevel?: KnowledgeAssetLossRiskLevel;
+  evidenceStatus?: KnowledgeAssetEvidenceStatus;
 };
 
 export type ListSgqProcessesParams = {
