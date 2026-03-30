@@ -6,29 +6,35 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
-import type { EmployeeTrainingStatus } from "./employeeTrainingStatus";
-import type { EmployeeTrainingTargetCompetencyType } from "./employeeTrainingTargetCompetencyType";
+import type { OrganizationTrainingEffectivenessStatus } from "./organizationTrainingEffectivenessStatus";
+import type { OrganizationTrainingStatus } from "./organizationTrainingStatus";
+import type { OrganizationTrainingTargetCompetencyType } from "./organizationTrainingTargetCompetencyType";
 import type { TrainingEffectivenessReview } from "./trainingEffectivenessReview";
 
-export interface EmployeeTraining {
+export interface OrganizationTraining {
   id: number;
   employeeId: number;
+  employeeName: string;
+  employeePosition?: string | null;
+  employeeDepartment?: string | null;
+  unitId?: number | null;
+  unitName?: string | null;
   title: string;
   description?: string | null;
   objective?: string | null;
   institution?: string | null;
   targetCompetencyName?: string | null;
-  targetCompetencyType?: EmployeeTrainingTargetCompetencyType;
+  targetCompetencyType?: OrganizationTrainingTargetCompetencyType;
   targetCompetencyLevel?: number | null;
   evaluationMethod?: string | null;
   renewalMonths?: number | null;
   workloadHours?: number | null;
   completionDate?: string | null;
   expirationDate?: string | null;
-  status: EmployeeTrainingStatus;
+  status: OrganizationTrainingStatus;
+  effectivenessStatus?: OrganizationTrainingEffectivenessStatus;
   attachments: EmployeeRecordAttachment[];
   latestEffectivenessReview?: TrainingEffectivenessReview | null;
-  effectivenessReviews: TrainingEffectivenessReview[];
   createdAt?: string;
   updatedAt?: string;
 }

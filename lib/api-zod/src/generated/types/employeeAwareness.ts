@@ -13,6 +13,14 @@ export interface EmployeeAwareness {
   topic: string;
   description?: string | null;
   date: string;
+  policyDocumentId?: number | null;
+  policyDocumentTitle?: string | null;
+  documentId?: number | null;
+  documentTitle?: string | null;
+  processId?: number | null;
+  processName?: string | null;
+  objectiveId?: number | null;
+  objectiveLabel?: string | null;
   verificationMethod?: string | null;
   result?: string | null;
   attachments: EmployeeRecordAttachment[];

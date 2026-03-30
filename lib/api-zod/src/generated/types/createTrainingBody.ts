@@ -6,12 +6,24 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateTrainingBodyStatus } from "./createTrainingBodyStatus";
+import type { CreateTrainingBodyTargetCompetencyType } from "./createTrainingBodyTargetCompetencyType";
 import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
 
 export interface CreateTrainingBody {
   title: string;
   description?: string;
+  objective?: string;
   institution?: string;
+  targetCompetencyName?: string;
+  targetCompetencyType?: CreateTrainingBodyTargetCompetencyType;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  targetCompetencyLevel?: number;
+  evaluationMethod?: string;
+  /** @minimum 1 */
+  renewalMonths?: number;
   workloadHours?: number;
   completionDate?: string;
   expirationDate?: string;

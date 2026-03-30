@@ -26,8 +26,14 @@ tags:
     description: Employee competency tracking (ISO 9001:2015 §7.2)
   - name: trainings
     description: Employee training records (ISO 9001:2015 §7.2)
+  - name: training-effectiveness
+    description: Training effectiveness reviews and competency development evidence (ISO 9001:2015 §7.2.c)
   - name: awareness
     description: Employee awareness records (ISO 9001:2015 §7.3)
+  - name: competency-matrix
+    description: Position competency matrix and revisions (ISO 9001:2015 §7.2.a)
+  - name: competency-gaps
+    description: Computed competency adherence gaps by employee and team (ISO 9001:2015 §7.2.b)
   - name: employee-profile-items
     description: Employee professional experiences and education/certification items
   - name: employee-units
@@ -904,6 +910,259 @@ paths:
               schema:
                 $ref: "#/components/schemas/Employee"
 
+  /organizations/{orgId}/employees/trainings:
+    get:
+      operationId: listOrganizationTrainings
+      tags: [trainings]
+      summary: List trainings across the organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: employeeId
+          in: query
+          schema:
+            type: integer
+        - name: unitId
+          in: query
+          schema:
+            type: integer
+        - name: department
+          in: query
+          schema:
+            type: string
+        - name: position
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pendente, concluido, vencido]
+        - name: expiringWithinDays
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: effectivenessStatus
+          in: query
+          schema:
+            type: string
+            enum: [pending, effective, ineffective]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Organization training list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedOrganizationTrainings"
+
+  /organizations/{orgId}/employees/competency-gaps:
+    get:
+      operationId: listEmployeeCompetencyGaps
+      tags: [competency-gaps]
+      summary: List computed employee competency gaps
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: unitId
+          in: query
+          schema:
+            type: integer
+        - name: department
+          in: query
+          schema:
+            type: string
+        - name: position
+          in: query
+          schema:
+            type: string
+        - name: criticalOnly
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Employee competency gaps
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedEmployeeCompetencyGaps"
+
+  /organizations/{orgId}/employees/positions/{posId}/competency-requirements:
+    get:
+      operationId: listPositionCompetencyRequirements
+      tags: [competency-matrix]
+      summary: List competency requirements for a position
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: posId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Position competency requirements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PositionCompetencyRequirement"
+    post:
+      operationId: createPositionCompetencyRequirement
+      tags: [competency-matrix]
+      summary: Create competency requirement for a position
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: posId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePositionCompetencyRequirementBody"
+      responses:
+        "201":
+          description: Created position competency requirement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PositionCompetencyRequirement"
+
+  /organizations/{orgId}/employees/positions/{posId}/competency-requirements/{requirementId}:
+    patch:
+      operationId: updatePositionCompetencyRequirement
+      tags: [competency-matrix]
+      summary: Update competency requirement for a position
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: posId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: requirementId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePositionCompetencyRequirementBody"
+      responses:
+        "200":
+          description: Updated position competency requirement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PositionCompetencyRequirement"
+    delete:
+      operationId: deletePositionCompetencyRequirement
+      tags: [competency-matrix]
+      summary: Delete competency requirement for a position
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: posId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: requirementId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Position competency requirement deleted
+
+  /organizations/{orgId}/employees/positions/{posId}/competency-matrix-revisions:
+    get:
+      operationId: listPositionCompetencyMatrixRevisions
+      tags: [competency-matrix]
+      summary: List matrix revisions for a position
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: posId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Position competency matrix revisions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PositionCompetencyMatrixRevision"
+
   /organizations/{orgId}/employees/{empId}:
     get:
       operationId: getEmployee
@@ -1197,6 +1456,70 @@ paths:
       responses:
         "204":
           description: Training deleted
+
+  /organizations/{orgId}/employees/{empId}/trainings/{trainId}/effectiveness-reviews:
+    get:
+      operationId: listTrainingEffectivenessReviews
+      tags: [training-effectiveness]
+      summary: List effectiveness reviews for an employee training
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: trainId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Training effectiveness reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TrainingEffectivenessReview"
+    post:
+      operationId: createTrainingEffectivenessReview
+      tags: [training-effectiveness]
+      summary: Create effectiveness review for an employee training
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: empId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: trainId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTrainingEffectivenessReviewBody"
+      responses:
+        "201":
+          description: Created training effectiveness review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingEffectivenessReview"
 
   /organizations/{orgId}/employees/{empId}/awareness:
     get:
@@ -6548,8 +6871,27 @@ components:
         description:
           type: string
           nullable: true
+        objective:
+          type: string
+          nullable: true
         institution:
           type: string
+          nullable: true
+        targetCompetencyName:
+          type: string
+          nullable: true
+        targetCompetencyType:
+          type: string
+          nullable: true
+          enum: [formacao, experiencia, habilidade]
+        targetCompetencyLevel:
+          type: integer
+          nullable: true
+        evaluationMethod:
+          type: string
+          nullable: true
+        renewalMonths:
+          type: integer
           nullable: true
         workloadHours:
           type: integer
@@ -6567,6 +6909,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/EmployeeRecordAttachment"
+        latestEffectivenessReview:
+          allOf:
+            - $ref: "#/components/schemas/TrainingEffectivenessReview"
+          nullable: true
+        effectivenessReviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrainingEffectivenessReview"
         createdAt:
           type: string
           format: date-time
@@ -6576,6 +6926,93 @@ components:
       required:
         - id
         - employeeId
+        - title
+        - status
+        - attachments
+        - effectivenessReviews
+
+    OrganizationTraining:
+      type: object
+      properties:
+        id:
+          type: integer
+        employeeId:
+          type: integer
+        employeeName:
+          type: string
+        employeePosition:
+          type: string
+          nullable: true
+        employeeDepartment:
+          type: string
+          nullable: true
+        unitId:
+          type: integer
+          nullable: true
+        unitName:
+          type: string
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        objective:
+          type: string
+          nullable: true
+        institution:
+          type: string
+          nullable: true
+        targetCompetencyName:
+          type: string
+          nullable: true
+        targetCompetencyType:
+          type: string
+          nullable: true
+          enum: [formacao, experiencia, habilidade]
+        targetCompetencyLevel:
+          type: integer
+          nullable: true
+        evaluationMethod:
+          type: string
+          nullable: true
+        renewalMonths:
+          type: integer
+          nullable: true
+        workloadHours:
+          type: integer
+          nullable: true
+        completionDate:
+          type: string
+          nullable: true
+        expirationDate:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pendente, concluido, vencido]
+        effectivenessStatus:
+          type: string
+          nullable: true
+          enum: [pending, effective, ineffective]
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
+        latestEffectivenessReview:
+          allOf:
+            - $ref: "#/components/schemas/TrainingEffectivenessReview"
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - employeeId
+        - employeeName
         - title
         - status
         - attachments
@@ -6594,6 +7031,30 @@ components:
           nullable: true
         date:
           type: string
+        policyDocumentId:
+          type: integer
+          nullable: true
+        policyDocumentTitle:
+          type: string
+          nullable: true
+        documentId:
+          type: integer
+          nullable: true
+        documentTitle:
+          type: string
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        processName:
+          type: string
+          nullable: true
+        objectiveId:
+          type: integer
+          nullable: true
+        objectiveLabel:
+          type: string
+          nullable: true
         verificationMethod:
           type: string
           nullable: true
@@ -6616,6 +7077,223 @@ components:
         - topic
         - date
         - attachments
+
+    TrainingEffectivenessReview:
+      type: object
+      properties:
+        id:
+          type: integer
+        trainingId:
+          type: integer
+        evaluatorUserId:
+          type: integer
+        evaluatorName:
+          type: string
+          nullable: true
+        evaluationDate:
+          type: string
+          format: date
+        score:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 10
+        isEffective:
+          type: boolean
+          nullable: true
+        resultLevel:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 5
+        comments:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - trainingId
+        - evaluatorUserId
+        - evaluationDate
+        - attachments
+
+    PositionCompetencyRequirement:
+      type: object
+      properties:
+        id:
+          type: integer
+        positionId:
+          type: integer
+        competencyName:
+          type: string
+        competencyType:
+          type: string
+          enum: [formacao, experiencia, habilidade]
+        requiredLevel:
+          type: integer
+          minimum: 0
+          maximum: 5
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          minimum: 0
+        createdById:
+          type: integer
+        updatedById:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - positionId
+        - competencyName
+        - competencyType
+        - requiredLevel
+        - sortOrder
+        - createdById
+        - updatedById
+
+    PositionCompetencyMatrixRevision:
+      type: object
+      properties:
+        id:
+          type: integer
+        positionId:
+          type: integer
+        revisionNumber:
+          type: integer
+        createdById:
+          type: integer
+        createdByName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        snapshot:
+          type: array
+          items:
+            $ref: "#/components/schemas/PositionCompetencyRequirement"
+      required:
+        - id
+        - positionId
+        - revisionNumber
+        - createdById
+        - snapshot
+
+    EmployeeCompetencyGap:
+      type: object
+      properties:
+        employeeId:
+          type: integer
+        employeeName:
+          type: string
+        employeePosition:
+          type: string
+          nullable: true
+        employeeDepartment:
+          type: string
+          nullable: true
+        unitId:
+          type: integer
+          nullable: true
+        unitName:
+          type: string
+          nullable: true
+        positionId:
+          type: integer
+          nullable: true
+        competencyName:
+          type: string
+        competencyType:
+          type: string
+          enum: [formacao, experiencia, habilidade]
+        requiredLevel:
+          type: integer
+        acquiredLevel:
+          type: integer
+        gapLevel:
+          type: integer
+        critical:
+          type: boolean
+        relatedTrainingCount:
+          type: integer
+      required:
+        - employeeId
+        - employeeName
+        - competencyName
+        - competencyType
+        - requiredLevel
+        - acquiredLevel
+        - gapLevel
+        - critical
+        - relatedTrainingCount
+
+    PaginatedOrganizationTrainings:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrganizationTraining"
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            pageSize:
+              type: integer
+            total:
+              type: integer
+            totalPages:
+              type: integer
+          required:
+            - page
+            - pageSize
+            - total
+            - totalPages
+      required:
+        - data
+        - pagination
+
+    PaginatedEmployeeCompetencyGaps:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployeeCompetencyGap"
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            pageSize:
+              type: integer
+            total:
+              type: integer
+            totalPages:
+              type: integer
+          required:
+            - page
+            - pageSize
+            - total
+            - totalPages
+      required:
+        - data
+        - pagination
 
     PaginatedEmployees:
       type: object
@@ -6877,8 +7555,24 @@ components:
           type: string
         description:
           type: string
+        objective:
+          type: string
         institution:
           type: string
+        targetCompetencyName:
+          type: string
+        targetCompetencyType:
+          type: string
+          enum: [formacao, experiencia, habilidade]
+        targetCompetencyLevel:
+          type: integer
+          minimum: 0
+          maximum: 5
+        evaluationMethod:
+          type: string
+        renewalMonths:
+          type: integer
+          minimum: 1
         workloadHours:
           type: integer
         completionDate:
@@ -6905,6 +7599,18 @@ components:
           type: string
         date:
           type: string
+        policyDocumentId:
+          type: integer
+          nullable: true
+        documentId:
+          type: integer
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        objectiveId:
+          type: integer
+          nullable: true
         verificationMethod:
           type: string
         result:
@@ -6951,8 +7657,24 @@ components:
           type: string
         description:
           type: string
+        objective:
+          type: string
         institution:
           type: string
+        targetCompetencyName:
+          type: string
+        targetCompetencyType:
+          type: string
+          enum: [formacao, experiencia, habilidade]
+        targetCompetencyLevel:
+          type: integer
+          minimum: 0
+          maximum: 5
+        evaluationMethod:
+          type: string
+        renewalMonths:
+          type: integer
+          minimum: 1
         workloadHours:
           type: integer
         completionDate:
@@ -6977,6 +7699,18 @@ components:
           type: string
         date:
           type: string
+        policyDocumentId:
+          type: integer
+          nullable: true
+        documentId:
+          type: integer
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        objectiveId:
+          type: integer
+          nullable: true
         verificationMethod:
           type: string
         result:
@@ -6986,6 +7720,75 @@ components:
           maxItems: 10
           items:
             $ref: "#/components/schemas/EmployeeRecordAttachment"
+
+    CreateTrainingEffectivenessReviewBody:
+      type: object
+      properties:
+        evaluationDate:
+          type: string
+          format: date
+        score:
+          type: integer
+          minimum: 0
+          maximum: 10
+        isEffective:
+          type: boolean
+        resultLevel:
+          type: integer
+          minimum: 0
+          maximum: 5
+        comments:
+          type: string
+        attachments:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/EmployeeRecordAttachment"
+      required:
+        - evaluationDate
+        - isEffective
+
+    CreatePositionCompetencyRequirementBody:
+      type: object
+      properties:
+        competencyName:
+          type: string
+          minLength: 1
+        competencyType:
+          type: string
+          enum: [formacao, experiencia, habilidade]
+        requiredLevel:
+          type: integer
+          minimum: 0
+          maximum: 5
+        notes:
+          type: string
+        sortOrder:
+          type: integer
+          minimum: 0
+      required:
+        - competencyName
+        - competencyType
+        - requiredLevel
+
+    UpdatePositionCompetencyRequirementBody:
+      type: object
+      properties:
+        competencyName:
+          type: string
+          minLength: 1
+        competencyType:
+          type: string
+          enum: [formacao, experiencia, habilidade]
+        requiredLevel:
+          type: integer
+          minimum: 0
+          maximum: 5
+        notes:
+          type: string
+        sortOrder:
+          type: integer
+          minimum: 0
 
     Department:
       type: object

@@ -11,6 +11,10 @@ export interface UpdateAwarenessBody {
   topic?: string;
   description?: string;
   date?: string;
+  policyDocumentId?: number | null;
+  documentId?: number | null;
+  processId?: number | null;
+  objectiveId?: number | null;
   verificationMethod?: string;
   result?: string;
   /** @maxItems 10 */

@@ -7,16 +7,20 @@
  */
 import type { EmployeeRecordAttachment } from "./employeeRecordAttachment";
 
-export interface CreateAwarenessBody {
-  topic: string;
-  description?: string;
-  date: string;
-  policyDocumentId?: number | null;
-  documentId?: number | null;
-  processId?: number | null;
-  objectiveId?: number | null;
-  verificationMethod?: string;
-  result?: string;
+export interface CreateTrainingEffectivenessReviewBody {
+  evaluationDate: string;
+  /**
+   * @minimum 0
+   * @maximum 10
+   */
+  score?: number;
+  isEffective: boolean;
+  /**
+   * @minimum 0
+   * @maximum 5
+   */
+  resultLevel?: number;
+  comments?: string;
   /** @maxItems 10 */
   attachments?: EmployeeRecordAttachment[];
 }

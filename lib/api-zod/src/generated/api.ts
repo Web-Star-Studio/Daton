@@ -1489,6 +1489,378 @@ export const CreateEmployeeBody = zod.object({
 });
 
 /**
+ * @summary List trainings across the organization
+ */
+export const ListOrganizationTrainingsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const listOrganizationTrainingsQueryPageSizeMax = 100;
+
+export const ListOrganizationTrainingsQueryParams = zod.object({
+  search: zod.coerce.string().optional(),
+  employeeId: zod.coerce.number().optional(),
+  unitId: zod.coerce.number().optional(),
+  department: zod.coerce.string().optional(),
+  position: zod.coerce.string().optional(),
+  status: zod.enum(["pendente", "concluido", "vencido"]).optional(),
+  expiringWithinDays: zod.coerce.number().min(1).optional(),
+  effectivenessStatus: zod
+    .enum(["pending", "effective", "ineffective"])
+    .optional(),
+  page: zod.coerce.number().min(1).optional(),
+  pageSize: zod.coerce
+    .number()
+    .min(1)
+    .max(listOrganizationTrainingsQueryPageSizeMax)
+    .optional(),
+});
+
+export const listOrganizationTrainingsResponseDataItemAttachmentsItemFileSizeMax = 20971520;
+
+export const listOrganizationTrainingsResponseDataItemAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneScoreMin = 0;
+export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneScoreMax = 10;
+
+export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneResultLevelMin = 0;
+export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneResultLevelMax = 5;
+
+export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
+
+export const listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const ListOrganizationTrainingsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      employeeId: zod.number(),
+      employeeName: zod.string(),
+      employeePosition: zod.string().nullish(),
+      employeeDepartment: zod.string().nullish(),
+      unitId: zod.number().nullish(),
+      unitName: zod.string().nullish(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      objective: zod.string().nullish(),
+      institution: zod.string().nullish(),
+      targetCompetencyName: zod.string().nullish(),
+      targetCompetencyType: zod
+        .enum(["formacao", "experiencia", "habilidade"])
+        .nullish(),
+      targetCompetencyLevel: zod.number().nullish(),
+      evaluationMethod: zod.string().nullish(),
+      renewalMonths: zod.number().nullish(),
+      workloadHours: zod.number().nullish(),
+      completionDate: zod.string().nullish(),
+      expirationDate: zod.string().nullish(),
+      status: zod.enum(["pendente", "concluido", "vencido"]),
+      effectivenessStatus: zod
+        .enum(["pending", "effective", "ineffective"])
+        .nullish(),
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(
+              listOrganizationTrainingsResponseDataItemAttachmentsItemFileSizeMax,
+            ),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              listOrganizationTrainingsResponseDataItemAttachmentsItemObjectPathRegExp,
+            ),
+        }),
+      ),
+      latestEffectivenessReview: zod
+        .object({
+          id: zod.number(),
+          trainingId: zod.number(),
+          evaluatorUserId: zod.number(),
+          evaluatorName: zod.string().nullish(),
+          evaluationDate: zod.string().date(),
+          score: zod
+            .number()
+            .min(
+              listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneScoreMin,
+            )
+            .max(
+              listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneScoreMax,
+            )
+            .nullish(),
+          isEffective: zod.boolean().nullish(),
+          resultLevel: zod
+            .number()
+            .min(
+              listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneResultLevelMin,
+            )
+            .max(
+              listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneResultLevelMax,
+            )
+            .nullish(),
+          comments: zod.string().nullish(),
+          attachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneAttachmentsItemFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  listOrganizationTrainingsResponseDataItemLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp,
+                ),
+            }),
+          ),
+          createdAt: zod.string().datetime({}).optional(),
+        })
+        .nullish(),
+      createdAt: zod.string().datetime({}).optional(),
+      updatedAt: zod.string().datetime({}).optional(),
+    }),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    pageSize: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary List computed employee competency gaps
+ */
+export const ListEmployeeCompetencyGapsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const listEmployeeCompetencyGapsQueryPageSizeMax = 100;
+
+export const ListEmployeeCompetencyGapsQueryParams = zod.object({
+  search: zod.coerce.string().optional(),
+  unitId: zod.coerce.number().optional(),
+  department: zod.coerce.string().optional(),
+  position: zod.coerce.string().optional(),
+  criticalOnly: zod.coerce.boolean().optional(),
+  page: zod.coerce.number().min(1).optional(),
+  pageSize: zod.coerce
+    .number()
+    .min(1)
+    .max(listEmployeeCompetencyGapsQueryPageSizeMax)
+    .optional(),
+});
+
+export const ListEmployeeCompetencyGapsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      employeeId: zod.number(),
+      employeeName: zod.string(),
+      employeePosition: zod.string().nullish(),
+      employeeDepartment: zod.string().nullish(),
+      unitId: zod.number().nullish(),
+      unitName: zod.string().nullish(),
+      positionId: zod.number().nullish(),
+      competencyName: zod.string(),
+      competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+      requiredLevel: zod.number(),
+      acquiredLevel: zod.number(),
+      gapLevel: zod.number(),
+      critical: zod.boolean(),
+      relatedTrainingCount: zod.number(),
+    }),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    pageSize: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary List competency requirements for a position
+ */
+export const ListPositionCompetencyRequirementsParams = zod.object({
+  orgId: zod.coerce.number(),
+  posId: zod.coerce.number(),
+});
+
+export const listPositionCompetencyRequirementsResponseRequiredLevelMin = 0;
+export const listPositionCompetencyRequirementsResponseRequiredLevelMax = 5;
+
+export const listPositionCompetencyRequirementsResponseSortOrderMin = 0;
+
+export const ListPositionCompetencyRequirementsResponseItem = zod.object({
+  id: zod.number(),
+  positionId: zod.number(),
+  competencyName: zod.string(),
+  competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+  requiredLevel: zod
+    .number()
+    .min(listPositionCompetencyRequirementsResponseRequiredLevelMin)
+    .max(listPositionCompetencyRequirementsResponseRequiredLevelMax),
+  notes: zod.string().nullish(),
+  sortOrder: zod
+    .number()
+    .min(listPositionCompetencyRequirementsResponseSortOrderMin),
+  createdById: zod.number(),
+  updatedById: zod.number(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+export const ListPositionCompetencyRequirementsResponse = zod.array(
+  ListPositionCompetencyRequirementsResponseItem,
+);
+
+/**
+ * @summary Create competency requirement for a position
+ */
+export const CreatePositionCompetencyRequirementParams = zod.object({
+  orgId: zod.coerce.number(),
+  posId: zod.coerce.number(),
+});
+
+export const createPositionCompetencyRequirementBodyRequiredLevelMin = 0;
+export const createPositionCompetencyRequirementBodyRequiredLevelMax = 5;
+
+export const createPositionCompetencyRequirementBodySortOrderMin = 0;
+
+export const CreatePositionCompetencyRequirementBody = zod.object({
+  competencyName: zod.string().min(1),
+  competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+  requiredLevel: zod
+    .number()
+    .min(createPositionCompetencyRequirementBodyRequiredLevelMin)
+    .max(createPositionCompetencyRequirementBodyRequiredLevelMax),
+  notes: zod.string().optional(),
+  sortOrder: zod
+    .number()
+    .min(createPositionCompetencyRequirementBodySortOrderMin)
+    .optional(),
+});
+
+/**
+ * @summary Update competency requirement for a position
+ */
+export const UpdatePositionCompetencyRequirementParams = zod.object({
+  orgId: zod.coerce.number(),
+  posId: zod.coerce.number(),
+  requirementId: zod.coerce.number(),
+});
+
+export const updatePositionCompetencyRequirementBodyRequiredLevelMin = 0;
+export const updatePositionCompetencyRequirementBodyRequiredLevelMax = 5;
+
+export const updatePositionCompetencyRequirementBodySortOrderMin = 0;
+
+export const UpdatePositionCompetencyRequirementBody = zod.object({
+  competencyName: zod.string().min(1).optional(),
+  competencyType: zod
+    .enum(["formacao", "experiencia", "habilidade"])
+    .optional(),
+  requiredLevel: zod
+    .number()
+    .min(updatePositionCompetencyRequirementBodyRequiredLevelMin)
+    .max(updatePositionCompetencyRequirementBodyRequiredLevelMax)
+    .optional(),
+  notes: zod.string().optional(),
+  sortOrder: zod
+    .number()
+    .min(updatePositionCompetencyRequirementBodySortOrderMin)
+    .optional(),
+});
+
+export const updatePositionCompetencyRequirementResponseRequiredLevelMin = 0;
+export const updatePositionCompetencyRequirementResponseRequiredLevelMax = 5;
+
+export const updatePositionCompetencyRequirementResponseSortOrderMin = 0;
+
+export const UpdatePositionCompetencyRequirementResponse = zod.object({
+  id: zod.number(),
+  positionId: zod.number(),
+  competencyName: zod.string(),
+  competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+  requiredLevel: zod
+    .number()
+    .min(updatePositionCompetencyRequirementResponseRequiredLevelMin)
+    .max(updatePositionCompetencyRequirementResponseRequiredLevelMax),
+  notes: zod.string().nullish(),
+  sortOrder: zod
+    .number()
+    .min(updatePositionCompetencyRequirementResponseSortOrderMin),
+  createdById: zod.number(),
+  updatedById: zod.number(),
+  createdAt: zod.string().datetime({}).optional(),
+  updatedAt: zod.string().datetime({}).optional(),
+});
+
+/**
+ * @summary Delete competency requirement for a position
+ */
+export const DeletePositionCompetencyRequirementParams = zod.object({
+  orgId: zod.coerce.number(),
+  posId: zod.coerce.number(),
+  requirementId: zod.coerce.number(),
+});
+
+/**
+ * @summary List matrix revisions for a position
+ */
+export const ListPositionCompetencyMatrixRevisionsParams = zod.object({
+  orgId: zod.coerce.number(),
+  posId: zod.coerce.number(),
+});
+
+export const listPositionCompetencyMatrixRevisionsResponseSnapshotItemRequiredLevelMin = 0;
+export const listPositionCompetencyMatrixRevisionsResponseSnapshotItemRequiredLevelMax = 5;
+
+export const listPositionCompetencyMatrixRevisionsResponseSnapshotItemSortOrderMin = 0;
+
+export const ListPositionCompetencyMatrixRevisionsResponseItem = zod.object({
+  id: zod.number(),
+  positionId: zod.number(),
+  revisionNumber: zod.number(),
+  createdById: zod.number(),
+  createdByName: zod.string().nullish(),
+  createdAt: zod.string().datetime({}).optional(),
+  snapshot: zod.array(
+    zod.object({
+      id: zod.number(),
+      positionId: zod.number(),
+      competencyName: zod.string(),
+      competencyType: zod.enum(["formacao", "experiencia", "habilidade"]),
+      requiredLevel: zod
+        .number()
+        .min(
+          listPositionCompetencyMatrixRevisionsResponseSnapshotItemRequiredLevelMin,
+        )
+        .max(
+          listPositionCompetencyMatrixRevisionsResponseSnapshotItemRequiredLevelMax,
+        ),
+      notes: zod.string().nullish(),
+      sortOrder: zod
+        .number()
+        .min(
+          listPositionCompetencyMatrixRevisionsResponseSnapshotItemSortOrderMin,
+        ),
+      createdById: zod.number(),
+      updatedById: zod.number(),
+      createdAt: zod.string().datetime({}).optional(),
+      updatedAt: zod.string().datetime({}).optional(),
+    }),
+  ),
+});
+export const ListPositionCompetencyMatrixRevisionsResponse = zod.array(
+  ListPositionCompetencyMatrixRevisionsResponseItem,
+);
+
+/**
  * @summary Get employee with competencies, trainings, awareness
  */
 export const GetEmployeeParams = zod.object({
@@ -1509,6 +1881,26 @@ export const getEmployeeResponseTwoCompetenciesItemAttachmentsItemObjectPathRegE
 export const getEmployeeResponseTwoTrainingsItemAttachmentsItemFileSizeMax = 20971520;
 
 export const getEmployeeResponseTwoTrainingsItemAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneScoreMin = 0;
+export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneScoreMax = 10;
+
+export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneResultLevelMin = 0;
+export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneResultLevelMax = 5;
+
+export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
+
+export const getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemScoreMin = 0;
+export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemScoreMax = 10;
+
+export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemResultLevelMin = 0;
+export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemResultLevelMax = 5;
+
+export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemAttachmentsItemFileSizeMax = 20971520;
+
+export const getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemAttachmentsItemObjectPathRegExp =
   new RegExp("^\/objects\/uploads\/.+");
 export const getEmployeeResponseTwoAwarenessItemAttachmentsItemFileSizeMax = 20971520;
 
@@ -1589,7 +1981,15 @@ export const GetEmployeeResponse = zod
             employeeId: zod.number(),
             title: zod.string(),
             description: zod.string().nullish(),
+            objective: zod.string().nullish(),
             institution: zod.string().nullish(),
+            targetCompetencyName: zod.string().nullish(),
+            targetCompetencyType: zod
+              .enum(["formacao", "experiencia", "habilidade"])
+              .nullish(),
+            targetCompetencyLevel: zod.number().nullish(),
+            evaluationMethod: zod.string().nullish(),
+            renewalMonths: zod.number().nullish(),
             workloadHours: zod.number().nullish(),
             completionDate: zod.string().nullish(),
             expirationDate: zod.string().nullish(),
@@ -1610,6 +2010,98 @@ export const GetEmployeeResponse = zod
                   ),
               }),
             ),
+            latestEffectivenessReview: zod
+              .object({
+                id: zod.number(),
+                trainingId: zod.number(),
+                evaluatorUserId: zod.number(),
+                evaluatorName: zod.string().nullish(),
+                evaluationDate: zod.string().date(),
+                score: zod
+                  .number()
+                  .min(
+                    getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneScoreMin,
+                  )
+                  .max(
+                    getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneScoreMax,
+                  )
+                  .nullish(),
+                isEffective: zod.boolean().nullish(),
+                resultLevel: zod
+                  .number()
+                  .min(
+                    getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneResultLevelMin,
+                  )
+                  .max(
+                    getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneResultLevelMax,
+                  )
+                  .nullish(),
+                comments: zod.string().nullish(),
+                attachments: zod.array(
+                  zod.object({
+                    fileName: zod.string(),
+                    fileSize: zod
+                      .number()
+                      .max(
+                        getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneAttachmentsItemFileSizeMax,
+                      ),
+                    contentType: zod.string(),
+                    objectPath: zod
+                      .string()
+                      .regex(
+                        getEmployeeResponseTwoTrainingsItemLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp,
+                      ),
+                  }),
+                ),
+                createdAt: zod.string().datetime({}).optional(),
+              })
+              .nullish(),
+            effectivenessReviews: zod.array(
+              zod.object({
+                id: zod.number(),
+                trainingId: zod.number(),
+                evaluatorUserId: zod.number(),
+                evaluatorName: zod.string().nullish(),
+                evaluationDate: zod.string().date(),
+                score: zod
+                  .number()
+                  .min(
+                    getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemScoreMin,
+                  )
+                  .max(
+                    getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemScoreMax,
+                  )
+                  .nullish(),
+                isEffective: zod.boolean().nullish(),
+                resultLevel: zod
+                  .number()
+                  .min(
+                    getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemResultLevelMin,
+                  )
+                  .max(
+                    getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemResultLevelMax,
+                  )
+                  .nullish(),
+                comments: zod.string().nullish(),
+                attachments: zod.array(
+                  zod.object({
+                    fileName: zod.string(),
+                    fileSize: zod
+                      .number()
+                      .max(
+                        getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemAttachmentsItemFileSizeMax,
+                      ),
+                    contentType: zod.string(),
+                    objectPath: zod
+                      .string()
+                      .regex(
+                        getEmployeeResponseTwoTrainingsItemEffectivenessReviewsItemAttachmentsItemObjectPathRegExp,
+                      ),
+                  }),
+                ),
+                createdAt: zod.string().datetime({}).optional(),
+              }),
+            ),
             createdAt: zod.string().datetime({}).optional(),
             updatedAt: zod.string().datetime({}).optional(),
           }),
@@ -1623,6 +2115,14 @@ export const GetEmployeeResponse = zod
             topic: zod.string(),
             description: zod.string().nullish(),
             date: zod.string(),
+            policyDocumentId: zod.number().nullish(),
+            policyDocumentTitle: zod.string().nullish(),
+            documentId: zod.number().nullish(),
+            documentTitle: zod.string().nullish(),
+            processId: zod.number().nullish(),
+            processName: zod.string().nullish(),
+            objectiveId: zod.number().nullish(),
+            objectiveLabel: zod.string().nullish(),
             verificationMethod: zod.string().nullish(),
             result: zod.string().nullish(),
             attachments: zod.array(
@@ -1974,13 +2474,41 @@ export const listTrainingsResponseAttachmentsItemFileSizeMax = 20971520;
 export const listTrainingsResponseAttachmentsItemObjectPathRegExp = new RegExp(
   "^\/objects\/uploads\/.+",
 );
+export const listTrainingsResponseLatestEffectivenessReviewOneScoreMin = 0;
+export const listTrainingsResponseLatestEffectivenessReviewOneScoreMax = 10;
+
+export const listTrainingsResponseLatestEffectivenessReviewOneResultLevelMin = 0;
+export const listTrainingsResponseLatestEffectivenessReviewOneResultLevelMax = 5;
+
+export const listTrainingsResponseLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
+
+export const listTrainingsResponseLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const listTrainingsResponseEffectivenessReviewsItemScoreMin = 0;
+export const listTrainingsResponseEffectivenessReviewsItemScoreMax = 10;
+
+export const listTrainingsResponseEffectivenessReviewsItemResultLevelMin = 0;
+export const listTrainingsResponseEffectivenessReviewsItemResultLevelMax = 5;
+
+export const listTrainingsResponseEffectivenessReviewsItemAttachmentsItemFileSizeMax = 20971520;
+
+export const listTrainingsResponseEffectivenessReviewsItemAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
 
 export const ListTrainingsResponseItem = zod.object({
   id: zod.number(),
   employeeId: zod.number(),
   title: zod.string(),
   description: zod.string().nullish(),
+  objective: zod.string().nullish(),
   institution: zod.string().nullish(),
+  targetCompetencyName: zod.string().nullish(),
+  targetCompetencyType: zod
+    .enum(["formacao", "experiencia", "habilidade"])
+    .nullish(),
+  targetCompetencyLevel: zod.number().nullish(),
+  evaluationMethod: zod.string().nullish(),
+  renewalMonths: zod.number().nullish(),
   workloadHours: zod.number().nullish(),
   completionDate: zod.string().nullish(),
   expirationDate: zod.string().nullish(),
@@ -1997,6 +2525,82 @@ export const ListTrainingsResponseItem = zod.object({
         .regex(listTrainingsResponseAttachmentsItemObjectPathRegExp),
     }),
   ),
+  latestEffectivenessReview: zod
+    .object({
+      id: zod.number(),
+      trainingId: zod.number(),
+      evaluatorUserId: zod.number(),
+      evaluatorName: zod.string().nullish(),
+      evaluationDate: zod.string().date(),
+      score: zod
+        .number()
+        .min(listTrainingsResponseLatestEffectivenessReviewOneScoreMin)
+        .max(listTrainingsResponseLatestEffectivenessReviewOneScoreMax)
+        .nullish(),
+      isEffective: zod.boolean().nullish(),
+      resultLevel: zod
+        .number()
+        .min(listTrainingsResponseLatestEffectivenessReviewOneResultLevelMin)
+        .max(listTrainingsResponseLatestEffectivenessReviewOneResultLevelMax)
+        .nullish(),
+      comments: zod.string().nullish(),
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(
+              listTrainingsResponseLatestEffectivenessReviewOneAttachmentsItemFileSizeMax,
+            ),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              listTrainingsResponseLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp,
+            ),
+        }),
+      ),
+      createdAt: zod.string().datetime({}).optional(),
+    })
+    .nullish(),
+  effectivenessReviews: zod.array(
+    zod.object({
+      id: zod.number(),
+      trainingId: zod.number(),
+      evaluatorUserId: zod.number(),
+      evaluatorName: zod.string().nullish(),
+      evaluationDate: zod.string().date(),
+      score: zod
+        .number()
+        .min(listTrainingsResponseEffectivenessReviewsItemScoreMin)
+        .max(listTrainingsResponseEffectivenessReviewsItemScoreMax)
+        .nullish(),
+      isEffective: zod.boolean().nullish(),
+      resultLevel: zod
+        .number()
+        .min(listTrainingsResponseEffectivenessReviewsItemResultLevelMin)
+        .max(listTrainingsResponseEffectivenessReviewsItemResultLevelMax)
+        .nullish(),
+      comments: zod.string().nullish(),
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(
+              listTrainingsResponseEffectivenessReviewsItemAttachmentsItemFileSizeMax,
+            ),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              listTrainingsResponseEffectivenessReviewsItemAttachmentsItemObjectPathRegExp,
+            ),
+        }),
+      ),
+      createdAt: zod.string().datetime({}).optional(),
+    }),
+  ),
   createdAt: zod.string().datetime({}).optional(),
   updatedAt: zod.string().datetime({}).optional(),
 });
@@ -2010,6 +2614,9 @@ export const CreateTrainingParams = zod.object({
   empId: zod.coerce.number(),
 });
 
+export const createTrainingBodyTargetCompetencyLevelMin = 0;
+export const createTrainingBodyTargetCompetencyLevelMax = 5;
+
 export const createTrainingBodyAttachmentsItemFileSizeMax = 20971520;
 
 export const createTrainingBodyAttachmentsItemObjectPathRegExp = new RegExp(
@@ -2020,7 +2627,19 @@ export const createTrainingBodyAttachmentsMax = 10;
 export const CreateTrainingBody = zod.object({
   title: zod.string(),
   description: zod.string().optional(),
+  objective: zod.string().optional(),
   institution: zod.string().optional(),
+  targetCompetencyName: zod.string().optional(),
+  targetCompetencyType: zod
+    .enum(["formacao", "experiencia", "habilidade"])
+    .optional(),
+  targetCompetencyLevel: zod
+    .number()
+    .min(createTrainingBodyTargetCompetencyLevelMin)
+    .max(createTrainingBodyTargetCompetencyLevelMax)
+    .optional(),
+  evaluationMethod: zod.string().optional(),
+  renewalMonths: zod.number().min(1).optional(),
   workloadHours: zod.number().optional(),
   completionDate: zod.string().optional(),
   expirationDate: zod.string().optional(),
@@ -2051,6 +2670,9 @@ export const UpdateTrainingParams = zod.object({
   trainId: zod.coerce.number(),
 });
 
+export const updateTrainingBodyTargetCompetencyLevelMin = 0;
+export const updateTrainingBodyTargetCompetencyLevelMax = 5;
+
 export const updateTrainingBodyAttachmentsItemFileSizeMax = 20971520;
 
 export const updateTrainingBodyAttachmentsItemObjectPathRegExp = new RegExp(
@@ -2061,7 +2683,19 @@ export const updateTrainingBodyAttachmentsMax = 10;
 export const UpdateTrainingBody = zod.object({
   title: zod.string().optional(),
   description: zod.string().optional(),
+  objective: zod.string().optional(),
   institution: zod.string().optional(),
+  targetCompetencyName: zod.string().optional(),
+  targetCompetencyType: zod
+    .enum(["formacao", "experiencia", "habilidade"])
+    .optional(),
+  targetCompetencyLevel: zod
+    .number()
+    .min(updateTrainingBodyTargetCompetencyLevelMin)
+    .max(updateTrainingBodyTargetCompetencyLevelMax)
+    .optional(),
+  evaluationMethod: zod.string().optional(),
+  renewalMonths: zod.number().min(1).optional(),
   workloadHours: zod.number().optional(),
   completionDate: zod.string().optional(),
   expirationDate: zod.string().optional(),
@@ -2088,13 +2722,41 @@ export const updateTrainingResponseAttachmentsItemFileSizeMax = 20971520;
 export const updateTrainingResponseAttachmentsItemObjectPathRegExp = new RegExp(
   "^\/objects\/uploads\/.+",
 );
+export const updateTrainingResponseLatestEffectivenessReviewOneScoreMin = 0;
+export const updateTrainingResponseLatestEffectivenessReviewOneScoreMax = 10;
+
+export const updateTrainingResponseLatestEffectivenessReviewOneResultLevelMin = 0;
+export const updateTrainingResponseLatestEffectivenessReviewOneResultLevelMax = 5;
+
+export const updateTrainingResponseLatestEffectivenessReviewOneAttachmentsItemFileSizeMax = 20971520;
+
+export const updateTrainingResponseLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const updateTrainingResponseEffectivenessReviewsItemScoreMin = 0;
+export const updateTrainingResponseEffectivenessReviewsItemScoreMax = 10;
+
+export const updateTrainingResponseEffectivenessReviewsItemResultLevelMin = 0;
+export const updateTrainingResponseEffectivenessReviewsItemResultLevelMax = 5;
+
+export const updateTrainingResponseEffectivenessReviewsItemAttachmentsItemFileSizeMax = 20971520;
+
+export const updateTrainingResponseEffectivenessReviewsItemAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
 
 export const UpdateTrainingResponse = zod.object({
   id: zod.number(),
   employeeId: zod.number(),
   title: zod.string(),
   description: zod.string().nullish(),
+  objective: zod.string().nullish(),
   institution: zod.string().nullish(),
+  targetCompetencyName: zod.string().nullish(),
+  targetCompetencyType: zod
+    .enum(["formacao", "experiencia", "habilidade"])
+    .nullish(),
+  targetCompetencyLevel: zod.number().nullish(),
+  evaluationMethod: zod.string().nullish(),
+  renewalMonths: zod.number().nullish(),
   workloadHours: zod.number().nullish(),
   completionDate: zod.string().nullish(),
   expirationDate: zod.string().nullish(),
@@ -2111,6 +2773,82 @@ export const UpdateTrainingResponse = zod.object({
         .regex(updateTrainingResponseAttachmentsItemObjectPathRegExp),
     }),
   ),
+  latestEffectivenessReview: zod
+    .object({
+      id: zod.number(),
+      trainingId: zod.number(),
+      evaluatorUserId: zod.number(),
+      evaluatorName: zod.string().nullish(),
+      evaluationDate: zod.string().date(),
+      score: zod
+        .number()
+        .min(updateTrainingResponseLatestEffectivenessReviewOneScoreMin)
+        .max(updateTrainingResponseLatestEffectivenessReviewOneScoreMax)
+        .nullish(),
+      isEffective: zod.boolean().nullish(),
+      resultLevel: zod
+        .number()
+        .min(updateTrainingResponseLatestEffectivenessReviewOneResultLevelMin)
+        .max(updateTrainingResponseLatestEffectivenessReviewOneResultLevelMax)
+        .nullish(),
+      comments: zod.string().nullish(),
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(
+              updateTrainingResponseLatestEffectivenessReviewOneAttachmentsItemFileSizeMax,
+            ),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              updateTrainingResponseLatestEffectivenessReviewOneAttachmentsItemObjectPathRegExp,
+            ),
+        }),
+      ),
+      createdAt: zod.string().datetime({}).optional(),
+    })
+    .nullish(),
+  effectivenessReviews: zod.array(
+    zod.object({
+      id: zod.number(),
+      trainingId: zod.number(),
+      evaluatorUserId: zod.number(),
+      evaluatorName: zod.string().nullish(),
+      evaluationDate: zod.string().date(),
+      score: zod
+        .number()
+        .min(updateTrainingResponseEffectivenessReviewsItemScoreMin)
+        .max(updateTrainingResponseEffectivenessReviewsItemScoreMax)
+        .nullish(),
+      isEffective: zod.boolean().nullish(),
+      resultLevel: zod
+        .number()
+        .min(updateTrainingResponseEffectivenessReviewsItemResultLevelMin)
+        .max(updateTrainingResponseEffectivenessReviewsItemResultLevelMax)
+        .nullish(),
+      comments: zod.string().nullish(),
+      attachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(
+              updateTrainingResponseEffectivenessReviewsItemAttachmentsItemFileSizeMax,
+            ),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              updateTrainingResponseEffectivenessReviewsItemAttachmentsItemObjectPathRegExp,
+            ),
+        }),
+      ),
+      createdAt: zod.string().datetime({}).optional(),
+    }),
+  ),
   createdAt: zod.string().datetime({}).optional(),
   updatedAt: zod.string().datetime({}).optional(),
 });
@@ -2122,6 +2860,120 @@ export const DeleteTrainingParams = zod.object({
   orgId: zod.coerce.number(),
   empId: zod.coerce.number(),
   trainId: zod.coerce.number(),
+});
+
+/**
+ * @summary List effectiveness reviews for an employee training
+ */
+export const ListTrainingEffectivenessReviewsParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+  trainId: zod.coerce.number(),
+});
+
+export const listTrainingEffectivenessReviewsResponseScoreMin = 0;
+export const listTrainingEffectivenessReviewsResponseScoreMax = 10;
+
+export const listTrainingEffectivenessReviewsResponseResultLevelMin = 0;
+export const listTrainingEffectivenessReviewsResponseResultLevelMax = 5;
+
+export const listTrainingEffectivenessReviewsResponseAttachmentsItemFileSizeMax = 20971520;
+
+export const listTrainingEffectivenessReviewsResponseAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const ListTrainingEffectivenessReviewsResponseItem = zod.object({
+  id: zod.number(),
+  trainingId: zod.number(),
+  evaluatorUserId: zod.number(),
+  evaluatorName: zod.string().nullish(),
+  evaluationDate: zod.string().date(),
+  score: zod
+    .number()
+    .min(listTrainingEffectivenessReviewsResponseScoreMin)
+    .max(listTrainingEffectivenessReviewsResponseScoreMax)
+    .nullish(),
+  isEffective: zod.boolean().nullish(),
+  resultLevel: zod
+    .number()
+    .min(listTrainingEffectivenessReviewsResponseResultLevelMin)
+    .max(listTrainingEffectivenessReviewsResponseResultLevelMax)
+    .nullish(),
+  comments: zod.string().nullish(),
+  attachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(
+          listTrainingEffectivenessReviewsResponseAttachmentsItemFileSizeMax,
+        ),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(
+          listTrainingEffectivenessReviewsResponseAttachmentsItemObjectPathRegExp,
+        ),
+    }),
+  ),
+  createdAt: zod.string().datetime({}).optional(),
+});
+export const ListTrainingEffectivenessReviewsResponse = zod.array(
+  ListTrainingEffectivenessReviewsResponseItem,
+);
+
+/**
+ * @summary Create effectiveness review for an employee training
+ */
+export const CreateTrainingEffectivenessReviewParams = zod.object({
+  orgId: zod.coerce.number(),
+  empId: zod.coerce.number(),
+  trainId: zod.coerce.number(),
+});
+
+export const createTrainingEffectivenessReviewBodyScoreMin = 0;
+export const createTrainingEffectivenessReviewBodyScoreMax = 10;
+
+export const createTrainingEffectivenessReviewBodyResultLevelMin = 0;
+export const createTrainingEffectivenessReviewBodyResultLevelMax = 5;
+
+export const createTrainingEffectivenessReviewBodyAttachmentsItemFileSizeMax = 20971520;
+
+export const createTrainingEffectivenessReviewBodyAttachmentsItemObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const createTrainingEffectivenessReviewBodyAttachmentsMax = 10;
+
+export const CreateTrainingEffectivenessReviewBody = zod.object({
+  evaluationDate: zod.string().date(),
+  score: zod
+    .number()
+    .min(createTrainingEffectivenessReviewBodyScoreMin)
+    .max(createTrainingEffectivenessReviewBodyScoreMax)
+    .optional(),
+  isEffective: zod.boolean(),
+  resultLevel: zod
+    .number()
+    .min(createTrainingEffectivenessReviewBodyResultLevelMin)
+    .max(createTrainingEffectivenessReviewBodyResultLevelMax)
+    .optional(),
+  comments: zod.string().optional(),
+  attachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(createTrainingEffectivenessReviewBodyAttachmentsItemFileSizeMax),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            createTrainingEffectivenessReviewBodyAttachmentsItemObjectPathRegExp,
+          ),
+      }),
+    )
+    .max(createTrainingEffectivenessReviewBodyAttachmentsMax)
+    .optional(),
 });
 
 /**
@@ -2144,6 +2996,14 @@ export const ListAwarenessResponseItem = zod.object({
   topic: zod.string(),
   description: zod.string().nullish(),
   date: zod.string(),
+  policyDocumentId: zod.number().nullish(),
+  policyDocumentTitle: zod.string().nullish(),
+  documentId: zod.number().nullish(),
+  documentTitle: zod.string().nullish(),
+  processId: zod.number().nullish(),
+  processName: zod.string().nullish(),
+  objectiveId: zod.number().nullish(),
+  objectiveLabel: zod.string().nullish(),
   verificationMethod: zod.string().nullish(),
   result: zod.string().nullish(),
   attachments: zod.array(
@@ -2182,6 +3042,10 @@ export const CreateAwarenessBody = zod.object({
   topic: zod.string(),
   description: zod.string().optional(),
   date: zod.string(),
+  policyDocumentId: zod.number().nullish(),
+  documentId: zod.number().nullish(),
+  processId: zod.number().nullish(),
+  objectiveId: zod.number().nullish(),
   verificationMethod: zod.string().optional(),
   result: zod.string().optional(),
   attachments: zod
@@ -2221,6 +3085,10 @@ export const UpdateAwarenessBody = zod.object({
   topic: zod.string().optional(),
   description: zod.string().optional(),
   date: zod.string().optional(),
+  policyDocumentId: zod.number().nullish(),
+  documentId: zod.number().nullish(),
+  processId: zod.number().nullish(),
+  objectiveId: zod.number().nullish(),
   verificationMethod: zod.string().optional(),
   result: zod.string().optional(),
   attachments: zod
@@ -2251,6 +3119,14 @@ export const UpdateAwarenessResponse = zod.object({
   topic: zod.string(),
   description: zod.string().nullish(),
   date: zod.string(),
+  policyDocumentId: zod.number().nullish(),
+  policyDocumentTitle: zod.string().nullish(),
+  documentId: zod.number().nullish(),
+  documentTitle: zod.string().nullish(),
+  processId: zod.number().nullish(),
+  processName: zod.string().nullish(),
+  objectiveId: zod.number().nullish(),
+  objectiveLabel: zod.string().nullish(),
   verificationMethod: zod.string().nullish(),
   result: zod.string().nullish(),
   attachments: zod.array(

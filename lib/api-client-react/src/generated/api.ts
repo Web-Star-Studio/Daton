@@ -46,6 +46,7 @@ import type {
   CreateOrgUserBody,
   CreateOrgUserResponse,
   CreatePositionBody,
+  CreatePositionCompetencyRequirementBody,
   CreateSgqProcessBody,
   CreateStrategicPlanActionBody,
   CreateStrategicPlanBody,
@@ -55,6 +56,7 @@ import type {
   CreateStrategicPlanRiskOpportunityItemBody,
   CreateStrategicPlanSwotItemBody,
   CreateTrainingBody,
+  CreateTrainingEffectivenessReviewBody,
   CreateUnitBody,
   Department,
   DocumentAttachment,
@@ -90,6 +92,7 @@ import type {
   LinkEmployeeUnit201,
   LinkEmployeeUnitBody,
   ListDocumentsParams,
+  ListEmployeeCompetencyGapsParams,
   ListEmployeesParams,
   ListGovernanceRiskOpportunityItemsParams,
   ListInternalAuditsParams,
@@ -100,6 +103,7 @@ import type {
   ListNotifications200,
   ListOrgUsers200,
   ListOrganizationContactsParams,
+  ListOrganizationTrainingsParams,
   ListSgqProcessesParams,
   ListUserOptionsParams,
   LoginBody,
@@ -116,12 +120,16 @@ import type {
   OrganizationContactGroup,
   OrganizationContactGroupBody,
   OrganizationOnboardingAuthResponse,
+  PaginatedEmployeeCompetencyGaps,
   PaginatedEmployees,
   PaginatedInternalAudits,
   PaginatedManagementReviews,
   PaginatedNonconformities,
+  PaginatedOrganizationTrainings,
   PaginatedSgqProcesses,
   Position,
+  PositionCompetencyMatrixRevision,
+  PositionCompetencyRequirement,
   QuestionnaireTheme,
   RegisterBody,
   RejectDocumentBody,
@@ -141,6 +149,7 @@ import type {
   SubmitQuestionnaireResponse,
   SuccessResponse,
   SyncInternalAuditChecklistBody,
+  TrainingEffectivenessReview,
   Unit,
   UnitLegislation,
   UnitLegislationWithLegislation,
@@ -165,6 +174,7 @@ import type {
   UpdateOrganizationContactBody,
   UpdateOrganizationContactGroupBody,
   UpdatePositionBody,
+  UpdatePositionCompetencyRequirementBody,
   UpdateSgqProcessBody,
   UpdateStrategicPlanActionBody,
   UpdateStrategicPlanBody,
@@ -3377,6 +3387,826 @@ export const useCreateEmployee = <
 };
 
 /**
+ * @summary List trainings across the organization
+ */
+export const getListOrganizationTrainingsUrl = (
+  orgId: number,
+  params?: ListOrganizationTrainingsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/employees/trainings?${stringifiedParams}`
+    : `/api/organizations/${orgId}/employees/trainings`;
+};
+
+export const listOrganizationTrainings = async (
+  orgId: number,
+  params?: ListOrganizationTrainingsParams,
+  options?: RequestInit,
+): Promise<PaginatedOrganizationTrainings> => {
+  return customFetch<PaginatedOrganizationTrainings>(
+    getListOrganizationTrainingsUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListOrganizationTrainingsQueryKey = (
+  orgId: number,
+  params?: ListOrganizationTrainingsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/employees/trainings`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListOrganizationTrainingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listOrganizationTrainings>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListOrganizationTrainingsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOrganizationTrainings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListOrganizationTrainingsQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listOrganizationTrainings>>
+  > = ({ signal }) =>
+    listOrganizationTrainings(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listOrganizationTrainings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListOrganizationTrainingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listOrganizationTrainings>>
+>;
+export type ListOrganizationTrainingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List trainings across the organization
+ */
+
+export function useListOrganizationTrainings<
+  TData = Awaited<ReturnType<typeof listOrganizationTrainings>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListOrganizationTrainingsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listOrganizationTrainings>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListOrganizationTrainingsQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List computed employee competency gaps
+ */
+export const getListEmployeeCompetencyGapsUrl = (
+  orgId: number,
+  params?: ListEmployeeCompetencyGapsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/employees/competency-gaps?${stringifiedParams}`
+    : `/api/organizations/${orgId}/employees/competency-gaps`;
+};
+
+export const listEmployeeCompetencyGaps = async (
+  orgId: number,
+  params?: ListEmployeeCompetencyGapsParams,
+  options?: RequestInit,
+): Promise<PaginatedEmployeeCompetencyGaps> => {
+  return customFetch<PaginatedEmployeeCompetencyGaps>(
+    getListEmployeeCompetencyGapsUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListEmployeeCompetencyGapsQueryKey = (
+  orgId: number,
+  params?: ListEmployeeCompetencyGapsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/employees/competency-gaps`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListEmployeeCompetencyGapsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEmployeeCompetencyGaps>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListEmployeeCompetencyGapsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEmployeeCompetencyGaps>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListEmployeeCompetencyGapsQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listEmployeeCompetencyGaps>>
+  > = ({ signal }) =>
+    listEmployeeCompetencyGaps(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEmployeeCompetencyGaps>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEmployeeCompetencyGapsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEmployeeCompetencyGaps>>
+>;
+export type ListEmployeeCompetencyGapsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List computed employee competency gaps
+ */
+
+export function useListEmployeeCompetencyGaps<
+  TData = Awaited<ReturnType<typeof listEmployeeCompetencyGaps>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListEmployeeCompetencyGapsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEmployeeCompetencyGaps>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEmployeeCompetencyGapsQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List competency requirements for a position
+ */
+export const getListPositionCompetencyRequirementsUrl = (
+  orgId: number,
+  posId: number,
+) => {
+  return `/api/organizations/${orgId}/employees/positions/${posId}/competency-requirements`;
+};
+
+export const listPositionCompetencyRequirements = async (
+  orgId: number,
+  posId: number,
+  options?: RequestInit,
+): Promise<PositionCompetencyRequirement[]> => {
+  return customFetch<PositionCompetencyRequirement[]>(
+    getListPositionCompetencyRequirementsUrl(orgId, posId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListPositionCompetencyRequirementsQueryKey = (
+  orgId: number,
+  posId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/employees/positions/${posId}/competency-requirements`,
+  ] as const;
+};
+
+export const getListPositionCompetencyRequirementsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPositionCompetencyRequirements>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  posId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPositionCompetencyRequirements>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListPositionCompetencyRequirementsQueryKey(orgId, posId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPositionCompetencyRequirements>>
+  > = ({ signal }) =>
+    listPositionCompetencyRequirements(orgId, posId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && posId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPositionCompetencyRequirements>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPositionCompetencyRequirementsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPositionCompetencyRequirements>>
+>;
+export type ListPositionCompetencyRequirementsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List competency requirements for a position
+ */
+
+export function useListPositionCompetencyRequirements<
+  TData = Awaited<ReturnType<typeof listPositionCompetencyRequirements>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  posId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPositionCompetencyRequirements>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPositionCompetencyRequirementsQueryOptions(
+    orgId,
+    posId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create competency requirement for a position
+ */
+export const getCreatePositionCompetencyRequirementUrl = (
+  orgId: number,
+  posId: number,
+) => {
+  return `/api/organizations/${orgId}/employees/positions/${posId}/competency-requirements`;
+};
+
+export const createPositionCompetencyRequirement = async (
+  orgId: number,
+  posId: number,
+  createPositionCompetencyRequirementBody: CreatePositionCompetencyRequirementBody,
+  options?: RequestInit,
+): Promise<PositionCompetencyRequirement> => {
+  return customFetch<PositionCompetencyRequirement>(
+    getCreatePositionCompetencyRequirementUrl(orgId, posId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createPositionCompetencyRequirementBody),
+    },
+  );
+};
+
+export const getCreatePositionCompetencyRequirementMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPositionCompetencyRequirement>>,
+    TError,
+    {
+      orgId: number;
+      posId: number;
+      data: BodyType<CreatePositionCompetencyRequirementBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPositionCompetencyRequirement>>,
+  TError,
+  {
+    orgId: number;
+    posId: number;
+    data: BodyType<CreatePositionCompetencyRequirementBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createPositionCompetencyRequirement"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPositionCompetencyRequirement>>,
+    {
+      orgId: number;
+      posId: number;
+      data: BodyType<CreatePositionCompetencyRequirementBody>;
+    }
+  > = (props) => {
+    const { orgId, posId, data } = props ?? {};
+
+    return createPositionCompetencyRequirement(
+      orgId,
+      posId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePositionCompetencyRequirementMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPositionCompetencyRequirement>>
+>;
+export type CreatePositionCompetencyRequirementMutationBody =
+  BodyType<CreatePositionCompetencyRequirementBody>;
+export type CreatePositionCompetencyRequirementMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Create competency requirement for a position
+ */
+export const useCreatePositionCompetencyRequirement = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPositionCompetencyRequirement>>,
+    TError,
+    {
+      orgId: number;
+      posId: number;
+      data: BodyType<CreatePositionCompetencyRequirementBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPositionCompetencyRequirement>>,
+  TError,
+  {
+    orgId: number;
+    posId: number;
+    data: BodyType<CreatePositionCompetencyRequirementBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreatePositionCompetencyRequirementMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Update competency requirement for a position
+ */
+export const getUpdatePositionCompetencyRequirementUrl = (
+  orgId: number,
+  posId: number,
+  requirementId: number,
+) => {
+  return `/api/organizations/${orgId}/employees/positions/${posId}/competency-requirements/${requirementId}`;
+};
+
+export const updatePositionCompetencyRequirement = async (
+  orgId: number,
+  posId: number,
+  requirementId: number,
+  updatePositionCompetencyRequirementBody: UpdatePositionCompetencyRequirementBody,
+  options?: RequestInit,
+): Promise<PositionCompetencyRequirement> => {
+  return customFetch<PositionCompetencyRequirement>(
+    getUpdatePositionCompetencyRequirementUrl(orgId, posId, requirementId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updatePositionCompetencyRequirementBody),
+    },
+  );
+};
+
+export const getUpdatePositionCompetencyRequirementMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePositionCompetencyRequirement>>,
+    TError,
+    {
+      orgId: number;
+      posId: number;
+      requirementId: number;
+      data: BodyType<UpdatePositionCompetencyRequirementBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePositionCompetencyRequirement>>,
+  TError,
+  {
+    orgId: number;
+    posId: number;
+    requirementId: number;
+    data: BodyType<UpdatePositionCompetencyRequirementBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updatePositionCompetencyRequirement"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePositionCompetencyRequirement>>,
+    {
+      orgId: number;
+      posId: number;
+      requirementId: number;
+      data: BodyType<UpdatePositionCompetencyRequirementBody>;
+    }
+  > = (props) => {
+    const { orgId, posId, requirementId, data } = props ?? {};
+
+    return updatePositionCompetencyRequirement(
+      orgId,
+      posId,
+      requirementId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePositionCompetencyRequirementMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePositionCompetencyRequirement>>
+>;
+export type UpdatePositionCompetencyRequirementMutationBody =
+  BodyType<UpdatePositionCompetencyRequirementBody>;
+export type UpdatePositionCompetencyRequirementMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Update competency requirement for a position
+ */
+export const useUpdatePositionCompetencyRequirement = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePositionCompetencyRequirement>>,
+    TError,
+    {
+      orgId: number;
+      posId: number;
+      requirementId: number;
+      data: BodyType<UpdatePositionCompetencyRequirementBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updatePositionCompetencyRequirement>>,
+  TError,
+  {
+    orgId: number;
+    posId: number;
+    requirementId: number;
+    data: BodyType<UpdatePositionCompetencyRequirementBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getUpdatePositionCompetencyRequirementMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Delete competency requirement for a position
+ */
+export const getDeletePositionCompetencyRequirementUrl = (
+  orgId: number,
+  posId: number,
+  requirementId: number,
+) => {
+  return `/api/organizations/${orgId}/employees/positions/${posId}/competency-requirements/${requirementId}`;
+};
+
+export const deletePositionCompetencyRequirement = async (
+  orgId: number,
+  posId: number,
+  requirementId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeletePositionCompetencyRequirementUrl(orgId, posId, requirementId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeletePositionCompetencyRequirementMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePositionCompetencyRequirement>>,
+    TError,
+    { orgId: number; posId: number; requirementId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deletePositionCompetencyRequirement>>,
+  TError,
+  { orgId: number; posId: number; requirementId: number },
+  TContext
+> => {
+  const mutationKey = ["deletePositionCompetencyRequirement"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deletePositionCompetencyRequirement>>,
+    { orgId: number; posId: number; requirementId: number }
+  > = (props) => {
+    const { orgId, posId, requirementId } = props ?? {};
+
+    return deletePositionCompetencyRequirement(
+      orgId,
+      posId,
+      requirementId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeletePositionCompetencyRequirementMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePositionCompetencyRequirement>>
+>;
+
+export type DeletePositionCompetencyRequirementMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Delete competency requirement for a position
+ */
+export const useDeletePositionCompetencyRequirement = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deletePositionCompetencyRequirement>>,
+    TError,
+    { orgId: number; posId: number; requirementId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deletePositionCompetencyRequirement>>,
+  TError,
+  { orgId: number; posId: number; requirementId: number },
+  TContext
+> => {
+  return useMutation(
+    getDeletePositionCompetencyRequirementMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List matrix revisions for a position
+ */
+export const getListPositionCompetencyMatrixRevisionsUrl = (
+  orgId: number,
+  posId: number,
+) => {
+  return `/api/organizations/${orgId}/employees/positions/${posId}/competency-matrix-revisions`;
+};
+
+export const listPositionCompetencyMatrixRevisions = async (
+  orgId: number,
+  posId: number,
+  options?: RequestInit,
+): Promise<PositionCompetencyMatrixRevision[]> => {
+  return customFetch<PositionCompetencyMatrixRevision[]>(
+    getListPositionCompetencyMatrixRevisionsUrl(orgId, posId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListPositionCompetencyMatrixRevisionsQueryKey = (
+  orgId: number,
+  posId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/employees/positions/${posId}/competency-matrix-revisions`,
+  ] as const;
+};
+
+export const getListPositionCompetencyMatrixRevisionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPositionCompetencyMatrixRevisions>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  posId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPositionCompetencyMatrixRevisions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListPositionCompetencyMatrixRevisionsQueryKey(orgId, posId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPositionCompetencyMatrixRevisions>>
+  > = ({ signal }) =>
+    listPositionCompetencyMatrixRevisions(orgId, posId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && posId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPositionCompetencyMatrixRevisions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPositionCompetencyMatrixRevisionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPositionCompetencyMatrixRevisions>>
+>;
+export type ListPositionCompetencyMatrixRevisionsQueryError =
+  ErrorType<unknown>;
+
+/**
+ * @summary List matrix revisions for a position
+ */
+
+export function useListPositionCompetencyMatrixRevisions<
+  TData = Awaited<ReturnType<typeof listPositionCompetencyMatrixRevisions>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  posId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPositionCompetencyMatrixRevisions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPositionCompetencyMatrixRevisionsQueryOptions(
+    orgId,
+    posId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get employee with competencies, trainings, awareness
  */
 export const getGetEmployeeUrl = (orgId: number, empId: number) => {
@@ -4424,6 +5254,253 @@ export const useDeleteTraining = <
   TContext
 > => {
   return useMutation(getDeleteTrainingMutationOptions(options));
+};
+
+/**
+ * @summary List effectiveness reviews for an employee training
+ */
+export const getListTrainingEffectivenessReviewsUrl = (
+  orgId: number,
+  empId: number,
+  trainId: number,
+) => {
+  return `/api/organizations/${orgId}/employees/${empId}/trainings/${trainId}/effectiveness-reviews`;
+};
+
+export const listTrainingEffectivenessReviews = async (
+  orgId: number,
+  empId: number,
+  trainId: number,
+  options?: RequestInit,
+): Promise<TrainingEffectivenessReview[]> => {
+  return customFetch<TrainingEffectivenessReview[]>(
+    getListTrainingEffectivenessReviewsUrl(orgId, empId, trainId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListTrainingEffectivenessReviewsQueryKey = (
+  orgId: number,
+  empId: number,
+  trainId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/employees/${empId}/trainings/${trainId}/effectiveness-reviews`,
+  ] as const;
+};
+
+export const getListTrainingEffectivenessReviewsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listTrainingEffectivenessReviews>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  empId: number,
+  trainId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTrainingEffectivenessReviews>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListTrainingEffectivenessReviewsQueryKey(orgId, empId, trainId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listTrainingEffectivenessReviews>>
+  > = ({ signal }) =>
+    listTrainingEffectivenessReviews(orgId, empId, trainId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && empId && trainId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listTrainingEffectivenessReviews>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListTrainingEffectivenessReviewsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listTrainingEffectivenessReviews>>
+>;
+export type ListTrainingEffectivenessReviewsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List effectiveness reviews for an employee training
+ */
+
+export function useListTrainingEffectivenessReviews<
+  TData = Awaited<ReturnType<typeof listTrainingEffectivenessReviews>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  empId: number,
+  trainId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listTrainingEffectivenessReviews>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListTrainingEffectivenessReviewsQueryOptions(
+    orgId,
+    empId,
+    trainId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create effectiveness review for an employee training
+ */
+export const getCreateTrainingEffectivenessReviewUrl = (
+  orgId: number,
+  empId: number,
+  trainId: number,
+) => {
+  return `/api/organizations/${orgId}/employees/${empId}/trainings/${trainId}/effectiveness-reviews`;
+};
+
+export const createTrainingEffectivenessReview = async (
+  orgId: number,
+  empId: number,
+  trainId: number,
+  createTrainingEffectivenessReviewBody: CreateTrainingEffectivenessReviewBody,
+  options?: RequestInit,
+): Promise<TrainingEffectivenessReview> => {
+  return customFetch<TrainingEffectivenessReview>(
+    getCreateTrainingEffectivenessReviewUrl(orgId, empId, trainId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createTrainingEffectivenessReviewBody),
+    },
+  );
+};
+
+export const getCreateTrainingEffectivenessReviewMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTrainingEffectivenessReview>>,
+    TError,
+    {
+      orgId: number;
+      empId: number;
+      trainId: number;
+      data: BodyType<CreateTrainingEffectivenessReviewBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createTrainingEffectivenessReview>>,
+  TError,
+  {
+    orgId: number;
+    empId: number;
+    trainId: number;
+    data: BodyType<CreateTrainingEffectivenessReviewBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createTrainingEffectivenessReview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createTrainingEffectivenessReview>>,
+    {
+      orgId: number;
+      empId: number;
+      trainId: number;
+      data: BodyType<CreateTrainingEffectivenessReviewBody>;
+    }
+  > = (props) => {
+    const { orgId, empId, trainId, data } = props ?? {};
+
+    return createTrainingEffectivenessReview(
+      orgId,
+      empId,
+      trainId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateTrainingEffectivenessReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createTrainingEffectivenessReview>>
+>;
+export type CreateTrainingEffectivenessReviewMutationBody =
+  BodyType<CreateTrainingEffectivenessReviewBody>;
+export type CreateTrainingEffectivenessReviewMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create effectiveness review for an employee training
+ */
+export const useCreateTrainingEffectivenessReview = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createTrainingEffectivenessReview>>,
+    TError,
+    {
+      orgId: number;
+      empId: number;
+      trainId: number;
+      data: BodyType<CreateTrainingEffectivenessReviewBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createTrainingEffectivenessReview>>,
+  TError,
+  {
+    orgId: number;
+    empId: number;
+    trainId: number;
+    data: BodyType<CreateTrainingEffectivenessReviewBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateTrainingEffectivenessReviewMutationOptions(options),
+  );
 };
 
 /**
