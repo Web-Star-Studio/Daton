@@ -63,16 +63,30 @@ pnpm test:e2e:headed          # Playwright headed browser
 docker compose up -d
 ```
 
+```bash
+# Run a single test file
+pnpm exec vitest run path/to/file.test.ts
+
+# Run tests by vitest project (web-unit, node-unit, integration)
+pnpm exec vitest run --project node-unit
+
+# Integration tests (require test DB)
+pnpm test:integration:up          # Start test DB via docker-compose
+pnpm test:integration             # Run integration suite
+pnpm test:integration:down        # Tear down test DB
+```
+
 All changes must pass `pnpm typecheck`.
 
 ## Testing
 
 ### Unit Tests (Vitest)
 
-- Config: `vitest.config.ts`. Test files: `**/tests/**/*.test.{ts,tsx}`
-- JSDOM environment for `artifacts/web/tests/` files
+- Config: `vitest.config.ts`. Three vitest projects: `web-unit` (JSDOM), `node-unit` (Node), `integration` (Node)
+- Test files: `**/tests/**/*.test.{ts,tsx}` (unit) and `**/tests/**/*.integration.test.{ts,tsx}` (integration)
 - Setup files: `tests/setup/env.ts`, `tests/setup/web.ts`
 - Path aliases: `@` → `artifacts/web/src`, `@assets` → `attached_assets`
+- Test helpers in `tests/support/backend.ts`: `createTestContext()` for isolated org+user setup, `createTestUser()`, `authHeader()`, plus factories for units, suppliers, departments, etc. All test data uses a unique prefix for cleanup isolation.
 
 ### E2E Tests (Playwright)
 
@@ -101,6 +115,8 @@ The OpenAPI spec at `lib/api-spec/openapi.yaml` is the **single source of truth*
 Custom fetch mutator at `lib/api-client-react/src/custom-fetch.ts` handles auth token injection, API base URL, and error handling.
 
 **Never manually edit generated files.** After changing the OpenAPI spec, run `pnpm --filter @workspace/api-spec codegen` to regenerate.
+
+**Hand-written API clients** (`artifacts/web/src/lib/*-client.ts`) are used alongside Orval-generated hooks for complex domains (suppliers, governance, environmental). They provide custom type definitions, `apiJson<T>()` fetch wrappers, React Query key factories, and business logic that doesn't map cleanly to generated CRUD hooks. Use Orval-generated hooks for standard CRUD; use hand-written clients for complex queries, import/export workflows, or custom validation flows.
 
 ## Architecture: Database
 
@@ -134,6 +150,7 @@ Custom fetch mutator at `lib/api-client-react/src/custom-fetch.ts` handles auth 
 - Express 5 with routes mounted at `/api`
 - Error responses: `{ error: message }` with appropriate HTTP status codes
 - Zod `.safeParse()` for request validation (400 on failure)
+- Business logic is extracted from routes into `artifacts/api-server/src/services/` modules organized by domain (e.g., `services/suppliers/imports.ts`, `services/suppliers/catalog-sync.ts`). Routes import service functions to keep handlers focused on request/response.
 - Governance scheduler starts automatically at boot for maintenance tasks
 - esbuild bundling for production with allowlist packaging for cold-start optimization
 

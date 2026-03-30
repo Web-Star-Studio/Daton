@@ -659,7 +659,7 @@ export default function DocumentDetailPage() {
             onClick={handleAcknowledge}
             isLoading={acknowledgeMut.isPending}
           >
-            <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Dar ciência
+            <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Confirmar Recebimento
           </Button>
         )}
         {doc.status === "draft" && (
