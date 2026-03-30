@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -22,7 +23,14 @@ import {
   FileText,
   RefreshCw,
   SkipForward,
+  X,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import * as XLSX from "xlsx";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
@@ -119,6 +127,11 @@ export default function OrganizacaoPage({
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const activeTab = section;
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const { data: units, isLoading: unitsLoading } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
@@ -393,22 +406,7 @@ export default function OrganizacaoPage({
         );
       case "unidades":
         if (!canWriteModule("units")) return null;
-        if (selectedUnitIds.size > 0) {
-          return (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground mr-1">
-                {selectedUnitIds.size} selecionada{selectedUnitIds.size > 1 ? "s" : ""}
-              </span>
-              <Button size="sm" variant="destructive" onClick={() => setConfirmDeleteUnitsOpen(true)} isLoading={isDeletingUnits}>
-                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                Excluir ({selectedUnitIds.size})
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setSelectedUnitIds(new Set())}>
-                Cancelar
-              </Button>
-            </div>
-          );
-        }
+        // Unit bulk actions moved to floating bar at bottom
         return (
           <Button
             size="sm"
@@ -442,22 +440,7 @@ export default function OrganizacaoPage({
         );
       case "cargos":
         if (!canWriteModule("positions")) return null;
-        if (selectedPosIds.size > 0) {
-          return (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground mr-1">
-                {selectedPosIds.size} selecionado{selectedPosIds.size > 1 ? "s" : ""}
-              </span>
-              <Button size="sm" variant="destructive" onClick={() => setConfirmDeletePosOpen(true)} isLoading={isDeletingPositions}>
-                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                Excluir ({selectedPosIds.size})
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setSelectedPosIds(new Set())}>
-                Cancelar
-              </Button>
-            </div>
-          );
-        }
+        // Position bulk actions moved to floating bar at bottom
         return (
           <div className="flex items-center gap-2">
             <Button
@@ -2015,6 +1998,95 @@ export default function OrganizacaoPage({
         </div>
       </Dialog>
 
+      {/* Floating bulk action bars */}
+      {hasMounted && activeTab === "unidades" && canWriteModule("units") && selectedUnitIds.size > 0 && createPortal(
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-in fade-in-0 slide-in-from-bottom-4 duration-200">
+          <TooltipProvider delayDuration={200}>
+            <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/90 px-3 py-2 shadow-lg backdrop-blur-xl">
+              <span className="px-2 text-[13px] font-medium text-foreground">
+                {selectedUnitIds.size} unidade{selectedUnitIds.size > 1 ? "s" : ""} selecionada{selectedUnitIds.size > 1 ? "s" : ""}
+              </span>
+              <div className="mx-1 h-5 w-px bg-border" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => setConfirmDeleteUnitsOpen(true)}
+                    disabled={isDeletingUnits}
+                    aria-label="Excluir unidades selecionadas"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Excluir selecionadas</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setSelectedUnitIds(new Set())}
+                    aria-label="Limpar seleção de unidades"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Limpar seleção</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+        </div>,
+        document.body,
+      )}
+      {hasMounted && activeTab === "cargos" && canWriteModule("positions") && selectedPosIds.size > 0 && createPortal(
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-in fade-in-0 slide-in-from-bottom-4 duration-200">
+          <TooltipProvider delayDuration={200}>
+            <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/90 px-3 py-2 shadow-lg backdrop-blur-xl">
+              <span className="px-2 text-[13px] font-medium text-foreground">
+                {selectedPosIds.size} cargo{selectedPosIds.size > 1 ? "s" : ""} selecionado{selectedPosIds.size > 1 ? "s" : ""}
+              </span>
+              <div className="mx-1 h-5 w-px bg-border" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => setConfirmDeletePosOpen(true)}
+                    disabled={isDeletingPositions}
+                    aria-label="Excluir cargos selecionados"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Excluir selecionados</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setSelectedPosIds(new Set())}
+                    aria-label="Limpar seleção de cargos"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Limpar seleção</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+        </div>,
+        document.body,
+      )}
     </>
   );
 }

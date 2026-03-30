@@ -745,7 +745,7 @@ export default function GovernanceRiskOpportunityPage() {
   if (plans.length === 0) {
     return (
       <div className="px-6 py-12">
-        <div className="flex flex-col items-center justify-center rounded-3xl border border-border/60 bg-card px-8 py-16 text-center">
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-border/60 bg-card/42 px-8 py-16 backdrop-blur-md text-center">
           <Landmark className="h-10 w-10 text-muted-foreground/40" />
           <h2 className="mt-4 text-lg font-semibold text-foreground">
             Nenhum plano disponível para registrar riscos e oportunidades
@@ -875,7 +875,7 @@ export default function GovernanceRiskOpportunityPage() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+        <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
             Total
           </p>
@@ -883,7 +883,7 @@ export default function GovernanceRiskOpportunityPage() {
             {metrics.total}
           </p>
         </div>
-        <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+        <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
             Abertos
           </p>
@@ -891,7 +891,7 @@ export default function GovernanceRiskOpportunityPage() {
             {metrics.open}
           </p>
         </div>
-        <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+        <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
             Revisão vencida
           </p>
@@ -899,7 +899,7 @@ export default function GovernanceRiskOpportunityPage() {
             {metrics.overdue}
           </p>
         </div>
-        <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+        <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
             Riscos
           </p>
@@ -907,7 +907,7 @@ export default function GovernanceRiskOpportunityPage() {
             {metrics.byType.risk || 0}
           </p>
         </div>
-        <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
+        <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
             Oportunidades
           </p>
@@ -937,7 +937,7 @@ export default function GovernanceRiskOpportunityPage() {
           return (
             <div
               key={item.id}
-              className="rounded-2xl border border-border/60 bg-card px-5 py-4"
+              className="rounded-2xl border border-border/60 bg-card/42 px-5 py-4 backdrop-blur-md"
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="space-y-3">

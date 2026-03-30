@@ -71,6 +71,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
 import { useAllActiveSgqProcesses } from "@/lib/governance-system-client";
 import {
@@ -1932,7 +1933,7 @@ function CompetenciasTab({
           {competencies.map((comp) => (
             <div
               key={comp.id}
-              className="bg-card border border-border/60 rounded-xl px-4 py-3"
+              className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md"
             >
               {(() => {
                 const compAttachments = comp.attachments || [];
@@ -2444,7 +2445,7 @@ function TreinamentosTab({
           {trainings.map((t) => (
             <div
               key={t.id}
-              className="bg-card border border-border/60 rounded-xl px-4 py-3"
+              className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md"
             >
               {(() => {
                 const trainingAttachments = t.attachments || [];
@@ -2618,30 +2619,64 @@ function TreinamentosTab({
                       )}
                     </div>
                     {editable && (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openReviewDialog(t);
-                          }}
-                          className="p-1.5 text-muted-foreground/40 hover:text-emerald-600 transition-colors cursor-pointer"
-                          title="Registrar eficácia"
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => openEdit(t)}
-                          className="p-1.5 text-muted-foreground/40 hover:text-primary transition-colors cursor-pointer"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(t.id)}
-                          className="p-1.5 text-muted-foreground/40 hover:text-red-500 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
+                      <TooltipProvider delayDuration={200}>
+                        <div className="flex items-center gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                aria-label="Registrar eficácia"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openReviewDialog(t);
+                                }}
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Registrar eficácia</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                aria-label="Editar"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEdit(t);
+                                }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Editar</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                                aria-label="Excluir"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(t.id);
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Excluir</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TooltipProvider>
                     )}
                   </div>
                 );
@@ -3075,7 +3110,7 @@ function ConscientizacaoTab({
           {awareness.map((a) => (
             <div
               key={a.id}
-              className="bg-card border border-border/60 rounded-xl px-4 py-3"
+              className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md"
             >
               {(() => {
                 const awarenessAttachments = a.attachments || [];

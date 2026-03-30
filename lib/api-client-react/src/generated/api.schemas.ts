@@ -962,9 +962,18 @@ export type PaginatedOrganizationTrainingsPagination = {
   totalPages: number;
 };
 
+export type PaginatedOrganizationTrainingsStats = {
+  total: number;
+  pendente: number;
+  concluido: number;
+  vencido: number;
+  effectivenessPending: number;
+};
+
 export interface PaginatedOrganizationTrainings {
   data: OrganizationTraining[];
   pagination: PaginatedOrganizationTrainingsPagination;
+  stats: PaginatedOrganizationTrainingsStats;
 }
 
 export type PaginatedEmployeeCompetencyGapsPagination = {
@@ -3262,7 +3271,7 @@ export type ListOrganizationTrainingsParams = {
   page?: number;
   /**
    * @minimum 1
-   * @maximum 100
+   * @maximum 500
    */
   pageSize?: number;
 };

@@ -144,11 +144,7 @@ export function OrganizationContactsCatalogSection({
       return;
     }
 
-    const payload = {
-      sourceType: form.sourceType,
-      sourceId: form.sourceType === "external_contact" ? null : form.sourceId,
-      name: form.sourceType === "external_contact" ? form.name.trim() : undefined,
-      email: form.sourceType === "external_contact" ? form.email.trim() : undefined,
+    const common = {
       phone: form.phone.trim() || null,
       organizationName: form.organizationName.trim() || null,
       classificationType: form.classificationType,
@@ -156,6 +152,13 @@ export function OrganizationContactsCatalogSection({
       notes: form.notes.trim() || null,
       archived: form.id ? form.archived : undefined,
     };
+
+    const payload =
+      form.sourceType === "external_contact"
+        ? { sourceType: "external_contact" as const, sourceId: null, name: form.name.trim(), email: form.email.trim(), ...common }
+        : form.sourceType === "employee"
+          ? { sourceType: "employee" as const, sourceId: form.sourceId!, ...common }
+          : { sourceType: "system_user" as const, sourceId: form.sourceId!, ...common };
 
     try {
       if (form.id) {

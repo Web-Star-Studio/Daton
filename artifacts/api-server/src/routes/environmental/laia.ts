@@ -74,6 +74,22 @@ const methodologySchema = z.object({
   frequencyProbabilityMatrix: z.record(z.string(), z.any()),
   scoreThresholds: scoreThresholdsSchema,
   moderateSignificanceRule: z.string().min(1),
+  documentContent: z
+    .object({
+      objetivo: z.string(),
+      aplicacao: z.string(),
+      generalidades: z.string(),
+      definicoes: z.array(z.object({ termo: z.string(), descricao: z.string() })),
+      responsabilidades: z.array(z.object({ cargo: z.string(), atribuicoes: z.string() })),
+      procedimentoLevantamento: z.string(),
+      procedimentoAnalise: z.string(),
+      classificacaoAssuntos: z.array(z.string()),
+      classificacaoAplicabilidade: z.array(z.object({ codigo: z.string(), nome: z.string(), descricao: z.string() })),
+      niveisAtendimento: z.array(z.object({ nivel: z.string(), nome: z.string(), descricao: z.string() })),
+      outrosRequisitos: z.string(),
+    })
+    .nullable()
+    .optional(),
   notes: z.string().nullable().optional(),
 });
 
@@ -182,9 +198,14 @@ const importSchema = z.object({
 
 const paramsSchema = z.object({
   orgId: z.coerce.number().int().positive(),
+  unitId: z.coerce.number().int().positive().optional(),
   assessmentId: z.coerce.number().int().positive().optional(),
   planId: z.coerce.number().int().positive().optional(),
   sectorId: z.coerce.number().int().positive().optional(),
+});
+
+const sectorsQuerySchema = z.object({
+  unitId: z.coerce.number().int().positive().optional(),
 });
 
 function requireOrgAccess(req: Request, res: Response, orgId: number) {
@@ -223,6 +244,59 @@ function parseDate(value?: string | null) {
 
 function formatDate(value: Date | null | undefined) {
   return value ? value.toISOString() : null;
+}
+
+function normalizeComparableValue(value?: string | null) {
+  if (!value) return "";
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function incrementBucket(
+  buckets: Record<string, number>,
+  key: string | undefined,
+) {
+  const safeKey = key || "nao_informado";
+  buckets[safeKey] = (buckets[safeKey] || 0) + 1;
+}
+
+function normalizeTemporality(value?: string | null) {
+  const normalized = normalizeComparableValue(value);
+  if (!normalized) return "nao_informado";
+  if (["futura", "futuro", "future"].includes(normalized)) return "futura";
+  if (["atual", "presente", "current"].includes(normalized)) return "atual";
+  if (["passada", "passado", "anterior", "past"].includes(normalized)) {
+    return "passada";
+  }
+  return "nao_informado";
+}
+
+function normalizeOperationalSituation(value?: string | null) {
+  const normalized = normalizeComparableValue(value);
+  if (!normalized) return "nao_informado";
+  if (["anormal"].includes(normalized)) return "anormal";
+  if (["normal"].includes(normalized)) return "normal";
+  if (["emergencia", "emergency"].includes(normalized)) return "emergencia";
+  return "nao_informado";
+}
+
+function normalizeIncidence(value?: string | null) {
+  const normalized = normalizeComparableValue(value);
+  if (!normalized) return "nao_informado";
+  if (["direto", "direta", "direct"].includes(normalized)) return "direto";
+  if (["indireto", "indireta", "indirect"].includes(normalized)) return "indireto";
+  return "nao_informado";
+}
+
+function normalizeImpactClass(value?: string | null) {
+  const normalized = normalizeComparableValue(value);
+  if (!normalized) return "nao_informado";
+  if (["adverso", "negativo", "negative"].includes(normalized)) return "adverso";
+  if (["benefico", "positivo", "positive"].includes(normalized)) return "benefico";
+  return "nao_informado";
 }
 
 function isAspectCodeUniqueViolation(error: unknown): boolean {
@@ -647,24 +721,80 @@ router.get("/organizations/:orgId/environmental/laia/branch-configs", async (req
   }
   if (!requireOrgAccess(req, res, params.data.orgId)) return;
 
+  const units = await db
+    .select({
+      id: unitsTable.id,
+      name: unitsTable.name,
+    })
+    .from(unitsTable)
+    .where(eq(unitsTable.organizationId, params.data.orgId))
+    .orderBy(asc(unitsTable.name));
+
   const items = await db
     .select({
       id: laiaBranchConfigsTable.id,
       unitId: laiaBranchConfigsTable.unitId,
       surveyStatus: laiaBranchConfigsTable.surveyStatus,
-      unitName: unitsTable.name,
       updatedAt: laiaBranchConfigsTable.updatedAt,
     })
     .from(laiaBranchConfigsTable)
-    .leftJoin(unitsTable, eq(laiaBranchConfigsTable.unitId, unitsTable.id))
-    .where(eq(laiaBranchConfigsTable.organizationId, params.data.orgId))
-    .orderBy(asc(unitsTable.name), asc(laiaBranchConfigsTable.id));
+    .where(eq(laiaBranchConfigsTable.organizationId, params.data.orgId));
+
+  const assessmentStats = await db
+    .select({
+      unitId: laiaAssessmentsTable.unitId,
+      totalAssessments: sql<number>`count(*)`,
+      criticalAssessments:
+        sql<number>`coalesce(sum(case when ${laiaAssessmentsTable.category} = 'critico' then 1 else 0 end), 0)`,
+      significantAssessments:
+        sql<number>`coalesce(sum(case when ${laiaAssessmentsTable.significance} = 'significant' then 1 else 0 end), 0)`,
+      notSignificantAssessments:
+        sql<number>`coalesce(sum(case when ${laiaAssessmentsTable.significance} = 'not_significant' then 1 else 0 end), 0)`,
+    })
+    .from(laiaAssessmentsTable)
+    .where(eq(laiaAssessmentsTable.organizationId, params.data.orgId))
+    .groupBy(laiaAssessmentsTable.unitId);
+
+  const configByUnitId = new Map(items.map((item) => [item.unitId, item]));
+  const statsByUnitId = new Map<
+    number,
+    {
+      totalAssessments: number;
+      criticalAssessments: number;
+      significantAssessments: number;
+      notSignificantAssessments: number;
+    }
+  >();
+
+  for (const assessment of assessmentStats) {
+    if (!assessment.unitId) continue;
+    statsByUnitId.set(assessment.unitId, {
+      totalAssessments: assessment.totalAssessments ?? 0,
+      criticalAssessments: assessment.criticalAssessments ?? 0,
+      significantAssessments: assessment.significantAssessments ?? 0,
+      notSignificantAssessments: assessment.notSignificantAssessments ?? 0,
+    });
+  }
 
   res.json(
-    items.map((item) => ({
-      ...item,
-      updatedAt: formatDate(item.updatedAt),
-    })),
+    units.map((unit) => {
+      const config = configByUnitId.get(unit.id);
+      const stats = statsByUnitId.get(unit.id) ?? {
+        totalAssessments: 0,
+        criticalAssessments: 0,
+        significantAssessments: 0,
+        notSignificantAssessments: 0,
+      };
+
+      return {
+        id: config?.id ?? null,
+        unitId: unit.id,
+        unitName: unit.name,
+        surveyStatus: config?.surveyStatus ?? "nao_levantado",
+        updatedAt: formatDate(config?.updatedAt),
+        ...stats,
+      };
+    }),
   );
 });
 
@@ -721,11 +851,17 @@ router.patch(
 
 router.get("/organizations/:orgId/environmental/laia/sectors", async (req, res) => {
   const params = paramsSchema.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
+  const query = sectorsQuerySchema.safeParse(req.query);
+  if (!params.success || !query.success) {
+    res.status(400).json({ error: "Parâmetros inválidos" });
     return;
   }
   if (!requireOrgAccess(req, res, params.data.orgId)) return;
+
+  const conditions = [eq(laiaSectorsTable.organizationId, params.data.orgId)];
+  if (query.data.unitId) {
+    conditions.push(eq(laiaSectorsTable.unitId, query.data.unitId));
+  }
 
   const items = await db
     .select({
@@ -740,7 +876,7 @@ router.get("/organizations/:orgId/environmental/laia/sectors", async (req, res) 
       updatedAt: laiaSectorsTable.updatedAt,
     })
     .from(laiaSectorsTable)
-    .where(eq(laiaSectorsTable.organizationId, params.data.orgId))
+    .where(and(...conditions))
     .orderBy(asc(laiaSectorsTable.name));
 
   res.json(
@@ -750,6 +886,86 @@ router.get("/organizations/:orgId/environmental/laia/sectors", async (req, res) 
       updatedAt: formatDate(item.updatedAt),
     })),
   );
+});
+
+router.get("/organizations/:orgId/environmental/laia/units/:unitId/overview", async (req, res) => {
+  const params = paramsSchema.safeParse(req.params);
+  if (!params.success || !params.data.unitId) {
+    res.status(400).json({ error: "Parâmetros inválidos" });
+    return;
+  }
+  if (!requireOrgAccess(req, res, params.data.orgId)) return;
+
+  const [unit] = await db
+    .select({
+      id: unitsTable.id,
+      name: unitsTable.name,
+    })
+    .from(unitsTable)
+    .where(
+      and(
+        eq(unitsTable.organizationId, params.data.orgId),
+        eq(unitsTable.id, params.data.unitId),
+      ),
+    );
+
+  if (!unit) {
+    res.status(404).json({ error: "Unidade não encontrada" });
+    return;
+  }
+
+  const [config] = await db
+    .select({
+      surveyStatus: laiaBranchConfigsTable.surveyStatus,
+    })
+    .from(laiaBranchConfigsTable)
+    .where(
+      and(
+        eq(laiaBranchConfigsTable.organizationId, params.data.orgId),
+        eq(laiaBranchConfigsTable.unitId, params.data.unitId),
+      ),
+    );
+
+  const assessments = await db
+    .select({
+      temporality: laiaAssessmentsTable.temporality,
+      operationalSituation: laiaAssessmentsTable.operationalSituation,
+      incidence: laiaAssessmentsTable.incidence,
+      impactClass: laiaAssessmentsTable.impactClass,
+    })
+    .from(laiaAssessmentsTable)
+    .where(
+      and(
+        eq(laiaAssessmentsTable.organizationId, params.data.orgId),
+        eq(laiaAssessmentsTable.unitId, params.data.unitId),
+      ),
+    );
+
+  const byTemporality: Record<string, number> = {};
+  const byOperationalSituation: Record<string, number> = {};
+  const byIncidence: Record<string, number> = {};
+  const byImpactClass: Record<string, number> = {};
+
+  for (const assessment of assessments) {
+    incrementBucket(byTemporality, normalizeTemporality(assessment.temporality));
+    incrementBucket(
+      byOperationalSituation,
+      normalizeOperationalSituation(assessment.operationalSituation),
+    );
+    incrementBucket(byIncidence, normalizeIncidence(assessment.incidence));
+    incrementBucket(byImpactClass, normalizeImpactClass(assessment.impactClass));
+  }
+
+  res.json({
+    unitId: unit.id,
+    unitName: unit.name,
+    surveyStatus: config?.surveyStatus ?? "nao_levantado",
+    totalAssessments: assessments.length,
+    byTemporality,
+    byOperationalSituation,
+    byIncidence,
+    byImpactClass,
+  });
 });
 
 router.post(
@@ -971,6 +1187,7 @@ router.put(
         frequencyProbabilityMatrix: body.data.frequencyProbabilityMatrix,
         scoreThresholds: body.data.scoreThresholds,
         moderateSignificanceRule: body.data.moderateSignificanceRule,
+        documentContent: body.data.documentContent ?? null,
         notes: body.data.notes ?? null,
         publishedAt: new Date(),
         createdById: req.auth!.userId,

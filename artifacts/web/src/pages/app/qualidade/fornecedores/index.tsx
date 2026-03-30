@@ -21,7 +21,6 @@ import { toast } from "@/hooks/use-toast";
 import {
   commitSuppliersImport,
   createSupplier,
-  createSupplierRequirementTemplate,
   exportSuppliers,
   listSupplierCategories,
   listSupplierTypes,
@@ -40,9 +39,9 @@ import {
 import { resolveAppAssetPath } from "@/lib/base-path";
 import { downloadSuppliersWorkbook, parseSuppliersWorkbook } from "@/lib/suppliers-workbook";
 import {
+  ArrowUpDown,
   Download,
   Plus,
-  ShieldCheck,
   Package2,
   Search,
   ChevronRight,
@@ -137,20 +136,12 @@ export default function SuppliersPage() {
   const [supplierImportDialogOpen, setSupplierImportDialogOpen] = useState(false);
   const [createStep, setCreateStep] = useState(0);
   const [maxReachedCreateStep, setMaxReachedCreateStep] = useState(0);
-  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [importExportDialogOpen, setImportExportDialogOpen] = useState(false);
   const [supplierImportFileName, setSupplierImportFileName] = useState("");
   const [supplierImportRows, setSupplierImportRows] = useState<SupplierImportInputRow[]>([]);
   const [supplierImportPreview, setSupplierImportPreview] = useState<SupplierImportPreview | null>(null);
 
   const [supplierForm, setSupplierForm] = useState<SupplierFormState>(emptySupplierForm);
-  const [templateForm, setTemplateForm] = useState({
-    title: "",
-    content: "",
-    status: "draft",
-    changeSummary: "",
-    categoryId: "",
-    typeId: "",
-  });
 
   const canManageSuppliers = role === "org_admin" || role === "platform_admin";
 
@@ -281,22 +272,6 @@ export default function SuppliersPage() {
     },
   });
 
-  const createTemplateMutation = useMutation({
-    mutationFn: () =>
-      createSupplierRequirementTemplate(orgId!, {
-        title: templateForm.title,
-        content: templateForm.content,
-        status: templateForm.status,
-        changeSummary: templateForm.changeSummary,
-        categoryId: templateForm.categoryId ? Number(templateForm.categoryId) : null,
-        typeId: templateForm.typeId ? Number(templateForm.typeId) : null,
-      }),
-    onSuccess: () => {
-      setTemplateDialogOpen(false);
-      setTemplateForm({ title: "", content: "", status: "draft", changeSummary: "", categoryId: "", typeId: "" });
-      queryClient.invalidateQueries({ queryKey: suppliersKeys.templates(orgId!) });
-    },
-  });
 
   const categories = categoriesQuery.data || [];
   const types = typesQuery.data || [];
@@ -368,46 +343,13 @@ export default function SuppliersPage() {
 
   const headerActions = canManageSuppliers ? (
     <div className="flex items-center gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => {
-          const anchor = document.createElement("a");
-          anchor.href = resolveAppAssetPath("/templates/template_importacao_fornecedores.xlsx");
-          anchor.download = "template_importacao_fornecedores.xlsx";
-          anchor.click();
-        }}
-      >
-        <Download className="mr-1.5 h-3.5 w-3.5" />
-        Baixar modelo
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => exportSuppliersMutation.mutate()}
-        disabled={exportSuppliersMutation.isPending}
-      >
-        <Download className="mr-1.5 h-3.5 w-3.5" />
-        {exportSuppliersMutation.isPending ? "Exportando..." : "Exportar fornecedores"}
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => {
-          resetSupplierImport();
-          setSupplierImportDialogOpen(true);
-        }}
-      >
-        <Upload className="mr-1.5 h-3.5 w-3.5" />
-        Importar planilha
+      <Button variant="outline" size="sm" onClick={() => setImportExportDialogOpen(true)}>
+        <ArrowUpDown className="mr-1.5 h-3.5 w-3.5" />
+        Importar / Exportar
       </Button>
       <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/requisitos-documentais")}>
         <FileStack className="mr-1.5 h-3.5 w-3.5" />
         Requisitos documentais
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => setTemplateDialogOpen(true)}>
-        <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-        Template de requisito
       </Button>
       <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/tipos")}>
         <Tags className="mr-1.5 h-3.5 w-3.5" />
@@ -415,7 +357,7 @@ export default function SuppliersPage() {
       </Button>
       <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/catalogo-itens")}>
         <Package2 className="mr-1.5 h-3.5 w-3.5" />
-        Catálogo P/S
+        Produtos e Serviços
       </Button>
       <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/categorias")}>
         <Settings2 className="mr-1.5 h-3.5 w-3.5" />
@@ -471,19 +413,19 @@ export default function SuppliersPage() {
       <div className="space-y-6">
         {/* Summary cards */}
         <div className="grid grid-cols-4 gap-4">
-          <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
+          <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
             <p className="text-xs font-medium text-muted-foreground">Aprovados</p>
             <p className="text-xl font-semibold text-emerald-600 mt-0.5">{summary.approved}</p>
           </div>
-          <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
+          <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
             <p className="text-xs font-medium text-muted-foreground">Restritos</p>
             <p className="text-xl font-semibold text-amber-600 mt-0.5">{summary.restricted}</p>
           </div>
-          <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
+          <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
             <p className="text-xs font-medium text-muted-foreground">Bloqueados</p>
             <p className="text-xl font-semibold text-red-600 mt-0.5">{summary.blocked}</p>
           </div>
-          <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
+          <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
             <p className="text-xs font-medium text-muted-foreground">AVA1 apto</p>
             <p className="text-xl font-semibold text-foreground mt-0.5">{summary.withDocumentReview}</p>
           </div>
@@ -1061,72 +1003,68 @@ export default function SuppliersPage() {
       </Dialog>
 
       {/* Template dialog */}
-      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen} title="Novo template de requisito" size="lg">
-        <div className="space-y-5">
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Título</Label>
-            <Input
-              value={templateForm.title}
-              onChange={(event) => setTemplateForm((current) => ({ ...current, title: event.target.value }))}
-              className="mt-1"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Categoria</Label>
-              <Select
-                value={templateForm.categoryId}
-                onChange={(event) => setTemplateForm((current) => ({ ...current, categoryId: event.target.value }))}
-                className="mt-1"
-              >
-                <option value="">Sem categoria</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </Select>
+      <Dialog open={importExportDialogOpen} onOpenChange={setImportExportDialogOpen} title="Importar / Exportar fornecedores">
+        <div className="space-y-3">
+          <button
+            type="button"
+            className="w-full rounded-xl border border-border/60 bg-card/42 px-4 py-3.5 text-left backdrop-blur-md transition hover:border-primary/30"
+            onClick={() => {
+              const anchor = document.createElement("a");
+              anchor.href = resolveAppAssetPath("/templates/template_importacao_fornecedores.xlsx");
+              anchor.download = "template_importacao_fornecedores.xlsx";
+              anchor.click();
+              setImportExportDialogOpen(false);
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <Download className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-[13px] font-medium text-foreground">Baixar modelo de importação</p>
+                <p className="text-xs text-muted-foreground">
+                  Planilha XLSX com o formato esperado para importação em massa.
+                </p>
+              </div>
             </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Tipo</Label>
-              <Select
-                value={templateForm.typeId}
-                onChange={(event) => setTemplateForm((current) => ({ ...current, typeId: event.target.value }))}
-                className="mt-1"
-              >
-                <option value="">Sem tipo</option>
-                {types.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name}
-                  </option>
-                ))}
-              </Select>
+          </button>
+          <button
+            type="button"
+            className="w-full rounded-xl border border-border/60 bg-card/42 px-4 py-3.5 text-left backdrop-blur-md transition hover:border-primary/30"
+            disabled={exportSuppliersMutation.isPending}
+            onClick={() => {
+              exportSuppliersMutation.mutate();
+              setImportExportDialogOpen(false);
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <Download className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-[13px] font-medium text-foreground">Exportar fornecedores</p>
+                <p className="text-xs text-muted-foreground">
+                  Exportar todos os fornecedores cadastrados como planilha XLSX.
+                </p>
+              </div>
             </div>
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Conteúdo</Label>
-            <Textarea
-              rows={8}
-              value={templateForm.content}
-              onChange={(event) => setTemplateForm((current) => ({ ...current, content: event.target.value }))}
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Resumo da mudança</Label>
-            <Input
-              value={templateForm.changeSummary}
-              onChange={(event) => setTemplateForm((current) => ({ ...current, changeSummary: event.target.value }))}
-              className="mt-1"
-            />
-          </div>
+          </button>
+          <button
+            type="button"
+            className="w-full rounded-xl border border-border/60 bg-card/42 px-4 py-3.5 text-left backdrop-blur-md transition hover:border-primary/30"
+            onClick={() => {
+              setImportExportDialogOpen(false);
+              resetSupplierImport();
+              setSupplierImportDialogOpen(true);
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <Upload className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-[13px] font-medium text-foreground">Importar planilha</p>
+                <p className="text-xs text-muted-foreground">
+                  Importar fornecedores a partir de uma planilha XLSX preenchida.
+                </p>
+              </div>
+            </div>
+          </button>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setTemplateDialogOpen(false)}>Cancelar</Button>
-          <Button onClick={() => createTemplateMutation.mutate()} isLoading={createTemplateMutation.isPending}>
-            Salvar template
-          </Button>
-        </DialogFooter>
       </Dialog>
     </>
   );

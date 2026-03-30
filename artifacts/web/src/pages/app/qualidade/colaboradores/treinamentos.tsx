@@ -44,6 +44,7 @@ import type {
 } from "@workspace/api-client-react";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,7 +58,9 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProfileItemAttachmentsField } from "@/components/employees/profile-item-form-fields";
 import {
   EMPLOYEE_RECORD_ATTACHMENT_ACCEPT,
@@ -70,13 +73,16 @@ import {
   ArrowLeft,
   BookCheck,
   Building2,
+  ChevronRight,
   GraduationCap,
   History,
   Pencil,
   Plus,
+  Search,
   ShieldAlert,
   Target,
   Trash2,
+  Users,
 } from "lucide-react";
 
 const TRAINING_STATUS_LABELS: Record<string, string> = {
@@ -85,10 +91,10 @@ const TRAINING_STATUS_LABELS: Record<string, string> = {
   vencido: "Vencido",
 };
 
-const TRAINING_STATUS_COLORS: Record<string, string> = {
-  pendente: "bg-blue-50 text-blue-700 border-blue-200",
-  concluido: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  vencido: "bg-red-50 text-red-700 border-red-200",
+const TRAINING_STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  pendente: "secondary",
+  concluido: "default",
+  vencido: "destructive",
 };
 
 const EFFECTIVENESS_STATUS_LABELS: Record<string, string> = {
@@ -97,10 +103,10 @@ const EFFECTIVENESS_STATUS_LABELS: Record<string, string> = {
   ineffective: "Ineficaz",
 };
 
-const EFFECTIVENESS_STATUS_COLORS: Record<string, string> = {
-  pending: "bg-amber-50 text-amber-700 border-amber-200",
-  effective: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  ineffective: "bg-red-50 text-red-700 border-red-200",
+const EFFECTIVENESS_STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  pending: "outline",
+  effective: "default",
+  ineffective: "destructive",
 };
 
 const COMPETENCY_TYPE_LABELS: Record<string, string> = {
@@ -578,7 +584,6 @@ export default function ColaboradoresTreinamentosPage() {
 
   const [activeTab, setActiveTab] = useState("treinamentos");
   const [search, setSearch] = useState("");
-  const [employeeId, setEmployeeId] = useState("");
   const [unitId, setUnitId] = useState("");
   const [department, setDepartment] = useState("");
   const [position, setPosition] = useState("");
@@ -606,13 +611,13 @@ export default function ColaboradoresTreinamentosPage() {
     getDefaultRequirementForm(),
   );
   const [revisionsOpen, setRevisionsOpen] = useState(false);
+  const [trainingPage, setTrainingPage] = useState(1);
 
   const trainingFilters = useMemo(
     () => ({
-      page: 1,
-      pageSize: 100,
+      page: trainingPage,
+      pageSize: 500,
       search: search || undefined,
-      employeeId: employeeId ? Number(employeeId) : undefined,
       unitId: unitId ? Number(unitId) : undefined,
       department: department || undefined,
       position: position || undefined,
@@ -625,14 +630,19 @@ export default function ColaboradoresTreinamentosPage() {
     [
       department,
       effectivenessStatus,
-      employeeId,
       expiringWithinDays,
       position,
       search,
       status,
+      trainingPage,
       unitId,
     ],
   );
+
+  // Reset training page to 1 when filters change
+  useEffect(() => {
+    setTrainingPage(1);
+  }, [search, unitId, department, position, status, effectivenessStatus, expiringWithinDays]);
 
   const gapFilters = useMemo(
     () => ({
@@ -658,6 +668,35 @@ export default function ColaboradoresTreinamentosPage() {
       },
     });
   const trainings = trainingsResult?.data ?? [];
+  const trainingsPagination = trainingsResult?.pagination;
+  const trainingTotal = trainingsPagination?.total ?? 0;
+  const trainingTotalPages = trainingsPagination?.totalPages ?? 0;
+
+  type TrainingGroup = {
+    title: string;
+    trainings: typeof trainings;
+    statusCounts: Record<string, number>;
+  };
+
+  const trainingGroups = useMemo<TrainingGroup[]>(() => {
+    const map = new Map<string, typeof trainings>();
+    for (const t of trainings) {
+      const key = t.title;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(t);
+    }
+    return Array.from(map.entries()).map(([title, items]) => ({
+      title,
+      trainings: items,
+      statusCounts: items.reduce(
+        (acc, t) => {
+          acc[t.status] = (acc[t.status] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>,
+      ),
+    }));
+  }, [trainings]);
 
   const { data: gapsResult, isLoading: gapsLoading } =
     useListEmployeeCompetencyGaps(orgId ?? 0, gapFilters, {
@@ -987,461 +1026,225 @@ export default function ColaboradoresTreinamentosPage() {
   return (
     <>
       <div className="space-y-6">
-        <div className="grid gap-4 rounded-2xl border border-border/60 bg-card p-4 md:grid-cols-3 xl:grid-cols-7">
-          <div className="xl:col-span-2">
-            <Label className="text-xs font-semibold text-muted-foreground">
-              Busca
-            </Label>
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="mt-1"
+              className="pl-9 h-9 text-[13px]"
               placeholder="Colaborador, treinamento ou cargo"
             />
           </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">
-              Colaborador
-            </Label>
-            <Select
-              value={employeeId}
-              onChange={(event) => setEmployeeId(event.target.value)}
-              className="mt-1 h-10 text-[13px]"
-            >
-              <option value="">Todos</option>
-              {employees.map((employee) => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">
-              Unidade
-            </Label>
-            <Select
-              value={unitId}
-              onChange={(event) => setUnitId(event.target.value)}
-              className="mt-1 h-10 text-[13px]"
-            >
-              <option value="">Todas</option>
-              {units.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">
-              Departamento
-            </Label>
-            <Select
-              value={department}
-              onChange={(event) => setDepartment(event.target.value)}
-              className="mt-1 h-10 text-[13px]"
-            >
-              <option value="">Todos</option>
-              {departments.map((item) => (
-                <option key={item.id} value={item.name}>
-                  {item.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground">
-              Cargo
-            </Label>
-            <Select
-              value={position}
-              onChange={(event) => setPosition(event.target.value)}
-              className="mt-1 h-10 text-[13px]"
-            >
-              <option value="">Todos</option>
-              {positions.map((item) => (
-                <option key={item.id} value={item.name}>
-                  {item.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex items-end">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSearch("");
-                setEmployeeId("");
-                setUnitId("");
-                setDepartment("");
-                setPosition("");
-                setStatus("");
-                setEffectivenessStatus("");
-                setExpiringWithinDays("");
-                setCriticalOnly(false);
-              }}
-              className="w-full"
-            >
-              Limpar filtros
-            </Button>
-          </div>
+          <Select
+            value={unitId}
+            onChange={(event) => setUnitId(event.target.value)}
+            className="h-9 text-[13px] w-44"
+          >
+            <option value="">Todas as unidades</option>
+            {units.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </Select>
+          <Select
+            value={department}
+            onChange={(event) => setDepartment(event.target.value)}
+            className="h-9 text-[13px] w-44"
+          >
+            <option value="">Todos departamentos</option>
+            {departments.map((item) => (
+              <option key={item.id} value={item.name}>
+                {item.name}
+              </option>
+            ))}
+          </Select>
+          <Select
+            value={position}
+            onChange={(event) => setPosition(event.target.value)}
+            className="h-9 text-[13px] w-44"
+          >
+            <option value="">Todos os cargos</option>
+            {positions.map((item) => (
+              <option key={item.id} value={item.name}>
+                {item.name}
+              </option>
+            ))}
+          </Select>
+          {activeTab === "treinamentos" && (
+            <>
+              <Select
+                value={status}
+                onChange={(event) =>
+                  setStatus(
+                    event.target.value as
+                      | ListOrganizationTrainingsStatus
+                      | "",
+                  )
+                }
+                className="h-9 text-[13px] w-36"
+              >
+                <option value="">Todos status</option>
+                <option value="pendente">Pendente</option>
+                <option value="concluido">Concluido</option>
+                <option value="vencido">Vencido</option>
+              </Select>
+              <Select
+                value={effectivenessStatus}
+                onChange={(event) =>
+                  setEffectivenessStatus(
+                    event.target.value as
+                      | ListOrganizationTrainingsEffectivenessStatus
+                      | "",
+                  )
+                }
+                className="h-9 text-[13px] w-40"
+              >
+                <option value="">Toda eficacia</option>
+                <option value="pending">Pendente</option>
+                <option value="effective">Eficaz</option>
+                <option value="ineffective">Ineficaz</option>
+              </Select>
+              <Input
+                type="number"
+                placeholder="Vence em (dias)"
+                value={expiringWithinDays}
+                onChange={(event) =>
+                  setExpiringWithinDays(event.target.value)
+                }
+                className="h-9 text-[13px] w-36"
+              />
+            </>
+          )}
         </div>
+
+        {activeTab === "treinamentos" && trainingsResult?.stats && (
+          <div className="grid grid-cols-5 gap-4">
+            <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+              <p className="text-xs font-medium text-muted-foreground">Total</p>
+              <p className="mt-0.5 text-xl font-semibold text-foreground">
+                {trainingsResult.stats.total}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+              <p className="text-xs font-medium text-muted-foreground">Concluido</p>
+              <p className="mt-0.5 text-xl font-semibold text-emerald-600">
+                {trainingsResult.stats.concluido}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+              <p className="text-xs font-medium text-muted-foreground">Pendente</p>
+              <p className="mt-0.5 text-xl font-semibold text-amber-600">
+                {trainingsResult.stats.pendente}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+              <p className="text-xs font-medium text-muted-foreground">Vencido</p>
+              <p className="mt-0.5 text-xl font-semibold text-red-600">
+                {trainingsResult.stats.vencido}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+              <p className="text-xs font-medium text-muted-foreground">Eficacia pendente</p>
+              <p className="mt-0.5 text-xl font-semibold text-sky-600">
+                {trainingsResult.stats.effectivenessPending}
+              </p>
+            </div>
+          </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="treinamentos">Treinamentos</TabsTrigger>
-            <TabsTrigger value="matriz">Matriz</TabsTrigger>
             <TabsTrigger value="lacunas">Lacunas</TabsTrigger>
           </TabsList>
 
           <TabsContent value="treinamentos" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
-              <div>
-                <Label className="text-xs font-semibold text-muted-foreground">
-                  Status
-                </Label>
-                <Select
-                  value={status}
-                  onChange={(event) =>
-                    setStatus(
-                      event.target.value as
-                        | ListOrganizationTrainingsStatus
-                        | "",
-                    )
-                  }
-                  className="mt-1 h-10 text-[13px]"
-                >
-                  <option value="">Todos</option>
-                  <option value="pendente">Pendente</option>
-                  <option value="concluido">Concluido</option>
-                  <option value="vencido">Vencido</option>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs font-semibold text-muted-foreground">
-                  Eficacia
-                </Label>
-                <Select
-                  value={effectivenessStatus}
-                  onChange={(event) =>
-                    setEffectivenessStatus(
-                      event.target.value as
-                        | ListOrganizationTrainingsEffectivenessStatus
-                        | "",
-                    )
-                  }
-                  className="mt-1 h-10 text-[13px]"
-                >
-                  <option value="">Todos</option>
-                  <option value="pending">Pendente</option>
-                  <option value="effective">Eficaz</option>
-                  <option value="ineffective">Ineficaz</option>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs font-semibold text-muted-foreground">
-                  Vence em ate (dias)
-                </Label>
-                <Input
-                  type="number"
-                  value={expiringWithinDays}
-                  onChange={(event) =>
-                    setExpiringWithinDays(event.target.value)
-                  }
-                  className="mt-1"
-                />
-              </div>
-            </div>
-
             {trainingsLoading ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">
+              <div className="py-16 text-center text-[13px] text-muted-foreground">
                 Carregando treinamentos...
               </div>
-            ) : trainings.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">
-                <GraduationCap className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">
-                  Nenhum treinamento encontrado para os filtros informados.
+            ) : trainingGroups.length === 0 ? (
+              /* ── Empty state ── */
+              <div className="py-16 text-center">
+                <GraduationCap className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
+                <p className="text-[13px] text-muted-foreground">
+                  Nenhum treinamento encontrado
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {trainings.map((training) => (
-                  <div
-                    key={training.id}
-                    className="rounded-2xl border border-border/60 bg-card px-5 py-4"
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="space-y-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold text-foreground">
-                            {training.title}
-                          </p>
-                          <span
-                            className={cn(
-                              "rounded-full border px-2 py-1 text-[11px] font-medium",
-                              TRAINING_STATUS_COLORS[training.status] ||
-                                "bg-secondary text-muted-foreground border-border",
-                            )}
-                          >
-                            {TRAINING_STATUS_LABELS[training.status] ||
-                              training.status}
-                          </span>
-                          {training.effectivenessStatus ? (
-                            <span
-                              className={cn(
-                                "rounded-full border px-2 py-1 text-[11px] font-medium",
-                                EFFECTIVENESS_STATUS_COLORS[
-                                  training.effectivenessStatus
-                                ],
-                              )}
-                            >
-                              {
-                                EFFECTIVENESS_STATUS_LABELS[
-                                  training.effectivenessStatus
-                                ]
-                              }
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          <Link
-                            href={`/organizacao/colaboradores/${training.employeeId}`}
-                          >
-                            <span className="cursor-pointer font-medium text-foreground hover:underline">
-                              {training.employeeName}
-                            </span>
-                          </Link>
-                          {training.employeePosition
-                            ? ` · ${training.employeePosition}`
-                            : ""}
-                          {training.employeeDepartment
-                            ? ` · ${training.employeeDepartment}`
-                            : ""}
-                          {training.unitName ? ` · ${training.unitName}` : ""}
-                        </div>
-                        {training.description ? (
-                          <p className="text-sm text-muted-foreground">
-                            {training.description}
-                          </p>
-                        ) : null}
-                        {training.objective ? (
-                          <p className="text-sm text-muted-foreground">
-                            <span className="font-medium text-foreground">
-                              Objetivo:
-                            </span>{" "}
-                            {training.objective}
-                          </p>
-                        ) : null}
-                        <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-                          {training.targetCompetencyName ? (
-                            <span className="rounded-full bg-secondary px-2 py-1">
-                              Competencia: {training.targetCompetencyName}
-                              {training.targetCompetencyLevel != null
-                                ? ` · nivel ${training.targetCompetencyLevel}`
-                                : ""}
-                            </span>
-                          ) : null}
-                          {training.evaluationMethod ? (
-                            <span className="rounded-full bg-secondary px-2 py-1">
-                              Avaliacao: {training.evaluationMethod}
-                            </span>
-                          ) : null}
-                          {training.renewalMonths ? (
-                            <span className="rounded-full bg-secondary px-2 py-1">
-                              Renovacao: {training.renewalMonths} meses
-                            </span>
-                          ) : null}
-                          {training.expirationDate ? (
-                            <span className="rounded-full bg-secondary px-2 py-1">
-                              Validade: {training.expirationDate}
-                            </span>
-                          ) : null}
-                        </div>
-                        {training.latestEffectivenessReview ? (
-                          <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                            <p className="font-medium text-foreground">
-                              Ultima avaliacao de eficacia
-                            </p>
-                            <p className="mt-1">
-                              {training.latestEffectivenessReview.isEffective
-                                ? "Eficaz"
-                                : "Ineficaz"}{" "}
-                              em{" "}
-                              {
-                                training.latestEffectivenessReview
-                                  .evaluationDate
-                              }
-                              {training.latestEffectivenessReview.score != null
-                                ? ` · nota ${training.latestEffectivenessReview.score}`
-                                : ""}
-                              {training.latestEffectivenessReview.resultLevel !=
-                              null
-                                ? ` · nivel ${training.latestEffectivenessReview.resultLevel}`
-                                : ""}
-                            </p>
-                          </div>
-                        ) : null}
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setHistoryTraining(training)}
+              <>
+                {/* ── Training groups list ── */}
+                <div className="overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border/60">
+                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                          Treinamento
+                        </th>
+                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                          Colaboradores
+                        </th>
+                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                          Concluido
+                        </th>
+                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                          Pendente
+                        </th>
+                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                          Vencido
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {trainingGroups.map((group) => (
+                        <tr
+                          key={group.title}
+                          className="border-b border-border/40 last:border-0 transition-colors hover:bg-secondary/30"
                         >
-                          <History className="mr-1.5 h-3.5 w-3.5" />
-                          Historico
-                        </Button>
-                        <Link
-                          href={`/organizacao/colaboradores/${training.employeeId}?tab=treinamentos`}
-                        >
-                          <Button type="button" variant="outline" size="sm">
-                            <BookCheck className="mr-1.5 h-3.5 w-3.5" />
-                            Abrir colaborador
-                          </Button>
-                        </Link>
-                        {canWriteEmployees ? (
-                          <>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openEditTraining(training)}
+                          <td className="px-4 py-3">
+                            <Link
+                              href={`/organizacao/colaboradores/treinamentos/${encodeURIComponent(group.title)}`}
+                              className="group flex items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                              aria-label={`Ver detalhes do treinamento ${group.title}`}
                             >
-                              <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                              Editar
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                void handleDeleteTraining(training)
-                              }
-                            >
-                              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                              Excluir
-                            </Button>
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="matriz" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <Label className="text-xs font-semibold text-muted-foreground">
-                  Cargo
-                </Label>
-                <Select
-                  value={selectedPositionId}
-                  onChange={(event) =>
-                    setSelectedPositionId(event.target.value)
-                  }
-                  className="mt-1 h-10 text-[13px]"
-                >
-                  <option value="">Selecionar cargo</option>
-                  {positions.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="flex items-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!selectedPositionId}
-                  onClick={() => setRevisionsOpen(true)}
-                >
-                  <History className="mr-1.5 h-3.5 w-3.5" />
-                  Ver revisoes
-                </Button>
-              </div>
-            </div>
-
-            {!selectedPositionId ? (
-              <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center text-sm text-muted-foreground">
-                Selecione um cargo para gerir a matriz.
-              </div>
-            ) : requirements.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">
-                <Building2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">
-                  Nenhum requisito cadastrado para este cargo.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {requirements.map((requirement) => (
-                  <div
-                    key={requirement.id}
-                    className="rounded-2xl border border-border/60 bg-card px-5 py-4"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold text-foreground">
-                            {requirement.competencyName}
-                          </p>
-                          <span className="rounded-full bg-secondary px-2 py-1 text-[11px] text-muted-foreground">
-                            {COMPETENCY_TYPE_LABELS[
-                              requirement.competencyType
-                            ] || requirement.competencyType}
-                          </span>
-                          <span className="rounded-full bg-secondary px-2 py-1 text-[11px] text-muted-foreground">
-                            Nivel {requirement.requiredLevel}
-                          </span>
-                        </div>
-                        {requirement.notes ? (
-                          <p className="text-sm text-muted-foreground">
-                            {requirement.notes}
-                          </p>
-                        ) : null}
-                        <p className="text-xs text-muted-foreground">
-                          Ordem {requirement.sortOrder}
-                        </p>
-                      </div>
-                      {canWriteEmployees ? (
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditRequirement(requirement)}
-                          >
-                            <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                            Editar
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              void handleDeleteRequirement(requirement.id)
-                            }
-                          >
-                            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                            Excluir
-                          </Button>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                              <p className="text-[13px] font-medium text-foreground group-hover:text-foreground">
+                                {group.title}
+                              </p>
+                              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5" />
+                            </Link>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                              <Users className="h-3.5 w-3.5" />
+                              {group.trainings.length}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-[13px] text-emerald-600 font-medium">
+                            {group.statusCounts["concluido"] || 0}
+                          </td>
+                          <td className="px-4 py-3 text-[13px] text-amber-600 font-medium">
+                            {group.statusCounts["pendente"] || 0}
+                          </td>
+                          <td className="px-4 py-3 text-[13px] text-red-600 font-medium">
+                            {group.statusCounts["vencido"] || 0}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {trainingTotalPages > 1 && (
+                  <PaginationControls
+                    page={trainingPage}
+                    pageSize={trainingFilters.pageSize ?? 500}
+                    total={trainingTotal}
+                    totalPages={trainingTotalPages}
+                    onPageChange={setTrainingPage}
+                  />
+                )}
+              </>
             )}
           </TabsContent>
 

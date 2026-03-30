@@ -1421,6 +1421,16 @@ router.get(
         return true;
       });
 
+    const stats = {
+      total: response.length,
+      pendente: response.filter((r) => r.status === "pendente").length,
+      concluido: response.filter((r) => r.status === "concluido").length,
+      vencido: response.filter((r) => r.status === "vencido").length,
+      effectivenessPending: response.filter(
+        (r) => r.effectivenessStatus === "pending",
+      ).length,
+    };
+
     const page = query.data.page || 1;
     const pageSize = query.data.pageSize || 25;
     const total = response.length;
@@ -1434,6 +1444,7 @@ router.get(
         total,
         totalPages: Math.ceil(total / pageSize),
       },
+      stats,
     });
   },
 );

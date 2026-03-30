@@ -36,6 +36,7 @@ import {
 } from "@/lib/governance-system-client";
 import { useGovernanceRiskOpportunityItems } from "@/lib/governance-client";
 import {
+  getListDocumentsQueryKey,
   getListPositionsQueryKey,
   useListDocuments,
   useListPositions,
@@ -311,12 +312,11 @@ export default function GovernanceKnowledgeAssetsPage() {
       queryKey: getListPositionsQueryKey(orgId ?? 0),
     },
   });
-  const { data: documents = [] } = useListDocuments(orgId ?? 0, {
-    page: 1,
-    pageSize: 100,
-  }, {
+  const documentsParams = { page: 1, pageSize: 100 };
+  const { data: documents = [] } = useListDocuments(orgId ?? 0, documentsParams, {
     query: {
       enabled: !!orgId,
+      queryKey: getListDocumentsQueryKey(orgId ?? 0, documentsParams),
     },
   });
   const { data: riskItems = [] } = useGovernanceRiskOpportunityItems(orgId);
@@ -807,7 +807,7 @@ export default function GovernanceKnowledgeAssetsPage() {
                   />
                 </div>
 
-                <div className="rounded-xl border border-border/60 bg-card px-4 py-3 text-xs text-muted-foreground">
+                <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md text-xs text-muted-foreground">
                   Criado por {selectedAsset.createdByName || "usuário removido"} em{" "}
                   {selectedAsset.createdAt || "data indisponível"}.
                   {" "}

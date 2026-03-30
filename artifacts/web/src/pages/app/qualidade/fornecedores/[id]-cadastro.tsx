@@ -200,8 +200,8 @@ export default function SupplierMasterEditPage() {
       catalogItemIds: detail.offerings
         .map((offering) => offering.catalogItemId)
         .filter((catalogItemId): catalogItemId is number => catalogItemId !== null),
-      criticality: detail.criticality,
-      status: detail.status,
+      criticality: detail.criticality as "low" | "medium" | "high",
+      status: detail.status as SupplierMasterForm["status"],
       notes: detail.notes || "",
       email: detail.email || "",
       phone: detail.phone || "",

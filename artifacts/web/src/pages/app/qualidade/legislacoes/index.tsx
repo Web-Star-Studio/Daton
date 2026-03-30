@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "wouter";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
@@ -34,7 +35,14 @@ import {
   Sparkles,
   Loader2,
   Trash2,
+  X,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useForm } from "react-hook-form";
 import * as XLSX from "xlsx";
 import { resolveApiUrl } from "@/lib/api";
@@ -274,6 +282,11 @@ export default function LegislacoesPage() {
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState("");
   const [unitFilter, setUnitFilter] = useState("");
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const { data: units } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
@@ -581,33 +594,7 @@ export default function LegislacoesPage() {
 
   const headerActions = useMemo(() => {
     const canWriteLegislations = canWriteModule("legislations");
-    if (selectedIds.size > 0) {
-      return (
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground mr-1">
-            {selectedIds.size} selecionad{selectedIds.size > 1 ? "as" : "a"}
-          </span>
-          {canWriteLegislations && (
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => setConfirmDeleteOpen(true)}
-              isLoading={isDeleting}
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-              Excluir ({selectedIds.size})
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setSelectedIds(new Set())}
-          >
-            Cancelar
-          </Button>
-        </div>
-      );
-    }
+    // Bulk actions moved to floating bar at bottom
     return canWriteLegislations ? (
       <>
         <Button
@@ -1217,6 +1204,51 @@ export default function LegislacoesPage() {
           </Button>
         </DialogFooter>
       </Dialog>
+
+      {hasMounted && selectedIds.size > 0 && canWriteModule("legislations") && createPortal(
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-in fade-in-0 slide-in-from-bottom-4 duration-200">
+          <TooltipProvider delayDuration={200}>
+            <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/90 px-3 py-2 shadow-lg backdrop-blur-xl">
+              <span className="px-2 text-[13px] font-medium text-foreground">
+                {selectedIds.size} selecionad{selectedIds.size > 1 ? "as" : "a"}
+              </span>
+              <div className="mx-1 h-5 w-px bg-border" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => setConfirmDeleteOpen(true)}
+                    disabled={isDeleting}
+                    aria-label="Excluir legislações selecionadas"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Excluir selecionadas</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setSelectedIds(new Set())}
+                    aria-label="Limpar seleção"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Limpar seleção</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+        </div>,
+        document.body,
+      )}
     </>
   );
 }

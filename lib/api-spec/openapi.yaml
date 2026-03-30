@@ -966,7 +966,7 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 100
+            maximum: 500
       responses:
         "200":
           description: Organization training list
@@ -7415,9 +7415,29 @@ components:
             - pageSize
             - total
             - totalPages
+        stats:
+          type: object
+          properties:
+            total:
+              type: integer
+            pendente:
+              type: integer
+            concluido:
+              type: integer
+            vencido:
+              type: integer
+            effectivenessPending:
+              type: integer
+          required:
+            - total
+            - pendente
+            - concluido
+            - vencido
+            - effectivenessPending
       required:
         - data
         - pagination
+        - stats
 
     PaginatedEmployeeCompetencyGaps:
       type: object

@@ -2,11 +2,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
 
 export interface LaiaBranchConfig {
-  id: number;
+  id: number | null;
   unitId: number;
   unitName: string | null;
   surveyStatus: "nao_levantado" | "em_levantamento" | "levantado";
   updatedAt: string | null;
+  totalAssessments: number;
+  criticalAssessments: number;
+  significantAssessments: number;
+  notSignificantAssessments: number;
 }
 
 export interface LaiaSector {
@@ -21,6 +25,20 @@ export interface LaiaSector {
   updatedAt: string | null;
 }
 
+export interface LaiaMethodologyDocumentContent {
+  objetivo: string;
+  aplicacao: string;
+  generalidades: string;
+  definicoes: Array<{ termo: string; descricao: string }>;
+  responsabilidades: Array<{ cargo: string; atribuicoes: string }>;
+  procedimentoLevantamento: string;
+  procedimentoAnalise: string;
+  classificacaoAssuntos: string[];
+  classificacaoAplicabilidade: Array<{ codigo: string; nome: string; descricao: string }>;
+  niveisAtendimento: Array<{ nivel: string; nome: string; descricao: string }>;
+  outrosRequisitos: string;
+}
+
 export interface LaiaMethodologyVersion {
   id: number;
   versionNumber: number;
@@ -30,6 +48,7 @@ export interface LaiaMethodologyVersion {
     moderateMax: number;
   };
   moderateSignificanceRule: string;
+  documentContent: LaiaMethodologyDocumentContent | null;
   publishedAt: string | null;
   notes: string | null;
 }
@@ -42,6 +61,17 @@ export interface LaiaMethodology {
   createdAt: string | null;
   updatedAt: string | null;
   versions: LaiaMethodologyVersion[];
+}
+
+export interface LaiaUnitOverview {
+  unitId: number;
+  unitName: string;
+  surveyStatus: "nao_levantado" | "em_levantamento" | "levantado";
+  totalAssessments: number;
+  byTemporality: Record<string, number>;
+  byOperationalSituation: Record<string, number>;
+  byIncidence: Record<string, number>;
+  byImpactClass: Record<string, number>;
 }
 
 export interface LaiaAssessmentListFilters {
@@ -324,8 +354,11 @@ export const laiaKeys = {
   root: (orgId: number) => ["laia", orgId] as const,
   dashboard: (orgId: number) => ["laia", orgId, "dashboard"] as const,
   branchConfigs: (orgId: number) => ["laia", orgId, "branch-configs"] as const,
-  sectors: (orgId: number) => ["laia", orgId, "sectors"] as const,
+  sectors: (orgId: number, unitId?: number) =>
+    ["laia", orgId, "sectors", unitId ?? null] as const,
   methodology: (orgId: number) => ["laia", orgId, "methodology"] as const,
+  unitOverview: (orgId: number, unitId: number) =>
+    ["laia", orgId, "unit-overview", unitId] as const,
   assessments: (orgId: number, filters?: LaiaAssessmentListFilters) =>
     ["laia", orgId, "assessments", filters ?? {}] as const,
   assessment: (orgId: number, assessmentId: number) =>
@@ -377,13 +410,15 @@ export function useLaiaBranchConfigs(orgId?: number) {
   });
 }
 
-export function useLaiaSectors(orgId?: number) {
+export function useLaiaSectors(orgId?: number, unitId?: number) {
   return useQuery({
-    queryKey: laiaKeys.sectors(orgId || 0),
+    queryKey: laiaKeys.sectors(orgId || 0, unitId),
     enabled: !!orgId,
     queryFn: () =>
       laiaRequest<LaiaSector[]>(
-        `/api/organizations/${orgId}/environmental/laia/sectors`,
+        `/api/organizations/${orgId}/environmental/laia/sectors${
+          unitId ? `?unitId=${unitId}` : ""
+        }`,
       ),
   });
 }
@@ -395,6 +430,17 @@ export function useLaiaMethodology(orgId?: number) {
     queryFn: () =>
       laiaRequest<LaiaMethodology | null>(
         `/api/organizations/${orgId}/environmental/laia/methodology`,
+      ),
+  });
+}
+
+export function useLaiaUnitOverview(orgId?: number, unitId?: number) {
+  return useQuery({
+    queryKey: laiaKeys.unitOverview(orgId || 0, unitId || 0),
+    enabled: !!orgId && !!unitId,
+    queryFn: () =>
+      laiaRequest<LaiaUnitOverview>(
+        `/api/organizations/${orgId}/environmental/laia/units/${unitId}/overview`,
       ),
   });
 }
@@ -460,6 +506,54 @@ export function useCreateLaiaSector(orgId?: number) {
   });
 }
 
+export function useUpdateLaiaSector(orgId?: number) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: {
+      sectorId: number;
+      unitId?: number | null;
+      departmentId?: number | null;
+      code?: string;
+      name?: string;
+      description?: string | null;
+      isActive?: boolean;
+    }) => {
+      const safeOrgId = requireOrgId(orgId);
+      const { sectorId, ...payload } = body;
+      return laiaRequest<void>(
+        `/api/organizations/${safeOrgId}/environmental/laia/sectors/${sectorId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        },
+      );
+    },
+    onSuccess: async () => invalidateLaia(queryClient, orgId),
+  });
+}
+
+export function useUpdateLaiaBranchConfig(orgId?: number) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: {
+      unitId: number;
+      surveyStatus: "nao_levantado" | "em_levantamento" | "levantado";
+    }) => {
+      const safeOrgId = requireOrgId(orgId);
+      return laiaRequest<void>(
+        `/api/organizations/${safeOrgId}/environmental/laia/branch-configs`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ items: [body] }),
+        },
+      );
+    },
+    onSuccess: async () => invalidateLaia(queryClient, orgId),
+  });
+}
+
 export function usePublishLaiaMethodology(orgId?: number) {
   const queryClient = useQueryClient();
 
@@ -471,6 +565,7 @@ export function usePublishLaiaMethodology(orgId?: number) {
       frequencyProbabilityMatrix: Record<string, unknown>;
       scoreThresholds: { negligibleMax: number; moderateMax: number };
       moderateSignificanceRule: string;
+      documentContent?: LaiaMethodologyDocumentContent | null;
       notes?: string | null;
     }) => {
       const safeOrgId = requireOrgId(orgId);

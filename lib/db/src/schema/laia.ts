@@ -67,6 +67,20 @@ export interface LaiaScoreThresholds {
   moderateMax: number;
 }
 
+export interface LaiaMethodologyDocumentContent {
+  objetivo: string;
+  aplicacao: string;
+  generalidades: string;
+  definicoes: Array<{ termo: string; descricao: string }>;
+  responsabilidades: Array<{ cargo: string; atribuicoes: string }>;
+  procedimentoLevantamento: string;
+  procedimentoAnalise: string;
+  classificacaoAssuntos: string[];
+  classificacaoAplicabilidade: Array<{ codigo: string; nome: string; descricao: string }>;
+  niveisAtendimento: Array<{ nivel: string; nome: string; descricao: string }>;
+  outrosRequisitos: string;
+}
+
 export interface LaiaAssessmentSnapshot {
   aspectCode: string;
   activityOperation: string;
@@ -196,6 +210,7 @@ export const laiaMethodologyVersionsTable = pgTable(
       .$type<LaiaScoreThresholds>()
       .notNull(),
     moderateSignificanceRule: text("moderate_significance_rule").notNull(),
+    documentContent: jsonb("document_content").$type<LaiaMethodologyDocumentContent>(),
     notes: text("notes"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     createdById: integer("created_by_id")

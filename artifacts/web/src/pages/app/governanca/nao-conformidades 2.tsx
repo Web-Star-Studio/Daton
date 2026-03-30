@@ -22,6 +22,7 @@ import {
 import {
   getListUserOptionsQueryKey,
   useListUserOptions,
+  type NonconformityStatus,
 } from "@workspace/api-client-react";
 
 type NcFormState = {
@@ -86,7 +87,7 @@ export default function GovernanceNonconformitiesPage() {
     page,
     pageSize: PAGE_SIZE,
     search: debouncedSearch || undefined,
-    status: statusFilter || undefined,
+    status: (statusFilter || undefined) as NonconformityStatus | undefined,
   });
   const nonconformities = ncList?.data ?? [];
   const pagination = ncList?.pagination;

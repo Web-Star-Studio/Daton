@@ -18,6 +18,7 @@ import OrganizacaoDepartmentsPage from "@/pages/app/organizacao/departamentos";
 import OrganizacaoPositionsPage from "@/pages/app/organizacao/cargos";
 import OrganizacaoEmployeesPage from "@/pages/app/organizacao/colaboradores";
 import OrganizacaoEmployeeTrainingsPage from "@/pages/app/organizacao/colaboradores/treinamentos";
+import OrganizacaoTrainingDetailPage from "@/pages/app/organizacao/colaboradores/treinamento-detalhe";
 import OrganizacaoEmployeeDetailPage from "@/pages/app/organizacao/colaboradores/[id]";
 import UnitDetailPage from "@/pages/app/organizacao/unidades/[id]";
 import GovernancePage from "@/pages/app/governanca";
@@ -42,6 +43,7 @@ import SupplierDetailPage from "@/pages/app/qualidade/fornecedores/[id]";
 import SupplierDocumentRequirementsPage from "@/pages/app/qualidade/fornecedores/requisitos-documentais";
 import SupplierTypesPage from "@/pages/app/qualidade/fornecedores/tipos";
 import EnvironmentalLaiaPage from "@/pages/app/ambiental/laia";
+import EnvironmentalLaiaUnitDetailPage from "@/pages/app/ambiental/laia/unidades/[unitId]";
 import ProfileSettingsPage from "@/pages/app/configuracoes/perfil";
 import SystemSettingsPage from "@/pages/app/configuracoes/sistema";
 import AcceptInvitePage from "@/pages/accept-invite";
@@ -125,6 +127,10 @@ function AppPages() {
         component={OrganizacaoEmployeeTrainingsPage}
       />
       <Route
+        path="/organizacao/colaboradores/treinamentos/:title"
+        component={OrganizacaoTrainingDetailPage}
+      />
+      <Route
         path="/organizacao/colaboradores/:id"
         component={OrganizacaoEmployeeDetailPage}
       />
@@ -196,6 +202,10 @@ function AppPages() {
         path="/qualidade/fornecedores/:id"
         component={SupplierDetailPage}
       />
+      <Route
+        path="/ambiental/laia/unidades/:unitId"
+        component={EnvironmentalLaiaUnitDetailPage}
+      />
       <Route path="/ambiental/laia" component={EnvironmentalLaiaPage} />
       <Route path="/configuracoes/perfil" component={ProfileSettingsPage} />
       <Route path="/configuracoes/sistema" component={SystemSettingsPage} />
@@ -208,6 +218,10 @@ function AppPages() {
       <Route
         path="/app/organizacao/colaboradores/treinamentos"
         component={OrganizacaoEmployeeTrainingsPage}
+      />
+      <Route
+        path="/app/organizacao/colaboradores/treinamentos/:title"
+        component={OrganizacaoTrainingDetailPage}
       />
       <Route
         path="/app/organizacao/colaboradores/:id"
@@ -289,6 +303,10 @@ function AppPages() {
       <Route
         path="/app/qualidade/fornecedores/:id"
         component={SupplierDetailPage}
+      />
+      <Route
+        path="/app/ambiental/laia/unidades/:unitId"
+        component={EnvironmentalLaiaUnitDetailPage}
       />
       <Route path="/app/ambiental/laia" component={EnvironmentalLaiaPage} />
       <Route path="/app/configuracoes/perfil" component={ProfileSettingsPage} />

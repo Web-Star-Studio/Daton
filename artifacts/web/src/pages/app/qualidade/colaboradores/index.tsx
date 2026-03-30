@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "wouter";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
@@ -40,7 +41,14 @@ import {
   ChevronRight,
   ChevronLeft,
   Trash2,
+  X,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useForm } from "react-hook-form";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -490,33 +498,7 @@ export default function ColaboradoresPage() {
   const headerActions = useMemo(() => {
     const canWriteEmployees = canWriteModule("employees");
     if (!orgId) return null;
-    if (selectedIds.size > 0) {
-      return (
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground mr-1">
-            {selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}
-          </span>
-          {canWriteEmployees && (
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => setConfirmDeleteOpen(true)}
-              isLoading={isDeleting}
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-              Desativar ({selectedIds.size})
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setSelectedIds(new Set())}
-          >
-            Cancelar
-          </Button>
-        </div>
-      );
-    }
+    // Bulk actions moved to floating bar at bottom
     return (
       <div className="flex items-center gap-2">
         <Link href="/organizacao/colaboradores/treinamentos">
@@ -549,19 +531,19 @@ export default function ColaboradoresPage() {
     <>
       <div className="space-y-6">
         <div className="grid grid-cols-4 gap-4">
-          <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
+          <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
             <p className="text-xs font-medium text-muted-foreground">Total</p>
             <p className="text-xl font-semibold text-foreground mt-0.5">
               {stats.total}
             </p>
           </div>
-          <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
+          <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
             <p className="text-xs font-medium text-muted-foreground">Ativos</p>
             <p className="text-xl font-semibold text-emerald-600 mt-0.5">
               {stats.active}
             </p>
           </div>
-          <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
+          <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
             <p className="text-xs font-medium text-muted-foreground">
               Inativos
             </p>
@@ -569,7 +551,7 @@ export default function ColaboradoresPage() {
               {stats.inactive}
             </p>
           </div>
-          <div className="bg-card border border-border/60 rounded-xl px-4 py-3">
+          <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
             <p className="text-xs font-medium text-muted-foreground">
               Afastados
             </p>
@@ -1073,6 +1055,51 @@ export default function ColaboradoresPage() {
           </Button>
         </DialogFooter>
       </Dialog>
+
+      {selectedIds.size > 0 && canWriteModule("employees") && createPortal(
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-in fade-in-0 slide-in-from-bottom-4 duration-200">
+          <TooltipProvider delayDuration={200}>
+            <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/90 px-3 py-2 shadow-lg backdrop-blur-xl">
+              <span className="px-2 text-[13px] font-medium text-foreground">
+                {selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}
+              </span>
+              <div className="mx-1 h-5 w-px bg-border" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => setConfirmDeleteOpen(true)}
+                    disabled={isDeleting}
+                    aria-label="Desativar colaboradores selecionados"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Desativar selecionados</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setSelectedIds(new Set())}
+                    aria-label="Limpar seleção"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Limpar seleção</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+        </div>,
+        document.body,
+      )}
     </>
   );
 }

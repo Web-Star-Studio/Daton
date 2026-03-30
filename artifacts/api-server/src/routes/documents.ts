@@ -2444,7 +2444,11 @@ router.get(
         res.status(404).json({ error: "Arquivo do anexo não encontrado" });
         return;
       }
-      console.error("Error serving document attachment:", error);
+      console.error(
+        "Error serving document attachment:",
+        error instanceof Error ? error.message : error,
+        error instanceof Error ? error.stack : "",
+      );
       res.status(500).json({ error: "Falha ao servir anexo" });
     }
   },

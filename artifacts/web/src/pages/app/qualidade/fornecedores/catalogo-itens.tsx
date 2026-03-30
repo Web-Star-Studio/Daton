@@ -57,8 +57,8 @@ export default function SupplierCatalogItemsPage() {
     defaultValues: emptyForm,
   });
 
-  usePageTitle("Catálogo de produtos e serviços");
-  usePageSubtitle("Cadastre itens reutilizáveis e vincule-os aos fornecedores sem recriar escopos locais.");
+  usePageTitle("Produtos e Servicos");
+  usePageSubtitle("Cadastre itens reutilizaveis e vincule-os aos fornecedores.");
 
   const catalogQuery = useQuery({
     queryKey: suppliersKeys.catalogItems(orgId || 0),

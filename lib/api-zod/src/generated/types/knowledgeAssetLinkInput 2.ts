@@ -6,9 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface KnowledgeAssetLinkInput {
-  processId?: number | null;
-  positionId?: number | null;
-  documentId?: number | null;
-  riskOpportunityItemId?: number | null;
-}
+export type KnowledgeAssetLinkInput =
+  | {
+      processId: number;
+    }
+  | {
+      positionId: number;
+    }
+  | {
+      documentId: number;
+    }
+  | {
+      riskOpportunityItemId: number;
+    };

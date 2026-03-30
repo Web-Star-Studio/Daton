@@ -21,6 +21,7 @@ import {
 import {
   getListUserOptionsQueryKey,
   useListUserOptions,
+  type GovernanceSgqProcessStatus,
 } from "@workspace/api-client-react";
 
 type ProcessFormState = {
@@ -90,7 +91,7 @@ export default function GovernanceProcessesPage() {
     page,
     pageSize: PAGE_SIZE,
     search: debouncedSearch || undefined,
-    status: statusFilter || undefined,
+    status: (statusFilter || undefined) as GovernanceSgqProcessStatus | undefined,
   });
   const processes = processList?.data ?? [];
   const pagination = processList?.pagination;

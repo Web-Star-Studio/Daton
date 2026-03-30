@@ -5,7 +5,8 @@ import {
   useListLegislations,
   useListUnits,
 } from "@workspace/api-client-react";
-import { FileWarning, Leaf, Plus, Radar, Workflow } from "lucide-react";
+import { useLocation } from "wouter";
+import { FileWarning, Leaf, Pencil, Plus, Radar, Save, Trash2, Workflow } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useHeaderActions,
@@ -57,6 +58,17 @@ type MethodologyFormState = {
   moderateMax: string;
   moderateSignificanceRule: string;
   notes: string;
+  objetivo: string;
+  aplicacao: string;
+  generalidades: string;
+  definicoes: Array<{ termo: string; descricao: string }>;
+  responsabilidades: Array<{ cargo: string; atribuicoes: string }>;
+  procedimentoLevantamento: string;
+  procedimentoAnalise: string;
+  classificacaoAssuntos: string[];
+  classificacaoAplicabilidade: Array<{ codigo: string; nome: string; descricao: string }>;
+  niveisAtendimento: Array<{ nivel: string; nome: string; descricao: string }>;
+  outrosRequisitos: string;
 };
 
 type AssessmentFormState = {
@@ -139,6 +151,45 @@ const DEFAULT_METHODOLOGY_FORM: MethodologyFormState = {
   moderateSignificanceRule:
     "Moderado é significativo quando houver requisito legal, parte interessada ou opção estratégica.",
   notes: "",
+  objetivo:
+    "Estabelecer e manter uma sistematica para o levantamento, atualizacao, analise e controle de atendimento aos requisitos legais aplicaveis a empresa, nas esferas Federal, Estadual e Municipal, e demais requisitos aplicaveis, baseando-se nos aspectos e impactos identificados nas atividades, produtos e servicos da organizacao.\n\nEstabelecer, implementar e manter as condicoes para a verificacao periodica do atendimento a conformidade legal.",
+  aplicacao:
+    "Este documento aplica-se a todas as atividades e servicos a ser executado na organizacao, em todas as suas filiais e unidades operacionais.",
+  generalidades:
+    "Assegurar que os requisitos legais aplicaveis e outros requisitos sejam controlados e levados em consideracao pela Organizacao.",
+  definicoes: [
+    { termo: "Outros Requisitos", descricao: "Obrigacoes dos Produtos/Servicos da organizacao, decorrentes de compromissos formalmente estabelecidos com partes interessadas relativos a Qualidade, Seguranca Viaria e Meio Ambiente." },
+    { termo: "Legislacao Aplicavel", descricao: "Conjunto de documentos legais relativos a Qualidade, Seguranca Viaria e Meio Ambiente relacionados com as atividades dos produtos/servicos da organizacao." },
+    { termo: "Requisitos Legais", descricao: "Requisitos contidos na legislacao, atos normativos e regulamentares emitidos pela autoridade publica aplicaveis aos produtos/servicos da organizacao." },
+  ],
+  responsabilidades: [
+    { cargo: "Coordenador do SGI", atribuicoes: "Gerenciar o processo de levantamento, e realizar a atualizacao e analise de atendimento dos requisitos legais aplicaveis." },
+    { cargo: "Gerencias", atribuicoes: "Fazer com que os requisitos legais aplicaveis sejam cumpridos." },
+    { cargo: "Diretoria", atribuicoes: "Deliberar recursos e condicoes para o cumprimento dos requisitos legais aplicaveis." },
+    { cargo: "Fornecedor de Assessoria em Legislacao Ambiental", atribuicoes: "Efetuar o levantamento de requisitos legais ambientais aplicaveis, nos niveis Federal, Estadual e Municipal." },
+  ],
+  procedimentoLevantamento:
+    "Utilizando-se da base de dados contendo os requisitos legais nos niveis Federal, Estadual e Municipal, segregar e enviar as legislacoes ambientais a Empresa. Com posse das novas legislacoes, sera verificada a aplicacao em relacao a Empresa. Caso as legislacoes sejam aplicaveis, efetuar a verificacao atraves do nivel de atendimento. Caso nao sejam aplicaveis, identifica-las na planilha como 'para conhecimento' para consultas futuras.",
+  procedimentoAnalise:
+    "Para legislacoes conformes: 1) Checar a(s) evidencia(s); 2) Verificar pertinencia de prazo de validade; 3) Verificar a possibilidade de novas acoes para melhoria. Para legislacoes nao conformes: Determinar acoes para o atendimento aos requisitos legais. A verificacao de atendimento sera trimestral.",
+  classificacaoAssuntos: [
+    "Licenciamento e Documentacao", "Recursos Naturais", "Residuos", "Efluentes",
+    "Emissoes Atmosfericas", "Ruido Ambiental", "Inflamaveis", "Emergencias",
+    "Produtos Quimicos", "Crime Ambiental", "Ar Condicionado",
+    "Transporte de Residuos Perigosos", "Poluicao das Aguas", "Responsabilidade Tecnica",
+  ],
+  classificacaoAplicabilidade: [
+    { codigo: "S", nome: "Aplicavel", descricao: "Relacao direta com os processos da empresa." },
+    { codigo: "E", nome: "Especifica", descricao: "Aplicavel em situacoes especificas, aplicacao restrita a determinados periodos." },
+    { codigo: "N", nome: "Nao Aplicavel", descricao: "Apenas para consulta: legislacao armazenada para referencia." },
+  ],
+  niveisAtendimento: [
+    { nivel: "1", nome: "Atendido", descricao: "Todos os requisitos sao pertinentes e possuem evidencias do atendimento." },
+    { nivel: "2", nome: "Parcial", descricao: "Parte dos requisitos sao atendidos e alguns itens estao em adequacao." },
+    { nivel: "3", nome: "Nao atendido", descricao: "Requisito legal nao atendido." },
+  ],
+  outrosRequisitos:
+    "A identificacao de outras obrigacoes (autorizacoes, outorgas, alvaras, licencas e suas condicionantes) ocorre como consequencia de solicitacoes de orgaos publicos competentes e outras partes interessadas. Para o atendimento a essas solicitacoes podem ser formalizados contratos, convenios, termos de compromisso, ou outros acordos com as partes interessadas.",
 };
 
 const DEFAULT_ASSESSMENT_FORM: AssessmentFormState = {
@@ -463,6 +514,7 @@ function clearDraftCache(orgId?: number) {
 export default function EnvironmentalLaiaPage() {
   const { organization } = useAuth();
   const orgId = organization?.id;
+  const [location, navigate] = useLocation();
 
   const [matrixFilters, setMatrixFilters] =
     useState<MatrixFiltersState>(DEFAULT_MATRIX_FILTERS);
@@ -505,6 +557,38 @@ export default function EnvironmentalLaiaPage() {
     status: "draft",
   });
   const { data: revisions = [] } = useLaiaRevisions(orgId);
+
+  // Hydrate methodology form from existing data
+  useEffect(() => {
+    if (!methodology?.versions[0]) return;
+    if (methodologyDialogOpen) return;
+    const v = methodology.versions[0];
+    const dc = v.documentContent;
+    setMethodologyForm((prev) => ({
+      ...prev,
+      name: methodology.name,
+      title: v.title,
+      negligibleMax: String(v.scoreThresholds.negligibleMax),
+      moderateMax: String(v.scoreThresholds.moderateMax),
+      moderateSignificanceRule: v.moderateSignificanceRule || "",
+      notes: v.notes || "",
+      ...(dc
+        ? {
+            objetivo: dc.objetivo,
+            aplicacao: dc.aplicacao,
+            generalidades: dc.generalidades,
+            definicoes: dc.definicoes,
+            responsabilidades: dc.responsabilidades,
+            procedimentoLevantamento: dc.procedimentoLevantamento,
+            procedimentoAnalise: dc.procedimentoAnalise,
+            classificacaoAssuntos: dc.classificacaoAssuntos,
+            classificacaoAplicabilidade: dc.classificacaoAplicabilidade,
+            niveisAtendimento: dc.niveisAtendimento,
+            outrosRequisitos: dc.outrosRequisitos,
+          }
+        : {}),
+    }));
+  }, [methodology, methodologyDialogOpen]);
   const { data: units = [] } = useListUnits(orgId || 0, {
     query: { enabled: !!orgId, queryKey: getListUnitsQueryKey(orgId || 0) },
   });
@@ -637,17 +721,13 @@ export default function EnvironmentalLaiaPage() {
 
   useHeaderActions(
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={() => setMethodologyDialogOpen(true)}>
-        <Radar className="mr-1.5 h-3.5 w-3.5" />
-        Metodologia
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => setSectorDialogOpen(true)}>
-        <Workflow className="mr-1.5 h-3.5 w-3.5" />
-        Novo setor
-      </Button>
-      <Button size="sm" onClick={handleOpenNewAssessment}>
-        <Plus className="mr-1.5 h-3.5 w-3.5" />
-        Nova avaliação
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setMethodologyDialogOpen(true)}
+      >
+        <Pencil className="mr-1.5 h-3.5 w-3.5" />
+        Editar metodologia
       </Button>
     </div>,
   );
@@ -833,6 +913,19 @@ export default function EnvironmentalLaiaPage() {
           moderateMax: parseOptionalNumber(methodologyForm.moderateMax) ?? 70,
         },
         moderateSignificanceRule: methodologyForm.moderateSignificanceRule.trim(),
+        documentContent: {
+          objetivo: methodologyForm.objetivo,
+          aplicacao: methodologyForm.aplicacao,
+          generalidades: methodologyForm.generalidades,
+          definicoes: methodologyForm.definicoes,
+          responsabilidades: methodologyForm.responsabilidades,
+          procedimentoLevantamento: methodologyForm.procedimentoLevantamento,
+          procedimentoAnalise: methodologyForm.procedimentoAnalise,
+          classificacaoAssuntos: methodologyForm.classificacaoAssuntos,
+          classificacaoAplicabilidade: methodologyForm.classificacaoAplicabilidade,
+          niveisAtendimento: methodologyForm.niveisAtendimento,
+          outrosRequisitos: methodologyForm.outrosRequisitos,
+        },
         notes: methodologyForm.notes.trim() || null,
       });
       setMethodologyDialogOpen(false);
@@ -1362,7 +1455,7 @@ export default function EnvironmentalLaiaPage() {
         return (
           <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-border/60 px-4 py-3">
+              <div className="rounded-2xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="normal-condition">Condição normal</Label>
                   <Switch
@@ -1377,7 +1470,7 @@ export default function EnvironmentalLaiaPage() {
                   />
                 </div>
               </div>
-              <div className="rounded-2xl border border-border/60 px-4 py-3">
+              <div className="rounded-2xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="abnormal-condition">Condição anormal</Label>
                   <Switch
@@ -1392,7 +1485,7 @@ export default function EnvironmentalLaiaPage() {
                   />
                 </div>
               </div>
-              <div className="rounded-2xl border border-border/60 px-4 py-3">
+              <div className="rounded-2xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="startup-shutdown">Partida / desligamento</Label>
                   <Switch
@@ -1552,7 +1645,7 @@ export default function EnvironmentalLaiaPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-border/60 px-4 py-3">
+              <div className="rounded-2xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">Requisito legal</p>
@@ -1571,7 +1664,7 @@ export default function EnvironmentalLaiaPage() {
                   />
                 </div>
               </div>
-              <div className="rounded-2xl border border-border/60 px-4 py-3">
+              <div className="rounded-2xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">Parte interessada</p>
@@ -1590,7 +1683,7 @@ export default function EnvironmentalLaiaPage() {
                   />
                 </div>
               </div>
-              <div className="rounded-2xl border border-border/60 px-4 py-3">
+              <div className="rounded-2xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">Opção estratégica</p>
@@ -1666,7 +1759,7 @@ export default function EnvironmentalLaiaPage() {
               />
             </div>
 
-            <div className="rounded-2xl border border-border/60 px-4 py-4">
+            <div className="rounded-2xl border border-border/60 bg-card/42 px-4 py-4 backdrop-blur-md">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium">Comunicação interna</p>
@@ -1706,7 +1799,7 @@ export default function EnvironmentalLaiaPage() {
         return (
           <div className="space-y-6">
             {assessmentSession.mode === "edit" && assessmentDetail?.monitoringPlans.length ? (
-              <div className="rounded-2xl border border-border/60 px-4 py-4">
+              <div className="rounded-2xl border border-border/60 bg-card/42 px-4 py-4 backdrop-blur-md">
                 <p className="text-sm font-medium">Monitoramento existente</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {assessmentDetail.monitoringPlans.length} plano(s) já cadastrado(s).
@@ -1714,7 +1807,7 @@ export default function EnvironmentalLaiaPage() {
                 </p>
               </div>
             ) : (
-              <div className="rounded-2xl border border-border/60 px-4 py-4">
+              <div className="rounded-2xl border border-border/60 bg-card/42 px-4 py-4 backdrop-blur-md">
                 <p className="text-sm font-medium">Plano inicial de monitoramento</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Opcional nesta etapa. Se preenchido, o plano inicial será criado ao salvar uma avaliação ativa.
@@ -1840,7 +1933,7 @@ export default function EnvironmentalLaiaPage() {
               </Card>
             </div>
 
-            <div className="rounded-2xl border border-border/60 px-4 py-4">
+            <div className="rounded-2xl border border-border/60 bg-card/42 px-4 py-4 backdrop-blur-md">
               <p className="text-sm font-medium">Resumo do preenchimento</p>
               <dl className="mt-4 grid gap-4 md:grid-cols-2">
                 <div>
@@ -1897,278 +1990,449 @@ export default function EnvironmentalLaiaPage() {
         ))}
       </div>
 
-      <Tabs defaultValue="matriz">
+      <Tabs defaultValue="metodologia">
         <TabsList>
-          <TabsTrigger value="matriz">Matriz</TabsTrigger>
-          <TabsTrigger value="setores">Setores</TabsTrigger>
           <TabsTrigger value="metodologia">Metodologia</TabsTrigger>
-          <TabsTrigger value="revisoes">Revisões</TabsTrigger>
           <TabsTrigger value="unidades">Unidades</TabsTrigger>
+          <TabsTrigger value="revisoes">Revisões</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="matriz" className="space-y-4">
-          <Card>
-            <CardHeader className="space-y-4">
-              <CardTitle className="text-base">Avaliações LAIA</CardTitle>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-                <Input
-                  placeholder="Buscar por código, setor, aspecto..."
-                  value={matrixFilters.q}
-                  onChange={(event) =>
-                    setMatrixFilters((current) => ({
-                      ...current,
-                      q: event.target.value,
-                    }))
-                  }
-                />
-                <Select
-                  value={matrixFilters.unitId}
-                  onChange={(event) =>
-                    setMatrixFilters((current) => ({
-                      ...current,
-                      unitId: event.target.value,
-                    }))
-                  }
+        <TabsContent value="metodologia" className="space-y-6">
+          {/* Save bar */}
+          {methodologyDialogOpen && (
+            <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 px-4 py-3">
+              <p className="text-[13px] text-muted-foreground">
+                Editando metodologia. Salvar publicara uma nova versao.
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setMethodologyDialogOpen(false)}
                 >
-                  <option value="">Todas as unidades</option>
-                  {units.map((unit) => (
-                    <option key={unit.id} value={String(unit.id)}>
-                      {unit.name}
-                    </option>
-                  ))}
-                </Select>
-                <Select
-                  value={matrixFilters.sectorId}
-                  onChange={(event) =>
-                    setMatrixFilters((current) => ({
-                      ...current,
-                      sectorId: event.target.value,
-                    }))
-                  }
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handlePublishMethodology}
+                  isLoading={publishMethodologyMutation.isPending}
                 >
-                  <option value="">Todos os setores</option>
-                  {sectors.map((sector) => (
-                    <option key={sector.id} value={String(sector.id)}>
-                      {sector.code} · {sector.name}
-                    </option>
-                  ))}
-                </Select>
-                <Select
-                  value={matrixFilters.status}
-                  onChange={(event) =>
-                    setMatrixFilters((current) => ({
-                      ...current,
-                      status: event.target.value as MatrixFiltersState["status"],
-                    }))
-                  }
-                >
-                  <option value="">Todos os status</option>
-                  <option value="draft">Rascunho</option>
-                  <option value="active">Ativa</option>
-                  <option value="archived">Arquivada</option>
-                </Select>
-                <Select
-                  value={matrixFilters.category}
-                  onChange={(event) =>
-                    setMatrixFilters((current) => ({
-                      ...current,
-                      category: event.target.value as MatrixFiltersState["category"],
-                    }))
-                  }
-                >
-                  <option value="">Todas as categorias</option>
-                  <option value="desprezivel">Desprezível</option>
-                  <option value="moderado">Moderado</option>
-                  <option value="critico">Crítico</option>
-                </Select>
-                <Select
-                  value={matrixFilters.significance}
-                  onChange={(event) =>
-                    setMatrixFilters((current) => ({
-                      ...current,
-                      significance: event.target.value as MatrixFiltersState["significance"],
-                    }))
-                  }
-                >
-                  <option value="">Toda significância</option>
-                  <option value="significant">Significativo</option>
-                  <option value="not_significant">Não significativo</option>
-                </Select>
+                  <Save className="mr-1.5 h-3.5 w-3.5" />
+                  Salvar e publicar
+                </Button>
               </div>
+            </div>
+          )}
+
+          {/* 1. Objetivo */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">1. Objetivo</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Código</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Setor</TableHead>
-                    <TableHead>Atividade</TableHead>
-                    <TableHead>Aspecto</TableHead>
-                    <TableHead>Impacto</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead>Significância</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {assessments.map((assessment) => (
-                    <TableRow key={assessment.id}>
-                      <TableCell className="font-medium">{assessment.aspectCode}</TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusBadgeVariant(assessment.status)}>
-                          {getStatusLabel(assessment.status)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{assessment.sectorName || "Sem setor"}</TableCell>
-                      <TableCell>{assessment.activityOperation}</TableCell>
-                      <TableCell>{assessment.environmentalAspect}</TableCell>
-                      <TableCell>{assessment.environmentalImpact}</TableCell>
-                      <TableCell>{assessment.totalScore ?? "-"}</TableCell>
-                      <TableCell>
-                        <Badge variant={getSignificanceBadgeVariant(assessment.significance)}>
-                          {getSignificanceLabel(assessment.significance)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            handleOpenEditAssessment(assessment.id, assessment.status)
-                          }
-                        >
-                          Editar
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {assessments.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={9} className="py-10 text-center">
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium">
-                            {hasActiveFilters
-                              ? "Nenhuma avaliação encontrada para os filtros aplicados."
-                              : "Nenhuma avaliação cadastrada ainda."}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {hasActiveFilters
-                              ? "Ajuste os filtros ou limpe a busca para voltar à visão completa."
-                              : "Use “Nova avaliação” para iniciar a matriz LAIA e criar o primeiro rascunho."}
-                          </p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+              {methodologyDialogOpen ? (
+                <Textarea
+                  value={methodologyForm.objetivo}
+                  onChange={(e) => setMethodologyForm((p) => ({ ...p, objetivo: e.target.value }))}
+                  rows={4}
+                  className="text-[13px]"
+                />
+              ) : (
+                <p className="text-[13px] text-muted-foreground whitespace-pre-line">{methodologyForm.objetivo}</p>
+              )}
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="setores">
+          {/* 2. Aplicacao */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Setores operacionais</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">2. Aplicacao</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Código</TableHead>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Unidade</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sectors.map((sector) => (
-                    <TableRow key={sector.id}>
-                      <TableCell>{sector.code}</TableCell>
-                      <TableCell>{sector.name}</TableCell>
-                      <TableCell>
-                        {units.find((unit) => unit.id === sector.unitId)?.name || "Todas"}
-                      </TableCell>
-                      <TableCell>{sector.isActive ? "Ativo" : "Inativo"}</TableCell>
-                    </TableRow>
-                  ))}
-                  {sectors.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
-                        Nenhum setor LAIA configurado.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+              {methodologyDialogOpen ? (
+                <Textarea
+                  value={methodologyForm.aplicacao}
+                  onChange={(e) => setMethodologyForm((p) => ({ ...p, aplicacao: e.target.value }))}
+                  rows={2}
+                  className="text-[13px]"
+                />
+              ) : (
+                <p className="text-[13px] text-muted-foreground whitespace-pre-line">{methodologyForm.aplicacao}</p>
+              )}
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="metodologia">
+          {/* 3. Generalidades */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Metodologia vigente</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">3. Generalidades</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {methodology ? (
-                <>
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                        Nome
-                      </p>
-                      <p className="mt-1 text-sm font-medium">{methodology.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                        Versão ativa
-                      </p>
-                      <p className="mt-1 text-sm font-medium">
-                        {methodology.versions[0]?.versionNumber ?? "-"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                        Regra moderada
-                      </p>
-                      <p className="mt-1 text-sm">
-                        {methodology.versions[0]?.moderateSignificanceRule || "-"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {methodology.versions.map((version) => (
-                      <div
-                        key={version.id}
-                        className="rounded-xl border border-border/60 px-4 py-3"
-                      >
-                        <div className="flex items-center justify-between gap-4">
-                          <div>
-                            <p className="text-sm font-medium">{version.title}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Versão {version.versionNumber} · publicada em{" "}
-                              {version.publishedAt
-                                ? new Date(version.publishedAt).toLocaleDateString("pt-BR")
-                                : "sem data"}
-                            </p>
-                          </div>
-                          <div className="text-right text-xs text-muted-foreground">
-                            Desprezível até {version.scoreThresholds.negligibleMax}
-                            <br />
-                            Moderado até {version.scoreThresholds.moderateMax}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
+              {methodologyDialogOpen ? (
+                <Textarea
+                  value={methodologyForm.generalidades}
+                  onChange={(e) => setMethodologyForm((p) => ({ ...p, generalidades: e.target.value }))}
+                  rows={2}
+                  className="text-[13px]"
+                />
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  Nenhuma metodologia publicada ainda.
-                </p>
+                <p className="text-[13px] text-muted-foreground whitespace-pre-line">{methodologyForm.generalidades}</p>
               )}
+              <div>
+                <p className="text-[13px] font-medium text-foreground mb-2">Definicoes e Referencias</p>
+                <div className="space-y-2">
+                  {methodologyForm.definicoes.map((def, i) => (
+                    <div key={i} className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+                      {methodologyDialogOpen ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={def.termo}
+                              onChange={(e) => {
+                                const next = [...methodologyForm.definicoes];
+                                next[i] = { ...next[i], termo: e.target.value };
+                                setMethodologyForm((p) => ({ ...p, definicoes: next }));
+                              }}
+                              className="h-8 text-[13px] font-medium"
+                              placeholder="Termo"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 shrink-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => {
+                                const next = methodologyForm.definicoes.filter((_, idx) => idx !== i);
+                                setMethodologyForm((p) => ({ ...p, definicoes: next }));
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <Textarea
+                            value={def.descricao}
+                            onChange={(e) => {
+                              const next = [...methodologyForm.definicoes];
+                              next[i] = { ...next[i], descricao: e.target.value };
+                              setMethodologyForm((p) => ({ ...p, definicoes: next }));
+                            }}
+                            rows={2}
+                            className="text-[13px]"
+                            placeholder="Descricao"
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-[13px] font-medium text-foreground">{def.termo}</p>
+                          <p className="mt-1 text-[13px] text-muted-foreground">{def.descricao}</p>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                  {methodologyDialogOpen && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setMethodologyForm((p) => ({
+                        ...p,
+                        definicoes: [...p.definicoes, { termo: "", descricao: "" }],
+                      }))}
+                    >
+                      <Plus className="mr-1.5 h-3.5 w-3.5" />
+                      Adicionar definicao
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 4. Responsabilidades */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">4. Responsabilidades</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="border-b border-border/60">
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Cargo</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Atribuicoes</th>
+                    {methodologyDialogOpen && <th className="w-10"></th>}
+                  </tr>
+                </thead>
+                <tbody className="text-muted-foreground">
+                  {methodologyForm.responsabilidades.map((resp, i) => (
+                    <tr key={i} className="border-b border-border/40 last:border-0">
+                      <td className="px-4 py-3 font-medium text-foreground">
+                        {methodologyDialogOpen ? (
+                          <Input
+                            value={resp.cargo}
+                            onChange={(e) => {
+                              const next = [...methodologyForm.responsabilidades];
+                              next[i] = { ...next[i], cargo: e.target.value };
+                              setMethodologyForm((p) => ({ ...p, responsabilidades: next }));
+                            }}
+                            className="h-8 text-[13px]"
+                          />
+                        ) : (
+                          resp.cargo
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {methodologyDialogOpen ? (
+                          <Input
+                            value={resp.atribuicoes}
+                            onChange={(e) => {
+                              const next = [...methodologyForm.responsabilidades];
+                              next[i] = { ...next[i], atribuicoes: e.target.value };
+                              setMethodologyForm((p) => ({ ...p, responsabilidades: next }));
+                            }}
+                            className="h-8 text-[13px]"
+                          />
+                        ) : (
+                          resp.atribuicoes
+                        )}
+                      </td>
+                      {methodologyDialogOpen && (
+                        <td className="px-2 py-3">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              const next = methodologyForm.responsabilidades.filter((_, idx) => idx !== i);
+                              setMethodologyForm((p) => ({ ...p, responsabilidades: next }));
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {methodologyDialogOpen && (
+                <div className="px-4 pt-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMethodologyForm((p) => ({
+                      ...p,
+                      responsabilidades: [...p.responsabilidades, { cargo: "", atribuicoes: "" }],
+                    }))}
+                  >
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Adicionar responsabilidade
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 5. Procedimento */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">5. Procedimento</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <p className="text-[13px] font-medium text-foreground mb-2">5.1 Levantamento e Atualizacao</p>
+                {methodologyDialogOpen ? (
+                  <Textarea
+                    value={methodologyForm.procedimentoLevantamento}
+                    onChange={(e) => setMethodologyForm((p) => ({ ...p, procedimentoLevantamento: e.target.value }))}
+                    rows={4}
+                    className="text-[13px]"
+                  />
+                ) : (
+                  <p className="text-[13px] text-muted-foreground whitespace-pre-line">{methodologyForm.procedimentoLevantamento}</p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-[13px] font-medium text-foreground mb-2">5.2 Analise de Atendimento aos Requisitos Legais</p>
+                {methodologyDialogOpen ? (
+                  <Textarea
+                    value={methodologyForm.procedimentoAnalise}
+                    onChange={(e) => setMethodologyForm((p) => ({ ...p, procedimentoAnalise: e.target.value }))}
+                    rows={4}
+                    className="text-[13px]"
+                  />
+                ) : (
+                  <p className="text-[13px] text-muted-foreground whitespace-pre-line">{methodologyForm.procedimentoAnalise}</p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-[13px] font-medium text-foreground mb-2">5.3 Classificacao dos Requisitos Legais</p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+                    <p className="text-xs font-semibold text-foreground mb-2">Por assunto</p>
+                    {methodologyDialogOpen ? (
+                      <div className="space-y-1.5">
+                        {methodologyForm.classificacaoAssuntos.map((item, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground w-5 shrink-0">{i + 1}.</span>
+                            <Input
+                              value={item}
+                              onChange={(e) => {
+                                const next = [...methodologyForm.classificacaoAssuntos];
+                                next[i] = e.target.value;
+                                setMethodologyForm((p) => ({ ...p, classificacaoAssuntos: next }));
+                              }}
+                              className="h-7 text-[13px]"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => {
+                                const next = methodologyForm.classificacaoAssuntos.filter((_, idx) => idx !== i);
+                                setMethodologyForm((p) => ({ ...p, classificacaoAssuntos: next }));
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-1"
+                          onClick={() => setMethodologyForm((p) => ({
+                            ...p,
+                            classificacaoAssuntos: [...p.classificacaoAssuntos, ""],
+                          }))}
+                        >
+                          <Plus className="mr-1.5 h-3.5 w-3.5" />
+                          Adicionar
+                        </Button>
+                      </div>
+                    ) : (
+                      <ol className="list-decimal ml-4 text-[13px] text-muted-foreground space-y-0.5">
+                        {methodologyForm.classificacaoAssuntos.map((item, i) => (
+                          <li key={i}>{item}</li>
+                        ))}
+                      </ol>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+                      <p className="text-xs font-semibold text-foreground mb-2">Por aplicabilidade</p>
+                      <div className="space-y-2">
+                        {methodologyForm.classificacaoAplicabilidade.map((item, i) => (
+                          <div key={i}>
+                            {methodologyDialogOpen ? (
+                              <div className="flex items-start gap-2">
+                                <Input value={item.codigo} onChange={(e) => { const n = [...methodologyForm.classificacaoAplicabilidade]; n[i] = { ...n[i], codigo: e.target.value }; setMethodologyForm((p) => ({ ...p, classificacaoAplicabilidade: n })); }} className="h-7 text-[13px] w-12 shrink-0" />
+                                <Input value={item.nome} onChange={(e) => { const n = [...methodologyForm.classificacaoAplicabilidade]; n[i] = { ...n[i], nome: e.target.value }; setMethodologyForm((p) => ({ ...p, classificacaoAplicabilidade: n })); }} className="h-7 text-[13px] w-28 shrink-0" />
+                                <Input value={item.descricao} onChange={(e) => { const n = [...methodologyForm.classificacaoAplicabilidade]; n[i] = { ...n[i], descricao: e.target.value }; setMethodologyForm((p) => ({ ...p, classificacaoAplicabilidade: n })); }} className="h-7 text-[13px] flex-1" />
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="text-[13px] font-medium text-foreground">{item.codigo} = {item.nome}</p>
+                                <p className="text-[13px] text-muted-foreground">{item.descricao}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+                      <p className="text-xs font-semibold text-foreground mb-2">Nivel de Atendimento</p>
+                      <div className="space-y-2">
+                        {methodologyForm.niveisAtendimento.map((item, i) => (
+                          <div key={i}>
+                            {methodologyDialogOpen ? (
+                              <div className="flex items-start gap-2">
+                                <Input value={item.nivel} onChange={(e) => { const n = [...methodologyForm.niveisAtendimento]; n[i] = { ...n[i], nivel: e.target.value }; setMethodologyForm((p) => ({ ...p, niveisAtendimento: n })); }} className="h-7 text-[13px] w-12 shrink-0" />
+                                <Input value={item.nome} onChange={(e) => { const n = [...methodologyForm.niveisAtendimento]; n[i] = { ...n[i], nome: e.target.value }; setMethodologyForm((p) => ({ ...p, niveisAtendimento: n })); }} className="h-7 text-[13px] w-28 shrink-0" />
+                                <Input value={item.descricao} onChange={(e) => { const n = [...methodologyForm.niveisAtendimento]; n[i] = { ...n[i], descricao: e.target.value }; setMethodologyForm((p) => ({ ...p, niveisAtendimento: n })); }} className="h-7 text-[13px] flex-1" />
+                              </div>
+                            ) : (
+                              <div>
+                                <p className={`text-[13px] font-medium ${item.nivel === "1" ? "text-emerald-600" : item.nivel === "2" ? "text-amber-600" : "text-red-600"}`}>
+                                  {item.nivel}. {item.nome}
+                                </p>
+                                <p className="text-[13px] text-muted-foreground">{item.descricao}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[13px] font-medium text-foreground mb-2">5.4 Outros Requisitos Aplicaveis</p>
+                {methodologyDialogOpen ? (
+                  <Textarea
+                    value={methodologyForm.outrosRequisitos}
+                    onChange={(e) => setMethodologyForm((p) => ({ ...p, outrosRequisitos: e.target.value }))}
+                    rows={3}
+                    className="text-[13px]"
+                  />
+                ) : (
+                  <p className="text-[13px] text-muted-foreground whitespace-pre-line">{methodologyForm.outrosRequisitos}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Parametros de pontuacao */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Parametros de pontuacao</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Limite desprezivel</Label>
+                  {methodologyDialogOpen ? (
+                    <Input
+                      value={methodologyForm.negligibleMax}
+                      onChange={(e) => setMethodologyForm((p) => ({ ...p, negligibleMax: e.target.value }))}
+                      className="mt-1 text-[13px]"
+                    />
+                  ) : (
+                    <p className="mt-1 text-[13px] font-medium">{methodologyForm.negligibleMax} pontos</p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Limite moderado</Label>
+                  {methodologyDialogOpen ? (
+                    <Input
+                      value={methodologyForm.moderateMax}
+                      onChange={(e) => setMethodologyForm((p) => ({ ...p, moderateMax: e.target.value }))}
+                      className="mt-1 text-[13px]"
+                    />
+                  ) : (
+                    <p className="mt-1 text-[13px] font-medium">{methodologyForm.moderateMax} pontos</p>
+                  )}
+                </div>
+                <div className="md:col-span-2">
+                  <Label className="text-xs text-muted-foreground">Regra de significancia (moderado)</Label>
+                  {methodologyDialogOpen ? (
+                    <Textarea
+                      value={methodologyForm.moderateSignificanceRule}
+                      onChange={(e) => setMethodologyForm((p) => ({ ...p, moderateSignificanceRule: e.target.value }))}
+                      rows={2}
+                      className="mt-1 text-[13px]"
+                    />
+                  ) : (
+                    <p className="mt-1 text-[13px] text-muted-foreground">{methodologyForm.moderateSignificanceRule}</p>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -2182,7 +2446,7 @@ export default function EnvironmentalLaiaPage() {
               {revisions.map((revision) => (
                 <div
                   key={revision.id}
-                  className="rounded-xl border border-border/60 px-4 py-3"
+                  className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md"
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div>
@@ -2212,42 +2476,85 @@ export default function EnvironmentalLaiaPage() {
         </TabsContent>
 
         <TabsContent value="unidades">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Status por unidade</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Unidade</TableHead>
-                    <TableHead>Status do levantamento</TableHead>
-                    <TableHead>Última atualização</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {branchConfigs.map((config) => (
-                    <TableRow key={config.id}>
-                      <TableCell>{config.unitName || `Unidade ${config.unitId}`}</TableCell>
-                      <TableCell>{config.surveyStatus}</TableCell>
-                      <TableCell>
-                        {config.updatedAt
-                          ? new Date(config.updatedAt).toLocaleDateString("pt-BR")
-                          : "-"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {branchConfigs.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} className="py-8 text-center text-muted-foreground">
-                        Nenhuma unidade configurada para LAIA.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {branchConfigs.map((config) => (
+              <button
+                key={config.unitId}
+                type="button"
+                onClick={() =>
+                  navigate(
+                    `${location.startsWith("/app/") ? "/app" : ""}/ambiental/laia/unidades/${config.unitId}`,
+                  )
+                }
+                className="text-left"
+              >
+                <Card className="h-full transition-shadow hover:shadow-lg">
+                  <CardHeader className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <CardTitle className="text-base">
+                        {config.unitName || `Unidade ${config.unitId}`}
+                      </CardTitle>
+                      <Badge variant="outline">
+                        {config.surveyStatus === "levantado"
+                          ? "Levantado"
+                          : config.surveyStatus === "em_levantamento"
+                            ? "Em levantamento"
+                            : "Não levantado"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {config.updatedAt
+                        ? `Atualizado em ${new Date(config.updatedAt).toLocaleDateString("pt-BR")}`
+                        : "Sem atualização registrada"}
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-xl border border-border/60 bg-card/42 px-3 py-3 backdrop-blur-md">
+                        <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                          Avaliações
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold">
+                          {config.totalAssessments}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-border/60 bg-card/42 px-3 py-3 backdrop-blur-md">
+                        <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                          Críticas
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold">
+                          {config.criticalAssessments}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-border/60 bg-card/42 px-3 py-3 backdrop-blur-md">
+                        <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                          Significativas
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold">
+                          {config.significantAssessments}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-border/60 bg-card/42 px-3 py-3 backdrop-blur-md">
+                        <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                          Não significativas
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold">
+                          {config.notSignificantAssessments}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </button>
+            ))}
+            {branchConfigs.length === 0 && (
+              <Card className="md:col-span-2 xl:col-span-3">
+                <CardContent className="py-10 text-center text-muted-foreground">
+                  Nenhuma unidade configurada para LAIA.
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -2326,100 +2633,6 @@ export default function EnvironmentalLaiaPage() {
       </Dialog>
 
       <Dialog
-        open={methodologyDialogOpen}
-        onOpenChange={setMethodologyDialogOpen}
-        title="Publicar metodologia"
-        description="Crie uma nova versão da metodologia LAIA sem recalcular avaliações antigas."
-      >
-        <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="methodology-name">Nome</Label>
-              <Input
-                id="methodology-name"
-                value={methodologyForm.name}
-                onChange={(event) =>
-                  setMethodologyForm((current) => ({ ...current, name: event.target.value }))
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="methodology-title">Título da versão</Label>
-              <Input
-                id="methodology-title"
-                value={methodologyForm.title}
-                onChange={(event) =>
-                  setMethodologyForm((current) => ({ ...current, title: event.target.value }))
-                }
-              />
-            </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="negligible-max">Limite desprezível</Label>
-              <Input
-                id="negligible-max"
-                value={methodologyForm.negligibleMax}
-                onChange={(event) =>
-                  setMethodologyForm((current) => ({
-                    ...current,
-                    negligibleMax: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="moderate-max">Limite moderado</Label>
-              <Input
-                id="moderate-max"
-                value={methodologyForm.moderateMax}
-                onChange={(event) =>
-                  setMethodologyForm((current) => ({
-                    ...current,
-                    moderateMax: event.target.value,
-                  }))
-                }
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="moderate-rule">Regra para moderado significativo</Label>
-            <Textarea
-              id="moderate-rule"
-              value={methodologyForm.moderateSignificanceRule}
-              onChange={(event) =>
-                setMethodologyForm((current) => ({
-                  ...current,
-                  moderateSignificanceRule: event.target.value,
-                }))
-              }
-            />
-          </div>
-          <div>
-            <Label htmlFor="methodology-notes">Notas</Label>
-            <Textarea
-              id="methodology-notes"
-              value={methodologyForm.notes}
-              onChange={(event) =>
-                setMethodologyForm((current) => ({ ...current, notes: event.target.value }))
-              }
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setMethodologyDialogOpen(false)}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={handlePublishMethodology}
-            isLoading={publishMethodologyMutation.isPending}
-          >
-            Publicar versão
-          </Button>
-        </DialogFooter>
-      </Dialog>
-
-      <Dialog
         open={assessmentDialogOpen}
         onOpenChange={handleCloseAssessmentDialog}
         title={
@@ -2427,7 +2640,7 @@ export default function EnvironmentalLaiaPage() {
             ? "Editar avaliação LAIA"
             : "Nova avaliação LAIA"
         }
-        description="Wizard único para criação, edição e retomada de rascunhos auditáveis."
+        description="Criação e edição de rascunhos editáveis."
         size="xl"
       >
         <div className="space-y-6">

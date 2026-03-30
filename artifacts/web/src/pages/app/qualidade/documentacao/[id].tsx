@@ -718,20 +718,33 @@ export default function DocumentDetailPage() {
 
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = objectUrl;
 
       if (disposition === "inline") {
-        link.target = "_blank";
-        link.rel = "noopener noreferrer";
+        const newWindow = window.open(objectUrl, "_blank", "noopener,noreferrer");
+        if (newWindow) {
+          window.setTimeout(() => URL.revokeObjectURL(objectUrl), 120_000);
+        } else {
+          const link = document.createElement("a");
+          link.href = objectUrl;
+          link.download = attachment.fileName;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+          toast({
+            title: "Visualização bloqueada pelo navegador",
+            description: "O arquivo foi baixado porque a abertura em nova janela foi bloqueada.",
+          });
+        }
       } else {
+        const link = document.createElement("a");
+        link.href = objectUrl;
         link.download = attachment.fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
       }
-
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
     } catch (error) {
       console.error("Attachment fetch failed:", error);
     } finally {

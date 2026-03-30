@@ -1495,7 +1495,7 @@ export const ListOrganizationTrainingsParams = zod.object({
   orgId: zod.coerce.number(),
 });
 
-export const listOrganizationTrainingsQueryPageSizeMax = 100;
+export const listOrganizationTrainingsQueryPageSizeMax = 500;
 
 export const ListOrganizationTrainingsQueryParams = zod.object({
   search: zod.coerce.string().optional(),
@@ -1630,6 +1630,13 @@ export const ListOrganizationTrainingsResponse = zod.object({
     pageSize: zod.number(),
     total: zod.number(),
     totalPages: zod.number(),
+  }),
+  stats: zod.object({
+    total: zod.number(),
+    pendente: zod.number(),
+    concluido: zod.number(),
+    vencido: zod.number(),
+    effectivenessPending: zod.number(),
   }),
 });
 

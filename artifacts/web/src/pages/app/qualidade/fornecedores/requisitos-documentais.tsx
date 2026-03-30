@@ -18,6 +18,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   commitSupplierDocumentRequirementsImport,
   createSupplierDocumentRequirement,
+  createSupplierRequirementTemplate,
   exportSupplierDocumentRequirements,
   listSupplierCategories,
   listSupplierDocumentRequirements,
@@ -33,7 +34,7 @@ import {
   parseSupplierDocumentRequirementsWorkbook,
 } from "@/lib/supplier-document-requirements-workbook";
 import { resolveAppAssetPath } from "@/lib/base-path";
-import { ArrowLeft, Download, Plus, Upload } from "lucide-react";
+import { ArrowLeft, Download, Plus, ShieldCheck, Upload } from "lucide-react";
 
 const requirementFormSchema = z.object({
   name: z.string().trim().min(1, "Informe o nome do requisito documental."),
@@ -76,6 +77,15 @@ export default function SupplierDocumentRequirementsPage() {
   const [importFileName, setImportFileName] = useState("");
   const [importRows, setImportRows] = useState<SupplierDocumentRequirementImportInputRow[]>([]);
   const [importPreview, setImportPreview] = useState<SupplierDocumentRequirementImportPreview | null>(null);
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [templateForm, setTemplateForm] = useState({
+    title: "",
+    content: "",
+    status: "draft",
+    changeSummary: "",
+    categoryId: "",
+    typeId: "",
+  });
 
   const form = useForm<RequirementFormValues>({
     resolver: zodResolver(requirementFormSchema),
@@ -148,6 +158,31 @@ export default function SupplierDocumentRequirementsPage() {
     onError: (error) => {
       toast({
         title: "Falha ao exportar catálogo",
+        description: error instanceof Error ? error.message : "Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createTemplateMutation = useMutation({
+    mutationFn: () =>
+      createSupplierRequirementTemplate(orgId!, {
+        title: templateForm.title,
+        content: templateForm.content,
+        status: templateForm.status,
+        changeSummary: templateForm.changeSummary,
+        categoryId: templateForm.categoryId ? Number(templateForm.categoryId) : null,
+        typeId: templateForm.typeId ? Number(templateForm.typeId) : null,
+      }),
+    onSuccess: () => {
+      setTemplateDialogOpen(false);
+      setTemplateForm({ title: "", content: "", status: "draft", changeSummary: "", categoryId: "", typeId: "" });
+      queryClient.invalidateQueries({ queryKey: suppliersKeys.templates(orgId!) });
+      toast({ title: "Template criado" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Falha ao criar template",
         description: error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
@@ -308,17 +343,23 @@ export default function SupplierDocumentRequirementsPage() {
         </Button>
       ) : null}
       {canManageSuppliers ? (
-        <Button
-          size="sm"
-          onClick={() => {
-            setIsCreatingNew(true);
-            setSelectedId(null);
-            form.reset(emptyForm);
-          }}
-        >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Novo requisito
-        </Button>
+        <>
+          <Button variant="outline" size="sm" onClick={() => setTemplateDialogOpen(true)}>
+            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+            Template de requisito
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              setIsCreatingNew(true);
+              setSelectedId(null);
+              form.reset(emptyForm);
+            }}
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Novo requisito
+          </Button>
+        </>
       ) : null}
     </div>
   );
@@ -627,6 +668,74 @@ export default function SupplierDocumentRequirementsPage() {
             }
           >
             {commitImportMutation.isPending ? "Importando..." : "Confirmar importação"}
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen} title="Novo template de requisito" size="lg">
+        <div className="space-y-5">
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground">Título</Label>
+            <Input
+              value={templateForm.title}
+              onChange={(event) => setTemplateForm((current) => ({ ...current, title: event.target.value }))}
+              className="mt-1"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">Categoria</Label>
+              <Select
+                value={templateForm.categoryId}
+                onChange={(event) => setTemplateForm((current) => ({ ...current, categoryId: event.target.value }))}
+                className="mt-1"
+              >
+                <option value="">Sem categoria</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">Tipo</Label>
+              <Select
+                value={templateForm.typeId}
+                onChange={(event) => setTemplateForm((current) => ({ ...current, typeId: event.target.value }))}
+                className="mt-1"
+              >
+                <option value="">Sem tipo</option>
+                {types.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground">Conteúdo</Label>
+            <Textarea
+              rows={8}
+              value={templateForm.content}
+              onChange={(event) => setTemplateForm((current) => ({ ...current, content: event.target.value }))}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground">Resumo da mudança</Label>
+            <Input
+              value={templateForm.changeSummary}
+              onChange={(event) => setTemplateForm((current) => ({ ...current, changeSummary: event.target.value }))}
+              className="mt-1"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setTemplateDialogOpen(false)}>Cancelar</Button>
+          <Button onClick={() => createTemplateMutation.mutate()} isLoading={createTemplateMutation.isPending}>
+            Salvar template
           </Button>
         </DialogFooter>
       </Dialog>
