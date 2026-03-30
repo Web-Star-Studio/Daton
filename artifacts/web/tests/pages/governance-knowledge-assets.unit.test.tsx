@@ -9,8 +9,12 @@ const permissionsState = {
   canWriteGovernance: true,
 };
 
+const { useHeaderActionsMock } = vi.hoisted(() => ({
+  useHeaderActionsMock: vi.fn(),
+}));
+
 vi.mock("@/contexts/LayoutContext", () => ({
-  useHeaderActions: vi.fn(),
+  useHeaderActions: useHeaderActionsMock,
   usePageTitle: vi.fn(),
 }));
 
@@ -141,6 +145,7 @@ vi.mock("@workspace/api-client-react", () => ({
 describe("governance knowledge assets page", () => {
   beforeEach(() => {
     permissionsState.canWriteGovernance = true;
+    useHeaderActionsMock.mockClear();
     window.history.replaceState({}, "", "/governanca/conhecimento-critico?positionId=7");
   });
 
@@ -160,8 +165,7 @@ describe("governance knowledge assets page", () => {
 
     renderWithQueryClient(<GovernanceKnowledgeAssetsPage />);
 
-    expect(
-      screen.queryByRole("button", { name: "Novo ativo" }),
-    ).toBeNull();
+    expect(useHeaderActionsMock).toHaveBeenCalled();
+    expect(useHeaderActionsMock.mock.lastCall?.[0]).toBeNull();
   });
 });

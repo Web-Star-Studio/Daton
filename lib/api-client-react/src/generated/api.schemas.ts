@@ -2156,12 +2156,19 @@ export const KnowledgeAssetEvidenceStatus = {
   valid: "valid",
 } as const;
 
-export interface KnowledgeAssetLinkInput {
-  processId?: number | null;
-  positionId?: number | null;
-  documentId?: number | null;
-  riskOpportunityItemId?: number | null;
-}
+export type KnowledgeAssetLinkInput =
+  | {
+      processId: number;
+    }
+  | {
+      positionId: number;
+    }
+  | {
+      documentId: number;
+    }
+  | {
+      riskOpportunityItemId: number;
+    };
 
 export interface KnowledgeAssetLink {
   id: number;
@@ -3400,7 +3407,14 @@ export type ListGovernanceRiskOpportunityItemsParams = {
 };
 
 export type ListKnowledgeAssetsParams = {
+  /**
+   * @minimum 1
+   */
   page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
   pageSize?: number;
   search?: string;
   processId?: number;

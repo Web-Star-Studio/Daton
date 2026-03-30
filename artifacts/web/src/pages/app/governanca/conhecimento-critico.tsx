@@ -248,11 +248,15 @@ export default function GovernanceKnowledgeAssetsPage() {
   const { canWriteModule } = usePermissions();
   const orgId = organization?.id;
   const canWrite = canWriteModule("governance");
+  const initialPositionFilter =
+    typeof window === "undefined"
+      ? ""
+      : new URLSearchParams(window.location.search).get("positionId") ?? "";
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [processFilter, setProcessFilter] = useState("");
-  const [positionFilter, setPositionFilter] = useState("");
+  const [positionFilter, setPositionFilter] = useState(initialPositionFilter);
   const [documentFilter, setDocumentFilter] = useState("");
   const [riskItemFilter, setRiskItemFilter] = useState("");
   const [lossRiskFilter, setLossRiskFilter] = useState("");
@@ -310,6 +314,10 @@ export default function GovernanceKnowledgeAssetsPage() {
   const { data: documents = [] } = useListDocuments(orgId ?? 0, {
     page: 1,
     pageSize: 100,
+  }, {
+    query: {
+      enabled: !!orgId,
+    },
   });
   const { data: riskItems = [] } = useGovernanceRiskOpportunityItems(orgId);
 
@@ -345,16 +353,6 @@ export default function GovernanceKnowledgeAssetsPage() {
       })),
     [riskItems],
   );
-
-  useEffect(() => {
-    const searchParams = new URLSearchParams(
-      typeof window !== "undefined" ? window.location.search : "",
-    );
-    const queryPositionId = searchParams.get("positionId");
-    if (queryPositionId) {
-      setPositionFilter(queryPositionId);
-    }
-  }, []);
 
   useEffect(() => {
     setPage(1);
@@ -744,8 +742,10 @@ export default function GovernanceKnowledgeAssetsPage() {
                     <Badge className={cn("border", getEvidenceStatusTone(selectedAsset.evidenceStatus))}>
                       {selectedAsset.evidenceStatus === "expired" ? (
                         <AlertTriangle className="mr-1 h-3 w-3" />
-                      ) : (
+                      ) : selectedAsset.evidenceStatus === "valid" ? (
                         <CheckCircle2 className="mr-1 h-3 w-3" />
+                      ) : (
+                        <ShieldAlert className="mr-1 h-3 w-3" />
                       )}
                       {getEvidenceStatusLabel(selectedAsset.evidenceStatus)}
                     </Badge>

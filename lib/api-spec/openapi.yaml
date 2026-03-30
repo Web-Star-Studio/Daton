@@ -4716,10 +4716,13 @@ paths:
           in: query
           schema:
             type: integer
+            minimum: 1
         - name: pageSize
           in: query
           schema:
             type: integer
+            minimum: 1
+            maximum: 100
         - name: search
           in: query
           schema:
@@ -9555,20 +9558,31 @@ components:
       enum: [missing, expired, valid]
 
     KnowledgeAssetLinkInput:
-      type: object
-      properties:
-        processId:
-          type: integer
-          nullable: true
-        positionId:
-          type: integer
-          nullable: true
-        documentId:
-          type: integer
-          nullable: true
-        riskOpportunityItemId:
-          type: integer
-          nullable: true
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [processId]
+          properties:
+            processId:
+              type: integer
+        - type: object
+          additionalProperties: false
+          required: [positionId]
+          properties:
+            positionId:
+              type: integer
+        - type: object
+          additionalProperties: false
+          required: [documentId]
+          properties:
+            documentId:
+              type: integer
+        - type: object
+          additionalProperties: false
+          required: [riskOpportunityItemId]
+          properties:
+            riskOpportunityItemId:
+              type: integer
 
     KnowledgeAssetLink:
       type: object

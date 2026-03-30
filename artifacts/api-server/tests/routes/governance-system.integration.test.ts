@@ -234,7 +234,8 @@ describe("governance system routes", () => {
         .where(eq(knowledgeAssetsTable.organizationId, context.organizationId)),
       db
         .select({ id: knowledgeAssetLinksTable.id })
-        .from(knowledgeAssetLinksTable),
+        .from(knowledgeAssetLinksTable)
+        .where(eq(knowledgeAssetLinksTable.knowledgeAssetId, created.body.id)),
     ]);
     expect(remainingAssets).toHaveLength(0);
     expect(remainingLinks).toHaveLength(0);

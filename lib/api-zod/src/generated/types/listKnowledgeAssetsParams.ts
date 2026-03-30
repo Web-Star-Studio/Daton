@@ -9,7 +9,14 @@ import type { KnowledgeAssetEvidenceStatus } from "./knowledgeAssetEvidenceStatu
 import type { KnowledgeAssetLossRiskLevel } from "./knowledgeAssetLossRiskLevel";
 
 export type ListKnowledgeAssetsParams = {
+  /**
+   * @minimum 1
+   */
   page?: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
   pageSize?: number;
   search?: string;
   processId?: number;

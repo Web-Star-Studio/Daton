@@ -10093,9 +10093,15 @@ export const ListKnowledgeAssetsParams = zod.object({
   orgId: zod.coerce.number(),
 });
 
+export const listKnowledgeAssetsQueryPageSizeMax = 100;
+
 export const ListKnowledgeAssetsQueryParams = zod.object({
-  page: zod.coerce.number().optional(),
-  pageSize: zod.coerce.number().optional(),
+  page: zod.coerce.number().min(1).optional(),
+  pageSize: zod.coerce
+    .number()
+    .min(1)
+    .max(listKnowledgeAssetsQueryPageSizeMax)
+    .optional(),
   search: zod.coerce.string().optional(),
   processId: zod.coerce.number().optional(),
   positionId: zod.coerce.number().optional(),
@@ -10200,12 +10206,20 @@ export const CreateKnowledgeAssetBody = zod.object({
     .optional(),
   evidenceValidUntil: zod.string().date().nullish(),
   links: zod.array(
-    zod.object({
-      processId: zod.number().nullish(),
-      positionId: zod.number().nullish(),
-      documentId: zod.number().nullish(),
-      riskOpportunityItemId: zod.number().nullish(),
-    }),
+    zod.union([
+      zod.object({
+        processId: zod.number(),
+      }),
+      zod.object({
+        positionId: zod.number(),
+      }),
+      zod.object({
+        documentId: zod.number(),
+      }),
+      zod.object({
+        riskOpportunityItemId: zod.number(),
+      }),
+    ]),
   ),
 });
 
@@ -10313,12 +10327,20 @@ export const UpdateKnowledgeAssetBody = zod.object({
   evidenceValidUntil: zod.string().date().nullish(),
   links: zod
     .array(
-      zod.object({
-        processId: zod.number().nullish(),
-        positionId: zod.number().nullish(),
-        documentId: zod.number().nullish(),
-        riskOpportunityItemId: zod.number().nullish(),
-      }),
+      zod.union([
+        zod.object({
+          processId: zod.number(),
+        }),
+        zod.object({
+          positionId: zod.number(),
+        }),
+        zod.object({
+          documentId: zod.number(),
+        }),
+        zod.object({
+          riskOpportunityItemId: zod.number(),
+        }),
+      ]),
     )
     .optional(),
 });
