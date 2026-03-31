@@ -565,32 +565,36 @@ export default function OrganizacaoPage({
   };
 
   const onPosSubmit = async (data: PositionFormData) => {
-    const payload = {
-      name: data.name,
-      description: data.description || undefined,
-      education: data.education || undefined,
-      experience: data.experience || undefined,
-      requirements: data.requirements || undefined,
-      responsibilities: data.responsibilities || undefined,
-      level: data.level || undefined,
-      minSalary: data.minSalary ? parseInt(data.minSalary, 10) : undefined,
-      maxSalary: data.maxSalary ? parseInt(data.maxSalary, 10) : undefined,
-    };
-    if (editingPosId) {
-      await updatePosMut.mutateAsync({
-        orgId,
-        posId: editingPosId,
-        data: payload,
+    try {
+      const payload = {
+        name: data.name,
+        description: data.description,
+        education: data.education,
+        experience: data.experience,
+        requirements: data.requirements,
+        responsibilities: data.responsibilities,
+        level: data.level,
+        minSalary: data.minSalary ? parseInt(data.minSalary, 10) : undefined,
+        maxSalary: data.maxSalary ? parseInt(data.maxSalary, 10) : undefined,
+      };
+      if (editingPosId) {
+        await updatePosMut.mutateAsync({
+          orgId,
+          posId: editingPosId,
+          data: payload,
+        });
+      } else {
+        await createPosMut.mutateAsync({ orgId, data: payload });
+      }
+      queryClient.invalidateQueries({
+        queryKey: getListPositionsQueryKey(orgId),
       });
-    } else {
-      await createPosMut.mutateAsync({ orgId, data: payload });
+      setPosDialogOpen(false);
+      setEditingPosId(null);
+      posForm.reset();
+    } catch (err) {
+      toast({ title: "Erro ao salvar cargo", description: String(err instanceof Error ? err.message : err), variant: "destructive" });
     }
-    queryClient.invalidateQueries({
-      queryKey: getListPositionsQueryKey(orgId),
-    });
-    setPosDialogOpen(false);
-    setEditingPosId(null);
-    posForm.reset();
   };
 
   // --- Position import helpers ---
@@ -1706,7 +1710,11 @@ export default function OrganizacaoPage({
         description={["Informações básicas", "Descrição do cargo", "Requisitos", "Responsabilidades", "Informações adicionais"][posStep]}
         size="lg"
       >
-        <form onSubmit={posForm.handleSubmit(onPosSubmit)}>
+        <form onSubmit={posForm.handleSubmit(onPosSubmit, (errors) => {
+          const field = Object.keys(errors)[0];
+          if (field === "name") setPosStep(0);
+          toast({ title: "Preencha os campos obrigatórios", description: `O campo "${field === "name" ? "Título" : field}" é obrigatório.`, variant: "destructive" });
+        })}>
           <div className="flex items-center gap-1 mb-5">
             {["Básico", "Descrição", "Requisitos", "Responsabilidades", "Adicional"].map((label, i) => (
               <React.Fragment key={label}>
@@ -1828,11 +1836,12 @@ export default function OrganizacaoPage({
               </Button>
             )}
             {posStep < 4 ? (
-              <Button type="button" size="sm" onClick={() => setPosStep(posStep + 1)}>
+              <Button key="next" type="button" size="sm" onClick={() => setPosStep(posStep + 1)}>
                 Próximo
               </Button>
             ) : (
               <Button
+                key="submit"
                 type="submit"
                 size="sm"
                 isLoading={createPosMut.isPending || updatePosMut.isPending}

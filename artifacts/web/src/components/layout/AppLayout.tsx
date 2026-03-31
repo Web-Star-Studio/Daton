@@ -396,7 +396,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         }}
         onMouseLeave={() => closePopover(setOpen, timeoutRef)}
       >
-        <p className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
           {title}
         </p>
         {links.map((link) => (
@@ -405,7 +405,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             href={link.href}
             onClick={() => setOpen(false)}
             className={cn(
-              "flex items-center rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+              "flex items-center rounded-lg px-2.5 py-2 text-[12px] transition-colors cursor-pointer",
               isNavLinkActive(link.href)
                 ? "bg-muted/50 font-medium text-foreground"
                 : "text-muted-foreground hover:bg-muted/30 hover:text-foreground",
@@ -444,7 +444,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       >
         {sections.map((section) => (
           <div key={section.label} className="mb-1 last:mb-0">
-            <p className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+            <p className="px-2.5 py-1.5 text-[12px] font-bold uppercase tracking-wider text-muted-foreground">
               {section.label}
             </p>
             {section.links.map((link) => (
@@ -453,7 +453,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 href={link.href}
                 onClick={() => setOpen(false)}
                 className={cn(
-                  "flex items-center rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+                  "flex items-center rounded-lg px-2.5 py-2 text-[12px] transition-colors cursor-pointer",
                   isNavLinkActive(link.href)
                     ? "bg-muted/50 font-medium text-foreground"
                     : "text-muted-foreground hover:bg-muted/30 hover:text-foreground",

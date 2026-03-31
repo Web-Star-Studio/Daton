@@ -59,6 +59,8 @@ export function Dialog({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between px-6 py-4 border-b border-border/60">
           <div className="flex flex-col pt-0.5">
