@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useHeaderActions, usePageTitle } from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -196,7 +197,10 @@ function assetToForm(asset: KnowledgeAssetDetail): KnowledgeAssetFormState {
       .map((link: KnowledgeAssetDetail["links"][number]) => link.documentId)
       .filter((value): value is number => value != null),
     riskOpportunityItemIds: asset.links
-      .map((link: KnowledgeAssetDetail["links"][number]) => link.riskOpportunityItemId)
+      .map(
+        (link: KnowledgeAssetDetail["links"][number]) =>
+          link.riskOpportunityItemId,
+      )
       .filter((value): value is number => value != null),
   };
 }
@@ -213,16 +217,15 @@ function renderLinkBadges(asset: KnowledgeAssetSummary | KnowledgeAssetDetail) {
   return (
     <div className="mt-3 flex flex-wrap gap-2">
       {asset.links.map((link: KnowledgeAssetSummary["links"][number]) => {
-        const label =
-          link.processName
-            ? `Processo: ${link.processName}`
-            : link.positionName
-              ? `Cargo: ${link.positionName}`
-              : link.documentTitle
-                ? `Documento: ${link.documentTitle}`
-                : link.riskOpportunityItemLabel
-                  ? `Risco/Oportunidade: ${link.riskOpportunityItemLabel}`
-                  : "Vínculo";
+        const label = link.processName
+          ? `Processo: ${link.processName}`
+          : link.positionName
+            ? `Cargo: ${link.positionName}`
+            : link.documentTitle
+              ? `Documento: ${link.documentTitle}`
+              : link.riskOpportunityItemLabel
+                ? `Risco/Oportunidade: ${link.riskOpportunityItemLabel}`
+                : "Vínculo";
 
         const supportingText = link.riskOpportunityPlanTitle
           ? ` · ${link.riskOpportunityPlanTitle}`
@@ -252,7 +255,7 @@ export default function GovernanceKnowledgeAssetsPage() {
   const initialPositionFilter =
     typeof window === "undefined"
       ? ""
-      : new URLSearchParams(window.location.search).get("positionId") ?? "";
+      : (new URLSearchParams(window.location.search).get("positionId") ?? "");
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -264,7 +267,9 @@ export default function GovernanceKnowledgeAssetsPage() {
   const [evidenceStatusFilter, setEvidenceStatusFilter] = useState("");
   const [selectedId, setSelectedId] = useState<number | undefined>(undefined);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingAsset, setEditingAsset] = useState<KnowledgeAssetDetail | null>(null);
+  const [editingAsset, setEditingAsset] = useState<KnowledgeAssetDetail | null>(
+    null,
+  );
   const [form, setForm] = useState<KnowledgeAssetFormState>(emptyForm());
   const [attachments, setAttachments] = useState<AttachmentState>([]);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
@@ -279,11 +284,14 @@ export default function GovernanceKnowledgeAssetsPage() {
       processId: processFilter ? Number(processFilter) : undefined,
       positionId: positionFilter ? Number(positionFilter) : undefined,
       documentId: documentFilter ? Number(documentFilter) : undefined,
-      riskOpportunityItemId: riskItemFilter ? Number(riskItemFilter) : undefined,
+      riskOpportunityItemId: riskItemFilter
+        ? Number(riskItemFilter)
+        : undefined,
       lossRiskLevel:
         (lossRiskFilter as KnowledgeAssetLossRiskLevel | "") || undefined,
       evidenceStatus:
-        (evidenceStatusFilter as KnowledgeAssetEvidenceStatus | "") || undefined,
+        (evidenceStatusFilter as KnowledgeAssetEvidenceStatus | "") ||
+        undefined,
     }),
     [
       debouncedSearch,
@@ -313,12 +321,16 @@ export default function GovernanceKnowledgeAssetsPage() {
     },
   });
   const documentsParams = { page: 1, pageSize: 100 };
-  const { data: documents = [] } = useListDocuments(orgId ?? 0, documentsParams, {
-    query: {
-      enabled: !!orgId,
-      queryKey: getListDocumentsQueryKey(orgId ?? 0, documentsParams),
+  const { data: documents = [] } = useListDocuments(
+    orgId ?? 0,
+    documentsParams,
+    {
+      query: {
+        enabled: !!orgId,
+        queryKey: getListDocumentsQueryKey(orgId ?? 0, documentsParams),
+      },
     },
-  });
+  );
   const { data: riskItems = [] } = useGovernanceRiskOpportunityItems(orgId);
 
   const positionOptions = useMemo<SearchableMultiSelectOption[]>(
@@ -423,7 +435,8 @@ export default function GovernanceKnowledgeAssetsPage() {
     } catch (error) {
       toast({
         title: "Falha ao enviar anexo",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -479,7 +492,8 @@ export default function GovernanceKnowledgeAssetsPage() {
     } catch (error) {
       toast({
         title: "Falha ao salvar",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -501,7 +515,8 @@ export default function GovernanceKnowledgeAssetsPage() {
     } catch (error) {
       toast({
         title: "Falha ao excluir",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -510,10 +525,12 @@ export default function GovernanceKnowledgeAssetsPage() {
   const headerActions = useMemo(() => {
     if (!canWrite) return null;
     return (
-      <Button size="sm" onClick={openCreateDialog}>
-        <Plus className="mr-1.5 h-3.5 w-3.5" />
-        Novo ativo
-      </Button>
+      <HeaderActionButton
+        size="sm"
+        onClick={openCreateDialog}
+        label="Novo ativo"
+        icon={<Plus className="h-3.5 w-3.5" />}
+      />
     );
   }, [canWrite]);
 
@@ -525,7 +542,10 @@ export default function GovernanceKnowledgeAssetsPage() {
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div>
-          <Label htmlFor="knowledge-search" className="text-xs font-semibold text-muted-foreground">
+          <Label
+            htmlFor="knowledge-search"
+            className="text-xs font-semibold text-muted-foreground"
+          >
             Busca
           </Label>
           <Input
@@ -537,7 +557,9 @@ export default function GovernanceKnowledgeAssetsPage() {
           />
         </div>
         <div>
-          <Label className="text-xs font-semibold text-muted-foreground">Cargo</Label>
+          <Label className="text-xs font-semibold text-muted-foreground">
+            Cargo
+          </Label>
           <Select
             value={positionFilter}
             onChange={(event) => setPositionFilter(event.target.value)}
@@ -552,7 +574,9 @@ export default function GovernanceKnowledgeAssetsPage() {
           </Select>
         </div>
         <div>
-          <Label className="text-xs font-semibold text-muted-foreground">Processo</Label>
+          <Label className="text-xs font-semibold text-muted-foreground">
+            Processo
+          </Label>
           <Select
             value={processFilter}
             onChange={(event) => setProcessFilter(event.target.value)}
@@ -567,7 +591,9 @@ export default function GovernanceKnowledgeAssetsPage() {
           </Select>
         </div>
         <div>
-          <Label className="text-xs font-semibold text-muted-foreground">Documento</Label>
+          <Label className="text-xs font-semibold text-muted-foreground">
+            Documento
+          </Label>
           <Select
             value={documentFilter}
             onChange={(event) => setDocumentFilter(event.target.value)}
@@ -636,12 +662,15 @@ export default function GovernanceKnowledgeAssetsPage() {
           <CardHeader className="space-y-1">
             <CardTitle className="text-base">Ativos mapeados</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Conhecimento organizacional crítico com retenção, sucessão e evidência.
+              Conhecimento organizacional crítico com retenção, sucessão e
+              evidência.
             </p>
           </CardHeader>
           <CardContent className="space-y-3">
             {isLoading ? (
-              <p className="text-sm text-muted-foreground">Carregando ativos...</p>
+              <p className="text-sm text-muted-foreground">
+                Carregando ativos...
+              </p>
             ) : assets.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center">
                 <BookKey className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
@@ -664,7 +693,9 @@ export default function GovernanceKnowledgeAssetsPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{asset.title}</p>
+                      <p className="truncate text-sm font-semibold">
+                        {asset.title}
+                      </p>
                       {asset.description ? (
                         <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                           {asset.description}
@@ -674,10 +705,20 @@ export default function GovernanceKnowledgeAssetsPage() {
                     <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/50" />
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <Badge className={cn("border", getLossRiskTone(asset.lossRiskLevel))}>
+                    <Badge
+                      className={cn(
+                        "border",
+                        getLossRiskTone(asset.lossRiskLevel),
+                      )}
+                    >
                       Risco {getLossRiskLabel(asset.lossRiskLevel)}
                     </Badge>
-                    <Badge className={cn("border", getEvidenceStatusTone(asset.evidenceStatus))}>
+                    <Badge
+                      className={cn(
+                        "border",
+                        getEvidenceStatusTone(asset.evidenceStatus),
+                      )}
+                    >
                       {getEvidenceStatusLabel(asset.evidenceStatus)}
                     </Badge>
                   </div>
@@ -703,7 +744,8 @@ export default function GovernanceKnowledgeAssetsPage() {
             <div>
               <CardTitle className="text-base">Detalhe do ativo</CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                Vínculos contextuais, evidências e plano de retenção do conhecimento.
+                Vínculos contextuais, evidências e plano de retenção do
+                conhecimento.
               </p>
             </div>
             {selectedAsset && canWrite ? (
@@ -736,10 +778,20 @@ export default function GovernanceKnowledgeAssetsPage() {
               <div className="space-y-6">
                 <div className="space-y-3">
                   <div className="flex flex-wrap gap-2">
-                    <Badge className={cn("border", getLossRiskTone(selectedAsset.lossRiskLevel))}>
+                    <Badge
+                      className={cn(
+                        "border",
+                        getLossRiskTone(selectedAsset.lossRiskLevel),
+                      )}
+                    >
                       Risco {getLossRiskLabel(selectedAsset.lossRiskLevel)}
                     </Badge>
-                    <Badge className={cn("border", getEvidenceStatusTone(selectedAsset.evidenceStatus))}>
+                    <Badge
+                      className={cn(
+                        "border",
+                        getEvidenceStatusTone(selectedAsset.evidenceStatus),
+                      )}
+                    >
                       {selectedAsset.evidenceStatus === "expired" ? (
                         <AlertTriangle className="mr-1 h-3 w-3" />
                       ) : selectedAsset.evidenceStatus === "valid" ? (
@@ -751,7 +803,9 @@ export default function GovernanceKnowledgeAssetsPage() {
                     </Badge>
                   </div>
                   <div>
-                    <h2 className="text-xl font-semibold">{selectedAsset.title}</h2>
+                    <h2 className="text-xl font-semibold">
+                      {selectedAsset.title}
+                    </h2>
                     {selectedAsset.description ? (
                       <p className="mt-2 text-sm text-muted-foreground">
                         {selectedAsset.description}
@@ -783,7 +837,8 @@ export default function GovernanceKnowledgeAssetsPage() {
                       Validade da evidência
                     </p>
                     <p className="mt-2 text-sm">
-                      {selectedAsset.evidenceValidUntil || "Sem vencimento definido"}
+                      {selectedAsset.evidenceValidUntil ||
+                        "Sem vencimento definido"}
                     </p>
                   </div>
                   <div className="rounded-xl bg-muted/30 p-4">
@@ -801,17 +856,19 @@ export default function GovernanceKnowledgeAssetsPage() {
                     Evidências
                   </p>
                   <ProfileItemAttachmentsField
-                    attachments={mapAttachmentItems(selectedAsset.evidenceAttachments)}
+                    attachments={mapAttachmentItems(
+                      selectedAsset.evidenceAttachments,
+                    )}
                     emptyText="Nenhuma evidência anexada."
                     accept={EMPLOYEE_RECORD_ATTACHMENT_ACCEPT}
                   />
                 </div>
 
                 <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md text-xs text-muted-foreground">
-                  Criado por {selectedAsset.createdByName || "usuário removido"} em{" "}
-                  {selectedAsset.createdAt || "data indisponível"}.
-                  {" "}
-                  Última atualização por {selectedAsset.updatedByName || "usuário removido"}.
+                  Criado por {selectedAsset.createdByName || "usuário removido"}{" "}
+                  em {selectedAsset.createdAt || "data indisponível"}. Última
+                  atualização por{" "}
+                  {selectedAsset.updatedByName || "usuário removido"}.
                 </div>
               </div>
             )}
@@ -825,7 +882,11 @@ export default function GovernanceKnowledgeAssetsPage() {
           if (!open) closeDialog();
           else setDialogOpen(true);
         }}
-        title={editingAsset ? "Editar conhecimento crítico" : "Novo conhecimento crítico"}
+        title={
+          editingAsset
+            ? "Editar conhecimento crítico"
+            : "Novo conhecimento crítico"
+        }
         description="Registre o conhecimento, os vínculos contextuais e a evidência disponível."
         size="xl"
       >
@@ -837,7 +898,10 @@ export default function GovernanceKnowledgeAssetsPage() {
                 id="knowledge-title"
                 value={form.title}
                 onChange={(event) =>
-                  setForm((current) => ({ ...current, title: event.target.value }))
+                  setForm((current) => ({
+                    ...current,
+                    title: event.target.value,
+                  }))
                 }
                 className="mt-2"
               />
@@ -864,7 +928,8 @@ export default function GovernanceKnowledgeAssetsPage() {
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
-                    lossRiskLevel: event.target.value as KnowledgeAssetFormState["lossRiskLevel"],
+                    lossRiskLevel: event.target
+                      .value as KnowledgeAssetFormState["lossRiskLevel"],
                   }))
                 }
                 className="mt-2"
@@ -876,7 +941,9 @@ export default function GovernanceKnowledgeAssetsPage() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="knowledge-valid-until">Validade da evidência</Label>
+              <Label htmlFor="knowledge-valid-until">
+                Validade da evidência
+              </Label>
               <Input
                 id="knowledge-valid-until"
                 type="date"
@@ -940,7 +1007,9 @@ export default function GovernanceKnowledgeAssetsPage() {
               />
             </div>
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Cargos</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Cargos
+              </Label>
               <SearchableMultiSelect
                 options={positionOptions}
                 selected={form.positionIds}
@@ -1000,7 +1069,9 @@ export default function GovernanceKnowledgeAssetsPage() {
             <ProfileItemAttachmentsField
               attachments={mapAttachmentItems(attachments, (objectPath) => {
                 setAttachments((current) =>
-                  current.filter((attachment) => attachment.objectPath !== objectPath),
+                  current.filter(
+                    (attachment) => attachment.objectPath !== objectPath,
+                  ),
                 );
               })}
               onUpload={(files) => {

@@ -25,6 +25,7 @@ import type {
 } from "@workspace/api-client-react";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -154,19 +155,20 @@ export default function TrainingDetailPage() {
   usePageTitle(trainingTitle || "Treinamento");
   useHeaderActions(
     <div className="flex items-center gap-2">
-      <Button
+      <HeaderActionButton
         variant="outline"
         size="sm"
         onClick={() => navigate("/organizacao/colaboradores/treinamentos")}
-      >
-        <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-        Voltar
-      </Button>
+        label="Voltar"
+        icon={<ArrowLeft className="h-3.5 w-3.5" />}
+      />
       {canWriteEmployees && (
-        <Button size="sm" onClick={() => openNewTraining()}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Atribuir colaborador
-        </Button>
+        <HeaderActionButton
+          size="sm"
+          onClick={() => openNewTraining()}
+          label="Atribuir colaborador"
+          icon={<Plus className="h-3.5 w-3.5" />}
+        />
       )}
     </div>,
   );
@@ -191,7 +193,8 @@ export default function TrainingDetailPage() {
   // ── Bulk action dialog state ──
   const [bulkStatusDialogOpen, setBulkStatusDialogOpen] = useState(false);
   const [bulkStatus, setBulkStatus] = useState<string>("concluido");
-  const [bulkExpirationDialogOpen, setBulkExpirationDialogOpen] = useState(false);
+  const [bulkExpirationDialogOpen, setBulkExpirationDialogOpen] =
+    useState(false);
   const [bulkExpiration, setBulkExpiration] = useState("");
   const [bulkActionPending, setBulkActionPending] = useState(false);
 
@@ -248,10 +251,7 @@ export default function TrainingDetailPage() {
     let result = allTrainings;
     if (searchFilter) {
       const q = searchFilter.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.employeeName.toLowerCase().includes(q),
-      );
+      result = result.filter((t) => t.employeeName.toLowerCase().includes(q));
     }
     if (statusFilter) {
       result = result.filter((t) => t.status === statusFilter);
@@ -390,7 +390,9 @@ export default function TrainingDetailPage() {
       setEditingTraining(null);
       setForm(getDefaultTrainingForm());
       toast({
-        title: editingTraining ? "Treinamento atualizado" : "Treinamento criado",
+        title: editingTraining
+          ? "Treinamento atualizado"
+          : "Treinamento criado",
       });
     } catch (error) {
       console.error("Failed to save training:", error);
@@ -439,7 +441,9 @@ export default function TrainingDetailPage() {
       await invalidateData();
       setSelectedIds(new Set());
       setBulkStatusDialogOpen(false);
-      toast({ title: `Status atualizado para ${selectedTrainings.length} registros` });
+      toast({
+        title: `Status atualizado para ${selectedTrainings.length} registros`,
+      });
     } catch {
       toast({ title: "Erro ao atualizar status", variant: "destructive" });
     } finally {
@@ -462,7 +466,9 @@ export default function TrainingDetailPage() {
       await invalidateData();
       setSelectedIds(new Set());
       setBulkExpirationDialogOpen(false);
-      toast({ title: `Validade atualizada para ${selectedTrainings.length} registros` });
+      toast({
+        title: `Validade atualizada para ${selectedTrainings.length} registros`,
+      });
     } catch {
       toast({ title: "Erro ao atualizar validade", variant: "destructive" });
     } finally {
@@ -717,9 +723,7 @@ export default function TrainingDetailPage() {
                                       variant="ghost"
                                       size="sm"
                                       className="h-7 w-7 p-0"
-                                      onClick={() =>
-                                        openEditTraining(training)
-                                      }
+                                      onClick={() => openEditTraining(training)}
                                     >
                                       <Pencil className="h-3 w-3" />
                                     </Button>
@@ -757,79 +761,81 @@ export default function TrainingDetailPage() {
       </div>
 
       {/* ── Bulk action bar ── */}
-      {selectedIds.size > 0 && canWriteEmployees && createPortal(
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-in fade-in-0 slide-in-from-bottom-4 duration-200">
-          <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/90 px-3 py-2 shadow-lg backdrop-blur-xl">
-            <span className="px-2 text-[13px] font-medium text-foreground">
-              {selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}
-            </span>
-            <div className="mx-1 h-5 w-px bg-border" />
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 gap-1.5 px-2.5 text-[13px]"
-                    onClick={() => setBulkStatusDialogOpen(true)}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Status
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Alterar status</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 gap-1.5 px-2.5 text-[13px]"
-                    onClick={() => setBulkExpirationDialogOpen(true)}
-                  >
-                    <Calendar className="h-3.5 w-3.5" />
-                    Validade
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Alterar validade</TooltipContent>
-              </Tooltip>
+      {selectedIds.size > 0 &&
+        canWriteEmployees &&
+        createPortal(
+          <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-in fade-in-0 slide-in-from-bottom-4 duration-200">
+            <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/90 px-3 py-2 shadow-lg backdrop-blur-xl">
+              <span className="px-2 text-[13px] font-medium text-foreground">
+                {selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}
+              </span>
               <div className="mx-1 h-5 w-px bg-border" />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => void handleBulkDelete()}
-                    disabled={bulkActionPending}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Excluir selecionados</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => setSelectedIds(new Set())}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Limpar selecao</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </div>,
-        document.body,
-      )}
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-1.5 px-2.5 text-[13px]"
+                      onClick={() => setBulkStatusDialogOpen(true)}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Status
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Alterar status</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-1.5 px-2.5 text-[13px]"
+                      onClick={() => setBulkExpirationDialogOpen(true)}
+                    >
+                      <Calendar className="h-3.5 w-3.5" />
+                      Validade
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Alterar validade</TooltipContent>
+                </Tooltip>
+                <div className="mx-1 h-5 w-px bg-border" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => void handleBulkDelete()}
+                      disabled={bulkActionPending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Excluir selecionados</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setSelectedIds(new Set())}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Limpar selecao</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {/* ── Bulk status dialog ── */}
       <Dialog
@@ -853,7 +859,10 @@ export default function TrainingDetailPage() {
           </Select>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setBulkStatusDialogOpen(false)}>
+          <Button
+            variant="outline"
+            onClick={() => setBulkStatusDialogOpen(false)}
+          >
             Cancelar
           </Button>
           <Button
@@ -884,7 +893,10 @@ export default function TrainingDetailPage() {
           />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setBulkExpirationDialogOpen(false)}>
+          <Button
+            variant="outline"
+            onClick={() => setBulkExpirationDialogOpen(false)}
+          >
             Cancelar
           </Button>
           <Button
@@ -1048,9 +1060,7 @@ export default function TrainingDetailPage() {
         }}
         title="Historico de eficacia"
         description={
-          historyTraining
-            ? historyTraining.title
-            : "Historico do treinamento"
+          historyTraining ? historyTraining.title : "Historico do treinamento"
         }
         size="lg"
       >
@@ -1069,8 +1079,7 @@ export default function TrainingDetailPage() {
                   {historyTraining.latestEffectivenessReview.comments}
                 </p>
               ) : null}
-              {historyTraining.latestEffectivenessReview.attachments
-                ?.length ? (
+              {historyTraining.latestEffectivenessReview.attachments?.length ? (
                 <div className="mt-3">
                   <ProfileItemAttachmentsField
                     attachments={mapRecordAttachmentItems(

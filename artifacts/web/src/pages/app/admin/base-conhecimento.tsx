@@ -10,13 +10,19 @@ import {
   BookText,
   Archive,
   Upload,
+  Save,
   Sparkles,
   Search,
   ArrowLeft,
   ChevronRight,
 } from "lucide-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
-import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
+import {
+  useHeaderActions,
+  usePageSubtitle,
+  usePageTitle,
+} from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
@@ -46,7 +52,8 @@ const EMPTY_ARTICLE: ProductKnowledgeArticleBody = {
 
 const productKnowledgeArticleSchema = z.object({
   slug: z.preprocess(
-    (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+    (value) =>
+      typeof value === "string" && value.trim() === "" ? null : value,
     z.string().max(80).optional().nullable(),
   ),
   title: z.string().min(1, "Informe um título").max(160),
@@ -69,7 +76,7 @@ function normalizeArticleBody(
     slug:
       typeof values.slug === "string" && values.slug.trim() === ""
         ? null
-        : values.slug ?? null,
+        : (values.slug ?? null),
   };
 }
 
@@ -96,15 +103,35 @@ export default function ProductKnowledgeAdminPage() {
   const { role } = useAuth();
   const { isPlatformAdmin } = usePermissions();
   const isAdmin = isPlatformAdmin && role === "platform_admin";
-  const { data: articles = [] } = useProductKnowledgeArticles({ enabled: isAdmin });
+  const { data: articles = [] } = useProductKnowledgeArticles({
+    enabled: isAdmin,
+  });
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const { data: detail } = useProductKnowledgeArticle(selectedId, { enabled: isAdmin && !!selectedId });
+  const { data: detail } = useProductKnowledgeArticle(selectedId, {
+    enabled: isAdmin && !!selectedId,
+  });
   const createMutation = useCreateProductKnowledgeArticle({ enabled: isAdmin });
-  const updateMutation = useUpdateProductKnowledgeArticle(selectedId, { enabled: isAdmin });
-  const publishMutation = useProductKnowledgeLifecycleAction("publish", selectedId, { enabled: isAdmin });
-  const reindexMutation = useProductKnowledgeLifecycleAction("reindex", selectedId, { enabled: isAdmin });
-  const archiveMutation = useProductKnowledgeLifecycleAction("archive", selectedId, { enabled: isAdmin });
-  const bootstrapMutation = useBootstrapProductKnowledgeArticles({ enabled: isAdmin });
+  const updateMutation = useUpdateProductKnowledgeArticle(selectedId, {
+    enabled: isAdmin,
+  });
+  const publishMutation = useProductKnowledgeLifecycleAction(
+    "publish",
+    selectedId,
+    { enabled: isAdmin },
+  );
+  const reindexMutation = useProductKnowledgeLifecycleAction(
+    "reindex",
+    selectedId,
+    { enabled: isAdmin },
+  );
+  const archiveMutation = useProductKnowledgeLifecycleAction(
+    "archive",
+    selectedId,
+    { enabled: isAdmin },
+  );
+  const bootstrapMutation = useBootstrapProductKnowledgeArticles({
+    enabled: isAdmin,
+  });
   const [activeTab, setActiveTab] = useState("editor");
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -127,7 +154,11 @@ export default function ProductKnowledgeAdminPage() {
   } = form;
   const watchedForm = watch();
 
-  const createForm = useForm<{ title: string; category: string; summary: string }>({
+  const createForm = useForm<{
+    title: string;
+    category: string;
+    summary: string;
+  }>({
     resolver: zodResolver(createArticleSchema),
     defaultValues: { title: "", category: "", summary: "" },
   });
@@ -142,84 +173,134 @@ export default function ProductKnowledgeAdminPage() {
       <div className="flex items-center gap-2">
         {detail && (
           <>
-            <Button
+            <HeaderActionButton
               size="sm"
               variant="outline"
               onClick={handleSubmit(async (values) => {
                 try {
-                  await updateMutation.mutateAsync(normalizeArticleBody(values));
-                  toast({ title: "Artigo salvo", description: "O conteúdo foi atualizado com sucesso." });
+                  await updateMutation.mutateAsync(
+                    normalizeArticleBody(values),
+                  );
+                  toast({
+                    title: "Artigo salvo",
+                    description: "O conteúdo foi atualizado com sucesso.",
+                  });
                 } catch (error) {
-                  toast({ title: "Falha ao salvar artigo", description: error instanceof Error ? error.message : "Tente novamente." });
+                  toast({
+                    title: "Falha ao salvar artigo",
+                    description:
+                      error instanceof Error
+                        ? error.message
+                        : "Tente novamente.",
+                  });
                 }
               })}
               disabled={!isDirty}
               isLoading={updateMutation.isPending}
+              label="Salvar"
+              icon={<Save className="h-3.5 w-3.5" />}
             >
               Salvar
-            </Button>
-            <Button
+            </HeaderActionButton>
+            <HeaderActionButton
               size="sm"
               variant="outline"
               onClick={async () => {
                 try {
                   const updated = await reindexMutation.mutateAsync();
                   setSelectedId(updated.id);
-                  toast({ title: "Artigo reindexado", description: "A versão publicada foi sincronizada novamente com o vector store." });
+                  toast({
+                    title: "Artigo reindexado",
+                    description:
+                      "A versão publicada foi sincronizada novamente com o vector store.",
+                  });
                 } catch (error) {
-                  toast({ title: "Falha ao reindexar", description: error instanceof Error ? error.message : "Tente novamente." });
+                  toast({
+                    title: "Falha ao reindexar",
+                    description:
+                      error instanceof Error
+                        ? error.message
+                        : "Tente novamente.",
+                  });
                 }
               }}
-              disabled={detail.status !== "published" || detail.hasUnpublishedChanges}
+              disabled={
+                detail.status !== "published" || detail.hasUnpublishedChanges
+              }
               isLoading={reindexMutation.isPending}
+              label="Reindexar"
+              icon={<RefreshCcw className="h-3.5 w-3.5" />}
             >
-              <RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
               Reindexar
-            </Button>
-            <Button
+            </HeaderActionButton>
+            <HeaderActionButton
               size="sm"
               onClick={async () => {
                 try {
                   if (isDirty) {
-                    await updateMutation.mutateAsync(normalizeArticleBody(getValues()));
+                    await updateMutation.mutateAsync(
+                      normalizeArticleBody(getValues()),
+                    );
                   }
                   const updated = await publishMutation.mutateAsync();
                   setSelectedId(updated.id);
-                  toast({ title: "Artigo publicado", description: "O conteúdo foi indexado e já pode ser usado pelo Daton AI." });
+                  toast({
+                    title: "Artigo publicado",
+                    description:
+                      "O conteúdo foi indexado e já pode ser usado pelo Daton AI.",
+                  });
                 } catch (error) {
-                  toast({ title: "Falha ao publicar", description: error instanceof Error ? error.message : "Tente novamente." });
+                  toast({
+                    title: "Falha ao publicar",
+                    description:
+                      error instanceof Error
+                        ? error.message
+                        : "Tente novamente.",
+                  });
                 }
               }}
               disabled={detail.status === "archived"}
               isLoading={publishMutation.isPending}
+              label="Publicar"
+              icon={<Upload className="h-3.5 w-3.5" />}
             >
-              <Upload className="mr-1.5 h-3.5 w-3.5" />
               Publicar
-            </Button>
-            <Button
+            </HeaderActionButton>
+            <HeaderActionButton
               size="sm"
               variant="outline"
               onClick={async () => {
                 try {
                   const updated = await archiveMutation.mutateAsync();
                   setSelectedId(updated.id);
-                  toast({ title: "Artigo arquivado", description: "O conteúdo foi removido da base ativa do produto." });
+                  toast({
+                    title: "Artigo arquivado",
+                    description:
+                      "O conteúdo foi removido da base ativa do produto.",
+                  });
                 } catch (error) {
-                  toast({ title: "Falha ao arquivar", description: error instanceof Error ? error.message : "Tente novamente." });
+                  toast({
+                    title: "Falha ao arquivar",
+                    description:
+                      error instanceof Error
+                        ? error.message
+                        : "Tente novamente.",
+                  });
                 }
               }}
               disabled={detail.status === "archived"}
               isLoading={archiveMutation.isPending}
+              label="Arquivar"
+              icon={<Archive className="h-3.5 w-3.5" />}
             >
-              <Archive className="mr-1.5 h-3.5 w-3.5" />
               Arquivar
-            </Button>
+            </HeaderActionButton>
           </>
         )}
       </div>
     ) : (
       <div className="flex items-center gap-2">
-        <Button
+        <HeaderActionButton
           size="sm"
           variant="outline"
           onClick={async () => {
@@ -238,18 +319,24 @@ export default function ProductKnowledgeAdminPage() {
             } catch (error) {
               toast({
                 title: "Falha ao carregar artigos iniciais",
-                description: error instanceof Error ? error.message : "Tente novamente.",
+                description:
+                  error instanceof Error ? error.message : "Tente novamente.",
               });
             }
           }}
+          label="Carregar artigos iniciais"
+          icon={<Sparkles className="h-3.5 w-3.5" />}
         >
-          <Sparkles className="mr-1.5 h-3.5 w-3.5" />
           Carregar artigos iniciais
-        </Button>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
+        </HeaderActionButton>
+        <HeaderActionButton
+          size="sm"
+          onClick={() => setCreateOpen(true)}
+          label="Novo artigo"
+          icon={<Plus className="h-3.5 w-3.5" />}
+        >
           Novo artigo
-        </Button>
+        </HeaderActionButton>
       </div>
     ),
   );
@@ -299,7 +386,11 @@ export default function ProductKnowledgeAdminPage() {
     reset(EMPTY_ARTICLE);
   }, [detail, reset]);
 
-  const handleCreateArticle = async (values: { title: string; category: string; summary: string }) => {
+  const handleCreateArticle = async (values: {
+    title: string;
+    category: string;
+    summary: string;
+  }) => {
     try {
       const created = await createMutation.mutateAsync(
         normalizeArticleBody({
@@ -315,7 +406,8 @@ export default function ProductKnowledgeAdminPage() {
     } catch (error) {
       toast({
         title: "Falha ao criar artigo",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
       });
     }
   };
@@ -353,7 +445,8 @@ export default function ProductKnowledgeAdminPage() {
                 </div>
                 <p className="mt-1 text-[13px] text-muted-foreground">
                   Versão atual: v{detail.version} · Indexação:{" "}
-                  {INDEX_STATUS_LABELS[detail.lastIndexStatus] || detail.lastIndexStatus}
+                  {INDEX_STATUS_LABELS[detail.lastIndexStatus] ||
+                    detail.lastIndexStatus}
                 </p>
               </div>
             </div>
@@ -374,30 +467,60 @@ export default function ProductKnowledgeAdminPage() {
               <TabsContent value="editor" className="space-y-5">
                 <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
                   <div>
-                    <Label className="text-xs font-semibold text-muted-foreground">Título</Label>
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      Título
+                    </Label>
                     <Input {...register("title")} />
-                    {errors.title && <p className="mt-1.5 text-xs text-destructive">{errors.title.message}</p>}
+                    {errors.title && (
+                      <p className="mt-1.5 text-xs text-destructive">
+                        {errors.title.message}
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold text-muted-foreground">Slug</Label>
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      Slug
+                    </Label>
                     <Input {...register("slug")} />
-                    {errors.slug && <p className="mt-1.5 text-xs text-destructive">{errors.slug.message}</p>}
+                    {errors.slug && (
+                      <p className="mt-1.5 text-xs text-destructive">
+                        {errors.slug.message}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-muted-foreground">Categoria</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Categoria
+                  </Label>
                   <Input {...register("category")} />
-                  {errors.category && <p className="mt-1.5 text-xs text-destructive">{errors.category.message}</p>}
+                  {errors.category && (
+                    <p className="mt-1.5 text-xs text-destructive">
+                      {errors.category.message}
+                    </p>
+                  )}
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-muted-foreground">Resumo</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Resumo
+                  </Label>
                   <Textarea rows={3} {...register("summary")} />
-                  {errors.summary && <p className="mt-1.5 text-xs text-destructive">{errors.summary.message}</p>}
+                  {errors.summary && (
+                    <p className="mt-1.5 text-xs text-destructive">
+                      {errors.summary.message}
+                    </p>
+                  )}
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-muted-foreground">Corpo em Markdown</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    Corpo em Markdown
+                  </Label>
                   <Textarea rows={20} {...register("bodyMarkdown")} />
-                  {errors.bodyMarkdown && <p className="mt-1.5 text-xs text-destructive">{errors.bodyMarkdown.message}</p>}
+                  {errors.bodyMarkdown && (
+                    <p className="mt-1.5 text-xs text-destructive">
+                      {errors.bodyMarkdown.message}
+                    </p>
+                  )}
                 </div>
               </TabsContent>
 
@@ -432,7 +555,9 @@ export default function ProductKnowledgeAdminPage() {
                           </p>
                         </div>
                         <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                          {new Date(revision.publishedAt).toLocaleString("pt-BR")}
+                          {new Date(revision.publishedAt).toLocaleString(
+                            "pt-BR",
+                          )}
                         </span>
                       </div>
                     ))
@@ -458,19 +583,33 @@ export default function ProductKnowledgeAdminPage() {
         <div className="grid grid-cols-4 gap-4">
           <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
             <p className="text-xs font-medium text-muted-foreground">Total</p>
-            <p className="text-xl font-semibold text-foreground mt-0.5">{stats.total}</p>
+            <p className="text-xl font-semibold text-foreground mt-0.5">
+              {stats.total}
+            </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-            <p className="text-xs font-medium text-muted-foreground">Publicados</p>
-            <p className="text-xl font-semibold text-emerald-600 mt-0.5">{stats.published}</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              Publicados
+            </p>
+            <p className="text-xl font-semibold text-emerald-600 mt-0.5">
+              {stats.published}
+            </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-            <p className="text-xs font-medium text-muted-foreground">Rascunhos</p>
-            <p className="text-xl font-semibold text-gray-500 mt-0.5">{stats.draft}</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              Rascunhos
+            </p>
+            <p className="text-xl font-semibold text-gray-500 mt-0.5">
+              {stats.draft}
+            </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-            <p className="text-xs font-medium text-muted-foreground">Arquivados</p>
-            <p className="text-xl font-semibold text-amber-600 mt-0.5">{stats.archived}</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              Arquivados
+            </p>
+            <p className="text-xl font-semibold text-amber-600 mt-0.5">
+              {stats.archived}
+            </p>
           </div>
         </div>
 
@@ -582,7 +721,8 @@ export default function ProductKnowledgeAdminPage() {
                       v{article.version}
                     </td>
                     <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                      {INDEX_STATUS_LABELS[article.lastIndexStatus] || article.lastIndexStatus}
+                      {INDEX_STATUS_LABELS[article.lastIndexStatus] ||
+                        article.lastIndexStatus}
                     </td>
                     <td className="px-4 py-3">
                       <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
@@ -610,7 +750,9 @@ export default function ProductKnowledgeAdminPage() {
           className="space-y-5"
         >
           <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Título *</Label>
+            <Label className="text-xs font-semibold text-muted-foreground">
+              Título *
+            </Label>
             <Input
               {...createForm.register("title")}
               className="mt-1"
@@ -623,7 +765,9 @@ export default function ProductKnowledgeAdminPage() {
             )}
           </div>
           <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Categoria *</Label>
+            <Label className="text-xs font-semibold text-muted-foreground">
+              Categoria *
+            </Label>
             <Input
               {...createForm.register("category")}
               className="mt-1"
@@ -636,7 +780,9 @@ export default function ProductKnowledgeAdminPage() {
             )}
           </div>
           <div>
-            <Label className="text-xs font-semibold text-muted-foreground">Resumo *</Label>
+            <Label className="text-xs font-semibold text-muted-foreground">
+              Resumo *
+            </Label>
             <Textarea
               rows={3}
               {...createForm.register("summary")}

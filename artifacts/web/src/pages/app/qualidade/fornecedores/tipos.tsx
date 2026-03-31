@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
+import {
+  useHeaderActions,
+  usePageSubtitle,
+  usePageTitle,
+} from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -54,26 +59,32 @@ export default function SupplierTypesPage() {
   const [form, setForm] = useState<SupplierTypeFormState>(emptyForm);
 
   usePageTitle("Tipos de fornecedores");
-  usePageSubtitle("Defina os tipos operacionais e o threshold documental aplicado em cada um deles.");
+  usePageSubtitle(
+    "Defina os tipos operacionais e o threshold documental aplicado em cada um deles.",
+  );
 
   useHeaderActions(
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores")}>
-        <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-        Voltar
-      </Button>
+      <HeaderActionButton
+        variant="outline"
+        size="sm"
+        onClick={() => navigate("/app/qualidade/fornecedores")}
+        label="Voltar"
+        icon={<ArrowLeft className="h-3.5 w-3.5" />}
+      />
       {canManageSuppliers ? (
-        <Button
+        <HeaderActionButton
           size="sm"
           onClick={() => {
             setIsCreatingNew(true);
             setSelectedId(null);
             setForm(emptyForm);
           }}
+          label="Novo tipo"
+          icon={<Plus className="h-3.5 w-3.5" />}
         >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
           Novo tipo
-        </Button>
+        </HeaderActionButton>
       ) : null}
     </div>,
   );
@@ -111,8 +122,12 @@ export default function SupplierTypesPage() {
       name: selectedType.name,
       description: selectedType.description || "",
       documentThreshold: String(selectedType.documentThreshold),
-      categoryId: selectedType.categoryId ? String(selectedType.categoryId) : "",
-      parentTypeId: selectedType.parentTypeId ? String(selectedType.parentTypeId) : "",
+      categoryId: selectedType.categoryId
+        ? String(selectedType.categoryId)
+        : "",
+      parentTypeId: selectedType.parentTypeId
+        ? String(selectedType.parentTypeId)
+        : "",
       status: selectedType.status as "active" | "inactive",
     });
   }, [isCreatingNew, selectedType]);
@@ -168,7 +183,8 @@ export default function SupplierTypesPage() {
     onError: (error) => {
       toast({
         title: "Falha ao salvar tipo",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     },
@@ -184,7 +200,8 @@ export default function SupplierTypesPage() {
               <Badge variant="secondary">{types.length}</Badge>
             </div>
             <p className="text-sm text-muted-foreground">
-              O threshold documental agora fica no tipo e é aplicado automaticamente na avaliação AVA1.
+              O threshold documental agora fica no tipo e é aplicado
+              automaticamente na avaliação AVA1.
             </p>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -194,7 +211,9 @@ export default function SupplierTypesPage() {
               </div>
             ) : (
               types.map((type) => {
-                const categoryName = categories.find((category) => category.id === type.categoryId)?.name;
+                const categoryName = categories.find(
+                  (category) => category.id === type.categoryId,
+                )?.name;
                 return (
                   <button
                     key={type.id}
@@ -210,8 +229,14 @@ export default function SupplierTypesPage() {
                     }}
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <div className="font-medium text-foreground">{type.name}</div>
-                      <Badge variant={type.status === "active" ? "default" : "secondary"}>
+                      <div className="font-medium text-foreground">
+                        {type.name}
+                      </div>
+                      <Badge
+                        variant={
+                          type.status === "active" ? "default" : "secondary"
+                        }
+                      >
                         {supplierTypeStatusLabel(type.status)}
                       </Badge>
                     </div>
@@ -228,7 +253,9 @@ export default function SupplierTypesPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>{isCreatingNew ? "Novo tipo" : "Detalhes do tipo"}</CardTitle>
+            <CardTitle>
+              {isCreatingNew ? "Novo tipo" : "Detalhes do tipo"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
@@ -237,7 +264,12 @@ export default function SupplierTypesPage() {
                 <Input
                   id="supplier-type-name"
                   value={form.name}
-                  onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
                   disabled={!canManageSuppliers}
                 />
               </div>
@@ -247,7 +279,12 @@ export default function SupplierTypesPage() {
                 <Select
                   id="supplier-type-category"
                   value={form.categoryId}
-                  onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      categoryId: event.target.value,
+                    }))
+                  }
                   disabled={!canManageSuppliers}
                 >
                   <option value="">Sem categoria</option>
@@ -264,7 +301,12 @@ export default function SupplierTypesPage() {
                 <Select
                   id="supplier-type-parent"
                   value={form.parentTypeId}
-                  onChange={(event) => setForm((current) => ({ ...current, parentTypeId: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      parentTypeId: event.target.value,
+                    }))
+                  }
                   disabled={!canManageSuppliers}
                 >
                   <option value="">Nenhum</option>
@@ -277,14 +319,21 @@ export default function SupplierTypesPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="supplier-type-threshold">Threshold documental (%)</Label>
+                <Label htmlFor="supplier-type-threshold">
+                  Threshold documental (%)
+                </Label>
                 <Input
                   id="supplier-type-threshold"
                   type="number"
                   min={0}
                   max={100}
                   value={form.documentThreshold}
-                  onChange={(event) => setForm((current) => ({ ...current, documentThreshold: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      documentThreshold: event.target.value,
+                    }))
+                  }
                   disabled={!canManageSuppliers}
                 />
               </div>
@@ -314,7 +363,12 @@ export default function SupplierTypesPage() {
                 id="supplier-type-description"
                 placeholder="Descreva o escopo operacional desse tipo de fornecedor."
                 value={form.description}
-                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    description: event.target.value,
+                  }))
+                }
                 disabled={!canManageSuppliers}
               />
             </div>
@@ -330,9 +384,15 @@ export default function SupplierTypesPage() {
                       setForm({
                         name: selectedType.name,
                         description: selectedType.description || "",
-                        documentThreshold: String(selectedType.documentThreshold),
-                        categoryId: selectedType.categoryId ? String(selectedType.categoryId) : "",
-                        parentTypeId: selectedType.parentTypeId ? String(selectedType.parentTypeId) : "",
+                        documentThreshold: String(
+                          selectedType.documentThreshold,
+                        ),
+                        categoryId: selectedType.categoryId
+                          ? String(selectedType.categoryId)
+                          : "",
+                        parentTypeId: selectedType.parentTypeId
+                          ? String(selectedType.parentTypeId)
+                          : "",
                         status: selectedType.status as "active" | "inactive",
                       });
                     } else {
@@ -342,12 +402,19 @@ export default function SupplierTypesPage() {
                 >
                   Descartar
                 </Button>
-                <Button type="button" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                <Button
+                  type="button"
+                  onClick={() => saveMutation.mutate()}
+                  disabled={saveMutation.isPending}
+                >
                   {saveMutation.isPending ? "Salvando..." : "Salvar tipo"}
                 </Button>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Você pode visualizar os tipos, mas não tem permissão para editá-los.</p>
+              <p className="text-sm text-muted-foreground">
+                Você pode visualizar os tipos, mas não tem permissão para
+                editá-los.
+              </p>
             )}
           </CardContent>
         </Card>

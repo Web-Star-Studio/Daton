@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "wouter";
 import { useHeaderActions, usePageTitle } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import {
   useGetLegislation,
   useUpdateLegislation,
@@ -559,34 +560,41 @@ export default function LegislationDetailPage() {
     leg ? (
       <div className="flex items-center gap-2">
         <Link href="/qualidade/legislacoes">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
-          </Button>
+          <HeaderActionButton
+            variant="ghost"
+            size="sm"
+            label="Voltar"
+            icon={<ArrowLeft className="h-4 w-4" />}
+          />
         </Link>
         {canWriteLegislations && (
-          <Button
+          <HeaderActionButton
             variant="secondary"
             size="sm"
             onClick={onAutoTag}
             disabled={isAutoTagging}
+            label={isAutoTagging ? "Classificando..." : "Auto-classificar tags"}
+            icon={
+              isAutoTagging ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )
+            }
           >
-            {isAutoTagging ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Sparkles className="w-4 h-4 mr-2" />
-            )}
             {isAutoTagging ? "Classificando..." : "Auto-classificar tags"}
-          </Button>
+          </HeaderActionButton>
         )}
         {canWriteLegislations && activeTab === "unidades" && (
-          <Button
+          <HeaderActionButton
             variant="secondary"
             size="sm"
             onClick={() => setIsAssignOpen(true)}
+            label="Vincular Unidade"
+            icon={<Link2 className="h-4 w-4" />}
           >
-            <Link2 className="w-4 h-4 mr-2" />
             Vincular Unidade
-          </Button>
+          </HeaderActionButton>
         )}
       </div>
     ) : null,

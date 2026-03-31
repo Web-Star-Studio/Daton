@@ -6,13 +6,23 @@ import {
   useListUnits,
 } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
-import { FileWarning, Leaf, Pencil, Plus, Radar, Save, Trash2, Workflow } from "lucide-react";
+import {
+  FileWarning,
+  Leaf,
+  Pencil,
+  Plus,
+  Radar,
+  Save,
+  Trash2,
+  Workflow,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useHeaderActions,
   usePageSubtitle,
   usePageTitle,
 } from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +32,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
@@ -66,7 +83,11 @@ type MethodologyFormState = {
   procedimentoLevantamento: string;
   procedimentoAnalise: string;
   classificacaoAssuntos: string[];
-  classificacaoAplicabilidade: Array<{ codigo: string; nome: string; descricao: string }>;
+  classificacaoAplicabilidade: Array<{
+    codigo: string;
+    nome: string;
+    descricao: string;
+  }>;
   niveisAtendimento: Array<{ nivel: string; nome: string; descricao: string }>;
   outrosRequisitos: string;
 };
@@ -158,35 +179,100 @@ const DEFAULT_METHODOLOGY_FORM: MethodologyFormState = {
   generalidades:
     "Assegurar que os requisitos legais aplicaveis e outros requisitos sejam controlados e levados em consideracao pela Organizacao.",
   definicoes: [
-    { termo: "Outros Requisitos", descricao: "Obrigacoes dos Produtos/Servicos da organizacao, decorrentes de compromissos formalmente estabelecidos com partes interessadas relativos a Qualidade, Seguranca Viaria e Meio Ambiente." },
-    { termo: "Legislacao Aplicavel", descricao: "Conjunto de documentos legais relativos a Qualidade, Seguranca Viaria e Meio Ambiente relacionados com as atividades dos produtos/servicos da organizacao." },
-    { termo: "Requisitos Legais", descricao: "Requisitos contidos na legislacao, atos normativos e regulamentares emitidos pela autoridade publica aplicaveis aos produtos/servicos da organizacao." },
+    {
+      termo: "Outros Requisitos",
+      descricao:
+        "Obrigacoes dos Produtos/Servicos da organizacao, decorrentes de compromissos formalmente estabelecidos com partes interessadas relativos a Qualidade, Seguranca Viaria e Meio Ambiente.",
+    },
+    {
+      termo: "Legislacao Aplicavel",
+      descricao:
+        "Conjunto de documentos legais relativos a Qualidade, Seguranca Viaria e Meio Ambiente relacionados com as atividades dos produtos/servicos da organizacao.",
+    },
+    {
+      termo: "Requisitos Legais",
+      descricao:
+        "Requisitos contidos na legislacao, atos normativos e regulamentares emitidos pela autoridade publica aplicaveis aos produtos/servicos da organizacao.",
+    },
   ],
   responsabilidades: [
-    { cargo: "Coordenador do SGI", atribuicoes: "Gerenciar o processo de levantamento, e realizar a atualizacao e analise de atendimento dos requisitos legais aplicaveis." },
-    { cargo: "Gerencias", atribuicoes: "Fazer com que os requisitos legais aplicaveis sejam cumpridos." },
-    { cargo: "Diretoria", atribuicoes: "Deliberar recursos e condicoes para o cumprimento dos requisitos legais aplicaveis." },
-    { cargo: "Fornecedor de Assessoria em Legislacao Ambiental", atribuicoes: "Efetuar o levantamento de requisitos legais ambientais aplicaveis, nos niveis Federal, Estadual e Municipal." },
+    {
+      cargo: "Coordenador do SGI",
+      atribuicoes:
+        "Gerenciar o processo de levantamento, e realizar a atualizacao e analise de atendimento dos requisitos legais aplicaveis.",
+    },
+    {
+      cargo: "Gerencias",
+      atribuicoes:
+        "Fazer com que os requisitos legais aplicaveis sejam cumpridos.",
+    },
+    {
+      cargo: "Diretoria",
+      atribuicoes:
+        "Deliberar recursos e condicoes para o cumprimento dos requisitos legais aplicaveis.",
+    },
+    {
+      cargo: "Fornecedor de Assessoria em Legislacao Ambiental",
+      atribuicoes:
+        "Efetuar o levantamento de requisitos legais ambientais aplicaveis, nos niveis Federal, Estadual e Municipal.",
+    },
   ],
   procedimentoLevantamento:
     "Utilizando-se da base de dados contendo os requisitos legais nos niveis Federal, Estadual e Municipal, segregar e enviar as legislacoes ambientais a Empresa. Com posse das novas legislacoes, sera verificada a aplicacao em relacao a Empresa. Caso as legislacoes sejam aplicaveis, efetuar a verificacao atraves do nivel de atendimento. Caso nao sejam aplicaveis, identifica-las na planilha como 'para conhecimento' para consultas futuras.",
   procedimentoAnalise:
     "Para legislacoes conformes: 1) Checar a(s) evidencia(s); 2) Verificar pertinencia de prazo de validade; 3) Verificar a possibilidade de novas acoes para melhoria. Para legislacoes nao conformes: Determinar acoes para o atendimento aos requisitos legais. A verificacao de atendimento sera trimestral.",
   classificacaoAssuntos: [
-    "Licenciamento e Documentacao", "Recursos Naturais", "Residuos", "Efluentes",
-    "Emissoes Atmosfericas", "Ruido Ambiental", "Inflamaveis", "Emergencias",
-    "Produtos Quimicos", "Crime Ambiental", "Ar Condicionado",
-    "Transporte de Residuos Perigosos", "Poluicao das Aguas", "Responsabilidade Tecnica",
+    "Licenciamento e Documentacao",
+    "Recursos Naturais",
+    "Residuos",
+    "Efluentes",
+    "Emissoes Atmosfericas",
+    "Ruido Ambiental",
+    "Inflamaveis",
+    "Emergencias",
+    "Produtos Quimicos",
+    "Crime Ambiental",
+    "Ar Condicionado",
+    "Transporte de Residuos Perigosos",
+    "Poluicao das Aguas",
+    "Responsabilidade Tecnica",
   ],
   classificacaoAplicabilidade: [
-    { codigo: "S", nome: "Aplicavel", descricao: "Relacao direta com os processos da empresa." },
-    { codigo: "E", nome: "Especifica", descricao: "Aplicavel em situacoes especificas, aplicacao restrita a determinados periodos." },
-    { codigo: "N", nome: "Nao Aplicavel", descricao: "Apenas para consulta: legislacao armazenada para referencia." },
+    {
+      codigo: "S",
+      nome: "Aplicavel",
+      descricao: "Relacao direta com os processos da empresa.",
+    },
+    {
+      codigo: "E",
+      nome: "Especifica",
+      descricao:
+        "Aplicavel em situacoes especificas, aplicacao restrita a determinados periodos.",
+    },
+    {
+      codigo: "N",
+      nome: "Nao Aplicavel",
+      descricao: "Apenas para consulta: legislacao armazenada para referencia.",
+    },
   ],
   niveisAtendimento: [
-    { nivel: "1", nome: "Atendido", descricao: "Todos os requisitos sao pertinentes e possuem evidencias do atendimento." },
-    { nivel: "2", nome: "Parcial", descricao: "Parte dos requisitos sao atendidos e alguns itens estao em adequacao." },
-    { nivel: "3", nome: "Nao atendido", descricao: "Requisito legal nao atendido." },
+    {
+      nivel: "1",
+      nome: "Atendido",
+      descricao:
+        "Todos os requisitos sao pertinentes e possuem evidencias do atendimento.",
+    },
+    {
+      nivel: "2",
+      nome: "Parcial",
+      descricao:
+        "Parte dos requisitos sao atendidos e alguns itens estao em adequacao.",
+    },
+    {
+      nivel: "3",
+      nome: "Nao atendido",
+      descricao: "Requisito legal nao atendido.",
+    },
   ],
   outrosRequisitos:
     "A identificacao de outras obrigacoes (autorizacoes, outorgas, alvaras, licencas e suas condicionantes) ocorre como consequencia de solicitacoes de orgaos publicos competentes e outras partes interessadas. Para o atendimento a essas solicitacoes podem ser formalizados contratos, convenios, termos de compromisso, ou outros acordos com as partes interessadas.",
@@ -273,7 +359,9 @@ function isoToLocalDate(value?: string | null) {
   return value.slice(0, 10);
 }
 
-function normalizeAssessmentPayload(form: AssessmentFormState): LaiaAssessmentInput {
+function normalizeAssessmentPayload(
+  form: AssessmentFormState,
+): LaiaAssessmentInput {
   const requirements =
     form.legalRequirementTitle.trim() || form.legalRequirementId
       ? [
@@ -350,8 +438,12 @@ function normalizeAssessmentPayload(form: AssessmentFormState): LaiaAssessmentIn
   };
 }
 
-function detailToAssessmentForm(detail: LaiaAssessmentDetail): AssessmentFormState {
-  const legalRequirement = detail.requirements.find((item) => item.type === "legal");
+function detailToAssessmentForm(
+  detail: LaiaAssessmentDetail,
+): AssessmentFormState {
+  const legalRequirement = detail.requirements.find(
+    (item) => item.type === "legal",
+  );
   const communicationPlan = detail.communicationPlans[0];
   const monitoringPlan = detail.monitoringPlans[0];
 
@@ -389,7 +481,9 @@ function detailToAssessmentForm(detail: LaiaAssessmentDetail): AssessmentFormSta
     communicationNotes:
       detail.communicationNotes ?? communicationPlan?.notes ?? "",
     reviewFrequencyDays:
-      detail.reviewFrequencyDays != null ? String(detail.reviewFrequencyDays) : "",
+      detail.reviewFrequencyDays != null
+        ? String(detail.reviewFrequencyDays)
+        : "",
     nextReviewAt: isoToLocalDate(detail.nextReviewAt),
     normalCondition: detail.normalCondition,
     abnormalCondition: detail.abnormalCondition,
@@ -419,8 +513,8 @@ function detailToAssessmentForm(detail: LaiaAssessmentDetail): AssessmentFormSta
 function hasAssessmentMinimumRemoteDraftData(form: AssessmentFormState) {
   return Boolean(
     form.activityOperation.trim() &&
-      form.environmentalAspect.trim() &&
-      form.environmentalImpact.trim(),
+    form.environmentalAspect.trim() &&
+    form.environmentalImpact.trim(),
   );
 }
 
@@ -468,7 +562,9 @@ function clampStep(step: number, mode: "quick" | "complete") {
   return Math.min(step, getWizardSteps(mode).length - 1);
 }
 
-function buildAssessmentFilters(filters: MatrixFiltersState): LaiaAssessmentListFilters {
+function buildAssessmentFilters(
+  filters: MatrixFiltersState,
+): LaiaAssessmentListFilters {
   return {
     q: filters.q.trim() || undefined,
     unitId: parseOptionalNumber(filters.unitId),
@@ -494,7 +590,9 @@ function readDraftCache(orgId?: number): AssessmentDraftCache | null {
       },
       step: typeof parsed.step === "number" ? parsed.step : 0,
       draftAssessmentId:
-        typeof parsed.draftAssessmentId === "number" ? parsed.draftAssessmentId : null,
+        typeof parsed.draftAssessmentId === "number"
+          ? parsed.draftAssessmentId
+          : null,
     };
   } catch {
     return null;
@@ -502,7 +600,10 @@ function readDraftCache(orgId?: number): AssessmentDraftCache | null {
 }
 
 function writeDraftCache(orgId: number, cache: AssessmentDraftCache) {
-  localStorage.setItem(`${ASSESSMENT_DRAFT_STORAGE_KEY}:${orgId}`, JSON.stringify(cache));
+  localStorage.setItem(
+    `${ASSESSMENT_DRAFT_STORAGE_KEY}:${orgId}`,
+    JSON.stringify(cache),
+  );
 }
 
 function clearDraftCache(orgId?: number) {
@@ -516,28 +617,32 @@ export default function EnvironmentalLaiaPage() {
   const orgId = organization?.id;
   const [location, navigate] = useLocation();
 
-  const [matrixFilters, setMatrixFilters] =
-    useState<MatrixFiltersState>(DEFAULT_MATRIX_FILTERS);
+  const [matrixFilters, setMatrixFilters] = useState<MatrixFiltersState>(
+    DEFAULT_MATRIX_FILTERS,
+  );
   const [sectorDialogOpen, setSectorDialogOpen] = useState(false);
   const [methodologyDialogOpen, setMethodologyDialogOpen] = useState(false);
   const [assessmentDialogOpen, setAssessmentDialogOpen] = useState(false);
   const [assessmentStep, setAssessmentStep] = useState(0);
   const [assessmentMaxStep, setAssessmentMaxStep] = useState(0);
-  const [assessmentSession, setAssessmentSession] = useState<AssessmentDialogSession>({
-    mode: "create",
-    assessmentId: null,
-    draftAssessmentId: null,
-  });
+  const [assessmentSession, setAssessmentSession] =
+    useState<AssessmentDialogSession>({
+      mode: "create",
+      assessmentId: null,
+      draftAssessmentId: null,
+    });
   const [sectorForm, setSectorForm] = useState<SectorFormState>({
     code: "",
     name: "",
     unitId: "",
     description: "",
   });
-  const [methodologyForm, setMethodologyForm] =
-    useState<MethodologyFormState>(DEFAULT_METHODOLOGY_FORM);
-  const [assessmentForm, setAssessmentForm] =
-    useState<AssessmentFormState>(DEFAULT_ASSESSMENT_FORM);
+  const [methodologyForm, setMethodologyForm] = useState<MethodologyFormState>(
+    DEFAULT_METHODOLOGY_FORM,
+  );
+  const [assessmentForm, setAssessmentForm] = useState<AssessmentFormState>(
+    DEFAULT_ASSESSMENT_FORM,
+  );
 
   const isHydratingAssessmentRef = useRef(false);
   const hydratedAssessmentIdRef = useRef<number | null>(null);
@@ -552,7 +657,10 @@ export default function EnvironmentalLaiaPage() {
   const { data: branchConfigs = [] } = useLaiaBranchConfigs(orgId);
   const { data: sectors = [] } = useLaiaSectors(orgId);
   const { data: methodology } = useLaiaMethodology(orgId);
-  const { data: assessments = [] } = useLaiaAssessments(orgId, assessmentFilters);
+  const { data: assessments = [] } = useLaiaAssessments(
+    orgId,
+    assessmentFilters,
+  );
   const { data: draftAssessments = [] } = useLaiaAssessments(orgId, {
     status: "draft",
   });
@@ -592,12 +700,16 @@ export default function EnvironmentalLaiaPage() {
   const { data: units = [] } = useListUnits(orgId || 0, {
     query: { enabled: !!orgId, queryKey: getListUnitsQueryKey(orgId || 0) },
   });
-  const { data: legislations = [] } = useListLegislations(orgId || 0, undefined, {
-    query: {
-      enabled: !!orgId,
-      queryKey: getListLegislationsQueryKey(orgId || 0, undefined),
+  const { data: legislations = [] } = useListLegislations(
+    orgId || 0,
+    undefined,
+    {
+      query: {
+        enabled: !!orgId,
+        queryKey: getListLegislationsQueryKey(orgId || 0, undefined),
+      },
     },
-  });
+  );
   const { data: assessmentDetail } = useLaiaAssessment(
     orgId,
     assessmentSession.assessmentId,
@@ -612,12 +724,17 @@ export default function EnvironmentalLaiaPage() {
   );
 
   const latestRemoteDraft = useMemo(() => {
-    return [...draftAssessments]
-      .sort((left, right) => {
-        const leftTime = left.updatedAt ? new Date(left.updatedAt).getTime() : 0;
-        const rightTime = right.updatedAt ? new Date(right.updatedAt).getTime() : 0;
+    return (
+      [...draftAssessments].sort((left, right) => {
+        const leftTime = left.updatedAt
+          ? new Date(left.updatedAt).getTime()
+          : 0;
+        const rightTime = right.updatedAt
+          ? new Date(right.updatedAt).getTime()
+          : 0;
         return rightTime - leftTime;
-      })[0] ?? null;
+      })[0] ?? null
+    );
   }, [draftAssessments]);
 
   const wizardSteps = useMemo(
@@ -662,7 +779,9 @@ export default function EnvironmentalLaiaPage() {
       ...cached.form,
     });
     setAssessmentStep(clampStep(cached.step, cached.form.mode ?? "quick"));
-    setAssessmentMaxStep(getWizardSteps(cached.form.mode ?? "quick").length - 1);
+    setAssessmentMaxStep(
+      getWizardSteps(cached.form.mode ?? "quick").length - 1,
+    );
     window.setTimeout(() => {
       isHydratingAssessmentRef.current = false;
     }, 0);
@@ -684,10 +803,12 @@ export default function EnvironmentalLaiaPage() {
     if (!orgId) return;
 
     const storedRemoteDraftId = Number(
-      localStorage.getItem(`${ASSESSMENT_REMOTE_DRAFT_STORAGE_KEY}:${orgId}`) || "",
+      localStorage.getItem(`${ASSESSMENT_REMOTE_DRAFT_STORAGE_KEY}:${orgId}`) ||
+        "",
     );
     const resumableDraft =
-      draftAssessments.find((item) => item.id === storedRemoteDraftId) || latestRemoteDraft;
+      draftAssessments.find((item) => item.id === storedRemoteDraftId) ||
+      latestRemoteDraft;
 
     if (resumableDraft) {
       openAssessmentDialog({
@@ -697,7 +818,8 @@ export default function EnvironmentalLaiaPage() {
       });
       toast({
         title: "Rascunho retomado",
-        description: "Existe um rascunho remoto em aberto para esta organização.",
+        description:
+          "Existe um rascunho remoto em aberto para esta organização.",
       });
       return;
     }
@@ -711,7 +833,10 @@ export default function EnvironmentalLaiaPage() {
     });
   };
 
-  const handleOpenEditAssessment = (assessmentId: number, status: "draft" | "active" | "archived") => {
+  const handleOpenEditAssessment = (
+    assessmentId: number,
+    status: "draft" | "active" | "archived",
+  ) => {
     openAssessmentDialog({
       mode: "edit",
       assessmentId,
@@ -721,14 +846,13 @@ export default function EnvironmentalLaiaPage() {
 
   useHeaderActions(
     <div className="flex items-center gap-2">
-      <Button
+      <HeaderActionButton
         variant="outline"
         size="sm"
         onClick={() => setMethodologyDialogOpen(true)}
-      >
-        <Pencil className="mr-1.5 h-3.5 w-3.5" />
-        Editar metodologia
-      </Button>
+        label="Editar metodologia"
+        icon={<Pencil className="h-3.5 w-3.5" />}
+      />
     </div>,
   );
 
@@ -799,7 +923,8 @@ export default function EnvironmentalLaiaPage() {
   ]);
 
   useEffect(() => {
-    if (!assessmentDialogOpen || !orgId || !assessmentSession.draftAssessmentId) return;
+    if (!assessmentDialogOpen || !orgId || !assessmentSession.draftAssessmentId)
+      return;
     if (isHydratingAssessmentRef.current) return;
 
     const timer = window.setTimeout(async () => {
@@ -885,7 +1010,8 @@ export default function EnvironmentalLaiaPage() {
     } catch (error) {
       toast({
         title: "Falha ao criar setor",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -909,10 +1035,12 @@ export default function EnvironmentalLaiaPage() {
           alta: 30,
         },
         scoreThresholds: {
-          negligibleMax: parseOptionalNumber(methodologyForm.negligibleMax) ?? 49,
+          negligibleMax:
+            parseOptionalNumber(methodologyForm.negligibleMax) ?? 49,
           moderateMax: parseOptionalNumber(methodologyForm.moderateMax) ?? 70,
         },
-        moderateSignificanceRule: methodologyForm.moderateSignificanceRule.trim(),
+        moderateSignificanceRule:
+          methodologyForm.moderateSignificanceRule.trim(),
         documentContent: {
           objetivo: methodologyForm.objetivo,
           aplicacao: methodologyForm.aplicacao,
@@ -922,7 +1050,8 @@ export default function EnvironmentalLaiaPage() {
           procedimentoLevantamento: methodologyForm.procedimentoLevantamento,
           procedimentoAnalise: methodologyForm.procedimentoAnalise,
           classificacaoAssuntos: methodologyForm.classificacaoAssuntos,
-          classificacaoAplicabilidade: methodologyForm.classificacaoAplicabilidade,
+          classificacaoAplicabilidade:
+            methodologyForm.classificacaoAplicabilidade,
           niveisAtendimento: methodologyForm.niveisAtendimento,
           outrosRequisitos: methodologyForm.outrosRequisitos,
         },
@@ -936,7 +1065,8 @@ export default function EnvironmentalLaiaPage() {
     } catch (error) {
       toast({
         title: "Falha ao publicar metodologia",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -944,7 +1074,8 @@ export default function EnvironmentalLaiaPage() {
 
   const ensureRemoteDraft = async () => {
     if (!orgId) return null;
-    if (assessmentSession.draftAssessmentId) return assessmentSession.draftAssessmentId;
+    if (assessmentSession.draftAssessmentId)
+      return assessmentSession.draftAssessmentId;
 
     if (!hasAssessmentMinimumRemoteDraftData(assessmentForm)) {
       toast({
@@ -971,7 +1102,8 @@ export default function EnvironmentalLaiaPage() {
     );
     toast({
       title: "Rascunho remoto criado",
-      description: "A avaliação foi persistida no servidor e seguirá com autosave.",
+      description:
+        "A avaliação foi persistida no servidor e seguirá com autosave.",
     });
     return created.id;
   };
@@ -996,7 +1128,8 @@ export default function EnvironmentalLaiaPage() {
     } catch (error) {
       toast({
         title: "Falha ao salvar rascunho",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -1075,13 +1208,16 @@ export default function EnvironmentalLaiaPage() {
       resetAssessmentDialog();
       toast({
         title:
-          assessmentSession.mode === "edit" ? "Avaliação atualizada" : "Avaliação criada",
+          assessmentSession.mode === "edit"
+            ? "Avaliação atualizada"
+            : "Avaliação criada",
         description: "A matriz LAIA foi atualizada com sucesso.",
       });
     } catch (error) {
       toast({
         title: "Falha ao salvar avaliação",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -1097,7 +1233,10 @@ export default function EnvironmentalLaiaPage() {
   };
 
   const handleNextStep = async () => {
-    if (!assessmentSession.draftAssessmentId && hasAssessmentMinimumRemoteDraftData(assessmentForm)) {
+    if (
+      !assessmentSession.draftAssessmentId &&
+      hasAssessmentMinimumRemoteDraftData(assessmentForm)
+    ) {
       await ensureRemoteDraft();
     }
 
@@ -1144,7 +1283,8 @@ export default function EnvironmentalLaiaPage() {
                   onChange={(event) =>
                     setAssessmentForm((current) => ({
                       ...current,
-                      status: event.target.value as AssessmentFormState["status"],
+                      status: event.target
+                        .value as AssessmentFormState["status"],
                     }))
                   }
                 >
@@ -1311,7 +1451,8 @@ export default function EnvironmentalLaiaPage() {
                   onChange={(event) =>
                     setAssessmentForm((current) => ({
                       ...current,
-                      category: event.target.value as AssessmentFormState["category"],
+                      category: event.target
+                        .value as AssessmentFormState["category"],
                     }))
                   }
                 >
@@ -1329,7 +1470,8 @@ export default function EnvironmentalLaiaPage() {
                   onChange={(event) =>
                     setAssessmentForm((current) => ({
                       ...current,
-                      significance: event.target.value as AssessmentFormState["significance"],
+                      significance: event.target
+                        .value as AssessmentFormState["significance"],
                     }))
                   }
                 >
@@ -1339,7 +1481,9 @@ export default function EnvironmentalLaiaPage() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="review-frequency">Frequência de revisão (dias)</Label>
+                <Label htmlFor="review-frequency">
+                  Frequência de revisão (dias)
+                </Label>
                 <Input
                   id="review-frequency"
                   value={assessmentForm.reviewFrequencyDays}
@@ -1409,7 +1553,9 @@ export default function EnvironmentalLaiaPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="frequency-probability">Frequência / probabilidade</Label>
+                  <Label htmlFor="frequency-probability">
+                    Frequência / probabilidade
+                  </Label>
                   <Input
                     id="frequency-probability"
                     value={assessmentForm.frequencyProbability}
@@ -1487,7 +1633,9 @@ export default function EnvironmentalLaiaPage() {
               </div>
               <div className="rounded-2xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="startup-shutdown">Partida / desligamento</Label>
+                  <Label htmlFor="startup-shutdown">
+                    Partida / desligamento
+                  </Label>
                   <Switch
                     id="startup-shutdown"
                     checked={assessmentForm.startupShutdown}
@@ -1504,7 +1652,9 @@ export default function EnvironmentalLaiaPage() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <Label htmlFor="emergency-scenario">Cenário de emergência</Label>
+                <Label htmlFor="emergency-scenario">
+                  Cenário de emergência
+                </Label>
                 <Textarea
                   id="emergency-scenario"
                   value={assessmentForm.emergencyScenario}
@@ -1537,7 +1687,9 @@ export default function EnvironmentalLaiaPage() {
           <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <Label htmlFor="lifecycle-stages">Estágios do ciclo de vida</Label>
+                <Label htmlFor="lifecycle-stages">
+                  Estágios do ciclo de vida
+                </Label>
                 <Input
                   id="lifecycle-stages"
                   placeholder="aquisição, operação, transporte..."
@@ -1558,7 +1710,8 @@ export default function EnvironmentalLaiaPage() {
                   onChange={(event) =>
                     setAssessmentForm((current) => ({
                       ...current,
-                      controlLevel: event.target.value as AssessmentFormState["controlLevel"],
+                      controlLevel: event.target
+                        .value as AssessmentFormState["controlLevel"],
                     }))
                   }
                 >
@@ -1584,7 +1737,9 @@ export default function EnvironmentalLaiaPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="outsourced-process">Processo terceirizado</Label>
+                <Label htmlFor="outsourced-process">
+                  Processo terceirizado
+                </Label>
                 <Input
                   id="outsourced-process"
                   value={assessmentForm.outsourcedProcess}
@@ -1597,7 +1752,9 @@ export default function EnvironmentalLaiaPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="supplier-reference">Fornecedor / referência</Label>
+                <Label htmlFor="supplier-reference">
+                  Fornecedor / referência
+                </Label>
                 <Input
                   id="supplier-reference"
                   value={assessmentForm.supplierReference}
@@ -1764,7 +1921,8 @@ export default function EnvironmentalLaiaPage() {
                 <div>
                   <p className="text-sm font-medium">Comunicação interna</p>
                   <p className="text-xs text-muted-foreground">
-                    Gera um plano mínimo usando a infraestrutura de comunicação existente.
+                    Gera um plano mínimo usando a infraestrutura de comunicação
+                    existente.
                   </p>
                 </div>
                 <Switch
@@ -1779,7 +1937,9 @@ export default function EnvironmentalLaiaPage() {
               </div>
               {assessmentForm.communicationRequired && (
                 <div className="mt-4">
-                  <Label htmlFor="communication-notes">Notas de comunicação</Label>
+                  <Label htmlFor="communication-notes">
+                    Notas de comunicação
+                  </Label>
                   <Textarea
                     id="communication-notes"
                     value={assessmentForm.communicationNotes}
@@ -1798,19 +1958,24 @@ export default function EnvironmentalLaiaPage() {
       case "Monitoramento":
         return (
           <div className="space-y-6">
-            {assessmentSession.mode === "edit" && assessmentDetail?.monitoringPlans.length ? (
+            {assessmentSession.mode === "edit" &&
+            assessmentDetail?.monitoringPlans.length ? (
               <div className="rounded-2xl border border-border/60 bg-card/42 px-4 py-4 backdrop-blur-md">
                 <p className="text-sm font-medium">Monitoramento existente</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {assessmentDetail.monitoringPlans.length} plano(s) já cadastrado(s).
-                  A edição detalhada de monitoramento fica para a issue `WEB-56`.
+                  {assessmentDetail.monitoringPlans.length} plano(s) já
+                  cadastrado(s). A edição detalhada de monitoramento fica para a
+                  issue `WEB-56`.
                 </p>
               </div>
             ) : (
               <div className="rounded-2xl border border-border/60 bg-card/42 px-4 py-4 backdrop-blur-md">
-                <p className="text-sm font-medium">Plano inicial de monitoramento</p>
+                <p className="text-sm font-medium">
+                  Plano inicial de monitoramento
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Opcional nesta etapa. Se preenchido, o plano inicial será criado ao salvar uma avaliação ativa.
+                  Opcional nesta etapa. Se preenchido, o plano inicial será
+                  criado ao salvar uma avaliação ativa.
                 </p>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <div>
@@ -1866,7 +2031,9 @@ export default function EnvironmentalLaiaPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="monitoring-next-due-at">Próximo vencimento</Label>
+                    <Label htmlFor="monitoring-next-due-at">
+                      Próximo vencimento
+                    </Label>
                     <Input
                       id="monitoring-next-due-at"
                       type="date"
@@ -1905,8 +2072,9 @@ export default function EnvironmentalLaiaPage() {
                   <CardTitle className="text-sm">Setor</CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm">
-                  {sectors.find((sector) => String(sector.id) === assessmentForm.sectorId)?.name ||
-                    "Sem setor"}
+                  {sectors.find(
+                    (sector) => String(sector.id) === assessmentForm.sectorId,
+                  )?.name || "Sem setor"}
                 </CardContent>
               </Card>
               <Card>
@@ -1923,7 +2091,11 @@ export default function EnvironmentalLaiaPage() {
                   <CardTitle className="text-sm">Significância</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
-                  <Badge variant={getSignificanceBadgeVariant(assessmentForm.significance || null)}>
+                  <Badge
+                    variant={getSignificanceBadgeVariant(
+                      assessmentForm.significance || null,
+                    )}
+                  >
                     {getSignificanceLabel(assessmentForm.significance || null)}
                   </Badge>
                   <p className="text-muted-foreground">
@@ -1940,7 +2112,9 @@ export default function EnvironmentalLaiaPage() {
                   <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                     Atividade
                   </dt>
-                  <dd className="mt-1 text-sm">{assessmentForm.activityOperation || "-"}</dd>
+                  <dd className="mt-1 text-sm">
+                    {assessmentForm.activityOperation || "-"}
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
@@ -1955,13 +2129,17 @@ export default function EnvironmentalLaiaPage() {
                   <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                     Controles
                   </dt>
-                  <dd className="mt-1 text-sm">{assessmentForm.existingControls || "-"}</dd>
+                  <dd className="mt-1 text-sm">
+                    {assessmentForm.existingControls || "-"}
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                     Requisito legal
                   </dt>
-                  <dd className="mt-1 text-sm">{assessmentForm.legalRequirementTitle || "-"}</dd>
+                  <dd className="mt-1 text-sm">
+                    {assessmentForm.legalRequirementTitle || "-"}
+                  </dd>
                 </div>
               </dl>
             </div>
@@ -1984,7 +2162,9 @@ export default function EnvironmentalLaiaPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-semibold tracking-tight">{card.value}</div>
+              <div className="text-3xl font-semibold tracking-tight">
+                {card.value}
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -2033,12 +2213,19 @@ export default function EnvironmentalLaiaPage() {
               {methodologyDialogOpen ? (
                 <Textarea
                   value={methodologyForm.objetivo}
-                  onChange={(e) => setMethodologyForm((p) => ({ ...p, objetivo: e.target.value }))}
+                  onChange={(e) =>
+                    setMethodologyForm((p) => ({
+                      ...p,
+                      objetivo: e.target.value,
+                    }))
+                  }
                   rows={4}
                   className="text-[13px]"
                 />
               ) : (
-                <p className="text-[13px] text-muted-foreground whitespace-pre-line">{methodologyForm.objetivo}</p>
+                <p className="text-[13px] text-muted-foreground whitespace-pre-line">
+                  {methodologyForm.objetivo}
+                </p>
               )}
             </CardContent>
           </Card>
@@ -2052,12 +2239,19 @@ export default function EnvironmentalLaiaPage() {
               {methodologyDialogOpen ? (
                 <Textarea
                   value={methodologyForm.aplicacao}
-                  onChange={(e) => setMethodologyForm((p) => ({ ...p, aplicacao: e.target.value }))}
+                  onChange={(e) =>
+                    setMethodologyForm((p) => ({
+                      ...p,
+                      aplicacao: e.target.value,
+                    }))
+                  }
                   rows={2}
                   className="text-[13px]"
                 />
               ) : (
-                <p className="text-[13px] text-muted-foreground whitespace-pre-line">{methodologyForm.aplicacao}</p>
+                <p className="text-[13px] text-muted-foreground whitespace-pre-line">
+                  {methodologyForm.aplicacao}
+                </p>
               )}
             </CardContent>
           </Card>
@@ -2071,18 +2265,30 @@ export default function EnvironmentalLaiaPage() {
               {methodologyDialogOpen ? (
                 <Textarea
                   value={methodologyForm.generalidades}
-                  onChange={(e) => setMethodologyForm((p) => ({ ...p, generalidades: e.target.value }))}
+                  onChange={(e) =>
+                    setMethodologyForm((p) => ({
+                      ...p,
+                      generalidades: e.target.value,
+                    }))
+                  }
                   rows={2}
                   className="text-[13px]"
                 />
               ) : (
-                <p className="text-[13px] text-muted-foreground whitespace-pre-line">{methodologyForm.generalidades}</p>
+                <p className="text-[13px] text-muted-foreground whitespace-pre-line">
+                  {methodologyForm.generalidades}
+                </p>
               )}
               <div>
-                <p className="text-[13px] font-medium text-foreground mb-2">Definicoes e Referencias</p>
+                <p className="text-[13px] font-medium text-foreground mb-2">
+                  Definicoes e Referencias
+                </p>
                 <div className="space-y-2">
                   {methodologyForm.definicoes.map((def, i) => (
-                    <div key={i} className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
+                    <div
+                      key={i}
+                      className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md"
+                    >
                       {methodologyDialogOpen ? (
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
@@ -2091,7 +2297,10 @@ export default function EnvironmentalLaiaPage() {
                               onChange={(e) => {
                                 const next = [...methodologyForm.definicoes];
                                 next[i] = { ...next[i], termo: e.target.value };
-                                setMethodologyForm((p) => ({ ...p, definicoes: next }));
+                                setMethodologyForm((p) => ({
+                                  ...p,
+                                  definicoes: next,
+                                }));
                               }}
                               className="h-8 text-[13px] font-medium"
                               placeholder="Termo"
@@ -2102,8 +2311,13 @@ export default function EnvironmentalLaiaPage() {
                               size="sm"
                               className="h-8 w-8 p-0 shrink-0 text-muted-foreground hover:text-destructive"
                               onClick={() => {
-                                const next = methodologyForm.definicoes.filter((_, idx) => idx !== i);
-                                setMethodologyForm((p) => ({ ...p, definicoes: next }));
+                                const next = methodologyForm.definicoes.filter(
+                                  (_, idx) => idx !== i,
+                                );
+                                setMethodologyForm((p) => ({
+                                  ...p,
+                                  definicoes: next,
+                                }));
                               }}
                             >
                               <Trash2 className="h-3 w-3" />
@@ -2113,8 +2327,14 @@ export default function EnvironmentalLaiaPage() {
                             value={def.descricao}
                             onChange={(e) => {
                               const next = [...methodologyForm.definicoes];
-                              next[i] = { ...next[i], descricao: e.target.value };
-                              setMethodologyForm((p) => ({ ...p, definicoes: next }));
+                              next[i] = {
+                                ...next[i],
+                                descricao: e.target.value,
+                              };
+                              setMethodologyForm((p) => ({
+                                ...p,
+                                definicoes: next,
+                              }));
                             }}
                             rows={2}
                             className="text-[13px]"
@@ -2123,8 +2343,12 @@ export default function EnvironmentalLaiaPage() {
                         </div>
                       ) : (
                         <>
-                          <p className="text-[13px] font-medium text-foreground">{def.termo}</p>
-                          <p className="mt-1 text-[13px] text-muted-foreground">{def.descricao}</p>
+                          <p className="text-[13px] font-medium text-foreground">
+                            {def.termo}
+                          </p>
+                          <p className="mt-1 text-[13px] text-muted-foreground">
+                            {def.descricao}
+                          </p>
                         </>
                       )}
                     </div>
@@ -2134,10 +2358,15 @@ export default function EnvironmentalLaiaPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setMethodologyForm((p) => ({
-                        ...p,
-                        definicoes: [...p.definicoes, { termo: "", descricao: "" }],
-                      }))}
+                      onClick={() =>
+                        setMethodologyForm((p) => ({
+                          ...p,
+                          definicoes: [
+                            ...p.definicoes,
+                            { termo: "", descricao: "" },
+                          ],
+                        }))
+                      }
                     >
                       <Plus className="mr-1.5 h-3.5 w-3.5" />
                       Adicionar definicao
@@ -2157,22 +2386,34 @@ export default function EnvironmentalLaiaPage() {
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="border-b border-border/60">
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Cargo</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Atribuicoes</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Cargo
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Atribuicoes
+                    </th>
                     {methodologyDialogOpen && <th className="w-10"></th>}
                   </tr>
                 </thead>
                 <tbody className="text-muted-foreground">
                   {methodologyForm.responsabilidades.map((resp, i) => (
-                    <tr key={i} className="border-b border-border/40 last:border-0">
+                    <tr
+                      key={i}
+                      className="border-b border-border/40 last:border-0"
+                    >
                       <td className="px-4 py-3 font-medium text-foreground">
                         {methodologyDialogOpen ? (
                           <Input
                             value={resp.cargo}
                             onChange={(e) => {
-                              const next = [...methodologyForm.responsabilidades];
+                              const next = [
+                                ...methodologyForm.responsabilidades,
+                              ];
                               next[i] = { ...next[i], cargo: e.target.value };
-                              setMethodologyForm((p) => ({ ...p, responsabilidades: next }));
+                              setMethodologyForm((p) => ({
+                                ...p,
+                                responsabilidades: next,
+                              }));
                             }}
                             className="h-8 text-[13px]"
                           />
@@ -2185,9 +2426,17 @@ export default function EnvironmentalLaiaPage() {
                           <Input
                             value={resp.atribuicoes}
                             onChange={(e) => {
-                              const next = [...methodologyForm.responsabilidades];
-                              next[i] = { ...next[i], atribuicoes: e.target.value };
-                              setMethodologyForm((p) => ({ ...p, responsabilidades: next }));
+                              const next = [
+                                ...methodologyForm.responsabilidades,
+                              ];
+                              next[i] = {
+                                ...next[i],
+                                atribuicoes: e.target.value,
+                              };
+                              setMethodologyForm((p) => ({
+                                ...p,
+                                responsabilidades: next,
+                              }));
                             }}
                             className="h-8 text-[13px]"
                           />
@@ -2203,8 +2452,14 @@ export default function EnvironmentalLaiaPage() {
                             size="sm"
                             className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
                             onClick={() => {
-                              const next = methodologyForm.responsabilidades.filter((_, idx) => idx !== i);
-                              setMethodologyForm((p) => ({ ...p, responsabilidades: next }));
+                              const next =
+                                methodologyForm.responsabilidades.filter(
+                                  (_, idx) => idx !== i,
+                                );
+                              setMethodologyForm((p) => ({
+                                ...p,
+                                responsabilidades: next,
+                              }));
                             }}
                           >
                             <Trash2 className="h-3 w-3" />
@@ -2221,10 +2476,15 @@ export default function EnvironmentalLaiaPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setMethodologyForm((p) => ({
-                      ...p,
-                      responsabilidades: [...p.responsabilidades, { cargo: "", atribuicoes: "" }],
-                    }))}
+                    onClick={() =>
+                      setMethodologyForm((p) => ({
+                        ...p,
+                        responsabilidades: [
+                          ...p.responsabilidades,
+                          { cargo: "", atribuicoes: "" },
+                        ],
+                      }))
+                    }
                   >
                     <Plus className="mr-1.5 h-3.5 w-3.5" />
                     Adicionar responsabilidade
@@ -2241,75 +2501,117 @@ export default function EnvironmentalLaiaPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <p className="text-[13px] font-medium text-foreground mb-2">5.1 Levantamento e Atualizacao</p>
+                <p className="text-[13px] font-medium text-foreground mb-2">
+                  5.1 Levantamento e Atualizacao
+                </p>
                 {methodologyDialogOpen ? (
                   <Textarea
                     value={methodologyForm.procedimentoLevantamento}
-                    onChange={(e) => setMethodologyForm((p) => ({ ...p, procedimentoLevantamento: e.target.value }))}
+                    onChange={(e) =>
+                      setMethodologyForm((p) => ({
+                        ...p,
+                        procedimentoLevantamento: e.target.value,
+                      }))
+                    }
                     rows={4}
                     className="text-[13px]"
                   />
                 ) : (
-                  <p className="text-[13px] text-muted-foreground whitespace-pre-line">{methodologyForm.procedimentoLevantamento}</p>
+                  <p className="text-[13px] text-muted-foreground whitespace-pre-line">
+                    {methodologyForm.procedimentoLevantamento}
+                  </p>
                 )}
               </div>
 
               <div>
-                <p className="text-[13px] font-medium text-foreground mb-2">5.2 Analise de Atendimento aos Requisitos Legais</p>
+                <p className="text-[13px] font-medium text-foreground mb-2">
+                  5.2 Analise de Atendimento aos Requisitos Legais
+                </p>
                 {methodologyDialogOpen ? (
                   <Textarea
                     value={methodologyForm.procedimentoAnalise}
-                    onChange={(e) => setMethodologyForm((p) => ({ ...p, procedimentoAnalise: e.target.value }))}
+                    onChange={(e) =>
+                      setMethodologyForm((p) => ({
+                        ...p,
+                        procedimentoAnalise: e.target.value,
+                      }))
+                    }
                     rows={4}
                     className="text-[13px]"
                   />
                 ) : (
-                  <p className="text-[13px] text-muted-foreground whitespace-pre-line">{methodologyForm.procedimentoAnalise}</p>
+                  <p className="text-[13px] text-muted-foreground whitespace-pre-line">
+                    {methodologyForm.procedimentoAnalise}
+                  </p>
                 )}
               </div>
 
               <div>
-                <p className="text-[13px] font-medium text-foreground mb-2">5.3 Classificacao dos Requisitos Legais</p>
+                <p className="text-[13px] font-medium text-foreground mb-2">
+                  5.3 Classificacao dos Requisitos Legais
+                </p>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-                    <p className="text-xs font-semibold text-foreground mb-2">Por assunto</p>
+                    <p className="text-xs font-semibold text-foreground mb-2">
+                      Por assunto
+                    </p>
                     {methodologyDialogOpen ? (
                       <div className="space-y-1.5">
-                        {methodologyForm.classificacaoAssuntos.map((item, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground w-5 shrink-0">{i + 1}.</span>
-                            <Input
-                              value={item}
-                              onChange={(e) => {
-                                const next = [...methodologyForm.classificacaoAssuntos];
-                                next[i] = e.target.value;
-                                setMethodologyForm((p) => ({ ...p, classificacaoAssuntos: next }));
-                              }}
-                              className="h-7 text-[13px]"
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-destructive"
-                              onClick={() => {
-                                const next = methodologyForm.classificacaoAssuntos.filter((_, idx) => idx !== i);
-                                setMethodologyForm((p) => ({ ...p, classificacaoAssuntos: next }));
-                              }}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
+                        {methodologyForm.classificacaoAssuntos.map(
+                          (item, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground w-5 shrink-0">
+                                {i + 1}.
+                              </span>
+                              <Input
+                                value={item}
+                                onChange={(e) => {
+                                  const next = [
+                                    ...methodologyForm.classificacaoAssuntos,
+                                  ];
+                                  next[i] = e.target.value;
+                                  setMethodologyForm((p) => ({
+                                    ...p,
+                                    classificacaoAssuntos: next,
+                                  }));
+                                }}
+                                className="h-7 text-[13px]"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-destructive"
+                                onClick={() => {
+                                  const next =
+                                    methodologyForm.classificacaoAssuntos.filter(
+                                      (_, idx) => idx !== i,
+                                    );
+                                  setMethodologyForm((p) => ({
+                                    ...p,
+                                    classificacaoAssuntos: next,
+                                  }));
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ),
+                        )}
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           className="mt-1"
-                          onClick={() => setMethodologyForm((p) => ({
-                            ...p,
-                            classificacaoAssuntos: [...p.classificacaoAssuntos, ""],
-                          }))}
+                          onClick={() =>
+                            setMethodologyForm((p) => ({
+                              ...p,
+                              classificacaoAssuntos: [
+                                ...p.classificacaoAssuntos,
+                                "",
+                              ],
+                            }))
+                          }
                         >
                           <Plus className="mr-1.5 h-3.5 w-3.5" />
                           Adicionar
@@ -2317,51 +2619,154 @@ export default function EnvironmentalLaiaPage() {
                       </div>
                     ) : (
                       <ol className="list-decimal ml-4 text-[13px] text-muted-foreground space-y-0.5">
-                        {methodologyForm.classificacaoAssuntos.map((item, i) => (
-                          <li key={i}>{item}</li>
-                        ))}
+                        {methodologyForm.classificacaoAssuntos.map(
+                          (item, i) => (
+                            <li key={i}>{item}</li>
+                          ),
+                        )}
                       </ol>
                     )}
                   </div>
                   <div className="space-y-3">
                     <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-                      <p className="text-xs font-semibold text-foreground mb-2">Por aplicabilidade</p>
+                      <p className="text-xs font-semibold text-foreground mb-2">
+                        Por aplicabilidade
+                      </p>
                       <div className="space-y-2">
-                        {methodologyForm.classificacaoAplicabilidade.map((item, i) => (
-                          <div key={i}>
-                            {methodologyDialogOpen ? (
-                              <div className="flex items-start gap-2">
-                                <Input value={item.codigo} onChange={(e) => { const n = [...methodologyForm.classificacaoAplicabilidade]; n[i] = { ...n[i], codigo: e.target.value }; setMethodologyForm((p) => ({ ...p, classificacaoAplicabilidade: n })); }} className="h-7 text-[13px] w-12 shrink-0" />
-                                <Input value={item.nome} onChange={(e) => { const n = [...methodologyForm.classificacaoAplicabilidade]; n[i] = { ...n[i], nome: e.target.value }; setMethodologyForm((p) => ({ ...p, classificacaoAplicabilidade: n })); }} className="h-7 text-[13px] w-28 shrink-0" />
-                                <Input value={item.descricao} onChange={(e) => { const n = [...methodologyForm.classificacaoAplicabilidade]; n[i] = { ...n[i], descricao: e.target.value }; setMethodologyForm((p) => ({ ...p, classificacaoAplicabilidade: n })); }} className="h-7 text-[13px] flex-1" />
-                              </div>
-                            ) : (
-                              <div>
-                                <p className="text-[13px] font-medium text-foreground">{item.codigo} = {item.nome}</p>
-                                <p className="text-[13px] text-muted-foreground">{item.descricao}</p>
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                        {methodologyForm.classificacaoAplicabilidade.map(
+                          (item, i) => (
+                            <div key={i}>
+                              {methodologyDialogOpen ? (
+                                <div className="flex items-start gap-2">
+                                  <Input
+                                    value={item.codigo}
+                                    onChange={(e) => {
+                                      const n = [
+                                        ...methodologyForm.classificacaoAplicabilidade,
+                                      ];
+                                      n[i] = {
+                                        ...n[i],
+                                        codigo: e.target.value,
+                                      };
+                                      setMethodologyForm((p) => ({
+                                        ...p,
+                                        classificacaoAplicabilidade: n,
+                                      }));
+                                    }}
+                                    className="h-7 text-[13px] w-12 shrink-0"
+                                  />
+                                  <Input
+                                    value={item.nome}
+                                    onChange={(e) => {
+                                      const n = [
+                                        ...methodologyForm.classificacaoAplicabilidade,
+                                      ];
+                                      n[i] = { ...n[i], nome: e.target.value };
+                                      setMethodologyForm((p) => ({
+                                        ...p,
+                                        classificacaoAplicabilidade: n,
+                                      }));
+                                    }}
+                                    className="h-7 text-[13px] w-28 shrink-0"
+                                  />
+                                  <Input
+                                    value={item.descricao}
+                                    onChange={(e) => {
+                                      const n = [
+                                        ...methodologyForm.classificacaoAplicabilidade,
+                                      ];
+                                      n[i] = {
+                                        ...n[i],
+                                        descricao: e.target.value,
+                                      };
+                                      setMethodologyForm((p) => ({
+                                        ...p,
+                                        classificacaoAplicabilidade: n,
+                                      }));
+                                    }}
+                                    className="h-7 text-[13px] flex-1"
+                                  />
+                                </div>
+                              ) : (
+                                <div>
+                                  <p className="text-[13px] font-medium text-foreground">
+                                    {item.codigo} = {item.nome}
+                                  </p>
+                                  <p className="text-[13px] text-muted-foreground">
+                                    {item.descricao}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          ),
+                        )}
                       </div>
                     </div>
                     <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-                      <p className="text-xs font-semibold text-foreground mb-2">Nivel de Atendimento</p>
+                      <p className="text-xs font-semibold text-foreground mb-2">
+                        Nivel de Atendimento
+                      </p>
                       <div className="space-y-2">
                         {methodologyForm.niveisAtendimento.map((item, i) => (
                           <div key={i}>
                             {methodologyDialogOpen ? (
                               <div className="flex items-start gap-2">
-                                <Input value={item.nivel} onChange={(e) => { const n = [...methodologyForm.niveisAtendimento]; n[i] = { ...n[i], nivel: e.target.value }; setMethodologyForm((p) => ({ ...p, niveisAtendimento: n })); }} className="h-7 text-[13px] w-12 shrink-0" />
-                                <Input value={item.nome} onChange={(e) => { const n = [...methodologyForm.niveisAtendimento]; n[i] = { ...n[i], nome: e.target.value }; setMethodologyForm((p) => ({ ...p, niveisAtendimento: n })); }} className="h-7 text-[13px] w-28 shrink-0" />
-                                <Input value={item.descricao} onChange={(e) => { const n = [...methodologyForm.niveisAtendimento]; n[i] = { ...n[i], descricao: e.target.value }; setMethodologyForm((p) => ({ ...p, niveisAtendimento: n })); }} className="h-7 text-[13px] flex-1" />
+                                <Input
+                                  value={item.nivel}
+                                  onChange={(e) => {
+                                    const n = [
+                                      ...methodologyForm.niveisAtendimento,
+                                    ];
+                                    n[i] = { ...n[i], nivel: e.target.value };
+                                    setMethodologyForm((p) => ({
+                                      ...p,
+                                      niveisAtendimento: n,
+                                    }));
+                                  }}
+                                  className="h-7 text-[13px] w-12 shrink-0"
+                                />
+                                <Input
+                                  value={item.nome}
+                                  onChange={(e) => {
+                                    const n = [
+                                      ...methodologyForm.niveisAtendimento,
+                                    ];
+                                    n[i] = { ...n[i], nome: e.target.value };
+                                    setMethodologyForm((p) => ({
+                                      ...p,
+                                      niveisAtendimento: n,
+                                    }));
+                                  }}
+                                  className="h-7 text-[13px] w-28 shrink-0"
+                                />
+                                <Input
+                                  value={item.descricao}
+                                  onChange={(e) => {
+                                    const n = [
+                                      ...methodologyForm.niveisAtendimento,
+                                    ];
+                                    n[i] = {
+                                      ...n[i],
+                                      descricao: e.target.value,
+                                    };
+                                    setMethodologyForm((p) => ({
+                                      ...p,
+                                      niveisAtendimento: n,
+                                    }));
+                                  }}
+                                  className="h-7 text-[13px] flex-1"
+                                />
                               </div>
                             ) : (
                               <div>
-                                <p className={`text-[13px] font-medium ${item.nivel === "1" ? "text-emerald-600" : item.nivel === "2" ? "text-amber-600" : "text-red-600"}`}>
+                                <p
+                                  className={`text-[13px] font-medium ${item.nivel === "1" ? "text-emerald-600" : item.nivel === "2" ? "text-amber-600" : "text-red-600"}`}
+                                >
                                   {item.nivel}. {item.nome}
                                 </p>
-                                <p className="text-[13px] text-muted-foreground">{item.descricao}</p>
+                                <p className="text-[13px] text-muted-foreground">
+                                  {item.descricao}
+                                </p>
                               </div>
                             )}
                           </div>
@@ -2373,16 +2778,25 @@ export default function EnvironmentalLaiaPage() {
               </div>
 
               <div>
-                <p className="text-[13px] font-medium text-foreground mb-2">5.4 Outros Requisitos Aplicaveis</p>
+                <p className="text-[13px] font-medium text-foreground mb-2">
+                  5.4 Outros Requisitos Aplicaveis
+                </p>
                 {methodologyDialogOpen ? (
                   <Textarea
                     value={methodologyForm.outrosRequisitos}
-                    onChange={(e) => setMethodologyForm((p) => ({ ...p, outrosRequisitos: e.target.value }))}
+                    onChange={(e) =>
+                      setMethodologyForm((p) => ({
+                        ...p,
+                        outrosRequisitos: e.target.value,
+                      }))
+                    }
                     rows={3}
                     className="text-[13px]"
                   />
                 ) : (
-                  <p className="text-[13px] text-muted-foreground whitespace-pre-line">{methodologyForm.outrosRequisitos}</p>
+                  <p className="text-[13px] text-muted-foreground whitespace-pre-line">
+                    {methodologyForm.outrosRequisitos}
+                  </p>
                 )}
               </div>
             </CardContent>
@@ -2396,40 +2810,67 @@ export default function EnvironmentalLaiaPage() {
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Limite desprezivel</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Limite desprezivel
+                  </Label>
                   {methodologyDialogOpen ? (
                     <Input
                       value={methodologyForm.negligibleMax}
-                      onChange={(e) => setMethodologyForm((p) => ({ ...p, negligibleMax: e.target.value }))}
+                      onChange={(e) =>
+                        setMethodologyForm((p) => ({
+                          ...p,
+                          negligibleMax: e.target.value,
+                        }))
+                      }
                       className="mt-1 text-[13px]"
                     />
                   ) : (
-                    <p className="mt-1 text-[13px] font-medium">{methodologyForm.negligibleMax} pontos</p>
+                    <p className="mt-1 text-[13px] font-medium">
+                      {methodologyForm.negligibleMax} pontos
+                    </p>
                   )}
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Limite moderado</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Limite moderado
+                  </Label>
                   {methodologyDialogOpen ? (
                     <Input
                       value={methodologyForm.moderateMax}
-                      onChange={(e) => setMethodologyForm((p) => ({ ...p, moderateMax: e.target.value }))}
+                      onChange={(e) =>
+                        setMethodologyForm((p) => ({
+                          ...p,
+                          moderateMax: e.target.value,
+                        }))
+                      }
                       className="mt-1 text-[13px]"
                     />
                   ) : (
-                    <p className="mt-1 text-[13px] font-medium">{methodologyForm.moderateMax} pontos</p>
+                    <p className="mt-1 text-[13px] font-medium">
+                      {methodologyForm.moderateMax} pontos
+                    </p>
                   )}
                 </div>
                 <div className="md:col-span-2">
-                  <Label className="text-xs text-muted-foreground">Regra de significancia (moderado)</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Regra de significancia (moderado)
+                  </Label>
                   {methodologyDialogOpen ? (
                     <Textarea
                       value={methodologyForm.moderateSignificanceRule}
-                      onChange={(e) => setMethodologyForm((p) => ({ ...p, moderateSignificanceRule: e.target.value }))}
+                      onChange={(e) =>
+                        setMethodologyForm((p) => ({
+                          ...p,
+                          moderateSignificanceRule: e.target.value,
+                        }))
+                      }
                       rows={2}
                       className="mt-1 text-[13px]"
                     />
                   ) : (
-                    <p className="mt-1 text-[13px] text-muted-foreground">{methodologyForm.moderateSignificanceRule}</p>
+                    <p className="mt-1 text-[13px] text-muted-foreground">
+                      {methodologyForm.moderateSignificanceRule}
+                    </p>
                   )}
                 </div>
               </div>
@@ -2572,7 +3013,10 @@ export default function EnvironmentalLaiaPage() {
                 id="sector-code"
                 value={sectorForm.code}
                 onChange={(event) =>
-                  setSectorForm((current) => ({ ...current, code: event.target.value }))
+                  setSectorForm((current) => ({
+                    ...current,
+                    code: event.target.value,
+                  }))
                 }
               />
             </div>
@@ -2582,7 +3026,10 @@ export default function EnvironmentalLaiaPage() {
                 id="sector-name"
                 value={sectorForm.name}
                 onChange={(event) =>
-                  setSectorForm((current) => ({ ...current, name: event.target.value }))
+                  setSectorForm((current) => ({
+                    ...current,
+                    name: event.target.value,
+                  }))
                 }
               />
             </div>
@@ -2593,7 +3040,10 @@ export default function EnvironmentalLaiaPage() {
               id="sector-unit"
               value={sectorForm.unitId}
               onChange={(event) =>
-                setSectorForm((current) => ({ ...current, unitId: event.target.value }))
+                setSectorForm((current) => ({
+                  ...current,
+                  unitId: event.target.value,
+                }))
               }
             >
               <option value="">Todas as unidades</option>
@@ -2653,7 +3103,8 @@ export default function EnvironmentalLaiaPage() {
 
           {isRemoteDraftSession && (
             <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-700">
-              Este formulário está vinculado a um rascunho remoto e será sincronizado automaticamente.
+              Este formulário está vinculado a um rascunho remoto e será
+              sincronizado automaticamente.
             </div>
           )}
 
@@ -2662,13 +3113,19 @@ export default function EnvironmentalLaiaPage() {
 
         <DialogFooter className="justify-between">
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setAssessmentDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setAssessmentDialogOpen(false)}
+            >
               Fechar
             </Button>
             <Button
               variant="secondary"
               onClick={handleSaveDraft}
-              isLoading={createAssessmentMutation.isPending || updateAssessmentMutation.isPending}
+              isLoading={
+                createAssessmentMutation.isPending ||
+                updateAssessmentMutation.isPending
+              }
             >
               Salvar rascunho
             </Button>
@@ -2692,7 +3149,8 @@ export default function EnvironmentalLaiaPage() {
                   !assessmentForm.environmentalImpact.trim()
                 }
                 isLoading={
-                  createAssessmentMutation.isPending || updateAssessmentMutation.isPending
+                  createAssessmentMutation.isPending ||
+                  updateAssessmentMutation.isPending
                 }
               >
                 {assessmentSession.mode === "edit"

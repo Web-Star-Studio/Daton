@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, Link } from "wouter";
 import { useHeaderActions, usePageTitle } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import {
   useGetUnit,
   useUpdateUnit,
@@ -145,7 +146,13 @@ function DialogStepFooter({
           Próximo
         </Button>
       ) : (
-        <Button type="button" size="sm" onClick={onSubmit} isLoading={isPending} disabled={disabled}>
+        <Button
+          type="button"
+          size="sm"
+          onClick={onSubmit}
+          isLoading={isPending}
+          disabled={disabled}
+        >
           Salvar alterações
         </Button>
       )}
@@ -190,7 +197,11 @@ function EditField({
       <Label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </Label>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+      />
     </div>
   );
 }
@@ -211,7 +222,11 @@ function EditSelectField({
       <Label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </Label>
-      <Select value={value} onChange={(e) => onChange(e.target.value)} className="border border-border rounded-xl px-3">
+      <Select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="border border-border rounded-xl px-3"
+      >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -233,7 +248,10 @@ export default function UnitDetailPage() {
   const queryClient = useQueryClient();
 
   const { data: unit, isLoading } = useGetUnit(orgId!, unitId, {
-    query: { queryKey: getGetUnitQueryKey(orgId!, unitId), enabled: !!orgId && !!unitId },
+    query: {
+      queryKey: getGetUnitQueryKey(orgId!, unitId),
+      enabled: !!orgId && !!unitId,
+    },
   });
   const updateMut = useUpdateUnit();
 
@@ -264,7 +282,9 @@ export default function UnitDetailPage() {
       phone: formData.phone || undefined,
     };
     await updateMut.mutateAsync({ orgId, unitId, data: body });
-    queryClient.invalidateQueries({ queryKey: getGetUnitQueryKey(orgId, unitId) });
+    queryClient.invalidateQueries({
+      queryKey: getGetUnitQueryKey(orgId, unitId),
+    });
     queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey(orgId) });
     setEditModalOpen(false);
     setEditStep(0);
@@ -282,19 +302,32 @@ export default function UnitDetailPage() {
     setEditModalOpen(false);
   };
 
-  const updateField = <K extends keyof UnitFormData>(field: K, value: UnitFormData[K]) => {
+  const updateField = <K extends keyof UnitFormData>(
+    field: K,
+    value: UnitFormData[K],
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const unitView = getUnitFormData(unit);
   const typeLabel =
-    unitView.type === "sede" ? "Sede" : unitView.type === "filial" ? "Filial" : "—";
+    unitView.type === "sede"
+      ? "Sede"
+      : unitView.type === "filial"
+        ? "Filial"
+        : "—";
   const statusLabel =
-    unitView.status === "ativa" ? "Ativa" : unitView.status === "inativa" ? "Inativa" : "—";
+    unitView.status === "ativa"
+      ? "Ativa"
+      : unitView.status === "inativa"
+        ? "Inativa"
+        : "—";
   const locationLine = [unitView.city, unitView.state, unitView.country]
     .filter(Boolean)
     .join(", ");
-  const addressLine = [unitView.address, unitView.streetNumber].filter(Boolean).join(", ");
+  const addressLine = [unitView.address, unitView.streetNumber]
+    .filter(Boolean)
+    .join(", ");
   const neighborhoodLine = unitView.neighborhood || "";
   const canAdvance = editStep === 0 ? Boolean(formData.name.trim()) : true;
 
@@ -303,21 +336,39 @@ export default function UnitDetailPage() {
     unit ? (
       <div className="flex items-center gap-2">
         <Link href="/organizacao/unidades">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
-          </Button>
+          <HeaderActionButton
+            variant="ghost"
+            size="sm"
+            label="Voltar"
+            icon={<ArrowLeft className="h-4 w-4" />}
+          />
         </Link>
-        {canWriteUnits && <Button variant="secondary" size="sm" onClick={() => setQuestionnaireOpen(true)}>
-          <ClipboardList className="w-4 h-4 mr-1" /> Questionário de Compliance
-        </Button>}
-        {canWriteUnits && <Button variant="secondary" size="sm" onClick={openEditModal}>
-          <Pencil className="w-4 h-4 mr-1" /> Editar
-        </Button>}
+        {canWriteUnits && (
+          <HeaderActionButton
+            variant="secondary"
+            size="sm"
+            onClick={() => setQuestionnaireOpen(true)}
+            label="Questionário de Compliance"
+            icon={<ClipboardList className="h-4 w-4" />}
+          />
+        )}
+        {canWriteUnits && (
+          <HeaderActionButton
+            variant="secondary"
+            size="sm"
+            onClick={openEditModal}
+            label="Editar"
+            icon={<Pencil className="h-4 w-4" />}
+          />
+        )}
       </div>
-    ) : null
+    ) : null,
   );
 
-  if (isLoading || !unit) return <div className="p-8 text-center text-muted-foreground">Carregando...</div>;
+  if (isLoading || !unit)
+    return (
+      <div className="p-8 text-center text-muted-foreground">Carregando...</div>
+    );
 
   return (
     <>
@@ -335,7 +386,12 @@ export default function UnitDetailPage() {
                     <p className="text-[18px] font-semibold text-foreground">
                       {unitView.name || "Unidade sem nome"}
                     </p>
-                    <Badge variant={unitView.type === "sede" ? "default" : "secondary"} className="uppercase text-[10px]">
+                    <Badge
+                      variant={
+                        unitView.type === "sede" ? "default" : "secondary"
+                      }
+                      className="uppercase text-[10px]"
+                    >
                       {typeLabel}
                     </Badge>
                   </div>
@@ -347,8 +403,12 @@ export default function UnitDetailPage() {
                     {neighborhoodLine ? ` • ${neighborhoodLine}` : ""}
                   </p>
                   <div className="flex items-center gap-2 mt-4">
-                    <span className={`inline-block h-2 w-2 rounded-full ${unitView.status === "ativa" ? "bg-emerald-500" : "bg-slate-400"}`} />
-                    <span className="text-[13px] font-medium text-foreground">{statusLabel}</span>
+                    <span
+                      className={`inline-block h-2 w-2 rounded-full ${unitView.status === "ativa" ? "bg-emerald-500" : "bg-slate-400"}`}
+                    />
+                    <span className="text-[13px] font-medium text-foreground">
+                      {statusLabel}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -375,7 +435,11 @@ export default function UnitDetailPage() {
             </h3>
             <div className="grid grid-cols-1 gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
               <DisplayField label="CEP" value={unitView.cep} />
-              <DisplayField label="Endereço" value={unitView.address} className="md:col-span-2" />
+              <DisplayField
+                label="Endereço"
+                value={unitView.address}
+                className="md:col-span-2"
+              />
               <DisplayField label="Número" value={unitView.streetNumber} />
               <DisplayField label="Bairro" value={unitView.neighborhood} />
               <DisplayField label="Cidade" value={unitView.city} />
@@ -395,7 +459,11 @@ export default function UnitDetailPage() {
         description={editStepDescriptions[editStep]}
         size="lg"
       >
-        <DialogStepTabs steps={editSteps} step={editStep} onStepChange={setEditStep} />
+        <DialogStepTabs
+          steps={editSteps}
+          step={editStep}
+          onStepChange={setEditStep}
+        />
 
         <div className="space-y-6">
           <div className="rounded-2xl border border-border/60 bg-muted/30 p-4">
@@ -406,7 +474,10 @@ export default function UnitDetailPage() {
               <p className="text-[16px] font-semibold text-foreground">
                 {formData.name || "Nova configuração da unidade"}
               </p>
-              <Badge variant={formData.type === "sede" ? "default" : "secondary"} className="uppercase text-[10px]">
+              <Badge
+                variant={formData.type === "sede" ? "default" : "secondary"}
+                className="uppercase text-[10px]"
+              >
                 {formData.type === "sede" ? "Sede" : "Filial"}
               </Badge>
               <Badge variant="outline" className="uppercase text-[10px]">
@@ -415,11 +486,14 @@ export default function UnitDetailPage() {
             </div>
             <p className="mt-2 text-[13px] text-muted-foreground">
               {[
-                [formData.address, formData.streetNumber].filter(Boolean).join(", "),
+                [formData.address, formData.streetNumber]
+                  .filter(Boolean)
+                  .join(", "),
                 [formData.city, formData.state].filter(Boolean).join(", "),
               ]
                 .filter(Boolean)
-                .join(" • ") || "Complete as etapas para revisar os dados antes de salvar."}
+                .join(" • ") ||
+                "Complete as etapas para revisar os dados antes de salvar."}
             </p>
           </div>
 
@@ -440,7 +514,9 @@ export default function UnitDetailPage() {
               <EditSelectField
                 label="Tipo"
                 value={formData.type}
-                onChange={(value) => updateField("type", value as UpdateUnitBodyType)}
+                onChange={(value) =>
+                  updateField("type", value as UpdateUnitBodyType)
+                }
                 options={[
                   { value: "sede", label: "Sede" },
                   { value: "filial", label: "Filial" },
@@ -460,7 +536,9 @@ export default function UnitDetailPage() {
               <EditSelectField
                 label="Status operacional"
                 value={formData.status}
-                onChange={(value) => updateField("status", value as "ativa" | "inativa")}
+                onChange={(value) =>
+                  updateField("status", value as "ativa" | "inativa")
+                }
                 options={[
                   { value: "ativa", label: "Ativa" },
                   { value: "inativa", label: "Inativa" },

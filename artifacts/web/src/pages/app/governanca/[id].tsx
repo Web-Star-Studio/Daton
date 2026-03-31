@@ -9,6 +9,7 @@ import {
   usePageSubtitle,
   usePageTitle,
 } from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
@@ -633,11 +634,12 @@ export default function GovernanceDetailPage() {
     planId,
     "objectives",
   );
-  const riskOpportunityCrud = useGovernanceCrudMutation<GovernanceRiskOpportunityBody>(
-    orgId,
-    planId,
-    "risk-opportunity-items",
-  );
+  const riskOpportunityCrud =
+    useGovernanceCrudMutation<GovernanceRiskOpportunityBody>(
+      orgId,
+      planId,
+      "risk-opportunity-items",
+    );
   const actionCrud = useGovernanceCrudMutation<
     ReturnType<typeof blankActionForm>
   >(orgId, planId, "actions");
@@ -646,9 +648,13 @@ export default function GovernanceDetailPage() {
   const { data: units = [] } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
   });
-  const { data: users = [] } = useListUserOptions(orgId!, {}, {
-    query: { queryKey: getListUserOptionsQueryKey(orgId!), enabled: !!orgId },
-  });
+  const { data: users = [] } = useListUserOptions(
+    orgId!,
+    {},
+    {
+      query: { queryKey: getListUserOptionsQueryKey(orgId!), enabled: !!orgId },
+    },
+  );
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [importOpen, setImportOpen] = useState(false);
@@ -682,7 +688,8 @@ export default function GovernanceDetailPage() {
   );
   const [riskDeletingId, setRiskDeletingId] = useState<number | null>(null);
   const [actionDeletingId, setActionDeletingId] = useState<number | null>(null);
-  const [reviewDecisionDialogOpen, setReviewDecisionDialogOpen] = useState(false);
+  const [reviewDecisionDialogOpen, setReviewDecisionDialogOpen] =
+    useState(false);
   const [reviewDecisionComment, setReviewDecisionComment] = useState("");
   const [riskTypeFilter, setRiskTypeFilter] = useState<string>("all");
   const [riskStatusFilter, setRiskStatusFilter] = useState<string>("all");
@@ -816,8 +823,7 @@ export default function GovernanceDetailPage() {
             objectiveId: item.objectiveId || null,
             riskOpportunityItemId: item.riskOpportunityItemId || null,
             responsibleUserId: item.responsibleUserId || null,
-            secondaryResponsibleUserId:
-              item.secondaryResponsibleUserId || null,
+            secondaryResponsibleUserId: item.secondaryResponsibleUserId || null,
             dueDate: isoToDateInput(item.dueDate),
             rescheduledDueDate: isoToDateInput(item.rescheduledDueDate),
             rescheduleReason: item.rescheduleReason || "",
@@ -1002,7 +1008,8 @@ export default function GovernanceDetailPage() {
     try {
       const currentPlanForm = planForm.getValues();
       await approveMutation.mutateAsync({
-        reviewReason: currentPlanForm.reviewReason || plan?.reviewReason || null,
+        reviewReason:
+          currentPlanForm.reviewReason || plan?.reviewReason || null,
         comment: null,
       });
       toast({
@@ -1033,14 +1040,16 @@ export default function GovernanceDetailPage() {
     try {
       const currentPlanForm = planForm.getValues();
       await rejectMutation.mutateAsync({
-        reviewReason: currentPlanForm.reviewReason || plan?.reviewReason || null,
+        reviewReason:
+          currentPlanForm.reviewReason || plan?.reviewReason || null,
         comment: reviewDecisionComment.trim(),
       });
       setReviewDecisionDialogOpen(false);
       setReviewDecisionComment("");
       toast({
         title: "Rejeição registrada",
-        description: "Sua rejeição foi registrada com a justificativa informada.",
+        description:
+          "Sua rejeição foi registrada com a justificativa informada.",
       });
     } catch (error) {
       toast({
@@ -1207,40 +1216,45 @@ export default function GovernanceDetailPage() {
     }
   });
 
-  const saveRiskOpportunity = riskOpportunityForm.handleSubmit(async (values) => {
-    const payload = {
-      ...values,
-      sourceReference: values.sourceReference || null,
-      ownerUserId: values.ownerUserId || null,
-      coOwnerUserId: values.coOwnerUserId || null,
-      unitId: values.unitId || null,
-      objectiveId: values.objectiveId || null,
-      swotItemId: values.swotItemId || null,
-      responseStrategy: values.responseStrategy || undefined,
-      nextReviewAt: values.nextReviewAt ? dateToIso(values.nextReviewAt) : null,
-      existingControls: values.existingControls || null,
-      expectedEffect: values.expectedEffect || null,
-      notes: values.notes || null,
-    };
-    try {
-      if (riskEditing) {
-        await riskOpportunityCrud.updateMutation.mutateAsync({
-          id: riskEditing.id,
-          body: payload,
+  const saveRiskOpportunity = riskOpportunityForm.handleSubmit(
+    async (values) => {
+      const payload = {
+        ...values,
+        sourceReference: values.sourceReference || null,
+        ownerUserId: values.ownerUserId || null,
+        coOwnerUserId: values.coOwnerUserId || null,
+        unitId: values.unitId || null,
+        objectiveId: values.objectiveId || null,
+        swotItemId: values.swotItemId || null,
+        responseStrategy: values.responseStrategy || undefined,
+        nextReviewAt: values.nextReviewAt
+          ? dateToIso(values.nextReviewAt)
+          : null,
+        existingControls: values.existingControls || null,
+        expectedEffect: values.expectedEffect || null,
+        notes: values.notes || null,
+      };
+      try {
+        if (riskEditing) {
+          await riskOpportunityCrud.updateMutation.mutateAsync({
+            id: riskEditing.id,
+            body: payload,
+          });
+        } else {
+          await riskOpportunityCrud.createMutation.mutateAsync(payload);
+        }
+        riskOpportunityForm.reset(blankRiskOpportunityForm());
+        setRiskDialogOpen(false);
+        setRiskEditing(null);
+      } catch (error) {
+        toast({
+          title: "Falha ao salvar risco ou oportunidade",
+          description:
+            error instanceof Error ? error.message : "Erro ao salvar.",
         });
-      } else {
-        await riskOpportunityCrud.createMutation.mutateAsync(payload);
       }
-      riskOpportunityForm.reset(blankRiskOpportunityForm());
-      setRiskDialogOpen(false);
-      setRiskEditing(null);
-    } catch (error) {
-      toast({
-        title: "Falha ao salvar risco ou oportunidade",
-        description: error instanceof Error ? error.message : "Erro ao salvar.",
-      });
-    }
-  });
+    },
+  );
 
   const saveRiskEffectivenessReview = riskEffectivenessForm.handleSubmit(
     async (values) => {
@@ -1381,13 +1395,22 @@ export default function GovernanceDetailPage() {
       if (riskStatusFilter !== "all" && item.status !== riskStatusFilter) {
         return false;
       }
-      if (riskPriorityFilter !== "all" && item.priority !== riskPriorityFilter) {
+      if (
+        riskPriorityFilter !== "all" &&
+        item.priority !== riskPriorityFilter
+      ) {
         return false;
       }
-      if (riskUnitFilter !== "all" && String(item.unitId || "") !== riskUnitFilter) {
+      if (
+        riskUnitFilter !== "all" &&
+        String(item.unitId || "") !== riskUnitFilter
+      ) {
         return false;
       }
-      if (riskOwnerFilter !== "all" && String(item.ownerUserId || "") !== riskOwnerFilter) {
+      if (
+        riskOwnerFilter !== "all" &&
+        String(item.ownerUserId || "") !== riskOwnerFilter
+      ) {
         return false;
       }
       if (riskSourceFilter !== "all" && item.sourceType !== riskSourceFilter) {
@@ -1428,41 +1451,53 @@ export default function GovernanceDetailPage() {
         switch (activeTab) {
           case "overview":
             return (
-              <Button
+              <HeaderActionButton
                 size="sm"
                 variant="outline"
-                onClick={() => navigate(`${riskRegisterBase}?planId=${plan.id}`)}
+                onClick={() =>
+                  navigate(`${riskRegisterBase}?planId=${plan.id}`)
+                }
+                label="Abrir registro deste plano"
+                icon={<FileSpreadsheet className="h-3.5 w-3.5" />}
               >
                 Abrir registro deste plano
-              </Button>
+              </HeaderActionButton>
             );
           case "swot":
             return (
-              <Button size="sm" onClick={() => openSwotDialog()}>
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Novo item
-              </Button>
+              <HeaderActionButton
+                size="sm"
+                onClick={() => openSwotDialog()}
+                label="Novo item"
+                icon={<Plus className="h-3.5 w-3.5" />}
+              />
             );
           case "interested":
             return (
-              <Button size="sm" onClick={() => openPartyDialog()}>
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Nova parte
-              </Button>
+              <HeaderActionButton
+                size="sm"
+                onClick={() => openPartyDialog()}
+                label="Nova parte"
+                icon={<Plus className="h-3.5 w-3.5" />}
+              />
             );
           case "objectives":
             return (
-              <Button size="sm" onClick={() => openObjectiveDialog()}>
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Novo objetivo
-              </Button>
+              <HeaderActionButton
+                size="sm"
+                onClick={() => openObjectiveDialog()}
+                label="Novo objetivo"
+                icon={<Plus className="h-3.5 w-3.5" />}
+              />
             );
           case "actions":
             return (
-              <Button size="sm" onClick={() => openActionDialog()}>
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Nova ação
-              </Button>
+              <HeaderActionButton
+                size="sm"
+                onClick={() => openActionDialog()}
+                label="Nova ação"
+                icon={<Plus className="h-3.5 w-3.5" />}
+              />
             );
           default:
             return null;
@@ -1475,51 +1510,52 @@ export default function GovernanceDetailPage() {
       {activeTabHeaderAction}
       {canEdit && (
         <>
-          <Button
+          <HeaderActionButton
             size="sm"
             variant="outline"
             onClick={() => setImportOpen(true)}
-          >
-            <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />
-            Reimportar
-          </Button>
-          <Button
+            label="Reimportar"
+            icon={<FileSpreadsheet className="h-3.5 w-3.5" />}
+          />
+          <HeaderActionButton
             size="sm"
             variant="outline"
             onClick={handleSavePlan}
             isLoading={updatePlanMutation.isPending}
-          >
-            <Pencil className="h-3.5 w-3.5 mr-1.5" />
-            Salvar
-          </Button>
-          <Button
+            label="Salvar"
+            icon={<Pencil className="h-3.5 w-3.5" />}
+          />
+          <HeaderActionButton
             size="sm"
             onClick={() => handleWorkflow("submit")}
             isLoading={submitMutation.isPending}
-          >
-            <Send className="h-3.5 w-3.5 mr-1.5" />
-            Enviar para revisão
-          </Button>
+            label="Enviar para revisão"
+            icon={<Send className="h-3.5 w-3.5" />}
+          />
         </>
       )}
       {plan &&
         ["approved", "overdue", "rejected"].includes(plan.status) &&
         isOrgAdmin && (
-          <Button
+          <HeaderActionButton
             size="sm"
             variant="outline"
             onClick={() => handleWorkflow("reopen")}
             isLoading={reopenMutation.isPending}
+            label="Reabrir rascunho"
+            icon={<RotateCcw className="h-3.5 w-3.5" />}
           >
-            <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
             Reabrir rascunho
-          </Button>
+          </HeaderActionButton>
         )}
       {latestEvidenceDocumentId && (
-        <Button size="sm" variant="outline" onClick={handleOpenEvidence}>
-          <FileText className="h-3.5 w-3.5 mr-1.5" />
-          Abrir evidência
-        </Button>
+        <HeaderActionButton
+          size="sm"
+          variant="outline"
+          onClick={handleOpenEvidence}
+          label="Abrir evidência"
+          icon={<FileText className="h-3.5 w-3.5" />}
+        />
       )}
     </div>,
   );
@@ -1820,7 +1856,8 @@ export default function GovernanceDetailPage() {
                 Registro ISO 6.1
               </h3>
               <p className="text-[13px] text-muted-foreground">
-                O cadastro operacional de riscos e oportunidades agora fica no registro dedicado de Governança.
+                O cadastro operacional de riscos e oportunidades agora fica no
+                registro dedicado de Governança.
               </p>
             </div>
             <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -2234,7 +2271,8 @@ export default function GovernanceDetailPage() {
                 Riscos e Oportunidades
               </h3>
               <p className="mt-1.5 text-[13px] text-muted-foreground">
-                Levantamento, avaliação, resposta e verificação de eficácia para o item 6.1.
+                Levantamento, avaliação, resposta e verificação de eficácia para
+                o item 6.1.
               </p>
             </div>
             {canEdit && (
@@ -2267,7 +2305,9 @@ export default function GovernanceDetailPage() {
                 <option value="identified">Identificado</option>
                 <option value="assessed">Avaliado</option>
                 <option value="responding">Em tratamento</option>
-                <option value="awaiting_effectiveness">Aguardando eficácia</option>
+                <option value="awaiting_effectiveness">
+                  Aguardando eficácia
+                </option>
                 <option value="effective">Eficaz</option>
                 <option value="ineffective">Ineficaz</option>
                 <option value="continuous">Contínuo</option>
@@ -2386,15 +2426,24 @@ export default function GovernanceDetailPage() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline">{getRiskTypeLabel(item.type)}</Badge>
+                      <Badge variant="outline">
+                        {getRiskTypeLabel(item.type)}
+                      </Badge>
                       <Badge
                         variant="outline"
-                        className={cn("border", getRiskPriorityTone(item.priority))}
+                        className={cn(
+                          "border",
+                          getRiskPriorityTone(item.priority),
+                        )}
                       >
                         {getRiskPriorityLabel(item.priority)}
                       </Badge>
-                      <Badge variant="outline">{getRiskStatusLabel(item.status)}</Badge>
-                      <Badge variant="outline">{getRiskSourceLabel(item.sourceType)}</Badge>
+                      <Badge variant="outline">
+                        {getRiskStatusLabel(item.status)}
+                      </Badge>
+                      <Badge variant="outline">
+                        {getRiskSourceLabel(item.sourceType)}
+                      </Badge>
                     </div>
                     <div>
                       <h4 className="text-[15px] font-semibold text-foreground">
@@ -2426,7 +2475,8 @@ export default function GovernanceDetailPage() {
                           Avaliação
                         </p>
                         <p className="mt-1 text-[13px] text-foreground">
-                          {item.likelihood ?? "—"} x {item.impact ?? "—"} = {item.score ?? "—"}
+                          {item.likelihood ?? "—"} x {item.impact ?? "—"} ={" "}
+                          {item.score ?? "—"}
                         </p>
                       </div>
                       <div>
@@ -2478,7 +2528,8 @@ export default function GovernanceDetailPage() {
                             Ações vinculadas
                           </p>
                           <p className="mt-1 text-[13px] text-muted-foreground">
-                            {item.actions.length} ação(ões) associada(s) ao tratamento.
+                            {item.actions.length} ação(ões) associada(s) ao
+                            tratamento.
                           </p>
                         </div>
                         {canEdit && (
@@ -2490,7 +2541,8 @@ export default function GovernanceDetailPage() {
                                 objectiveId: item.objectiveId || null,
                                 riskOpportunityItemId: item.id,
                                 responsibleUserId: item.ownerUserId || null,
-                                secondaryResponsibleUserId: item.coOwnerUserId || null,
+                                secondaryResponsibleUserId:
+                                  item.coOwnerUserId || null,
                                 swotItemId: item.swotItemId || null,
                                 unitIds: item.unitId ? [item.unitId] : [],
                               })
@@ -2509,10 +2561,16 @@ export default function GovernanceDetailPage() {
                               className="flex flex-col gap-1 rounded-lg border border-border/60 bg-background px-3 py-2 text-[13px] md:flex-row md:items-center md:justify-between"
                             >
                               <div>
-                                <p className="font-medium text-foreground">{action.title}</p>
+                                <p className="font-medium text-foreground">
+                                  {action.title}
+                                </p>
                                 <p className="text-muted-foreground">
-                                  {action.responsibleUserName || "Sem responsável"} · prazo{" "}
-                                  {formatGovernanceDate(action.rescheduledDueDate || action.dueDate)}
+                                  {action.responsibleUserName ||
+                                    "Sem responsável"}{" "}
+                                  · prazo{" "}
+                                  {formatGovernanceDate(
+                                    action.rescheduledDueDate || action.dueDate,
+                                  )}
                                 </p>
                               </div>
                               <Badge variant="outline">{action.status}</Badge>
@@ -2693,7 +2751,10 @@ export default function GovernanceDetailPage() {
                           onCheckedChange={() =>
                             planForm.setValue(
                               "reviewerIds",
-                              toggleMultiSelectValue(configuredReviewerIds, option.id),
+                              toggleMultiSelectValue(
+                                configuredReviewerIds,
+                                option.id,
+                              ),
                               { shouldDirty: true },
                             )
                           }
@@ -2760,7 +2821,9 @@ export default function GovernanceDetailPage() {
             {currentReviewers.length > 0 && (
               <div className="space-y-3">
                 <div>
-                  <h4 className="text-sm font-semibold">Ciclo atual de revisão</h4>
+                  <h4 className="text-sm font-semibold">
+                    Ciclo atual de revisão
+                  </h4>
                   <p className="mt-1 text-[13px] text-muted-foreground">
                     Cada revisor deve acusar a leitura antes de aprovar ou
                     rejeitar. A revisão só sai de pendente quando todos
@@ -2947,7 +3010,10 @@ export default function GovernanceDetailPage() {
           >
             Cancelar
           </Button>
-          <Button onClick={handleRejectReview} isLoading={rejectMutation.isPending}>
+          <Button
+            onClick={handleRejectReview}
+            isLoading={rejectMutation.isPending}
+          >
             Confirmar rejeição
           </Button>
         </DialogFooter>
@@ -3212,7 +3278,11 @@ export default function GovernanceDetailPage() {
       <Dialog
         open={riskDialogOpen}
         onOpenChange={setRiskDialogOpen}
-        title={riskEditing ? "Editar risco ou oportunidade" : "Novo risco ou oportunidade"}
+        title={
+          riskEditing
+            ? "Editar risco ou oportunidade"
+            : "Novo risco ou oportunidade"
+        }
         description="Registro ISO 9001:2015 §6.1 com avaliação, resposta e revisão."
         size="lg"
       >
@@ -3243,7 +3313,9 @@ export default function GovernanceDetailPage() {
                 <option value="identified">Identificado</option>
                 <option value="assessed">Avaliado</option>
                 <option value="responding">Em tratamento</option>
-                <option value="awaiting_effectiveness">Aguardando eficácia</option>
+                <option value="awaiting_effectiveness">
+                  Aguardando eficácia
+                </option>
                 <option value="effective">Eficaz</option>
                 <option value="ineffective">Ineficaz</option>
                 <option value="continuous">Contínuo</option>
@@ -3257,7 +3329,10 @@ export default function GovernanceDetailPage() {
           </div>
           <div>
             <Label>Descrição</Label>
-            <Textarea rows={4} {...riskOpportunityForm.register("description")} />
+            <Textarea
+              rows={4}
+              {...riskOpportunityForm.register("description")}
+            />
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
@@ -3370,7 +3445,10 @@ export default function GovernanceDetailPage() {
             </div>
             <div>
               <Label>Próxima revisão</Label>
-              <Input type="date" {...riskOpportunityForm.register("nextReviewAt")} />
+              <Input
+                type="date"
+                {...riskOpportunityForm.register("nextReviewAt")}
+              />
             </div>
             <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
@@ -3403,11 +3481,17 @@ export default function GovernanceDetailPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label>Controles existentes</Label>
-              <Textarea rows={3} {...riskOpportunityForm.register("existingControls")} />
+              <Textarea
+                rows={3}
+                {...riskOpportunityForm.register("existingControls")}
+              />
             </div>
             <div>
               <Label>Efeito esperado</Label>
-              <Textarea rows={3} {...riskOpportunityForm.register("expectedEffect")} />
+              <Textarea
+                rows={3}
+                {...riskOpportunityForm.register("expectedEffect")}
+              />
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -3603,7 +3687,10 @@ export default function GovernanceDetailPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label>Prazo reprogramado</Label>
-              <Input type="date" {...actionForm.register("rescheduledDueDate")} />
+              <Input
+                type="date"
+                {...actionForm.register("rescheduledDueDate")}
+              />
             </div>
             <div>
               <Label>Data de conclusão</Label>

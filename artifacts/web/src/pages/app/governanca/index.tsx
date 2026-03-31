@@ -7,6 +7,7 @@ import {
   usePageSubtitle,
   usePageTitle,
 } from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -27,12 +28,7 @@ import {
   GOVERNANCE_STATUS_LABELS,
 } from "@/lib/governance-ui";
 import { toast } from "@/hooks/use-toast";
-import {
-  ChevronRight,
-  FileSpreadsheet,
-  Landmark,
-  Plus,
-} from "lucide-react";
+import { ChevronRight, FileSpreadsheet, Landmark, Plus } from "lucide-react";
 
 export default function GovernancePage() {
   const { organization } = useAuth();
@@ -62,14 +58,19 @@ export default function GovernancePage() {
 
   useHeaderActions(
     <div className="flex items-center gap-2">
-      <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
-        <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />
-        Importar planilha
-      </Button>
-      <Button size="sm" onClick={() => setCreateOpen(true)}>
-        <Plus className="h-3.5 w-3.5 mr-1.5" />
-        Novo plano
-      </Button>
+      <HeaderActionButton
+        size="sm"
+        variant="outline"
+        onClick={() => setImportOpen(true)}
+        label="Importar planilha"
+        icon={<FileSpreadsheet className="h-3.5 w-3.5" />}
+      />
+      <HeaderActionButton
+        size="sm"
+        onClick={() => setCreateOpen(true)}
+        label="Novo plano"
+        icon={<Plus className="h-3.5 w-3.5" />}
+      />
     </div>,
   );
 

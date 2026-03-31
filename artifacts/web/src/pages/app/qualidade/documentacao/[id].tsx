@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useLocation, useParams } from "wouter";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import {
   useGetDocument,
   getGetDocumentQueryKey,
@@ -278,12 +279,15 @@ export default function DocumentDetailPage() {
         email: recipient.email,
       })) ?? [],
   });
-  const { data: recipientGroups = [] } = useListOrganizationContactGroups(orgId!, {
-    query: {
-      queryKey: getListOrganizationContactGroupsQueryKey(orgId!),
-      enabled: !!orgId && editDialogOpen,
+  const { data: recipientGroups = [] } = useListOrganizationContactGroups(
+    orgId!,
+    {
+      query: {
+        queryKey: getListOrganizationContactGroupsQueryKey(orgId!),
+        enabled: !!orgId && editDialogOpen,
+      },
     },
-  });
+  );
   const availableRecipientGroups =
     recipientGroups.length > 0 ? recipientGroups : (doc?.recipientGroups ?? []);
   const criticalReviewerPicker = useUserMultiPicker({
@@ -595,82 +599,99 @@ export default function DocumentDetailPage() {
     doc ? (
       <div className="flex items-center gap-2">
         {canEdit && (
-          <Button size="sm" variant="outline" onClick={handleOpenEditDialog}>
-            <Pencil className="h-3.5 w-3.5 mr-1.5" /> Editar
-          </Button>
+          <HeaderActionButton
+            size="sm"
+            variant="outline"
+            onClick={handleOpenEditDialog}
+            label="Editar"
+            icon={<Pencil className="h-3.5 w-3.5" />}
+          />
         )}
         {canCompleteCriticalAnalysis && (
-          <Button
+          <HeaderActionButton
             size="sm"
             variant="outline"
             onClick={handleCompleteCriticalAnalysis}
             isLoading={completeCriticalAnalysisMut.isPending}
+            label="Concluir análise crítica"
+            icon={<CheckCircle className="h-3.5 w-3.5" />}
           >
-            <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Concluir análise
-            crítica
-          </Button>
+            Concluir análise crítica
+          </HeaderActionButton>
         )}
         {canSubmitForReview && doc.status === "draft" && (
-          <Button
+          <HeaderActionButton
             size="sm"
             onClick={() => {
               setSubmitChangeDescription("");
               setSubmitDialog(true);
             }}
+            label="Enviar para Revisão"
+            icon={<Send className="h-3.5 w-3.5" />}
           >
-            <Send className="h-3.5 w-3.5 mr-1.5" /> Enviar para Revisão
-          </Button>
+            Enviar para Revisão
+          </HeaderActionButton>
         )}
         {canSubmitForReview && doc.status === "rejected" && (
-          <Button
+          <HeaderActionButton
             size="sm"
             onClick={() => {
               setSubmitChangeDescription("");
               setSubmitDialog(true);
             }}
+            label="Reenviar para Revisão"
+            icon={<Send className="h-3.5 w-3.5" />}
           >
-            <Send className="h-3.5 w-3.5 mr-1.5" /> Reenviar para Revisão
-          </Button>
+            Reenviar para Revisão
+          </HeaderActionButton>
         )}
         {canWriteDocuments &&
           doc.status === "in_review" &&
           isApprover &&
           myApproval?.status === "pending" && (
             <>
-              <Button
+              <HeaderActionButton
                 size="sm"
                 variant="outline"
                 onClick={() => setRejectDialog(true)}
+                label="Rejeitar"
+                icon={<XCircle className="h-3.5 w-3.5" />}
               >
-                <XCircle className="h-3.5 w-3.5 mr-1.5" /> Rejeitar
-              </Button>
-              <Button
+                Rejeitar
+              </HeaderActionButton>
+              <HeaderActionButton
                 size="sm"
                 onClick={handleApprove}
                 isLoading={approveMut.isPending}
+                label="Aprovar"
+                icon={<CheckCircle className="h-3.5 w-3.5" />}
               >
-                <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Aprovar
-              </Button>
+                Aprovar
+              </HeaderActionButton>
             </>
           )}
         {canAcknowledge && (
-          <Button
+          <HeaderActionButton
             size="sm"
             onClick={handleAcknowledge}
             isLoading={acknowledgeMut.isPending}
+            label="Confirmar Recebimento"
+            icon={<CheckCircle className="h-3.5 w-3.5" />}
           >
-            <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Confirmar Recebimento
-          </Button>
+            Confirmar Recebimento
+          </HeaderActionButton>
         )}
         {doc.status === "draft" && (
-          <Button
+          <HeaderActionButton
             size="sm"
             variant="outline"
             onClick={() => setDeleteDialog(true)}
             className="text-red-600 hover:text-red-700"
+            label="Excluir"
+            icon={<Trash2 className="h-3.5 w-3.5" />}
           >
-            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Excluir
-          </Button>
+            Excluir
+          </HeaderActionButton>
         )}
       </div>
     ) : null,
@@ -720,7 +741,11 @@ export default function DocumentDetailPage() {
       const objectUrl = URL.createObjectURL(blob);
 
       if (disposition === "inline") {
-        const newWindow = window.open(objectUrl, "_blank", "noopener,noreferrer");
+        const newWindow = window.open(
+          objectUrl,
+          "_blank",
+          "noopener,noreferrer",
+        );
         if (newWindow) {
           window.setTimeout(() => URL.revokeObjectURL(objectUrl), 120_000);
         } else {
@@ -733,7 +758,8 @@ export default function DocumentDetailPage() {
           window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
           toast({
             title: "Visualização bloqueada pelo navegador",
-            description: "O arquivo foi baixado porque a abertura em nova janela foi bloqueada.",
+            description:
+              "O arquivo foi baixado porque a abertura em nova janela foi bloqueada.",
           });
         }
       } else {
@@ -1459,14 +1485,16 @@ export default function DocumentDetailPage() {
                   Grupos selecionados
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {doc.recipientGroups.map((group: OrganizationContactGroup) => (
-                    <span
-                      key={group.id}
-                      className="rounded-full bg-secondary px-2.5 py-1 text-xs text-secondary-foreground"
-                    >
-                      {group.name}
-                    </span>
-                  ))}
+                  {doc.recipientGroups.map(
+                    (group: OrganizationContactGroup) => (
+                      <span
+                        key={group.id}
+                        className="rounded-full bg-secondary px-2.5 py-1 text-xs text-secondary-foreground"
+                      >
+                        {group.name}
+                      </span>
+                    ),
+                  )}
                 </div>
               </div>
             ) : null}
@@ -1774,7 +1802,6 @@ export default function DocumentDetailPage() {
                     }
                   />
                 </div>
-
               </div>
             )}
 

@@ -5,8 +5,16 @@ import { z } from "zod";
 import { useLocation, useParams } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
-import { useListUnits, getListUnitsQueryKey } from "@workspace/api-client-react";
+import {
+  useHeaderActions,
+  usePageSubtitle,
+  usePageTitle,
+} from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
+import {
+  useListUnits,
+  getListUnitsQueryKey,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -41,7 +49,10 @@ const supplierMasterFormSchema = z
   .object({
     personType: z.enum(["pj", "pf"]),
     legalIdentifier: z.string(),
-    legalName: z.string().trim().min(1, "Informe a razão social ou nome do fornecedor."),
+    legalName: z
+      .string()
+      .trim()
+      .min(1, "Informe a razão social ou nome do fornecedor."),
     tradeName: z.string(),
     responsibleName: z.string(),
     categoryId: z.string(),
@@ -49,7 +60,15 @@ const supplierMasterFormSchema = z
     unitIds: z.array(z.number()),
     catalogItemIds: z.array(z.number()),
     criticality: z.enum(["low", "medium", "high"]),
-    status: z.enum(["draft", "pending_qualification", "approved", "restricted", "blocked", "expired", "inactive"]),
+    status: z.enum([
+      "draft",
+      "pending_qualification",
+      "approved",
+      "restricted",
+      "blocked",
+      "expired",
+      "inactive",
+    ]),
     notes: z.string(),
     email: z.string(),
     phone: z.string(),
@@ -95,7 +114,10 @@ const supplierMasterFormSchema = z
         message: "Informe o e-mail para fornecedores PJ.",
       });
     }
-    if (form.email.trim() && !z.string().email().safeParse(form.email.trim()).success) {
+    if (
+      form.email.trim() &&
+      !z.string().email().safeParse(form.email.trim()).success
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["email"],
@@ -135,7 +157,9 @@ const emptySupplierMasterForm: SupplierMasterForm = {
 };
 
 function FieldError({ message }: { message?: string }) {
-  return message ? <p className="mt-1.5 text-xs text-destructive">{message}</p> : null;
+  return message ? (
+    <p className="mt-1.5 text-xs text-destructive">{message}</p>
+  ) : null;
 }
 
 export default function SupplierMasterEditPage() {
@@ -190,7 +214,10 @@ export default function SupplierMasterEditPage() {
 
     form.reset({
       personType: detail.personType,
-      legalIdentifier: formatSupplierLegalIdentifier(detail.legalIdentifier, detail.personType),
+      legalIdentifier: formatSupplierLegalIdentifier(
+        detail.legalIdentifier,
+        detail.personType,
+      ),
       legalName: detail.legalName,
       tradeName: detail.tradeName || "",
       responsibleName: detail.responsibleName || "",
@@ -199,7 +226,9 @@ export default function SupplierMasterEditPage() {
       unitIds: detail.units.map((unit) => unit.id),
       catalogItemIds: detail.offerings
         .map((offering) => offering.catalogItemId)
-        .filter((catalogItemId): catalogItemId is number => catalogItemId !== null),
+        .filter(
+          (catalogItemId): catalogItemId is number => catalogItemId !== null,
+        ),
       criticality: detail.criticality as "low" | "medium" | "high",
       status: detail.status as SupplierMasterForm["status"],
       notes: detail.notes || "",
@@ -219,8 +248,14 @@ export default function SupplierMasterEditPage() {
     });
   }, [detail, form]);
 
-  usePageTitle(detail ? `Cadastro · ${detail.tradeName || detail.legalName}` : "Cadastro do fornecedor");
-  usePageSubtitle("Altere os dados mestres fora do fluxo operacional de avaliação.");
+  usePageTitle(
+    detail
+      ? `Cadastro · ${detail.tradeName || detail.legalName}`
+      : "Cadastro do fornecedor",
+  );
+  usePageSubtitle(
+    "Altere os dados mestres fora do fluxo operacional de avaliação.",
+  );
 
   const unitOptions = useMemo(
     () =>
@@ -250,7 +285,9 @@ export default function SupplierMasterEditPage() {
   );
 
   const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: suppliersKeys.detail(orgId!, supplierId) });
+    queryClient.invalidateQueries({
+      queryKey: suppliersKeys.detail(orgId!, supplierId),
+    });
     queryClient.invalidateQueries({ queryKey: suppliersKeys.list(orgId!, {}) });
   };
 
@@ -291,7 +328,8 @@ export default function SupplierMasterEditPage() {
     onError: (error) =>
       toast({
         title: "Falha ao salvar cadastro",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       }),
   });
@@ -300,26 +338,36 @@ export default function SupplierMasterEditPage() {
 
   useHeaderActions(
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={() => navigate(`/app/qualidade/fornecedores/${supplierId}`)}>
-        <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-        Voltar ao fornecedor
-      </Button>
+      <HeaderActionButton
+        variant="outline"
+        size="sm"
+        onClick={() => navigate(`/app/qualidade/fornecedores/${supplierId}`)}
+        label="Voltar ao fornecedor"
+        icon={<ArrowLeft className="h-3.5 w-3.5" />}
+      />
       {canManageGeneral ? (
-        <Button
+        <HeaderActionButton
           size="sm"
-          onClick={() => void form.handleSubmit((values) => saveMutation.mutate(values))()}
+          onClick={() =>
+            void form.handleSubmit((values) => saveMutation.mutate(values))()
+          }
           disabled={detailQuery.isLoading}
           isLoading={saveMutation.isPending}
+          label="Salvar cadastro"
+          icon={<Save className="h-3.5 w-3.5" />}
         >
-          <Save className="mr-1.5 h-3.5 w-3.5" />
           Salvar cadastro
-        </Button>
+        </HeaderActionButton>
       ) : null}
     </div>,
   );
 
   if (detailQuery.isLoading) {
-    return <div className="py-16 text-center text-sm text-muted-foreground">Carregando cadastro do fornecedor...</div>;
+    return (
+      <div className="py-16 text-center text-sm text-muted-foreground">
+        Carregando cadastro do fornecedor...
+      </div>
+    );
   }
 
   if (!detail) {
@@ -333,7 +381,8 @@ export default function SupplierMasterEditPage() {
   if (!canManageGeneral) {
     return (
       <div className="rounded-xl border border-border/60 bg-card px-5 py-6 text-sm text-muted-foreground">
-        Você pode consultar o fornecedor, mas não possui permissão para alterar o cadastro mestre.
+        Você pode consultar o fornecedor, mas não possui permissão para alterar
+        o cadastro mestre.
       </div>
     );
   }
@@ -358,11 +407,16 @@ export default function SupplierMasterEditPage() {
                         <Select
                           value={field.value}
                           onChange={(event) => {
-                            const nextPersonType = event.target.value as "pj" | "pf";
+                            const nextPersonType = event.target.value as
+                              | "pj"
+                              | "pf";
                             field.onChange(nextPersonType);
                             form.setValue(
                               "legalIdentifier",
-                              formatSupplierLegalIdentifier(form.getValues("legalIdentifier"), nextPersonType),
+                              formatSupplierLegalIdentifier(
+                                form.getValues("legalIdentifier"),
+                                nextPersonType,
+                              ),
                               { shouldValidate: true, shouldDirty: true },
                             );
                           }}
@@ -375,7 +429,9 @@ export default function SupplierMasterEditPage() {
                   </FieldContent>
                 </Field>
                 <Field>
-                  <FieldLabel>{currentPersonType === "pj" ? "CNPJ" : "CPF"}</FieldLabel>
+                  <FieldLabel>
+                    {currentPersonType === "pj" ? "CNPJ" : "CPF"}
+                  </FieldLabel>
                   <FieldContent>
                     <Controller
                       control={form.control}
@@ -384,20 +440,35 @@ export default function SupplierMasterEditPage() {
                         <Input
                           value={field.value}
                           onChange={(event) =>
-                            field.onChange(formatSupplierLegalIdentifier(event.target.value, currentPersonType))
+                            field.onChange(
+                              formatSupplierLegalIdentifier(
+                                event.target.value,
+                                currentPersonType,
+                              ),
+                            )
                           }
-                          placeholder={supplierLegalIdentifierPlaceholder(currentPersonType)}
+                          placeholder={supplierLegalIdentifierPlaceholder(
+                            currentPersonType,
+                          )}
                         />
                       )}
                     />
-                    <FieldError message={form.formState.errors.legalIdentifier?.message} />
+                    <FieldError
+                      message={form.formState.errors.legalIdentifier?.message}
+                    />
                   </FieldContent>
                 </Field>
                 <Field>
-                  <FieldLabel>{currentPersonType === "pj" ? "Razão social" : "Nome completo"}</FieldLabel>
+                  <FieldLabel>
+                    {currentPersonType === "pj"
+                      ? "Razão social"
+                      : "Nome completo"}
+                  </FieldLabel>
                   <FieldContent>
                     <Input {...form.register("legalName")} />
-                    <FieldError message={form.formState.errors.legalName?.message} />
+                    <FieldError
+                      message={form.formState.errors.legalName?.message}
+                    />
                   </FieldContent>
                 </Field>
                 <Field>
@@ -410,7 +481,9 @@ export default function SupplierMasterEditPage() {
                   <FieldLabel>Responsável</FieldLabel>
                   <FieldContent>
                     <Input {...form.register("responsibleName")} />
-                    <FieldError message={form.formState.errors.responsibleName?.message} />
+                    <FieldError
+                      message={form.formState.errors.responsibleName?.message}
+                    />
                   </FieldContent>
                 </Field>
                 <Field>
@@ -422,7 +495,9 @@ export default function SupplierMasterEditPage() {
                       render={({ field }) => (
                         <Select value={field.value} onChange={field.onChange}>
                           <option value="draft">Rascunho</option>
-                          <option value="pending_qualification">Pendente</option>
+                          <option value="pending_qualification">
+                            Pendente
+                          </option>
                           <option value="approved">Aprovado</option>
                           <option value="restricted">Restrito</option>
                           <option value="blocked">Bloqueado</option>
@@ -590,7 +665,9 @@ export default function SupplierMasterEditPage() {
                   <FieldLabel>E-mail</FieldLabel>
                   <FieldContent>
                     <Input type="email" {...form.register("email")} />
-                    <FieldError message={form.formState.errors.email?.message} />
+                    <FieldError
+                      message={form.formState.errors.email?.message}
+                    />
                   </FieldContent>
                 </Field>
                 <Field>
@@ -614,7 +691,11 @@ export default function SupplierMasterEditPage() {
                       render={({ field }) => (
                         <Input
                           value={field.value}
-                          onChange={(event) => field.onChange(formatSupplierPostalCode(event.target.value))}
+                          onChange={(event) =>
+                            field.onChange(
+                              formatSupplierPostalCode(event.target.value),
+                            )
+                          }
                           placeholder="00000-000"
                         />
                       )}
@@ -660,7 +741,11 @@ export default function SupplierMasterEditPage() {
                       render={({ field }) => (
                         <Input
                           value={field.value}
-                          onChange={(event) => field.onChange(event.target.value.toUpperCase().slice(0, 2))}
+                          onChange={(event) =>
+                            field.onChange(
+                              event.target.value.toUpperCase().slice(0, 2),
+                            )
+                          }
                         />
                       )}
                     />

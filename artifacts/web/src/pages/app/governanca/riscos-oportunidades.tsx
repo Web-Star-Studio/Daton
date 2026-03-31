@@ -9,6 +9,7 @@ import {
   usePageSubtitle,
   usePageTitle,
 } from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
@@ -210,7 +211,9 @@ function getRiskTypeLabel(type: GovernanceRiskOpportunityListEntry["type"]) {
   return type === "risk" ? "Risco" : "Oportunidade";
 }
 
-function getRiskStatusLabel(status: GovernanceRiskOpportunityListEntry["status"]) {
+function getRiskStatusLabel(
+  status: GovernanceRiskOpportunityListEntry["status"],
+) {
   switch (status) {
     case "identified":
       return "Identificado";
@@ -298,8 +301,16 @@ export default function GovernanceRiskOpportunityPage() {
   const planDetailBase = location.startsWith("/app/")
     ? "/app/governanca/planejamento"
     : "/governanca/planejamento";
-  const queryParams = useMemo(() => new URLSearchParams(window.location.search), [location]);
-  const planIdFilter = queryParams.get("planId") ? Number(queryParams.get("planId")) : undefined;
+  const queryParams = useMemo(
+    () => new URLSearchParams(window.location.search),
+    [location],
+  );
+  const rawPlanId = queryParams.get("planId");
+  const parsedPlanId = rawPlanId ? Number(rawPlanId) : undefined;
+  const planIdFilter =
+    parsedPlanId !== undefined && Number.isFinite(parsedPlanId)
+      ? parsedPlanId
+      : undefined;
   const createFromQuery = queryParams.get("create") === "1";
   const swotItemIdFromQuery = queryParams.get("swotItemId")
     ? Number(queryParams.get("swotItemId"))
@@ -331,7 +342,8 @@ export default function GovernanceRiskOpportunityPage() {
   );
   const [didConsumeCreateQuery, setDidConsumeCreateQuery] = useState(false);
 
-  const { data: plans = [], isLoading: isPlansLoading } = useGovernancePlans(orgId);
+  const { data: plans = [], isLoading: isPlansLoading } =
+    useGovernancePlans(orgId);
   const editablePlans = useMemo(
     () => plans.filter((plan) => isEditablePlan(plan)),
     [plans],
@@ -382,10 +394,17 @@ export default function GovernanceRiskOpportunityPage() {
   const { data: units = [] } = useListUnits(orgId!, {
     query: { queryKey: getListUnitsQueryKey(orgId!), enabled: !!orgId },
   });
-  const { data: users = [] } = useListUserOptions(orgId!, {}, {
-    query: { queryKey: getListUserOptionsQueryKey(orgId!), enabled: !!orgId },
-  });
-  const { data: dialogPlan } = useGovernancePlan(orgId, dialogPlanId || undefined);
+  const { data: users = [] } = useListUserOptions(
+    orgId!,
+    {},
+    {
+      query: { queryKey: getListUserOptionsQueryKey(orgId!), enabled: !!orgId },
+    },
+  );
+  const { data: dialogPlan } = useGovernancePlan(
+    orgId,
+    dialogPlanId || undefined,
+  );
 
   const riskOpportunityForm = useForm<GovernanceRiskOpportunityBody>({
     resolver: zodResolver(governanceRiskOpportunitySchema),
@@ -437,7 +456,8 @@ export default function GovernanceRiskOpportunityPage() {
           acc.overdue += 1;
         }
         acc.byType[item.type] = (acc.byType[item.type] || 0) + 1;
-        acc.byPriority[item.priority] = (acc.byPriority[item.priority] || 0) + 1;
+        acc.byPriority[item.priority] =
+          (acc.byPriority[item.priority] || 0) + 1;
         return acc;
       },
       {
@@ -470,7 +490,12 @@ export default function GovernanceRiskOpportunityPage() {
     item?: GovernanceRiskOpportunityListEntry,
     planIdOverride?: number,
   ) => {
-    const nextPlanId = planIdOverride ?? item?.planId ?? planIdFilter ?? editablePlans[0]?.id ?? null;
+    const nextPlanId =
+      planIdOverride ??
+      item?.planId ??
+      planIdFilter ??
+      editablePlans[0]?.id ??
+      null;
     setDialogPlanId(nextPlanId);
     setRiskEditing(item || null);
     riskOpportunityForm.reset(
@@ -516,7 +541,9 @@ export default function GovernanceRiskOpportunityPage() {
     setActionDialogOpen(true);
   };
 
-  const openRiskEffectivenessDialog = (item: GovernanceRiskOpportunityListEntry) => {
+  const openRiskEffectivenessDialog = (
+    item: GovernanceRiskOpportunityListEntry,
+  ) => {
     setRiskEffectivenessTarget(item);
     riskEffectivenessForm.reset({
       result: item.latestEffectivenessReview?.result || "effective",
@@ -529,7 +556,12 @@ export default function GovernanceRiskOpportunityPage() {
     if (createFromQuery) {
       setDidConsumeCreateQuery(false);
     }
-  }, [createFromQuery, objectiveIdFromQuery, swotItemIdFromQuery, typeFromQuery]);
+  }, [
+    createFromQuery,
+    objectiveIdFromQuery,
+    swotItemIdFromQuery,
+    typeFromQuery,
+  ]);
 
   useEffect(() => {
     if (!createFromQuery || didConsumeCreateQuery) return;
@@ -548,7 +580,8 @@ export default function GovernanceRiskOpportunityPage() {
       typeFromQuery === "risk" || typeFromQuery === "opportunity"
         ? typeFromQuery
         : swotItem
-          ? swotItem.swotType === "strength" || swotItem.swotType === "opportunity"
+          ? swotItem.swotType === "strength" ||
+            swotItem.swotType === "opportunity"
             ? "opportunity"
             : "risk"
           : "risk";
@@ -582,77 +615,84 @@ export default function GovernanceRiskOpportunityPage() {
 
   useHeaderActions(
     <div className="flex items-center gap-2">
-      <Button
+      <HeaderActionButton
         size="sm"
         onClick={() =>
-          openRiskOpportunityDialog(undefined, planIdFilter ?? editablePlans[0]?.id)
+          openRiskOpportunityDialog(
+            undefined,
+            planIdFilter ?? editablePlans[0]?.id,
+          )
         }
         disabled={!canCreate}
-      >
-        <Plus className="h-3.5 w-3.5 mr-1.5" />
-        Novo item
-      </Button>
+        label="Novo item"
+        icon={<Plus className="h-3.5 w-3.5" />}
+      />
     </div>,
   );
 
-  const saveRiskOpportunity = riskOpportunityForm.handleSubmit(async (values) => {
-    if (!dialogPlanId) {
-      toast({
-        title: "Plano obrigatório",
-        description: "Selecione um plano antes de salvar o item.",
-      });
-      return;
-    }
-
-    const targetPlan = plansById.get(dialogPlanId);
-    if (!isEditablePlan(targetPlan)) {
-      toast({
-        title: "Plano bloqueado",
-        description:
-          "Somente planos em rascunho ou rejeitados podem receber alterações.",
-      });
-      return;
-    }
-
-    const payload = {
-      ...values,
-      sourceReference: values.sourceReference || null,
-      ownerUserId: values.ownerUserId || null,
-      coOwnerUserId: values.coOwnerUserId || null,
-      unitId: values.unitId || null,
-      objectiveId: values.objectiveId || null,
-      swotItemId: values.swotItemId || null,
-      responseStrategy: values.responseStrategy || undefined,
-      nextReviewAt: values.nextReviewAt ? dateToIso(values.nextReviewAt) : null,
-      existingControls: values.existingControls || null,
-      expectedEffect: values.expectedEffect || null,
-      notes: values.notes || null,
-    };
-
-    try {
-      if (riskEditing) {
-        await riskMutations.updateMutation.mutateAsync({
-          planId: dialogPlanId,
-          itemId: riskEditing.id,
-          body: payload,
+  const saveRiskOpportunity = riskOpportunityForm.handleSubmit(
+    async (values) => {
+      if (!dialogPlanId) {
+        toast({
+          title: "Plano obrigatório",
+          description: "Selecione um plano antes de salvar o item.",
         });
-      } else {
-        await riskMutations.createMutation.mutateAsync({
-          planId: dialogPlanId,
-          body: payload,
+        return;
+      }
+
+      const targetPlan = plansById.get(dialogPlanId);
+      if (!isEditablePlan(targetPlan)) {
+        toast({
+          title: "Plano bloqueado",
+          description:
+            "Somente planos em rascunho ou rejeitados podem receber alterações.",
+        });
+        return;
+      }
+
+      const payload = {
+        ...values,
+        sourceReference: values.sourceReference || null,
+        ownerUserId: values.ownerUserId || null,
+        coOwnerUserId: values.coOwnerUserId || null,
+        unitId: values.unitId || null,
+        objectiveId: values.objectiveId || null,
+        swotItemId: values.swotItemId || null,
+        responseStrategy: values.responseStrategy || undefined,
+        nextReviewAt: values.nextReviewAt
+          ? dateToIso(values.nextReviewAt)
+          : null,
+        existingControls: values.existingControls || null,
+        expectedEffect: values.expectedEffect || null,
+        notes: values.notes || null,
+      };
+
+      try {
+        if (riskEditing) {
+          await riskMutations.updateMutation.mutateAsync({
+            planId: dialogPlanId,
+            itemId: riskEditing.id,
+            body: payload,
+          });
+        } else {
+          await riskMutations.createMutation.mutateAsync({
+            planId: dialogPlanId,
+            body: payload,
+          });
+        }
+        riskOpportunityForm.reset(blankRiskOpportunityForm());
+        setRiskDialogOpen(false);
+        setRiskEditing(null);
+        resetCreateQueryParams();
+      } catch (error) {
+        toast({
+          title: "Falha ao salvar risco ou oportunidade",
+          description:
+            error instanceof Error ? error.message : "Erro ao salvar.",
         });
       }
-      riskOpportunityForm.reset(blankRiskOpportunityForm());
-      setRiskDialogOpen(false);
-      setRiskEditing(null);
-      resetCreateQueryParams();
-    } catch (error) {
-      toast({
-        title: "Falha ao salvar risco ou oportunidade",
-        description: error instanceof Error ? error.message : "Erro ao salvar.",
-      });
-    }
-  });
+    },
+  );
 
   const saveAction = actionForm.handleSubmit(async (values) => {
     if (!dialogPlanId) return;
@@ -716,7 +756,9 @@ export default function GovernanceRiskOpportunityPage() {
     },
   );
 
-  const deleteRiskOpportunity = async (item: GovernanceRiskOpportunityListEntry) => {
+  const deleteRiskOpportunity = async (
+    item: GovernanceRiskOpportunityListEntry,
+  ) => {
     setRiskDeletingId(item.id);
     try {
       await riskMutations.deleteMutation.mutateAsync({
@@ -754,10 +796,7 @@ export default function GovernanceRiskOpportunityPage() {
             O registro ISO 6.1 continua vinculado a um planejamento estratégico.
             Crie um plano em Governança antes de usar este submódulo.
           </p>
-          <Button
-            className="mt-5"
-            onClick={() => navigate(planDetailBase)}
-          >
+          <Button className="mt-5" onClick={() => navigate(planDetailBase)}>
             Abrir Planejamento
           </Button>
         </div>
@@ -774,7 +813,8 @@ export default function GovernanceRiskOpportunityPage() {
             value={planIdFilter ? String(planIdFilter) : "all"}
             onChange={(event) =>
               updateQuery({
-                planId: event.target.value === "all" ? null : event.target.value,
+                planId:
+                  event.target.value === "all" ? null : event.target.value,
               })
             }
           >
@@ -918,21 +958,25 @@ export default function GovernanceRiskOpportunityPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {(["critical", "high", "medium", "low", "na"] as const).map((priority) => (
-          <Badge
-            key={priority}
-            variant="outline"
-            className={cn("border", getRiskPriorityTone(priority))}
-          >
-            {getRiskPriorityLabel(priority)}: {metrics.byPriority[priority] || 0}
-          </Badge>
-        ))}
+        {(["critical", "high", "medium", "low", "na"] as const).map(
+          (priority) => (
+            <Badge
+              key={priority}
+              variant="outline"
+              className={cn("border", getRiskPriorityTone(priority))}
+            >
+              {getRiskPriorityLabel(priority)}:{" "}
+              {metrics.byPriority[priority] || 0}
+            </Badge>
+          ),
+        )}
       </div>
 
       <div className="space-y-4">
         {items.map((item) => {
           const parentPlan = plansById.get(item.planId);
-          const canEditItem = canWriteModule("governance") && isEditablePlan(parentPlan);
+          const canEditItem =
+            canWriteModule("governance") && isEditablePlan(parentPlan);
 
           return (
             <div
@@ -942,15 +986,24 @@ export default function GovernanceRiskOpportunityPage() {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{getRiskTypeLabel(item.type)}</Badge>
+                    <Badge variant="outline">
+                      {getRiskTypeLabel(item.type)}
+                    </Badge>
                     <Badge
                       variant="outline"
-                      className={cn("border", getRiskPriorityTone(item.priority))}
+                      className={cn(
+                        "border",
+                        getRiskPriorityTone(item.priority),
+                      )}
                     >
                       {getRiskPriorityLabel(item.priority)}
                     </Badge>
-                    <Badge variant="outline">{getRiskStatusLabel(item.status)}</Badge>
-                    <Badge variant="outline">{getRiskSourceLabel(item.sourceType)}</Badge>
+                    <Badge variant="outline">
+                      {getRiskStatusLabel(item.status)}
+                    </Badge>
+                    <Badge variant="outline">
+                      {getRiskSourceLabel(item.sourceType)}
+                    </Badge>
                   </div>
                   <div>
                     <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
@@ -992,7 +1045,8 @@ export default function GovernanceRiskOpportunityPage() {
                         Avaliação
                       </p>
                       <p className="mt-1 text-[13px] text-foreground">
-                        {item.likelihood ?? "—"} x {item.impact ?? "—"} = {item.score ?? "—"}
+                        {item.likelihood ?? "—"} x {item.impact ?? "—"} ={" "}
+                        {item.score ?? "—"}
                       </p>
                     </div>
                     <div>
@@ -1034,7 +1088,8 @@ export default function GovernanceRiskOpportunityPage() {
                           Ações vinculadas
                         </p>
                         <p className="mt-1 text-[13px] text-muted-foreground">
-                          {item.actions.length} ação(ões) associada(s) ao tratamento.
+                          {item.actions.length} ação(ões) associada(s) ao
+                          tratamento.
                         </p>
                       </div>
                       {canEditItem && (
@@ -1056,9 +1111,13 @@ export default function GovernanceRiskOpportunityPage() {
                             className="flex flex-col gap-1 rounded-lg border border-border/60 bg-background px-3 py-2 text-[13px] md:flex-row md:items-center md:justify-between"
                           >
                             <div>
-                              <p className="font-medium text-foreground">{action.title}</p>
+                              <p className="font-medium text-foreground">
+                                {action.title}
+                              </p>
                               <p className="text-muted-foreground">
-                                {action.responsibleUserName || "Sem responsável"} · prazo{" "}
+                                {action.responsibleUserName ||
+                                  "Sem responsável"}{" "}
+                                · prazo{" "}
                                 {formatGovernanceDate(
                                   action.rescheduledDueDate || action.dueDate,
                                 )}
@@ -1115,7 +1174,8 @@ export default function GovernanceRiskOpportunityPage() {
               Nenhum item encontrado
             </p>
             <p className="mt-1 text-[13px] text-muted-foreground">
-              Ajuste os filtros ou crie o primeiro risco ou oportunidade do registro.
+              Ajuste os filtros ou crie o primeiro risco ou oportunidade do
+              registro.
             </p>
           </div>
         )}
@@ -1130,7 +1190,11 @@ export default function GovernanceRiskOpportunityPage() {
             resetCreateQueryParams();
           }
         }}
-        title={riskEditing ? "Editar risco ou oportunidade" : "Novo risco ou oportunidade"}
+        title={
+          riskEditing
+            ? "Editar risco ou oportunidade"
+            : "Novo risco ou oportunidade"
+        }
         description="Registro ISO 9001:2015 §6.1 com avaliação, resposta e revisão."
         size="lg"
       >
@@ -1176,7 +1240,9 @@ export default function GovernanceRiskOpportunityPage() {
                 <option value="identified">Identificado</option>
                 <option value="assessed">Avaliado</option>
                 <option value="responding">Em tratamento</option>
-                <option value="awaiting_effectiveness">Aguardando eficácia</option>
+                <option value="awaiting_effectiveness">
+                  Aguardando eficácia
+                </option>
                 <option value="effective">Eficaz</option>
                 <option value="ineffective">Ineficaz</option>
                 <option value="continuous">Contínuo</option>
@@ -1190,7 +1256,10 @@ export default function GovernanceRiskOpportunityPage() {
           </div>
           <div>
             <Label>Descrição</Label>
-            <Textarea rows={4} {...riskOpportunityForm.register("description")} />
+            <Textarea
+              rows={4}
+              {...riskOpportunityForm.register("description")}
+            />
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
@@ -1303,7 +1372,10 @@ export default function GovernanceRiskOpportunityPage() {
             </div>
             <div>
               <Label>Próxima revisão</Label>
-              <Input type="date" {...riskOpportunityForm.register("nextReviewAt")} />
+              <Input
+                type="date"
+                {...riskOpportunityForm.register("nextReviewAt")}
+              />
             </div>
             <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em]">
@@ -1336,11 +1408,17 @@ export default function GovernanceRiskOpportunityPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label>Controles existentes</Label>
-              <Textarea rows={3} {...riskOpportunityForm.register("existingControls")} />
+              <Textarea
+                rows={3}
+                {...riskOpportunityForm.register("existingControls")}
+              />
             </div>
             <div>
               <Label>Efeito esperado</Label>
-              <Textarea rows={3} {...riskOpportunityForm.register("expectedEffect")} />
+              <Textarea
+                rows={3}
+                {...riskOpportunityForm.register("expectedEffect")}
+              />
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -1537,7 +1615,10 @@ export default function GovernanceRiskOpportunityPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label>Prazo reprogramado</Label>
-              <Input type="date" {...actionForm.register("rescheduledDueDate")} />
+              <Input
+                type="date"
+                {...actionForm.register("rescheduledDueDate")}
+              />
             </div>
             <div>
               <Label>Data de conclusão</Label>
@@ -1582,8 +1663,9 @@ export default function GovernanceRiskOpportunityPage() {
           </div>
           {actionContextItem && (
             <p className="text-[12px] text-muted-foreground">
-              Esta ação será criada dentro do plano "{actionContextItem.planTitle}"
-              e vinculada ao item "{actionContextItem.title}".
+              Esta ação será criada dentro do plano "
+              {actionContextItem.planTitle}" e vinculada ao item "
+              {actionContextItem.title}".
             </p>
           )}
         </div>

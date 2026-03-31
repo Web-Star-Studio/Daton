@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
+import {
+  useHeaderActions,
+  usePageSubtitle,
+  usePageTitle,
+} from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -47,26 +52,32 @@ export default function SupplierCategoriesPage() {
   const [form, setForm] = useState<CategoryFormState>(emptyForm);
 
   usePageTitle("Categorias de fornecedores");
-  usePageSubtitle("Gerencie as categorias usadas no cadastro e na classificação dos fornecedores.");
+  usePageSubtitle(
+    "Gerencie as categorias usadas no cadastro e na classificação dos fornecedores.",
+  );
 
   useHeaderActions(
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores")}>
-        <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-        Voltar
-      </Button>
+      <HeaderActionButton
+        variant="outline"
+        size="sm"
+        onClick={() => navigate("/app/qualidade/fornecedores")}
+        label="Voltar"
+        icon={<ArrowLeft className="h-3.5 w-3.5" />}
+      />
       {canManageSuppliers ? (
-        <Button
+        <HeaderActionButton
           size="sm"
           onClick={() => {
             setIsCreatingNew(true);
             setSelectedId(null);
             setForm(emptyForm);
           }}
+          label="Nova categoria"
+          icon={<Plus className="h-3.5 w-3.5" />}
         >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
           Nova categoria
-        </Button>
+        </HeaderActionButton>
       ) : null}
     </div>,
   );
@@ -78,7 +89,8 @@ export default function SupplierCategoriesPage() {
   });
 
   const categories = categoriesQuery.data || [];
-  const selectedCategory = categories.find((category) => category.id === selectedId) || null;
+  const selectedCategory =
+    categories.find((category) => category.id === selectedId) || null;
 
   useEffect(() => {
     if (isCreatingNew) return;
@@ -87,7 +99,10 @@ export default function SupplierCategoriesPage() {
       setForm(emptyForm);
       return;
     }
-    if (!selectedId || !categories.some((category) => category.id === selectedId)) {
+    if (
+      !selectedId ||
+      !categories.some((category) => category.id === selectedId)
+    ) {
       setSelectedId(categories[0].id);
     }
   }, [categories, isCreatingNew, selectedId]);
@@ -120,7 +135,11 @@ export default function SupplierCategoriesPage() {
       if (selectedCategory && !isCreatingNew) {
         return {
           action: "update" as const,
-          category: await updateSupplierCategory(orgId!, selectedCategory.id, payload),
+          category: await updateSupplierCategory(
+            orgId!,
+            selectedCategory.id,
+            payload,
+          ),
         };
       }
 
@@ -134,13 +153,15 @@ export default function SupplierCategoriesPage() {
       setIsCreatingNew(false);
       setSelectedId(category.id);
       toast({
-        title: action === "create" ? "Categoria criada" : "Categoria atualizada",
+        title:
+          action === "create" ? "Categoria criada" : "Categoria atualizada",
       });
     },
     onError: (error) => {
       toast({
         title: "Falha ao salvar categoria",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     },
@@ -156,7 +177,8 @@ export default function SupplierCategoriesPage() {
               <Badge variant="secondary">{categories.length}</Badge>
             </div>
             <p className="text-sm text-muted-foreground">
-              Cada categoria organiza fornecedores, tipos e requisitos documentais relacionados.
+              Cada categoria organiza fornecedores, tipos e requisitos
+              documentais relacionados.
             </p>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -180,15 +202,25 @@ export default function SupplierCategoriesPage() {
                   }}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <div className="font-medium text-foreground">{category.name}</div>
-                    <Badge variant={category.status === "active" ? "default" : "secondary"}>
+                    <div className="font-medium text-foreground">
+                      {category.name}
+                    </div>
+                    <Badge
+                      variant={
+                        category.status === "active" ? "default" : "secondary"
+                      }
+                    >
                       {categoryStatusLabel(category.status)}
                     </Badge>
                   </div>
                   {category.description ? (
-                    <p className="mt-2 text-sm text-muted-foreground">{category.description}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {category.description}
+                    </p>
                   ) : (
-                    <p className="mt-2 text-sm text-muted-foreground">Sem descrição cadastrada.</p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Sem descrição cadastrada.
+                    </p>
                   )}
                 </button>
               ))
@@ -198,7 +230,9 @@ export default function SupplierCategoriesPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>{isCreatingNew ? "Nova categoria" : "Detalhes da categoria"}</CardTitle>
+            <CardTitle>
+              {isCreatingNew ? "Nova categoria" : "Detalhes da categoria"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
@@ -207,7 +241,12 @@ export default function SupplierCategoriesPage() {
                 <Input
                   id="supplier-category-name"
                   value={form.name}
-                  onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
                   disabled={!canManageSuppliers}
                 />
               </div>
@@ -237,7 +276,12 @@ export default function SupplierCategoriesPage() {
                 id="supplier-category-description"
                 placeholder="Descreva quando essa categoria deve ser usada."
                 value={form.description}
-                onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    description: event.target.value,
+                  }))
+                }
                 disabled={!canManageSuppliers}
               />
             </div>
@@ -253,7 +297,9 @@ export default function SupplierCategoriesPage() {
                       setForm({
                         name: selectedCategory.name,
                         description: selectedCategory.description || "",
-                        status: selectedCategory.status as "active" | "inactive",
+                        status: selectedCategory.status as
+                          | "active"
+                          | "inactive",
                       });
                     } else {
                       setForm(emptyForm);
@@ -262,12 +308,19 @@ export default function SupplierCategoriesPage() {
                 >
                   Descartar
                 </Button>
-                <Button type="button" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                <Button
+                  type="button"
+                  onClick={() => saveMutation.mutate()}
+                  disabled={saveMutation.isPending}
+                >
                   {saveMutation.isPending ? "Salvando..." : "Salvar categoria"}
                 </Button>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Você pode visualizar as categorias, mas não tem permissão para editá-las.</p>
+              <p className="text-sm text-muted-foreground">
+                Você pode visualizar as categorias, mas não tem permissão para
+                editá-las.
+              </p>
             )}
           </CardContent>
         </Card>

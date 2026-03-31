@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
@@ -163,7 +164,9 @@ export default function OrganizacaoPage({
   const [unitSearch, setUnitSearch] = useState("");
   const [unitTypeFilter, setUnitTypeFilter] = useState("");
   const [unitStatusFilter, setUnitStatusFilter] = useState("");
-  const [selectedUnitIds, setSelectedUnitIds] = useState<Set<number>>(new Set());
+  const [selectedUnitIds, setSelectedUnitIds] = useState<Set<number>>(
+    new Set(),
+  );
   const [isDeletingUnits, setIsDeletingUnits] = useState(false);
   const [confirmDeleteUnitsOpen, setConfirmDeleteUnitsOpen] = useState(false);
 
@@ -178,8 +181,10 @@ export default function OrganizacaoPage({
           (u.code && u.code.toLowerCase().includes(q)),
       );
     }
-    if (unitTypeFilter) filtered = filtered.filter((u) => u.type === unitTypeFilter);
-    if (unitStatusFilter) filtered = filtered.filter((u) => u.status === unitStatusFilter);
+    if (unitTypeFilter)
+      filtered = filtered.filter((u) => u.type === unitTypeFilter);
+    if (unitStatusFilter)
+      filtered = filtered.filter((u) => u.status === unitStatusFilter);
     // Sede always first
     filtered.sort((a, b) => {
       if (a.type === "sede" && b.type !== "sede") return -1;
@@ -189,8 +194,12 @@ export default function OrganizacaoPage({
     return filtered;
   }, [units, unitSearch, unitTypeFilter, unitStatusFilter]);
 
-  const allUnitIds = useMemo(() => sortedFilteredUnits.map((u) => u.id), [sortedFilteredUnits]);
-  const allUnitsSelected = allUnitIds.length > 0 && allUnitIds.every((id) => selectedUnitIds.has(id));
+  const allUnitIds = useMemo(
+    () => sortedFilteredUnits.map((u) => u.id),
+    [sortedFilteredUnits],
+  );
+  const allUnitsSelected =
+    allUnitIds.length > 0 && allUnitIds.every((id) => selectedUnitIds.has(id));
 
   const toggleAllUnits = () => {
     if (allUnitsSelected) setSelectedUnitIds(new Set());
@@ -208,19 +217,33 @@ export default function OrganizacaoPage({
 
   const executeBulkDeleteUnits = async () => {
     setIsDeletingUnits(true);
+    const failedUnitIds: number[] = [];
     try {
       for (const id of selectedUnitIds) {
-        try { await deleteUnitMut.mutateAsync({ orgId: orgId!, unitId: id }); } catch {}
+        try {
+          await deleteUnitMut.mutateAsync({ orgId: orgId!, unitId: id });
+        } catch {
+          failedUnitIds.push(id);
+        }
       }
       queryClient.invalidateQueries({ queryKey: getListUnitsQueryKey(orgId!) });
-      setSelectedUnitIds(new Set());
+      setSelectedUnitIds(new Set(failedUnitIds));
+      if (failedUnitIds.length > 0) {
+        toast({
+          title: "Exclusão parcial",
+          description: `${failedUnitIds.length} unidade(s) não puderam ser excluídas.`,
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsDeletingUnits(false);
       setConfirmDeleteUnitsOpen(false);
     }
   };
 
-  useEffect(() => { setSelectedUnitIds(new Set()); }, [unitSearch, unitTypeFilter, unitStatusFilter]);
+  useEffect(() => {
+    setSelectedUnitIds(new Set());
+  }, [unitSearch, unitTypeFilter, unitStatusFilter]);
 
   const { data: departments, isLoading: deptsLoading } = useListDepartments(
     orgId!,
@@ -267,14 +290,27 @@ export default function OrganizacaoPage({
   const importPosMut = useImportPositions();
   const [posImportOpen, setPosImportOpen] = useState(false);
   const [posImportStep, setPosImportStep] = useState<1 | 2>(1);
-  const [posImportResult, setPosImportResult] = useState<ImportResult | null>(null);
-  const [posImportPreview, setPosImportPreview] = useState<{ total: number; newCount: number; existingCount: number; existingNames: string[] } | null>(null);
+  const [posImportResult, setPosImportResult] = useState<ImportResult | null>(
+    null,
+  );
+  const [posImportPreview, setPosImportPreview] = useState<{
+    total: number;
+    newCount: number;
+    existingCount: number;
+    existingNames: string[];
+  } | null>(null);
   const [posPendingFile, setPosPendingFile] = useState<File | null>(null);
   const [posParsedData, setPosParsedData] = useState<CreatePositionBody[]>([]);
-  const [posConflictStrategy, setPosConflictStrategy] = useState<"skip" | "update">("skip");
+  const [posConflictStrategy, setPosConflictStrategy] = useState<
+    "skip" | "update"
+  >("skip");
 
-  const allPosIds = useMemo(() => (positions ?? []).map((p) => p.id), [positions]);
-  const allPosSelected = allPosIds.length > 0 && allPosIds.every((id) => selectedPosIds.has(id));
+  const allPosIds = useMemo(
+    () => (positions ?? []).map((p) => p.id),
+    [positions],
+  );
+  const allPosSelected =
+    allPosIds.length > 0 && allPosIds.every((id) => selectedPosIds.has(id));
 
   const toggleAllPositions = () => {
     if (allPosSelected) setSelectedPosIds(new Set());
@@ -297,7 +333,9 @@ export default function OrganizacaoPage({
         orgId: orgId!,
         data: { ids: Array.from(selectedPosIds) },
       });
-      queryClient.invalidateQueries({ queryKey: getListPositionsQueryKey(orgId!) });
+      queryClient.invalidateQueries({
+        queryKey: getListPositionsQueryKey(orgId!),
+      });
       setSelectedPosIds(new Set());
     } finally {
       setIsDeletingPositions(false);
@@ -361,7 +399,7 @@ export default function OrganizacaoPage({
         if (isEditingOrg) return null;
         return (
           <div className="flex items-center gap-2">
-            <Button
+            <HeaderActionButton
               size="sm"
               variant="outline"
               onClick={async () => {
@@ -390,25 +428,25 @@ export default function OrganizacaoPage({
                 }
               }}
               isLoading={resetOnboardingMut.isPending}
+              label="Refazer onboarding"
+              icon={<RotateCcw className="h-3.5 w-3.5" />}
             >
-              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
               Refazer onboarding
-            </Button>
-            <Button
+            </HeaderActionButton>
+            <HeaderActionButton
               size="sm"
               variant="outline"
               onClick={() => setIsEditingOrg(true)}
-            >
-              <Pencil className="h-3.5 w-3.5 mr-1.5" />
-              Editar
-            </Button>
+              label="Editar"
+              icon={<Pencil className="h-3.5 w-3.5" />}
+            />
           </div>
         );
       case "unidades":
         if (!canWriteModule("units")) return null;
         // Unit bulk actions moved to floating bar at bottom
         return (
-          <Button
+          <HeaderActionButton
             size="sm"
             onClick={() => {
               setUnitStep(0);
@@ -416,15 +454,14 @@ export default function OrganizacaoPage({
               unitForm.reset();
               setUnitDialogOpen(true);
             }}
-          >
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Nova Unidade
-          </Button>
+            label="Nova Unidade"
+            icon={<Plus className="h-3.5 w-3.5" />}
+          />
         );
       case "departamentos":
         if (!canWriteModule("departments")) return null;
         return (
-          <Button
+          <HeaderActionButton
             size="sm"
             onClick={() => {
               setDeptStep(0);
@@ -433,25 +470,23 @@ export default function OrganizacaoPage({
               deptForm.reset({ name: "", description: "", unitIds: [] });
               setDeptDialogOpen(true);
             }}
-          >
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Novo Departamento
-          </Button>
+            label="Novo Departamento"
+            icon={<Plus className="h-3.5 w-3.5" />}
+          />
         );
       case "cargos":
         if (!canWriteModule("positions")) return null;
         // Position bulk actions moved to floating bar at bottom
         return (
           <div className="flex items-center gap-2">
-            <Button
+            <HeaderActionButton
               size="sm"
               variant="outline"
               onClick={() => setPosImportOpen(true)}
-            >
-              <Upload className="h-3.5 w-3.5 mr-1.5" />
-              Importar
-            </Button>
-            <Button
+              label="Importar"
+              icon={<Upload className="h-3.5 w-3.5" />}
+            />
+            <HeaderActionButton
               size="sm"
               onClick={() => {
                 setEditingPosId(null);
@@ -459,10 +494,11 @@ export default function OrganizacaoPage({
                 setPosStep(0);
                 setPosDialogOpen(true);
               }}
+              label="Novo Cargo"
+              icon={<Plus className="h-3.5 w-3.5" />}
             >
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
               Novo Cargo
-            </Button>
+            </HeaderActionButton>
           </div>
         );
     }
@@ -521,7 +557,11 @@ export default function OrganizacaoPage({
       unitIds: data.unitIds,
     };
     if (editingDeptId) {
-      await updateDeptMut.mutateAsync({ orgId, deptId: editingDeptId, data: payload });
+      await updateDeptMut.mutateAsync({
+        orgId,
+        deptId: editingDeptId,
+        data: payload,
+      });
     } else {
       await createDeptMut.mutateAsync({ orgId, data: payload });
     }
@@ -593,7 +633,11 @@ export default function OrganizacaoPage({
       setEditingPosId(null);
       posForm.reset();
     } catch (err) {
-      toast({ title: "Erro ao salvar cargo", description: String(err instanceof Error ? err.message : err), variant: "destructive" });
+      toast({
+        title: "Erro ao salvar cargo",
+        description: String(err instanceof Error ? err.message : err),
+        variant: "destructive",
+      });
     }
   };
 
@@ -625,6 +669,10 @@ export default function OrganizacaoPage({
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
     const results: CreatePositionBody[] = [];
+    const parseIntegerOrUndefined = (value: unknown) => {
+      const parsed = parseInt(String(value), 10);
+      return Number.isNaN(parsed) ? undefined : parsed;
+    };
 
     for (const row of rows) {
       const mapped: Record<string, unknown> = {};
@@ -639,26 +687,47 @@ export default function OrganizacaoPage({
       if (!name) continue;
 
       const requirements = mapped.requirements
-        ? String(mapped.requirements).split(/[;\n]/).map((s: string) => s.trim()).filter(Boolean).join("\n")
+        ? String(mapped.requirements)
+            .split(/[;\n]/)
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+            .join("\n")
         : undefined;
 
       results.push({
         name,
-        description: mapped.description ? String(mapped.description).trim() : undefined,
-        education: mapped.education ? String(mapped.education).trim() : undefined,
-        experience: mapped.experience ? String(mapped.experience).trim() : undefined,
+        description: mapped.description
+          ? String(mapped.description).trim()
+          : undefined,
+        education: mapped.education
+          ? String(mapped.education).trim()
+          : undefined,
+        experience: mapped.experience
+          ? String(mapped.experience).trim()
+          : undefined,
         requirements,
-        responsibilities: mapped.responsibilities ? String(mapped.responsibilities).trim() : undefined,
+        responsibilities: mapped.responsibilities
+          ? String(mapped.responsibilities).trim()
+          : undefined,
         level: mapped.level ? String(mapped.level).trim() : undefined,
-        minSalary: mapped.minSalary ? parseInt(String(mapped.minSalary), 10) || undefined : undefined,
-        maxSalary: mapped.maxSalary ? parseInt(String(mapped.maxSalary), 10) || undefined : undefined,
+        minSalary: mapped.minSalary
+          ? parseIntegerOrUndefined(mapped.minSalary)
+          : undefined,
+        maxSalary: mapped.maxSalary
+          ? parseIntegerOrUndefined(mapped.maxSalary)
+          : undefined,
       });
     }
     return results;
   }
 
-  function analyzePositionImport(parsed: CreatePositionBody[], existing: { name: string }[]) {
-    const existingSet = new Set(existing.map((p) => p.name.trim().toLowerCase()));
+  function analyzePositionImport(
+    parsed: CreatePositionBody[],
+    existing: { name: string }[],
+  ) {
+    const existingSet = new Set(
+      existing.map((p) => p.name.trim().toLowerCase()),
+    );
     const existingNames: string[] = [];
     let newCount = 0;
     let existingCount = 0;
@@ -695,7 +764,9 @@ export default function OrganizacaoPage({
       data: { positions: posParsedData, conflictStrategy: posConflictStrategy },
     });
     setPosImportResult(result as ImportResult);
-    queryClient.invalidateQueries({ queryKey: getListPositionsQueryKey(orgId) });
+    queryClient.invalidateQueries({
+      queryKey: getListPositionsQueryKey(orgId),
+    });
   };
 
   const resetPosImport = () => {
@@ -1069,27 +1140,34 @@ export default function OrganizacaoPage({
           </div>
 
           {unitsLoading ? (
-            <div className="text-center py-16 text-[13px] text-muted-foreground">Carregando unidades...</div>
+            <div className="text-center py-16 text-[13px] text-muted-foreground">
+              Carregando unidades...
+            </div>
           ) : sortedFilteredUnits.length === 0 ? (
             <div className="text-center py-16">
               <Building2 className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-[13px] text-muted-foreground">Nenhuma unidade encontrada</p>
-              {canWriteModule("units") && !unitSearch && !unitTypeFilter && !unitStatusFilter && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-4"
-                  onClick={() => {
-                    setUnitStep(0);
-                    setMaxReachedUnitStep(0);
-                    unitForm.reset();
-                    setUnitDialogOpen(true);
-                  }}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />
-                  Adicionar Unidade
-                </Button>
-              )}
+              <p className="text-[13px] text-muted-foreground">
+                Nenhuma unidade encontrada
+              </p>
+              {canWriteModule("units") &&
+                !unitSearch &&
+                !unitTypeFilter &&
+                !unitStatusFilter && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-4"
+                    onClick={() => {
+                      setUnitStep(0);
+                      setMaxReachedUnitStep(0);
+                      unitForm.reset();
+                      setUnitDialogOpen(true);
+                    }}
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1.5" />
+                    Adicionar Unidade
+                  </Button>
+                )}
             </div>
           ) : (
             <div className="overflow-hidden">
@@ -1102,14 +1180,27 @@ export default function OrganizacaoPage({
                         checked={allUnitsSelected}
                         onChange={toggleAllUnits}
                         className="rounded border-border text-primary cursor-pointer"
-                        disabled={!canWriteModule("units") || sortedFilteredUnits.length === 0}
+                        disabled={
+                          !canWriteModule("units") ||
+                          sortedFilteredUnits.length === 0
+                        }
                       />
                     </th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Nome</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Código</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Localização</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Tipo</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Status</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Nome
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Código
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Localização
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Tipo
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                      Status
+                    </th>
                     <th className="w-8"></th>
                   </tr>
                 </thead>
@@ -1135,33 +1226,51 @@ export default function OrganizacaoPage({
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            onClick={() => navigate(`/organizacao/unidades/${unit.id}`)}
+                            onClick={() =>
+                              navigate(`/organizacao/unidades/${unit.id}`)
+                            }
                             className="text-[13px] font-medium text-foreground hover:text-primary transition-colors cursor-pointer"
                           >
                             {unit.name}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{unit.code || "—"}</td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                          {unit.city && unit.state ? `${unit.city}, ${unit.state}` : "—"}
+                          {unit.code || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                          {unit.city && unit.state
+                            ? `${unit.city}, ${unit.state}`
+                            : "—"}
                         </td>
                         <td className="px-4 py-3">
-                          <Badge variant={unit.type === "sede" ? "default" : "secondary"} className="uppercase text-[10px]">
+                          <Badge
+                            variant={
+                              unit.type === "sede" ? "default" : "secondary"
+                            }
+                            className="uppercase text-[10px]"
+                          >
                             {unit.type}
                           </Badge>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={cn(
-                            "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border",
-                            unit.status === "ativa"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : "bg-gray-50 text-gray-500 border-gray-200",
-                          )}>
+                          <span
+                            className={cn(
+                              "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border",
+                              unit.status === "ativa"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-gray-50 text-gray-500 border-gray-200",
+                            )}
+                          >
                             {unit.status === "ativa" ? "Ativa" : "Inativa"}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span onClick={() => navigate(`/organizacao/unidades/${unit.id}`)} className="cursor-pointer">
+                          <span
+                            onClick={() =>
+                              navigate(`/organizacao/unidades/${unit.id}`)
+                            }
+                            className="cursor-pointer"
+                          >
                             <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
                           </span>
                         </td>
@@ -1175,23 +1284,34 @@ export default function OrganizacaoPage({
         </div>
       )}
 
-      {activeTab === "departamentos" && (
-        deptsLoading ? (
-          <div className="text-center py-12 text-muted-foreground text-[13px]">Carregando...</div>
+      {activeTab === "departamentos" &&
+        (deptsLoading ? (
+          <div className="text-center py-12 text-muted-foreground text-[13px]">
+            Carregando...
+          </div>
         ) : (
           <div className="overflow-hidden">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border/60">
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Nome</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Descrição</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Unidades</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                    Nome
+                  </th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                    Descrição
+                  </th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                    Unidades
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {departments?.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-4 py-12 text-center text-muted-foreground text-[13px]">
+                    <td
+                      colSpan={3}
+                      className="px-4 py-12 text-center text-muted-foreground text-[13px]"
+                    >
                       Nenhum departamento cadastrado.
                     </td>
                   </tr>
@@ -1205,7 +1325,9 @@ export default function OrganizacaoPage({
                       key={dept.id}
                       className={cn(
                         "border-b border-border/40 last:border-0 transition-colors",
-                        canWriteModule("departments") ? "hover:bg-secondary/30 cursor-pointer" : "",
+                        canWriteModule("departments")
+                          ? "hover:bg-secondary/30 cursor-pointer"
+                          : "",
                       )}
                       onClick={() => {
                         if (!canWriteModule("departments")) return;
@@ -1220,13 +1342,25 @@ export default function OrganizacaoPage({
                         setDeptDialogOpen(true);
                       }}
                     >
-                      <td className="px-4 py-3 text-[13px] font-medium text-foreground">{dept.name}</td>
-                      <td className="px-4 py-3 text-[13px] text-muted-foreground">{dept.description || "—"}</td>
+                      <td className="px-4 py-3 text-[13px] font-medium text-foreground">
+                        {dept.name}
+                      </td>
+                      <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                        {dept.description || "—"}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
-                          {deptUnits.length === 0 && <span className="text-[13px] text-muted-foreground">—</span>}
+                          {deptUnits.length === 0 && (
+                            <span className="text-[13px] text-muted-foreground">
+                              —
+                            </span>
+                          )}
                           {deptUnits.map((u) => (
-                            <Badge key={u!.id} variant="secondary" className="text-[11px]">
+                            <Badge
+                              key={u!.id}
+                              variant="secondary"
+                              className="text-[11px]"
+                            >
                               {u!.code || u!.name}
                             </Badge>
                           ))}
@@ -1238,8 +1372,7 @@ export default function OrganizacaoPage({
               </tbody>
             </table>
           </div>
-        )
-      )}
+        ))}
 
       {activeTab === "cargos" &&
         (posLoading ? (
@@ -1315,7 +1448,10 @@ export default function OrganizacaoPage({
                       }}
                     >
                       {canWriteModule("positions") && (
-                        <td className="px-3 py-4 w-10" onClick={(e) => e.stopPropagation()}>
+                        <td
+                          className="px-3 py-4 w-10"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -1450,7 +1586,10 @@ export default function OrganizacaoPage({
               </div>
               <div>
                 <Label>Número</Label>
-                <Input {...unitForm.register("streetNumber")} placeholder="100" />
+                <Input
+                  {...unitForm.register("streetNumber")}
+                  placeholder="100"
+                />
               </div>
               <div>
                 <Label>Bairro</Label>
@@ -1516,7 +1655,11 @@ export default function OrganizacaoPage({
                 Próximo
               </Button>
             ) : (
-              <Button type="submit" size="sm" isLoading={createUnitMut.isPending}>
+              <Button
+                type="submit"
+                size="sm"
+                isLoading={createUnitMut.isPending}
+              >
                 Salvar
               </Button>
             )}
@@ -1524,23 +1667,63 @@ export default function OrganizacaoPage({
         </form>
       </Dialog>
 
-      <Dialog open={confirmDeleteUnitsOpen} onOpenChange={setConfirmDeleteUnitsOpen} title="Confirmar Exclusão">
+      <Dialog
+        open={confirmDeleteUnitsOpen}
+        onOpenChange={setConfirmDeleteUnitsOpen}
+        title="Confirmar Exclusão"
+      >
         <p className="text-sm text-muted-foreground mt-2">
-          Tem certeza que deseja excluir {selectedUnitIds.size} unidade{selectedUnitIds.size > 1 ? "s" : ""}?
+          Tem certeza que deseja excluir {selectedUnitIds.size} unidade
+          {selectedUnitIds.size > 1 ? "s" : ""}?
         </p>
         <DialogFooter>
-          <Button type="button" variant="outline" size="sm" onClick={() => setConfirmDeleteUnitsOpen(false)}>Cancelar</Button>
-          <Button type="button" variant="destructive" size="sm" onClick={executeBulkDeleteUnits} isLoading={isDeletingUnits}>Excluir</Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirmDeleteUnitsOpen(false)}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={executeBulkDeleteUnits}
+            isLoading={isDeletingUnits}
+          >
+            Excluir
+          </Button>
         </DialogFooter>
       </Dialog>
 
-      <Dialog open={confirmDeletePosOpen} onOpenChange={setConfirmDeletePosOpen} title="Confirmar Exclusão">
+      <Dialog
+        open={confirmDeletePosOpen}
+        onOpenChange={setConfirmDeletePosOpen}
+        title="Confirmar Exclusão"
+      >
         <p className="text-sm text-muted-foreground mt-2">
-          Tem certeza que deseja excluir {selectedPosIds.size} cargo{selectedPosIds.size > 1 ? "s" : ""}?
+          Tem certeza que deseja excluir {selectedPosIds.size} cargo
+          {selectedPosIds.size > 1 ? "s" : ""}?
         </p>
         <DialogFooter>
-          <Button type="button" variant="outline" size="sm" onClick={() => setConfirmDeletePosOpen(false)}>Cancelar</Button>
-          <Button type="button" variant="destructive" size="sm" onClick={executeBulkDeletePositions} isLoading={isDeletingPositions}>Excluir</Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirmDeletePosOpen(false)}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={executeBulkDeletePositions}
+            isLoading={isDeletingPositions}
+          >
+            Excluir
+          </Button>
         </DialogFooter>
       </Dialog>
 
@@ -1606,7 +1789,9 @@ export default function OrganizacaoPage({
                   onClick={() => {
                     const currentIds = deptForm.getValues("unitIds") || [];
                     const allIds = units.map((unit) => unit.id);
-                    const allSelected = allIds.every((id) => currentIds.includes(id));
+                    const allSelected = allIds.every((id) =>
+                      currentIds.includes(id),
+                    );
                     deptForm.setValue("unitIds", allSelected ? [] : allIds);
                   }}
                 >
@@ -1643,7 +1828,10 @@ export default function OrganizacaoPage({
                         className="cursor-pointer rounded border-border text-primary"
                       />
                       <span className="truncate">{unit.name}</span>
-                      <Badge variant="secondary" className="ml-auto shrink-0 text-[9px]">
+                      <Badge
+                        variant="secondary"
+                        className="ml-auto shrink-0 text-[9px]"
+                      >
                         {unit.type}
                       </Badge>
                     </label>
@@ -1707,16 +1895,36 @@ export default function OrganizacaoPage({
         open={posDialogOpen}
         onOpenChange={setPosDialogOpen}
         title={editingPosId ? "Editar Cargo" : "Novo Cargo"}
-        description={["Informações básicas", "Descrição do cargo", "Requisitos", "Responsabilidades", "Informações adicionais"][posStep]}
+        description={
+          [
+            "Informações básicas",
+            "Descrição do cargo",
+            "Requisitos",
+            "Responsabilidades",
+            "Informações adicionais",
+          ][posStep]
+        }
         size="lg"
       >
-        <form onSubmit={posForm.handleSubmit(onPosSubmit, (errors) => {
-          const field = Object.keys(errors)[0];
-          if (field === "name") setPosStep(0);
-          toast({ title: "Preencha os campos obrigatórios", description: `O campo "${field === "name" ? "Título" : field}" é obrigatório.`, variant: "destructive" });
-        })}>
+        <form
+          onSubmit={posForm.handleSubmit(onPosSubmit, (errors) => {
+            const field = Object.keys(errors)[0];
+            if (field === "name") setPosStep(0);
+            toast({
+              title: "Preencha os campos obrigatórios",
+              description: `O campo "${field === "name" ? "Título" : field}" é obrigatório.`,
+              variant: "destructive",
+            });
+          })}
+        >
           <div className="flex items-center gap-1 mb-5">
-            {["Básico", "Descrição", "Requisitos", "Responsabilidades", "Adicional"].map((label, i) => (
+            {[
+              "Básico",
+              "Descrição",
+              "Requisitos",
+              "Responsabilidades",
+              "Adicional",
+            ].map((label, i) => (
               <React.Fragment key={label}>
                 {i > 0 && <div className="h-px flex-1 bg-border" />}
                 <button
@@ -1827,16 +2035,31 @@ export default function OrganizacaoPage({
 
           <DialogFooter>
             {posStep > 0 ? (
-              <Button type="button" variant="outline" size="sm" onClick={() => setPosStep(posStep - 1)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPosStep(posStep - 1)}
+              >
                 Anterior
               </Button>
             ) : (
-              <Button type="button" variant="outline" size="sm" onClick={() => setPosDialogOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPosDialogOpen(false)}
+              >
                 Cancelar
               </Button>
             )}
             {posStep < 4 ? (
-              <Button key="next" type="button" size="sm" onClick={() => setPosStep(posStep + 1)}>
+              <Button
+                key="next"
+                type="button"
+                size="sm"
+                onClick={() => setPosStep(posStep + 1)}
+              >
                 Próximo
               </Button>
             ) : (
@@ -1855,7 +2078,10 @@ export default function OrganizacaoPage({
 
       <Dialog
         open={posImportOpen}
-        onOpenChange={(open) => { if (!open) resetPosImport(); else setPosImportOpen(true); }}
+        onOpenChange={(open) => {
+          if (!open) resetPosImport();
+          else setPosImportOpen(true);
+        }}
         title="Importar Cargos"
         description="Importe cargos a partir de uma planilha Excel"
         size="lg"
@@ -1863,39 +2089,55 @@ export default function OrganizacaoPage({
         <div className="space-y-4">
           {posImportResult ? (
             <div className="space-y-4 text-center py-4">
-              <p className="text-lg font-semibold text-foreground">Importação concluída</p>
+              <p className="text-lg font-semibold text-foreground">
+                Importação concluída
+              </p>
               <div className="grid grid-cols-4 gap-3 text-center text-[13px]">
                 <div>
-                  <p className="text-xl font-bold text-emerald-600">{posImportResult.created}</p>
+                  <p className="text-xl font-bold text-emerald-600">
+                    {posImportResult.created}
+                  </p>
                   <p className="text-muted-foreground">criados</p>
                 </div>
                 <div>
-                  <p className="text-xl font-bold text-blue-600">{posImportResult.updated}</p>
+                  <p className="text-xl font-bold text-blue-600">
+                    {posImportResult.updated}
+                  </p>
                   <p className="text-muted-foreground">atualizados</p>
                 </div>
                 <div>
-                  <p className="text-xl font-bold text-gray-500">{posImportResult.skipped}</p>
+                  <p className="text-xl font-bold text-gray-500">
+                    {posImportResult.skipped}
+                  </p>
                   <p className="text-muted-foreground">ignorados</p>
                 </div>
                 {(posImportResult.errors ?? 0) > 0 && (
                   <div>
-                    <p className="text-xl font-bold text-red-600">{posImportResult.errors}</p>
+                    <p className="text-xl font-bold text-red-600">
+                      {posImportResult.errors}
+                    </p>
                     <p className="text-red-600">erros</p>
                   </div>
                 )}
               </div>
-              {posImportResult.errorDetails && posImportResult.errorDetails.length > 0 && (
-                <div className="text-left bg-red-50 border border-red-200 rounded-lg p-3 text-[12px] max-h-40 overflow-y-auto space-y-1">
-                  <p className="font-semibold text-red-700 mb-1">Detalhes dos erros:</p>
-                  {posImportResult.errorDetails.map((ed, i) => (
-                    <p key={i} className="text-red-600">
-                      <strong>Linha {(ed.index ?? 0) + 1}:</strong> {ed.title} — {ed.error}
+              {posImportResult.errorDetails &&
+                posImportResult.errorDetails.length > 0 && (
+                  <div className="text-left bg-red-50 border border-red-200 rounded-lg p-3 text-[12px] max-h-40 overflow-y-auto space-y-1">
+                    <p className="font-semibold text-red-700 mb-1">
+                      Detalhes dos erros:
                     </p>
-                  ))}
-                </div>
-              )}
+                    {posImportResult.errorDetails.map((ed, i) => (
+                      <p key={i} className="text-red-600">
+                        <strong>Linha {(ed.index ?? 0) + 1}:</strong> {ed.title}{" "}
+                        — {ed.error}
+                      </p>
+                    ))}
+                  </div>
+                )}
               <div className="text-center">
-                <Button onClick={resetPosImport} className="mt-1">Fechar</Button>
+                <Button onClick={resetPosImport} className="mt-1">
+                  Fechar
+                </Button>
               </div>
             </div>
           ) : posImportStep === 1 ? (
@@ -1903,7 +2145,8 @@ export default function OrganizacaoPage({
               <div className="border-2 border-dashed border-border rounded-xl p-6 text-center bg-secondary/30">
                 <FileText className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
                 <p className="text-muted-foreground mb-3">
-                  Anexe um arquivo <strong>.xlsx</strong> ou <strong>.csv</strong>
+                  Anexe um arquivo <strong>.xlsx</strong> ou{" "}
+                  <strong>.csv</strong>
                 </p>
                 <Input
                   type="file"
@@ -1919,8 +2162,19 @@ export default function OrganizacaoPage({
                 </p>
               )}
               <DialogFooter>
-                <Button type="button" variant="outline" size="sm" onClick={resetPosImport}>Cancelar</Button>
-                <Button size="sm" onClick={() => setPosImportStep(2)} disabled={!posPendingFile || !posImportPreview}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={resetPosImport}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setPosImportStep(2)}
+                  disabled={!posPendingFile || !posImportPreview}
+                >
                   Continuar
                 </Button>
               </DialogFooter>
@@ -1929,14 +2183,20 @@ export default function OrganizacaoPage({
             <>
               <div className="space-y-3">
                 <div className="bg-secondary/50 border border-border rounded-xl p-4">
-                  <p className="font-medium text-foreground mb-3">Análise da planilha</p>
+                  <p className="font-medium text-foreground mb-3">
+                    Análise da planilha
+                  </p>
                   <div className="grid grid-cols-2 gap-3 text-center text-[13px]">
                     <div>
-                      <p className="text-xl font-bold text-emerald-600">{posImportPreview?.newCount ?? 0}</p>
+                      <p className="text-xl font-bold text-emerald-600">
+                        {posImportPreview?.newCount ?? 0}
+                      </p>
                       <p className="text-muted-foreground">novos</p>
                     </div>
                     <div>
-                      <p className="text-xl font-bold text-amber-600">{posImportPreview?.existingCount ?? 0}</p>
+                      <p className="text-xl font-bold text-amber-600">
+                        {posImportPreview?.existingCount ?? 0}
+                      </p>
                       <p className="text-muted-foreground">já cadastrados</p>
                     </div>
                   </div>
@@ -1945,40 +2205,57 @@ export default function OrganizacaoPage({
                 {posImportPreview && posImportPreview.existingCount > 0 && (
                   <div className="space-y-2">
                     <p className="text-[13px] font-medium text-foreground">
-                      {posImportPreview.existingCount} cargos já existem (identificados pelo nome). O que fazer com eles?
+                      {posImportPreview.existingCount} cargos já existem
+                      (identificados pelo nome). O que fazer com eles?
                     </p>
                     <div className="grid grid-cols-2 gap-3">
                       <button
                         type="button"
                         onClick={() => setPosConflictStrategy("skip")}
                         className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer ${
-                          posConflictStrategy === "skip" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/30"
+                          posConflictStrategy === "skip"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-muted-foreground/30"
                         }`}
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <SkipForward className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium text-[13px]">Ignorar</span>
+                          <span className="font-medium text-[13px]">
+                            Ignorar
+                          </span>
                         </div>
-                        <p className="text-[11px] text-muted-foreground">Manter os dados atuais sem alteração</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Manter os dados atuais sem alteração
+                        </p>
                       </button>
                       <button
                         type="button"
                         onClick={() => setPosConflictStrategy("update")}
                         className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer ${
-                          posConflictStrategy === "update" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/30"
+                          posConflictStrategy === "update"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-muted-foreground/30"
                         }`}
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <RefreshCw className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium text-[13px]">Atualizar</span>
+                          <span className="font-medium text-[13px]">
+                            Atualizar
+                          </span>
                         </div>
-                        <p className="text-[11px] text-muted-foreground">Sobrescrever com os dados da planilha</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Sobrescrever com os dados da planilha
+                        </p>
                       </button>
                     </div>
                     {posImportPreview.existingNames.length > 0 && (
                       <details className="text-[12px] text-muted-foreground">
                         <summary className="cursor-pointer hover:text-foreground">
-                          Ver exemplos de cargos já cadastrados ({posImportPreview.existingCount > 10 ? `mostrando 10 de ${posImportPreview.existingCount}` : posImportPreview.existingCount})
+                          Ver exemplos de cargos já cadastrados (
+                          {posImportPreview.existingCount > 10
+                            ? `mostrando 10 de ${posImportPreview.existingCount}`
+                            : posImportPreview.existingCount}
+                          )
                         </summary>
                         <ul className="mt-1 space-y-0.5 pl-4 list-disc">
                           {posImportPreview.existingNames.map((name, i) => (
@@ -1992,11 +2269,23 @@ export default function OrganizacaoPage({
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="outline" size="sm" onClick={() => setPosImportStep(1)}>Voltar</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPosImportStep(1)}
+                >
+                  Voltar
+                </Button>
                 <Button
                   size="sm"
                   onClick={onConfirmPosImport}
-                  disabled={!posPendingFile || !posImportPreview || posImportPreview.total === 0 || importPosMut.isPending}
+                  disabled={
+                    !posPendingFile ||
+                    !posImportPreview ||
+                    posImportPreview.total === 0 ||
+                    importPosMut.isPending
+                  }
                   isLoading={importPosMut.isPending}
                 >
                   Importar ({posImportPreview?.total || 0})
@@ -2008,94 +2297,106 @@ export default function OrganizacaoPage({
       </Dialog>
 
       {/* Floating bulk action bars */}
-      {hasMounted && activeTab === "unidades" && canWriteModule("units") && selectedUnitIds.size > 0 && createPortal(
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-in fade-in-0 slide-in-from-bottom-4 duration-200">
-          <TooltipProvider delayDuration={200}>
-            <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/90 px-3 py-2 shadow-lg backdrop-blur-xl">
-              <span className="px-2 text-[13px] font-medium text-foreground">
-                {selectedUnitIds.size} unidade{selectedUnitIds.size > 1 ? "s" : ""} selecionada{selectedUnitIds.size > 1 ? "s" : ""}
-              </span>
-              <div className="mx-1 h-5 w-px bg-border" />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => setConfirmDeleteUnitsOpen(true)}
-                    disabled={isDeletingUnits}
-                    aria-label="Excluir unidades selecionadas"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Excluir selecionadas</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => setSelectedUnitIds(new Set())}
-                    aria-label="Limpar seleção de unidades"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Limpar seleção</TooltipContent>
-              </Tooltip>
-            </div>
-          </TooltipProvider>
-        </div>,
-        document.body,
-      )}
-      {hasMounted && activeTab === "cargos" && canWriteModule("positions") && selectedPosIds.size > 0 && createPortal(
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-in fade-in-0 slide-in-from-bottom-4 duration-200">
-          <TooltipProvider delayDuration={200}>
-            <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/90 px-3 py-2 shadow-lg backdrop-blur-xl">
-              <span className="px-2 text-[13px] font-medium text-foreground">
-                {selectedPosIds.size} cargo{selectedPosIds.size > 1 ? "s" : ""} selecionado{selectedPosIds.size > 1 ? "s" : ""}
-              </span>
-              <div className="mx-1 h-5 w-px bg-border" />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => setConfirmDeletePosOpen(true)}
-                    disabled={isDeletingPositions}
-                    aria-label="Excluir cargos selecionados"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Excluir selecionados</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => setSelectedPosIds(new Set())}
-                    aria-label="Limpar seleção de cargos"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Limpar seleção</TooltipContent>
-              </Tooltip>
-            </div>
-          </TooltipProvider>
-        </div>,
-        document.body,
-      )}
+      {hasMounted &&
+        activeTab === "unidades" &&
+        canWriteModule("units") &&
+        selectedUnitIds.size > 0 &&
+        createPortal(
+          <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-in fade-in-0 slide-in-from-bottom-4 duration-200">
+            <TooltipProvider delayDuration={200}>
+              <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/90 px-3 py-2 shadow-lg backdrop-blur-xl">
+                <span className="px-2 text-[13px] font-medium text-foreground">
+                  {selectedUnitIds.size} unidade
+                  {selectedUnitIds.size > 1 ? "s" : ""} selecionada
+                  {selectedUnitIds.size > 1 ? "s" : ""}
+                </span>
+                <div className="mx-1 h-5 w-px bg-border" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => setConfirmDeleteUnitsOpen(true)}
+                      disabled={isDeletingUnits}
+                      aria-label="Excluir unidades selecionadas"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Excluir selecionadas</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setSelectedUnitIds(new Set())}
+                      aria-label="Limpar seleção de unidades"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Limpar seleção</TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
+          </div>,
+          document.body,
+        )}
+      {hasMounted &&
+        activeTab === "cargos" &&
+        canWriteModule("positions") &&
+        selectedPosIds.size > 0 &&
+        createPortal(
+          <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 animate-in fade-in-0 slide-in-from-bottom-4 duration-200">
+            <TooltipProvider delayDuration={200}>
+              <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-card/90 px-3 py-2 shadow-lg backdrop-blur-xl">
+                <span className="px-2 text-[13px] font-medium text-foreground">
+                  {selectedPosIds.size} cargo
+                  {selectedPosIds.size > 1 ? "s" : ""} selecionado
+                  {selectedPosIds.size > 1 ? "s" : ""}
+                </span>
+                <div className="mx-1 h-5 w-px bg-border" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => setConfirmDeletePosOpen(true)}
+                      disabled={isDeletingPositions}
+                      aria-label="Excluir cargos selecionados"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Excluir selecionados</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setSelectedPosIds(new Set())}
+                      aria-label="Limpar seleção de cargos"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Limpar seleção</TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

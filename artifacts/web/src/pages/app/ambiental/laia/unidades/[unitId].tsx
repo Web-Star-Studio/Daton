@@ -7,6 +7,8 @@ import {
 } from "@workspace/api-client-react";
 import { useLocation, useParams } from "wouter";
 import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
+import { ArrowLeft, Plus } from "lucide-react";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +19,14 @@ import {
 } from "@/components/ui/chart";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -25,7 +34,11 @@ import {
   usePageSubtitle,
   usePageTitle,
 } from "@/contexts/LayoutContext";
-import { LaiaAssessmentDialog, getLatestUnitDraftId, type LaiaAssessmentDialogSession } from "@/components/environmental/laia/assessment-dialog";
+import {
+  LaiaAssessmentDialog,
+  getLatestUnitDraftId,
+  type LaiaAssessmentDialogSession,
+} from "@/components/environmental/laia/assessment-dialog";
 import { LaiaSectorDialog } from "@/components/environmental/laia/sector-dialog";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -168,7 +181,10 @@ function DistributionChartCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <ChartContainer config={config} className="h-[260px] w-full">
-          <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <BarChart
+            data={data}
+            margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+          >
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="label"
@@ -179,7 +195,12 @@ function DistributionChartCard({
               textAnchor="end"
               height={56}
             />
-            <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={28} />
+            <YAxis
+              allowDecimals={false}
+              tickLine={false}
+              axisLine={false}
+              width={28}
+            />
             <ChartTooltip
               cursor={false}
               content={<ChartTooltipContent hideIndicator />}
@@ -242,12 +263,16 @@ export default function EnvironmentalLaiaUnitDetailPage() {
   const { data: units = [] } = useListUnits(orgId || 0, {
     query: { enabled: !!orgId, queryKey: getListUnitsQueryKey(orgId || 0) },
   });
-  const { data: legislations = [] } = useListLegislations(orgId || 0, undefined, {
-    query: {
-      enabled: !!orgId,
-      queryKey: getListLegislationsQueryKey(orgId || 0, undefined),
+  const { data: legislations = [] } = useListLegislations(
+    orgId || 0,
+    undefined,
+    {
+      query: {
+        enabled: !!orgId,
+        queryKey: getListLegislationsQueryKey(orgId || 0, undefined),
+      },
     },
-  });
+  );
 
   const updateBranchConfigMutation = useUpdateLaiaBranchConfig(orgId);
   const updateSectorMutation = useUpdateLaiaSector(orgId);
@@ -319,7 +344,8 @@ export default function EnvironmentalLaiaUnitDetailPage() {
     } catch (error) {
       toast({
         title: "Falha ao atualizar status",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -339,7 +365,8 @@ export default function EnvironmentalLaiaUnitDetailPage() {
     } catch (error) {
       toast({
         title: "Falha ao atualizar setor",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -349,19 +376,26 @@ export default function EnvironmentalLaiaUnitDetailPage() {
 
   useHeaderActions(
     <div className="flex items-center gap-2">
-      <Button
+      <HeaderActionButton
         variant="outline"
         size="sm"
         onClick={() => navigate(detailBasePath)}
-      >
-        Voltar para LAIA
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => setSectorDialogOpen(true)}>
-        Novo setor
-      </Button>
-      <Button size="sm" onClick={handleOpenNewAssessment}>
-        Nova avaliação
-      </Button>
+        label="Voltar para LAIA"
+        icon={<ArrowLeft className="h-3.5 w-3.5" />}
+      />
+      <HeaderActionButton
+        variant="outline"
+        size="sm"
+        onClick={() => setSectorDialogOpen(true)}
+        label="Novo setor"
+        icon={<Plus className="h-3.5 w-3.5" />}
+      />
+      <HeaderActionButton
+        size="sm"
+        onClick={handleOpenNewAssessment}
+        label="Nova avaliação"
+        icon={<Plus className="h-3.5 w-3.5" />}
+      />
     </div>,
   );
 
@@ -377,11 +411,14 @@ export default function EnvironmentalLaiaUnitDetailPage() {
       },
       {
         title: "Significativas",
-        value: assessments.filter((item) => item.significance === "significant").length,
+        value: assessments.filter((item) => item.significance === "significant")
+          .length,
       },
       {
         title: "Não significativas",
-        value: assessments.filter((item) => item.significance === "not_significant").length,
+        value: assessments.filter(
+          (item) => item.significance === "not_significant",
+        ).length,
       },
     ],
     [assessments, overview?.totalAssessments],
@@ -449,7 +486,9 @@ export default function EnvironmentalLaiaUnitDetailPage() {
                 <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                   {card.title}
                 </p>
-                <p className="mt-3 text-3xl font-semibold tracking-tight">{card.value}</p>
+                <p className="mt-3 text-3xl font-semibold tracking-tight">
+                  {card.value}
+                </p>
               </div>
             ))}
           </div>
@@ -507,20 +546,28 @@ export default function EnvironmentalLaiaUnitDetailPage() {
                 <TableBody>
                   {assessments.map((assessment) => (
                     <TableRow key={assessment.id}>
-                      <TableCell className="font-medium">{assessment.aspectCode}</TableCell>
-                      <TableCell>{assessment.sectorName || "Sem setor"}</TableCell>
+                      <TableCell className="font-medium">
+                        {assessment.aspectCode}
+                      </TableCell>
+                      <TableCell>
+                        {assessment.sectorName || "Sem setor"}
+                      </TableCell>
                       <TableCell>{assessment.activityOperation}</TableCell>
                       <TableCell>{assessment.environmentalAspect}</TableCell>
                       <TableCell>{assessment.environmentalImpact}</TableCell>
                       <TableCell>{assessment.totalScore ?? "-"}</TableCell>
                       <TableCell>
-                        <Badge variant={getCategoryBadgeVariant(assessment.category)}>
+                        <Badge
+                          variant={getCategoryBadgeVariant(assessment.category)}
+                        >
                           {getCategoryLabel(assessment.category)}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant={getSignificanceBadgeVariant(assessment.significance)}
+                          variant={getSignificanceBadgeVariant(
+                            assessment.significance,
+                          )}
                         >
                           {getSignificanceLabel(assessment.significance)}
                         </Badge>
@@ -538,7 +585,10 @@ export default function EnvironmentalLaiaUnitDetailPage() {
                   ))}
                   {assessments.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                      <TableCell
+                        colSpan={9}
+                        className="py-10 text-center text-muted-foreground"
+                      >
                         Nenhuma avaliação cadastrada para esta unidade.
                       </TableCell>
                     </TableRow>
@@ -589,7 +639,10 @@ export default function EnvironmentalLaiaUnitDetailPage() {
                   ))}
                   {sectors.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                      <TableCell
+                        colSpan={4}
+                        className="py-10 text-center text-muted-foreground"
+                      >
                         Nenhum setor cadastrado para esta unidade.
                       </TableCell>
                     </TableRow>

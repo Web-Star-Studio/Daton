@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useHeaderActions } from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -178,7 +179,9 @@ export function OrganizationUsersSettingsSection() {
 
     if (selectedInviteIds.size > 0) {
       const selectedInvites =
-        invitationsData?.invitations?.filter((inv) => selectedInviteIds.has(inv.id)) || [];
+        invitationsData?.invitations?.filter((inv) =>
+          selectedInviteIds.has(inv.id),
+        ) || [];
       const pendingIds = selectedInvites
         .filter((inv) => inv.status === "pending")
         .map((inv) => inv.id);
@@ -189,10 +192,11 @@ export function OrganizationUsersSettingsSection() {
       return (
         <div className="flex items-center gap-2">
           <span className="mr-1 text-xs text-muted-foreground">
-            {selectedInviteIds.size} selecionado{selectedInviteIds.size > 1 ? "s" : ""}
+            {selectedInviteIds.size} selecionado
+            {selectedInviteIds.size > 1 ? "s" : ""}
           </span>
           {pendingIds.length > 0 && (
-            <Button
+            <HeaderActionButton
               size="sm"
               variant="destructive"
               onClick={async () => {
@@ -219,13 +223,14 @@ export function OrganizationUsersSettingsSection() {
                 }
               }}
               isLoading={revokeInviteMut.isPending}
+              label={`Revogar (${pendingIds.length})`}
+              icon={<X className="h-3.5 w-3.5" />}
             >
-              <X className="mr-1.5 h-3.5 w-3.5" />
               Revogar ({pendingIds.length})
-            </Button>
+            </HeaderActionButton>
           )}
           {deletableIds.length > 0 && (
-            <Button
+            <HeaderActionButton
               size="sm"
               variant="destructive"
               onClick={async () => {
@@ -252,25 +257,28 @@ export function OrganizationUsersSettingsSection() {
                 }
               }}
               isLoading={deleteInviteMut.isPending}
+              label={`Excluir (${deletableIds.length})`}
+              icon={<Trash2 className="h-3.5 w-3.5" />}
             >
-              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
               Excluir ({deletableIds.length})
-            </Button>
+            </HeaderActionButton>
           )}
-          <Button
+          <HeaderActionButton
             size="sm"
             variant="outline"
             onClick={() => setSelectedInviteIds(new Set())}
+            label="Cancelar seleção"
+            icon={<X className="h-3.5 w-3.5" />}
           >
             Cancelar
-          </Button>
+          </HeaderActionButton>
         </div>
       );
     }
 
     return (
       <div className="flex items-center gap-2">
-        <Button
+        <HeaderActionButton
           size="sm"
           variant="outline"
           onClick={() => {
@@ -278,20 +286,22 @@ export function OrganizationUsersSettingsSection() {
             setInviteError("");
             setInviteDialogOpen(true);
           }}
+          label="Convidar Usuário"
+          icon={<Mail className="h-3.5 w-3.5" />}
         >
-          <Mail className="mr-1.5 h-3.5 w-3.5" />
           Convidar Usuário
-        </Button>
-        <Button
+        </HeaderActionButton>
+        <HeaderActionButton
           size="sm"
           onClick={() => {
             resetCreateUserDialog();
             setCreateUserDialogOpen(true);
           }}
+          label="Criar Usuário"
+          icon={<Plus className="h-3.5 w-3.5" />}
         >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
           Criar Usuário
-        </Button>
+        </HeaderActionButton>
       </div>
     );
   }, [
@@ -317,7 +327,9 @@ export function OrganizationUsersSettingsSection() {
             Membros da Organização
           </h3>
           {orgUsersLoading ? (
-            <div className="py-12 text-center text-muted-foreground">Carregando...</div>
+            <div className="py-12 text-center text-muted-foreground">
+              Carregando...
+            </div>
           ) : (
             <div className="overflow-hidden">
               <table className="w-full">
@@ -339,7 +351,8 @@ export function OrganizationUsersSettingsSection() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {(!orgUsersData?.users || orgUsersData.users.length === 0) && (
+                  {(!orgUsersData?.users ||
+                    orgUsersData.users.length === 0) && (
                     <tr>
                       <td
                         colSpan={5}
@@ -355,7 +368,10 @@ export function OrganizationUsersSettingsSection() {
                       u.role === "org_admin" || u.role === "platform_admin";
 
                     return (
-                      <tr key={u.id} className="transition-colors hover:bg-muted/50">
+                      <tr
+                        key={u.id}
+                        className="transition-colors hover:bg-muted/50"
+                      >
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/5 text-xs font-medium text-foreground/60">
@@ -365,7 +381,10 @@ export function OrganizationUsersSettingsSection() {
                               {u.name}
                             </span>
                             {isSelf && (
-                              <Badge variant="secondary" className="text-[10px]">
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px]"
+                              >
                                 Você
                               </Badge>
                             )}
@@ -453,7 +472,9 @@ export function OrganizationUsersSettingsSection() {
             Convites
           </h3>
           {invitationsLoading ? (
-            <div className="py-12 text-center text-muted-foreground">Carregando...</div>
+            <div className="py-12 text-center text-muted-foreground">
+              Carregando...
+            </div>
           ) : (
             <div className="overflow-hidden">
               <table className="w-full">
@@ -476,7 +497,9 @@ export function OrganizationUsersSettingsSection() {
                           ) {
                             setSelectedInviteIds(new Set());
                           } else {
-                            setSelectedInviteIds(new Set(all.map((inv) => inv.id)));
+                            setSelectedInviteIds(
+                              new Set(all.map((inv) => inv.id)),
+                            );
                           }
                         }}
                         className="cursor-pointer rounded border-border text-primary"
@@ -521,7 +544,11 @@ export function OrganizationUsersSettingsSection() {
                     return (
                       <tr
                         key={inv.id}
-                        className={isSelected ? "bg-primary/5" : "transition-colors hover:bg-muted/50"}
+                        className={
+                          isSelected
+                            ? "bg-primary/5"
+                            : "transition-colors hover:bg-muted/50"
+                        }
                       >
                         <td className="w-10 px-3 py-4">
                           <input
@@ -638,7 +665,10 @@ export function OrganizationUsersSettingsSection() {
             setInviteError("");
 
             if (!inviteForm.email.trim()) return;
-            if (inviteForm.role !== "org_admin" && inviteForm.modules.length === 0) {
+            if (
+              inviteForm.role !== "org_admin" &&
+              inviteForm.modules.length === 0
+            ) {
               setInviteError("Selecione ao menos um módulo para este convite");
               return;
             }
@@ -648,7 +678,8 @@ export function OrganizationUsersSettingsSection() {
                 data: {
                   email: inviteForm.email.trim(),
                   role: inviteForm.role,
-                  modules: inviteForm.role === "org_admin" ? [] : inviteForm.modules,
+                  modules:
+                    inviteForm.role === "org_admin" ? [] : inviteForm.modules,
                 },
               });
               setInviteForm(emptyInviteForm);
@@ -709,7 +740,8 @@ export function OrganizationUsersSettingsSection() {
               <Label>Módulos</Label>
               {inviteForm.role === "org_admin" ? (
                 <div className="mt-2 rounded-lg border border-border bg-muted/20 px-3 py-3 text-[13px] text-muted-foreground">
-                  Admins da organização recebem acesso total. Nenhum módulo precisa ser selecionado.
+                  Admins da organização recebem acesso total. Nenhum módulo
+                  precisa ser selecionado.
                 </div>
               ) : (
                 <div className="mt-2 grid grid-cols-2 gap-2">
@@ -725,21 +757,27 @@ export function OrganizationUsersSettingsSection() {
                           setInviteForm((prev) => ({
                             ...prev,
                             modules: prev.modules.includes(mod)
-                              ? prev.modules.filter((currentModule) => currentModule !== mod)
+                              ? prev.modules.filter(
+                                  (currentModule) => currentModule !== mod,
+                                )
                               : [...prev.modules, mod],
                           }));
                           setInviteError("");
                         }}
                         className="rounded border-border text-primary"
                       />
-                      <span className="text-[13px]">{MODULE_LABELS[mod] || mod}</span>
+                      <span className="text-[13px]">
+                        {MODULE_LABELS[mod] || mod}
+                      </span>
                     </label>
                   ))}
                 </div>
               )}
             </div>
           </div>
-          {inviteError && <p className="mt-3 text-sm text-destructive">{inviteError}</p>}
+          {inviteError && (
+            <p className="mt-3 text-sm text-destructive">{inviteError}</p>
+          )}
           <DialogFooter>
             <Button
               type="button"
@@ -749,7 +787,11 @@ export function OrganizationUsersSettingsSection() {
             >
               Cancelar
             </Button>
-            <Button type="submit" size="sm" isLoading={createInviteMut.isPending}>
+            <Button
+              type="submit"
+              size="sm"
+              isLoading={createInviteMut.isPending}
+            >
               <Mail className="mr-1.5 h-4 w-4" />
               Enviar Convite
             </Button>
@@ -876,7 +918,8 @@ export function OrganizationUsersSettingsSection() {
               <Label>Módulos</Label>
               {createUserRole === "org_admin" ? (
                 <div className="mt-2 rounded-lg border border-border bg-muted/20 px-3 py-3 text-[13px] text-muted-foreground">
-                  Admins da organização recebem acesso total. Nenhum módulo precisa ser selecionado.
+                  Admins da organização recebem acesso total. Nenhum módulo
+                  precisa ser selecionado.
                 </div>
               ) : (
                 <>
@@ -891,7 +934,9 @@ export function OrganizationUsersSettingsSection() {
                           checked={createUserModules.includes(mod)}
                           onChange={() => {
                             const nextModules = createUserModules.includes(mod)
-                              ? createUserModules.filter((currentModule) => currentModule !== mod)
+                              ? createUserModules.filter(
+                                  (currentModule) => currentModule !== mod,
+                                )
                               : [...createUserModules, mod];
                             createUserForm.setValue("modules", nextModules, {
                               shouldValidate: true,
@@ -900,13 +945,18 @@ export function OrganizationUsersSettingsSection() {
                           }}
                           className="rounded border-border text-primary"
                         />
-                        <span className="text-[13px]">{MODULE_LABELS[mod] || mod}</span>
+                        <span className="text-[13px]">
+                          {MODULE_LABELS[mod] || mod}
+                        </span>
                       </label>
                     ))}
                   </div>
                   {createUserForm.formState.errors.modules && (
                     <p className="mt-1.5 text-xs text-destructive">
-                      {createUserForm.formState.errors.modules.message as string}
+                      {
+                        createUserForm.formState.errors.modules
+                          .message as string
+                      }
                     </p>
                   )}
                 </>
@@ -928,7 +978,11 @@ export function OrganizationUsersSettingsSection() {
             >
               Cancelar
             </Button>
-            <Button type="submit" size="sm" isLoading={createOrgUserMut.isPending}>
+            <Button
+              type="submit"
+              size="sm"
+              isLoading={createOrgUserMut.isPending}
+            >
               <Plus className="mr-1.5 h-4 w-4" />
               Criar Usuário
             </Button>
@@ -950,7 +1004,9 @@ export function OrganizationUsersSettingsSection() {
               <Label>Cargo</Label>
               <Select
                 value={editRole}
-                onChange={(e) => setEditRole(e.target.value as UpdateUserRoleBodyRole)}
+                onChange={(e) =>
+                  setEditRole(e.target.value as UpdateUserRoleBodyRole)
+                }
               >
                 <option value="operator">Operador</option>
                 <option value="analyst">Analista</option>
@@ -975,13 +1031,17 @@ export function OrganizationUsersSettingsSection() {
                       onChange={() => {
                         setEditModules((prev) =>
                           prev.includes(mod)
-                            ? prev.filter((currentModule) => currentModule !== mod)
+                            ? prev.filter(
+                                (currentModule) => currentModule !== mod,
+                              )
                             : [...prev, mod],
                         );
                       }}
                       className="rounded border-border text-primary"
                     />
-                    <span className="text-[13px]">{MODULE_LABELS[mod] || mod}</span>
+                    <span className="text-[13px]">
+                      {MODULE_LABELS[mod] || mod}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -997,7 +1057,9 @@ export function OrganizationUsersSettingsSection() {
               </Button>
               <Button
                 size="sm"
-                isLoading={updateRoleMut.isPending || updateModulesMut.isPending}
+                isLoading={
+                  updateRoleMut.isPending || updateModulesMut.isPending
+                }
                 onClick={async () => {
                   if (!editingUser) return;
 
@@ -1031,7 +1093,8 @@ export function OrganizationUsersSettingsSection() {
                     });
                     toast({
                       title: "Erro ao atualizar permissões",
-                      description: "Não foi possível salvar todas as alterações. Tente novamente.",
+                      description:
+                        "Não foi possível salvar todas as alterações. Tente novamente.",
                       variant: "destructive",
                     });
                   }

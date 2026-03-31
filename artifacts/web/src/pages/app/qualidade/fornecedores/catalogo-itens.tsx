@@ -5,7 +5,12 @@ import { z } from "zod";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
+import {
+  useHeaderActions,
+  usePageSubtitle,
+  usePageTitle,
+} from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,7 +46,9 @@ const emptyForm: CatalogItemForm = {
 };
 
 function FieldError({ message }: { message?: string }) {
-  return message ? <p className="mt-1.5 text-xs text-destructive">{message}</p> : null;
+  return message ? (
+    <p className="mt-1.5 text-xs text-destructive">{message}</p>
+  ) : null;
 }
 
 export default function SupplierCatalogItemsPage() {
@@ -58,7 +65,9 @@ export default function SupplierCatalogItemsPage() {
   });
 
   usePageTitle("Produtos e Servicos");
-  usePageSubtitle("Cadastre itens reutilizaveis e vincule-os aos fornecedores.");
+  usePageSubtitle(
+    "Cadastre itens reutilizaveis e vincule-os aos fornecedores.",
+  );
 
   const catalogQuery = useQuery({
     queryKey: suppliersKeys.catalogItems(orgId || 0),
@@ -93,7 +102,9 @@ export default function SupplierCatalogItemsPage() {
   }, [catalogQuery.isSuccess, form, isCreatingNew, selectedItem]);
 
   const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: suppliersKeys.catalogItems(orgId!) });
+    queryClient.invalidateQueries({
+      queryKey: suppliersKeys.catalogItems(orgId!),
+    });
     queryClient.invalidateQueries({ queryKey: suppliersKeys.list(orgId!, {}) });
     queryClient.invalidateQueries({ queryKey: suppliersKeys.all });
   };
@@ -111,7 +122,11 @@ export default function SupplierCatalogItemsPage() {
       if (selectedItem && !isCreatingNew) {
         return {
           action: "update" as const,
-          item: await updateSupplierCatalogItem(orgId!, selectedItem.id, payload),
+          item: await updateSupplierCatalogItem(
+            orgId!,
+            selectedItem.id,
+            payload,
+          ),
         };
       }
 
@@ -123,10 +138,18 @@ export default function SupplierCatalogItemsPage() {
     onSuccess: ({ action, item }) => {
       queryClient.setQueryData(
         suppliersKeys.catalogItems(orgId!),
-        (current: Awaited<ReturnType<typeof listSupplierCatalogItems>> | undefined) => {
+        (
+          current:
+            | Awaited<ReturnType<typeof listSupplierCatalogItems>>
+            | undefined,
+        ) => {
           const existingItems = current || [];
-          const nextWithoutItem = existingItems.filter((existingItem) => existingItem.id !== item.id);
-          return [...nextWithoutItem, item].sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
+          const nextWithoutItem = existingItems.filter(
+            (existingItem) => existingItem.id !== item.id,
+          );
+          return [...nextWithoutItem, item].sort((left, right) =>
+            left.name.localeCompare(right.name, "pt-BR"),
+          );
         },
       );
       refresh();
@@ -144,29 +167,34 @@ export default function SupplierCatalogItemsPage() {
     onError: (error) =>
       toast({
         title: "Falha ao salvar item do catálogo",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       }),
   });
 
   useHeaderActions(
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores")}>
-        <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-        Voltar
-      </Button>
+      <HeaderActionButton
+        variant="outline"
+        size="sm"
+        onClick={() => navigate("/app/qualidade/fornecedores")}
+        label="Voltar"
+        icon={<ArrowLeft className="h-3.5 w-3.5" />}
+      />
       {canManageSuppliers ? (
-        <Button
+        <HeaderActionButton
           size="sm"
           onClick={() => {
             setIsCreatingNew(true);
             setSelectedId(null);
             form.reset(emptyForm);
           }}
+          label="Novo item"
+          icon={<Plus className="h-3.5 w-3.5" />}
         >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
           Novo item
-        </Button>
+        </HeaderActionButton>
       ) : null}
     </div>,
   );
@@ -208,7 +236,8 @@ export default function SupplierCatalogItemsPage() {
               >
                 <div className="font-medium text-foreground">{item.name}</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {item.offeringType === "product" ? "Produto" : "Serviço"} · {item.unitOfMeasure || "Sem unidade"} ·{" "}
+                  {item.offeringType === "product" ? "Produto" : "Serviço"} ·{" "}
+                  {item.unitOfMeasure || "Sem unidade"} ·{" "}
                   {item.status === "active" ? "Ativo" : "Inativo"}
                 </div>
               </button>
@@ -219,7 +248,9 @@ export default function SupplierCatalogItemsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{isCreatingNew ? "Novo item de catálogo" : "Detalhes do item"}</CardTitle>
+          <CardTitle>
+            {isCreatingNew ? "Novo item de catálogo" : "Detalhes do item"}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
@@ -242,7 +273,9 @@ export default function SupplierCatalogItemsPage() {
                 <option value="service">Serviço</option>
                 <option value="product">Produto</option>
               </Select>
-              <FieldError message={form.formState.errors.offeringType?.message} />
+              <FieldError
+                message={form.formState.errors.offeringType?.message}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="catalog-item-status">Status</Label>
@@ -263,7 +296,9 @@ export default function SupplierCatalogItemsPage() {
                 {...form.register("unitOfMeasure")}
                 disabled={!canManageSuppliers}
               />
-              <FieldError message={form.formState.errors.unitOfMeasure?.message} />
+              <FieldError
+                message={form.formState.errors.unitOfMeasure?.message}
+              />
             </div>
           </div>
           <div className="space-y-2">
@@ -298,8 +333,13 @@ export default function SupplierCatalogItemsPage() {
                 Descartar
               </Button>
               <Button
-                onClick={form.handleSubmit((values) => saveMutation.mutate(values))}
-                disabled={saveMutation.isPending || (!isCreatingNew && !form.formState.isDirty)}
+                onClick={form.handleSubmit((values) =>
+                  saveMutation.mutate(values),
+                )}
+                disabled={
+                  saveMutation.isPending ||
+                  (!isCreatingNew && !form.formState.isDirty)
+                }
               >
                 {saveMutation.isPending ? "Salvando..." : "Salvar item"}
               </Button>

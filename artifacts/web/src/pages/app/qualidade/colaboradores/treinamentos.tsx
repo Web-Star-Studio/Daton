@@ -43,6 +43,7 @@ import type {
   UpdateTrainingBodyStatus,
 } from "@workspace/api-client-react";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,7 +61,12 @@ import {
 } from "@/components/ui/drawer";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ProfileItemAttachmentsField } from "@/components/employees/profile-item-form-fields";
 import {
   EMPLOYEE_RECORD_ATTACHMENT_ACCEPT,
@@ -91,7 +97,10 @@ const TRAINING_STATUS_LABELS: Record<string, string> = {
   vencido: "Vencido",
 };
 
-const TRAINING_STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+const TRAINING_STATUS_BADGE_VARIANT: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
   pendente: "secondary",
   concluido: "default",
   vencido: "destructive",
@@ -103,7 +112,10 @@ const EFFECTIVENESS_STATUS_LABELS: Record<string, string> = {
   ineffective: "Ineficaz",
 };
 
-const EFFECTIVENESS_STATUS_BADGE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+const EFFECTIVENESS_STATUS_BADGE_VARIANT: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
   pending: "outline",
   effective: "default",
   ineffective: "destructive",
@@ -642,7 +654,15 @@ export default function ColaboradoresTreinamentosPage() {
   // Reset training page to 1 when filters change
   useEffect(() => {
     setTrainingPage(1);
-  }, [search, unitId, department, position, status, effectivenessStatus, expiringWithinDays]);
+  }, [
+    search,
+    unitId,
+    department,
+    position,
+    status,
+    effectivenessStatus,
+    expiringWithinDays,
+  ]);
 
   const gapFilters = useMemo(
     () => ({
@@ -788,26 +808,30 @@ export default function ColaboradoresTreinamentosPage() {
   const headerActions = (
     <div className="flex items-center gap-2">
       <Link href="/organizacao/colaboradores">
-        <Button variant="outline" size="sm" className="cursor-pointer">
-          <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-          Voltar
-        </Button>
+        <HeaderActionButton
+          variant="outline"
+          size="sm"
+          className="cursor-pointer"
+          label="Voltar"
+          icon={<ArrowLeft className="h-3.5 w-3.5" />}
+        />
       </Link>
       {canWriteEmployees && activeTab === "treinamentos" ? (
-        <Button
+        <HeaderActionButton
           size="sm"
           onClick={() => {
             setEditingTraining(null);
             setTrainingForm(getDefaultTrainingForm());
             setTrainingDialogOpen(true);
           }}
+          label="Novo treinamento"
+          icon={<Plus className="h-3.5 w-3.5" />}
         >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
           Novo treinamento
-        </Button>
+        </HeaderActionButton>
       ) : null}
       {canWriteEmployees && activeTab === "matriz" ? (
-        <Button
+        <HeaderActionButton
           size="sm"
           disabled={!selectedPositionId}
           onClick={() => {
@@ -815,10 +839,11 @@ export default function ColaboradoresTreinamentosPage() {
             setRequirementForm(getDefaultRequirementForm());
             setRequirementDialogOpen(true);
           }}
+          label="Novo requisito"
+          icon={<Plus className="h-3.5 w-3.5" />}
         >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
           Novo requisito
-        </Button>
+        </HeaderActionButton>
       ) : null}
     </div>
   );
@@ -1078,9 +1103,7 @@ export default function ColaboradoresTreinamentosPage() {
                 value={status}
                 onChange={(event) =>
                   setStatus(
-                    event.target.value as
-                      | ListOrganizationTrainingsStatus
-                      | "",
+                    event.target.value as ListOrganizationTrainingsStatus | "",
                   )
                 }
                 className="h-9 text-[13px] w-36"
@@ -1110,9 +1133,7 @@ export default function ColaboradoresTreinamentosPage() {
                 type="number"
                 placeholder="Vence em (dias)"
                 value={expiringWithinDays}
-                onChange={(event) =>
-                  setExpiringWithinDays(event.target.value)
-                }
+                onChange={(event) => setExpiringWithinDays(event.target.value)}
                 className="h-9 text-[13px] w-36"
               />
             </>
@@ -1128,25 +1149,33 @@ export default function ColaboradoresTreinamentosPage() {
               </p>
             </div>
             <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-              <p className="text-xs font-medium text-muted-foreground">Concluido</p>
+              <p className="text-xs font-medium text-muted-foreground">
+                Concluido
+              </p>
               <p className="mt-0.5 text-xl font-semibold text-emerald-600">
                 {trainingsResult.stats.concluido}
               </p>
             </div>
             <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-              <p className="text-xs font-medium text-muted-foreground">Pendente</p>
+              <p className="text-xs font-medium text-muted-foreground">
+                Pendente
+              </p>
               <p className="mt-0.5 text-xl font-semibold text-amber-600">
                 {trainingsResult.stats.pendente}
               </p>
             </div>
             <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-              <p className="text-xs font-medium text-muted-foreground">Vencido</p>
+              <p className="text-xs font-medium text-muted-foreground">
+                Vencido
+              </p>
               <p className="mt-0.5 text-xl font-semibold text-red-600">
                 {trainingsResult.stats.vencido}
               </p>
             </div>
             <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-              <p className="text-xs font-medium text-muted-foreground">Eficacia pendente</p>
+              <p className="text-xs font-medium text-muted-foreground">
+                Eficacia pendente
+              </p>
               <p className="mt-0.5 text-xl font-semibold text-sky-600">
                 {trainingsResult.stats.effectivenessPending}
               </p>

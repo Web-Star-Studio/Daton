@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { useHeaderActions, usePageTitle, usePageSubtitle } from "@/contexts/LayoutContext";
+import {
+  useHeaderActions,
+  usePageTitle,
+  usePageSubtitle,
+} from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import {
   useListUnits,
   useListUserOptions,
@@ -43,7 +48,11 @@ import {
   type SupplierAttachment,
   type SupplierDetail,
 } from "@/lib/suppliers-client";
-import { EMPLOYEE_RECORD_ATTACHMENT_ACCEPT, formatFileSize, uploadFilesToStorage } from "@/lib/uploads";
+import {
+  EMPLOYEE_RECORD_ATTACHMENT_ACCEPT,
+  formatFileSize,
+  uploadFilesToStorage,
+} from "@/lib/uploads";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -51,6 +60,7 @@ import {
   FileText,
   History,
   Package2,
+  Pencil,
   Receipt,
   ShieldCheck,
   Upload,
@@ -58,7 +68,13 @@ import {
 } from "lucide-react";
 
 type SupplierTabConfig = {
-  value: "cadastro" | "documentos" | "homologacao" | "recebimentos" | "historico" | "desempenho";
+  value:
+    | "cadastro"
+    | "documentos"
+    | "homologacao"
+    | "recebimentos"
+    | "historico"
+    | "desempenho";
   label: string;
   icon: typeof ClipboardList;
   count?: number;
@@ -91,7 +107,8 @@ function AttachmentUploader({
     } catch (error) {
       toast({
         title: "Falha ao enviar anexos",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -110,7 +127,11 @@ function AttachmentUploader({
           onChange={(event) => void handleUpload(event.target.files)}
           disabled={disabled || isUploading}
         />
-        <Button type="button" variant="outline" disabled={disabled || isUploading}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={disabled || isUploading}
+        >
           <Upload className="mr-2 h-4 w-4" />
           {isUploading ? "Enviando..." : "Adicionar anexos"}
         </Button>
@@ -124,14 +145,22 @@ function AttachmentUploader({
             >
               <div>
                 <div className="font-medium">{attachment.fileName}</div>
-                <div className="text-xs text-muted-foreground">{formatFileSize(attachment.fileSize)}</div>
+                <div className="text-xs text-muted-foreground">
+                  {formatFileSize(attachment.fileSize)}
+                </div>
               </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 disabled={disabled}
-                onClick={() => onChange(attachments.filter((_, currentIndex) => currentIndex !== index))}
+                onClick={() =>
+                  onChange(
+                    attachments.filter(
+                      (_, currentIndex) => currentIndex !== index,
+                    ),
+                  )
+                }
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -139,7 +168,9 @@ function AttachmentUploader({
           ))}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">Nenhum anexo adicionado.</p>
+        <p className="text-sm text-muted-foreground">
+          Nenhum anexo adicionado.
+        </p>
       )}
     </div>
   );
@@ -199,10 +230,18 @@ function displayValue(value: string | number | null | undefined) {
   return normalized.length > 0 ? normalized : "—";
 }
 
-function ReadOnlyField({ label, value }: { label: string; value: string | number | null | undefined }) {
+function ReadOnlyField({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number | null | undefined;
+}) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs font-semibold text-muted-foreground">{label}</Label>
+      <Label className="text-xs font-semibold text-muted-foreground">
+        {label}
+      </Label>
       <div className="min-h-10 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm text-foreground">
         {displayValue(value)}
       </div>
@@ -229,7 +268,9 @@ function documentAdequacyLabel(status: string) {
   return labels[status] || status;
 }
 
-function immediateAdequacyStatus(submissionStatus: "approved" | "rejected" | "exempt") {
+function immediateAdequacyStatus(
+  submissionStatus: "approved" | "rejected" | "exempt",
+) {
   switch (submissionStatus) {
     case "approved":
       return "adequate" as const;
@@ -256,7 +297,9 @@ export default function SupplierDetailPage() {
   const orgId = organization?.id;
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("cadastro");
-  const [selectedSubmissionId, setSelectedSubmissionId] = useState<number | null>(null);
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<
+    number | null
+  >(null);
 
   const canManageGeneral = role === "org_admin" || role === "platform_admin";
   const canManageReceipts = canManageGeneral || role === "operator";
@@ -277,23 +320,28 @@ export default function SupplierDetailPage() {
       enabled: !!orgId,
     },
   });
-  const usersQuery = useListUserOptions(orgId!, {}, {
-    query: {
-      queryKey: getListUserOptionsQueryKey(orgId!),
-      enabled: !!orgId,
+  const usersQuery = useListUserOptions(
+    orgId!,
+    {},
+    {
+      query: {
+        queryKey: getListUserOptionsQueryKey(orgId!),
+        enabled: !!orgId,
+      },
     },
-  });
+  );
 
   const detail = detailQuery.data;
   const requirements = requirementsQuery.data || [];
   const units = unitsQuery.data || [];
   const users = usersQuery.data || [];
-  const defaultDocumentSubmissionReviewForm: DocumentSubmissionReviewFormState = {
-    decision: "approved",
-    validityDate: "",
-    rejectionReason: "",
-    reviewComment: "",
-  };
+  const defaultDocumentSubmissionReviewForm: DocumentSubmissionReviewFormState =
+    {
+      decision: "approved",
+      validityDate: "",
+      rejectionReason: "",
+      reviewComment: "",
+    };
   const [documentSubmissionForm, setDocumentSubmissionForm] = useState({
     requirementId: "",
     submissionStatus: "pending",
@@ -307,9 +355,10 @@ export default function SupplierDetailPage() {
     rejectionReason: "",
     attachments: [] as SupplierAttachment[],
   });
-  const [documentSubmissionReviewForm, setDocumentSubmissionReviewForm] = useState<DocumentSubmissionReviewFormState>({
-    ...defaultDocumentSubmissionReviewForm,
-  });
+  const [documentSubmissionReviewForm, setDocumentSubmissionReviewForm] =
+    useState<DocumentSubmissionReviewFormState>({
+      ...defaultDocumentSubmissionReviewForm,
+    });
   const [documentReviewForm, setDocumentReviewForm] = useState({
     nextReviewDate: "",
     observations: "",
@@ -358,12 +407,20 @@ export default function SupplierDetailPage() {
   });
 
   usePageTitle(detail ? detail.tradeName || detail.legalName : "Fornecedor");
-  usePageSubtitle(detail ? `${detail.legalIdentifier} · ${statusLabel(detail.status)}` : undefined);
+  usePageSubtitle(
+    detail
+      ? `${detail.legalIdentifier} · ${statusLabel(detail.status)}`
+      : undefined,
+  );
 
-  const supplierDisplayName = detail ? detail.tradeName || detail.legalName : "Fornecedor";
+  const supplierDisplayName = detail
+    ? detail.tradeName || detail.legalName
+    : "Fornecedor";
 
   const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: suppliersKeys.detail(orgId!, supplierId) });
+    queryClient.invalidateQueries({
+      queryKey: suppliersKeys.detail(orgId!, supplierId),
+    });
     queryClient.invalidateQueries({ queryKey: suppliersKeys.list(orgId!, {}) });
   };
 
@@ -383,9 +440,12 @@ export default function SupplierDetailPage() {
         ...documentSubmissionForm,
         requirementId: Number(documentSubmissionForm.requirementId),
         validityDate: documentSubmissionForm.validityDate || null,
-        ...(documentSubmissionForm.workflowAction === "request_review" && documentSubmissionForm.requestedReviewerId
+        ...(documentSubmissionForm.workflowAction === "request_review" &&
+        documentSubmissionForm.requestedReviewerId
           ? {
-              requestedReviewerId: Number(documentSubmissionForm.requestedReviewerId),
+              requestedReviewerId: Number(
+                documentSubmissionForm.requestedReviewerId,
+              ),
             }
           : {}),
       });
@@ -409,7 +469,8 @@ export default function SupplierDetailPage() {
     onError: (error) =>
       toast({
         title: "Falha ao registrar submissão",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       }),
   });
@@ -420,10 +481,15 @@ export default function SupplierDetailPage() {
         throw new Error("Selecione uma submissão para revisar.");
       }
 
-      return reviewSupplierDocumentSubmission(orgId!, supplierId, selectedSubmission.id, {
-        ...documentSubmissionReviewForm,
-        validityDate: documentSubmissionReviewForm.validityDate || null,
-      });
+      return reviewSupplierDocumentSubmission(
+        orgId!,
+        supplierId,
+        selectedSubmission.id,
+        {
+          ...documentSubmissionReviewForm,
+          validityDate: documentSubmissionReviewForm.validityDate || null,
+        },
+      );
     },
     onSuccess: () => {
       setDocumentSubmissionReviewForm({
@@ -434,7 +500,8 @@ export default function SupplierDetailPage() {
     onError: (error) =>
       toast({
         title: "Falha ao revisar submissão",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       }),
   });
@@ -472,14 +539,18 @@ export default function SupplierDetailPage() {
   const performanceMutation = useMutation({
     mutationFn: () =>
       createSupplierPerformanceReview(orgId!, supplierId, {
-        offeringId: performanceForm.offeringId ? Number(performanceForm.offeringId) : null,
+        offeringId: performanceForm.offeringId
+          ? Number(performanceForm.offeringId)
+          : null,
         periodStart: performanceForm.periodStart,
         periodEnd: performanceForm.periodEnd,
         qualityScore: Number(performanceForm.qualityScore),
         deliveryScore: Number(performanceForm.deliveryScore),
         communicationScore: Number(performanceForm.communicationScore),
         complianceScore: Number(performanceForm.complianceScore),
-        priceScore: performanceForm.priceScore ? Number(performanceForm.priceScore) : null,
+        priceScore: performanceForm.priceScore
+          ? Number(performanceForm.priceScore)
+          : null,
         conclusion: performanceForm.conclusion,
         riskLevel: performanceForm.riskLevel,
         observations: performanceForm.observations || null,
@@ -505,14 +576,18 @@ export default function SupplierDetailPage() {
   const receiptMutation = useMutation({
     mutationFn: () =>
       createSupplierReceiptCheck(orgId!, supplierId, {
-        offeringId: receiptForm.offeringId ? Number(receiptForm.offeringId) : null,
+        offeringId: receiptForm.offeringId
+          ? Number(receiptForm.offeringId)
+          : null,
         unitId: receiptForm.unitId ? Number(receiptForm.unitId) : null,
         authorizedById: Number(receiptForm.authorizedById),
         receiptDate: receiptForm.receiptDate,
         description: receiptForm.description,
         referenceNumber: receiptForm.referenceNumber || null,
         quantity: receiptForm.quantity || null,
-        totalValue: receiptForm.totalValue ? Number(receiptForm.totalValue) : null,
+        totalValue: receiptForm.totalValue
+          ? Number(receiptForm.totalValue)
+          : null,
         outcome: receiptForm.outcome,
         acceptanceCriteria: receiptForm.acceptanceCriteria,
         notes: receiptForm.notes || null,
@@ -542,10 +617,16 @@ export default function SupplierDetailPage() {
   });
 
   const handleReceiptSubmit = () => {
-    if (!receiptForm.authorizedById || !receiptForm.receiptDate || !receiptForm.description.trim() || !receiptForm.acceptanceCriteria.trim()) {
+    if (
+      !receiptForm.authorizedById ||
+      !receiptForm.receiptDate ||
+      !receiptForm.description.trim() ||
+      !receiptForm.acceptanceCriteria.trim()
+    ) {
       toast({
         title: "Preencha os campos obrigatórios",
-        description: "Informe autorizador, data, descrição e critérios de aceitação antes de registrar o recebimento.",
+        description:
+          "Informe autorizador, data, descrição e critérios de aceitação antes de registrar o recebimento.",
         variant: "destructive",
       });
       return;
@@ -557,29 +638,39 @@ export default function SupplierDetailPage() {
   const failureMutation = useMutation({
     mutationFn: () => createSupplierFailure(orgId!, supplierId, failureForm),
     onSuccess: () => {
-      setFailureForm({ failureType: "other", severity: "medium", description: "", status: "open" });
+      setFailureForm({
+        failureType: "other",
+        severity: "medium",
+        description: "",
+        status: "open",
+      });
       refresh();
     },
   });
 
   const offeringOptions = useMemo(
-    () => (detail?.offerings || []).map((offering) => ({ value: offering.id, label: offering.name })),
+    () =>
+      (detail?.offerings || []).map((offering) => ({
+        value: offering.id,
+        label: offering.name,
+      })),
     [detail?.offerings],
   );
   const usersById = useMemo(
     () => new Map(users.map((user) => [user.id, user.name])),
     [users],
   );
-  const selectedSubmission = useMemo(
-    () => {
-      if (selectedSubmissionId === null) {
-        return null;
-      }
+  const selectedSubmission = useMemo(() => {
+    if (selectedSubmissionId === null) {
+      return null;
+    }
 
-      return detail?.documents.submissions.find((submission) => submission.id === selectedSubmissionId) || null;
-    },
-    [detail?.documents.submissions, selectedSubmissionId],
-  );
+    return (
+      detail?.documents.submissions.find(
+        (submission) => submission.id === selectedSubmissionId,
+      ) || null
+    );
+  }, [detail?.documents.submissions, selectedSubmissionId]);
 
   useEffect(() => {
     setDocumentSubmissionReviewForm({
@@ -588,7 +679,10 @@ export default function SupplierDetailPage() {
   }, [selectedSubmissionId]);
 
   useEffect(() => {
-    if (documentSubmissionReviewForm.decision === "rejected" || !documentSubmissionReviewForm.rejectionReason) {
+    if (
+      documentSubmissionReviewForm.decision === "rejected" ||
+      !documentSubmissionReviewForm.rejectionReason
+    ) {
       return;
     }
 
@@ -596,14 +690,18 @@ export default function SupplierDetailPage() {
       ...current,
       rejectionReason: "",
     }));
-  }, [documentSubmissionReviewForm.decision, documentSubmissionReviewForm.rejectionReason]);
+  }, [
+    documentSubmissionReviewForm.decision,
+    documentSubmissionReviewForm.rejectionReason,
+  ]);
   const appliedDocumentThreshold = useMemo(() => {
     if (!detail || detail.types.length === 0) {
       return 80;
     }
 
     return detail.types.reduce(
-      (highestThreshold, type) => Math.max(highestThreshold, type.documentThreshold),
+      (highestThreshold, type) =>
+        Math.max(highestThreshold, type.documentThreshold),
       0,
     );
   }, [detail]);
@@ -615,7 +713,9 @@ export default function SupplierDetailPage() {
         value: "documentos",
         label: "Documentos",
         icon: FileText,
-        count: (detail?.documents.submissions.length || 0) + (detail?.documents.reviews.length || 0),
+        count:
+          (detail?.documents.submissions.length || 0) +
+          (detail?.documents.reviews.length || 0),
       },
       {
         value: "homologacao",
@@ -645,7 +745,8 @@ export default function SupplierDetailPage() {
     [detail],
   );
   const sectionCardClass = "border-border/60 bg-card/70 shadow-sm";
-  const nestedPanelClass = "rounded-xl border border-border/50 bg-background/40";
+  const nestedPanelClass =
+    "rounded-xl border border-border/50 bg-background/40";
 
   const headerActions = useMemo(() => {
     if (!detail) return null;
@@ -654,7 +755,11 @@ export default function SupplierDetailPage() {
       if (activeTab === "cadastro" && canManageGeneral) {
         return (
           <Link href={`/app/qualidade/fornecedores/${supplierId}/cadastro`}>
-            <Button size="sm">Alterar cadastro</Button>
+            <HeaderActionButton
+              size="sm"
+              label="Alterar cadastro"
+              icon={<Pencil className="h-3.5 w-3.5" />}
+            />
           </Link>
         );
       }
@@ -662,66 +767,82 @@ export default function SupplierDetailPage() {
       if (activeTab === "documentos" && canManageGeneral) {
         return (
           <>
-            <Button
+            <HeaderActionButton
               variant="outline"
               size="sm"
               onClick={() => documentSubmissionMutation.mutate()}
               isLoading={documentSubmissionMutation.isPending}
+              label="Salvar submissão"
+              icon={<Upload className="h-3.5 w-3.5" />}
             >
               Salvar submissão
-            </Button>
-            <Button
+            </HeaderActionButton>
+            <HeaderActionButton
               size="sm"
               onClick={() => documentReviewMutation.mutate()}
               isLoading={documentReviewMutation.isPending}
+              label="Registrar AVA1"
+              icon={<ShieldCheck className="h-3.5 w-3.5" />}
             >
               Registrar AVA1
-            </Button>
+            </HeaderActionButton>
           </>
         );
       }
 
       if (activeTab === "homologacao" && canManageGeneral) {
         return (
-          <Button
+          <HeaderActionButton
             size="sm"
             onClick={() => qualificationMutation.mutate()}
             isLoading={qualificationMutation.isPending}
+            label="Registrar homologação"
+            icon={<ShieldCheck className="h-3.5 w-3.5" />}
           >
             Registrar homologação
-          </Button>
+          </HeaderActionButton>
         );
       }
 
       if (activeTab === "desempenho" && canManageGeneral) {
         return (
-          <Button
+          <HeaderActionButton
             size="sm"
             onClick={() => performanceMutation.mutate()}
             isLoading={performanceMutation.isPending}
+            label="Registrar AVA2"
+            icon={<CheckCircle2 className="h-3.5 w-3.5" />}
           >
             Registrar AVA2
-          </Button>
+          </HeaderActionButton>
         );
       }
 
       if (activeTab === "recebimentos" && canManageReceipts) {
         return (
-          <Button size="sm" onClick={handleReceiptSubmit} isLoading={receiptMutation.isPending}>
+          <HeaderActionButton
+            size="sm"
+            onClick={handleReceiptSubmit}
+            isLoading={receiptMutation.isPending}
+            label="Registrar recebimento"
+            icon={<Receipt className="h-3.5 w-3.5" />}
+          >
             Registrar recebimento
-          </Button>
+          </HeaderActionButton>
         );
       }
 
       if (activeTab === "historico" && canManageGeneral) {
         return (
-          <Button
+          <HeaderActionButton
             size="sm"
             onClick={() => failureMutation.mutate()}
             isLoading={failureMutation.isPending}
+            label="Registrar falha"
+            icon={<History className="h-3.5 w-3.5" />}
           >
             Registrar falha
-          </Button>
+          </HeaderActionButton>
         );
       }
 
@@ -730,11 +851,13 @@ export default function SupplierDetailPage() {
 
     return (
       <div className="flex items-center gap-2">
-        <Link href="/qualidade/fornecedores">
-          <Button variant="outline" size="sm">
-            <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-            Voltar
-          </Button>
+        <Link href="/app/qualidade/fornecedores">
+          <HeaderActionButton
+            variant="outline"
+            size="sm"
+            label="Voltar"
+            icon={<ArrowLeft className="h-3.5 w-3.5" />}
+          />
         </Link>
         {renderActiveTabActions()}
       </div>
@@ -756,13 +879,19 @@ export default function SupplierDetailPage() {
   useHeaderActions(headerActions);
 
   if (detailQuery.isLoading) {
-    return <div className="text-sm text-muted-foreground">Carregando fornecedor…</div>;
+    return (
+      <div className="text-sm text-muted-foreground">
+        Carregando fornecedor…
+      </div>
+    );
   }
 
   if (!detail) {
     return (
       <div className="space-y-4 py-12 text-center">
-        <p className="text-sm text-muted-foreground">Fornecedor não encontrado.</p>
+        <p className="text-sm text-muted-foreground">
+          Fornecedor não encontrado.
+        </p>
         <Link href="/qualidade/fornecedores">
           <Button variant="outline" size="sm">
             Voltar
@@ -776,7 +905,9 @@ export default function SupplierDetailPage() {
     <div className="space-y-8">
       <section className="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-semibold tracking-tight">{supplierDisplayName}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">
+            {supplierDisplayName}
+          </h1>
           <span
             className={cn(
               "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-medium",
@@ -798,16 +929,26 @@ export default function SupplierDetailPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card className={sectionCardClass}>
           <CardContent className="pt-6">
-            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Status</p>
-            <p className="mt-3 text-2xl font-semibold">{statusLabel(detail.status)}</p>
-            <p className="mt-2 text-sm text-muted-foreground">Criticidade {criticalityLabel(detail.criticality)}</p>
+            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              Status
+            </p>
+            <p className="mt-3 text-2xl font-semibold">
+              {statusLabel(detail.status)}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Criticidade {criticalityLabel(detail.criticality)}
+            </p>
           </CardContent>
         </Card>
         <Card className={sectionCardClass}>
           <CardContent className="pt-6">
-            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">AVA1</p>
+            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              AVA1
+            </p>
             <p className="mt-3 text-2xl font-semibold">
-              {detail.documentCompliancePercentage === null ? "—" : `${detail.documentCompliancePercentage}%`}
+              {detail.documentCompliancePercentage === null
+                ? "—"
+                : `${detail.documentCompliancePercentage}%`}
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
               {detail.documentReviewStatus || "Sem parecer"}
@@ -816,8 +957,12 @@ export default function SupplierDetailPage() {
         </Card>
         <Card className={sectionCardClass}>
           <CardContent className="pt-6">
-            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Homologação</p>
-            <p className="mt-3 text-2xl font-semibold">{detail.qualificationReviews.length}</p>
+            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              Homologação
+            </p>
+            <p className="mt-3 text-2xl font-semibold">
+              {detail.qualificationReviews.length}
+            </p>
             <p className="mt-2 text-sm text-muted-foreground">
               Decisão final sobre o fornecedor e o escopo aprovado
             </p>
@@ -825,9 +970,15 @@ export default function SupplierDetailPage() {
         </Card>
         <Card className={sectionCardClass}>
           <CardContent className="pt-6">
-            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Falhas</p>
-            <p className="mt-3 text-2xl font-semibold">{detail.failures.length}</p>
-            <p className="mt-2 text-sm text-muted-foreground">Registro operacional do fornecedor</p>
+            <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              Falhas
+            </p>
+            <p className="mt-3 text-2xl font-semibold">
+              {detail.failures.length}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Registro operacional do fornecedor
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -835,7 +986,11 @@ export default function SupplierDetailPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex-nowrap overflow-x-auto">
           {tabs.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} className="flex shrink-0 items-center gap-1.5">
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="flex shrink-0 items-center gap-1.5"
+            >
               <tab.icon className="h-3.5 w-3.5" />
               {tab.label}
               {tab.count ? (
@@ -857,19 +1012,52 @@ export default function SupplierDetailPage() {
               <CardContent>
                 <div className="space-y-6">
                   <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                    O cadastro mestre agora é consultivo nesta tela. Para alterar dados cadastrais, use a ação
-                    <span className="font-medium text-foreground"> Alterar cadastro</span> no topo da página.
+                    O cadastro mestre agora é consultivo nesta tela. Para
+                    alterar dados cadastrais, use a ação
+                    <span className="font-medium text-foreground">
+                      {" "}
+                      Alterar cadastro
+                    </span>{" "}
+                    no topo da página.
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <ReadOnlyField label="Tipo de pessoa" value={personTypeLabel(detail.personType)} />
-                    <ReadOnlyField label={detail.personType === "pj" ? "CNPJ" : "CPF"} value={detail.legalIdentifier} />
-                    <ReadOnlyField label={detail.personType === "pj" ? "Razão social" : "Nome completo"} value={detail.legalName} />
-                    <ReadOnlyField label="Nome fantasia" value={detail.tradeName} />
-                    <ReadOnlyField label="Responsável" value={detail.responsibleName} />
-                    <ReadOnlyField label="Status cadastral" value={statusLabel(detail.status)} />
-                    <ReadOnlyField label="Categoria" value={detail.category?.name} />
-                    <ReadOnlyField label="Criticidade" value={criticalityLabel(detail.criticality)} />
+                    <ReadOnlyField
+                      label="Tipo de pessoa"
+                      value={personTypeLabel(detail.personType)}
+                    />
+                    <ReadOnlyField
+                      label={detail.personType === "pj" ? "CNPJ" : "CPF"}
+                      value={detail.legalIdentifier}
+                    />
+                    <ReadOnlyField
+                      label={
+                        detail.personType === "pj"
+                          ? "Razão social"
+                          : "Nome completo"
+                      }
+                      value={detail.legalName}
+                    />
+                    <ReadOnlyField
+                      label="Nome fantasia"
+                      value={detail.tradeName}
+                    />
+                    <ReadOnlyField
+                      label="Responsável"
+                      value={detail.responsibleName}
+                    />
+                    <ReadOnlyField
+                      label="Status cadastral"
+                      value={statusLabel(detail.status)}
+                    />
+                    <ReadOnlyField
+                      label="Categoria"
+                      value={detail.category?.name}
+                    />
+                    <ReadOnlyField
+                      label="Criticidade"
+                      value={criticalityLabel(detail.criticality)}
+                    />
                     <ReadOnlyField
                       label="Tipos de fornecedor"
                       value={detail.types.map((type) => type.name).join(", ")}
@@ -878,8 +1066,14 @@ export default function SupplierDetailPage() {
                       label="Unidades vinculadas"
                       value={detail.units.map((unit) => unit.name).join(", ")}
                     />
-                    <ReadOnlyField label="Inscrição estadual" value={detail.stateRegistration} />
-                    <ReadOnlyField label="Inscrição municipal" value={detail.municipalRegistration} />
+                    <ReadOnlyField
+                      label="Inscrição estadual"
+                      value={detail.stateRegistration}
+                    />
+                    <ReadOnlyField
+                      label="Inscrição municipal"
+                      value={detail.municipalRegistration}
+                    />
                     <ReadOnlyField label="RG" value={detail.rg} />
                     <ReadOnlyField label="E-mail" value={detail.email} />
                     <ReadOnlyField label="Telefone" value={detail.phone} />
@@ -887,14 +1081,19 @@ export default function SupplierDetailPage() {
                     <ReadOnlyField label="CEP" value={detail.postalCode} />
                     <ReadOnlyField label="Logradouro" value={detail.street} />
                     <ReadOnlyField label="Número" value={detail.streetNumber} />
-                    <ReadOnlyField label="Complemento" value={detail.complement} />
+                    <ReadOnlyField
+                      label="Complemento"
+                      value={detail.complement}
+                    />
                     <ReadOnlyField label="Bairro" value={detail.neighborhood} />
                     <ReadOnlyField label="Cidade" value={detail.city} />
                     <ReadOnlyField label="UF" value={detail.state} />
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-muted-foreground">Observações</Label>
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      Observações
+                    </Label>
                     <div className="min-h-24 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm text-foreground">
                       {displayValue(detail.notes)}
                     </div>
@@ -907,32 +1106,44 @@ export default function SupplierDetailPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Produtos e serviços</CardTitle>
-                  <Badge variant="secondary">{detail.offerings.length} item(ns)</Badge>
+                  <Badge variant="secondary">
+                    {detail.offerings.length} item(ns)
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {detail.offerings.map((offering) => (
-                    <div key={offering.id} className={cn(nestedPanelClass, "p-3")}>
+                    <div
+                      key={offering.id}
+                      className={cn(nestedPanelClass, "p-3")}
+                    >
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <div className="font-medium">{offering.name}</div>
                           <div className="text-xs text-muted-foreground">
-                            {offering.offeringType} · {offering.unitOfMeasure || "sem unidade"}
+                            {offering.offeringType} ·{" "}
+                            {offering.unitOfMeasure || "sem unidade"}
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          {offering.isApprovedScope ? <Badge>Aprovado</Badge> : null}
+                          {offering.isApprovedScope ? (
+                            <Badge>Aprovado</Badge>
+                          ) : null}
                           <Badge variant="secondary">{offering.status}</Badge>
                         </div>
                       </div>
                       {offering.description ? (
-                        <p className="mt-2 text-sm text-muted-foreground">{offering.description}</p>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {offering.description}
+                        </p>
                       ) : null}
                     </div>
                   ))}
                   {detail.offerings.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nenhum produto ou serviço cadastrado.</p>
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum produto ou serviço cadastrado.
+                    </p>
                   ) : null}
                 </div>
               </CardContent>
@@ -947,7 +1158,9 @@ export default function SupplierDetailPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Submissões documentais</CardTitle>
-                  <Badge variant="secondary">{detail.documents.submissions.length}</Badge>
+                  <Badge variant="secondary">
+                    {detail.documents.submissions.length}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent>
@@ -959,16 +1172,23 @@ export default function SupplierDetailPage() {
                       className={cn(
                         nestedPanelClass,
                         "w-full p-3 text-left transition",
-                        selectedSubmission?.id === submission.id ? "border-primary bg-primary/5" : "",
+                        selectedSubmission?.id === submission.id
+                          ? "border-primary bg-primary/5"
+                          : "",
                       )}
                       onClick={() => setSelectedSubmissionId(submission.id)}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <div className="font-medium">{submission.requirementName}</div>
+                          <div className="font-medium">
+                            {submission.requirementName}
+                          </div>
                           <div className="text-xs text-muted-foreground">
-                            {documentSubmissionStatusLabel(submission.submissionStatus)} ·{" "}
-                            {documentAdequacyLabel(submission.adequacyStatus)} · peso {submission.weight}
+                            {documentSubmissionStatusLabel(
+                              submission.submissionStatus,
+                            )}{" "}
+                            · {documentAdequacyLabel(submission.adequacyStatus)}{" "}
+                            · peso {submission.weight}
                           </div>
                           <div className="mt-1 text-xs text-muted-foreground">
                             {submission.requestedReviewerId
@@ -978,10 +1198,16 @@ export default function SupplierDetailPage() {
                                 : `Submetido por ${usersById.get(submission.createdById || 0) || "usuário do sistema"}`}
                           </div>
                         </div>
-                        {submission.validityDate ? <Badge variant="secondary">{formatDate(submission.validityDate)}</Badge> : null}
+                        {submission.validityDate ? (
+                          <Badge variant="secondary">
+                            {formatDate(submission.validityDate)}
+                          </Badge>
+                        ) : null}
                       </div>
                       {submission.observations ? (
-                        <p className="mt-2 text-sm text-muted-foreground">{submission.observations}</p>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {submission.observations}
+                        </p>
                       ) : null}
                     </button>
                   ))}
@@ -992,47 +1218,83 @@ export default function SupplierDetailPage() {
                     <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <div className="font-medium">{selectedSubmission.requirementName}</div>
+                          <div className="font-medium">
+                            {selectedSubmission.requirementName}
+                          </div>
                           <div className="mt-1 text-xs text-muted-foreground">
-                            {documentSubmissionStatusLabel(selectedSubmission.submissionStatus)} ·{" "}
-                            {documentAdequacyLabel(selectedSubmission.adequacyStatus)}
+                            {documentSubmissionStatusLabel(
+                              selectedSubmission.submissionStatus,
+                            )}{" "}
+                            ·{" "}
+                            {documentAdequacyLabel(
+                              selectedSubmission.adequacyStatus,
+                            )}
                           </div>
                         </div>
-                        <Badge variant="secondary">Peso {selectedSubmission.weight}</Badge>
+                        <Badge variant="secondary">
+                          Peso {selectedSubmission.weight}
+                        </Badge>
                       </div>
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
                         <ReadOnlyField
                           label="Submetido por"
-                          value={usersById.get(selectedSubmission.createdById || 0) || "Usuário do sistema"}
+                          value={
+                            usersById.get(
+                              selectedSubmission.createdById || 0,
+                            ) || "Usuário do sistema"
+                          }
                         />
                         <ReadOnlyField
                           label="Aprovador solicitado"
-                          value={selectedSubmission.requestedReviewerId ? usersById.get(selectedSubmission.requestedReviewerId) || `#${selectedSubmission.requestedReviewerId}` : "—"}
+                          value={
+                            selectedSubmission.requestedReviewerId
+                              ? usersById.get(
+                                  selectedSubmission.requestedReviewerId,
+                                ) ||
+                                `#${selectedSubmission.requestedReviewerId}`
+                              : "—"
+                          }
                         />
                         <ReadOnlyField
                           label="Revisado por"
-                          value={selectedSubmission.reviewedById ? usersById.get(selectedSubmission.reviewedById) || `#${selectedSubmission.reviewedById}` : "—"}
+                          value={
+                            selectedSubmission.reviewedById
+                              ? usersById.get(
+                                  selectedSubmission.reviewedById,
+                                ) || `#${selectedSubmission.reviewedById}`
+                              : "—"
+                          }
                         />
-                        <ReadOnlyField label="Revisado em" value={formatDate(selectedSubmission.reviewedAt)} />
+                        <ReadOnlyField
+                          label="Revisado em"
+                          value={formatDate(selectedSubmission.reviewedAt)}
+                        />
                       </div>
                       {selectedSubmission.attachments.length > 0 ? (
                         <div className="mt-4 space-y-2">
-                          <Label className="text-xs font-semibold text-muted-foreground">Anexos</Label>
+                          <Label className="text-xs font-semibold text-muted-foreground">
+                            Anexos
+                          </Label>
                           {selectedSubmission.attachments.map((attachment) => (
                             <div
                               key={attachment.objectPath}
                               className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm"
                             >
-                              <div className="font-medium">{attachment.fileName}</div>
+                              <div className="font-medium">
+                                {attachment.fileName}
+                              </div>
                               <div className="text-xs text-muted-foreground">
-                                {attachment.contentType} · {formatFileSize(attachment.fileSize)}
+                                {attachment.contentType} ·{" "}
+                                {formatFileSize(attachment.fileSize)}
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : null}
                       {selectedSubmission.reviewComment ? (
-                        <p className="mt-4 text-sm text-muted-foreground">{selectedSubmission.reviewComment}</p>
+                        <p className="mt-4 text-sm text-muted-foreground">
+                          {selectedSubmission.reviewComment}
+                        </p>
                       ) : null}
                     </div>
 
@@ -1046,15 +1308,20 @@ export default function SupplierDetailPage() {
                               <Select
                                 value={documentSubmissionReviewForm.decision}
                                 onChange={(event) =>
-                                  setDocumentSubmissionReviewForm((current) => ({
-                                    ...current,
-                                    decision: event.target.value as DocumentSubmissionReviewFormState["decision"],
-                                  }))
+                                  setDocumentSubmissionReviewForm(
+                                    (current) => ({
+                                      ...current,
+                                      decision: event.target
+                                        .value as DocumentSubmissionReviewFormState["decision"],
+                                    }),
+                                  )
                                 }
                               >
                                 <option value="approved">Aprovar</option>
                                 <option value="rejected">Rejeitar</option>
-                                <option value="request_changes">Solicitar ajustes</option>
+                                <option value="request_changes">
+                                  Solicitar ajustes
+                                </option>
                               </Select>
                             </FieldContent>
                           </Field>
@@ -1063,28 +1330,37 @@ export default function SupplierDetailPage() {
                             <FieldContent>
                               <Input
                                 type="date"
-                                value={documentSubmissionReviewForm.validityDate}
+                                value={
+                                  documentSubmissionReviewForm.validityDate
+                                }
                                 onChange={(event) =>
-                                  setDocumentSubmissionReviewForm((current) => ({
-                                    ...current,
-                                    validityDate: event.target.value,
-                                  }))
+                                  setDocumentSubmissionReviewForm(
+                                    (current) => ({
+                                      ...current,
+                                      validityDate: event.target.value,
+                                    }),
+                                  )
                                 }
                               />
                             </FieldContent>
                           </Field>
                         </div>
-                        {documentSubmissionReviewForm.decision === "rejected" ? (
+                        {documentSubmissionReviewForm.decision ===
+                        "rejected" ? (
                           <Field>
                             <FieldLabel>Motivo da rejeição</FieldLabel>
                             <FieldContent>
                               <Textarea
-                                value={documentSubmissionReviewForm.rejectionReason}
+                                value={
+                                  documentSubmissionReviewForm.rejectionReason
+                                }
                                 onChange={(event) =>
-                                  setDocumentSubmissionReviewForm((current) => ({
-                                    ...current,
-                                    rejectionReason: event.target.value,
-                                  }))
+                                  setDocumentSubmissionReviewForm(
+                                    (current) => ({
+                                      ...current,
+                                      rejectionReason: event.target.value,
+                                    }),
+                                  )
                                 }
                               />
                             </FieldContent>
@@ -1107,8 +1383,12 @@ export default function SupplierDetailPage() {
                         <div className="flex justify-end">
                           <Button
                             type="button"
-                            onClick={() => documentSubmissionReviewMutation.mutate()}
-                            isLoading={documentSubmissionReviewMutation.isPending}
+                            onClick={() =>
+                              documentSubmissionReviewMutation.mutate()
+                            }
+                            isLoading={
+                              documentSubmissionReviewMutation.isPending
+                            }
                           >
                             Registrar revisão
                           </Button>
@@ -1128,11 +1408,19 @@ export default function SupplierDetailPage() {
                           <FieldContent>
                             <Select
                               value={documentSubmissionForm.requirementId}
-                              onChange={(event) => setDocumentSubmissionForm((current) => ({ ...current, requirementId: event.target.value }))}
+                              onChange={(event) =>
+                                setDocumentSubmissionForm((current) => ({
+                                  ...current,
+                                  requirementId: event.target.value,
+                                }))
+                              }
                             >
                               <option value="">Selecione um requisito</option>
                               {requirements.map((requirement) => (
-                                <option key={requirement.id} value={requirement.id}>
+                                <option
+                                  key={requirement.id}
+                                  value={requirement.id}
+                                >
                                   {requirement.name} (peso {requirement.weight})
                                 </option>
                               ))}
@@ -1151,8 +1439,10 @@ export default function SupplierDetailPage() {
                                     workflowAction: event.target.value,
                                     submissionStatus:
                                       event.target.value === "approve_now"
-                                        ? current.submissionStatus === "approved" ||
-                                          current.submissionStatus === "rejected" ||
+                                        ? current.submissionStatus ===
+                                            "approved" ||
+                                          current.submissionStatus ===
+                                            "rejected" ||
                                           current.submissionStatus === "exempt"
                                           ? current.submissionStatus
                                           : "approved"
@@ -1160,9 +1450,12 @@ export default function SupplierDetailPage() {
                                     adequacyStatus:
                                       event.target.value === "approve_now"
                                         ? immediateAdequacyStatus(
-                                            current.submissionStatus === "approved" ||
-                                              current.submissionStatus === "rejected" ||
-                                              current.submissionStatus === "exempt"
+                                            current.submissionStatus ===
+                                              "approved" ||
+                                              current.submissionStatus ===
+                                                "rejected" ||
+                                              current.submissionStatus ===
+                                                "exempt"
                                               ? current.submissionStatus
                                               : "approved",
                                           )
@@ -1170,17 +1463,24 @@ export default function SupplierDetailPage() {
                                   }))
                                 }
                               >
-                                <option value="request_review">Enviar para aprovação</option>
-                                <option value="approve_now">Aprovar agora</option>
+                                <option value="request_review">
+                                  Enviar para aprovação
+                                </option>
+                                <option value="approve_now">
+                                  Aprovar agora
+                                </option>
                               </Select>
                             </FieldContent>
                           </Field>
-                          {documentSubmissionForm.workflowAction === "request_review" ? (
+                          {documentSubmissionForm.workflowAction ===
+                          "request_review" ? (
                             <Field>
                               <FieldLabel>Aprovador</FieldLabel>
                               <FieldContent>
                                 <Select
-                                  value={documentSubmissionForm.requestedReviewerId}
+                                  value={
+                                    documentSubmissionForm.requestedReviewerId
+                                  }
                                   onChange={(event) =>
                                     setDocumentSubmissionForm((current) => ({
                                       ...current,
@@ -1188,15 +1488,19 @@ export default function SupplierDetailPage() {
                                     }))
                                   }
                                 >
-                                  <option value="">Selecione o aprovador</option>
+                                  <option value="">
+                                    Selecione o aprovador
+                                  </option>
                                   {users.map((user) => (
                                     <option key={user.id} value={user.id}>
                                       {user.name}
                                     </option>
-                                    ))}
+                                  ))}
                                 </Select>
                                 <p className="mt-2 text-xs text-muted-foreground">
-                                  O aprovador solicitado é preferencial. Qualquer usuário autorizado no fluxo documental pode concluir a revisão.
+                                  O aprovador solicitado é preferencial.
+                                  Qualquer usuário autorizado no fluxo
+                                  documental pode concluir a revisão.
                                 </p>
                               </FieldContent>
                             </Field>
@@ -1205,13 +1509,18 @@ export default function SupplierDetailPage() {
                               <FieldLabel>Decisão imediata</FieldLabel>
                               <FieldContent>
                                 <Select
-                                  value={documentSubmissionForm.submissionStatus}
+                                  value={
+                                    documentSubmissionForm.submissionStatus
+                                  }
                                   onChange={(event) =>
                                     setDocumentSubmissionForm((current) => ({
                                       ...current,
                                       submissionStatus: event.target.value,
                                       adequacyStatus: immediateAdequacyStatus(
-                                        event.target.value as "approved" | "rejected" | "exempt",
+                                        event.target.value as
+                                          | "approved"
+                                          | "rejected"
+                                          | "exempt",
                                       ),
                                     }))
                                   }
@@ -1224,12 +1533,15 @@ export default function SupplierDetailPage() {
                             </Field>
                           )}
                         </div>
-                        {documentSubmissionForm.workflowAction === "approve_now" ? (
+                        {documentSubmissionForm.workflowAction ===
+                        "approve_now" ? (
                           <Field>
                             <FieldLabel>Adequação</FieldLabel>
                             <FieldContent>
                               <div className="min-h-9 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm text-foreground">
-                                {documentAdequacyLabel(documentSubmissionForm.adequacyStatus)}
+                                {documentAdequacyLabel(
+                                  documentSubmissionForm.adequacyStatus,
+                                )}
                               </div>
                             </FieldContent>
                           </Field>
@@ -1240,7 +1552,12 @@ export default function SupplierDetailPage() {
                             <Input
                               type="date"
                               value={documentSubmissionForm.validityDate}
-                              onChange={(event) => setDocumentSubmissionForm((current) => ({ ...current, validityDate: event.target.value }))}
+                              onChange={(event) =>
+                                setDocumentSubmissionForm((current) => ({
+                                  ...current,
+                                  validityDate: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
@@ -1265,13 +1582,23 @@ export default function SupplierDetailPage() {
                             <Textarea
                               placeholder="Observações"
                               value={documentSubmissionForm.observations}
-                              onChange={(event) => setDocumentSubmissionForm((current) => ({ ...current, observations: event.target.value }))}
+                              onChange={(event) =>
+                                setDocumentSubmissionForm((current) => ({
+                                  ...current,
+                                  observations: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
                         <AttachmentUploader
                           attachments={documentSubmissionForm.attachments}
-                          onChange={(attachments) => setDocumentSubmissionForm((current) => ({ ...current, attachments }))}
+                          onChange={(attachments) =>
+                            setDocumentSubmissionForm((current) => ({
+                              ...current,
+                              attachments,
+                            }))
+                          }
                         />
                       </FieldGroup>
                     </FieldSet>
@@ -1284,19 +1611,29 @@ export default function SupplierDetailPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Avaliação documental</CardTitle>
-                  <Badge variant="secondary">{detail.documents.reviews.length}</Badge>
+                  <Badge variant="secondary">
+                    {detail.documents.reviews.length}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {detail.documents.reviews.map((review) => (
-                    <div key={review.id} className={cn(nestedPanelClass, "p-3")}>
+                    <div
+                      key={review.id}
+                      className={cn(nestedPanelClass, "p-3")}
+                    >
                       <div className="flex items-center justify-between gap-3">
-                        <div className="font-medium">{review.result === "apt" ? "Apto" : "Não apto"}</div>
-                        <Badge variant="secondary">{review.compliancePercentage}%</Badge>
+                        <div className="font-medium">
+                          {review.result === "apt" ? "Apto" : "Não apto"}
+                        </div>
+                        <Badge variant="secondary">
+                          {review.compliancePercentage}%
+                        </Badge>
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        Threshold aplicado {review.threshold}% · próxima revisão {formatDate(review.nextReviewDate)}
+                        Threshold aplicado {review.threshold}% · próxima revisão{" "}
+                        {formatDate(review.nextReviewDate)}
                       </div>
                     </div>
                   ))}
@@ -1311,9 +1648,12 @@ export default function SupplierDetailPage() {
                           <FieldLabel>Threshold aplicado</FieldLabel>
                           <FieldContent>
                             <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm">
-                              <span className="font-medium">{appliedDocumentThreshold}%</span>
+                              <span className="font-medium">
+                                {appliedDocumentThreshold}%
+                              </span>
                               <span className="ml-2 text-muted-foreground">
-                                definido automaticamente pelos tipos vinculados ao fornecedor
+                                definido automaticamente pelos tipos vinculados
+                                ao fornecedor
                               </span>
                             </div>
                           </FieldContent>
@@ -1324,7 +1664,12 @@ export default function SupplierDetailPage() {
                             <Input
                               type="date"
                               value={documentReviewForm.nextReviewDate}
-                              onChange={(event) => setDocumentReviewForm((current) => ({ ...current, nextReviewDate: event.target.value }))}
+                              onChange={(event) =>
+                                setDocumentReviewForm((current) => ({
+                                  ...current,
+                                  nextReviewDate: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
@@ -1334,7 +1679,12 @@ export default function SupplierDetailPage() {
                             <Textarea
                               placeholder="Observações"
                               value={documentReviewForm.observations}
-                              onChange={(event) => setDocumentReviewForm((current) => ({ ...current, observations: event.target.value }))}
+                              onChange={(event) =>
+                                setDocumentReviewForm((current) => ({
+                                  ...current,
+                                  observations: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
@@ -1353,23 +1703,42 @@ export default function SupplierDetailPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Decisão final de homologação</CardTitle>
-                <Badge variant="secondary">{detail.qualificationReviews.length} revisão(ões)</Badge>
+                <Badge variant="secondary">
+                  {detail.qualificationReviews.length} revisão(ões)
+                </Badge>
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid items-start gap-4 xl:grid-cols-[1.2fr_1fr]">
                 <div className="space-y-3">
-                  <div className={cn(nestedPanelClass, "p-4 text-sm text-muted-foreground")}>
-                    A homologação registra a decisão final do fornecedor após a análise documental
-                    (AVA1) e define quais itens permanecem aprovados para operação.
+                  <div
+                    className={cn(
+                      nestedPanelClass,
+                      "p-4 text-sm text-muted-foreground",
+                    )}
+                  >
+                    A homologação registra a decisão final do fornecedor após a
+                    análise documental (AVA1) e define quais itens permanecem
+                    aprovados para operação.
                   </div>
                   {detail.qualificationReviews.map((review) => (
-                    <div key={review.id} className={cn(nestedPanelClass, "p-3")}>
+                    <div
+                      key={review.id}
+                      className={cn(nestedPanelClass, "p-3")}
+                    >
                       <div className="flex items-center justify-between gap-3">
-                        <div className="font-medium">{qualificationDecisionLabel(review.decision)}</div>
-                        <Badge variant="secondary">{formatDate(review.validUntil)}</Badge>
+                        <div className="font-medium">
+                          {qualificationDecisionLabel(review.decision)}
+                        </div>
+                        <Badge variant="secondary">
+                          {formatDate(review.validUntil)}
+                        </Badge>
                       </div>
-                      {review.notes ? <p className="mt-2 text-sm text-muted-foreground">{review.notes}</p> : null}
+                      {review.notes ? (
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {review.notes}
+                        </p>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -1382,10 +1751,17 @@ export default function SupplierDetailPage() {
                           <FieldContent>
                             <Select
                               value={qualificationForm.decision}
-                              onChange={(event) => setQualificationForm((current) => ({ ...current, decision: event.target.value }))}
+                              onChange={(event) =>
+                                setQualificationForm((current) => ({
+                                  ...current,
+                                  decision: event.target.value,
+                                }))
+                              }
                             >
                               <option value="approved">Aprovado</option>
-                              <option value="approved_with_conditions">Aprovado com condições</option>
+                              <option value="approved_with_conditions">
+                                Aprovado com condições
+                              </option>
                               <option value="rejected">Rejeitado</option>
                             </Select>
                           </FieldContent>
@@ -1396,7 +1772,12 @@ export default function SupplierDetailPage() {
                             <Input
                               type="date"
                               value={qualificationForm.validUntil}
-                              onChange={(event) => setQualificationForm((current) => ({ ...current, validUntil: event.target.value }))}
+                              onChange={(event) =>
+                                setQualificationForm((current) => ({
+                                  ...current,
+                                  validUntil: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
@@ -1409,9 +1790,12 @@ export default function SupplierDetailPage() {
                               onToggle={(id) =>
                                 setQualificationForm((current) => ({
                                   ...current,
-                                  approvedOfferingIds: current.approvedOfferingIds.includes(id)
-                                    ? current.approvedOfferingIds.filter((value) => value !== id)
-                                    : [...current.approvedOfferingIds, id],
+                                  approvedOfferingIds:
+                                    current.approvedOfferingIds.includes(id)
+                                      ? current.approvedOfferingIds.filter(
+                                          (value) => value !== id,
+                                        )
+                                      : [...current.approvedOfferingIds, id],
                                 }))
                               }
                               placeholder="Selecione os itens aprovados"
@@ -1426,13 +1810,23 @@ export default function SupplierDetailPage() {
                             <Textarea
                               placeholder="Parecer"
                               value={qualificationForm.notes}
-                              onChange={(event) => setQualificationForm((current) => ({ ...current, notes: event.target.value }))}
+                              onChange={(event) =>
+                                setQualificationForm((current) => ({
+                                  ...current,
+                                  notes: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
                         <AttachmentUploader
                           attachments={qualificationForm.attachments}
-                          onChange={(attachments) => setQualificationForm((current) => ({ ...current, attachments }))}
+                          onChange={(attachments) =>
+                            setQualificationForm((current) => ({
+                              ...current,
+                              attachments,
+                            }))
+                          }
                         />
                       </FieldGroup>
                     </FieldSet>
@@ -1450,19 +1844,29 @@ export default function SupplierDetailPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Avaliações AVA2</CardTitle>
-                  <Badge variant="secondary">{detail.performanceReviews.length}</Badge>
+                  <Badge variant="secondary">
+                    {detail.performanceReviews.length}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {detail.performanceReviews.map((review) => (
-                    <div key={review.id} className={cn(nestedPanelClass, "p-3")}>
+                    <div
+                      key={review.id}
+                      className={cn(nestedPanelClass, "p-3")}
+                    >
                       <div className="flex items-center justify-between gap-3">
-                        <div className="font-medium">{review.offeringName || "Escopo geral"}</div>
-                        <Badge variant="secondary">{review.finalScore}/10</Badge>
+                        <div className="font-medium">
+                          {review.offeringName || "Escopo geral"}
+                        </div>
+                        <Badge variant="secondary">
+                          {review.finalScore}/10
+                        </Badge>
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {formatDate(review.periodStart)} a {formatDate(review.periodEnd)} · {review.conclusion}
+                        {formatDate(review.periodStart)} a{" "}
+                        {formatDate(review.periodEnd)} · {review.conclusion}
                       </div>
                     </div>
                   ))}
@@ -1483,7 +1887,12 @@ export default function SupplierDetailPage() {
                         <FieldContent>
                           <Select
                             value={performanceForm.offeringId}
-                            onChange={(event) => setPerformanceForm((current) => ({ ...current, offeringId: event.target.value }))}
+                            onChange={(event) =>
+                              setPerformanceForm((current) => ({
+                                ...current,
+                                offeringId: event.target.value,
+                              }))
+                            }
                           >
                             <option value="">Escopo geral</option>
                             {detail.offerings.map((offering) => (
@@ -1501,7 +1910,12 @@ export default function SupplierDetailPage() {
                             <Input
                               type="date"
                               value={performanceForm.periodStart}
-                              onChange={(event) => setPerformanceForm((current) => ({ ...current, periodStart: event.target.value }))}
+                              onChange={(event) =>
+                                setPerformanceForm((current) => ({
+                                  ...current,
+                                  periodStart: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
@@ -1511,7 +1925,12 @@ export default function SupplierDetailPage() {
                             <Input
                               type="date"
                               value={performanceForm.periodEnd}
-                              onChange={(event) => setPerformanceForm((current) => ({ ...current, periodEnd: event.target.value }))}
+                              onChange={(event) =>
+                                setPerformanceForm((current) => ({
+                                  ...current,
+                                  periodEnd: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
@@ -1525,7 +1944,12 @@ export default function SupplierDetailPage() {
                               min={0}
                               max={10}
                               value={performanceForm.qualityScore}
-                              onChange={(event) => setPerformanceForm((current) => ({ ...current, qualityScore: event.target.value }))}
+                              onChange={(event) =>
+                                setPerformanceForm((current) => ({
+                                  ...current,
+                                  qualityScore: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
@@ -1537,7 +1961,12 @@ export default function SupplierDetailPage() {
                               min={0}
                               max={10}
                               value={performanceForm.deliveryScore}
-                              onChange={(event) => setPerformanceForm((current) => ({ ...current, deliveryScore: event.target.value }))}
+                              onChange={(event) =>
+                                setPerformanceForm((current) => ({
+                                  ...current,
+                                  deliveryScore: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
@@ -1549,7 +1978,12 @@ export default function SupplierDetailPage() {
                               min={0}
                               max={10}
                               value={performanceForm.communicationScore}
-                              onChange={(event) => setPerformanceForm((current) => ({ ...current, communicationScore: event.target.value }))}
+                              onChange={(event) =>
+                                setPerformanceForm((current) => ({
+                                  ...current,
+                                  communicationScore: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
@@ -1561,7 +1995,12 @@ export default function SupplierDetailPage() {
                               min={0}
                               max={10}
                               value={performanceForm.complianceScore}
-                              onChange={(event) => setPerformanceForm((current) => ({ ...current, complianceScore: event.target.value }))}
+                              onChange={(event) =>
+                                setPerformanceForm((current) => ({
+                                  ...current,
+                                  complianceScore: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
@@ -1574,7 +2013,12 @@ export default function SupplierDetailPage() {
                             min={0}
                             max={10}
                             value={performanceForm.priceScore}
-                            onChange={(event) => setPerformanceForm((current) => ({ ...current, priceScore: event.target.value }))}
+                            onChange={(event) =>
+                              setPerformanceForm((current) => ({
+                                ...current,
+                                priceScore: event.target.value,
+                              }))
+                            }
                           />
                         </FieldContent>
                       </Field>
@@ -1584,7 +2028,12 @@ export default function SupplierDetailPage() {
                           <FieldContent>
                             <Select
                               value={performanceForm.conclusion}
-                              onChange={(event) => setPerformanceForm((current) => ({ ...current, conclusion: event.target.value }))}
+                              onChange={(event) =>
+                                setPerformanceForm((current) => ({
+                                  ...current,
+                                  conclusion: event.target.value,
+                                }))
+                              }
                             >
                               <option value="maintain">Manter</option>
                               <option value="restrict">Restringir</option>
@@ -1597,7 +2046,12 @@ export default function SupplierDetailPage() {
                           <FieldContent>
                             <Select
                               value={performanceForm.riskLevel}
-                              onChange={(event) => setPerformanceForm((current) => ({ ...current, riskLevel: event.target.value }))}
+                              onChange={(event) =>
+                                setPerformanceForm((current) => ({
+                                  ...current,
+                                  riskLevel: event.target.value,
+                                }))
+                              }
                             >
                               <option value="low">Risco baixo</option>
                               <option value="medium">Risco médio</option>
@@ -1612,7 +2066,12 @@ export default function SupplierDetailPage() {
                           <Textarea
                             placeholder="Observações"
                             value={performanceForm.observations}
-                            onChange={(event) => setPerformanceForm((current) => ({ ...current, observations: event.target.value }))}
+                            onChange={(event) =>
+                              setPerformanceForm((current) => ({
+                                ...current,
+                                observations: event.target.value,
+                              }))
+                            }
                           />
                         </FieldContent>
                       </Field>
@@ -1631,21 +2090,29 @@ export default function SupplierDetailPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Recebimentos</CardTitle>
-                  <Badge variant="secondary">{detail.receiptChecks.length}</Badge>
+                  <Badge variant="secondary">
+                    {detail.receiptChecks.length}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {detail.receiptChecks.map((receipt) => (
-                    <div key={receipt.id} className={cn(nestedPanelClass, "p-3")}>
+                    <div
+                      key={receipt.id}
+                      className={cn(nestedPanelClass, "p-3")}
+                    >
                       <div className="flex items-center justify-between gap-3">
                         <div className="font-medium">{receipt.description}</div>
                         <Badge variant="secondary">{receipt.outcome}</Badge>
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {formatDate(receipt.receiptDate)} · autorizador #{receipt.authorizedById ?? "—"}
+                        {formatDate(receipt.receiptDate)} · autorizador #
+                        {receipt.authorizedById ?? "—"}
                       </div>
-                      <p className="mt-2 text-sm text-muted-foreground">{receipt.acceptanceCriteria}</p>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {receipt.acceptanceCriteria}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -1665,7 +2132,12 @@ export default function SupplierDetailPage() {
                         <FieldContent>
                           <Select
                             value={receiptForm.offeringId}
-                            onChange={(event) => setReceiptForm((current) => ({ ...current, offeringId: event.target.value }))}
+                            onChange={(event) =>
+                              setReceiptForm((current) => ({
+                                ...current,
+                                offeringId: event.target.value,
+                              }))
+                            }
                           >
                             <option value="">Escopo geral</option>
                             {detail.offerings.map((offering) => (
@@ -1682,7 +2154,12 @@ export default function SupplierDetailPage() {
                           <FieldContent>
                             <Select
                               value={receiptForm.unitId}
-                              onChange={(event) => setReceiptForm((current) => ({ ...current, unitId: event.target.value }))}
+                              onChange={(event) =>
+                                setReceiptForm((current) => ({
+                                  ...current,
+                                  unitId: event.target.value,
+                                }))
+                              }
                             >
                               <option value="">Sem unidade</option>
                               {units.map((unit) => (
@@ -1698,7 +2175,12 @@ export default function SupplierDetailPage() {
                           <FieldContent>
                             <Select
                               value={receiptForm.authorizedById}
-                              onChange={(event) => setReceiptForm((current) => ({ ...current, authorizedById: event.target.value }))}
+                              onChange={(event) =>
+                                setReceiptForm((current) => ({
+                                  ...current,
+                                  authorizedById: event.target.value,
+                                }))
+                              }
                             >
                               <option value="">Selecione o autorizador</option>
                               {users.map((user) => (
@@ -1716,7 +2198,12 @@ export default function SupplierDetailPage() {
                           <Input
                             type="date"
                             value={receiptForm.receiptDate}
-                            onChange={(event) => setReceiptForm((current) => ({ ...current, receiptDate: event.target.value }))}
+                            onChange={(event) =>
+                              setReceiptForm((current) => ({
+                                ...current,
+                                receiptDate: event.target.value,
+                              }))
+                            }
                           />
                         </FieldContent>
                       </Field>
@@ -1725,7 +2212,12 @@ export default function SupplierDetailPage() {
                         <FieldContent>
                           <Input
                             value={receiptForm.description}
-                            onChange={(event) => setReceiptForm((current) => ({ ...current, description: event.target.value }))}
+                            onChange={(event) =>
+                              setReceiptForm((current) => ({
+                                ...current,
+                                description: event.target.value,
+                              }))
+                            }
                           />
                         </FieldContent>
                       </Field>
@@ -1734,7 +2226,12 @@ export default function SupplierDetailPage() {
                         <FieldContent>
                           <Input
                             value={receiptForm.referenceNumber}
-                            onChange={(event) => setReceiptForm((current) => ({ ...current, referenceNumber: event.target.value }))}
+                            onChange={(event) =>
+                              setReceiptForm((current) => ({
+                                ...current,
+                                referenceNumber: event.target.value,
+                              }))
+                            }
                           />
                         </FieldContent>
                       </Field>
@@ -1744,7 +2241,12 @@ export default function SupplierDetailPage() {
                           <FieldContent>
                             <Input
                               value={receiptForm.quantity}
-                              onChange={(event) => setReceiptForm((current) => ({ ...current, quantity: event.target.value }))}
+                              onChange={(event) =>
+                                setReceiptForm((current) => ({
+                                  ...current,
+                                  quantity: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
@@ -1754,7 +2256,12 @@ export default function SupplierDetailPage() {
                             <Input
                               type="number"
                               value={receiptForm.totalValue}
-                              onChange={(event) => setReceiptForm((current) => ({ ...current, totalValue: event.target.value }))}
+                              onChange={(event) =>
+                                setReceiptForm((current) => ({
+                                  ...current,
+                                  totalValue: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
@@ -1764,20 +2271,34 @@ export default function SupplierDetailPage() {
                         <FieldContent>
                           <Select
                             value={receiptForm.outcome}
-                            onChange={(event) => setReceiptForm((current) => ({ ...current, outcome: event.target.value }))}
+                            onChange={(event) =>
+                              setReceiptForm((current) => ({
+                                ...current,
+                                outcome: event.target.value,
+                              }))
+                            }
                           >
                             <option value="accepted">Aceito</option>
-                            <option value="accepted_with_remarks">Aceito com ressalvas</option>
+                            <option value="accepted_with_remarks">
+                              Aceito com ressalvas
+                            </option>
                             <option value="rejected">Rejeitado</option>
                           </Select>
                         </FieldContent>
                       </Field>
                       <Field>
-                        <FieldLabel>Critérios de aceitação verificados</FieldLabel>
+                        <FieldLabel>
+                          Critérios de aceitação verificados
+                        </FieldLabel>
                         <FieldContent>
                           <Textarea
                             value={receiptForm.acceptanceCriteria}
-                            onChange={(event) => setReceiptForm((current) => ({ ...current, acceptanceCriteria: event.target.value }))}
+                            onChange={(event) =>
+                              setReceiptForm((current) => ({
+                                ...current,
+                                acceptanceCriteria: event.target.value,
+                              }))
+                            }
                           />
                         </FieldContent>
                       </Field>
@@ -1786,11 +2307,20 @@ export default function SupplierDetailPage() {
                         <FieldContent>
                           <Select
                             value={receiptForm.nonConformityStatus}
-                            onChange={(event) => setReceiptForm((current) => ({ ...current, nonConformityStatus: event.target.value }))}
+                            onChange={(event) =>
+                              setReceiptForm((current) => ({
+                                ...current,
+                                nonConformityStatus: event.target.value,
+                              }))
+                            }
                           >
                             <option value="not_required">Sem handoff</option>
-                            <option value="pending_handoff">Handoff pendente</option>
-                            <option value="handed_off">Handoff realizado</option>
+                            <option value="pending_handoff">
+                              Handoff pendente
+                            </option>
+                            <option value="handed_off">
+                              Handoff realizado
+                            </option>
                           </Select>
                         </FieldContent>
                       </Field>
@@ -1799,13 +2329,23 @@ export default function SupplierDetailPage() {
                         <FieldContent>
                           <Textarea
                             value={receiptForm.nonConformitySummary}
-                            onChange={(event) => setReceiptForm((current) => ({ ...current, nonConformitySummary: event.target.value }))}
+                            onChange={(event) =>
+                              setReceiptForm((current) => ({
+                                ...current,
+                                nonConformitySummary: event.target.value,
+                              }))
+                            }
                           />
                         </FieldContent>
                       </Field>
                       <AttachmentUploader
                         attachments={receiptForm.attachments}
-                        onChange={(attachments) => setReceiptForm((current) => ({ ...current, attachments }))}
+                        onChange={(attachments) =>
+                          setReceiptForm((current) => ({
+                            ...current,
+                            attachments,
+                          }))
+                        }
                       />
                     </FieldGroup>
                   </FieldSet>
@@ -1828,7 +2368,10 @@ export default function SupplierDetailPage() {
               <CardContent>
                 <div className="space-y-3">
                   {detail.failures.map((failure) => (
-                    <div key={failure.id} className={cn(nestedPanelClass, "p-3")}>
+                    <div
+                      key={failure.id}
+                      className={cn(nestedPanelClass, "p-3")}
+                    >
                       <div className="flex items-center justify-between gap-3">
                         <div className="font-medium">{failure.failureType}</div>
                         <Badge variant="secondary">{failure.severity}</Badge>
@@ -1836,11 +2379,15 @@ export default function SupplierDetailPage() {
                       <div className="mt-1 text-xs text-muted-foreground">
                         {formatDate(failure.occurredAt)} · {failure.status}
                       </div>
-                      <p className="mt-2 text-sm text-muted-foreground">{failure.description}</p>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {failure.description}
+                      </p>
                     </div>
                   ))}
                   {detail.failures.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Sem falhas registradas.</p>
+                    <p className="text-sm text-muted-foreground">
+                      Sem falhas registradas.
+                    </p>
                   ) : null}
                 </div>
 
@@ -1854,11 +2401,18 @@ export default function SupplierDetailPage() {
                           <FieldContent>
                             <Select
                               value={failureForm.failureType}
-                              onChange={(event) => setFailureForm((current) => ({ ...current, failureType: event.target.value }))}
+                              onChange={(event) =>
+                                setFailureForm((current) => ({
+                                  ...current,
+                                  failureType: event.target.value,
+                                }))
+                              }
                             >
                               <option value="delivery">Entrega</option>
                               <option value="quality">Qualidade</option>
-                              <option value="documentation">Documentação</option>
+                              <option value="documentation">
+                                Documentação
+                              </option>
                               <option value="compliance">Compliance</option>
                               <option value="other">Outro</option>
                             </Select>
@@ -1869,7 +2423,12 @@ export default function SupplierDetailPage() {
                           <FieldContent>
                             <Select
                               value={failureForm.severity}
-                              onChange={(event) => setFailureForm((current) => ({ ...current, severity: event.target.value }))}
+                              onChange={(event) =>
+                                setFailureForm((current) => ({
+                                  ...current,
+                                  severity: event.target.value,
+                                }))
+                              }
                             >
                               <option value="low">Baixa</option>
                               <option value="medium">Média</option>
@@ -1884,7 +2443,12 @@ export default function SupplierDetailPage() {
                             <Textarea
                               placeholder="Descrição da falha"
                               value={failureForm.description}
-                              onChange={(event) => setFailureForm((current) => ({ ...current, description: event.target.value }))}
+                              onChange={(event) =>
+                                setFailureForm((current) => ({
+                                  ...current,
+                                  description: event.target.value,
+                                }))
+                              }
                             />
                           </FieldContent>
                         </Field>
@@ -1906,21 +2470,27 @@ export default function SupplierDetailPage() {
                       <ShieldCheck className="h-4 w-4" />
                       Documentos
                     </div>
-                    <p className="mt-2 text-2xl font-semibold">{detail.documents.reviews.length}</p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {detail.documents.reviews.length}
+                    </p>
                   </div>
                   <div className={cn(nestedPanelClass, "p-3")}>
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <ClipboardList className="h-4 w-4" />
                       Avaliações
                     </div>
-                    <p className="mt-2 text-2xl font-semibold">{detail.performanceReviews.length}</p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {detail.performanceReviews.length}
+                    </p>
                   </div>
                   <div className={cn(nestedPanelClass, "p-3")}>
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Receipt className="h-4 w-4" />
                       Recebimentos
                     </div>
-                    <p className="mt-2 text-2xl font-semibold">{detail.receiptChecks.length}</p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {detail.receiptChecks.length}
+                    </p>
                   </div>
                 </div>
 
@@ -1930,25 +2500,39 @@ export default function SupplierDetailPage() {
                     Linha do tempo resumida
                   </div>
                   {detail.qualificationReviews.slice(0, 3).map((review) => (
-                    <div key={`qual-${review.id}`} className="text-sm text-muted-foreground">
-                      Homologação: {qualificationDecisionLabel(review.decision)} em {formatDate(review.createdAt)}
+                    <div
+                      key={`qual-${review.id}`}
+                      className="text-sm text-muted-foreground"
+                    >
+                      Homologação: {qualificationDecisionLabel(review.decision)}{" "}
+                      em {formatDate(review.createdAt)}
                     </div>
                   ))}
                   {detail.performanceReviews.slice(0, 3).map((review) => (
-                    <div key={`perf-${review.id}`} className="text-sm text-muted-foreground">
-                      AVA2 {review.conclusion} ({review.finalScore}/10) em {formatDate(review.createdAt)}
+                    <div
+                      key={`perf-${review.id}`}
+                      className="text-sm text-muted-foreground"
+                    >
+                      AVA2 {review.conclusion} ({review.finalScore}/10) em{" "}
+                      {formatDate(review.createdAt)}
                     </div>
                   ))}
                   {detail.receiptChecks.slice(0, 3).map((receipt) => (
-                    <div key={`rec-${receipt.id}`} className="text-sm text-muted-foreground">
-                      Recebimento {receipt.outcome} em {formatDate(receipt.receiptDate)}
+                    <div
+                      key={`rec-${receipt.id}`}
+                      className="text-sm text-muted-foreground"
+                    >
+                      Recebimento {receipt.outcome} em{" "}
+                      {formatDate(receipt.receiptDate)}
                     </div>
                   ))}
                   {detail.failures.length === 0 &&
                   detail.performanceReviews.length === 0 &&
                   detail.receiptChecks.length === 0 &&
                   detail.qualificationReviews.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">Nenhum evento relevante registrado ainda.</div>
+                    <div className="text-sm text-muted-foreground">
+                      Nenhum evento relevante registrado ainda.
+                    </div>
                   ) : null}
                 </div>
               </CardContent>

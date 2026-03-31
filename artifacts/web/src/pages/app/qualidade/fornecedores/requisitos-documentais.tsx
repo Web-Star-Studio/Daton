@@ -5,14 +5,26 @@ import { z } from "zod";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
+import {
+  useHeaderActions,
+  usePageSubtitle,
+  usePageTitle,
+} from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { ProfileItemAttachmentsField } from "@/components/employees/profile-item-form-fields";
 import { toast } from "@/hooks/use-toast";
@@ -40,7 +52,14 @@ import {
   validateProfileItemUploadSelection,
   PROFILE_ITEM_ATTACHMENT_ACCEPT,
 } from "@/lib/uploads";
-import { ArrowLeft, ChevronRight, Download, Plus, Search, Upload } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronRight,
+  Download,
+  Plus,
+  Search,
+  Upload,
+} from "lucide-react";
 
 const requirementAttachmentSchema = z.object({
   fileName: z.string().trim().min(1),
@@ -52,7 +71,11 @@ const requirementAttachmentSchema = z.object({
 const requirementFormSchema = z.object({
   name: z.string().trim().min(1, "Informe o nome do requisito documental."),
   description: z.string(),
-  weight: z.coerce.number().int().min(1, "O peso deve ser entre 1 e 5.").max(5, "O peso deve ser entre 1 e 5."),
+  weight: z.coerce
+    .number()
+    .int()
+    .min(1, "O peso deve ser entre 1 e 5.")
+    .max(5, "O peso deve ser entre 1 e 5."),
   categoryId: z.string().trim().min(1, "Selecione uma categoria."),
   typeId: z.string().trim().min(1, "Selecione um tipo de fornecedor."),
   status: z.enum(["active", "inactive"]),
@@ -81,10 +104,14 @@ function requirementStatusLabel(status: string) {
 }
 
 function FieldError({ message }: { message?: string }) {
-  return message ? <p className="mt-1.5 text-xs text-destructive">{message}</p> : null;
+  return message ? (
+    <p className="mt-1.5 text-xs text-destructive">{message}</p>
+  ) : null;
 }
 
-function toFormValues(requirement?: SupplierDocumentRequirement | null): RequirementFormValues {
+function toFormValues(
+  requirement?: SupplierDocumentRequirement | null,
+): RequirementFormValues {
   if (!requirement) {
     return emptyForm;
   }
@@ -114,11 +141,16 @@ export default function SupplierDocumentRequirementsPage() {
   const [importExportDialogOpen, setImportExportDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [requirementDialogOpen, setRequirementDialogOpen] = useState(false);
-  const [editingRequirementId, setEditingRequirementId] = useState<number | null>(null);
+  const [editingRequirementId, setEditingRequirementId] = useState<
+    number | null
+  >(null);
   const [isAttachmentUploading, setIsAttachmentUploading] = useState(false);
   const [importFileName, setImportFileName] = useState("");
-  const [importRows, setImportRows] = useState<SupplierDocumentRequirementImportInputRow[]>([]);
-  const [importPreview, setImportPreview] = useState<SupplierDocumentRequirementImportPreview | null>(null);
+  const [importRows, setImportRows] = useState<
+    SupplierDocumentRequirementImportInputRow[]
+  >([]);
+  const [importPreview, setImportPreview] =
+    useState<SupplierDocumentRequirementImportPreview | null>(null);
 
   const form = useForm<RequirementFormValues>({
     resolver: zodResolver(requirementFormSchema),
@@ -126,7 +158,9 @@ export default function SupplierDocumentRequirementsPage() {
   });
 
   usePageTitle("Requisitos documentais");
-  usePageSubtitle("Centralize o catálogo de documentos obrigatórios usados na análise dos fornecedores.");
+  usePageSubtitle(
+    "Centralize o catálogo de documentos obrigatórios usados na análise dos fornecedores.",
+  );
 
   const categoriesQuery = useQuery({
     queryKey: suppliersKeys.categories(orgId || 0),
@@ -159,9 +193,15 @@ export default function SupplierDocumentRequirementsPage() {
   );
 
   const stats = useMemo(() => {
-    const active = requirements.filter((requirement) => requirement.status === "active").length;
-    const inactive = requirements.filter((requirement) => requirement.status === "inactive").length;
-    const withAttachments = requirements.filter((requirement) => requirement.attachments.length > 0).length;
+    const active = requirements.filter(
+      (requirement) => requirement.status === "active",
+    ).length;
+    const inactive = requirements.filter(
+      (requirement) => requirement.status === "inactive",
+    ).length;
+    const withAttachments = requirements.filter(
+      (requirement) => requirement.attachments.length > 0,
+    ).length;
 
     return {
       total: requirements.length,
@@ -175,13 +215,17 @@ export default function SupplierDocumentRequirementsPage() {
     const normalizedSearch = search.trim().toLowerCase();
 
     return requirements.filter((requirement) => {
-      const categoryName = categoriesById.get(requirement.categoryId || 0) || "";
+      const categoryName =
+        categoriesById.get(requirement.categoryId || 0) || "";
       const typeName = typesById.get(requirement.typeId || 0) || "";
 
       if (statusFilter && requirement.status !== statusFilter) {
         return false;
       }
-      if (categoryFilter && String(requirement.categoryId || "") !== categoryFilter) {
+      if (
+        categoryFilter &&
+        String(requirement.categoryId || "") !== categoryFilter
+      ) {
         return false;
       }
       if (typeFilter && String(requirement.typeId || "") !== typeFilter) {
@@ -201,7 +245,15 @@ export default function SupplierDocumentRequirementsPage() {
         .toLowerCase()
         .includes(normalizedSearch);
     });
-  }, [categoryFilter, categoriesById, requirements, search, statusFilter, typeFilter, typesById]);
+  }, [
+    categoryFilter,
+    categoriesById,
+    requirements,
+    search,
+    statusFilter,
+    typeFilter,
+    typesById,
+  ]);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: suppliersKeys.all });
@@ -228,12 +280,16 @@ export default function SupplierDocumentRequirementsPage() {
   const exportMutation = useMutation({
     mutationFn: () => exportSupplierDocumentRequirements(orgId!),
     onSuccess: ({ rows }) => {
-      downloadSupplierDocumentRequirementsWorkbook(rows, "catalogo-requisitos-documentais.xlsx");
+      downloadSupplierDocumentRequirementsWorkbook(
+        rows,
+        "catalogo-requisitos-documentais.xlsx",
+      );
     },
     onError: (error) => {
       toast({
         title: "Falha ao exportar catálogo",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     },
@@ -248,7 +304,8 @@ export default function SupplierDocumentRequirementsPage() {
     onError: (error) => {
       toast({
         title: "Falha ao analisar planilha",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     },
@@ -260,7 +317,10 @@ export default function SupplierDocumentRequirementsPage() {
         throw new Error("Gere a prévia da importação antes de confirmar.");
       }
 
-      return commitSupplierDocumentRequirementsImport(orgId!, importPreview.previewToken);
+      return commitSupplierDocumentRequirementsImport(
+        orgId!,
+        importPreview.previewToken,
+      );
     },
     onSuccess: (result) => {
       refresh();
@@ -274,7 +334,8 @@ export default function SupplierDocumentRequirementsPage() {
     onError: (error) => {
       toast({
         title: "Falha ao importar catálogo",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     },
@@ -295,7 +356,11 @@ export default function SupplierDocumentRequirementsPage() {
       if (editingRequirementId) {
         return {
           action: "update" as const,
-          requirement: await updateSupplierDocumentRequirement(orgId!, editingRequirementId, payload),
+          requirement: await updateSupplierDocumentRequirement(
+            orgId!,
+            editingRequirementId,
+            payload,
+          ),
         };
       }
 
@@ -310,13 +375,15 @@ export default function SupplierDocumentRequirementsPage() {
       form.reset(toFormValues(requirement));
       setRequirementDialogOpen(false);
       toast({
-        title: action === "create" ? "Requisito criado" : "Requisito atualizado",
+        title:
+          action === "create" ? "Requisito criado" : "Requisito atualizado",
       });
     },
     onError: (error) => {
       toast({
         title: "Falha ao salvar requisito documental",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     },
@@ -342,7 +409,8 @@ export default function SupplierDocumentRequirementsPage() {
       previewImportMutation.reset();
       toast({
         title: "Falha ao ler planilha",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -352,7 +420,10 @@ export default function SupplierDocumentRequirementsPage() {
     if (!files?.length) return;
 
     const selectedFiles = Array.from(files);
-    const validationError = validateProfileItemUploadSelection(selectedFiles, watchedAttachments.length);
+    const validationError = validateProfileItemUploadSelection(
+      selectedFiles,
+      watchedAttachments.length,
+    );
     if (validationError) {
       toast({
         title: "Limite de anexos excedido",
@@ -365,11 +436,14 @@ export default function SupplierDocumentRequirementsPage() {
     setIsAttachmentUploading(true);
     try {
       const uploadedFiles = await uploadFilesToStorage(selectedFiles);
-      form.setValue("attachments", [...watchedAttachments, ...uploadedFiles], { shouldDirty: true });
+      form.setValue("attachments", [...watchedAttachments, ...uploadedFiles], {
+        shouldDirty: true,
+      });
     } catch (error) {
       toast({
         title: "Falha ao enviar anexos",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -394,21 +468,29 @@ export default function SupplierDocumentRequirementsPage() {
 
   const headerActions = (
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores")}>
-        <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-        Voltar
-      </Button>
+      <HeaderActionButton
+        variant="outline"
+        size="sm"
+        onClick={() => navigate("/app/qualidade/fornecedores")}
+        label="Voltar"
+        icon={<ArrowLeft className="h-3.5 w-3.5" />}
+      />
       {canManageSuppliers ? (
-        <Button variant="outline" size="sm" onClick={() => setImportExportDialogOpen(true)}>
-          <Upload className="mr-1.5 h-3.5 w-3.5" />
-          Importar / Exportar
-        </Button>
+        <HeaderActionButton
+          variant="outline"
+          size="sm"
+          onClick={() => setImportExportDialogOpen(true)}
+          label="Importar / Exportar"
+          icon={<Upload className="h-3.5 w-3.5" />}
+        />
       ) : null}
       {canManageSuppliers ? (
-        <Button size="sm" onClick={openCreateDialog}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Novo requisito
-        </Button>
+        <HeaderActionButton
+          size="sm"
+          onClick={openCreateDialog}
+          label="Novo requisito"
+          icon={<Plus className="h-3.5 w-3.5" />}
+        />
       ) : null}
     </div>
   );
@@ -422,25 +504,39 @@ export default function SupplierDocumentRequirementsPage() {
           <Card>
             <CardContent className="px-4 py-3">
               <p className="text-xs font-medium text-muted-foreground">Total</p>
-              <p className="mt-0.5 text-xl font-semibold text-foreground">{stats.total}</p>
+              <p className="mt-0.5 text-xl font-semibold text-foreground">
+                {stats.total}
+              </p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="px-4 py-3">
-              <p className="text-xs font-medium text-muted-foreground">Ativos</p>
-              <p className="mt-0.5 text-xl font-semibold text-emerald-600">{stats.active}</p>
+              <p className="text-xs font-medium text-muted-foreground">
+                Ativos
+              </p>
+              <p className="mt-0.5 text-xl font-semibold text-emerald-600">
+                {stats.active}
+              </p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="px-4 py-3">
-              <p className="text-xs font-medium text-muted-foreground">Inativos</p>
-              <p className="mt-0.5 text-xl font-semibold text-gray-500">{stats.inactive}</p>
+              <p className="text-xs font-medium text-muted-foreground">
+                Inativos
+              </p>
+              <p className="mt-0.5 text-xl font-semibold text-gray-500">
+                {stats.inactive}
+              </p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="px-4 py-3">
-              <p className="text-xs font-medium text-muted-foreground">Com anexos</p>
-              <p className="mt-0.5 text-xl font-semibold text-sky-600">{stats.withAttachments}</p>
+              <p className="text-xs font-medium text-muted-foreground">
+                Com anexos
+              </p>
+              <p className="mt-0.5 text-xl font-semibold text-sky-600">
+                {stats.withAttachments}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -491,7 +587,9 @@ export default function SupplierDocumentRequirementsPage() {
         </div>
 
         {requirementsQuery.isLoading ? (
-          <div className="py-16 text-center text-[13px] text-muted-foreground">Carregando requisitos documentais...</div>
+          <div className="py-16 text-center text-[13px] text-muted-foreground">
+            Carregando requisitos documentais...
+          </div>
         ) : filteredRequirements.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border px-4 py-16 text-center">
             <p className="text-[13px] text-muted-foreground">
@@ -511,12 +609,24 @@ export default function SupplierDocumentRequirementsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-border/60">
-                  <TableHead className="px-4 py-2.5 text-xs font-semibold">Nome</TableHead>
-                  <TableHead className="px-4 py-2.5 text-xs font-semibold">Categoria</TableHead>
-                  <TableHead className="px-4 py-2.5 text-xs font-semibold">Tipo</TableHead>
-                  <TableHead className="px-4 py-2.5 text-xs font-semibold">Peso</TableHead>
-                  <TableHead className="px-4 py-2.5 text-xs font-semibold">Status</TableHead>
-                  <TableHead className="px-4 py-2.5 text-xs font-semibold">Anexos</TableHead>
+                  <TableHead className="px-4 py-2.5 text-xs font-semibold">
+                    Nome
+                  </TableHead>
+                  <TableHead className="px-4 py-2.5 text-xs font-semibold">
+                    Categoria
+                  </TableHead>
+                  <TableHead className="px-4 py-2.5 text-xs font-semibold">
+                    Tipo
+                  </TableHead>
+                  <TableHead className="px-4 py-2.5 text-xs font-semibold">
+                    Peso
+                  </TableHead>
+                  <TableHead className="px-4 py-2.5 text-xs font-semibold">
+                    Status
+                  </TableHead>
+                  <TableHead className="px-4 py-2.5 text-xs font-semibold">
+                    Anexos
+                  </TableHead>
                   <TableHead className="w-8 px-4 py-2.5" />
                 </TableRow>
               </TableHeader>
@@ -529,9 +639,12 @@ export default function SupplierDocumentRequirementsPage() {
                   >
                     <TableCell className="px-4 py-3">
                       <div className="space-y-0.5">
-                        <p className="text-[13px] font-medium text-foreground">{requirement.name}</p>
+                        <p className="text-[13px] font-medium text-foreground">
+                          {requirement.name}
+                        </p>
                         <p className="max-w-[340px] truncate text-xs text-muted-foreground">
-                          {requirement.description?.trim() || "Sem descrição informada."}
+                          {requirement.description?.trim() ||
+                            "Sem descrição informada."}
                         </p>
                       </div>
                     </TableCell>
@@ -547,7 +660,8 @@ export default function SupplierDocumentRequirementsPage() {
                     <TableCell className="px-4 py-3">
                       <span
                         className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-                          STATUS_COLORS[requirement.status] || "bg-gray-50 text-gray-500 border-gray-200"
+                          STATUS_COLORS[requirement.status] ||
+                          "bg-gray-50 text-gray-500 border-gray-200"
                         }`}
                       >
                         {requirementStatusLabel(requirement.status)}
@@ -578,7 +692,9 @@ export default function SupplierDocumentRequirementsPage() {
             className="w-full rounded-xl border border-border/60 bg-card/42 px-4 py-3.5 text-left backdrop-blur-md transition hover:border-primary/30"
             onClick={() => {
               const anchor = document.createElement("a");
-              anchor.href = resolveAppAssetPath("/templates/template_importacao_documentos.xlsx");
+              anchor.href = resolveAppAssetPath(
+                "/templates/template_importacao_documentos.xlsx",
+              );
               anchor.download = "template_importacao_documentos.xlsx";
               anchor.click();
               setImportExportDialogOpen(false);
@@ -587,7 +703,9 @@ export default function SupplierDocumentRequirementsPage() {
             <div className="flex items-center gap-3">
               <Download className="h-4 w-4 text-muted-foreground" />
               <div>
-                <p className="text-[13px] font-medium text-foreground">Baixar modelo</p>
+                <p className="text-[13px] font-medium text-foreground">
+                  Baixar modelo
+                </p>
                 <p className="text-xs text-muted-foreground">
                   Planilha XLSX com o formato esperado para importação em massa.
                 </p>
@@ -607,9 +725,12 @@ export default function SupplierDocumentRequirementsPage() {
             <div className="flex items-center gap-3">
               <Download className="h-4 w-4 text-muted-foreground" />
               <div>
-                <p className="text-[13px] font-medium text-foreground">Exportar catálogo</p>
+                <p className="text-[13px] font-medium text-foreground">
+                  Exportar catálogo
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  Exportar todos os requisitos documentais cadastrados como planilha XLSX.
+                  Exportar todos os requisitos documentais cadastrados como
+                  planilha XLSX.
                 </p>
               </div>
             </div>
@@ -627,9 +748,12 @@ export default function SupplierDocumentRequirementsPage() {
             <div className="flex items-center gap-3">
               <Upload className="h-4 w-4 text-muted-foreground" />
               <div>
-                <p className="text-[13px] font-medium text-foreground">Importar planilha</p>
+                <p className="text-[13px] font-medium text-foreground">
+                  Importar planilha
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  Importar requisitos documentais a partir de uma planilha XLSX preenchida.
+                  Importar requisitos documentais a partir de uma planilha XLSX
+                  preenchida.
                 </p>
               </div>
             </div>
@@ -650,8 +774,9 @@ export default function SupplierDocumentRequirementsPage() {
       >
         <div className="space-y-5">
           <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
-            Use o modelo oficial para importar ou atualizar o catálogo organizacional de requisitos documentais.
-            A importação só é liberada depois da prévia validada pela API.
+            Use o modelo oficial para importar ou atualizar o catálogo
+            organizacional de requisitos documentais. A importação só é liberada
+            depois da prévia validada pela API.
           </div>
 
           <div className="space-y-2">
@@ -660,11 +785,18 @@ export default function SupplierDocumentRequirementsPage() {
               id="requirements-workbook"
               type="file"
               accept=".xlsx,.xls"
-              onChange={(event) => void handleImportFile(event.target.files?.[0] || null)}
-              disabled={previewImportMutation.isPending || commitImportMutation.isPending}
+              onChange={(event) =>
+                void handleImportFile(event.target.files?.[0] || null)
+              }
+              disabled={
+                previewImportMutation.isPending ||
+                commitImportMutation.isPending
+              }
             />
             {importFileName ? (
-              <p className="text-xs text-muted-foreground">Arquivo carregado: {importFileName}</p>
+              <p className="text-xs text-muted-foreground">
+                Arquivo carregado: {importFileName}
+              </p>
             ) : null}
           </div>
 
@@ -673,40 +805,55 @@ export default function SupplierDocumentRequirementsPage() {
               <div className="grid gap-3 md:grid-cols-4">
                 <Card>
                   <CardContent className="pt-4">
-                    <p className="text-xs text-muted-foreground">Linhas lidas</p>
-                    <p className="mt-1 text-xl font-semibold">{importPreview.summary.totalRows}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Linhas lidas
+                    </p>
+                    <p className="mt-1 text-xl font-semibold">
+                      {importPreview.summary.totalRows}
+                    </p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4">
                     <p className="text-xs text-muted-foreground">Criar</p>
-                    <p className="mt-1 text-xl font-semibold text-emerald-600">{importPreview.summary.createCount}</p>
+                    <p className="mt-1 text-xl font-semibold text-emerald-600">
+                      {importPreview.summary.createCount}
+                    </p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4">
                     <p className="text-xs text-muted-foreground">Atualizar</p>
-                    <p className="mt-1 text-xl font-semibold text-sky-600">{importPreview.summary.updateCount}</p>
+                    <p className="mt-1 text-xl font-semibold text-sky-600">
+                      {importPreview.summary.updateCount}
+                    </p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4">
                     <p className="text-xs text-muted-foreground">Com erro</p>
-                    <p className="mt-1 text-xl font-semibold text-red-600">{importPreview.summary.errorCount}</p>
+                    <p className="mt-1 text-xl font-semibold text-red-600">
+                      {importPreview.summary.errorCount}
+                    </p>
                   </CardContent>
                 </Card>
               </div>
 
               <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
                 {importPreview.rows.map((row) => (
-                  <div key={`${row.rowNumber}-${row.name}`} className="rounded-xl border border-border/60 p-4">
+                  <div
+                    key={`${row.rowNumber}-${row.name}`}
+                    className="rounded-xl border border-border/60 p-4"
+                  >
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="font-medium">
-                          Linha {row.rowNumber} · {row.name || "Documento sem nome"}
+                          Linha {row.rowNumber} ·{" "}
+                          {row.name || "Documento sem nome"}
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          Peso {row.weight ?? "—"} · {row.description || "Sem descrição"}
+                          Peso {row.weight ?? "—"} ·{" "}
+                          {row.description || "Sem descrição"}
                         </div>
                       </div>
                       <span
@@ -757,7 +904,9 @@ export default function SupplierDocumentRequirementsPage() {
               commitImportMutation.isPending
             }
           >
-            {commitImportMutation.isPending ? "Importando..." : "Confirmar importação"}
+            {commitImportMutation.isPending
+              ? "Importando..."
+              : "Confirmar importação"}
           </Button>
         </DialogFooter>
       </Dialog>
@@ -778,7 +927,11 @@ export default function SupplierDocumentRequirementsPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="supplier-requirement-name">Nome</Label>
-              <Input id="supplier-requirement-name" {...form.register("name")} disabled={!canManageSuppliers} />
+              <Input
+                id="supplier-requirement-name"
+                {...form.register("name")}
+                disabled={!canManageSuppliers}
+              />
               <FieldError message={form.formState.errors.name?.message} />
             </div>
 
@@ -801,7 +954,11 @@ export default function SupplierDocumentRequirementsPage() {
 
             <div className="space-y-2">
               <Label htmlFor="supplier-requirement-type">Tipo</Label>
-              <Select id="supplier-requirement-type" {...form.register("typeId")} disabled={!canManageSuppliers}>
+              <Select
+                id="supplier-requirement-type"
+                {...form.register("typeId")}
+                disabled={!canManageSuppliers}
+              >
                 <option value="">Selecione</option>
                 {types.map((type) => (
                   <option key={type.id} value={type.id}>
@@ -827,7 +984,11 @@ export default function SupplierDocumentRequirementsPage() {
 
             <div className="space-y-2">
               <Label htmlFor="supplier-requirement-status">Status</Label>
-              <Select id="supplier-requirement-status" {...form.register("status")} disabled={!canManageSuppliers}>
+              <Select
+                id="supplier-requirement-status"
+                {...form.register("status")}
+                disabled={!canManageSuppliers}
+              >
                 <option value="active">Ativo</option>
                 <option value="inactive">Inativo</option>
               </Select>
@@ -852,9 +1013,15 @@ export default function SupplierDocumentRequirementsPage() {
               fileName: attachment.fileName,
               fileSize: attachment.fileSize,
               objectPath: attachment.objectPath,
-              onRemove: canManageSuppliers ? () => removeAttachment(index) : undefined,
+              onRemove: canManageSuppliers
+                ? () => removeAttachment(index)
+                : undefined,
             }))}
-            onUpload={canManageSuppliers ? (files) => void handleAttachmentUpload(files) : undefined}
+            onUpload={
+              canManageSuppliers
+                ? (files) => void handleAttachmentUpload(files)
+                : undefined
+            }
             uploading={isAttachmentUploading}
             disabled={!canManageSuppliers}
             accept={PROFILE_ITEM_ATTACHMENT_ACCEPT}
@@ -874,8 +1041,12 @@ export default function SupplierDocumentRequirementsPage() {
           </Button>
           {canManageSuppliers ? (
             <Button
-              onClick={form.handleSubmit((values) => saveMutation.mutate(values))}
-              disabled={saveMutation.isPending || (isEditing && !form.formState.isDirty)}
+              onClick={form.handleSubmit((values) =>
+                saveMutation.mutate(values),
+              )}
+              disabled={
+                saveMutation.isPending || (isEditing && !form.formState.isDirty)
+              }
             >
               {saveMutation.isPending ? "Salvando..." : "Salvar requisito"}
             </Button>

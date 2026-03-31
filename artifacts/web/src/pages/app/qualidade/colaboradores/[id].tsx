@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "wouter";
 import { usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import {
   useGetEmployee,
   useUpdateEmployee,
@@ -71,7 +72,12 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
 import { useAllActiveSgqProcesses } from "@/lib/governance-system-client";
 import {
@@ -3343,11 +3349,11 @@ export default function ColaboradorDetailPage() {
   const employeePositionRecord = useMemo(
     () =>
       employee?.position
-        ? positions.find(
+        ? (positions.find(
             (position) =>
               position.name.trim().toLowerCase() ===
               employee.position!.trim().toLowerCase(),
-          ) ?? null
+          ) ?? null)
         : null,
     [employee?.position, positions],
   );
@@ -3466,24 +3472,30 @@ export default function ColaboradorDetailPage() {
           switch (activeTab) {
             case "competencias":
               return (
-                <Button size="sm" onClick={() => setCompCreateOpen(true)}>
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />
-                  Nova Competência
-                </Button>
+                <HeaderActionButton
+                  size="sm"
+                  onClick={() => setCompCreateOpen(true)}
+                  label="Nova Competência"
+                  icon={<Plus className="h-3.5 w-3.5" />}
+                />
               );
             case "treinamentos":
               return (
-                <Button size="sm" onClick={() => setTrainingCreateOpen(true)}>
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />
-                  Novo Treinamento
-                </Button>
+                <HeaderActionButton
+                  size="sm"
+                  onClick={() => setTrainingCreateOpen(true)}
+                  label="Novo Treinamento"
+                  icon={<Plus className="h-3.5 w-3.5" />}
+                />
               );
             case "conscientizacao":
               return (
-                <Button size="sm" onClick={() => setAwarenessCreateOpen(true)}>
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />
-                  Novo Registro
-                </Button>
+                <HeaderActionButton
+                  size="sm"
+                  onClick={() => setAwarenessCreateOpen(true)}
+                  label="Novo Registro"
+                  icon={<Plus className="h-3.5 w-3.5" />}
+                />
               );
             default:
               return null;
@@ -3494,40 +3506,46 @@ export default function ColaboradorDetailPage() {
     return (
       <div className="flex items-center gap-2">
         <Link href="/organizacao/colaboradores">
-          <Button variant="outline" size="sm" className="cursor-pointer">
-            <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
-            Voltar
-          </Button>
+          <HeaderActionButton
+            variant="outline"
+            size="sm"
+            className="cursor-pointer"
+            label="Voltar"
+            icon={<ArrowLeft className="h-3.5 w-3.5" />}
+          />
         </Link>
         {canWriteEmployees && (
           <>
-            <Button
+            <HeaderActionButton
               variant="outline"
               size="sm"
               onClick={() => setEditModalOpen(true)}
-            >
-              <Pencil className="h-3.5 w-3.5 mr-1.5" />
-              Editar
-            </Button>
-            <Button
+              label="Editar"
+              icon={<Pencil className="h-3.5 w-3.5" />}
+            />
+            <HeaderActionButton
               variant="outline"
               size="sm"
               className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
               onClick={handleArchive}
+              label="Arquivar"
+              icon={<Archive className="h-3.5 w-3.5" />}
             >
-              <Archive className="h-3.5 w-3.5 mr-1.5" />
               Arquivar
-            </Button>
+            </HeaderActionButton>
           </>
         )}
         {canAccessGovernance && employeePositionRecord ? (
           <Link
             href={`/governanca/conhecimento-critico?positionId=${employeePositionRecord.id}`}
           >
-            <Button variant="outline" size="sm" className="cursor-pointer">
-              <Lightbulb className="h-3.5 w-3.5 mr-1.5" />
-              Conhecimento do cargo
-            </Button>
+            <HeaderActionButton
+              variant="outline"
+              size="sm"
+              className="cursor-pointer"
+              label="Conhecimento do cargo"
+              icon={<Lightbulb className="h-3.5 w-3.5" />}
+            />
           </Link>
         ) : null}
         {addButton}

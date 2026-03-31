@@ -2,7 +2,12 @@ import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { useHeaderActions, usePageTitle, usePageSubtitle } from "@/contexts/LayoutContext";
+import {
+  useHeaderActions,
+  usePageTitle,
+  usePageSubtitle,
+} from "@/contexts/LayoutContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import {
   useListUnits,
   getListUnitsQueryKey,
@@ -37,7 +42,10 @@ import {
   supplierLegalIdentifierPlaceholder,
 } from "@/lib/supplier-formatters";
 import { resolveAppAssetPath } from "@/lib/base-path";
-import { downloadSuppliersWorkbook, parseSuppliersWorkbook } from "@/lib/suppliers-workbook";
+import {
+  downloadSuppliersWorkbook,
+  parseSuppliersWorkbook,
+} from "@/lib/suppliers-workbook";
 import {
   ArrowUpDown,
   Download,
@@ -92,7 +100,10 @@ const emptySupplierForm: SupplierFormState = {
 const CREATE_STEPS = ["Identificação", "Classificação", "Contato"];
 
 function formatCompliance(item: SupplierListItem) {
-  if (item.documentCompliancePercentage === null || item.documentCompliancePercentage === undefined) {
+  if (
+    item.documentCompliancePercentage === null ||
+    item.documentCompliancePercentage === undefined
+  ) {
     return "—";
   }
   return `${item.documentCompliancePercentage}%`;
@@ -133,20 +144,27 @@ export default function SuppliersPage() {
   const [unitFilter, setUnitFilter] = useState("");
 
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
-  const [supplierImportDialogOpen, setSupplierImportDialogOpen] = useState(false);
+  const [supplierImportDialogOpen, setSupplierImportDialogOpen] =
+    useState(false);
   const [createStep, setCreateStep] = useState(0);
   const [maxReachedCreateStep, setMaxReachedCreateStep] = useState(0);
   const [importExportDialogOpen, setImportExportDialogOpen] = useState(false);
   const [supplierImportFileName, setSupplierImportFileName] = useState("");
-  const [supplierImportRows, setSupplierImportRows] = useState<SupplierImportInputRow[]>([]);
-  const [supplierImportPreview, setSupplierImportPreview] = useState<SupplierImportPreview | null>(null);
+  const [supplierImportRows, setSupplierImportRows] = useState<
+    SupplierImportInputRow[]
+  >([]);
+  const [supplierImportPreview, setSupplierImportPreview] =
+    useState<SupplierImportPreview | null>(null);
 
-  const [supplierForm, setSupplierForm] = useState<SupplierFormState>(emptySupplierForm);
+  const [supplierForm, setSupplierForm] =
+    useState<SupplierFormState>(emptySupplierForm);
 
   const canManageSuppliers = role === "org_admin" || role === "platform_admin";
 
   usePageTitle("Fornecedores");
-  usePageSubtitle("Cadastro, documentos, homologação, recebimentos, histórico e desempenho.");
+  usePageSubtitle(
+    "Cadastro, documentos, homologação, recebimentos, histórico e desempenho.",
+  );
 
   const supplierFilters = useMemo(
     () => ({
@@ -204,14 +222,17 @@ export default function SuppliersPage() {
     onSuccess: (supplier) => {
       setSupplierDialogOpen(false);
       resetCreateForm();
-      queryClient.invalidateQueries({ queryKey: suppliersKeys.list(orgId!, {}) });
+      queryClient.invalidateQueries({
+        queryKey: suppliersKeys.list(orgId!, {}),
+      });
       queryClient.invalidateQueries({ queryKey: suppliersKeys.all });
       navigate(`/app/qualidade/fornecedores/${supplier.id}`);
     },
     onError: (error) => {
       toast({
         title: "Falha ao criar fornecedor",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     },
@@ -225,14 +246,16 @@ export default function SuppliersPage() {
     onError: (error) => {
       toast({
         title: "Falha ao exportar fornecedores",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     },
   });
 
   const previewSupplierImportMutation = useMutation({
-    mutationFn: (rows: SupplierImportInputRow[]) => previewSuppliersImport(orgId!, rows),
+    mutationFn: (rows: SupplierImportInputRow[]) =>
+      previewSuppliersImport(orgId!, rows),
     onSuccess: (preview) => {
       setSupplierImportPreview(preview);
     },
@@ -241,7 +264,8 @@ export default function SuppliersPage() {
       setSupplierImportPreview(null);
       toast({
         title: "Falha ao analisar planilha",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     },
@@ -266,12 +290,12 @@ export default function SuppliersPage() {
     onError: (error) => {
       toast({
         title: "Falha ao importar fornecedores",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     },
   });
-
 
   const categories = categoriesQuery.data || [];
   const types = typesQuery.data || [];
@@ -299,10 +323,18 @@ export default function SuppliersPage() {
   );
 
   const summary = useMemo(() => {
-    const approved = suppliers.filter((supplier) => supplier.status === "approved").length;
-    const restricted = suppliers.filter((supplier) => supplier.status === "restricted").length;
-    const blocked = suppliers.filter((supplier) => supplier.status === "blocked").length;
-    const withDocumentReview = suppliers.filter((supplier) => supplier.documentReviewStatus === "apt").length;
+    const approved = suppliers.filter(
+      (supplier) => supplier.status === "approved",
+    ).length;
+    const restricted = suppliers.filter(
+      (supplier) => supplier.status === "restricted",
+    ).length;
+    const blocked = suppliers.filter(
+      (supplier) => supplier.status === "blocked",
+    ).length;
+    const withDocumentReview = suppliers.filter(
+      (supplier) => supplier.documentReviewStatus === "apt",
+    ).length;
     return { approved, restricted, blocked, withDocumentReview };
   }, [suppliers]);
 
@@ -330,7 +362,8 @@ export default function SuppliersPage() {
       previewSupplierImportMutation.reset();
       toast({
         title: "Falha ao ler planilha",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -343,36 +376,52 @@ export default function SuppliersPage() {
 
   const headerActions = canManageSuppliers ? (
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={() => setImportExportDialogOpen(true)}>
-        <ArrowUpDown className="mr-1.5 h-3.5 w-3.5" />
-        Importar / Exportar
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/requisitos-documentais")}>
-        <FileStack className="mr-1.5 h-3.5 w-3.5" />
-        Requisitos documentais
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/tipos")}>
-        <Tags className="mr-1.5 h-3.5 w-3.5" />
-        Tipos
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/catalogo-itens")}>
-        <Package2 className="mr-1.5 h-3.5 w-3.5" />
-        Produtos e Serviços
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => navigate("/app/qualidade/fornecedores/categorias")}>
-        <Settings2 className="mr-1.5 h-3.5 w-3.5" />
-        Categorias
-      </Button>
-      <Button
+      <HeaderActionButton
+        variant="outline"
         size="sm"
+        onClick={() => setImportExportDialogOpen(true)}
+        label="Importar / Exportar"
+        icon={<ArrowUpDown className="h-3.5 w-3.5" />}
+      />
+      <HeaderActionButton
+        variant="outline"
+        size="sm"
+        onClick={() =>
+          navigate("/app/qualidade/fornecedores/requisitos-documentais")
+        }
+        label="Requisitos documentais"
+        icon={<FileStack className="h-3.5 w-3.5" />}
+      />
+      <HeaderActionButton
+        variant="outline"
+        size="sm"
+        onClick={() => navigate("/app/qualidade/fornecedores/tipos")}
+        label="Tipos"
+        icon={<Tags className="h-3.5 w-3.5" />}
+      />
+      <HeaderActionButton
+        variant="outline"
+        size="sm"
+        onClick={() => navigate("/app/qualidade/fornecedores/catalogo-itens")}
+        label="Produtos e Serviços"
+        icon={<Package2 className="h-3.5 w-3.5" />}
+      />
+      <HeaderActionButton
+        variant="outline"
+        size="sm"
+        onClick={() => navigate("/app/qualidade/fornecedores/categorias")}
+        label="Categorias"
+        icon={<Settings2 className="h-3.5 w-3.5" />}
+      />
+      <HeaderActionButton
+        size="sm"
+        label="Novo fornecedor"
+        icon={<Plus className="h-3.5 w-3.5" />}
         onClick={() => {
           resetCreateForm();
           setSupplierDialogOpen(true);
         }}
-      >
-        <Plus className="mr-1.5 h-3.5 w-3.5" />
-        Novo fornecedor
-      </Button>
+      />
     </div>
   ) : null;
 
@@ -394,7 +443,9 @@ export default function SuppliersPage() {
       legalName: supplierForm.legalName,
       tradeName: supplierForm.tradeName || null,
       responsibleName: supplierForm.responsibleName || null,
-      categoryId: supplierForm.categoryId ? Number(supplierForm.categoryId) : null,
+      categoryId: supplierForm.categoryId
+        ? Number(supplierForm.categoryId)
+        : null,
       unitIds: supplierForm.unitIds,
       typeIds: supplierForm.typeIds,
       status: supplierForm.status,
@@ -414,20 +465,36 @@ export default function SuppliersPage() {
         {/* Summary cards */}
         <div className="grid grid-cols-4 gap-4">
           <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-            <p className="text-xs font-medium text-muted-foreground">Aprovados</p>
-            <p className="text-xl font-semibold text-emerald-600 mt-0.5">{summary.approved}</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              Aprovados
+            </p>
+            <p className="text-xl font-semibold text-emerald-600 mt-0.5">
+              {summary.approved}
+            </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-            <p className="text-xs font-medium text-muted-foreground">Restritos</p>
-            <p className="text-xl font-semibold text-amber-600 mt-0.5">{summary.restricted}</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              Restritos
+            </p>
+            <p className="text-xl font-semibold text-amber-600 mt-0.5">
+              {summary.restricted}
+            </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-            <p className="text-xs font-medium text-muted-foreground">Bloqueados</p>
-            <p className="text-xl font-semibold text-red-600 mt-0.5">{summary.blocked}</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              Bloqueados
+            </p>
+            <p className="text-xl font-semibold text-red-600 mt-0.5">
+              {summary.blocked}
+            </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-card/42 px-4 py-3 backdrop-blur-md">
-            <p className="text-xs font-medium text-muted-foreground">AVA1 apto</p>
-            <p className="text-xl font-semibold text-foreground mt-0.5">{summary.withDocumentReview}</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              AVA1 apto
+            </p>
+            <p className="text-xl font-semibold text-foreground mt-0.5">
+              {summary.withDocumentReview}
+            </p>
           </div>
         </div>
 
@@ -508,11 +575,15 @@ export default function SuppliersPage() {
 
         {/* Table */}
         {suppliersQuery.isLoading ? (
-          <div className="text-center py-16 text-[13px] text-muted-foreground">Carregando fornecedores…</div>
+          <div className="text-center py-16 text-[13px] text-muted-foreground">
+            Carregando fornecedores…
+          </div>
         ) : suppliers.length === 0 ? (
           <div className="text-center py-16">
             <Package2 className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-[13px] text-muted-foreground">Nenhum fornecedor encontrado</p>
+            <p className="text-[13px] text-muted-foreground">
+              Nenhum fornecedor encontrado
+            </p>
             <p className="text-xs text-muted-foreground/70 mt-1">
               Ajuste os filtros ou crie o primeiro fornecedor desta organização.
             </p>
@@ -535,12 +606,24 @@ export default function SuppliersPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border/60">
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Fornecedor</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Status</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Categoria / Tipo</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Unidades</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">AVA1</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Última Revisão</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                    Fornecedor
+                  </th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                    Status
+                  </th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                    Categoria / Tipo
+                  </th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                    Unidades
+                  </th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                    AVA1
+                  </th>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+                    Última Revisão
+                  </th>
                   <th className="w-8"></th>
                 </tr>
               </thead>
@@ -549,34 +632,54 @@ export default function SuppliersPage() {
                   <tr
                     key={supplier.id}
                     className="border-b border-border/40 last:border-0 transition-colors hover:bg-secondary/30 cursor-pointer"
-                    onClick={() => navigate(`/app/qualidade/fornecedores/${supplier.id}`)}
+                    onClick={() =>
+                      navigate(`/app/qualidade/fornecedores/${supplier.id}`)
+                    }
                   >
                     <td className="px-4 py-3">
-                      <p className="text-[13px] font-medium text-foreground">{supplier.tradeName || supplier.legalName}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{supplier.legalIdentifier}</p>
+                      <p className="text-[13px] font-medium text-foreground">
+                        {supplier.tradeName || supplier.legalName}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {supplier.legalIdentifier}
+                      </p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[supplier.status] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[supplier.status] || "bg-gray-100 text-gray-500 border-gray-200"}`}
+                      >
                         {statusLabel(supplier.status)}
                       </span>
-                      <p className="text-xs text-muted-foreground mt-1">Criticidade {supplier.criticality}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Criticidade {supplier.criticality}
+                      </p>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-[13px] text-foreground">{supplier.category?.name || "Sem categoria"}</p>
+                      <p className="text-[13px] text-foreground">
+                        {supplier.category?.name || "Sem categoria"}
+                      </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {supplier.types.map((type) => type.name).join(", ") || "Sem tipo"}
+                        {supplier.types.map((type) => type.name).join(", ") ||
+                          "Sem tipo"}
                       </p>
                     </td>
                     <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                      {supplier.units.map((unit) => unit.name).join(", ") || "—"}
+                      {supplier.units.map((unit) => unit.name).join(", ") ||
+                        "—"}
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-[13px] text-foreground">{formatCompliance(supplier)}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{supplier.documentReviewStatus || "Sem parecer"}</p>
+                      <p className="text-[13px] text-foreground">
+                        {formatCompliance(supplier)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {supplier.documentReviewStatus || "Sem parecer"}
+                      </p>
                     </td>
                     <td className="px-4 py-3 text-[13px] text-muted-foreground">
                       {supplier.latestQualification?.createdAt
-                        ? new Date(supplier.latestQualification.createdAt).toLocaleDateString("pt-BR")
+                        ? new Date(
+                            supplier.latestQualification.createdAt,
+                          ).toLocaleDateString("pt-BR")
                         : "—"}
                     </td>
                     <td className="px-4 py-3">
@@ -617,7 +720,9 @@ export default function SuppliersPage() {
         {createStep === 0 && (
           <div className="grid grid-cols-2 gap-x-8 gap-y-5">
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Tipo de pessoa</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Tipo de pessoa
+              </Label>
               <Select
                 value={supplierForm.personType}
                 onChange={(event) =>
@@ -626,7 +731,10 @@ export default function SuppliersPage() {
                     return {
                       ...current,
                       personType: nextPersonType,
-                      legalIdentifier: formatSupplierLegalIdentifier(current.legalIdentifier, nextPersonType),
+                      legalIdentifier: formatSupplierLegalIdentifier(
+                        current.legalIdentifier,
+                        nextPersonType,
+                      ),
                     };
                   })
                 }
@@ -637,33 +745,60 @@ export default function SuppliersPage() {
               </Select>
             </div>
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">{supplierForm.personType === "pj" ? "CNPJ" : "CPF"}</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                {supplierForm.personType === "pj" ? "CNPJ" : "CPF"}
+              </Label>
               <Input
                 value={supplierForm.legalIdentifier}
                 onChange={(event) =>
                   setSupplierForm((current) => ({
                     ...current,
-                    legalIdentifier: formatSupplierLegalIdentifier(event.target.value, current.personType),
+                    legalIdentifier: formatSupplierLegalIdentifier(
+                      event.target.value,
+                      current.personType,
+                    ),
                   }))
                 }
                 className="mt-1"
-                placeholder={supplierLegalIdentifierPlaceholder(supplierForm.personType)}
+                placeholder={supplierLegalIdentifierPlaceholder(
+                  supplierForm.personType,
+                )}
               />
             </div>
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">{supplierForm.personType === "pj" ? "Razão social *" : "Nome completo *"}</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                {supplierForm.personType === "pj"
+                  ? "Razão social *"
+                  : "Nome completo *"}
+              </Label>
               <Input
                 value={supplierForm.legalName}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, legalName: event.target.value }))}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({
+                    ...current,
+                    legalName: event.target.value,
+                  }))
+                }
                 className="mt-1"
-                placeholder={supplierForm.personType === "pj" ? "Razão social da empresa" : "Nome completo"}
+                placeholder={
+                  supplierForm.personType === "pj"
+                    ? "Razão social da empresa"
+                    : "Nome completo"
+                }
               />
             </div>
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Nome fantasia</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Nome fantasia
+              </Label>
               <Input
                 value={supplierForm.tradeName}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, tradeName: event.target.value }))}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({
+                    ...current,
+                    tradeName: event.target.value,
+                  }))
+                }
                 className="mt-1"
                 placeholder="Nome comercial"
               />
@@ -674,7 +809,12 @@ export default function SuppliersPage() {
               </Label>
               <Input
                 value={supplierForm.responsibleName}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, responsibleName: event.target.value }))}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({
+                    ...current,
+                    responsibleName: event.target.value,
+                  }))
+                }
                 className="mt-1"
                 placeholder="Responsável pelo cadastro"
               />
@@ -685,10 +825,17 @@ export default function SuppliersPage() {
         {createStep === 1 && (
           <div className="grid grid-cols-2 gap-x-8 gap-y-5">
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Categoria</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Categoria
+              </Label>
               <Select
                 value={supplierForm.categoryId}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, categoryId: event.target.value }))}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({
+                    ...current,
+                    categoryId: event.target.value,
+                  }))
+                }
                 className="mt-1"
               >
                 <option value="">Sem categoria</option>
@@ -700,10 +847,17 @@ export default function SuppliersPage() {
               </Select>
             </div>
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Status inicial</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Status inicial
+              </Label>
               <Select
                 value={supplierForm.status}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, status: event.target.value }))}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({
+                    ...current,
+                    status: event.target.value,
+                  }))
+                }
                 className="mt-1"
               >
                 <option value="draft">Rascunho</option>
@@ -715,10 +869,17 @@ export default function SuppliersPage() {
               </Select>
             </div>
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Criticidade</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Criticidade
+              </Label>
               <Select
                 value={supplierForm.criticality}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, criticality: event.target.value }))}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({
+                    ...current,
+                    criticality: event.target.value,
+                  }))
+                }
                 className="mt-1"
               >
                 <option value="low">Baixa</option>
@@ -727,7 +888,9 @@ export default function SuppliersPage() {
               </Select>
             </div>
             <div className="col-span-2">
-              <Label className="text-xs font-semibold text-muted-foreground">Unidades vinculadas</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Unidades vinculadas
+              </Label>
               <div className="mt-1">
                 <SearchableMultiSelect
                   options={unitOptions}
@@ -747,7 +910,9 @@ export default function SuppliersPage() {
               </div>
             </div>
             <div className="col-span-2">
-              <Label className="text-xs font-semibold text-muted-foreground">Tipos de fornecedor</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Tipos de fornecedor
+              </Label>
               <div className="mt-1">
                 <SearchableMultiSelect
                   options={typeOptions}
@@ -772,59 +937,101 @@ export default function SuppliersPage() {
         {createStep === 2 && (
           <div className="grid grid-cols-2 gap-x-8 gap-y-5">
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">E-mail</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                E-mail
+              </Label>
               <Input
                 type="email"
                 value={supplierForm.email}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, email: event.target.value }))}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({
+                    ...current,
+                    email: event.target.value,
+                  }))
+                }
                 className="mt-1"
-                placeholder={supplierForm.personType === "pj" ? "contato@empresa.com" : "Opcional"}
+                placeholder={
+                  supplierForm.personType === "pj"
+                    ? "contato@empresa.com"
+                    : "Opcional"
+                }
               />
             </div>
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Telefone</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Telefone
+              </Label>
               <Input
                 type="tel"
                 value={supplierForm.phone}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, phone: event.target.value }))}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({
+                    ...current,
+                    phone: event.target.value,
+                  }))
+                }
                 className="mt-1"
                 placeholder="(00) 00000-0000"
               />
             </div>
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">Cidade</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Cidade
+              </Label>
               <Input
                 value={supplierForm.city}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, city: event.target.value }))}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground">UF</Label>
-              <Input
-                value={supplierForm.state}
                 onChange={(event) =>
-                  setSupplierForm((current) => ({ ...current, state: event.target.value.toUpperCase().slice(0, 2) }))
+                  setSupplierForm((current) => ({
+                    ...current,
+                    city: event.target.value,
+                  }))
                 }
                 className="mt-1"
               />
             </div>
             <div>
-              <Label className="text-xs font-semibold text-muted-foreground">CEP</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                UF
+              </Label>
+              <Input
+                value={supplierForm.state}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({
+                    ...current,
+                    state: event.target.value.toUpperCase().slice(0, 2),
+                  }))
+                }
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                CEP
+              </Label>
               <Input
                 value={supplierForm.postalCode}
                 onChange={(event) =>
-                  setSupplierForm((current) => ({ ...current, postalCode: formatSupplierPostalCode(event.target.value) }))
+                  setSupplierForm((current) => ({
+                    ...current,
+                    postalCode: formatSupplierPostalCode(event.target.value),
+                  }))
                 }
                 className="mt-1"
                 placeholder="00000-000"
               />
             </div>
             <div className="col-span-2">
-              <Label className="text-xs font-semibold text-muted-foreground">Observações</Label>
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Observações
+              </Label>
               <Textarea
                 value={supplierForm.notes}
-                onChange={(event) => setSupplierForm((current) => ({ ...current, notes: event.target.value }))}
+                onChange={(event) =>
+                  setSupplierForm((current) => ({
+                    ...current,
+                    notes: event.target.value,
+                  }))
+                }
                 className="mt-1"
                 rows={4}
               />
@@ -842,16 +1049,29 @@ export default function SuppliersPage() {
               Anterior
             </Button>
           ) : (
-            <Button type="button" variant="outline" onClick={() => { setSupplierDialogOpen(false); resetCreateForm(); }}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setSupplierDialogOpen(false);
+                resetCreateForm();
+              }}
+            >
               Cancelar
             </Button>
           )}
           {createStep < CREATE_STEPS.length - 1 ? (
-            <Button type="button" onClick={() => changeCreateStep(createStep + 1)}>
+            <Button
+              type="button"
+              onClick={() => changeCreateStep(createStep + 1)}
+            >
               Próximo
             </Button>
           ) : (
-            <Button onClick={handleSubmitSupplier} isLoading={createSupplierMutation.isPending}>
+            <Button
+              onClick={handleSubmitSupplier}
+              isLoading={createSupplierMutation.isPending}
+            >
               Criar fornecedor
             </Button>
           )}
@@ -871,8 +1091,9 @@ export default function SuppliersPage() {
       >
         <div className="space-y-5">
           <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
-            Use o modelo oficial para importar ou atualizar fornecedores. A planilha é validada antes da gravação,
-            com erro por linha quando unidade, categoria ou tipo não existirem no cadastro.
+            Use o modelo oficial para importar ou atualizar fornecedores. A
+            planilha é validada antes da gravação, com erro por linha quando
+            unidade, categoria ou tipo não existirem no cadastro.
           </div>
 
           <div className="space-y-2">
@@ -881,11 +1102,18 @@ export default function SuppliersPage() {
               id="suppliers-workbook"
               type="file"
               accept=".xlsx,.xls"
-              onChange={(event) => void handleSupplierImportFile(event.target.files?.[0] || null)}
-              disabled={previewSupplierImportMutation.isPending || commitSupplierImportMutation.isPending}
+              onChange={(event) =>
+                void handleSupplierImportFile(event.target.files?.[0] || null)
+              }
+              disabled={
+                previewSupplierImportMutation.isPending ||
+                commitSupplierImportMutation.isPending
+              }
             />
             {supplierImportFileName ? (
-              <p className="text-xs text-muted-foreground">Arquivo carregado: {supplierImportFileName}</p>
+              <p className="text-xs text-muted-foreground">
+                Arquivo carregado: {supplierImportFileName}
+              </p>
             ) : null}
           </div>
 
@@ -894,8 +1122,12 @@ export default function SuppliersPage() {
               <div className="grid gap-3 md:grid-cols-4">
                 <Card>
                   <CardContent className="pt-4">
-                    <p className="text-xs text-muted-foreground">Linhas lidas</p>
-                    <p className="mt-1 text-xl font-semibold">{supplierImportPreview.summary.totalRows}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Linhas lidas
+                    </p>
+                    <p className="mt-1 text-xl font-semibold">
+                      {supplierImportPreview.summary.totalRows}
+                    </p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -926,8 +1158,15 @@ export default function SuppliersPage() {
 
               <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
                 {supplierImportPreview.rows.map((row) => {
-                  const sourceRow = supplierImportSourceByRowNumber.get(row.rowNumber);
-                  const personTypeLabel = row.personType === "pj" ? "PJ" : row.personType === "pf" ? "PF" : "—";
+                  const sourceRow = supplierImportSourceByRowNumber.get(
+                    row.rowNumber,
+                  );
+                  const personTypeLabel =
+                    row.personType === "pj"
+                      ? "PJ"
+                      : row.personType === "pf"
+                        ? "PF"
+                        : "—";
 
                   return (
                     <div
@@ -937,10 +1176,12 @@ export default function SuppliersPage() {
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <div className="font-medium">
-                            Linha {row.rowNumber} · {row.legalName || "Fornecedor sem nome"}
+                            Linha {row.rowNumber} ·{" "}
+                            {row.legalName || "Fornecedor sem nome"}
                           </div>
                           <div className="mt-1 text-xs text-muted-foreground">
-                            {row.legalIdentifier || "Documento não informado"} · {personTypeLabel}
+                            {row.legalIdentifier || "Documento não informado"} ·{" "}
+                            {personTypeLabel}
                           </div>
                           <div className="mt-1 text-xs text-muted-foreground">
                             {sourceRow?.categoryName || "Sem categoria"} ·{" "}
@@ -997,20 +1238,28 @@ export default function SuppliersPage() {
               commitSupplierImportMutation.isPending
             }
           >
-            {commitSupplierImportMutation.isPending ? "Importando..." : "Confirmar importação"}
+            {commitSupplierImportMutation.isPending
+              ? "Importando..."
+              : "Confirmar importação"}
           </Button>
         </DialogFooter>
       </Dialog>
 
       {/* Template dialog */}
-      <Dialog open={importExportDialogOpen} onOpenChange={setImportExportDialogOpen} title="Importar / Exportar fornecedores">
+      <Dialog
+        open={importExportDialogOpen}
+        onOpenChange={setImportExportDialogOpen}
+        title="Importar / Exportar fornecedores"
+      >
         <div className="space-y-3">
           <button
             type="button"
             className="w-full rounded-xl border border-border/60 bg-card/42 px-4 py-3.5 text-left backdrop-blur-md transition hover:border-primary/30"
             onClick={() => {
               const anchor = document.createElement("a");
-              anchor.href = resolveAppAssetPath("/templates/template_importacao_fornecedores.xlsx");
+              anchor.href = resolveAppAssetPath(
+                "/templates/template_importacao_fornecedores.xlsx",
+              );
               anchor.download = "template_importacao_fornecedores.xlsx";
               anchor.click();
               setImportExportDialogOpen(false);
@@ -1019,7 +1268,9 @@ export default function SuppliersPage() {
             <div className="flex items-center gap-3">
               <Download className="h-4 w-4 text-muted-foreground" />
               <div>
-                <p className="text-[13px] font-medium text-foreground">Baixar modelo de importação</p>
+                <p className="text-[13px] font-medium text-foreground">
+                  Baixar modelo de importação
+                </p>
                 <p className="text-xs text-muted-foreground">
                   Planilha XLSX com o formato esperado para importação em massa.
                 </p>
@@ -1038,7 +1289,9 @@ export default function SuppliersPage() {
             <div className="flex items-center gap-3">
               <Download className="h-4 w-4 text-muted-foreground" />
               <div>
-                <p className="text-[13px] font-medium text-foreground">Exportar fornecedores</p>
+                <p className="text-[13px] font-medium text-foreground">
+                  Exportar fornecedores
+                </p>
                 <p className="text-xs text-muted-foreground">
                   Exportar todos os fornecedores cadastrados como planilha XLSX.
                 </p>
@@ -1057,9 +1310,12 @@ export default function SuppliersPage() {
             <div className="flex items-center gap-3">
               <Upload className="h-4 w-4 text-muted-foreground" />
               <div>
-                <p className="text-[13px] font-medium text-foreground">Importar planilha</p>
+                <p className="text-[13px] font-medium text-foreground">
+                  Importar planilha
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  Importar fornecedores a partir de uma planilha XLSX preenchida.
+                  Importar fornecedores a partir de uma planilha XLSX
+                  preenchida.
                 </p>
               </div>
             </div>

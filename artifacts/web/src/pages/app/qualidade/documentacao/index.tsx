@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
+import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -253,31 +254,37 @@ export default function DocumentacaoPage() {
             {selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}
           </span>
           {canWriteDocuments && selectedDeletable.length > 0 && (
-            <Button
+            <HeaderActionButton
               size="sm"
               variant="destructive"
               onClick={() => setConfirmDeleteOpen(true)}
               isLoading={isDeleting}
+              label={`Excluir (${selectedDeletable.length})`}
+              icon={<Trash2 className="h-3.5 w-3.5" />}
             >
-              <Trash2 className="h-3.5 w-3.5 mr-1.5" />
               Excluir ({selectedDeletable.length})
-            </Button>
+            </HeaderActionButton>
           )}
-          <Button
+          <HeaderActionButton
             size="sm"
             variant="outline"
             onClick={() => setSelectedIds(new Set())}
+            label="Cancelar seleção"
+            icon={<X className="h-3.5 w-3.5" />}
           >
             Cancelar
-          </Button>
+          </HeaderActionButton>
         </div>
       );
     }
     return canWriteDocuments ? (
       <div className="flex items-center gap-2">
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="h-3.5 w-3.5 mr-1.5" /> Novo Documento
-        </Button>
+        <HeaderActionButton
+          size="sm"
+          onClick={() => setCreateOpen(true)}
+          label="Novo Documento"
+          icon={<Plus className="h-3.5 w-3.5" />}
+        />
       </div>
     ) : null;
   }, [canWriteModule, isDeleting, selectedDeletable, selectedIds]);
@@ -587,12 +594,15 @@ function CreateDocumentModal({
     selectedIds: recipientIds,
     enabled: !!orgId && open,
   });
-  const { data: recipientGroups = [] } = useListOrganizationContactGroups(orgId!, {
-    query: {
-      queryKey: getListOrganizationContactGroupsQueryKey(orgId!),
-      enabled: !!orgId && open,
+  const { data: recipientGroups = [] } = useListOrganizationContactGroups(
+    orgId!,
+    {
+      query: {
+        queryKey: getListOrganizationContactGroupsQueryKey(orgId!),
+        enabled: !!orgId && open,
+      },
     },
-  });
+  );
   const referencePicker = useDocumentMultiPicker({
     orgId,
     selectedIds: referenceIds,
@@ -773,14 +783,14 @@ function CreateDocumentModal({
       open={open}
       onOpenChange={handleClose}
       title="Novo Documento"
-        description={
-          [
-            "Defina os dados principais do documento.",
-            "Selecione colaborador, análise crítica, aprovadores, grupos e destinatários.",
-            "Associe unidades e referências relacionadas.",
-            "Adicione os anexos iniciais antes de salvar.",
-          ][step]
-        }
+      description={
+        [
+          "Defina os dados principais do documento.",
+          "Selecione colaborador, análise crítica, aprovadores, grupos e destinatários.",
+          "Associe unidades e referências relacionadas.",
+          "Adicione os anexos iniciais antes de salvar.",
+        ][step]
+      }
       size="xl"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
