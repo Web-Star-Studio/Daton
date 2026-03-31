@@ -167,6 +167,7 @@ export const supplierDocumentRequirementsTable = pgTable("supplier_document_requ
   description: text("description"),
   weight: integer("weight").notNull().default(1),
   status: text("status").notNull().default("active"),
+  attachments: jsonb("attachments").$type<SupplierAttachment[]>().notNull().default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

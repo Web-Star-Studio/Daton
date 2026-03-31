@@ -13,8 +13,6 @@ import {
   supplierDocumentRequirementsTable,
   supplierDocumentSubmissionsTable,
   supplierDocumentReviewsTable,
-  supplierRequirementTemplatesTable,
-  supplierRequirementCommunicationsTable,
   supplierQualificationReviewsTable,
   supplierPerformanceReviewsTable,
   supplierReceiptChecksTable,
@@ -185,6 +183,7 @@ const supplierDocumentRequirementBodySchema = z.object({
   description: z.string().trim().optional().nullable(),
   weight: z.coerce.number().int().min(1).max(5),
   status: z.enum(["active", "inactive"]).default("active"),
+  attachments: z.array(attachmentSchema).default([]),
 });
 
 const supplierDocumentRequirementImportBodySchema = z.object({
@@ -226,22 +225,6 @@ const supplierDocumentSubmissionReviewBodySchema = z.object({
 const supplierDocumentReviewBodySchema = z.object({
   nextReviewDate: z.string().date().optional().nullable(),
   observations: z.string().trim().optional().nullable(),
-});
-
-const supplierRequirementTemplateBodySchema = z.object({
-  categoryId: z.coerce.number().int().positive().nullable().optional(),
-  typeId: z.coerce.number().int().positive().nullable().optional(),
-  title: z.string().trim().min(1),
-  content: z.string().trim().min(1),
-  changeSummary: z.string().trim().optional().nullable(),
-  status: z.enum(["draft", "published", "superseded"]).default("draft"),
-});
-
-const supplierRequirementCommunicationBodySchema = z.object({
-  templateId: z.coerce.number().int().positive(),
-  status: z.enum(["linked", "sent", "acknowledged", "superseded"]).default("linked"),
-  notes: z.string().trim().optional().nullable(),
-  acknowledgedAt: z.string().datetime().optional().nullable(),
 });
 
 const supplierQualificationReviewBodySchema = z.object({
@@ -680,24 +663,6 @@ async function loadSupplierDetail(supplierId: number, orgId: number) {
         .where(eq(supplierDocumentReviewsTable.supplierId, supplierId))
         .orderBy(desc(supplierDocumentReviewsTable.createdAt)),
       db
-        .select({
-          id: supplierRequirementCommunicationsTable.id,
-          templateId: supplierRequirementTemplatesTable.id,
-          templateTitle: supplierRequirementTemplatesTable.title,
-          templateVersion: supplierRequirementTemplatesTable.version,
-          status: supplierRequirementCommunicationsTable.status,
-          notes: supplierRequirementCommunicationsTable.notes,
-          acknowledgedAt: supplierRequirementCommunicationsTable.acknowledgedAt,
-          createdAt: supplierRequirementCommunicationsTable.createdAt,
-        })
-        .from(supplierRequirementCommunicationsTable)
-        .innerJoin(
-          supplierRequirementTemplatesTable,
-          eq(supplierRequirementCommunicationsTable.templateId, supplierRequirementTemplatesTable.id),
-        )
-        .where(eq(supplierRequirementCommunicationsTable.supplierId, supplierId))
-        .orderBy(desc(supplierRequirementCommunicationsTable.createdAt)),
-      db
         .select()
         .from(supplierQualificationReviewsTable)
         .where(eq(supplierQualificationReviewsTable.supplierId, supplierId))
@@ -757,23 +722,6 @@ async function loadSupplierDetail(supplierId: number, orgId: number) {
         .orderBy(desc(supplierFailuresTable.createdAt)),
     ]);
 
-  const availableTemplates = await db
-    .select({
-      id: supplierRequirementTemplatesTable.id,
-      title: supplierRequirementTemplatesTable.title,
-      version: supplierRequirementTemplatesTable.version,
-      status: supplierRequirementTemplatesTable.status,
-      categoryId: supplierRequirementTemplatesTable.categoryId,
-      typeId: supplierRequirementTemplatesTable.typeId,
-      content: supplierRequirementTemplatesTable.content,
-      changeSummary: supplierRequirementTemplatesTable.changeSummary,
-      createdAt: supplierRequirementTemplatesTable.createdAt,
-      updatedAt: supplierRequirementTemplatesTable.updatedAt,
-    })
-    .from(supplierRequirementTemplatesTable)
-    .where(eq(supplierRequirementTemplatesTable.organizationId, orgId))
-    .orderBy(desc(supplierRequirementTemplatesTable.createdAt));
-
   return {
     id: supplier.id,
     organizationId: supplier.organizationId,
@@ -820,18 +768,6 @@ async function loadSupplierDetail(supplierId: number, orgId: number) {
       reviews: documentReviews.map((review) => ({
         ...review,
         createdAt: formatTimestamp(review.createdAt),
-      })),
-    },
-    requirements: {
-      templates: availableTemplates.map((template) => ({
-        ...template,
-        createdAt: formatTimestamp(template.createdAt),
-        updatedAt: formatTimestamp(template.updatedAt),
-      })),
-      communications: communications.map((communication) => ({
-        ...communication,
-        acknowledgedAt: formatTimestamp(communication.acknowledgedAt),
-        createdAt: formatTimestamp(communication.createdAt),
       })),
     },
     qualificationReviews: qualificationReviews.map((review) => ({
@@ -1144,7 +1080,7 @@ router.get("/organizations/:orgId/supplier-document-requirements", requireAuth, 
     .from(supplierDocumentRequirementsTable)
     .where(eq(supplierDocumentRequirementsTable.organizationId, params.data.orgId))
     .orderBy(supplierDocumentRequirementsTable.name);
-  res.json(rows);
+  res.json(rows.map((row) => ({ ...row, attachments: formatAttachments(row.attachments) })));
 });
 
 router.get("/organizations/:orgId/supplier-document-requirements/export", requireAuth, async (req, res): Promise<void> => {
@@ -1238,6 +1174,7 @@ router.post("/organizations/:orgId/supplier-document-requirements/import-commit"
         weight: row.weight ?? 1,
         description: row.description,
         status: "active",
+        attachments: [],
       });
     }
   });
@@ -1298,104 +1235,6 @@ router.patch("/organizations/:orgId/supplier-document-requirements/:requirementI
 
   if (!updated) {
     res.status(404).json({ error: "Requisito documental não encontrado" });
-    return;
-  }
-
-  res.json(updated);
-});
-
-router.get("/organizations/:orgId/supplier-requirement-templates", requireAuth, async (req, res): Promise<void> => {
-  const params = orgParamsSchema.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
-
-  const rows = await db
-    .select()
-    .from(supplierRequirementTemplatesTable)
-    .where(eq(supplierRequirementTemplatesTable.organizationId, params.data.orgId))
-    .orderBy(desc(supplierRequirementTemplatesTable.createdAt));
-  res.json(rows);
-});
-
-router.post("/organizations/:orgId/supplier-requirement-templates", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
-  const params = orgParamsSchema.safeParse(req.params);
-  const body = supplierRequirementTemplateBodySchema.safeParse(req.body);
-  if (!params.success || !body.success) {
-    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
-    return;
-  }
-  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
-  if (!(await ensureCategoryBelongsToOrg(body.data.categoryId, params.data.orgId))) {
-    res.status(400).json({ error: "Categoria inválida para esta organização" });
-    return;
-  }
-  if (!(await ensureTypeBelongsToOrg(body.data.typeId, params.data.orgId))) {
-    res.status(400).json({ error: "Tipo inválido para esta organização" });
-    return;
-  }
-
-  const latest = await db
-    .select({ version: supplierRequirementTemplatesTable.version })
-    .from(supplierRequirementTemplatesTable)
-    .where(
-      and(
-        eq(supplierRequirementTemplatesTable.organizationId, params.data.orgId),
-        eq(supplierRequirementTemplatesTable.title, body.data.title),
-      ),
-    )
-    .orderBy(desc(supplierRequirementTemplatesTable.version))
-    .limit(1);
-
-  const [created] = await db.insert(supplierRequirementTemplatesTable).values({
-    organizationId: params.data.orgId,
-    categoryId: body.data.categoryId ?? null,
-    typeId: body.data.typeId ?? null,
-    title: body.data.title,
-    content: body.data.content,
-    changeSummary: normalizeOptionalString(body.data.changeSummary),
-    status: body.data.status,
-    version: (latest[0]?.version ?? 0) + 1,
-    createdById: req.auth!.userId,
-  }).returning();
-
-  res.status(201).json(created);
-});
-
-router.patch("/organizations/:orgId/supplier-requirement-templates/:templateId", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
-  const params = z.object({ orgId: z.coerce.number().int().positive(), templateId: z.coerce.number().int().positive() }).safeParse(req.params);
-  const body = supplierRequirementTemplateBodySchema.safeParse(req.body);
-  if (!params.success || !body.success) {
-    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
-    return;
-  }
-  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
-  if (!(await ensureCategoryBelongsToOrg(body.data.categoryId, params.data.orgId))) {
-    res.status(400).json({ error: "Categoria inválida para esta organização" });
-    return;
-  }
-  if (!(await ensureTypeBelongsToOrg(body.data.typeId, params.data.orgId))) {
-    res.status(400).json({ error: "Tipo inválido para esta organização" });
-    return;
-  }
-
-  const [updated] = await db
-    .update(supplierRequirementTemplatesTable)
-    .set({
-      categoryId: body.data.categoryId ?? null,
-      typeId: body.data.typeId ?? null,
-      title: body.data.title,
-      content: body.data.content,
-      changeSummary: normalizeOptionalString(body.data.changeSummary),
-      status: body.data.status,
-    })
-    .where(and(eq(supplierRequirementTemplatesTable.id, params.data.templateId), eq(supplierRequirementTemplatesTable.organizationId, params.data.orgId)))
-    .returning();
-
-  if (!updated) {
-    res.status(404).json({ error: "Template não encontrado" });
     return;
   }
 
@@ -2166,55 +2005,6 @@ router.post("/organizations/:orgId/suppliers/:supplierId/document-reviews", requ
   }).where(eq(suppliersTable.id, supplier.id));
 
   res.status(201).json(review);
-});
-
-router.post("/organizations/:orgId/suppliers/:supplierId/requirement-communications", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {
-  const params = supplierParamsSchema.safeParse(req.params);
-  const body = supplierRequirementCommunicationBodySchema.safeParse(req.body);
-  if (!params.success || !body.success) {
-    res.status(400).json({ error: params.success ? getParseError(body) : params.error.message });
-    return;
-  }
-  if (!(await ensureOrgAccess(params.data.orgId, req, res))) return;
-
-  const [template] = await db
-    .select()
-    .from(supplierRequirementTemplatesTable)
-    .where(and(eq(supplierRequirementTemplatesTable.id, body.data.templateId), eq(supplierRequirementTemplatesTable.organizationId, params.data.orgId)));
-  if (!template) {
-    res.status(400).json({ error: "Template inválido" });
-    return;
-  }
-  const supplier = await getSupplierOrNull(params.data.supplierId, params.data.orgId);
-  if (!supplier) {
-    res.status(404).json({ error: "Fornecedor não encontrado" });
-    return;
-  }
-
-  const [communication] = await db
-    .insert(supplierRequirementCommunicationsTable)
-    .values({
-      supplierId: supplier.id,
-      templateId: body.data.templateId,
-      communicatedById: req.auth!.userId,
-      status: body.data.status,
-      notes: normalizeOptionalString(body.data.notes),
-      acknowledgedAt: body.data.acknowledgedAt ? new Date(body.data.acknowledgedAt) : null,
-    })
-    .onConflictDoUpdate({
-      target: [
-        supplierRequirementCommunicationsTable.supplierId,
-        supplierRequirementCommunicationsTable.templateId,
-      ],
-      set: {
-        status: body.data.status,
-        notes: normalizeOptionalString(body.data.notes),
-        acknowledgedAt: body.data.acknowledgedAt ? new Date(body.data.acknowledgedAt) : null,
-      },
-    })
-    .returning();
-
-  res.status(201).json(communication);
 });
 
 router.post("/organizations/:orgId/suppliers/:supplierId/qualification-reviews", requireAuth, requireSupplierWrite("general"), async (req, res): Promise<void> => {

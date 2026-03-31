@@ -39,6 +39,7 @@ export type SupplierDocumentRequirement = {
   description: string | null;
   weight: number;
   status: string;
+  attachments: SupplierAttachment[];
   createdAt: string;
   updatedAt: string;
 };
@@ -180,30 +181,6 @@ export type SupplierOffering = {
   isApprovedScope: number;
   createdAt: string;
   updatedAt: string;
-};
-
-export type SupplierRequirementTemplate = {
-  id: number;
-  title: string;
-  version: number;
-  status: string;
-  categoryId: number | null;
-  typeId: number | null;
-  content: string;
-  changeSummary: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-};
-
-export type SupplierRequirementCommunication = {
-  id: number;
-  templateId: number;
-  templateTitle: string;
-  templateVersion: number;
-  status: string;
-  notes: string | null;
-  acknowledgedAt: string | null;
-  createdAt: string | null;
 };
 
 export type SupplierDocumentSubmission = {
@@ -361,10 +338,6 @@ export type SupplierDetail = {
     submissions: SupplierDocumentSubmission[];
     reviews: SupplierDocumentReview[];
   };
-  requirements: {
-    templates: SupplierRequirementTemplate[];
-    communications: SupplierRequirementCommunication[];
-  };
   qualificationReviews: SupplierQualificationReview[];
   performanceReviews: SupplierPerformanceReview[];
   receiptChecks: SupplierReceiptCheck[];
@@ -407,7 +380,6 @@ export const suppliersKeys = {
   types: (orgId: number) => ["suppliers", orgId, "types"] as const,
   requirements: (orgId: number) => ["suppliers", orgId, "requirements"] as const,
   catalogItems: (orgId: number) => ["suppliers", orgId, "catalog-items"] as const,
-  templates: (orgId: number) => ["suppliers", orgId, "templates"] as const,
 };
 
 export function buildSupplierListPath(
@@ -575,6 +547,7 @@ export function createSupplierDocumentRequirement(orgId: number, body: {
   status: string;
   categoryId?: number | null;
   typeId?: number | null;
+  attachments?: SupplierAttachment[];
 }) {
   return apiJson<SupplierDocumentRequirement>(`/api/organizations/${orgId}/supplier-document-requirements`, {
     method: "POST",
@@ -589,6 +562,7 @@ export function updateSupplierDocumentRequirement(orgId: number, requirementId: 
   status: string;
   categoryId?: number | null;
   typeId?: number | null;
+  attachments?: SupplierAttachment[];
 }) {
   return apiJson<SupplierDocumentRequirement>(
     `/api/organizations/${orgId}/supplier-document-requirements/${requirementId}`,
@@ -629,24 +603,6 @@ export function exportSupplierDocumentRequirements(orgId: number) {
   return apiJson<{ rows: Array<{ name: string; weight: number; description: string }> }>(
     `/api/organizations/${orgId}/supplier-document-requirements/export`,
   );
-}
-
-export function listSupplierRequirementTemplates(orgId: number) {
-  return apiJson<SupplierRequirementTemplate[]>(`/api/organizations/${orgId}/supplier-requirement-templates`);
-}
-
-export function createSupplierRequirementTemplate(orgId: number, body: {
-  title: string;
-  content: string;
-  status: string;
-  changeSummary?: string | null;
-  categoryId?: number | null;
-  typeId?: number | null;
-}) {
-  return apiJson<SupplierRequirementTemplate>(`/api/organizations/${orgId}/supplier-requirement-templates`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
 }
 
 export function createSupplier(orgId: number, body: Record<string, unknown>) {
@@ -694,13 +650,6 @@ export function reviewSupplierDocumentSubmission(
 
 export function createSupplierDocumentReview(orgId: number, supplierId: number, body: Record<string, unknown>) {
   return apiJson(`/api/organizations/${orgId}/suppliers/${supplierId}/document-reviews`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-}
-
-export function createSupplierRequirementCommunication(orgId: number, supplierId: number, body: Record<string, unknown>) {
-  return apiJson(`/api/organizations/${orgId}/suppliers/${supplierId}/requirement-communications`, {
     method: "POST",
     body: JSON.stringify(body),
   });

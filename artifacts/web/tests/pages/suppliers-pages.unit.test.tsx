@@ -3,12 +3,16 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SuppliersPage from "@/pages/app/qualidade/fornecedores";
 import SupplierDetailPage from "@/pages/app/qualidade/fornecedores/[id]";
+import SupplierDocumentRequirementsPage from "@/pages/app/qualidade/fornecedores/requisitos-documentais";
 import { renderWithQueryClient } from "../support/render";
 
 const navigateMock = vi.fn();
 const toastMock = vi.fn();
 const createSupplierMock = vi.fn();
 const createSupplierReceiptCheckMock = vi.fn();
+const createSupplierDocumentRequirementMock = vi.fn();
+const updateSupplierDocumentRequirementMock = vi.fn();
+const uploadFilesToStorageMock = vi.fn();
 let latestHeaderActions: React.ReactNode = null;
 
 const authState = {
@@ -43,11 +47,46 @@ const supplierDetail = {
   offerings: [{ id: 101, name: "Produto crítico", offeringType: "product" }],
   documents: { submissions: [], reviews: [] },
   qualificationReviews: [],
-  requirements: { templates: [], communications: [] },
   performanceReviews: [],
   receiptChecks: [],
   failures: [],
 };
+
+const supplierRequirements = [
+  {
+    id: 1,
+    organizationId: 101,
+    categoryId: 9,
+    typeId: 3,
+    name: "Certidão negativa",
+    description: "Documento obrigatório para homologação inicial.",
+    weight: 3,
+    status: "active",
+    attachments: [],
+    createdAt: "2026-03-31T00:00:00.000Z",
+    updatedAt: "2026-03-31T00:00:00.000Z",
+  },
+  {
+    id: 2,
+    organizationId: 101,
+    categoryId: 9,
+    typeId: 3,
+    name: "Comprovante de capacidade técnica",
+    description: "Usado em fornecedores críticos.",
+    weight: 5,
+    status: "inactive",
+    attachments: [
+      {
+        fileName: "modelo.pdf",
+        fileSize: 1024,
+        contentType: "application/pdf",
+        objectPath: "/private/req/modelo.pdf",
+      },
+    ],
+    createdAt: "2026-03-31T00:00:00.000Z",
+    updatedAt: "2026-03-31T00:00:00.000Z",
+  },
+];
 
 const activateTab = (name: string) => {
   const tab = screen.getByRole("tab", { name });
@@ -157,9 +196,12 @@ vi.mock("@/hooks/use-toast", () => ({
 }));
 
 vi.mock("@/lib/uploads", () => ({
+  MAX_PROFILE_ITEM_ATTACHMENTS: 10,
+  PROFILE_ITEM_ATTACHMENT_ACCEPT: ".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.txt,.csv",
   EMPLOYEE_RECORD_ATTACHMENT_ACCEPT: ".pdf,image/*",
   formatFileSize: (value: number) => `${value} bytes`,
-  uploadFilesToStorage: vi.fn(),
+  uploadFilesToStorage: (...args: unknown[]) => uploadFilesToStorageMock(...args),
+  validateProfileItemUploadSelection: vi.fn(() => null),
 }));
 
 vi.mock("@workspace/api-client-react", () => ({
@@ -190,21 +232,19 @@ vi.mock("@/lib/suppliers-client", () => ({
     ],
     categories: (orgId: number) => ["suppliers", "categories", orgId],
     requirements: (orgId: number) => ["suppliers", "requirements", orgId],
-    templates: (orgId: number) => ["suppliers", "templates", orgId],
     types: (orgId: number) => ["suppliers", "types", orgId],
   },
   listSuppliers: vi.fn(async () => []),
   listSupplierCategories: vi.fn(async () => [{ id: 9, name: "Serviços" }]),
   listSupplierTypes: vi.fn(async () => [{ id: 3, name: "Consultoria" }]),
-  listSupplierDocumentRequirements: vi.fn(async () => []),
-  listSupplierRequirementTemplates: vi.fn(async () => []),
+  listSupplierDocumentRequirements: vi.fn(async () => supplierRequirements),
   createSupplier: (...args: unknown[]) => createSupplierMock(...args),
   createSupplierCategory: vi.fn(),
-  createSupplierDocumentRequirement: vi.fn(),
-  createSupplierRequirementTemplate: vi.fn(),
+  createSupplierDocumentRequirement: (...args: unknown[]) => createSupplierDocumentRequirementMock(...args),
   createSupplierType: vi.fn(),
   getSupplierDetail: vi.fn(async () => supplierDetail),
   updateSupplier: vi.fn(async () => supplierDetail),
+  updateSupplierDocumentRequirement: (...args: unknown[]) => updateSupplierDocumentRequirementMock(...args),
   createSupplierDocumentReview: vi.fn(async () => ({})),
   createSupplierDocumentSubmission: vi.fn(async () => ({})),
   createSupplierFailure: vi.fn(async () => ({})),
@@ -213,7 +253,22 @@ vi.mock("@/lib/suppliers-client", () => ({
   createSupplierQualificationReview: vi.fn(async () => ({})),
   createSupplierReceiptCheck: (...args: unknown[]) =>
     createSupplierReceiptCheckMock(...args),
-  createSupplierRequirementCommunication: vi.fn(async () => ({})),
+  exportSupplierDocumentRequirements: vi.fn(async () => ({ rows: [] })),
+  previewSupplierDocumentRequirementsImport: vi.fn(async () => ({
+    previewToken: "preview-token",
+    rows: [],
+    summary: { totalRows: 0, createCount: 0, updateCount: 0, errorCount: 0 },
+  })),
+  commitSupplierDocumentRequirementsImport: vi.fn(async () => ({
+    imported: 0,
+    created: 0,
+    updated: 0,
+  })),
+}));
+
+vi.mock("@/lib/supplier-document-requirements-workbook", () => ({
+  downloadSupplierDocumentRequirementsWorkbook: vi.fn(),
+  parseSupplierDocumentRequirementsWorkbook: vi.fn(),
 }));
 
 describe("suppliers pages", () => {
@@ -223,9 +278,48 @@ describe("suppliers pages", () => {
     toastMock.mockReset();
     createSupplierMock.mockReset();
     createSupplierReceiptCheckMock.mockReset();
+    createSupplierDocumentRequirementMock.mockReset();
+    updateSupplierDocumentRequirementMock.mockReset();
+    uploadFilesToStorageMock.mockReset();
     latestHeaderActions = null;
     createSupplierMock.mockResolvedValue({ id: 99 });
     createSupplierReceiptCheckMock.mockResolvedValue({ id: 1 });
+    createSupplierDocumentRequirementMock.mockImplementation(async (_orgId: number, payload: any) => ({
+      id: 99,
+      organizationId: 101,
+      categoryId: payload.categoryId,
+      typeId: payload.typeId,
+      name: payload.name,
+      description: payload.description,
+      weight: payload.weight,
+      status: payload.status,
+      attachments: payload.attachments || [],
+      createdAt: "2026-03-31T00:00:00.000Z",
+      updatedAt: "2026-03-31T00:00:00.000Z",
+    }));
+    updateSupplierDocumentRequirementMock.mockImplementation(
+      async (_orgId: number, requirementId: number, payload: any) => ({
+      id: requirementId,
+      organizationId: 101,
+      categoryId: payload.categoryId,
+      typeId: payload.typeId,
+      name: payload.name,
+      description: payload.description,
+      weight: payload.weight,
+      status: payload.status,
+      attachments: payload.attachments || [],
+      createdAt: "2026-03-31T00:00:00.000Z",
+      updatedAt: "2026-03-31T00:00:00.000Z",
+      }),
+    );
+    uploadFilesToStorageMock.mockResolvedValue([
+      {
+        fileName: "requisito.pdf",
+        fileSize: 2048,
+        contentType: "application/pdf",
+        objectPath: "/private/requirements/requisito.pdf",
+      },
+    ]);
   });
 
   it("shows the empty state and validates the create supplier dialog", async () => {
@@ -339,5 +433,76 @@ describe("suppliers pages", () => {
         header.queryByRole("button", { name: "Registrar recebimento" }),
       ).not.toBeInTheDocument();
     });
+  });
+
+  it("renders requirements in table mode and opens the import/export modal from the header", async () => {
+    renderWithQueryClient(<SupplierDocumentRequirementsPage />);
+
+    expect(await screen.findByText("Certidão negativa")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Template de requisito/i })).not.toBeInTheDocument();
+
+    const header = render(<>{latestHeaderActions}</>);
+    fireEvent.click(header.getByRole("button", { name: /Importar \/ Exportar/i }));
+
+    expect(await screen.findByRole("heading", { name: "Importar / Exportar requisitos documentais" })).toBeInTheDocument();
+    expect(screen.getByText("Baixar modelo")).toBeInTheDocument();
+    expect(screen.getByText("Exportar catálogo")).toBeInTheDocument();
+    expect(screen.getByText("Importar planilha")).toBeInTheDocument();
+  });
+
+  it("creates a new requirement with attachment upload", async () => {
+    renderWithQueryClient(<SupplierDocumentRequirementsPage />);
+    await screen.findByText("Certidão negativa");
+
+    const header = render(<>{latestHeaderActions}</>);
+    fireEvent.click(header.getByRole("button", { name: /Novo requisito/i }));
+
+    expect(await screen.findByRole("heading", { name: "Novo requisito documental" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Ficha cadastral assinada" } });
+    fireEvent.change(screen.getByLabelText("Categoria"), { target: { value: "9" } });
+    fireEvent.change(screen.getByLabelText("Tipo"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Peso"), { target: { value: "4" } });
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["conteudo"], "requisito.pdf", { type: "application/pdf" });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(uploadFilesToStorageMock).toHaveBeenCalled();
+    });
+
+    expect(await screen.findByText("requisito.pdf")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Salvar requisito" }));
+
+    await waitFor(() => {
+      expect(createSupplierDocumentRequirementMock).toHaveBeenCalledWith(
+        101,
+        expect.objectContaining({
+          name: "Ficha cadastral assinada",
+          categoryId: 9,
+          typeId: 3,
+          weight: 4,
+          attachments: [
+            expect.objectContaining({
+              fileName: "requisito.pdf",
+              objectPath: "/private/requirements/requisito.pdf",
+            }),
+          ],
+        }),
+      );
+    });
+  });
+
+  it("opens an existing requirement in read-only mode for analysts", async () => {
+    authState.role = "analyst";
+
+    renderWithQueryClient(<SupplierDocumentRequirementsPage />);
+    fireEvent.click(await screen.findByText("Comprovante de capacidade técnica"));
+
+    expect(await screen.findByRole("heading", { name: "Visualizar requisito documental" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Comprovante de capacidade técnica")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Salvar requisito" })).not.toBeInTheDocument();
   });
 });

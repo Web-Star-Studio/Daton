@@ -126,7 +126,6 @@ router.use(
     /^\/organizations\/[^/]+\/supplier-categories(?:\/|$)/,
     /^\/organizations\/[^/]+\/supplier-types(?:\/|$)/,
     /^\/organizations\/[^/]+\/supplier-document-requirements(?:\/|$)/,
-    /^\/organizations\/[^/]+\/supplier-requirement-templates(?:\/|$)/,
     /^\/organizations\/[^/]+\/suppliers(?:\/|$)/,
   ]),
   suppliersRouter,
