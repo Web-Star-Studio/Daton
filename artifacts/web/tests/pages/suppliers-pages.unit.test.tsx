@@ -320,11 +320,7 @@ describe("suppliers pages", () => {
 
     renderWithQueryClient(<SupplierDetailPage />);
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { name: "Fornecedor Exemplo" }),
-      ).toBeInTheDocument();
-    });
+    await screen.findByRole("heading", { name: "Fornecedor Exemplo" });
 
     const header = render(<>{latestHeaderActions}</>);
 
