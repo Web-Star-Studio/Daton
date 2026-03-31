@@ -259,12 +259,12 @@ describe("suppliers pages", () => {
 
     renderWithQueryClient(<SupplierDetailPage />);
 
-    await screen.findAllByDisplayValue("Fornecedor Exemplo");
+    await screen.findByRole("heading", { name: "Fornecedor Exemplo" });
 
     const header = render(<>{latestHeaderActions}</>);
 
     expect(
-      header.queryByRole("button", { name: /Salvar cadastro/i }),
+      header.queryByRole("button", { name: /Alterar cadastro/i }),
     ).not.toBeInTheDocument();
 
     const receiptsTab = activateTab("Recebimentos");
@@ -291,15 +291,12 @@ describe("suppliers pages", () => {
   it("updates header actions when the active tab changes", async () => {
     renderWithQueryClient(<SupplierDetailPage />);
 
-    await screen.findAllByDisplayValue("Fornecedor Exemplo");
+    await screen.findByRole("heading", { name: "Fornecedor Exemplo" });
 
     const header = render(<>{latestHeaderActions}</>);
 
     expect(
-      header.getByRole("button", { name: /Salvar cadastro/i }),
-    ).toBeInTheDocument();
-    expect(
-      header.getByRole("button", { name: /Adicionar item/i }),
+      header.getByRole("button", { name: /Alterar cadastro/i }),
     ).toBeInTheDocument();
 
     const receiptsTab = activateTab("Recebimentos");
@@ -307,7 +304,7 @@ describe("suppliers pages", () => {
       expect(receiptsTab).toHaveAttribute("aria-selected", "true");
       header.rerender(<>{latestHeaderActions}</>);
       expect(
-        header.queryByRole("button", { name: /Salvar cadastro/i }),
+        header.queryByRole("button", { name: /Alterar cadastro/i }),
       ).not.toBeInTheDocument();
       expect(
         header.getByRole("button", { name: "Registrar recebimento" }),
@@ -320,14 +317,12 @@ describe("suppliers pages", () => {
 
     renderWithQueryClient(<SupplierDetailPage />);
 
-    await waitFor(() => {
-      expect(screen.getAllByDisplayValue("Fornecedor Exemplo").length).toBeGreaterThan(0);
-    });
+    await screen.findByRole("heading", { name: "Fornecedor Exemplo" });
 
     const header = render(<>{latestHeaderActions}</>);
 
     expect(
-      header.queryByRole("button", { name: /Salvar cadastro/i }),
+      header.queryByRole("button", { name: /Alterar cadastro/i }),
     ).not.toBeInTheDocument();
     const receiptsTab = activateTab("Recebimentos");
     await waitFor(() => {
