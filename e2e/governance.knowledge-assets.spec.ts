@@ -172,15 +172,24 @@ test("shows critical knowledge assets in governance and opens the contextual emp
   );
 
   await authenticatedPage.goto("/governanca/conhecimento-critico");
-  await expect(authenticatedPage.getByText(assetTitle)).toBeVisible();
   await expect(
-    authenticatedPage.getByText("Sem evidência").first(),
+    authenticatedPage.getByRole("heading", { name: assetTitle }),
+  ).toBeVisible();
+  const assetCard = authenticatedPage
+    .getByRole("button", { name: new RegExp(assetTitle) })
+    .first();
+  await expect(
+    assetCard.getByText("Sem evidência", { exact: true }),
   ).toBeVisible();
 
   await authenticatedPage
-    .getByLabel("Cargo")
+    .getByText("Cargo", { exact: true })
+    .locator("xpath=..")
+    .locator("select")
     .selectOption(String(position.id));
-  await expect(authenticatedPage.getByText(assetTitle)).toBeVisible();
+  await expect(
+    authenticatedPage.getByRole("heading", { name: assetTitle }),
+  ).toBeVisible();
 
   await apiJson(
     `/api/organizations/${orgAdmin.organizationId}/governance/knowledge-assets/${knowledgeAsset.id}`,
@@ -202,8 +211,11 @@ test("shows critical knowledge assets in governance and opens the contextual emp
   );
 
   await authenticatedPage.reload();
+  const expiredAssetCard = authenticatedPage
+    .getByRole("button", { name: new RegExp(assetTitle) })
+    .first();
   await expect(
-    authenticatedPage.getByText("Evidência vencida").first(),
+    expiredAssetCard.getByText("Evidência vencida", { exact: true }),
   ).toBeVisible();
 
   await authenticatedPage.goto(`/organizacao/colaboradores/${employee.id}`);
@@ -214,8 +226,13 @@ test("shows critical knowledge assets in governance and opens the contextual emp
   await expect(authenticatedPage).toHaveURL(
     new RegExp(`/governanca/conhecimento-critico\\?positionId=${position.id}$`),
   );
-  await expect(authenticatedPage.getByLabel("Cargo")).toHaveValue(
-    String(position.id),
-  );
-  await expect(authenticatedPage.getByText(assetTitle)).toBeVisible();
+  await expect(
+    authenticatedPage
+      .getByText("Cargo", { exact: true })
+      .locator("xpath=..")
+      .locator("select"),
+  ).toHaveValue(String(position.id));
+  await expect(
+    authenticatedPage.getByRole("heading", { name: assetTitle }),
+  ).toBeVisible();
 });

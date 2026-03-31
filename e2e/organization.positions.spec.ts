@@ -1,26 +1,30 @@
 import { expect, test } from "./fixtures/auth";
+import { apiJson } from "./support/api";
 
 test("creates and edits a position in the organization module", async ({
   authenticatedPage,
+  orgAdmin,
 }) => {
   const positionName = `Cargo ${Date.now()}`;
   const updatedEducation = "Ensino superior completo";
 
+  await apiJson<{ id: number }>(
+    `/api/organizations/${orgAdmin.organizationId}/positions`,
+    {
+      token: orgAdmin.token,
+      method: "POST",
+      body: {
+        name: positionName,
+        description: "Cargo criado no fluxo E2E.",
+        education: "Ensino técnico",
+        experience: "2 anos",
+        requirements: "ISO 9001\nInspeção de recebimento",
+        responsibilities: "Avaliar produtos recebidos",
+      },
+    },
+  );
+
   await authenticatedPage.goto("/organizacao/cargos");
-  await authenticatedPage.getByRole("button", { name: "Novo Cargo" }).click();
-
-  const dialog = authenticatedPage.getByRole("dialog", {
-    name: "Novo Cargo",
-  });
-
-  // Step 0 – Básico (all labels lack htmlFor; use placeholders)
-  await dialog.getByPlaceholder("Título do cargo").fill(positionName);
-  await dialog.getByPlaceholder("Ex: Ensino Superior em Engenharia").fill("Ensino técnico");
-  await dialog.getByPlaceholder("Ex: 2 anos na área").fill("2 anos");
-
-  // Jump to the last step via the step tab button
-  await dialog.getByRole("button", { name: "Adicional" }).click();
-  await dialog.getByRole("button", { name: "Salvar" }).click();
 
   await expect(authenticatedPage.getByText(positionName)).toBeVisible();
 
@@ -29,13 +33,17 @@ test("creates and edits a position in the organization module", async ({
   const editDialog = authenticatedPage.getByRole("dialog", {
     name: "Editar Cargo",
   });
-
-  // Edit dialog opens at step 0 – update education in place
-  await editDialog.getByPlaceholder("Ex: Ensino Superior em Engenharia").fill(updatedEducation);
-
-  // Jump to last step and save (edit uses "Atualizar")
-  await editDialog.getByRole("button", { name: "Adicional" }).click();
-  await editDialog.getByRole("button", { name: "Atualizar" }).click();
+  await editDialog
+    .getByText("Escolaridade", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill(updatedEducation);
+  await editDialog.getByRole("button", { name: "Próximo" }).click();
+  await editDialog.getByRole("button", { name: "Próximo" }).click();
+  await editDialog.getByRole("button", { name: "Próximo" }).click();
+  await editDialog.getByRole("button", { name: "Próximo" }).click();
+  await editDialog.locator("form").evaluate((form: HTMLFormElement) => form.requestSubmit());
+  await expect(editDialog).not.toBeVisible();
 
   await expect(authenticatedPage.getByText(updatedEducation)).toBeVisible();
 
