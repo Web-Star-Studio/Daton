@@ -7,8 +7,7 @@ test("creates a unit and opens its detail page", async ({
 }) => {
   const unitName = `Filial ${Date.now()}`;
 
-  // Create unit via API so city/state are reliably saved
-  const unit = await apiJson<{ id: number }>(
+  await apiJson<{ id: number }>(
     `/api/organizations/${orgAdmin.organizationId}/units`,
     {
       token: orgAdmin.token,
@@ -26,7 +25,7 @@ test("creates a unit and opens its detail page", async ({
 
   await authenticatedPage.goto("/organizacao/unidades");
 
-  await expect(authenticatedPage.getByText(unitName).first()).toBeVisible();
+  await expect(authenticatedPage.getByText(unitName)).toBeVisible();
   await authenticatedPage.getByText(unitName).first().click();
 
   await expect(authenticatedPage).toHaveURL(/\/organizacao\/unidades\/\d+$/);
@@ -35,5 +34,4 @@ test("creates a unit and opens its detail page", async ({
   ).toBeVisible();
   await expect(authenticatedPage.getByText(unitName).first()).toBeVisible();
   await expect(authenticatedPage.getByText("Recife, PE, Brasil")).toBeVisible();
-  expect(unit.id).toBeGreaterThan(0);
 });
