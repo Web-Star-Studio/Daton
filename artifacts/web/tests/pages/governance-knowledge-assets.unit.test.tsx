@@ -133,6 +133,7 @@ vi.mock("@/lib/governance-system-client", () => ({
 }));
 
 vi.mock("@workspace/api-client-react", () => ({
+  getListDocumentsQueryKey: () => ["documents"],
   getListPositionsQueryKey: () => ["positions"],
   useListPositions: () => ({
     data: [{ id: 7, name: "Auditor Interno" }],

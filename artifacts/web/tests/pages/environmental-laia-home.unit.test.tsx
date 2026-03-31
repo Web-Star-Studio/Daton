@@ -4,6 +4,76 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import EnvironmentalLaiaPage from "@/pages/app/ambiental/laia";
 
 const navigateMock = vi.fn();
+const unitsData = [
+  { id: 7, name: "Unidade Sede" },
+  { id: 8, name: "Filial Sul" },
+];
+const branchConfigsData = [
+  {
+    id: 1,
+    unitId: 7,
+    unitName: "Unidade Sede",
+    surveyStatus: "levantado",
+    updatedAt: "2026-03-30T12:00:00.000Z",
+    totalAssessments: 8,
+    criticalAssessments: 2,
+    significantAssessments: 3,
+    notSignificantAssessments: 5,
+  },
+  {
+    id: null,
+    unitId: 8,
+    unitName: "Filial Sul",
+    surveyStatus: "nao_levantado",
+    updatedAt: null,
+    totalAssessments: 0,
+    criticalAssessments: 0,
+    significantAssessments: 0,
+    notSignificantAssessments: 0,
+  },
+];
+const dashboardData = {
+  totalAssessments: 8,
+  significantAssessments: 3,
+  criticalAssessments: 2,
+  withoutControlResponsible: 1,
+  withLegalRequirement: 0,
+  withMonitoringPending: 1,
+  byOperationalSituation: {},
+  byLifecycleStage: {},
+};
+const methodologyData = {
+  id: 1,
+  name: "Metodologia LAIA",
+  status: "active",
+  activeVersionId: 1,
+  createdAt: null,
+  updatedAt: null,
+  versions: [
+    {
+      id: 1,
+      versionNumber: 3,
+      title: "Versão 3",
+      scoreThresholds: { negligibleMax: 49, moderateMax: 70 },
+      moderateSignificanceRule: "Regra padrão",
+      publishedAt: "2026-03-15T12:00:00.000Z",
+      notes: null,
+    },
+  ],
+};
+const revisionsData = [
+  {
+    id: 11,
+    assessmentId: 99,
+    title: "Revisão anual",
+    description: null,
+    revisionNumber: 4,
+    status: "finalized",
+    createdAt: "2026-03-20T12:00:00.000Z",
+    finalizedAt: null,
+    changes: [],
+  },
+];
 
 vi.mock("wouter", async () => {
   const actual = await vi.importActual<typeof import("wouter")>("wouter");
@@ -45,10 +115,7 @@ vi.mock("@workspace/api-client-react", () => ({
   getListUnitsQueryKey: vi.fn(() => ["units"]),
   useListLegislations: vi.fn(() => ({ data: [] })),
   useListUnits: vi.fn(() => ({
-    data: [
-      { id: 7, name: "Unidade Sede" },
-      { id: 8, name: "Filial Sul" },
-    ],
+    data: unitsData,
   })),
 }));
 
@@ -65,78 +132,16 @@ vi.mock("@/lib/environmental-laia-client", () => ({
   useLaiaAssessment: vi.fn(() => ({ data: undefined })),
   useLaiaAssessments: vi.fn(() => ({ data: [] })),
   useLaiaBranchConfigs: vi.fn(() => ({
-    data: [
-      {
-        id: 1,
-        unitId: 7,
-        unitName: "Unidade Sede",
-        surveyStatus: "levantado",
-        updatedAt: "2026-03-30T12:00:00.000Z",
-        totalAssessments: 8,
-        criticalAssessments: 2,
-        significantAssessments: 3,
-        notSignificantAssessments: 5,
-      },
-      {
-        id: null,
-        unitId: 8,
-        unitName: "Filial Sul",
-        surveyStatus: "nao_levantado",
-        updatedAt: null,
-        totalAssessments: 0,
-        criticalAssessments: 0,
-        significantAssessments: 0,
-        notSignificantAssessments: 0,
-      },
-    ],
+    data: branchConfigsData,
   })),
   useLaiaDashboard: vi.fn(() => ({
-    data: {
-      totalAssessments: 8,
-      significantAssessments: 3,
-      criticalAssessments: 2,
-      withoutControlResponsible: 1,
-      withLegalRequirement: 0,
-      withMonitoringPending: 1,
-      byOperationalSituation: {},
-      byLifecycleStage: {},
-    },
+    data: dashboardData,
   })),
   useLaiaMethodology: vi.fn(() => ({
-    data: {
-      id: 1,
-      name: "Metodologia LAIA",
-      status: "active",
-      activeVersionId: 1,
-      createdAt: null,
-      updatedAt: null,
-      versions: [
-        {
-          id: 1,
-          versionNumber: 3,
-          title: "Versão 3",
-          scoreThresholds: { negligibleMax: 49, moderateMax: 70 },
-          moderateSignificanceRule: "Regra padrão",
-          publishedAt: "2026-03-15T12:00:00.000Z",
-          notes: null,
-        },
-      ],
-    },
+    data: methodologyData,
   })),
   useLaiaRevisions: vi.fn(() => ({
-    data: [
-      {
-        id: 11,
-        assessmentId: 99,
-        title: "Revisão anual",
-        description: null,
-        revisionNumber: 4,
-        status: "finalized",
-        createdAt: "2026-03-20T12:00:00.000Z",
-        finalizedAt: null,
-        changes: [],
-      },
-    ],
+    data: revisionsData,
   })),
   useLaiaSectors: vi.fn(() => ({ data: [] })),
   usePublishLaiaMethodology: vi.fn(() => ({

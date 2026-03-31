@@ -36,8 +36,7 @@ import {
   type AuthPayload,
 } from "../../src/middlewares/auth";
 
-// The test setup (tests/setup/env.ts) sets JWT_SECRET to this value
-const TEST_JWT_SECRET = "daton-test-jwt-secret";
+const TEST_JWT_SECRET = process.env.JWT_SECRET ?? "daton-test-jwt-secret";
 
 // Each test uses a unique orgId to avoid the module-level auth state cache
 // returning stale values across tests within the same file.
