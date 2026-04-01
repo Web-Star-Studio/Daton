@@ -42,7 +42,11 @@ import {
   RejectDocumentBody,
   DistributeDocumentParams,
   AcknowledgeDocumentParams,
+  StartDocumentRevisionParams,
+  StartDocumentRevisionBody,
   ListDocumentVersionsParams,
+  BatchImportDocumentVersionsParams,
+  BatchImportDocumentVersionsBody,
   AddDocumentAttachmentParams,
   AddDocumentAttachmentBody,
   DeleteDocumentAttachmentParams,
@@ -69,7 +73,6 @@ import {
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
-let supportsPendingVersionDescriptionColumnCache: boolean | null = null;
 type DocumentsMutationTx = Pick<
   typeof db,
   "select" | "selectDistinct" | "insert" | "update" | "delete" | "execute"
@@ -102,25 +105,6 @@ const SuggestDocumentNormativeRequirementsBodySchema = z.object({
   referenceIds: z.array(z.number().int().positive()).optional(),
   currentRequirements: z.array(z.string()).optional(),
 });
-async function supportsPendingVersionDescriptionColumn(): Promise<boolean> {
-  if (supportsPendingVersionDescriptionColumnCache !== null) {
-    return supportsPendingVersionDescriptionColumnCache;
-  }
-
-  const result = await pool.query(
-    `
-      SELECT 1
-      FROM information_schema.columns
-      WHERE table_name = 'documents'
-        AND column_name = 'pending_version_description'
-      LIMIT 1
-    `,
-  );
-
-  supportsPendingVersionDescriptionColumnCache = (result.rowCount ?? 0) > 0;
-  return supportsPendingVersionDescriptionColumnCache;
-}
-
 async function validateOrgUsers(
   userIds: number[],
   orgId: number,
@@ -652,6 +636,7 @@ async function getDocumentRecord(docId: number, orgId: number) {
       status: documentsTable.status,
       currentVersion: documentsTable.currentVersion,
       normativeRequirements: documentsTable.normativeRequirements,
+      pendingVersionDescription: documentsTable.pendingVersionDescription,
       validityDate: documentsTable.validityDate,
       createdById: documentsTable.createdById,
       createdAt: documentsTable.createdAt,
@@ -683,6 +668,7 @@ async function getDocumentDetail(docId: number, orgId: number) {
       type: documentsTable.type,
       status: documentsTable.status,
       currentVersion: documentsTable.currentVersion,
+      pendingVersionDescription: documentsTable.pendingVersionDescription,
       normativeRequirements: documentsTable.normativeRequirements,
       validityDate: documentsTable.validityDate,
       createdById: documentsTable.createdById,
@@ -2164,6 +2150,127 @@ router.delete(
 );
 
 router.post(
+  "/organizations/:orgId/documents/:docId/versions/batch-import",
+  requireAuth,
+  requireModuleAccess("documents"),
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = BatchImportDocumentVersionsParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+    if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const body = BatchImportDocumentVersionsBody.safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+    const { orgId, docId } = params.data;
+    const userId = req.auth!.userId;
+
+    const doc = await db.query.documentsTable.findFirst({
+      columns: { id: true },
+      where: and(eq(documentsTable.id, docId), eq(documentsTable.organizationId, orgId)),
+    });
+    if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
+    const lineRegex = /^(\d+)\s*[-–]\s*(\d{2}\/\d{2}\/\d{4})\s*[-–]\s*(.+)$/;
+    const batchEntries: Array<{ versionNumber: number; createdAt: Date; changeDescription: string }> = [];
+
+    for (const raw of body.data.text.split("\n")) {
+      const line = raw.trim();
+      if (!line) continue;
+      const match = line.match(lineRegex);
+      if (match) {
+        const [day, month, year] = match[2].split("/");
+        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        batchEntries.push({
+          versionNumber: parseInt(match[1], 10),
+          createdAt: date,
+          changeDescription: match[3].trim(),
+        });
+      } else if (batchEntries.length > 0) {
+        batchEntries[batchEntries.length - 1].changeDescription += " " + line;
+      }
+    }
+
+    if (batchEntries.length === 0) {
+      res.status(400).json({ error: "Nenhuma versão reconhecida no texto. Use o formato: N - DD/MM/AAAA - Descrição" });
+      return;
+    }
+
+    const maxBatchVersion = Math.max(...batchEntries.map((e) => e.versionNumber));
+
+    await db.transaction(async (tx) => {
+      const existing = await tx
+        .select({
+          id: documentVersionsTable.id,
+          versionNumber: documentVersionsTable.versionNumber,
+          changeDescription: documentVersionsTable.changeDescription,
+          createdAt: documentVersionsTable.createdAt,
+        })
+        .from(documentVersionsTable)
+        .where(eq(documentVersionsTable.documentId, docId))
+        .orderBy(documentVersionsTable.versionNumber);
+
+      await tx.delete(documentVersionsTable).where(eq(documentVersionsTable.documentId, docId));
+
+      await tx.insert(documentVersionsTable).values(
+        batchEntries.map((e) => ({
+          documentId: docId,
+          versionNumber: e.versionNumber,
+          changeDescription: e.changeDescription,
+          changedById: userId,
+          changedFields: "batch_import",
+          createdAt: e.createdAt,
+        })),
+      );
+
+      if (existing.length > 0) {
+        // Renumber existing versions above the batch range, preserving original data
+        await tx.insert(documentVersionsTable).values(
+          existing.map((e, i) => ({
+            documentId: docId,
+            versionNumber: maxBatchVersion + i + 1,
+            changeDescription: e.changeDescription,
+            changedById: userId,
+            changedFields: "batch_import_migrated",
+            createdAt: e.createdAt,
+          })),
+        );
+
+        // Update attachments to follow their version's new number
+        for (const [i, e] of existing.entries()) {
+          await tx
+            .update(documentAttachmentsTable)
+            .set({ versionNumber: maxBatchVersion + i + 1 })
+            .where(
+              and(
+                eq(documentAttachmentsTable.documentId, docId),
+                eq(documentAttachmentsTable.versionNumber, e.versionNumber),
+              ),
+            );
+        }
+
+        // Reset to draft so the migrated versions go through the approval flow
+        await tx
+          .update(documentsTable)
+          .set({ currentVersion: maxBatchVersion + existing.length, status: "draft" })
+          .where(eq(documentsTable.id, docId));
+      } else {
+        await tx
+          .update(documentsTable)
+          .set({ currentVersion: maxBatchVersion })
+          .where(eq(documentsTable.id, docId));
+      }
+    });
+
+    const total = await db.select({ count: sql<number>`count(*)` })
+      .from(documentVersionsTable)
+      .where(eq(documentVersionsTable.documentId, docId));
+
+    res.json({ imported: batchEntries.length, total: Number(total[0]?.count ?? 0) });
+  },
+);
+
+router.post(
   "/organizations/:orgId/documents/:docId/attachments",
   requireAuth,
   requireModuleAccess("documents"),
@@ -2556,10 +2663,6 @@ router.post(
     }
 
     const body = SubmitDocumentForReviewBody.safeParse(req.body);
-    if (!body.success) {
-      res.status(400).json({ error: body.error.message });
-      return;
-    }
 
     const orgId = params.data.orgId;
     const docId = params.data.docId;
@@ -2567,6 +2670,18 @@ router.post(
     const doc = await getDocumentRecord(docId, orgId);
     if (!doc) {
       res.status(404).json({ error: "Documento não encontrado" });
+      return;
+    }
+
+    const changeDescription =
+      (body.success ? body.data.changeDescription?.trim() : undefined) ||
+      doc.pendingVersionDescription?.trim();
+
+    if (!changeDescription) {
+      res.status(400).json({
+        error:
+          "Informe a descrição da versão ou inicie a revisão com uma descrição",
+      });
       return;
     }
 
@@ -2655,17 +2770,9 @@ router.post(
       });
     }
 
-    const submitUpdates: Record<string, unknown> = {
-      status: "in_review",
-    };
-    if (await supportsPendingVersionDescriptionColumn()) {
-      submitUpdates.pendingVersionDescription =
-        body.data.changeDescription.trim();
-    }
-
     await db
       .update(documentsTable)
-      .set(submitUpdates)
+      .set({ status: "in_review", pendingVersionDescription: changeDescription })
       .where(eq(documentsTable.id, docId));
 
     await notifyUsers({
@@ -2713,9 +2820,6 @@ router.post(
       res.status(400).json({ error: "Documento não está em revisão" });
       return;
     }
-
-    const canPersistPendingVersionDescription =
-      await supportsPendingVersionDescriptionColumn();
 
     const maxCycleResult = await db
       .select({
@@ -2791,31 +2895,21 @@ router.post(
       const distributedAt = nextStatus === "distributed" ? new Date() : null;
       let changeDescription = `Versão ${newVersion} aprovada`;
 
-      if (canPersistPendingVersionDescription) {
-        const [docWithPendingDescription] = await tx
-          .select({
-            pendingVersionDescription: documentsTable.pendingVersionDescription,
-          })
-          .from(documentsTable)
-          .where(eq(documentsTable.id, docId));
+      const [docWithPendingDescription] = await tx
+        .select({
+          pendingVersionDescription: documentsTable.pendingVersionDescription,
+        })
+        .from(documentsTable)
+        .where(eq(documentsTable.id, docId));
 
-        if (docWithPendingDescription?.pendingVersionDescription?.trim()) {
-          changeDescription =
-            docWithPendingDescription.pendingVersionDescription.trim();
-        }
-      }
-
-      const documentApprovalUpdates: Record<string, unknown> = {
-        status: nextStatus,
-        currentVersion: newVersion,
-      };
-      if (canPersistPendingVersionDescription) {
-        documentApprovalUpdates.pendingVersionDescription = null;
+      if (docWithPendingDescription?.pendingVersionDescription?.trim()) {
+        changeDescription =
+          docWithPendingDescription.pendingVersionDescription.trim();
       }
 
       await tx
         .update(documentsTable)
-        .set(documentApprovalUpdates)
+        .set({ status: nextStatus, currentVersion: newVersion, pendingVersionDescription: null })
         .where(eq(documentsTable.id, docId));
 
       if (distributedAt) {
@@ -2841,6 +2935,13 @@ router.post(
         changedById: userId,
         changedFields: "version_approved",
       });
+
+      if (nextStatus === "distributed") {
+        await tx
+          .update(documentRecipientsTable)
+          .set({ readAt: null, receivedAt: null })
+          .where(eq(documentRecipientsTable.documentId, docId));
+      }
 
       const recipients = await tx
         .select({ userId: documentRecipientsTable.userId })
@@ -3143,6 +3244,44 @@ router.post(
     });
 
     res.json({ message: "Recebimento confirmado" });
+  },
+);
+
+router.post(
+  "/organizations/:orgId/documents/:docId/start-revision",
+  requireAuth,
+  requireModuleAccess("documents"),
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = StartDocumentRevisionParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+    if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    if (req.auth!.role !== "org_admin" && req.auth!.role !== "operator") {
+      res.status(403).json({ error: "Apenas administradores e operadores podem iniciar uma nova revisão" });
+      return;
+    }
+
+    const { orgId, docId } = params.data;
+
+    const doc = await getDocumentRecord(docId, orgId);
+    if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
+    if (doc.status !== "approved" && doc.status !== "distributed") {
+      res.status(400).json({ error: "Apenas documentos aprovados ou distribuídos podem iniciar uma nova revisão" });
+      return;
+    }
+
+    const body = StartDocumentRevisionBody.safeParse(req.body);
+    const description = body.success ? body.data.description?.trim() : undefined;
+
+    await db
+      .update(documentsTable)
+      .set({ status: "draft", pendingVersionDescription: description ?? null })
+      .where(eq(documentsTable.id, docId));
+
+    const detail = await getDocumentDetail(docId, orgId);
+    res.json(detail);
   },
 );
 
