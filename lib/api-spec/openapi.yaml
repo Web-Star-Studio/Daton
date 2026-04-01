@@ -46,6 +46,8 @@ tags:
     description: Strategic planning governance (ISO 9001:2015 §4.1)
   - name: suppliers
     description: Supplier management and external provider control (ISO 9001:2015 §8.4 / §8.6)
+  - name: kpi
+    description: KPI indicators, objectives and performance data (ISO 9001:2015 §9.1)
 
 paths:
   /healthz:
@@ -5904,6 +5906,296 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /organizations/{orgId}/kpi/objectives:
+    get:
+      operationId: listKpiObjectives
+      tags: [kpi]
+      summary: List KPI objectives
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of objectives
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KpiObjective"
+    post:
+      operationId: createKpiObjective
+      tags: [kpi]
+      summary: Create KPI objective
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateKpiObjectiveBody"
+      responses:
+        "201":
+          description: Objective created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KpiObjective"
+
+  /organizations/{orgId}/kpi/objectives/{objectiveId}:
+    patch:
+      operationId: updateKpiObjective
+      tags: [kpi]
+      summary: Update KPI objective
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: objectiveId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateKpiObjectiveBody"
+      responses:
+        "200":
+          description: Objective updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KpiObjective"
+    delete:
+      operationId: deleteKpiObjective
+      tags: [kpi]
+      summary: Delete KPI objective
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: objectiveId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Objective deleted
+
+  /organizations/{orgId}/kpi/indicators:
+    get:
+      operationId: listKpiIndicators
+      tags: [kpi]
+      summary: List KPI indicators
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unit
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of indicators
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KpiIndicator"
+    post:
+      operationId: createKpiIndicator
+      tags: [kpi]
+      summary: Create KPI indicator
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateKpiIndicatorBody"
+      responses:
+        "201":
+          description: Indicator created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KpiIndicator"
+
+  /organizations/{orgId}/kpi/indicators/{indicatorId}:
+    patch:
+      operationId: updateKpiIndicator
+      tags: [kpi]
+      summary: Update KPI indicator
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: indicatorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateKpiIndicatorBody"
+      responses:
+        "200":
+          description: Indicator updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KpiIndicator"
+    delete:
+      operationId: deleteKpiIndicator
+      tags: [kpi]
+      summary: Delete KPI indicator
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: indicatorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Indicator deleted
+
+  /organizations/{orgId}/kpi/years/{year}:
+    get:
+      operationId: listKpiYearData
+      tags: [kpi]
+      summary: List all indicators with year config and monthly values for a given year
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unit
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Year data rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KpiYearRow"
+
+  /organizations/{orgId}/kpi/indicators/{indicatorId}/years/{year}:
+    put:
+      operationId: upsertKpiYearConfig
+      tags: [kpi]
+      summary: Upsert year configuration (goal, objective, seq) for an indicator
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: indicatorId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertKpiYearConfigBody"
+      responses:
+        "200":
+          description: Year config upserted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KpiYearConfig"
+
+  /organizations/{orgId}/kpi/indicators/{indicatorId}/years/{year}/values:
+    put:
+      operationId: upsertKpiValues
+      tags: [kpi]
+      summary: Bulk upsert monthly values for an indicator-year
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: indicatorId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertKpiValuesBody"
+      responses:
+        "200":
+          description: Values upserted
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KpiMonthlyValue"
 
 components:
   schemas:
@@ -11906,3 +12198,241 @@ components:
       required:
         - name
         - password
+
+    KpiObjective:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        code:
+          type: string
+          nullable: true
+        name:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - name
+        - createdAt
+        - updatedAt
+
+    CreateKpiObjectiveBody:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+          minLength: 1
+      required:
+        - name
+
+    UpdateKpiObjectiveBody:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+          minLength: 1
+
+    KpiIndicator:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        name:
+          type: string
+        measurement:
+          type: string
+        unit:
+          type: string
+          nullable: true
+        responsible:
+          type: string
+          nullable: true
+        measureUnit:
+          type: string
+          nullable: true
+        direction:
+          type: string
+          enum: [up, down]
+        periodicity:
+          type: string
+          enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - name
+        - measurement
+        - direction
+        - periodicity
+        - createdAt
+        - updatedAt
+
+    CreateKpiIndicatorBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        measurement:
+          type: string
+          minLength: 1
+        unit:
+          type: string
+        responsible:
+          type: string
+        measureUnit:
+          type: string
+        direction:
+          type: string
+          enum: [up, down]
+        periodicity:
+          type: string
+          enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+        objectiveId:
+          type: integer
+          nullable: true
+        goal:
+          type: number
+          nullable: true
+        seq:
+          type: integer
+          nullable: true
+      required:
+        - name
+        - measurement
+        - direction
+        - periodicity
+
+    UpdateKpiIndicatorBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        measurement:
+          type: string
+          minLength: 1
+        unit:
+          type: string
+        responsible:
+          type: string
+        measureUnit:
+          type: string
+        direction:
+          type: string
+          enum: [up, down]
+        periodicity:
+          type: string
+          enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+
+    KpiYearConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        indicatorId:
+          type: integer
+        objectiveId:
+          type: integer
+          nullable: true
+        year:
+          type: integer
+        seq:
+          type: integer
+          nullable: true
+        goal:
+          type: number
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - indicatorId
+        - year
+        - createdAt
+        - updatedAt
+
+    UpsertKpiYearConfigBody:
+      type: object
+      properties:
+        objectiveId:
+          type: integer
+          nullable: true
+        seq:
+          type: integer
+          nullable: true
+        goal:
+          type: number
+          nullable: true
+
+    KpiMonthlyValue:
+      type: object
+      properties:
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+        value:
+          type: number
+          nullable: true
+      required:
+        - month
+
+    UpsertKpiValuesBody:
+      type: object
+      properties:
+        values:
+          type: array
+          items:
+            $ref: "#/components/schemas/KpiMonthlyValue"
+      required:
+        - values
+
+    KpiYearRow:
+      type: object
+      properties:
+        indicator:
+          $ref: "#/components/schemas/KpiIndicator"
+        yearConfig:
+          $ref: "#/components/schemas/KpiYearConfig"
+        objective:
+          $ref: "#/components/schemas/KpiObjective"
+          nullable: true
+        monthlyValues:
+          type: array
+          items:
+            $ref: "#/components/schemas/KpiMonthlyValue"
+        average:
+          type: number
+          nullable: true
+        accumulated:
+          type: number
+          nullable: true
+        feedStatus:
+          type: string
+          enum: [fed, overdue]
+      required:
+        - indicator
+        - yearConfig
+        - monthlyValues
+        - feedStatus

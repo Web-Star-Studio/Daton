@@ -22,6 +22,7 @@ import orgUsersRouter from "./org-users";
 import organizationContactsRouter from "./organization-contacts";
 import productKnowledgeRouter from "./product-knowledge";
 import suppliersRouter from "./suppliers";
+import kpiRouter from "./kpi/index";
 const router: IRouter = Router();
 
 function requireModuleAccessForPaths(
@@ -129,6 +130,12 @@ router.use(
     /^\/organizations\/[^/]+\/suppliers(?:\/|$)/,
   ]),
   suppliersRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("kpi", [/^\/organizations\/[^/]+\/kpi(?:\/|$)/]),
+  kpiRouter,
 );
 
 export default router;

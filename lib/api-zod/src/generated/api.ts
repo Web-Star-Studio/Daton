@@ -13089,3 +13089,308 @@ export const CreateStrategicPlanRiskOpportunityEffectivenessReviewResponse =
     createdAt: zod.string().nullish(),
     updatedAt: zod.string().nullish(),
   });
+
+/**
+ * @summary List KPI objectives
+ */
+export const ListKpiObjectivesParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListKpiObjectivesResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  code: zod.string().nullish(),
+  name: zod.string(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListKpiObjectivesResponse = zod.array(
+  ListKpiObjectivesResponseItem,
+);
+
+/**
+ * @summary Create KPI objective
+ */
+export const CreateKpiObjectiveParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateKpiObjectiveBody = zod.object({
+  code: zod.string().optional(),
+  name: zod.string().min(1),
+});
+
+/**
+ * @summary Update KPI objective
+ */
+export const UpdateKpiObjectiveParams = zod.object({
+  orgId: zod.coerce.number(),
+  objectiveId: zod.coerce.number(),
+});
+
+export const UpdateKpiObjectiveBody = zod.object({
+  code: zod.string().optional(),
+  name: zod.string().min(1).optional(),
+});
+
+export const UpdateKpiObjectiveResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  code: zod.string().nullish(),
+  name: zod.string(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Delete KPI objective
+ */
+export const DeleteKpiObjectiveParams = zod.object({
+  orgId: zod.coerce.number(),
+  objectiveId: zod.coerce.number(),
+});
+
+/**
+ * @summary List KPI indicators
+ */
+export const ListKpiIndicatorsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListKpiIndicatorsQueryParams = zod.object({
+  unit: zod.coerce.string().optional(),
+});
+
+export const ListKpiIndicatorsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  name: zod.string(),
+  measurement: zod.string(),
+  unit: zod.string().nullish(),
+  responsible: zod.string().nullish(),
+  measureUnit: zod.string().nullish(),
+  direction: zod.enum(["up", "down"]),
+  periodicity: zod.enum([
+    "monthly",
+    "quarterly",
+    "semiannual",
+    "annual",
+    "monthly_15d",
+    "monthly_45d",
+  ]),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListKpiIndicatorsResponse = zod.array(
+  ListKpiIndicatorsResponseItem,
+);
+
+/**
+ * @summary Create KPI indicator
+ */
+export const CreateKpiIndicatorParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateKpiIndicatorBody = zod.object({
+  name: zod.string().min(1),
+  measurement: zod.string().min(1),
+  unit: zod.string().optional(),
+  responsible: zod.string().optional(),
+  measureUnit: zod.string().optional(),
+  direction: zod.enum(["up", "down"]),
+  periodicity: zod.enum([
+    "monthly",
+    "quarterly",
+    "semiannual",
+    "annual",
+    "monthly_15d",
+    "monthly_45d",
+  ]),
+  objectiveId: zod.number().nullish(),
+  goal: zod.number().nullish(),
+  seq: zod.number().nullish(),
+});
+
+/**
+ * @summary Update KPI indicator
+ */
+export const UpdateKpiIndicatorParams = zod.object({
+  orgId: zod.coerce.number(),
+  indicatorId: zod.coerce.number(),
+});
+
+export const UpdateKpiIndicatorBody = zod.object({
+  name: zod.string().min(1).optional(),
+  measurement: zod.string().min(1).optional(),
+  unit: zod.string().optional(),
+  responsible: zod.string().optional(),
+  measureUnit: zod.string().optional(),
+  direction: zod.enum(["up", "down"]).optional(),
+  periodicity: zod
+    .enum([
+      "monthly",
+      "quarterly",
+      "semiannual",
+      "annual",
+      "monthly_15d",
+      "monthly_45d",
+    ])
+    .optional(),
+});
+
+export const UpdateKpiIndicatorResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  name: zod.string(),
+  measurement: zod.string(),
+  unit: zod.string().nullish(),
+  responsible: zod.string().nullish(),
+  measureUnit: zod.string().nullish(),
+  direction: zod.enum(["up", "down"]),
+  periodicity: zod.enum([
+    "monthly",
+    "quarterly",
+    "semiannual",
+    "annual",
+    "monthly_15d",
+    "monthly_45d",
+  ]),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Delete KPI indicator
+ */
+export const DeleteKpiIndicatorParams = zod.object({
+  orgId: zod.coerce.number(),
+  indicatorId: zod.coerce.number(),
+});
+
+/**
+ * @summary List all indicators with year config and monthly values for a given year
+ */
+export const ListKpiYearDataParams = zod.object({
+  orgId: zod.coerce.number(),
+  year: zod.coerce.number(),
+});
+
+export const ListKpiYearDataQueryParams = zod.object({
+  unit: zod.coerce.string().optional(),
+});
+
+export const listKpiYearDataResponseMonthlyValuesItemMonthMax = 12;
+
+export const ListKpiYearDataResponseItem = zod.object({
+  indicator: zod.object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    name: zod.string(),
+    measurement: zod.string(),
+    unit: zod.string().nullish(),
+    responsible: zod.string().nullish(),
+    measureUnit: zod.string().nullish(),
+    direction: zod.enum(["up", "down"]),
+    periodicity: zod.enum([
+      "monthly",
+      "quarterly",
+      "semiannual",
+      "annual",
+      "monthly_15d",
+      "monthly_45d",
+    ]),
+    createdAt: zod.string(),
+    updatedAt: zod.string(),
+  }),
+  yearConfig: zod.object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    indicatorId: zod.number(),
+    objectiveId: zod.number().nullish(),
+    year: zod.number(),
+    seq: zod.number().nullish(),
+    goal: zod.number().nullish(),
+    createdAt: zod.string(),
+    updatedAt: zod.string(),
+  }),
+  objective: zod
+    .object({
+      id: zod.number(),
+      organizationId: zod.number(),
+      code: zod.string().nullish(),
+      name: zod.string(),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+    })
+    .nullish(),
+  monthlyValues: zod.array(
+    zod.object({
+      month: zod
+        .number()
+        .min(1)
+        .max(listKpiYearDataResponseMonthlyValuesItemMonthMax),
+      value: zod.number().nullish(),
+    }),
+  ),
+  average: zod.number().nullish(),
+  accumulated: zod.number().nullish(),
+  feedStatus: zod.enum(["fed", "overdue"]),
+});
+export const ListKpiYearDataResponse = zod.array(ListKpiYearDataResponseItem);
+
+/**
+ * @summary Upsert year configuration (goal, objective, seq) for an indicator
+ */
+export const UpsertKpiYearConfigParams = zod.object({
+  orgId: zod.coerce.number(),
+  indicatorId: zod.coerce.number(),
+  year: zod.coerce.number(),
+});
+
+export const UpsertKpiYearConfigBody = zod.object({
+  objectiveId: zod.number().nullish(),
+  seq: zod.number().nullish(),
+  goal: zod.number().nullish(),
+});
+
+export const UpsertKpiYearConfigResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  indicatorId: zod.number(),
+  objectiveId: zod.number().nullish(),
+  year: zod.number(),
+  seq: zod.number().nullish(),
+  goal: zod.number().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Bulk upsert monthly values for an indicator-year
+ */
+export const UpsertKpiValuesParams = zod.object({
+  orgId: zod.coerce.number(),
+  indicatorId: zod.coerce.number(),
+  year: zod.coerce.number(),
+});
+
+export const upsertKpiValuesBodyValuesItemMonthMax = 12;
+
+export const UpsertKpiValuesBody = zod.object({
+  values: zod.array(
+    zod.object({
+      month: zod.number().min(1).max(upsertKpiValuesBodyValuesItemMonthMax),
+      value: zod.number().nullish(),
+    }),
+  ),
+});
+
+export const upsertKpiValuesResponseMonthMax = 12;
+
+export const UpsertKpiValuesResponseItem = zod.object({
+  month: zod.number().min(1).max(upsertKpiValuesResponseMonthMax),
+  value: zod.number().nullish(),
+});
+export const UpsertKpiValuesResponse = zod.array(UpsertKpiValuesResponseItem);

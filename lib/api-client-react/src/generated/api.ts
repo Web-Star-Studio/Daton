@@ -39,6 +39,8 @@ import type {
   CreateInternalAuditFindingBody,
   CreateInvitationBody,
   CreateKnowledgeAssetBody,
+  CreateKpiIndicatorBody,
+  CreateKpiObjectiveBody,
   CreateLegislationBody,
   CreateManagementReviewBody,
   CreateManagementReviewInputBody,
@@ -89,6 +91,11 @@ import type {
   InvitationResponse,
   InviteTokenInfo,
   KnowledgeAssetDetail,
+  KpiIndicator,
+  KpiMonthlyValue,
+  KpiObjective,
+  KpiYearConfig,
+  KpiYearRow,
   Legislation,
   LegislationDetail,
   LinkEmployeeUnit201,
@@ -100,6 +107,8 @@ import type {
   ListInternalAuditsParams,
   ListInvitations200,
   ListKnowledgeAssetsParams,
+  ListKpiIndicatorsParams,
+  ListKpiYearDataParams,
   ListLegislationsParams,
   ListManagementReviewsParams,
   ListNonconformitiesParams,
@@ -168,6 +177,8 @@ import type {
   UpdateInternalAuditBody,
   UpdateInternalAuditFindingBody,
   UpdateKnowledgeAssetBody,
+  UpdateKpiIndicatorBody,
+  UpdateKpiObjectiveBody,
   UpdateLegislationBody,
   UpdateManagementReviewBody,
   UpdateManagementReviewInputBody,
@@ -193,6 +204,8 @@ import type {
   UpdateUserModules200,
   UpdateUserModulesBody,
   UpdateUserRoleBody,
+  UpsertKpiValuesBody,
+  UpsertKpiYearConfigBody,
   UserOption,
 } from "./api.schemas";
 
@@ -19585,4 +19598,1147 @@ export const useCreateStrategicPlanRiskOpportunityEffectivenessReview = <
       options,
     ),
   );
+};
+
+/**
+ * @summary List KPI objectives
+ */
+export const getListKpiObjectivesUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/kpi/objectives`;
+};
+
+export const listKpiObjectives = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<KpiObjective[]> => {
+  return customFetch<KpiObjective[]>(getListKpiObjectivesUrl(orgId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListKpiObjectivesQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/kpi/objectives`] as const;
+};
+
+export const getListKpiObjectivesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listKpiObjectives>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listKpiObjectives>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListKpiObjectivesQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listKpiObjectives>>
+  > = ({ signal }) => listKpiObjectives(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listKpiObjectives>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListKpiObjectivesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listKpiObjectives>>
+>;
+export type ListKpiObjectivesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List KPI objectives
+ */
+
+export function useListKpiObjectives<
+  TData = Awaited<ReturnType<typeof listKpiObjectives>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listKpiObjectives>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListKpiObjectivesQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create KPI objective
+ */
+export const getCreateKpiObjectiveUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/kpi/objectives`;
+};
+
+export const createKpiObjective = async (
+  orgId: number,
+  createKpiObjectiveBody: CreateKpiObjectiveBody,
+  options?: RequestInit,
+): Promise<KpiObjective> => {
+  return customFetch<KpiObjective>(getCreateKpiObjectiveUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createKpiObjectiveBody),
+  });
+};
+
+export const getCreateKpiObjectiveMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createKpiObjective>>,
+    TError,
+    { orgId: number; data: BodyType<CreateKpiObjectiveBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createKpiObjective>>,
+  TError,
+  { orgId: number; data: BodyType<CreateKpiObjectiveBody> },
+  TContext
+> => {
+  const mutationKey = ["createKpiObjective"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createKpiObjective>>,
+    { orgId: number; data: BodyType<CreateKpiObjectiveBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createKpiObjective(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateKpiObjectiveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createKpiObjective>>
+>;
+export type CreateKpiObjectiveMutationBody = BodyType<CreateKpiObjectiveBody>;
+export type CreateKpiObjectiveMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create KPI objective
+ */
+export const useCreateKpiObjective = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createKpiObjective>>,
+    TError,
+    { orgId: number; data: BodyType<CreateKpiObjectiveBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createKpiObjective>>,
+  TError,
+  { orgId: number; data: BodyType<CreateKpiObjectiveBody> },
+  TContext
+> => {
+  return useMutation(getCreateKpiObjectiveMutationOptions(options));
+};
+
+/**
+ * @summary Update KPI objective
+ */
+export const getUpdateKpiObjectiveUrl = (
+  orgId: number,
+  objectiveId: number,
+) => {
+  return `/api/organizations/${orgId}/kpi/objectives/${objectiveId}`;
+};
+
+export const updateKpiObjective = async (
+  orgId: number,
+  objectiveId: number,
+  updateKpiObjectiveBody: UpdateKpiObjectiveBody,
+  options?: RequestInit,
+): Promise<KpiObjective> => {
+  return customFetch<KpiObjective>(
+    getUpdateKpiObjectiveUrl(orgId, objectiveId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateKpiObjectiveBody),
+    },
+  );
+};
+
+export const getUpdateKpiObjectiveMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateKpiObjective>>,
+    TError,
+    {
+      orgId: number;
+      objectiveId: number;
+      data: BodyType<UpdateKpiObjectiveBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateKpiObjective>>,
+  TError,
+  {
+    orgId: number;
+    objectiveId: number;
+    data: BodyType<UpdateKpiObjectiveBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateKpiObjective"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateKpiObjective>>,
+    {
+      orgId: number;
+      objectiveId: number;
+      data: BodyType<UpdateKpiObjectiveBody>;
+    }
+  > = (props) => {
+    const { orgId, objectiveId, data } = props ?? {};
+
+    return updateKpiObjective(orgId, objectiveId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateKpiObjectiveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateKpiObjective>>
+>;
+export type UpdateKpiObjectiveMutationBody = BodyType<UpdateKpiObjectiveBody>;
+export type UpdateKpiObjectiveMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update KPI objective
+ */
+export const useUpdateKpiObjective = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateKpiObjective>>,
+    TError,
+    {
+      orgId: number;
+      objectiveId: number;
+      data: BodyType<UpdateKpiObjectiveBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateKpiObjective>>,
+  TError,
+  {
+    orgId: number;
+    objectiveId: number;
+    data: BodyType<UpdateKpiObjectiveBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateKpiObjectiveMutationOptions(options));
+};
+
+/**
+ * @summary Delete KPI objective
+ */
+export const getDeleteKpiObjectiveUrl = (
+  orgId: number,
+  objectiveId: number,
+) => {
+  return `/api/organizations/${orgId}/kpi/objectives/${objectiveId}`;
+};
+
+export const deleteKpiObjective = async (
+  orgId: number,
+  objectiveId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteKpiObjectiveUrl(orgId, objectiveId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteKpiObjectiveMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteKpiObjective>>,
+    TError,
+    { orgId: number; objectiveId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteKpiObjective>>,
+  TError,
+  { orgId: number; objectiveId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteKpiObjective"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteKpiObjective>>,
+    { orgId: number; objectiveId: number }
+  > = (props) => {
+    const { orgId, objectiveId } = props ?? {};
+
+    return deleteKpiObjective(orgId, objectiveId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteKpiObjectiveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteKpiObjective>>
+>;
+
+export type DeleteKpiObjectiveMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete KPI objective
+ */
+export const useDeleteKpiObjective = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteKpiObjective>>,
+    TError,
+    { orgId: number; objectiveId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteKpiObjective>>,
+  TError,
+  { orgId: number; objectiveId: number },
+  TContext
+> => {
+  return useMutation(getDeleteKpiObjectiveMutationOptions(options));
+};
+
+/**
+ * @summary List KPI indicators
+ */
+export const getListKpiIndicatorsUrl = (
+  orgId: number,
+  params?: ListKpiIndicatorsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/kpi/indicators?${stringifiedParams}`
+    : `/api/organizations/${orgId}/kpi/indicators`;
+};
+
+export const listKpiIndicators = async (
+  orgId: number,
+  params?: ListKpiIndicatorsParams,
+  options?: RequestInit,
+): Promise<KpiIndicator[]> => {
+  return customFetch<KpiIndicator[]>(getListKpiIndicatorsUrl(orgId, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListKpiIndicatorsQueryKey = (
+  orgId: number,
+  params?: ListKpiIndicatorsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/kpi/indicators`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListKpiIndicatorsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listKpiIndicators>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListKpiIndicatorsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listKpiIndicators>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListKpiIndicatorsQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listKpiIndicators>>
+  > = ({ signal }) =>
+    listKpiIndicators(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listKpiIndicators>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListKpiIndicatorsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listKpiIndicators>>
+>;
+export type ListKpiIndicatorsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List KPI indicators
+ */
+
+export function useListKpiIndicators<
+  TData = Awaited<ReturnType<typeof listKpiIndicators>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListKpiIndicatorsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listKpiIndicators>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListKpiIndicatorsQueryOptions(orgId, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create KPI indicator
+ */
+export const getCreateKpiIndicatorUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/kpi/indicators`;
+};
+
+export const createKpiIndicator = async (
+  orgId: number,
+  createKpiIndicatorBody: CreateKpiIndicatorBody,
+  options?: RequestInit,
+): Promise<KpiIndicator> => {
+  return customFetch<KpiIndicator>(getCreateKpiIndicatorUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createKpiIndicatorBody),
+  });
+};
+
+export const getCreateKpiIndicatorMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createKpiIndicator>>,
+    TError,
+    { orgId: number; data: BodyType<CreateKpiIndicatorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createKpiIndicator>>,
+  TError,
+  { orgId: number; data: BodyType<CreateKpiIndicatorBody> },
+  TContext
+> => {
+  const mutationKey = ["createKpiIndicator"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createKpiIndicator>>,
+    { orgId: number; data: BodyType<CreateKpiIndicatorBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createKpiIndicator(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateKpiIndicatorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createKpiIndicator>>
+>;
+export type CreateKpiIndicatorMutationBody = BodyType<CreateKpiIndicatorBody>;
+export type CreateKpiIndicatorMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create KPI indicator
+ */
+export const useCreateKpiIndicator = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createKpiIndicator>>,
+    TError,
+    { orgId: number; data: BodyType<CreateKpiIndicatorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createKpiIndicator>>,
+  TError,
+  { orgId: number; data: BodyType<CreateKpiIndicatorBody> },
+  TContext
+> => {
+  return useMutation(getCreateKpiIndicatorMutationOptions(options));
+};
+
+/**
+ * @summary Update KPI indicator
+ */
+export const getUpdateKpiIndicatorUrl = (
+  orgId: number,
+  indicatorId: number,
+) => {
+  return `/api/organizations/${orgId}/kpi/indicators/${indicatorId}`;
+};
+
+export const updateKpiIndicator = async (
+  orgId: number,
+  indicatorId: number,
+  updateKpiIndicatorBody: UpdateKpiIndicatorBody,
+  options?: RequestInit,
+): Promise<KpiIndicator> => {
+  return customFetch<KpiIndicator>(
+    getUpdateKpiIndicatorUrl(orgId, indicatorId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateKpiIndicatorBody),
+    },
+  );
+};
+
+export const getUpdateKpiIndicatorMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateKpiIndicator>>,
+    TError,
+    {
+      orgId: number;
+      indicatorId: number;
+      data: BodyType<UpdateKpiIndicatorBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateKpiIndicator>>,
+  TError,
+  {
+    orgId: number;
+    indicatorId: number;
+    data: BodyType<UpdateKpiIndicatorBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateKpiIndicator"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateKpiIndicator>>,
+    {
+      orgId: number;
+      indicatorId: number;
+      data: BodyType<UpdateKpiIndicatorBody>;
+    }
+  > = (props) => {
+    const { orgId, indicatorId, data } = props ?? {};
+
+    return updateKpiIndicator(orgId, indicatorId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateKpiIndicatorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateKpiIndicator>>
+>;
+export type UpdateKpiIndicatorMutationBody = BodyType<UpdateKpiIndicatorBody>;
+export type UpdateKpiIndicatorMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update KPI indicator
+ */
+export const useUpdateKpiIndicator = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateKpiIndicator>>,
+    TError,
+    {
+      orgId: number;
+      indicatorId: number;
+      data: BodyType<UpdateKpiIndicatorBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateKpiIndicator>>,
+  TError,
+  {
+    orgId: number;
+    indicatorId: number;
+    data: BodyType<UpdateKpiIndicatorBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateKpiIndicatorMutationOptions(options));
+};
+
+/**
+ * @summary Delete KPI indicator
+ */
+export const getDeleteKpiIndicatorUrl = (
+  orgId: number,
+  indicatorId: number,
+) => {
+  return `/api/organizations/${orgId}/kpi/indicators/${indicatorId}`;
+};
+
+export const deleteKpiIndicator = async (
+  orgId: number,
+  indicatorId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteKpiIndicatorUrl(orgId, indicatorId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteKpiIndicatorMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteKpiIndicator>>,
+    TError,
+    { orgId: number; indicatorId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteKpiIndicator>>,
+  TError,
+  { orgId: number; indicatorId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteKpiIndicator"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteKpiIndicator>>,
+    { orgId: number; indicatorId: number }
+  > = (props) => {
+    const { orgId, indicatorId } = props ?? {};
+
+    return deleteKpiIndicator(orgId, indicatorId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteKpiIndicatorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteKpiIndicator>>
+>;
+
+export type DeleteKpiIndicatorMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete KPI indicator
+ */
+export const useDeleteKpiIndicator = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteKpiIndicator>>,
+    TError,
+    { orgId: number; indicatorId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteKpiIndicator>>,
+  TError,
+  { orgId: number; indicatorId: number },
+  TContext
+> => {
+  return useMutation(getDeleteKpiIndicatorMutationOptions(options));
+};
+
+/**
+ * @summary List all indicators with year config and monthly values for a given year
+ */
+export const getListKpiYearDataUrl = (
+  orgId: number,
+  year: number,
+  params?: ListKpiYearDataParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/kpi/years/${year}?${stringifiedParams}`
+    : `/api/organizations/${orgId}/kpi/years/${year}`;
+};
+
+export const listKpiYearData = async (
+  orgId: number,
+  year: number,
+  params?: ListKpiYearDataParams,
+  options?: RequestInit,
+): Promise<KpiYearRow[]> => {
+  return customFetch<KpiYearRow[]>(getListKpiYearDataUrl(orgId, year, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListKpiYearDataQueryKey = (
+  orgId: number,
+  year: number,
+  params?: ListKpiYearDataParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/kpi/years/${year}`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListKpiYearDataQueryOptions = <
+  TData = Awaited<ReturnType<typeof listKpiYearData>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  year: number,
+  params?: ListKpiYearDataParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listKpiYearData>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListKpiYearDataQueryKey(orgId, year, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listKpiYearData>>> = ({
+    signal,
+  }) => listKpiYearData(orgId, year, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && year),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listKpiYearData>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListKpiYearDataQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listKpiYearData>>
+>;
+export type ListKpiYearDataQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all indicators with year config and monthly values for a given year
+ */
+
+export function useListKpiYearData<
+  TData = Awaited<ReturnType<typeof listKpiYearData>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  year: number,
+  params?: ListKpiYearDataParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listKpiYearData>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListKpiYearDataQueryOptions(
+    orgId,
+    year,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Upsert year configuration (goal, objective, seq) for an indicator
+ */
+export const getUpsertKpiYearConfigUrl = (
+  orgId: number,
+  indicatorId: number,
+  year: number,
+) => {
+  return `/api/organizations/${orgId}/kpi/indicators/${indicatorId}/years/${year}`;
+};
+
+export const upsertKpiYearConfig = async (
+  orgId: number,
+  indicatorId: number,
+  year: number,
+  upsertKpiYearConfigBody: UpsertKpiYearConfigBody,
+  options?: RequestInit,
+): Promise<KpiYearConfig> => {
+  return customFetch<KpiYearConfig>(
+    getUpsertKpiYearConfigUrl(orgId, indicatorId, year),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(upsertKpiYearConfigBody),
+    },
+  );
+};
+
+export const getUpsertKpiYearConfigMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertKpiYearConfig>>,
+    TError,
+    {
+      orgId: number;
+      indicatorId: number;
+      year: number;
+      data: BodyType<UpsertKpiYearConfigBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertKpiYearConfig>>,
+  TError,
+  {
+    orgId: number;
+    indicatorId: number;
+    year: number;
+    data: BodyType<UpsertKpiYearConfigBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["upsertKpiYearConfig"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertKpiYearConfig>>,
+    {
+      orgId: number;
+      indicatorId: number;
+      year: number;
+      data: BodyType<UpsertKpiYearConfigBody>;
+    }
+  > = (props) => {
+    const { orgId, indicatorId, year, data } = props ?? {};
+
+    return upsertKpiYearConfig(orgId, indicatorId, year, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertKpiYearConfigMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertKpiYearConfig>>
+>;
+export type UpsertKpiYearConfigMutationBody = BodyType<UpsertKpiYearConfigBody>;
+export type UpsertKpiYearConfigMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Upsert year configuration (goal, objective, seq) for an indicator
+ */
+export const useUpsertKpiYearConfig = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertKpiYearConfig>>,
+    TError,
+    {
+      orgId: number;
+      indicatorId: number;
+      year: number;
+      data: BodyType<UpsertKpiYearConfigBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertKpiYearConfig>>,
+  TError,
+  {
+    orgId: number;
+    indicatorId: number;
+    year: number;
+    data: BodyType<UpsertKpiYearConfigBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpsertKpiYearConfigMutationOptions(options));
+};
+
+/**
+ * @summary Bulk upsert monthly values for an indicator-year
+ */
+export const getUpsertKpiValuesUrl = (
+  orgId: number,
+  indicatorId: number,
+  year: number,
+) => {
+  return `/api/organizations/${orgId}/kpi/indicators/${indicatorId}/years/${year}/values`;
+};
+
+export const upsertKpiValues = async (
+  orgId: number,
+  indicatorId: number,
+  year: number,
+  upsertKpiValuesBody: UpsertKpiValuesBody,
+  options?: RequestInit,
+): Promise<KpiMonthlyValue[]> => {
+  return customFetch<KpiMonthlyValue[]>(
+    getUpsertKpiValuesUrl(orgId, indicatorId, year),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(upsertKpiValuesBody),
+    },
+  );
+};
+
+export const getUpsertKpiValuesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertKpiValues>>,
+    TError,
+    {
+      orgId: number;
+      indicatorId: number;
+      year: number;
+      data: BodyType<UpsertKpiValuesBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertKpiValues>>,
+  TError,
+  {
+    orgId: number;
+    indicatorId: number;
+    year: number;
+    data: BodyType<UpsertKpiValuesBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["upsertKpiValues"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertKpiValues>>,
+    {
+      orgId: number;
+      indicatorId: number;
+      year: number;
+      data: BodyType<UpsertKpiValuesBody>;
+    }
+  > = (props) => {
+    const { orgId, indicatorId, year, data } = props ?? {};
+
+    return upsertKpiValues(orgId, indicatorId, year, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertKpiValuesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertKpiValues>>
+>;
+export type UpsertKpiValuesMutationBody = BodyType<UpsertKpiValuesBody>;
+export type UpsertKpiValuesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Bulk upsert monthly values for an indicator-year
+ */
+export const useUpsertKpiValues = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertKpiValues>>,
+    TError,
+    {
+      orgId: number;
+      indicatorId: number;
+      year: number;
+      data: BodyType<UpsertKpiValuesBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertKpiValues>>,
+  TError,
+  {
+    orgId: number;
+    indicatorId: number;
+    year: number;
+    data: BodyType<UpsertKpiValuesBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpsertKpiValuesMutationOptions(options));
 };

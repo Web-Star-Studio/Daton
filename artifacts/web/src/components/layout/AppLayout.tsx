@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useLayoutState } from "@/contexts/LayoutContext";
 import {
+  BarChart2,
   Bell,
   Building2,
   ChevronRight,
@@ -32,7 +33,8 @@ type AppModule =
   | "positions"
   | "governance"
   | "suppliers"
-  | "environmental";
+  | "environmental"
+  | "kpi";
 
 type NavLink = {
   href: string;
@@ -61,6 +63,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [qualidadePopover, setQualidadePopover] = useState(false);
   const [governancaPopover, setGovernancaPopover] = useState(false);
   const [ambientalPopover, setAmbientalPopover] = useState(false);
+  const [kpiPopover, setKpiPopover] = useState(false);
   const [configuracoesPopover, setConfiguracoesPopover] = useState(false);
   const [orgPopoverPos, setOrgPopoverPos] = useState<PopoverPosition>({
     top: 0,
@@ -78,6 +81,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     top: 0,
     left: 0,
   });
+  const [kpiPopoverPos, setKpiPopoverPos] = useState<PopoverPosition>({
+    top: 0,
+    left: 0,
+  });
   const [configuracoesPopoverPos, setConfiguracoesPopoverPos] = useState<PopoverPosition>({
     left: 0,
     bottom: 0,
@@ -86,11 +93,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const qualidadeRef = useRef<HTMLDivElement>(null);
   const governancaRef = useRef<HTMLDivElement>(null);
   const ambientalRef = useRef<HTMLDivElement>(null);
+  const kpiRef = useRef<HTMLDivElement>(null);
   const configuracoesRef = useRef<HTMLDivElement>(null);
   const organizacaoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const qualidadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const governancaTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ambientalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const kpiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const configuracoesTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { headerActions, pageTitle } = useLayoutState();
   const orgId = organization?.id;
@@ -124,6 +133,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         clearTimeout(ambientalTimeoutRef.current);
         ambientalTimeoutRef.current = null;
       }
+      if (kpiTimeoutRef.current) {
+        clearTimeout(kpiTimeoutRef.current);
+        kpiTimeoutRef.current = null;
+      }
       if (configuracoesTimeoutRef.current) {
         clearTimeout(configuracoesTimeoutRef.current);
         configuracoesTimeoutRef.current = null;
@@ -141,6 +154,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       { prefix: "/organizacao/cargos", module: "positions" },
       { prefix: "/governanca", module: "governance" },
       { prefix: "/ambiental", module: "environmental" },
+      { prefix: "/kpi", module: "kpi" },
     ];
 
     const deniedRoute = moduleByPath.find(
@@ -256,6 +270,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           crumbs.push({ label: pageTitle });
         }
       }
+    } else if (normalizedLocation.startsWith("/kpi")) {
+      crumbs.push({ label: "Indicadores (KPI)" });
+
+      if (normalizedLocation.startsWith("/kpi/indicadores")) {
+        crumbs.push({ label: "Indicadores", href: "/kpi/indicadores" });
+      } else if (normalizedLocation.startsWith("/kpi/alimentacao")) {
+        crumbs.push({ label: "Lançamento", href: "/kpi/alimentacao" });
+      } else if (normalizedLocation.startsWith("/kpi/dashboard")) {
+        crumbs.push({ label: "Dashboard", href: "/kpi/dashboard" });
+      }
     } else if (normalizedLocation.startsWith("/configuracoes")) {
       crumbs.push({ label: "Configurações" });
 
@@ -329,9 +353,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { href: "/configuracoes/sistema", label: "Sistema" },
   ];
 
+  const kpiLinks: NavLink[] = [
+    { href: "/kpi/indicadores", label: "Indicadores" },
+    { href: "/kpi/alimentacao", label: "Lançamento" },
+    { href: "/kpi/dashboard", label: "Dashboard" },
+  ];
+
   const showQualidade = qualidadeLinks.length > 0;
   const showGovernanca = hasModuleAccess("governance");
   const showAmbiental = hasModuleAccess("environmental");
+  const showKpi = hasModuleAccess("kpi");
 
   const openPopover = (
     ref: React.RefObject<HTMLDivElement | null>,
@@ -611,6 +642,46 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
+          {showKpi && (
+            <div
+              ref={kpiRef}
+              onMouseEnter={() =>
+                openPopover(
+                  kpiRef,
+                  setKpiPopoverPos,
+                  setKpiPopover,
+                  kpiTimeoutRef,
+                )
+              }
+              onMouseLeave={() =>
+                closePopover(setKpiPopover, kpiTimeoutRef)
+              }
+            >
+              <Link
+                href="/kpi/indicadores"
+                className={cn(
+                  "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+                  isActive("/kpi")
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <div className="flex items-center">
+                  <BarChart2
+                    className={cn(
+                      "h-[18px] w-[18px] shrink-0",
+                      isSidebarOpen && "mr-2.5",
+                    )}
+                  />
+                  {isSidebarOpen && <span>Indicadores</span>}
+                </div>
+                {isSidebarOpen && (
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                )}
+              </Link>
+            </div>
+          )}
+
           {showQualidade && (
             <div
               ref={qualidadeRef}
@@ -680,6 +751,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             setAmbientalPopover,
             ambientalPopoverPos,
             ambientalTimeoutRef,
+          )}
+          {renderPopover(
+            "Indicadores (KPI)",
+            kpiLinks,
+            kpiPopover,
+            setKpiPopover,
+            kpiPopoverPos,
+            kpiTimeoutRef,
           )}
         </div>
 
