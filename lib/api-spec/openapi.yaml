@@ -2513,6 +2513,66 @@ paths:
         "204":
           description: Version history reset
 
+  /organizations/{orgId}/documents/{docId}/versions/batch-import:
+    post:
+      operationId: batchImportDocumentVersions
+      tags: [documents]
+      summary: Batch import version history from plain text
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchImportDocumentVersionsBody"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchImportDocumentVersionsResponse"
+
+  /organizations/{orgId}/documents/{docId}/start-revision:
+    post:
+      operationId: startDocumentRevision
+      tags: [documents]
+      summary: Start a new revision cycle on an approved or distributed document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartDocumentRevisionBody"
+      responses:
+        "200":
+          description: Document reset to draft for revision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentDetail"
+
   /organizations/{orgId}/documents/{docId}/attachments:
     post:
       operationId: addDocumentAttachment
@@ -11144,6 +11204,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DocumentCommunicationPlan"
+        pendingVersionDescription:
+          type: string
+          nullable: true
         normativeRequirements:
           type: array
           items:
@@ -11641,14 +11704,19 @@ components:
       required:
         - suggestions
 
+    StartDocumentRevisionBody:
+      type: object
+      properties:
+        description:
+          type: string
+          minLength: 1
+
     SubmitDocumentForReviewBody:
       type: object
       properties:
         changeDescription:
           type: string
           minLength: 1
-      required:
-        - changeDescription
 
     AddDocumentAttachmentBody:
       type: object
@@ -11714,6 +11782,29 @@ components:
         - versionNumber
         - changeDescription
         - createdAt
+
+    BatchImportDocumentVersionsBody:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+          description: "Plain text version history. Format per line: {N} - {DD/MM/YYYY} - {description}"
+      required:
+        - text
+
+    BatchImportDocumentVersionsResponse:
+      type: object
+      properties:
+        imported:
+          type: integer
+          description: Number of versions from the batch text that were imported
+        total:
+          type: integer
+          description: Total version count after import (batch + pre-existing)
+      required:
+        - imported
+        - total
 
     DocumentCommunicationPlanBody:
       type: object
