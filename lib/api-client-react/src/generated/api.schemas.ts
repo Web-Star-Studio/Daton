@@ -3216,6 +3216,177 @@ export interface AcceptInvitationBody {
   password: string;
 }
 
+export interface KpiObjective {
+  id: number;
+  organizationId: number;
+  code?: string | null;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateKpiObjectiveBody {
+  code?: string;
+  /** @minLength 1 */
+  name: string;
+}
+
+export interface UpdateKpiObjectiveBody {
+  code?: string;
+  /** @minLength 1 */
+  name?: string;
+}
+
+export type KpiIndicatorDirection =
+  (typeof KpiIndicatorDirection)[keyof typeof KpiIndicatorDirection];
+
+export const KpiIndicatorDirection = {
+  up: "up",
+  down: "down",
+} as const;
+
+export type KpiIndicatorPeriodicity =
+  (typeof KpiIndicatorPeriodicity)[keyof typeof KpiIndicatorPeriodicity];
+
+export const KpiIndicatorPeriodicity = {
+  monthly: "monthly",
+  quarterly: "quarterly",
+  semiannual: "semiannual",
+  annual: "annual",
+  monthly_15d: "monthly_15d",
+  monthly_45d: "monthly_45d",
+} as const;
+
+export interface KpiIndicator {
+  id: number;
+  organizationId: number;
+  name: string;
+  measurement: string;
+  unit?: string | null;
+  responsible?: string | null;
+  measureUnit?: string | null;
+  direction: KpiIndicatorDirection;
+  periodicity: KpiIndicatorPeriodicity;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateKpiIndicatorBodyDirection =
+  (typeof CreateKpiIndicatorBodyDirection)[keyof typeof CreateKpiIndicatorBodyDirection];
+
+export const CreateKpiIndicatorBodyDirection = {
+  up: "up",
+  down: "down",
+} as const;
+
+export type CreateKpiIndicatorBodyPeriodicity =
+  (typeof CreateKpiIndicatorBodyPeriodicity)[keyof typeof CreateKpiIndicatorBodyPeriodicity];
+
+export const CreateKpiIndicatorBodyPeriodicity = {
+  monthly: "monthly",
+  quarterly: "quarterly",
+  semiannual: "semiannual",
+  annual: "annual",
+  monthly_15d: "monthly_15d",
+  monthly_45d: "monthly_45d",
+} as const;
+
+export interface CreateKpiIndicatorBody {
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  measurement: string;
+  unit?: string;
+  responsible?: string;
+  measureUnit?: string;
+  direction: CreateKpiIndicatorBodyDirection;
+  periodicity: CreateKpiIndicatorBodyPeriodicity;
+  objectiveId?: number | null;
+  goal?: number | null;
+  seq?: number | null;
+}
+
+export type UpdateKpiIndicatorBodyDirection =
+  (typeof UpdateKpiIndicatorBodyDirection)[keyof typeof UpdateKpiIndicatorBodyDirection];
+
+export const UpdateKpiIndicatorBodyDirection = {
+  up: "up",
+  down: "down",
+} as const;
+
+export type UpdateKpiIndicatorBodyPeriodicity =
+  (typeof UpdateKpiIndicatorBodyPeriodicity)[keyof typeof UpdateKpiIndicatorBodyPeriodicity];
+
+export const UpdateKpiIndicatorBodyPeriodicity = {
+  monthly: "monthly",
+  quarterly: "quarterly",
+  semiannual: "semiannual",
+  annual: "annual",
+  monthly_15d: "monthly_15d",
+  monthly_45d: "monthly_45d",
+} as const;
+
+export interface UpdateKpiIndicatorBody {
+  /** @minLength 1 */
+  name?: string;
+  /** @minLength 1 */
+  measurement?: string;
+  unit?: string;
+  responsible?: string;
+  measureUnit?: string;
+  direction?: UpdateKpiIndicatorBodyDirection;
+  periodicity?: UpdateKpiIndicatorBodyPeriodicity;
+}
+
+export interface KpiYearConfig {
+  id: number;
+  organizationId: number;
+  indicatorId: number;
+  objectiveId?: number | null;
+  year: number;
+  seq?: number | null;
+  goal?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertKpiYearConfigBody {
+  objectiveId?: number | null;
+  seq?: number | null;
+  goal?: number | null;
+}
+
+export interface KpiMonthlyValue {
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  month: number;
+  value?: number | null;
+}
+
+export interface UpsertKpiValuesBody {
+  values: KpiMonthlyValue[];
+}
+
+export type KpiYearRowFeedStatus =
+  (typeof KpiYearRowFeedStatus)[keyof typeof KpiYearRowFeedStatus];
+
+export const KpiYearRowFeedStatus = {
+  fed: "fed",
+  overdue: "overdue",
+} as const;
+
+export interface KpiYearRow {
+  indicator: KpiIndicator;
+  yearConfig: KpiYearConfig;
+  objective?: KpiObjective | null;
+  monthlyValues: KpiMonthlyValue[];
+  average?: number | null;
+  accumulated?: number | null;
+  feedStatus: KpiYearRowFeedStatus;
+}
+
 export type ListLegislationsParams = {
   search?: string;
   level?: ListLegislationsLevel;
@@ -3466,4 +3637,12 @@ export type ListManagementReviewsParams = {
   status?: ManagementReviewStatus;
   chairUserId?: number;
   search?: string;
+};
+
+export type ListKpiIndicatorsParams = {
+  unit?: string;
+};
+
+export type ListKpiYearDataParams = {
+  unit?: string;
 };

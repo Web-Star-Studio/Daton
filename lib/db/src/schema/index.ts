@@ -19,3 +19,4 @@ export * from "./invitations";
 export * from "./strategic-plans";
 export * from "./product-knowledge";
 export * from "./suppliers";
+export * from "./kpi";

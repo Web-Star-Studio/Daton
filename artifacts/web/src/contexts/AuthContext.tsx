@@ -12,7 +12,8 @@ type AppModule =
   | "positions"
   | "governance"
   | "suppliers"
-  | "environmental";
+  | "environmental"
+  | "kpi";
 
 interface AuthContextType {
   user: User | null;
