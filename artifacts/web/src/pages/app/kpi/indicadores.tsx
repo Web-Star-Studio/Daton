@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { YearPicker } from "@/components/ui/year-picker";
 import {
   Table,
   TableBody,
@@ -29,12 +30,13 @@ import {
   useDeleteKpiObjectiveWithInvalidation,
   useKpiIndicators,
   useKpiObjectives,
+  useKpiYearData,
   useUpdateKpiIndicatorWithInvalidation,
   useUpdateKpiObjectiveWithInvalidation,
   useUpsertKpiYearConfigWithInvalidation,
 } from "@/lib/kpi-client";
 
-const CURRENT_YEAR = new Date().getFullYear();
+const DEFAULT_YEAR = new Date().getFullYear();
 
 type IndicatorFormData = {
   name: string;
@@ -72,6 +74,7 @@ export default function KpiIndicadoresPage() {
   const [editingIndicator, setEditingIndicator] = useState<KpiIndicator | null>(null);
   const [indicatorForm, setIndicatorForm] = useState<IndicatorFormData>(defaultIndicatorForm());
   const [deleteConfirm, setDeleteConfirm] = useState<KpiIndicator | null>(null);
+  const [year, setYear] = useState(DEFAULT_YEAR);
   const [searchQuery, setSearchQuery] = useState("");
   const [unitFilter, setUnitFilter] = useState("");
 
@@ -80,6 +83,7 @@ export default function KpiIndicadoresPage() {
 
   const { data: indicators = [], isLoading } = useKpiIndicators(orgId);
   const { data: objectives = [] } = useKpiObjectives(orgId);
+  const { data: yearRows = [] } = useKpiYearData(orgId, year);
 
   const createIndicator = useCreateKpiIndicatorWithInvalidation(orgId);
   const updateIndicator = useUpdateKpiIndicatorWithInvalidation(orgId);
@@ -87,7 +91,7 @@ export default function KpiIndicadoresPage() {
   const createObjective = useCreateKpiObjectiveWithInvalidation(orgId);
   const updateObjective = useUpdateKpiObjectiveWithInvalidation(orgId);
   const deleteObjective = useDeleteKpiObjectiveWithInvalidation(orgId);
-  const upsertYearConfig = useUpsertKpiYearConfigWithInvalidation(orgId, CURRENT_YEAR);
+  const upsertYearConfig = useUpsertKpiYearConfigWithInvalidation(orgId, year);
 
   useHeaderActions(
     <div className="flex gap-2">
@@ -107,9 +111,12 @@ export default function KpiIndicadoresPage() {
     </div>,
   );
 
-  const uniqueUnits = [...new Set(indicators.map((i) => i.unit).filter(Boolean) as string[])].sort();
+  const yearIndicatorIds = new Set(yearRows.map((r) => r.indicator.id));
+  const indicatorsForYear = indicators.filter((i) => yearIndicatorIds.has(i.id));
 
-  const filteredIndicators = indicators.filter((ind) => {
+  const uniqueUnits = [...new Set(indicatorsForYear.map((i) => i.unit).filter(Boolean) as string[])].sort();
+
+  const filteredIndicators = indicatorsForYear.filter((ind) => {
     const matchesSearch = ind.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesUnit = !unitFilter || (ind.unit ?? "") === unitFilter;
     return matchesSearch && matchesUnit;
@@ -131,18 +138,15 @@ export default function KpiIndicadoresPage() {
           direction: indicatorForm.direction,
           periodicity: indicatorForm.periodicity,
         }});
-        // Update yearConfig if goal or objective was provided
-        if (indicatorForm.goal || indicatorForm.objectiveId) {
-          await upsertYearConfig.mutateAsync({
-            orgId,
-            indicatorId: editingIndicator.id,
-            year: CURRENT_YEAR,
-            data: {
-              goal: indicatorForm.goal ? parseFloat(indicatorForm.goal) : undefined,
-              objectiveId: indicatorForm.objectiveId ? parseInt(indicatorForm.objectiveId) : undefined,
-            },
-          });
-        }
+        await upsertYearConfig.mutateAsync({
+          orgId,
+          indicatorId: editingIndicator.id,
+          year: year,
+          data: {
+            goal: indicatorForm.goal ? parseFloat(indicatorForm.goal) : null,
+            objectiveId: indicatorForm.objectiveId ? parseInt(indicatorForm.objectiveId) : null,
+          },
+        });
         toast({ title: "Indicador atualizado" });
       } else {
         const created = await createIndicator.mutateAsync({
@@ -155,19 +159,16 @@ export default function KpiIndicadoresPage() {
             measureUnit: indicatorForm.measureUnit || undefined,
             direction: indicatorForm.direction,
             periodicity: indicatorForm.periodicity,
-            objectiveId: indicatorForm.objectiveId ? parseInt(indicatorForm.objectiveId) : undefined,
-            goal: indicatorForm.goal ? parseFloat(indicatorForm.goal) : undefined,
           },
         });
-        // If goal or objective was set, update the auto-created yearConfig
         if (indicatorForm.goal || indicatorForm.objectiveId) {
           await upsertYearConfig.mutateAsync({
             orgId,
             indicatorId: created.id,
-            year: CURRENT_YEAR,
+            year: year,
             data: {
-              goal: indicatorForm.goal ? parseFloat(indicatorForm.goal) : undefined,
-              objectiveId: indicatorForm.objectiveId ? parseInt(indicatorForm.objectiveId) : undefined,
+              goal: indicatorForm.goal ? parseFloat(indicatorForm.goal) : null,
+              objectiveId: indicatorForm.objectiveId ? parseInt(indicatorForm.objectiveId) : null,
             },
           });
         }
@@ -221,7 +222,8 @@ export default function KpiIndicadoresPage() {
   return (
     <div className="p-6 space-y-4">
       {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-3 flex-wrap items-center">
+        <YearPicker value={year} onChange={setYear} />
         <Input
           placeholder="Buscar indicador..."
           value={searchQuery}
@@ -262,6 +264,8 @@ export default function KpiIndicadoresPage() {
                 <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   {indicators.length === 0
                     ? "Nenhum indicador cadastrado. Crie o primeiro clicando em \"Novo Indicador\"."
+                    : indicatorsForYear.length === 0
+                    ? `Nenhum indicador configurado para ${year}.`
                     : "Nenhum indicador encontrado com os filtros aplicados."}
                 </TableCell>
               </TableRow>
@@ -291,6 +295,7 @@ export default function KpiIndicadoresPage() {
                         className="h-7 w-7"
                         onClick={() => {
                           setEditingIndicator(ind);
+                          const yearRow = yearRows.find((r) => r.indicator.id === ind.id);
                           setIndicatorForm({
                             name: ind.name,
                             measurement: ind.measurement,
@@ -299,8 +304,8 @@ export default function KpiIndicadoresPage() {
                             measureUnit: ind.measureUnit ?? "",
                             direction: ind.direction as "up" | "down",
                             periodicity: ind.periodicity as IndicatorFormData["periodicity"],
-                            objectiveId: "",
-                            goal: "",
+                            objectiveId: yearRow?.yearConfig.objectiveId != null ? String(yearRow.yearConfig.objectiveId) : "",
+                            goal: yearRow?.yearConfig.goal != null ? String(yearRow.yearConfig.goal) : "",
                           });
                           setIndicatorDialog(true);
                         }}
@@ -395,7 +400,7 @@ export default function KpiIndicadoresPage() {
             </Select>
           </div>
           <div className="col-span-2 border-t pt-3 mt-1">
-            <p className="text-xs text-muted-foreground mb-3">Meta e objetivo para {CURRENT_YEAR} (opcional)</p>
+            <p className="text-xs text-muted-foreground mb-3">Meta e objetivo para {year} (opcional)</p>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Objetivo estratégico</Label>
@@ -412,7 +417,7 @@ export default function KpiIndicadoresPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Meta ({CURRENT_YEAR})</Label>
+                <Label>Meta ({year})</Label>
                 <Input
                   type="number"
                   value={indicatorForm.goal}

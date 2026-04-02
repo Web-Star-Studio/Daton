@@ -15,6 +15,7 @@ import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
+import { YearPicker } from "@/components/ui/year-picker";
 import {
   Table,
   TableBody,
@@ -38,7 +39,6 @@ import {
 } from "@/lib/kpi-client";
 
 const CURRENT_YEAR = new Date().getFullYear();
-const YEAR_OPTIONS = [CURRENT_YEAR + 1, CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
 
 export default function KpiDashboardPage() {
   const { organization } = useAuth();
@@ -87,11 +87,7 @@ export default function KpiDashboardPage() {
       {/* Left panel */}
       <div className="w-72 shrink-0 flex flex-col gap-3">
         <div className="flex flex-col gap-2">
-          <Select value={String(year)} onChange={(e) => setYear(Number(e.target.value))}>
-            {YEAR_OPTIONS.map((y) => (
-              <option key={y} value={String(y)}>{y}</option>
-            ))}
-          </Select>
+          <YearPicker value={year} onChange={setYear} />
           <Select value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)}>
             <option value="">Todas as unidades</option>
             {uniqueUnits.map((u) => (

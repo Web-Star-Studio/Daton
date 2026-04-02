@@ -6,11 +6,13 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "seed": "tsx --env-file ../.env ./src/seed.ts",
+    "seed-kpi": "tsx --env-file ../.env ./src/seed-kpi.ts",
     "create-platform-admin": "tsx --env-file ../.env ./src/create-platform-admin.ts",
     "create-org-admin": "tsx --env-file ../.env ./src/create-org-admin.ts",
     "migrate": "tsx --env-file ../.env ./src/migrate/index.ts",
     "backfill-trainings": "tsx --env-file ../.env ./src/migrate/backfill-trainings.ts",
     "backfill-governance-org-scopes": "tsx --env-file ../.env ./src/migrate/backfill-governance-org-scopes.ts",
+    "migrate-kpi": "tsx --env-file ../.env ./src/migrate/migrate-kpi.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

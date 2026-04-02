@@ -275,8 +275,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       if (normalizedLocation.startsWith("/kpi/indicadores")) {
         crumbs.push({ label: "Indicadores", href: "/kpi/indicadores" });
-      } else if (normalizedLocation.startsWith("/kpi/alimentacao")) {
-        crumbs.push({ label: "Lançamento", href: "/kpi/alimentacao" });
+      } else if (normalizedLocation.startsWith("/kpi/lancamentos")) {
+        crumbs.push({ label: "Lançamento", href: "/kpi/lancamentos" });
       } else if (normalizedLocation.startsWith("/kpi/dashboard")) {
         crumbs.push({ label: "Dashboard", href: "/kpi/dashboard" });
       }
@@ -355,7 +355,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const kpiLinks: NavLink[] = [
     { href: "/kpi/indicadores", label: "Indicadores" },
-    { href: "/kpi/alimentacao", label: "Lançamento" },
+    { href: "/kpi/lancamentos", label: "Lançamentos" },
     { href: "/kpi/dashboard", label: "Dashboard" },
   ];
 

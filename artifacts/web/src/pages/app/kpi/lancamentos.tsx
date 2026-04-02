@@ -8,6 +8,7 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { YearPicker } from "@/components/ui/year-picker";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -26,7 +27,6 @@ import {
 } from "@/lib/kpi-client";
 
 const CURRENT_YEAR = new Date().getFullYear();
-const YEAR_OPTIONS = [CURRENT_YEAR + 1, CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
 
 type ConfigFormData = {
   objectiveId: string;
@@ -46,7 +46,7 @@ export default function KpiAlimentacaoPage() {
   const [configDialog, setConfigDialog] = useState<KpiYearRow | null>(null);
   const [configForm, setConfigForm] = useState<ConfigFormData>({ objectiveId: "", seq: "", goal: "" });
 
-  const { data: yearRows = [], isLoading } = useKpiYearData(orgId, year, unitFilter || undefined);
+  const { data: allYearRows = [], isLoading } = useKpiYearData(orgId, year);
   const { data: objectives = [] } = useKpiObjectives(orgId);
   const upsertConfig = useUpsertKpiYearConfigWithInvalidation(orgId, year);
   const upsertValues = useUpsertKpiValuesWithInvalidation(orgId, year);
@@ -69,8 +69,12 @@ export default function KpiAlimentacaoPage() {
   }, [pasteInput]);
 
   const uniqueUnits = [...new Set(
-    yearRows.map((r) => r.indicator.unit).filter(Boolean) as string[]
+    allYearRows.map((r) => r.indicator.unit).filter(Boolean) as string[]
   )].sort();
+
+  const yearRows = unitFilter
+    ? allYearRows.filter((r) => r.indicator.unit === unitFilter)
+    : allYearRows;
 
   function formatNumber(v: number | null | undefined): string {
     if (v === null || v === undefined) return "—";
@@ -161,11 +165,7 @@ export default function KpiAlimentacaoPage() {
     <div className="p-6 space-y-4">
       {/* Header filters */}
       <div className="flex gap-3 flex-wrap items-center">
-        <Select value={String(year)} onChange={(e) => setYear(Number(e.target.value))} className="w-32">
-          {YEAR_OPTIONS.map((y) => (
-            <option key={y} value={String(y)}>{y}</option>
-          ))}
-        </Select>
+        <YearPicker value={year} onChange={setYear} />
 
         <Select value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)} className="w-48">
           <option value="">Todas as unidades</option>
