@@ -2970,7 +2970,13 @@ export interface DocumentDetail {
   attachments?: DocumentAttachment[];
   versions?: DocumentVersion[];
   communicationPlans?: DocumentCommunicationPlan[];
+  pendingVersionDescription?: string | null;
   normativeRequirements?: string[];
+}
+
+export interface StartDocumentRevisionBody {
+  /** @minLength 1 */
+  description?: string;
 }
 
 export type OrganizationContactBody =
@@ -3132,7 +3138,7 @@ export interface DocumentNormativeRequirementsSuggestionResponse {
 
 export interface SubmitDocumentForReviewBody {
   /** @minLength 1 */
-  changeDescription: string;
+  changeDescription?: string;
 }
 
 export interface AddDocumentAttachmentBody {
@@ -3140,6 +3146,21 @@ export interface AddDocumentAttachmentBody {
   fileSize: number;
   contentType: string;
   objectPath: string;
+}
+
+export interface BatchImportDocumentVersionsBody {
+  /**
+   * Plain text version history. Format per line: {N} - {DD/MM/YYYY} - {description}
+   * @minLength 1
+   */
+  text: string;
+}
+
+export interface BatchImportDocumentVersionsResponse {
+  /** Number of versions from the batch text that were imported */
+  imported: number;
+  /** Total version count after import (batch + pre-existing) */
+  total: number;
 }
 
 export interface DocumentCommunicationPlanBody {

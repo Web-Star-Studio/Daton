@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,6 +17,8 @@ import {
   useAddDocumentAttachment,
   useDeleteDocumentAttachment,
   useResetDocumentVersions,
+  useBatchImportDocumentVersions,
+  useStartDocumentRevision,
   useDeleteDocument,
   useListUnits,
   getListUnitsQueryKey,
@@ -204,6 +206,12 @@ export default function DocumentDetailPage() {
   >("info");
   const [rejectDialog, setRejectDialog] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
+  const [batchImportDialog, setBatchImportDialog] = useState(false);
+  const [batchImportText, setBatchImportText] = useState("");
+  const [startRevisionDialog, setStartRevisionDialog] = useState(false);
+  const [startRevisionDescription, setStartRevisionDescription] = useState("");
+  const [startRevisionFile, setStartRevisionFile] = useState<File | null>(null);
+  const [isStartRevisionUploading, setIsStartRevisionUploading] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -334,6 +342,8 @@ export default function DocumentDetailPage() {
   const addAttachmentMut = useAddDocumentAttachment();
   const deleteAttachmentMut = useDeleteDocumentAttachment();
   const resetVersionsMut = useResetDocumentVersions();
+  const batchImportMut = useBatchImportDocumentVersions();
+  const startRevisionMut = useStartDocumentRevision();
   const deleteMut = useDeleteDocument();
   const createCommunicationPlanMut = useDocumentCommunicationPlanMutation(
     orgId,
@@ -454,8 +464,26 @@ export default function DocumentDetailPage() {
     (role === "org_admin" || role === "operator") &&
     (doc?.status === "draft" || doc?.status === "rejected") &&
     isCriticalAnalysisComplete;
+  const canStartRevision =
+    canWriteDocuments &&
+    (role === "org_admin" || role === "operator") &&
+    (doc?.status === "approved" || doc?.status === "distributed");
   const canAcknowledge =
     isRecipient && doc?.status === "distributed" && !myReceipt?.readAt;
+
+  const autoSubmittedRef = useRef(false);
+  useEffect(() => {
+    if (
+      !autoSubmittedRef.current &&
+      canSubmitForReview &&
+      doc?.pendingVersionDescription &&
+      orgId
+    ) {
+      autoSubmittedRef.current = true;
+      submitMut.mutateAsync({ orgId, docId, data: {} }).then(() => invalidate());
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSubmitForReview, doc?.pendingVersionDescription, orgId]);
 
   const handleSubmitForReview = async () => {
     if (!orgId || !submitChangeDescription.trim()) return;
@@ -622,10 +650,19 @@ export default function DocumentDetailPage() {
         {canSubmitForReview && doc.status === "draft" && (
           <HeaderActionButton
             size="sm"
-            onClick={() => {
-              setSubmitChangeDescription("");
-              setSubmitDialog(true);
-            }}
+            isLoading={submitMut.isPending}
+            onClick={
+              doc.pendingVersionDescription
+                ? async () => {
+                    if (!orgId) return;
+                    await submitMut.mutateAsync({ orgId, docId, data: {} });
+                    invalidate();
+                  }
+                : () => {
+                    setSubmitChangeDescription("");
+                    setSubmitDialog(true);
+                  }
+            }
             label="Enviar para Revisão"
             icon={<Send className="h-3.5 w-3.5" />}
           >
@@ -643,6 +680,21 @@ export default function DocumentDetailPage() {
             icon={<Send className="h-3.5 w-3.5" />}
           >
             Reenviar para Revisão
+          </HeaderActionButton>
+        )}
+        {canStartRevision && (
+          <HeaderActionButton
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setStartRevisionDescription("");
+              setStartRevisionFile(null);
+              setStartRevisionDialog(true);
+            }}
+            label="Iniciar Nova Revisão"
+            icon={<GitBranch className="h-3.5 w-3.5" />}
+          >
+            Iniciar Nova Revisão
           </HeaderActionButton>
         )}
         {canWriteDocuments &&
@@ -1318,27 +1370,38 @@ export default function DocumentDetailPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Histórico de Versões</h3>
-            {canEdit && doc.versions && doc.versions.length > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                onClick={async () => {
-                  if (!orgId) return;
-                  if (
-                    !confirm(
-                      "Deseja resetar todo o histórico de versões? Esta ação não pode ser desfeita.",
-                    )
-                  )
-                    return;
-                  await resetVersionsMut.mutateAsync({ orgId, docId });
-                  invalidate();
-                }}
-                disabled={resetVersionsMut.isPending}
-              >
-                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-                Resetar Histórico
-              </Button>
+            {canWriteDocuments && (
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { setBatchImportText(""); setBatchImportDialog(true); }}
+                >
+                  Importar Histórico
+                </Button>
+                {doc.versions && doc.versions.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={async () => {
+                      if (!orgId) return;
+                      if (
+                        !confirm(
+                          "Deseja resetar todo o histórico de versões? Esta ação não pode ser desfeita.",
+                        )
+                      )
+                        return;
+                      await resetVersionsMut.mutateAsync({ orgId, docId });
+                      invalidate();
+                    }}
+                    disabled={resetVersionsMut.isPending}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                    Resetar Histórico
+                  </Button>
+                )}
+              </div>
             )}
           </div>
           {!doc.versions || doc.versions.length === 0 ? (
@@ -2043,6 +2106,174 @@ export default function DocumentDetailPage() {
               className="bg-red-600 hover:bg-red-700"
             >
               Excluir
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={startRevisionDialog}
+        onOpenChange={(open) => {
+          setStartRevisionDialog(open);
+          if (!open) { setStartRevisionDescription(""); setStartRevisionFile(null); }
+        }}
+        title="Iniciar Nova Revisão"
+        description="Descreva o que será alterado e, se disponível, anexe já o novo arquivo do documento."
+      >
+        <div className="space-y-4">
+          <div>
+            <Label>O que será alterado? *</Label>
+            <Input
+              className="mt-2"
+              placeholder="Ex.: Atualização do fluxo de aprovação e inclusão de novo procedimento."
+              value={startRevisionDescription}
+              onChange={(e) => setStartRevisionDescription(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Novo arquivo (opcional)</Label>
+            <div className="mt-2">
+              {startRevisionFile ? (
+                <div className="flex items-center gap-2 rounded-md border border-input bg-muted/30 px-3 py-2 text-sm">
+                  <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="flex-1 truncate">{startRevisionFile.name}</span>
+                  <button
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => setStartRevisionFile(null)}
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-input px-3 py-3 text-sm text-muted-foreground hover:bg-muted/30">
+                  <Upload className="h-4 w-4" />
+                  <span>Clique para selecionar o arquivo</span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept={ALLOWED_TYPES.join(",")}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) setStartRevisionFile(f);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStartRevisionDialog(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              disabled={!startRevisionDescription.trim() || isStartRevisionUploading}
+              isLoading={isStartRevisionUploading || startRevisionMut.isPending}
+              onClick={async () => {
+                if (!orgId || !startRevisionDescription.trim()) return;
+                setIsStartRevisionUploading(true);
+                try {
+                  await startRevisionMut.mutateAsync({
+                    orgId,
+                    docId,
+                    data: { description: startRevisionDescription.trim() },
+                  });
+                } catch (err: unknown) {
+                  const msg = err instanceof Error ? err.message : "Erro ao iniciar revisão";
+                  toast({ title: msg, variant: "destructive" });
+                  setIsStartRevisionUploading(false);
+                  return;
+                }
+
+                if (startRevisionFile) {
+                  try {
+                    const token = localStorage.getItem("daton_token");
+                    const arrayBuffer = await startRevisionFile.arrayBuffer();
+                    const uploadRes = await fetch(resolveApiUrl("/api/storage/uploads/direct"), {
+                      method: "POST",
+                      headers: {
+                        "X-File-Content-Type": startRevisionFile.type,
+                        "X-File-Name": encodeURIComponent(startRevisionFile.name),
+                        "Content-Type": "application/octet-stream",
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                      },
+                      body: arrayBuffer,
+                    });
+                    if (uploadRes.ok) {
+                      const { objectPath } = await uploadRes.json();
+                      await addAttachmentMut.mutateAsync({
+                        orgId,
+                        docId,
+                        data: {
+                          fileName: startRevisionFile.name,
+                          fileSize: startRevisionFile.size,
+                          contentType: startRevisionFile.type,
+                          objectPath,
+                        },
+                      });
+                    }
+                  } catch {
+                    // Upload failed — file can be added manually in the attachments tab
+                  }
+                }
+
+                toast({ title: "Nova revisão iniciada. Aguarde a conclusão da análise crítica para enviar para revisão." });
+                setStartRevisionDialog(false);
+                setStartRevisionDescription("");
+                setStartRevisionFile(null);
+                setIsStartRevisionUploading(false);
+                invalidate();
+              }}
+            >
+              Iniciar Revisão
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={batchImportDialog}
+        onOpenChange={(open) => { setBatchImportDialog(open); if (!open) setBatchImportText(""); }}
+        title="Importar Histórico de Versões"
+        description="Cole o histórico no formato: N - DD/MM/AAAA - Descrição. Versões existentes serão renumeradas para após o batch."
+        size="xl"
+      >
+        <div className="space-y-4">
+          <div>
+            <Label>Histórico *</Label>
+            <textarea
+              className="mt-2 w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+              placeholder={"1 - 01/01/2020 - Emissão inicial\n2 - 15/06/2020 - Revisão do escopo\n3 - 10/01/2021 - Atualização de procedimentos"}
+              value={batchImportText}
+              onChange={(e) => setBatchImportText(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setBatchImportDialog(false)}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              disabled={!batchImportText.trim()}
+              isLoading={batchImportMut.isPending}
+              onClick={async () => {
+                if (!orgId) return;
+                const result = await batchImportMut.mutateAsync({
+                  orgId,
+                  docId,
+                  data: { text: batchImportText.trim() },
+                });
+                setBatchImportDialog(false);
+                invalidate();
+                toast({ title: `${result.imported} versões importadas. Total: ${result.total} versões.` });
+              }}
+            >
+              Importar
             </Button>
           </DialogFooter>
         </div>

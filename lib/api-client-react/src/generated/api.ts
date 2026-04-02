@@ -23,6 +23,9 @@ import type {
   ApproveDocumentBody,
   AssignLegislationBody,
   AuthResponse,
+  BatchImportDocumentVersionsBody,
+  BatchImportDocumentVersionsResponse,
+  StartDocumentRevisionBody,
   BulkDeletePositions200,
   BulkDeletePositionsBody,
   CompleteOrganizationOnboardingBody,
@@ -9205,6 +9208,211 @@ export const useResetDocumentVersions = <
   TContext
 > => {
   return useMutation(getResetDocumentVersionsMutationOptions(options));
+};
+
+/**
+ * @summary Batch import version history from plain text
+ */
+export const getBatchImportDocumentVersionsUrl = (
+  orgId: number,
+  docId: number,
+) => {
+  return `/api/organizations/${orgId}/documents/${docId}/versions/batch-import`;
+};
+
+export const batchImportDocumentVersions = async (
+  orgId: number,
+  docId: number,
+  batchImportDocumentVersionsBody: BatchImportDocumentVersionsBody,
+  options?: RequestInit,
+): Promise<BatchImportDocumentVersionsResponse> => {
+  return customFetch<BatchImportDocumentVersionsResponse>(
+    getBatchImportDocumentVersionsUrl(orgId, docId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(batchImportDocumentVersionsBody),
+    },
+  );
+};
+
+export const getBatchImportDocumentVersionsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof batchImportDocumentVersions>>,
+    TError,
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<BatchImportDocumentVersionsBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof batchImportDocumentVersions>>,
+  TError,
+  {
+    orgId: number;
+    docId: number;
+    data: BodyType<BatchImportDocumentVersionsBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["batchImportDocumentVersions"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof batchImportDocumentVersions>>,
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<BatchImportDocumentVersionsBody>;
+    }
+  > = (props) => {
+    const { orgId, docId, data } = props ?? {};
+
+    return batchImportDocumentVersions(orgId, docId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BatchImportDocumentVersionsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof batchImportDocumentVersions>>
+>;
+export type BatchImportDocumentVersionsMutationBody =
+  BodyType<BatchImportDocumentVersionsBody>;
+export type BatchImportDocumentVersionsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Batch import version history from plain text
+ */
+export const useBatchImportDocumentVersions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof batchImportDocumentVersions>>,
+    TError,
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<BatchImportDocumentVersionsBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof batchImportDocumentVersions>>,
+  TError,
+  {
+    orgId: number;
+    docId: number;
+    data: BodyType<BatchImportDocumentVersionsBody>;
+  },
+  TContext
+> => {
+  return useMutation(getBatchImportDocumentVersionsMutationOptions(options));
+};
+
+/**
+ * @summary Start a new revision cycle on an approved or distributed document
+ */
+export const getStartDocumentRevisionUrl = (orgId: number, docId: number) => {
+  return `/api/organizations/${orgId}/documents/${docId}/start-revision`;
+};
+
+export const startDocumentRevision = async (
+  orgId: number,
+  docId: number,
+  startDocumentRevisionBody?: StartDocumentRevisionBody,
+  options?: RequestInit,
+): Promise<DocumentDetail> => {
+  return customFetch<DocumentDetail>(
+    getStartDocumentRevisionUrl(orgId, docId),
+    {
+      ...options,
+      method: "POST",
+      body: JSON.stringify(startDocumentRevisionBody),
+    },
+  );
+};
+
+export const getStartDocumentRevisionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startDocumentRevision>>,
+    TError,
+    { orgId: number; docId: number; data?: StartDocumentRevisionBody },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof startDocumentRevision>>,
+  TError,
+  { orgId: number; docId: number; data?: StartDocumentRevisionBody },
+  TContext
+> => {
+  const mutationKey = ["startDocumentRevision"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof startDocumentRevision>>,
+    { orgId: number; docId: number; data?: StartDocumentRevisionBody }
+  > = (props) => {
+    const { orgId, docId, data } = props ?? {};
+
+    return startDocumentRevision(orgId, docId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StartDocumentRevisionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startDocumentRevision>>
+>;
+
+export type StartDocumentRevisionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Start a new revision cycle on an approved or distributed document
+ */
+export const useStartDocumentRevision = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startDocumentRevision>>,
+    TError,
+    { orgId: number; docId: number; data?: StartDocumentRevisionBody },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof startDocumentRevision>>,
+  TError,
+  { orgId: number; docId: number; data?: StartDocumentRevisionBody },
+  TContext
+> => {
+  return useMutation(getStartDocumentRevisionMutationOptions(options));
 };
 
 /**
