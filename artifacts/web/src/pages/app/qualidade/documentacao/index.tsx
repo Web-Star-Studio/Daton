@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
@@ -532,6 +532,8 @@ function CreateDocumentModal({
   const [isUploading, setIsUploading] = useState(false);
   const [step, setStep] = useState(0);
   const [maxReachedStep, setMaxReachedStep] = useState(0);
+  const [isSubmitReady, setIsSubmitReady] = useState(false);
+  const stepChangingRef = useRef(false);
   const {
     register,
     handleSubmit,
@@ -622,6 +624,19 @@ function CreateDocumentModal({
       clearErrors("recipientIds");
     }
   }, [clearErrors, recipientResolution.totalContactCount]);
+
+  useEffect(() => {
+    // Steps: Básico(0), Responsáveis(1), Escopo(2), Anexos(3)
+    // Briefly disable the submit button when entering the last step to prevent
+    // accidental double-click submission (Próximo → Salvar Documento same position).
+    if (step !== 3) {
+      setIsSubmitReady(false);
+      return;
+    }
+    setIsSubmitReady(false);
+    const timer = setTimeout(() => setIsSubmitReady(true), 300);
+    return () => clearTimeout(timer);
+  }, [step]);
 
   const handleClose = (val: boolean) => {
     if (!val) {
@@ -770,12 +785,17 @@ function CreateDocumentModal({
   };
 
   const changeStep = async (targetStep: number) => {
-    const boundedTarget = Math.max(0, Math.min(targetStep, steps.length - 1));
-    const valid = await validateStep(boundedTarget);
-    if (!valid) return;
-
-    setStep(boundedTarget);
-    setMaxReachedStep((current) => Math.max(current, boundedTarget));
+    if (stepChangingRef.current) return;
+    stepChangingRef.current = true;
+    try {
+      const boundedTarget = Math.max(0, Math.min(targetStep, steps.length - 1));
+      const valid = await validateStep(boundedTarget);
+      if (!valid) return;
+      setStep(boundedTarget);
+      setMaxReachedStep((current) => Math.max(current, boundedTarget));
+    } finally {
+      stepChangingRef.current = false;
+    }
   };
 
   return (
@@ -1118,7 +1138,7 @@ function CreateDocumentModal({
               Próximo
             </Button>
           ) : (
-            <Button type="submit" size="sm" isLoading={isSubmitting}>
+            <Button type="submit" size="sm" isLoading={isSubmitting} disabled={!isSubmitReady}>
               Salvar Documento
             </Button>
           )}

@@ -47,6 +47,7 @@ test("creates and treats a risk item from the governance UI", async ({
   const title = `Plano ISO 6.1 UI ${Date.now()}`;
   const riskTitle = `Risco UI ${Date.now()}`;
   const actionTitle = `Acao UI ${Date.now()}`;
+  const currentUser = await getCurrentUser(orgAdmin);
 
   await authenticatedPage.goto("/governanca/planejamento");
   await authenticatedPage.getByRole("button", { name: "Novo plano" }).click();
@@ -69,19 +70,41 @@ test("creates and treats a risk item from the governance UI", async ({
   const riskDialog = authenticatedPage.getByRole("dialog", {
     name: "Novo risco ou oportunidade",
   });
-  await riskDialog.locator("input").first().fill(riskTitle);
   await riskDialog
+    .getByText("Título", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill(riskTitle);
+  await riskDialog
+    .getByText("Descrição", { exact: true })
+    .locator("xpath=..")
     .locator("textarea")
-    .first()
     .fill("Risco criado pelo fluxo E2E da ISO 6.1.");
   await riskDialog
+    .getByText("Responsável", { exact: true })
+    .locator("xpath=..")
     .locator("select")
-    .nth(4)
-    .selectOption({ label: orgAdmin.adminFullName });
-  await riskDialog.locator('input[type="number"]').nth(0).fill("4");
-  await riskDialog.locator('input[type="number"]').nth(1).fill("4");
-  await riskDialog.locator('input[type="date"]').fill(inputDate(45));
-  await riskDialog.locator("select").nth(9).selectOption("mitigate");
+    .selectOption(String(currentUser.id));
+  await riskDialog
+    .getByText("Probabilidade", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("4");
+  await riskDialog
+    .getByText("Impacto", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("4");
+  await riskDialog
+    .getByText("Próxima revisão", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill(inputDate(45));
+  await riskDialog
+    .getByText("Estratégia de resposta", { exact: true })
+    .locator("xpath=..")
+    .locator("select")
+    .selectOption("mitigate");
   await expect(riskDialog.getByText("16", { exact: true })).toBeVisible();
   await riskDialog.getByRole("button", { name: "Salvar" }).click();
 

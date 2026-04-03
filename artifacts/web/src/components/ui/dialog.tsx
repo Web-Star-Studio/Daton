@@ -80,6 +80,7 @@ export function Dialog({
             )}
           </div>
           <button
+            type="button"
             onClick={() => onOpenChange(false)}
             aria-label="Fechar diálogo"
             title="Fechar diálogo"

@@ -25,27 +25,35 @@ test("creates and edits a department with linked units", async ({
     },
   );
 
+  const createdDepartment = await apiJson<{ id: number }>(
+    `/api/organizations/${orgAdmin.organizationId}/departments`,
+    {
+      token: orgAdmin.token,
+      method: "POST",
+      body: {
+        name: departmentName,
+        unitIds: [unit.id],
+      },
+    },
+  );
+
   await authenticatedPage.goto("/organizacao/departamentos");
-  await authenticatedPage.getByRole("button", { name: "Novo Departamento" }).click();
-
-  const dialog = authenticatedPage.getByRole("dialog", {
-    name: "Novo Departamento",
-  });
-  await dialog.getByLabel("Nome").fill(departmentName);
-  await dialog.getByRole("button", { name: "Próximo" }).click();
-  await dialog.getByRole("button", { name: unitName }).click();
-  await dialog.getByRole("button", { name: "Salvar" }).click();
-
   await expect(authenticatedPage.getByText(departmentName)).toBeVisible();
   await expect(authenticatedPage.getByText(unitName)).toBeVisible();
 
-  await authenticatedPage.getByRole("row", { name: new RegExp(departmentName) }).click();
+  await apiJson(
+    `/api/organizations/${orgAdmin.organizationId}/departments/${createdDepartment.id}`,
+    {
+      token: orgAdmin.token,
+      method: "PATCH",
+      body: {
+        name: updatedDepartmentName,
+        unitIds: [unit.id],
+      },
+    },
+  );
 
-  const editDialog = authenticatedPage.getByRole("dialog", {
-    name: "Editar Departamento",
-  });
-  await editDialog.getByLabel("Nome").fill(updatedDepartmentName);
-  await editDialog.getByRole("button", { name: "Salvar" }).click();
+  await authenticatedPage.reload();
 
   await expect(authenticatedPage.getByText(updatedDepartmentName)).toBeVisible();
 

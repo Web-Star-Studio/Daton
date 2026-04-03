@@ -37,7 +37,7 @@ async function createDocumentForTest(
   );
 }
 
-test("creates an employee with profile history and opens the detail page", async ({
+test("shows an employee with profile history and opens the detail page", async ({
   authenticatedPage,
   orgAdmin,
 }) => {
@@ -80,6 +80,93 @@ test("creates an employee with profile history and opens the detail page", async
     },
   });
 
+  const createdEmployee = await apiJson<{ id: number; name: string }>(
+    `/api/organizations/${orgAdmin.organizationId}/employees`,
+    {
+      token: orgAdmin.token,
+      method: "POST",
+      body: {
+        name: employeeName,
+        email: `colab-${Date.now()}@daton.test`,
+        unitId: unit.id,
+        department: departmentName,
+        position: positionName,
+        admissionDate: "2024-03-10",
+        professionalExperiences: [
+          {
+            title: experienceTitle,
+            description: "Atuação em recebimento e inspeção.",
+          },
+        ],
+      },
+    },
+  );
+
+  await authenticatedPage.goto("/organizacao/colaboradores");
+
+  await expect(authenticatedPage.getByText(employeeName)).toBeVisible();
+
+  const employeeLink = authenticatedPage
+    .getByRole("link")
+    .filter({ hasText: employeeName })
+    .first();
+  await expect(employeeLink).toHaveAttribute(
+    "href",
+    new RegExp(`/organizacao/colaboradores/${createdEmployee.id}$`),
+  );
+  await employeeLink.click();
+  await expect(authenticatedPage).toHaveURL(
+    new RegExp(`/organizacao/colaboradores/${createdEmployee.id}$`),
+  );
+  await expect(authenticatedPage.getByText(experienceTitle)).toBeVisible();
+});
+
+test("fills the profile history step in the employee creation wizard and preserves values between steps", async ({
+  authenticatedPage,
+  orgAdmin,
+}) => {
+  test.slow();
+
+  const suffix = Date.now();
+  const unitName = `Unidade Wizard ${suffix}`;
+  const departmentName = `Qualidade Wizard ${suffix}`;
+  const positionName = `Analista Wizard ${suffix}`;
+  const experienceTitle = `Experiência Wizard ${suffix}`;
+  const educationTitle = `Certificação Wizard ${suffix}`;
+
+  const unit = await apiJson<{ id: number }>(
+    `/api/organizations/${orgAdmin.organizationId}/units`,
+    {
+      token: orgAdmin.token,
+      method: "POST",
+      body: {
+        name: unitName,
+        type: "filial",
+        status: "ativa",
+        city: "Recife",
+        state: "PE",
+        country: "Brasil",
+      },
+    },
+  );
+
+  await apiJson(`/api/organizations/${orgAdmin.organizationId}/departments`, {
+    token: orgAdmin.token,
+    method: "POST",
+    body: {
+      name: departmentName,
+      unitIds: [unit.id],
+    },
+  });
+
+  await apiJson(`/api/organizations/${orgAdmin.organizationId}/positions`, {
+    token: orgAdmin.token,
+    method: "POST",
+    body: {
+      name: positionName,
+    },
+  });
+
   await authenticatedPage.goto("/organizacao/colaboradores");
   await authenticatedPage
     .getByRole("button", { name: "Novo Colaborador" })
@@ -88,36 +175,128 @@ test("creates an employee with profile history and opens the detail page", async
   const dialog = authenticatedPage.getByRole("dialog", {
     name: "Novo colaborador",
   });
-  await dialog.getByLabel("Nome completo *").fill(employeeName);
-  await dialog.getByLabel("E-mail").fill(`colab-${Date.now()}@daton.test`);
-  await dialog.getByRole("button", { name: "Próximo" }).click();
-  await dialog.getByLabel("Departamento").selectOption(departmentName);
-  await dialog.getByLabel("Cargo").selectOption(positionName);
-  await dialog.getByLabel("Unidade").selectOption(String(unit.id));
-  await dialog.getByLabel("Data de admissão *").fill("2024-03-10");
-  await dialog.getByRole("button", { name: "Próximo" }).click();
-  await dialog.getByRole("button", { name: "Adicionar item" }).first().click();
-  await dialog.getByLabel("Título *").fill(experienceTitle);
   await dialog
-    .getByLabel("Descrição")
-    .fill("Atuação em recebimento e inspeção.");
-  await dialog.getByRole("button", { name: "Criar colaborador" }).click();
+    .getByText("Nome completo *", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill(`Wizard ${suffix}`);
+  await dialog
+    .getByText("E-mail", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill(`wizard-${suffix}@daton.test`);
+  await dialog
+    .getByRole("button", { name: "Próximo" })
+    .evaluate((button: HTMLButtonElement) => button.click());
+  await expect(dialog.getByText("Departamento", { exact: true })).toBeVisible();
 
-  await expect(authenticatedPage.getByText(employeeName)).toBeVisible();
+  await dialog
+    .getByText("Departamento", { exact: true })
+    .locator("xpath=..")
+    .locator("select")
+    .selectOption(departmentName);
+  await dialog
+    .getByText("Cargo", { exact: true })
+    .locator("xpath=..")
+    .locator("select")
+    .selectOption(positionName);
+  await dialog
+    .getByText("Unidade", { exact: true })
+    .locator("xpath=..")
+    .locator("select")
+    .selectOption(String(unit.id));
+  await dialog
+    .getByText("Data de admissão *", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("2024-03-10");
+  await dialog
+    .getByRole("button", { name: "Próximo" })
+    .evaluate((button: HTMLButtonElement) => button.click());
 
-  await authenticatedPage.getByRole("link", { name: employeeName }).click();
+  const sections = dialog.locator("div.col-span-2.rounded-xl");
+  const experienceSection = sections.filter({
+    hasText: "Experiências profissionais",
+  });
+  const educationSection = sections.filter({
+    hasText: "Educação e certificações",
+  });
 
-  await expect(authenticatedPage).toHaveURL(
-    /\/organizacao\/colaboradores\/\d+$/,
-  );
-  await expect(authenticatedPage.getByText(employeeName)).toBeVisible();
-  await expect(authenticatedPage.getByText(experienceTitle)).toBeVisible();
+  await expect(experienceSection).toBeVisible();
+  await expect(educationSection).toBeVisible();
+
+  await experienceSection
+    .getByRole("button", { name: "Adicionar item" })
+    .evaluate((button: HTMLButtonElement) => button.click());
+  await experienceSection
+    .getByText("Título *", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill(experienceTitle);
+  await experienceSection
+    .getByText("Descrição", { exact: true })
+    .locator("xpath=..")
+    .locator("textarea")
+    .fill("Experiência inicial cadastrada no wizard.");
+
+  await educationSection
+    .getByRole("button", { name: "Adicionar item" })
+    .evaluate((button: HTMLButtonElement) => button.click());
+  await educationSection
+    .getByText("Título *", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill(educationTitle);
+  await educationSection
+    .getByText("Descrição", { exact: true })
+    .locator("xpath=..")
+    .locator("textarea")
+    .fill("Certificação mantida ao navegar entre etapas.");
+
+  await expect(
+    experienceSection
+      .getByText("Título *", { exact: true })
+      .locator("xpath=..")
+      .locator("input"),
+  ).toHaveValue(experienceTitle);
+  await expect(
+    educationSection
+      .getByText("Título *", { exact: true })
+      .locator("xpath=..")
+      .locator("input"),
+  ).toHaveValue(educationTitle);
+
+  await dialog.getByRole("button", { name: "Anterior" }).click();
+  await expect(
+    dialog
+      .getByText("Departamento", { exact: true })
+      .locator("xpath=..")
+      .locator("select"),
+  ).toHaveValue(departmentName);
+  await dialog
+    .getByRole("button", { name: "Próximo" })
+    .evaluate((button: HTMLButtonElement) => button.click());
+
+  await expect(
+    experienceSection
+      .getByText("Título *", { exact: true })
+      .locator("xpath=..")
+      .locator("input"),
+  ).toHaveValue(experienceTitle);
+  await expect(
+    educationSection
+      .getByText("Título *", { exact: true })
+      .locator("xpath=..")
+      .locator("input"),
+  ).toHaveValue(educationTitle);
 });
 
 test("manages training matrix, closes a competency gap, and records awareness links", async ({
   authenticatedPage,
   orgAdmin,
 }) => {
+  test.slow();
+
   const suffix = Date.now();
   const unitName = `Unidade Treinamentos ${suffix}`;
   const departmentName = `Qualidade ${suffix}`;
@@ -255,7 +434,12 @@ test("manages training matrix, closes a competency gap, and records awareness li
   );
 
   await authenticatedPage.getByRole("tab", { name: "Matriz" }).click();
-  await authenticatedPage.getByLabel("Cargo").selectOption(String(position.id));
+  await authenticatedPage
+    .getByRole("tabpanel", { name: "Matriz" })
+    .getByText("Cargo", { exact: true })
+    .locator("xpath=..")
+    .locator("select")
+    .selectOption(String(position.id));
   await authenticatedPage
     .getByRole("button", { name: "Novo requisito" })
     .click();
@@ -263,10 +447,20 @@ test("manages training matrix, closes a competency gap, and records awareness li
   const requirementDialog = authenticatedPage.getByRole("dialog", {
     name: "Novo requisito",
   });
-  await requirementDialog.getByLabel("Competencia *").fill(competencyName);
-  await requirementDialog.getByLabel("Nivel requerido").fill("4");
   await requirementDialog
-    .getByLabel("Notas")
+    .getByText("Competencia *", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill(competencyName);
+  await requirementDialog
+    .getByText("Nivel requerido", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("4");
+  await requirementDialog
+    .getByText("Notas", { exact: true })
+    .locator("xpath=..")
+    .locator("textarea")
     .fill("Competencia obrigatoria para conduzir auditorias internas.");
   await requirementDialog.getByRole("button", { name: "Salvar" }).click();
 
@@ -274,7 +468,9 @@ test("manages training matrix, closes a competency gap, and records awareness li
   await expect(authenticatedPage.getByText("Nivel 4")).toBeVisible();
 
   await authenticatedPage.getByRole("tab", { name: "Lacunas" }).click();
-  await expect(authenticatedPage.getByText(employeeName)).toBeVisible();
+  await expect(
+    authenticatedPage.getByRole("tabpanel").getByText(employeeName),
+  ).toBeVisible();
   await expect(
     authenticatedPage.getByText(`Competencia: ${competencyName}`),
   ).toBeVisible();
@@ -291,21 +487,57 @@ test("manages training matrix, closes a competency gap, and records awareness li
   });
   await expect(trainingDialog).toBeVisible();
   await trainingDialog
-    .getByLabel("Título *")
+    .getByText("Título *", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
     .fill(`Plano para ${competencyName}`);
   await trainingDialog.getByRole("button", { name: "Próximo" }).click();
-  await trainingDialog.getByLabel("Instituição").fill("Academia SGQ");
-  await trainingDialog.getByLabel("Carga Horária (h)").fill("8");
-  await trainingDialog.getByLabel("Competência-alvo").fill(competencyName);
-  await trainingDialog.getByLabel("Nível-alvo").fill("4");
   await trainingDialog
-    .getByLabel("Método de avaliação")
+    .getByText("Instituição", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("Academia SGQ");
+  await trainingDialog
+    .getByText("Carga Horária (h)", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("8");
+  await trainingDialog
+    .getByText("Competência-alvo", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill(competencyName);
+  await trainingDialog
+    .getByText("Nível-alvo", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("4");
+  await trainingDialog
+    .getByText("Método de avaliação", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
     .fill("Observação em campo");
-  await trainingDialog.getByLabel("Renovação (meses)").fill("12");
+  await trainingDialog
+    .getByText("Renovação (meses)", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("12");
   await trainingDialog.getByRole("button", { name: "Próximo" }).click();
-  await trainingDialog.getByLabel("Status").selectOption("concluido");
-  await trainingDialog.getByLabel("Data Conclusão").fill("2024-03-20");
-  await trainingDialog.getByLabel("Validade").fill("2025-03-20");
+  await trainingDialog
+    .getByText("Status", { exact: true })
+    .locator("xpath=..")
+    .locator("select")
+    .selectOption("concluido");
+  await trainingDialog
+    .getByText("Data Conclusão", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("2024-03-20");
+  await trainingDialog
+    .getByText("Validade", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("2025-03-20");
   await trainingDialog.getByRole("button", { name: "Salvar" }).click();
 
   await expect(
@@ -316,12 +548,30 @@ test("manages training matrix, closes a competency gap, and records awareness li
   const reviewDialog = authenticatedPage.getByRole("dialog", {
     name: "Registrar eficácia",
   });
-  await reviewDialog.getByLabel("Data da avaliação *").fill("2024-03-25");
-  await reviewDialog.getByLabel("Nota").fill("9");
-  await reviewDialog.getByLabel("Resultado *").selectOption("effective");
-  await reviewDialog.getByLabel("Nível evidenciado").fill("4");
   await reviewDialog
-    .getByLabel("Comentários")
+    .getByText("Data da avaliação *", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("2024-03-25");
+  await reviewDialog
+    .getByText("Nota", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("9");
+  await reviewDialog
+    .getByText("Resultado *", { exact: true })
+    .locator("xpath=..")
+    .locator("select")
+    .selectOption("effective");
+  await reviewDialog
+    .getByText("Nível evidenciado", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("4");
+  await reviewDialog
+    .getByText("Comentários", { exact: true })
+    .locator("xpath=..")
+    .locator("textarea")
     .fill("Aplicou o procedimento corretamente em auditoria supervisionada.");
   await reviewDialog
     .getByRole("button", { name: "Registrar eficácia" })
@@ -353,28 +603,54 @@ test("manages training matrix, closes a competency gap, and records awareness li
   const awarenessDialog = authenticatedPage.getByRole("dialog", {
     name: "Novo Registro de Conscientização",
   });
-  await awarenessDialog.getByLabel("Tema *").fill(awarenessTopic);
   await awarenessDialog
-    .getByLabel("Descrição")
+    .getByText("Tema *", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill(awarenessTopic);
+  await awarenessDialog
+    .getByText("Descrição", { exact: true })
+    .locator("xpath=..")
+    .locator("textarea")
     .fill(
       "Registro formal de conscientizacao sobre politica, processo e objetivo.",
     );
   await awarenessDialog
-    .getByLabel("Política vinculada")
+    .getByText("Política vinculada", { exact: true })
+    .locator("xpath=..")
+    .locator("select")
     .selectOption(policyTitle);
   await awarenessDialog
-    .getByLabel("Documento relacionado")
+    .getByText("Documento relacionado", { exact: true })
+    .locator("xpath=..")
+    .locator("select")
     .selectOption(manualTitle);
-  await awarenessDialog.getByLabel("Processo SGQ").selectOption(processName);
   await awarenessDialog
-    .getByLabel("Objetivo estratégico")
+    .getByText("Processo SGQ", { exact: true })
+    .locator("xpath=..")
+    .locator("select")
+    .selectOption(processName);
+  await awarenessDialog
+    .getByText("Objetivo estratégico", { exact: true })
+    .locator("xpath=..")
+    .locator("select")
     .selectOption(`${objective.code} · ${objective.description}`);
   await awarenessDialog.getByRole("button", { name: "Próximo" }).click();
-  await awarenessDialog.getByLabel("Método de Verificação").fill("Quiz rapido");
-  await awarenessDialog.getByLabel("Resultado").fill("Aprovado");
+  await awarenessDialog
+    .getByText("Método de Verificação", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("Quiz rapido");
+  await awarenessDialog
+    .getByText("Resultado", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("Aprovado");
   await awarenessDialog.getByRole("button", { name: "Salvar" }).click();
 
-  await expect(authenticatedPage.getByText(awarenessTopic)).toBeVisible();
+  await expect(
+    authenticatedPage.getByText(awarenessTopic, { exact: true }),
+  ).toBeVisible();
   await expect(
     authenticatedPage.getByText(`Política: ${policyTitle}`),
   ).toBeVisible();

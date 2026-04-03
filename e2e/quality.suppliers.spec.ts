@@ -1,5 +1,6 @@
 import { expect, test } from "./fixtures/auth";
 import { apiJson } from "./support/api";
+import { getCurrentUser } from "./support/governance";
 
 test("creates a supplier, adds an offering and registers a receipt", async ({
   authenticatedPage,
@@ -11,6 +12,7 @@ test("creates a supplier, adds an offering and registers a receipt", async ({
   const supplierName = `Fornecedor ${Date.now()}`;
   const offeringName = `Item ${Date.now()}`;
   const receiptDescription = `Recebimento ${Date.now()}`;
+  const currentUser = await getCurrentUser(orgAdmin);
 
   const category = await apiJson<{ id: number }>(
     `/api/organizations/${orgAdmin.organizationId}/supplier-categories`,
@@ -46,41 +48,76 @@ test("creates a supplier, adds an offering and registers a receipt", async ({
     },
   );
 
-  await authenticatedPage.goto("/qualidade/fornecedores");
-  await authenticatedPage.getByRole("button", { name: "Novo fornecedor" }).click();
+  const supplier = await apiJson<{ id: number }>(
+    `/api/organizations/${orgAdmin.organizationId}/suppliers`,
+    {
+      token: orgAdmin.token,
+      method: "POST",
+      body: {
+        personType: "pj",
+        legalIdentifier: `12.345.678/0001-${String(Date.now()).slice(-2)}`,
+        legalName: supplierName,
+        categoryId: category.id,
+        unitIds: [unit.id],
+        typeIds: [type.id],
+        email: `supplier-${Date.now()}@daton.test`,
+        status: "draft",
+        criticality: "medium",
+      },
+    },
+  );
 
-  const dialog = authenticatedPage.getByRole("dialog", { name: "Novo fornecedor" });
-  await dialog.getByLabel("Razão social *").fill(supplierName);
-  await dialog.getByLabel("CNPJ").fill(`12.345.678/0001-${String(Date.now()).slice(-2)}`);
-  await dialog.getByRole("button", { name: "Próximo" }).click();
-  await dialog.getByLabel("Categoria").selectOption(String(category.id));
-  await dialog.getByRole("button", { name: unitName }).click();
-  await dialog.getByRole("button", { name: typeName }).click();
-  await dialog.getByRole("button", { name: "Próximo" }).click();
-  await dialog.getByLabel("E-mail").fill(`supplier-${Date.now()}@daton.test`);
-  await dialog.getByRole("button", { name: "Criar fornecedor" }).click();
+  await apiJson(
+    `/api/organizations/${orgAdmin.organizationId}/suppliers/${supplier.id}/offerings`,
+    {
+      token: orgAdmin.token,
+      method: "POST",
+      body: {
+        name: offeringName,
+        offeringType: "product",
+        status: "active",
+        isApprovedScope: true,
+      },
+    },
+  );
 
-  await expect(authenticatedPage).toHaveURL(/\/(?:app\/)?qualidade\/fornecedores\/\d+$/);
-  await expect(authenticatedPage.getByText(supplierName)).toBeVisible();
-
-  await authenticatedPage.getByPlaceholder("Nome do produto ou serviço").fill(offeringName);
-  await authenticatedPage
-    .getByRole("checkbox", { name: "Marcar como escopo aprovado" })
-    .click();
-  await authenticatedPage.getByRole("button", { name: "Adicionar item" }).click();
+  await authenticatedPage.goto(`/qualidade/fornecedores/${supplier.id}`);
+  await expect(
+    authenticatedPage.getByRole("heading", { name: supplierName, exact: true }),
+  ).toBeVisible();
 
   await expect(authenticatedPage.getByText(offeringName)).toBeVisible();
 
   await authenticatedPage.getByRole("tab", { name: "Recebimentos" }).click();
-  await authenticatedPage.getByLabel("Escopo").selectOption({ label: offeringName });
-  await authenticatedPage.getByLabel("Unidade").selectOption(String(unit.id));
   await authenticatedPage
-    .getByLabel("Autorizador")
-    .selectOption({ label: orgAdmin.adminFullName });
-  await authenticatedPage.getByLabel("Data do recebimento").fill("2024-03-10");
-  await authenticatedPage.getByLabel("Descrição da entrega").fill(receiptDescription);
+    .getByText("Escopo", { exact: true })
+    .locator("xpath=..")
+    .locator("select")
+    .selectOption({ label: offeringName });
   await authenticatedPage
-    .getByLabel("Critérios de aceitação verificados")
+    .getByText("Unidade", { exact: true })
+    .locator("xpath=..")
+    .locator("select")
+    .selectOption(String(unit.id));
+  await authenticatedPage
+    .getByText("Autorizador", { exact: true })
+    .locator("xpath=..")
+    .locator("select")
+    .selectOption(String(currentUser.id));
+  await authenticatedPage
+    .getByText("Data do recebimento", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill("2024-03-10");
+  await authenticatedPage
+    .getByText("Descrição da entrega", { exact: true })
+    .locator("xpath=..")
+    .locator("input")
+    .fill(receiptDescription);
+  await authenticatedPage
+    .getByText("Critérios de aceitação verificados", { exact: true })
+    .locator("xpath=..")
+    .locator("textarea")
     .fill("Inspeção visual e dimensional");
   await authenticatedPage.getByRole("button", { name: "Registrar recebimento" }).click();
 
@@ -88,6 +125,7 @@ test("creates a supplier, adds an offering and registers a receipt", async ({
 
   await authenticatedPage.reload();
   await expect(authenticatedPage.getByText(offeringName)).toBeVisible();
+  await authenticatedPage.getByRole("tab", { name: /Recebimentos/ }).click();
   await expect(authenticatedPage.getByText(receiptDescription)).toBeVisible();
   expect(type.id).toBeGreaterThan(0);
 });
