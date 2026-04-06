@@ -7,6 +7,7 @@
     "hello": "tsx ./src/hello.ts",
     "seed": "tsx --env-file ../.env ./src/seed.ts",
     "seed-kpi": "tsx --env-file ../.env ./src/seed-kpi.ts",
+    "seed-assets": "tsx --env-file ../.env ./src/seed-assets.ts",
     "create-platform-admin": "tsx --env-file ../.env ./src/create-platform-admin.ts",
     "create-org-admin": "tsx --env-file ../.env ./src/create-org-admin.ts",
     "migrate": "tsx --env-file ../.env ./src/migrate/index.ts",

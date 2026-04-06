@@ -48,6 +48,8 @@ tags:
     description: Supplier management and external provider control (ISO 9001:2015 §8.4 / §8.6)
   - name: kpi
     description: KPI indicators, objectives and performance data (ISO 9001:2015 §9.1)
+  - name: assets
+    description: Critical asset registry and infrastructure management (ISO 9001:2015 §7.1.3)
 
 paths:
   /healthz:
@@ -6196,6 +6198,120 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/KpiMonthlyValue"
+
+  /organizations/{orgId}/assets:
+    get:
+      operationId: listAssets
+      tags: [assets]
+      summary: List assets for an organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of assets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Asset"
+    post:
+      operationId: createAsset
+      tags: [assets]
+      summary: Create an asset
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetBody"
+      responses:
+        "201":
+          description: Asset created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /organizations/{orgId}/assets/{assetId}:
+    get:
+      operationId: getAsset
+      tags: [assets]
+      summary: Get asset details
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Asset details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+    patch:
+      operationId: updateAsset
+      tags: [assets]
+      summary: Update an asset
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAssetBody"
+      responses:
+        "200":
+          description: Updated asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+    delete:
+      operationId: deleteAsset
+      tags: [assets]
+      summary: Delete an asset
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Asset deleted
 
 components:
   schemas:
@@ -12407,6 +12523,116 @@ components:
             $ref: "#/components/schemas/KpiMonthlyValue"
       required:
         - values
+
+    Asset:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        unitId:
+          type: ["integer", "null"]
+        name:
+          type: string
+        assetType:
+          type: string
+        criticality:
+          type: string
+          enum: [alta, media, baixa]
+        status:
+          type: string
+          enum: [ativo, inativo, em_manutencao]
+        location:
+          type: ["string", "null"]
+        impactedProcess:
+          type: ["string", "null"]
+        responsibleId:
+          type: ["integer", "null"]
+        responsibleName:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - name
+        - assetType
+        - criticality
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateAssetBody:
+      type: object
+      properties:
+        unitId:
+          type: integer
+          nullable: true
+        name:
+          type: string
+          minLength: 1
+        assetType:
+          type: string
+          minLength: 1
+        criticality:
+          type: string
+          enum: [alta, media, baixa]
+        status:
+          type: string
+          enum: [ativo, inativo, em_manutencao]
+        location:
+          type: string
+          nullable: true
+        impactedProcess:
+          type: string
+          nullable: true
+        responsibleId:
+          type: integer
+          nullable: true
+        description:
+          type: string
+          nullable: true
+      required:
+        - name
+        - assetType
+
+    UpdateAssetBody:
+      type: object
+      properties:
+        unitId:
+          type: integer
+          nullable: true
+        name:
+          type: string
+          minLength: 1
+        assetType:
+          type: string
+          minLength: 1
+        criticality:
+          type: string
+          enum: [alta, media, baixa]
+        status:
+          type: string
+          enum: [ativo, inativo, em_manutencao]
+        location:
+          type: string
+          nullable: true
+        impactedProcess:
+          type: string
+          nullable: true
+        responsibleId:
+          type: integer
+          nullable: true
+        description:
+          type: string
+          nullable: true
 
     KpiYearRow:
       type: object

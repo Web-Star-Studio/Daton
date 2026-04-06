@@ -13394,3 +13394,117 @@ export const UpsertKpiValuesResponseItem = zod.object({
   value: zod.number().nullish(),
 });
 export const UpsertKpiValuesResponse = zod.array(UpsertKpiValuesResponseItem);
+
+/**
+ * @summary List assets for an organization
+ */
+export const ListAssetsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListAssetsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullish(),
+  name: zod.string(),
+  assetType: zod.string(),
+  criticality: zod.enum(["alta", "media", "baixa"]),
+  status: zod.enum(["ativo", "inativo", "em_manutencao"]),
+  location: zod.string().nullish(),
+  impactedProcess: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  description: zod.string().nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+export const ListAssetsResponse = zod.array(ListAssetsResponseItem);
+
+/**
+ * @summary Create an asset
+ */
+export const CreateAssetParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateAssetBody = zod.object({
+  unitId: zod.number().nullish(),
+  name: zod.string().min(1),
+  assetType: zod.string().min(1),
+  criticality: zod.enum(["alta", "media", "baixa"]).optional(),
+  status: zod.enum(["ativo", "inativo", "em_manutencao"]).optional(),
+  location: zod.string().nullish(),
+  impactedProcess: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  description: zod.string().nullish(),
+});
+
+/**
+ * @summary Get asset details
+ */
+export const GetAssetParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const GetAssetResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullish(),
+  name: zod.string(),
+  assetType: zod.string(),
+  criticality: zod.enum(["alta", "media", "baixa"]),
+  status: zod.enum(["ativo", "inativo", "em_manutencao"]),
+  location: zod.string().nullish(),
+  impactedProcess: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  description: zod.string().nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * @summary Update an asset
+ */
+export const UpdateAssetParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const UpdateAssetBody = zod.object({
+  unitId: zod.number().nullish(),
+  name: zod.string().min(1).optional(),
+  assetType: zod.string().min(1).optional(),
+  criticality: zod.enum(["alta", "media", "baixa"]).optional(),
+  status: zod.enum(["ativo", "inativo", "em_manutencao"]).optional(),
+  location: zod.string().nullish(),
+  impactedProcess: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  description: zod.string().nullish(),
+});
+
+export const UpdateAssetResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullish(),
+  name: zod.string(),
+  assetType: zod.string(),
+  criticality: zod.enum(["alta", "media", "baixa"]),
+  status: zod.enum(["ativo", "inativo", "em_manutencao"]),
+  location: zod.string().nullish(),
+  impactedProcess: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  description: zod.string().nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * @summary Delete an asset
+ */
+export const DeleteAssetParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});

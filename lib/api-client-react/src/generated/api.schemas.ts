@@ -3369,6 +3369,110 @@ export interface UpsertKpiValuesBody {
   values: KpiMonthlyValue[];
 }
 
+export type AssetCriticality =
+  (typeof AssetCriticality)[keyof typeof AssetCriticality];
+
+export const AssetCriticality = {
+  alta: "alta",
+  media: "media",
+  baixa: "baixa",
+} as const;
+
+export type AssetStatus = (typeof AssetStatus)[keyof typeof AssetStatus];
+
+export const AssetStatus = {
+  ativo: "ativo",
+  inativo: "inativo",
+  em_manutencao: "em_manutencao",
+} as const;
+
+export interface Asset {
+  id: number;
+  organizationId: number;
+  /** @nullable */
+  unitId?: number | null;
+  name: string;
+  assetType: string;
+  criticality: AssetCriticality;
+  status: AssetStatus;
+  /** @nullable */
+  location?: string | null;
+  /** @nullable */
+  impactedProcess?: string | null;
+  /** @nullable */
+  responsibleId?: number | null;
+  /** @nullable */
+  responsibleName?: string | null;
+  /** @nullable */
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateAssetBodyCriticality =
+  (typeof CreateAssetBodyCriticality)[keyof typeof CreateAssetBodyCriticality];
+
+export const CreateAssetBodyCriticality = {
+  alta: "alta",
+  media: "media",
+  baixa: "baixa",
+} as const;
+
+export type CreateAssetBodyStatus =
+  (typeof CreateAssetBodyStatus)[keyof typeof CreateAssetBodyStatus];
+
+export const CreateAssetBodyStatus = {
+  ativo: "ativo",
+  inativo: "inativo",
+  em_manutencao: "em_manutencao",
+} as const;
+
+export interface CreateAssetBody {
+  unitId?: number | null;
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  assetType: string;
+  criticality?: CreateAssetBodyCriticality;
+  status?: CreateAssetBodyStatus;
+  location?: string | null;
+  impactedProcess?: string | null;
+  responsibleId?: number | null;
+  description?: string | null;
+}
+
+export type UpdateAssetBodyCriticality =
+  (typeof UpdateAssetBodyCriticality)[keyof typeof UpdateAssetBodyCriticality];
+
+export const UpdateAssetBodyCriticality = {
+  alta: "alta",
+  media: "media",
+  baixa: "baixa",
+} as const;
+
+export type UpdateAssetBodyStatus =
+  (typeof UpdateAssetBodyStatus)[keyof typeof UpdateAssetBodyStatus];
+
+export const UpdateAssetBodyStatus = {
+  ativo: "ativo",
+  inativo: "inativo",
+  em_manutencao: "em_manutencao",
+} as const;
+
+export interface UpdateAssetBody {
+  unitId?: number | null;
+  /** @minLength 1 */
+  name?: string;
+  /** @minLength 1 */
+  assetType?: string;
+  criticality?: UpdateAssetBodyCriticality;
+  status?: UpdateAssetBodyStatus;
+  location?: string | null;
+  impactedProcess?: string | null;
+  responsibleId?: number | null;
+  description?: string | null;
+}
+
 export type KpiYearRowFeedStatus =
   (typeof KpiYearRowFeedStatus)[keyof typeof KpiYearRowFeedStatus];
 

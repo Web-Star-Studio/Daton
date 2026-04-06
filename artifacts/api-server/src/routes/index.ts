@@ -23,6 +23,7 @@ import organizationContactsRouter from "./organization-contacts";
 import productKnowledgeRouter from "./product-knowledge";
 import suppliersRouter from "./suppliers";
 import kpiRouter from "./kpi/index";
+import assetsRouter from "./assets";
 const router: IRouter = Router();
 
 function requireModuleAccessForPaths(
@@ -136,6 +137,12 @@ router.use(
   requireCompletedOnboarding,
   requireModuleAccessForPaths("kpi", [/^\/organizations\/[^/]+\/kpi(?:\/|$)/]),
   kpiRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("assets", [/^\/organizations\/[^/]+\/assets(?:\/|$)/]),
+  assetsRouter,
 );
 
 export default router;

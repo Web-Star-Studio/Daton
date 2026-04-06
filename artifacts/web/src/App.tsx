@@ -47,6 +47,7 @@ import EnvironmentalLaiaUnitDetailPage from "@/pages/app/ambiental/laia/unidades
 import KpiIndicadoresPage from "@/pages/app/kpi/indicadores";
 import KpiLancamentosPage from "@/pages/app/kpi/lancamentos";
 import KpiDashboardPage from "@/pages/app/kpi/dashboard";
+import AtivosPage from "@/pages/app/organizacao/ativos";
 import ProfileSettingsPage from "@/pages/app/configuracoes/perfil";
 import SystemSettingsPage from "@/pages/app/configuracoes/sistema";
 import AcceptInvitePage from "@/pages/accept-invite";
@@ -144,6 +145,8 @@ function AppPages() {
         component={OrganizacaoDepartmentsPage}
       />
       <Route path="/organizacao/cargos" component={OrganizacaoPositionsPage} />
+      <Route path="/infraestrutura/ativos" component={AtivosPage} />
+      <Route path="/app/infraestrutura/ativos" component={AtivosPage} />
       <Route path="/governanca/planejamento" component={GovernancePage} />
       <Route
         path="/governanca/planejamento/:id"
@@ -336,6 +339,7 @@ function Router() {
     location.startsWith("/qualidade") ||
     location.startsWith("/ambiental") ||
     location.startsWith("/kpi") ||
+    location.startsWith("/infraestrutura") ||
     location.startsWith("/configuracoes");
   const isAppRoute = isAdminRoute || isOrgRoute;
   const isAuthRoute = location === "/" || location.startsWith("/auth");

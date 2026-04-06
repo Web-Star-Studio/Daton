@@ -21,6 +21,7 @@ import type {
   AddDocumentAttachmentBody,
   AddEmployeeProfileItemAttachmentBody,
   ApproveDocumentBody,
+  Asset,
   AssignLegislationBody,
   AuthResponse,
   BulkDeletePositions200,
@@ -28,6 +29,7 @@ import type {
   CompleteOrganizationOnboardingBody,
   ComplianceTag,
   CorrectiveAction,
+  CreateAssetBody,
   CreateAwarenessBody,
   CreateCompetencyBody,
   CreateCorrectiveActionBody,
@@ -166,6 +168,7 @@ import type {
   Unit,
   UnitLegislation,
   UnitLegislationWithLegislation,
+  UpdateAssetBody,
   UpdateAwarenessBody,
   UpdateCompetencyBody,
   UpdateCorrectiveActionBody,
@@ -20741,4 +20744,440 @@ export const useUpsertKpiValues = <
   TContext
 > => {
   return useMutation(getUpsertKpiValuesMutationOptions(options));
+};
+
+/**
+ * @summary List assets for an organization
+ */
+export const getListAssetsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/assets`;
+};
+
+export const listAssets = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<Asset[]> => {
+  return customFetch<Asset[]>(getListAssetsUrl(orgId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAssetsQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/assets`] as const;
+};
+
+export const getListAssetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAssets>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListAssetsQueryKey(orgId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssets>>> = ({
+    signal,
+  }) => listAssets(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAssets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAssetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAssets>>
+>;
+export type ListAssetsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List assets for an organization
+ */
+
+export function useListAssets<
+  TData = Awaited<ReturnType<typeof listAssets>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAssetsQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an asset
+ */
+export const getCreateAssetUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/assets`;
+};
+
+export const createAsset = async (
+  orgId: number,
+  createAssetBody: CreateAssetBody,
+  options?: RequestInit,
+): Promise<Asset> => {
+  return customFetch<Asset>(getCreateAssetUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAssetBody),
+  });
+};
+
+export const getCreateAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAsset>>,
+    TError,
+    { orgId: number; data: BodyType<CreateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAsset>>,
+  TError,
+  { orgId: number; data: BodyType<CreateAssetBody> },
+  TContext
+> => {
+  const mutationKey = ["createAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAsset>>,
+    { orgId: number; data: BodyType<CreateAssetBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createAsset(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAsset>>
+>;
+export type CreateAssetMutationBody = BodyType<CreateAssetBody>;
+export type CreateAssetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an asset
+ */
+export const useCreateAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAsset>>,
+    TError,
+    { orgId: number; data: BodyType<CreateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAsset>>,
+  TError,
+  { orgId: number; data: BodyType<CreateAssetBody> },
+  TContext
+> => {
+  return useMutation(getCreateAssetMutationOptions(options));
+};
+
+/**
+ * @summary Get asset details
+ */
+export const getGetAssetUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/assets/${assetId}`;
+};
+
+export const getAsset = async (
+  orgId: number,
+  assetId: number,
+  options?: RequestInit,
+): Promise<Asset> => {
+  return customFetch<Asset>(getGetAssetUrl(orgId, assetId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAssetQueryKey = (orgId: number, assetId: number) => {
+  return [`/api/organizations/${orgId}/assets/${assetId}`] as const;
+};
+
+export const getGetAssetQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAsset>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAsset>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAssetQueryKey(orgId, assetId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAsset>>> = ({
+    signal,
+  }) => getAsset(orgId, assetId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && assetId),
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getAsset>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type GetAssetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAsset>>
+>;
+export type GetAssetQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get asset details
+ */
+
+export function useGetAsset<
+  TData = Awaited<ReturnType<typeof getAsset>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAsset>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAssetQueryOptions(orgId, assetId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update an asset
+ */
+export const getUpdateAssetUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/assets/${assetId}`;
+};
+
+export const updateAsset = async (
+  orgId: number,
+  assetId: number,
+  updateAssetBody: UpdateAssetBody,
+  options?: RequestInit,
+): Promise<Asset> => {
+  return customFetch<Asset>(getUpdateAssetUrl(orgId, assetId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateAssetBody),
+  });
+};
+
+export const getUpdateAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAsset>>,
+    TError,
+    { orgId: number; assetId: number; data: BodyType<UpdateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAsset>>,
+  TError,
+  { orgId: number; assetId: number; data: BodyType<UpdateAssetBody> },
+  TContext
+> => {
+  const mutationKey = ["updateAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAsset>>,
+    { orgId: number; assetId: number; data: BodyType<UpdateAssetBody> }
+  > = (props) => {
+    const { orgId, assetId, data } = props ?? {};
+
+    return updateAsset(orgId, assetId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAsset>>
+>;
+export type UpdateAssetMutationBody = BodyType<UpdateAssetBody>;
+export type UpdateAssetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update an asset
+ */
+export const useUpdateAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAsset>>,
+    TError,
+    { orgId: number; assetId: number; data: BodyType<UpdateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAsset>>,
+  TError,
+  { orgId: number; assetId: number; data: BodyType<UpdateAssetBody> },
+  TContext
+> => {
+  return useMutation(getUpdateAssetMutationOptions(options));
+};
+
+/**
+ * @summary Delete an asset
+ */
+export const getDeleteAssetUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/assets/${assetId}`;
+};
+
+export const deleteAsset = async (
+  orgId: number,
+  assetId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteAssetUrl(orgId, assetId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAsset>>,
+    TError,
+    { orgId: number; assetId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAsset>>,
+  TError,
+  { orgId: number; assetId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAsset>>,
+    { orgId: number; assetId: number }
+  > = (props) => {
+    const { orgId, assetId } = props ?? {};
+
+    return deleteAsset(orgId, assetId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAsset>>
+>;
+
+export type DeleteAssetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete an asset
+ */
+export const useDeleteAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAsset>>,
+    TError,
+    { orgId: number; assetId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAsset>>,
+  TError,
+  { orgId: number; assetId: number },
+  TContext
+> => {
+  return useMutation(getDeleteAssetMutationOptions(options));
 };
