@@ -64,9 +64,9 @@ router.get("/organizations/:orgId/assets", requireAuth, async (req, res): Promis
   const planStatsSq = db
     .select({
       assetId: assetMaintenancePlansTable.assetId,
-      activePlanCount: sql<number>`cast(count(*) as int)`,
-      overdueCount: sql<number>`cast(count(case when next_due_at is not null and next_due_at < ${today} then 1 end) as int)`,
-      nearestDueAt: sql<string | null>`min(next_due_at)`,
+      activePlanCount: sql<number>`cast(count(*) as int)`.as("active_plan_count"),
+      overdueCount: sql<number>`cast(count(case when next_due_at is not null and next_due_at < ${today} then 1 end) as int)`.as("overdue_count"),
+      nearestDueAt: sql<string | null>`min(next_due_at)`.as("nearest_due_at"),
     })
     .from(assetMaintenancePlansTable)
     .where(eq(assetMaintenancePlansTable.isActive, true))
