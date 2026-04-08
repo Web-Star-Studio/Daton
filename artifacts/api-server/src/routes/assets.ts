@@ -21,8 +21,9 @@ const router: IRouter = Router();
 function serializeAsset(
   a: typeof assetsTable.$inferSelect,
   responsibleName?: string | null,
+  activePlanCount = 0,
   overdueCount = 0,
-  dueSoonCount = 0,
+  nearestDueAt: string | null = null,
 ) {
   return {
     id: a.id,
@@ -37,8 +38,9 @@ function serializeAsset(
     responsibleId: a.responsibleId,
     responsibleName: responsibleName ?? null,
     description: a.description,
+    activePlanCount,
     overdueCount,
-    dueSoonCount,
+    nearestDueAt,
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
   };
@@ -57,14 +59,14 @@ router.get("/organizations/:orgId/assets", requireAuth, async (req, res): Promis
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const soon = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const rows = await db
     .select({
       asset: assetsTable,
       responsibleName: employeesTable.name,
-      overdueCount: sql<number>`cast(count(case when ${assetMaintenancePlansTable.isActive} = true and ${assetMaintenancePlansTable.nextDueAt} < ${today} then 1 end) as int)`,
-      dueSoonCount: sql<number>`cast(count(case when ${assetMaintenancePlansTable.isActive} = true and ${assetMaintenancePlansTable.nextDueAt} >= ${today} and ${assetMaintenancePlansTable.nextDueAt} <= ${soon} then 1 end) as int)`,
+      activePlanCount: sql<number>`cast(count(case when ${assetMaintenancePlansTable.isActive} = true then 1 end) as int)`,
+      overdueCount: sql<number>`cast(count(case when ${assetMaintenancePlansTable.isActive} = true and ${assetMaintenancePlansTable.nextDueAt} is not null and ${assetMaintenancePlansTable.nextDueAt} < ${today} then 1 end) as int)`,
+      nearestDueAt: sql<string | null>`min(case when ${assetMaintenancePlansTable.isActive} = true then ${assetMaintenancePlansTable.nextDueAt} end)`,
     })
     .from(assetsTable)
     .leftJoin(employeesTable, eq(assetsTable.responsibleId, employeesTable.id))
@@ -73,7 +75,7 @@ router.get("/organizations/:orgId/assets", requireAuth, async (req, res): Promis
     .groupBy(assetsTable.id, employeesTable.name)
     .orderBy(assetsTable.createdAt);
 
-  res.json(rows.map((r) => serializeAsset(r.asset, r.responsibleName, r.overdueCount, r.dueSoonCount)));
+  res.json(rows.map((r) => serializeAsset(r.asset, r.responsibleName, r.activePlanCount, r.overdueCount, r.nearestDueAt ?? null)));
 });
 
 router.post("/organizations/:orgId/assets", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {

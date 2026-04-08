@@ -290,6 +290,51 @@ const RECORD_STATUS_COLORS: Record<string, string> = {
   cancelada: "bg-gray-100 text-gray-600 border-gray-200",
 };
 
+function MaintenanceStatusCell({ asset }: { asset: Asset }) {
+  const { activePlanCount, overdueCount, nearestDueAt } = asset;
+
+  if (activePlanCount === 0) {
+    return <span className="text-xs text-muted-foreground">Sem planos</span>;
+  }
+
+  if (!nearestDueAt) {
+    return <span className="text-xs text-muted-foreground">Sem data</span>;
+  }
+
+  const due = new Date(nearestDueAt + "T00:00:00");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const dateLabel = due.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+
+  if (overdueCount > 0) {
+    const daysAgo = Math.abs(diffDays);
+    return (
+      <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">
+        {overdueCount > 1 ? `${overdueCount} vencidos` : `Vencido`} · há {daysAgo}d
+      </Badge>
+    );
+  }
+
+  if (diffDays === 0) {
+    return <Badge variant="outline" className="text-xs bg-orange-100 text-orange-700 border-orange-200">Vence hoje</Badge>;
+  }
+
+  if (diffDays <= 30) {
+    return (
+      <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200">
+        Vence em {diffDays}d · {dateLabel}
+      </Badge>
+    );
+  }
+
+  return (
+    <span className="text-xs text-green-700">
+      Próx. {due.toLocaleDateString("pt-BR")}
+    </span>
+  );
+}
+
 function planDueStatus(nextDueAt: string | null | undefined): "overdue" | "soon" | "ok" | "none" {
   if (!nextDueAt) return "none";
   const due = new Date(nextDueAt);
@@ -1148,19 +1193,7 @@ export default function AtivosPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>{asset.responsibleName ?? "—"}</TableCell>
-                  <TableCell>
-                    {asset.overdueCount > 0 ? (
-                      <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">
-                        {asset.overdueCount} vencido{asset.overdueCount > 1 ? "s" : ""}
-                      </Badge>
-                    ) : asset.dueSoonCount > 0 ? (
-                      <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200">
-                        {asset.dueSoonCount} vence{asset.dueSoonCount > 1 ? "m" : ""} em breve
-                      </Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
+                  <TableCell><MaintenanceStatusCell asset={asset} /></TableCell>
                   {canWrite && (
                     <TableCell>
                       <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>

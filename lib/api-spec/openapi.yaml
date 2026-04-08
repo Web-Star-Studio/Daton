@@ -13498,10 +13498,12 @@ components:
           type: ["string", "null"]
         description:
           type: ["string", "null"]
+        activePlanCount:
+          type: integer
         overdueCount:
           type: integer
-        dueSoonCount:
-          type: integer
+        nearestDueAt:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -13515,8 +13517,8 @@ components:
         - assetType
         - criticality
         - status
+        - activePlanCount
         - overdueCount
-        - dueSoonCount
         - createdAt
         - updatedAt
 

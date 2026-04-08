@@ -3405,8 +3405,10 @@ export interface Asset {
   responsibleName?: string | null;
   /** @nullable */
   description?: string | null;
+  activePlanCount: number;
   overdueCount: number;
-  dueSoonCount: number;
+  /** @nullable */
+  nearestDueAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
