@@ -513,6 +513,7 @@ function PlanRecordsPanel({
       await createRecordMut.mutateAsync({ orgId, assetId, planId: plan.id, data: body });
       queryClient.invalidateQueries({ queryKey: getListAssetMaintenanceRecordsQueryKey(orgId, assetId, plan.id) });
       queryClient.invalidateQueries({ queryKey: getListAssetMaintenancePlansQueryKey(orgId, assetId) });
+      queryClient.invalidateQueries({ queryKey: getListAssetsQueryKey(orgId) });
       setAddingRecord(false);
       setRecordForm(defaultRecordForm());
       toast({ title: "Execução registrada" });
@@ -526,6 +527,7 @@ function PlanRecordsPanel({
       await deleteRecordMut.mutateAsync({ orgId, assetId, planId: plan.id, recordId });
       queryClient.invalidateQueries({ queryKey: getListAssetMaintenanceRecordsQueryKey(orgId, assetId, plan.id) });
       queryClient.invalidateQueries({ queryKey: getListAssetMaintenancePlansQueryKey(orgId, assetId) });
+      queryClient.invalidateQueries({ queryKey: getListAssetsQueryKey(orgId) });
       toast({ title: "Registro removido" });
     } catch {
       toast({ title: "Erro ao remover registro", variant: "destructive" });
@@ -704,6 +706,7 @@ function MaintenancePlansSection({
         toast({ title: "Plano criado" });
       }
       queryClient.invalidateQueries({ queryKey: getListAssetMaintenancePlansQueryKey(orgId, asset.id) });
+      queryClient.invalidateQueries({ queryKey: getListAssetsQueryKey(orgId) });
       setAddingPlan(false);
       setEditingPlan(null);
     } catch {
@@ -715,6 +718,7 @@ function MaintenancePlansSection({
     try {
       await deletePlanMut.mutateAsync({ orgId, assetId: asset.id, planId: plan.id });
       queryClient.invalidateQueries({ queryKey: getListAssetMaintenancePlansQueryKey(orgId, asset.id) });
+      queryClient.invalidateQueries({ queryKey: getListAssetsQueryKey(orgId) });
       if (expandedPlanId === plan.id) setExpandedPlanId(null);
       toast({ title: "Plano removido" });
     } catch {
