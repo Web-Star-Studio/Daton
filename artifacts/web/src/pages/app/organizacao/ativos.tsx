@@ -301,17 +301,16 @@ function MaintenanceStatusCell({ asset }: { asset: Asset }) {
     return <span className="text-xs text-muted-foreground">Sem data</span>;
   }
 
-  const due = new Date(nearestDueAt + "T00:00:00");
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diffDays = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const due = parsePlanDate(nearestDueAt);
+  if (!due) return <span className="text-xs text-muted-foreground">Sem data</span>;
+
+  const diffDays = dateDiffDays(due);
   const dateLabel = due.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 
   if (overdueCount > 0) {
-    const daysAgo = Math.abs(diffDays);
     return (
       <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">
-        {overdueCount > 1 ? `${overdueCount} vencidos` : `Vencido`} · há {daysAgo}d
+        {overdueCount > 1 ? `${overdueCount} vencidos` : "Vencido"} · há {Math.abs(diffDays)}d
       </Badge>
     );
   }
@@ -320,7 +319,7 @@ function MaintenanceStatusCell({ asset }: { asset: Asset }) {
     return <Badge variant="outline" className="text-xs bg-orange-100 text-orange-700 border-orange-200">Vence hoje</Badge>;
   }
 
-  if (diffDays <= 30) {
+  if (diffDays <= 7) {
     return (
       <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200">
         Vence em {diffDays}d · {dateLabel}
@@ -330,32 +329,44 @@ function MaintenanceStatusCell({ asset }: { asset: Asset }) {
 
   return (
     <span className="text-xs text-green-700">
-      Próx. {due.toLocaleDateString("pt-BR")}
+      Em dia · {due.toLocaleDateString("pt-BR")}
     </span>
   );
 }
 
-function planDueStatus(nextDueAt: string | null | undefined): "overdue" | "soon" | "ok" | "none" {
-  if (!nextDueAt) return "none";
-  const due = new Date(nextDueAt);
-  const now = new Date();
-  const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) return "overdue";
-  if (diffDays <= 7) return "soon";
-  return "ok";
+function parsePlanDate(dateStr: string | null | undefined): Date | null {
+  if (!dateStr) return null;
+  return new Date(dateStr + "T00:00:00"); // force local time, not UTC
+}
+
+function dateDiffDays(date: Date): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 function PlanDueBadge({ nextDueAt, recordCount }: { nextDueAt: string | null | undefined; recordCount: number }) {
-  const status = planDueStatus(nextDueAt);
+  const due = parsePlanDate(nextDueAt);
+
   if (recordCount === 0) {
-    if (status === "overdue") return <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">Vencido · sem execução</Badge>;
+    if (!due) return <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-200">Sem execução</Badge>;
+    const diff = dateDiffDays(due);
+    if (diff < 0) return <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">Vencido · sem execução</Badge>;
     return <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-200">Sem execução</Badge>;
   }
-  if (status === "none") return <span className="text-xs text-muted-foreground">Sem data</span>;
-  const date = new Date(nextDueAt!).toLocaleDateString("pt-BR");
-  if (status === "overdue") return <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">Vencido · {date}</Badge>;
-  if (status === "soon") return <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200">Vence em breve · {date}</Badge>;
-  return <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">Em dia · {date}</Badge>;
+
+  if (!due) return <span className="text-xs text-muted-foreground">Sem data</span>;
+
+  const diff = dateDiffDays(due);
+  const dateLabel = due.toLocaleDateString("pt-BR");
+
+  if (diff < 0) {
+    return <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">Vencido · há {Math.abs(diff)}d</Badge>;
+  }
+  if (diff <= 7) {
+    return <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200">Vence em {diff}d · {due.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</Badge>;
+  }
+  return <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">Em dia · {dateLabel}</Badge>;
 }
 
 type PlanForm = {

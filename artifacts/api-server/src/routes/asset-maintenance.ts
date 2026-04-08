@@ -288,17 +288,24 @@ router.post(
     // Recalculate nextDueAt on the plan when execution is conclusive
     if (body.data.status === "concluida" || body.data.status === "parcial") {
       const [plan] = await db
-        .select({ periodicity: assetMaintenancePlansTable.periodicity })
+        .select({ periodicity: assetMaintenancePlansTable.periodicity, nextDueAt: assetMaintenancePlansTable.nextDueAt })
         .from(assetMaintenancePlansTable)
         .where(eq(assetMaintenancePlansTable.id, params.data.planId));
 
       if (plan) {
         const days = PERIODICITY_DAYS[plan.periodicity];
-        const nextDueAt = days != null ? addDays(executedAt, days) : null;
-        await db
-          .update(assetMaintenancePlansTable)
-          .set({ nextDueAt })
-          .where(eq(assetMaintenancePlansTable.id, params.data.planId));
+        if (days != null) {
+          // If executed early (before current nextDueAt), keep the schedule by
+          // advancing from nextDueAt. If executed late (or no date set), advance
+          // from the execution date so the next cycle stays realistic.
+          const currentDue = plan.nextDueAt ? new Date(plan.nextDueAt + "T00:00:00") : null;
+          const baseDate = currentDue && executedAt < currentDue ? currentDue : executedAt;
+          const nextDueAt = addDays(baseDate, days);
+          await db
+            .update(assetMaintenancePlansTable)
+            .set({ nextDueAt })
+            .where(eq(assetMaintenancePlansTable.id, params.data.planId));
+        }
       }
     }
 
@@ -325,6 +332,33 @@ router.delete(
           eq(assetMaintenanceRecordsTable.organizationId, params.data.orgId),
         ),
       );
+
+    // Recalculate nextDueAt from the most recent remaining conclusive execution
+    const [plan] = await db
+      .select({ periodicity: assetMaintenancePlansTable.periodicity })
+      .from(assetMaintenancePlansTable)
+      .where(eq(assetMaintenancePlansTable.id, params.data.planId));
+
+    if (plan) {
+      const [latestRecord] = await db
+        .select({ executedAt: assetMaintenanceRecordsTable.executedAt })
+        .from(assetMaintenanceRecordsTable)
+        .where(
+          and(
+            eq(assetMaintenanceRecordsTable.planId, params.data.planId),
+            sql`${assetMaintenanceRecordsTable.status} in ('concluida', 'parcial')`,
+          ),
+        )
+        .orderBy(desc(assetMaintenanceRecordsTable.executedAt))
+        .limit(1);
+
+      const days = PERIODICITY_DAYS[plan.periodicity];
+      const nextDueAt = latestRecord && days != null ? addDays(latestRecord.executedAt, days) : null;
+      await db
+        .update(assetMaintenancePlansTable)
+        .set({ nextDueAt })
+        .where(eq(assetMaintenancePlansTable.id, params.data.planId));
+    }
 
     res.sendStatus(204);
   },
