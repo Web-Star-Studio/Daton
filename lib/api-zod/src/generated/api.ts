@@ -13415,6 +13415,8 @@ export const ListAssetsResponseItem = zod.object({
   responsibleId: zod.number().nullish(),
   responsibleName: zod.string().nullish(),
   description: zod.string().nullish(),
+  overdueCount: zod.number(),
+  dueSoonCount: zod.number(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -13460,6 +13462,8 @@ export const GetAssetResponse = zod.object({
   responsibleId: zod.number().nullish(),
   responsibleName: zod.string().nullish(),
   description: zod.string().nullish(),
+  overdueCount: zod.number(),
+  dueSoonCount: zod.number(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -13497,6 +13501,8 @@ export const UpdateAssetResponse = zod.object({
   responsibleId: zod.number().nullish(),
   responsibleName: zod.string().nullish(),
   description: zod.string().nullish(),
+  overdueCount: zod.number(),
+  dueSoonCount: zod.number(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });

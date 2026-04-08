@@ -27,6 +27,8 @@ export interface Asset {
   responsibleName?: string | null;
   /** @nullable */
   description?: string | null;
+  overdueCount: number;
+  dueSoonCount: number;
   createdAt: string;
   updatedAt: string;
 }

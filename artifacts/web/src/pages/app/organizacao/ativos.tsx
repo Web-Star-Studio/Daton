@@ -229,7 +229,12 @@ function AssetDocumentsSection({
               className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
             >
               <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span className="flex-1 truncate">{doc.documentTitle}</span>
+              <a
+                href={`/qualidade/documentacao/${doc.documentId}`}
+                className="flex-1 truncate text-blue-600 hover:underline"
+              >
+                {doc.documentTitle}
+              </a>
               <Badge variant="outline" className="text-xs shrink-0">
                 {DOC_TYPE_LABELS[doc.documentType] ?? doc.documentType}
               </Badge>
@@ -333,8 +338,13 @@ type RecordForm = {
   notes: string;
 };
 
+function toLocalDatetimeString(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 const defaultRecordForm = (): RecordForm => ({
-  executedAt: new Date().toISOString().slice(0, 16),
+  executedAt: toLocalDatetimeString(new Date()),
   executedById: "",
   status: "concluida",
   notes: "",
@@ -1104,6 +1114,7 @@ export default function AtivosPage() {
               <TableHead>Criticidade</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Responsável</TableHead>
+              <TableHead>Manutenção</TableHead>
               {canWrite && <TableHead className="w-24" />}
             </TableRow>
           </TableHeader>
@@ -1137,6 +1148,19 @@ export default function AtivosPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>{asset.responsibleName ?? "—"}</TableCell>
+                  <TableCell>
+                    {asset.overdueCount > 0 ? (
+                      <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">
+                        {asset.overdueCount} vencido{asset.overdueCount > 1 ? "s" : ""}
+                      </Badge>
+                    ) : asset.dueSoonCount > 0 ? (
+                      <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200">
+                        {asset.dueSoonCount} vence{asset.dueSoonCount > 1 ? "m" : ""} em breve
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   {canWrite && (
                     <TableCell>
                       <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
