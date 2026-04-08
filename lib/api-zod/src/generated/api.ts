@@ -13508,3 +13508,665 @@ export const DeleteAssetParams = zod.object({
   orgId: zod.coerce.number(),
   assetId: zod.coerce.number(),
 });
+
+/**
+ * @summary List documents linked to an asset
+ */
+export const ListAssetDocumentsParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const ListAssetDocumentsResponseItem = zod.object({
+  id: zod.number(),
+  assetId: zod.number(),
+  documentId: zod.number(),
+  documentTitle: zod.string(),
+  documentType: zod.string(),
+  documentStatus: zod.string(),
+  createdAt: zod.string().datetime({}),
+});
+export const ListAssetDocumentsResponse = zod.array(
+  ListAssetDocumentsResponseItem,
+);
+
+/**
+ * @summary Link a document to an asset
+ */
+export const AddAssetDocumentParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const AddAssetDocumentBody = zod.object({
+  documentId: zod.number(),
+});
+
+/**
+ * @summary Unlink a document from an asset
+ */
+export const RemoveAssetDocumentParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  documentId: zod.coerce.number(),
+});
+
+/**
+ * @summary List maintenance plans for an asset
+ */
+export const ListAssetMaintenancePlansParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const ListAssetMaintenancePlansResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  assetId: zod.number(),
+  title: zod.string(),
+  type: zod.enum(["preventiva", "corretiva", "inspecao"]),
+  periodicity: zod.enum([
+    "semanal",
+    "mensal",
+    "trimestral",
+    "semestral",
+    "anual",
+    "unica",
+  ]),
+  checklistItems: zod.array(zod.string()),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  nextDueAt: zod.string().date().nullish(),
+  isActive: zod.boolean(),
+  recordCount: zod.number(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+export const ListAssetMaintenancePlansResponse = zod.array(
+  ListAssetMaintenancePlansResponseItem,
+);
+
+/**
+ * @summary Create a maintenance plan for an asset
+ */
+export const CreateAssetMaintenancePlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
+
+export const CreateAssetMaintenancePlanBody = zod.object({
+  title: zod.string().min(1),
+  type: zod.enum(["preventiva", "corretiva", "inspecao"]).optional(),
+  periodicity: zod
+    .enum(["semanal", "mensal", "trimestral", "semestral", "anual", "unica"])
+    .optional(),
+  checklistItems: zod.array(zod.string()).optional(),
+  responsibleId: zod.number().nullish(),
+  nextDueAt: zod.string().date().nullish(),
+});
+
+/**
+ * @summary Update a maintenance plan
+ */
+export const UpdateAssetMaintenancePlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const UpdateAssetMaintenancePlanBody = zod.object({
+  title: zod.string().min(1).optional(),
+  type: zod.enum(["preventiva", "corretiva", "inspecao"]).optional(),
+  periodicity: zod
+    .enum(["semanal", "mensal", "trimestral", "semestral", "anual", "unica"])
+    .optional(),
+  checklistItems: zod.array(zod.string()).optional(),
+  responsibleId: zod.number().nullish(),
+  nextDueAt: zod.string().date().nullish(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdateAssetMaintenancePlanResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  assetId: zod.number(),
+  title: zod.string(),
+  type: zod.enum(["preventiva", "corretiva", "inspecao"]),
+  periodicity: zod.enum([
+    "semanal",
+    "mensal",
+    "trimestral",
+    "semestral",
+    "anual",
+    "unica",
+  ]),
+  checklistItems: zod.array(zod.string()),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  nextDueAt: zod.string().date().nullish(),
+  isActive: zod.boolean(),
+  recordCount: zod.number(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * @summary Delete a maintenance plan
+ */
+export const DeleteAssetMaintenancePlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+/**
+ * @summary List execution records for a maintenance plan
+ */
+export const ListAssetMaintenanceRecordsParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const ListAssetMaintenanceRecordsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  planId: zod.number(),
+  assetId: zod.number(),
+  executedAt: zod.string().datetime({}),
+  executedById: zod.number().nullish(),
+  executedByName: zod.string().nullish(),
+  status: zod.enum(["concluida", "parcial", "cancelada"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.string().datetime({}),
+});
+export const ListAssetMaintenanceRecordsResponse = zod.array(
+  ListAssetMaintenanceRecordsResponseItem,
+);
+
+/**
+ * @summary Register a maintenance execution
+ */
+export const CreateAssetMaintenanceRecordParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const CreateAssetMaintenanceRecordBody = zod.object({
+  executedAt: zod.string().datetime({}),
+  executedById: zod.number().nullish(),
+  status: zod.enum(["concluida", "parcial", "cancelada"]),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * @summary Delete a maintenance record
+ */
+export const DeleteAssetMaintenanceRecordParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  recordId: zod.coerce.number(),
+});
+
+/**
+ * @summary List attachments for a maintenance record
+ */
+export const ListMaintenanceRecordAttachmentsParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  recordId: zod.coerce.number(),
+});
+
+export const ListMaintenanceRecordAttachmentsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  recordId: zod.number(),
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+  uploadedAt: zod.string().datetime({}),
+});
+export const ListMaintenanceRecordAttachmentsResponse = zod.array(
+  ListMaintenanceRecordAttachmentsResponseItem,
+);
+
+/**
+ * @summary Add an attachment to a maintenance record
+ */
+export const AddMaintenanceRecordAttachmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  recordId: zod.coerce.number(),
+});
+
+export const AddMaintenanceRecordAttachmentBody = zod.object({
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Delete an attachment from a maintenance record
+ */
+export const DeleteMaintenanceRecordAttachmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  recordId: zod.coerce.number(),
+  attachmentId: zod.coerce.number(),
+});
+
+/**
+ * @summary List work environment controls
+ */
+export const ListWorkEnvironmentControlsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListWorkEnvironmentControlsQueryParams = zod.object({
+  unitId: zod.coerce.number().optional(),
+  factorType: zod.coerce.string().optional(),
+});
+
+export const ListWorkEnvironmentControlsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullish(),
+  unitName: zod.string().nullish(),
+  factorType: zod.enum(["fisico", "social", "psicologico"]),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  frequency: zod.enum([
+    "semanal",
+    "mensal",
+    "trimestral",
+    "semestral",
+    "anual",
+  ]),
+  status: zod.enum(["ativo", "inativo"]),
+  verificationCount: zod.number(),
+  lastResult: zod.string().nullish(),
+  lastActionTaken: zod.string().nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+export const ListWorkEnvironmentControlsResponse = zod.array(
+  ListWorkEnvironmentControlsResponseItem,
+);
+
+/**
+ * @summary Create a work environment control
+ */
+export const CreateWorkEnvironmentControlParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateWorkEnvironmentControlBody = zod.object({
+  unitId: zod.number().nullish(),
+  factorType: zod.enum(["fisico", "social", "psicologico"]).optional(),
+  title: zod.string().min(1),
+  description: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  frequency: zod
+    .enum(["semanal", "mensal", "trimestral", "semestral", "anual"])
+    .optional(),
+});
+
+/**
+ * @summary Update a work environment control
+ */
+export const UpdateWorkEnvironmentControlParams = zod.object({
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+});
+
+export const UpdateWorkEnvironmentControlBody = zod.object({
+  unitId: zod.number().nullish(),
+  factorType: zod.enum(["fisico", "social", "psicologico"]).optional(),
+  title: zod.string().min(1).optional(),
+  description: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  frequency: zod
+    .enum(["semanal", "mensal", "trimestral", "semestral", "anual"])
+    .optional(),
+  status: zod.enum(["ativo", "inativo"]).optional(),
+});
+
+export const UpdateWorkEnvironmentControlResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullish(),
+  unitName: zod.string().nullish(),
+  factorType: zod.enum(["fisico", "social", "psicologico"]),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  frequency: zod.enum([
+    "semanal",
+    "mensal",
+    "trimestral",
+    "semestral",
+    "anual",
+  ]),
+  status: zod.enum(["ativo", "inativo"]),
+  verificationCount: zod.number(),
+  lastResult: zod.string().nullish(),
+  lastActionTaken: zod.string().nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * @summary Delete a work environment control
+ */
+export const DeleteWorkEnvironmentControlParams = zod.object({
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+});
+
+/**
+ * @summary List verifications for a control
+ */
+export const ListWorkEnvironmentVerificationsParams = zod.object({
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+});
+
+export const ListWorkEnvironmentVerificationsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  controlId: zod.number(),
+  verifiedAt: zod.string().datetime({}),
+  verifiedById: zod.number().nullish(),
+  verifiedByName: zod.string().nullish(),
+  result: zod.enum(["adequado", "inadequado", "parcial"]),
+  notes: zod.string().nullish(),
+  actionTaken: zod.string().nullish(),
+  createdAt: zod.string().datetime({}),
+});
+export const ListWorkEnvironmentVerificationsResponse = zod.array(
+  ListWorkEnvironmentVerificationsResponseItem,
+);
+
+/**
+ * @summary Register a verification
+ */
+export const CreateWorkEnvironmentVerificationParams = zod.object({
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+});
+
+export const CreateWorkEnvironmentVerificationBody = zod.object({
+  verifiedAt: zod.string().datetime({}),
+  verifiedById: zod.number().nullish(),
+  result: zod.enum(["adequado", "inadequado", "parcial"]),
+  notes: zod.string().nullish(),
+  actionTaken: zod.string().nullish(),
+});
+
+/**
+ * @summary Delete a verification
+ */
+export const DeleteWorkEnvironmentVerificationParams = zod.object({
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+  verificationId: zod.coerce.number(),
+});
+
+/**
+ * @summary List attachments for a verification
+ */
+export const ListWorkEnvironmentAttachmentsParams = zod.object({
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+  verificationId: zod.coerce.number(),
+});
+
+export const ListWorkEnvironmentAttachmentsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  verificationId: zod.number(),
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+  uploadedAt: zod.string().datetime({}),
+});
+export const ListWorkEnvironmentAttachmentsResponse = zod.array(
+  ListWorkEnvironmentAttachmentsResponseItem,
+);
+
+/**
+ * @summary Add attachment to a verification
+ */
+export const AddWorkEnvironmentAttachmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+  verificationId: zod.coerce.number(),
+});
+
+export const AddWorkEnvironmentAttachmentBody = zod.object({
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Delete an attachment
+ */
+export const DeleteWorkEnvironmentAttachmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+  verificationId: zod.coerce.number(),
+  attachmentId: zod.coerce.number(),
+});
+
+/**
+ * @summary List measurement resources
+ */
+export const ListMeasurementResourcesParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListMeasurementResourcesQueryParams = zod.object({
+  unitId: zod.coerce.number().optional(),
+  resourceType: zod.coerce.string().optional(),
+  status: zod.coerce.string().optional(),
+});
+
+export const ListMeasurementResourcesResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullish(),
+  unitName: zod.string().nullish(),
+  name: zod.string(),
+  identifier: zod.string().nullish(),
+  resourceType: zod.enum(["instrumento", "equipamento", "padrao"]),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  validUntil: zod.string().nullish(),
+  status: zod.enum(["ativo", "inativo", "vencido"]),
+  notes: zod.string().nullish(),
+  calibrationCount: zod.number(),
+  lastCalibrationAt: zod.string().nullish(),
+  lastCalibrationResult: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListMeasurementResourcesResponse = zod.array(
+  ListMeasurementResourcesResponseItem,
+);
+
+/**
+ * @summary Create a measurement resource
+ */
+export const CreateMeasurementResourceParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateMeasurementResourceBody = zod.object({
+  name: zod.string(),
+  identifier: zod.string().optional(),
+  resourceType: zod.enum(["instrumento", "equipamento", "padrao"]).optional(),
+  unitId: zod.number().optional(),
+  responsibleId: zod.number().optional(),
+  validUntil: zod.string().optional(),
+  notes: zod.string().optional(),
+});
+
+/**
+ * @summary Update a measurement resource
+ */
+export const UpdateMeasurementResourceParams = zod.object({
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+});
+
+export const UpdateMeasurementResourceBody = zod.object({
+  name: zod.string().optional(),
+  identifier: zod.string().optional(),
+  resourceType: zod.enum(["instrumento", "equipamento", "padrao"]).optional(),
+  unitId: zod.number().optional(),
+  responsibleId: zod.number().optional(),
+  validUntil: zod.string().optional(),
+  status: zod.enum(["ativo", "inativo", "vencido"]).optional(),
+  notes: zod.string().optional(),
+});
+
+export const UpdateMeasurementResourceResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullish(),
+  unitName: zod.string().nullish(),
+  name: zod.string(),
+  identifier: zod.string().nullish(),
+  resourceType: zod.enum(["instrumento", "equipamento", "padrao"]),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  validUntil: zod.string().nullish(),
+  status: zod.enum(["ativo", "inativo", "vencido"]),
+  notes: zod.string().nullish(),
+  calibrationCount: zod.number(),
+  lastCalibrationAt: zod.string().nullish(),
+  lastCalibrationResult: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Delete a measurement resource
+ */
+export const DeleteMeasurementResourceParams = zod.object({
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+});
+
+/**
+ * @summary List calibrations for a resource
+ */
+export const ListMeasurementResourceCalibrationsParams = zod.object({
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+});
+
+export const ListMeasurementResourceCalibrationsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  resourceId: zod.number(),
+  calibratedAt: zod.string(),
+  calibratedById: zod.number().nullish(),
+  calibratedByName: zod.string().nullish(),
+  certificateNumber: zod.string().nullish(),
+  result: zod.enum(["apto", "nao-apto"]),
+  nextDueAt: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+export const ListMeasurementResourceCalibrationsResponse = zod.array(
+  ListMeasurementResourceCalibrationsResponseItem,
+);
+
+/**
+ * @summary Record a calibration
+ */
+export const CreateMeasurementResourceCalibrationParams = zod.object({
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+});
+
+export const CreateMeasurementResourceCalibrationBody = zod.object({
+  calibratedAt: zod.string(),
+  calibratedById: zod.number().optional(),
+  certificateNumber: zod.string().optional(),
+  result: zod.enum(["apto", "nao-apto"]),
+  nextDueAt: zod.string().optional(),
+  notes: zod.string().optional(),
+});
+
+/**
+ * @summary Delete a calibration record
+ */
+export const DeleteMeasurementResourceCalibrationParams = zod.object({
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+  calibrationId: zod.coerce.number(),
+});
+
+/**
+ * @summary List attachments for a calibration
+ */
+export const ListMeasurementResourceAttachmentsParams = zod.object({
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+  calibrationId: zod.coerce.number(),
+});
+
+export const ListMeasurementResourceAttachmentsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  calibrationId: zod.number(),
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+  uploadedAt: zod.string(),
+});
+export const ListMeasurementResourceAttachmentsResponse = zod.array(
+  ListMeasurementResourceAttachmentsResponseItem,
+);
+
+/**
+ * @summary Add attachment to a calibration
+ */
+export const AddMeasurementResourceAttachmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+  calibrationId: zod.coerce.number(),
+});
+
+export const AddMeasurementResourceAttachmentBody = zod.object({
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Delete an attachment
+ */
+export const DeleteMeasurementResourceAttachmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+  calibrationId: zod.coerce.number(),
+  attachmentId: zod.coerce.number(),
+});

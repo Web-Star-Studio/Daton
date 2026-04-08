@@ -238,6 +238,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       if (normalizedLocation.startsWith("/infraestrutura/ativos")) {
         crumbs.push({ label: "Ativos", href: "/infraestrutura/ativos" });
+      } else if (normalizedLocation.startsWith("/infraestrutura/ambiente")) {
+        crumbs.push({ label: "Ambiente Operacional", href: "/infraestrutura/ambiente" });
+      } else if (normalizedLocation.startsWith("/infraestrutura/medicao")) {
+        crumbs.push({ label: "Instrumentos de Medição", href: "/infraestrutura/medicao" });
       }
     } else if (normalizedLocation.startsWith("/governanca")) {
       crumbs.push({ label: "Governança" });
@@ -381,7 +385,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const infraestruturaLinks: NavLink[] = [
     ...(hasModuleAccess("assets")
-      ? [{ href: "/infraestrutura/ativos", label: "Ativos" }]
+      ? [
+          { href: "/infraestrutura/ativos", label: "Ativos" },
+          { href: "/infraestrutura/ambiente", label: "Ambiente Operacional" },
+          { href: "/infraestrutura/medicao", label: "Instrumentos de Medição" },
+        ]
       : []),
   ];
 

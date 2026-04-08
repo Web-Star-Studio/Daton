@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, assetsTable, employeesTable } from "@workspace/db";
+import { db, assetsTable, employeesTable, assetDocumentsTable, documentsTable } from "@workspace/db";
 import {
   ListAssetsParams,
   CreateAssetParams,
@@ -9,6 +9,10 @@ import {
   UpdateAssetParams,
   UpdateAssetBody,
   DeleteAssetParams,
+  ListAssetDocumentsParams,
+  AddAssetDocumentParams,
+  AddAssetDocumentBody,
+  RemoveAssetDocumentParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../middlewares/auth";
 
@@ -139,6 +143,107 @@ router.patch("/organizations/:orgId/assets/:assetId", requireAuth, requireWriteA
   }
 
   res.json(serializeAsset(asset, null));
+});
+
+// --- Asset document links ---
+
+router.get("/organizations/:orgId/assets/:assetId/documents", requireAuth, async (req, res): Promise<void> => {
+  const params = ListAssetDocumentsParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (params.data.orgId !== req.auth!.organizationId) {
+    res.status(403).json({ error: "Acesso negado" });
+    return;
+  }
+
+  const rows = await db
+    .select({
+      id: assetDocumentsTable.id,
+      assetId: assetDocumentsTable.assetId,
+      documentId: assetDocumentsTable.documentId,
+      documentTitle: documentsTable.title,
+      documentType: documentsTable.type,
+      documentStatus: documentsTable.status,
+      createdAt: assetDocumentsTable.createdAt,
+    })
+    .from(assetDocumentsTable)
+    .innerJoin(documentsTable, eq(assetDocumentsTable.documentId, documentsTable.id))
+    .where(
+      and(
+        eq(assetDocumentsTable.assetId, params.data.assetId),
+        eq(documentsTable.organizationId, params.data.orgId),
+      ),
+    )
+    .orderBy(documentsTable.title);
+
+  res.json(rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })));
+});
+
+router.post("/organizations/:orgId/assets/:assetId/documents", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = AddAssetDocumentParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (params.data.orgId !== req.auth!.organizationId) {
+    res.status(403).json({ error: "Acesso negado" });
+    return;
+  }
+
+  const body = AddAssetDocumentBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  // Verify document belongs to org
+  const [doc] = await db
+    .select({ id: documentsTable.id })
+    .from(documentsTable)
+    .where(and(eq(documentsTable.id, body.data.documentId), eq(documentsTable.organizationId, params.data.orgId)));
+
+  if (!doc) {
+    res.status(404).json({ error: "Documento não encontrado" });
+    return;
+  }
+
+  const [link] = await db
+    .insert(assetDocumentsTable)
+    .values({ assetId: params.data.assetId, documentId: body.data.documentId })
+    .onConflictDoNothing()
+    .returning();
+
+  if (!link) {
+    res.status(409).json({ error: "Documento já vinculado a este ativo" });
+    return;
+  }
+
+  res.status(201).json({ ...link, createdAt: link.createdAt.toISOString() });
+});
+
+router.delete("/organizations/:orgId/assets/:assetId/documents/:documentId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = RemoveAssetDocumentParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  if (params.data.orgId !== req.auth!.organizationId) {
+    res.status(403).json({ error: "Acesso negado" });
+    return;
+  }
+
+  await db
+    .delete(assetDocumentsTable)
+    .where(
+      and(
+        eq(assetDocumentsTable.assetId, params.data.assetId),
+        eq(assetDocumentsTable.documentId, params.data.documentId),
+      ),
+    );
+
+  res.sendStatus(204);
 });
 
 router.delete("/organizations/:orgId/assets/:assetId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {

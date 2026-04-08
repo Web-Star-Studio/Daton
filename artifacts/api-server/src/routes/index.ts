@@ -24,6 +24,9 @@ import productKnowledgeRouter from "./product-knowledge";
 import suppliersRouter from "./suppliers";
 import kpiRouter from "./kpi/index";
 import assetsRouter from "./assets";
+import assetMaintenanceRouter from "./asset-maintenance";
+import workEnvironmentRouter from "./work-environment";
+import measurementResourcesRouter from "./measurement-resources";
 const router: IRouter = Router();
 
 function requireModuleAccessForPaths(
@@ -141,8 +144,15 @@ router.use(
 router.use(
   requireAuth,
   requireCompletedOnboarding,
-  requireModuleAccessForPaths("assets", [/^\/organizations\/[^/]+\/assets(?:\/|$)/]),
+  requireModuleAccessForPaths("assets", [
+    /^\/organizations\/[^/]+\/assets(?:\/|$)/,
+    /^\/organizations\/[^/]+\/work-environment(?:\/|$)/,
+    /^\/organizations\/[^/]+\/measurement-resources(?:\/|$)/,
+  ]),
   assetsRouter,
+  assetMaintenanceRouter,
+  workEnvironmentRouter,
+  measurementResourcesRouter,
 );
 
 export default router;

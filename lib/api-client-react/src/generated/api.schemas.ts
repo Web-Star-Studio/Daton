@@ -3473,6 +3473,367 @@ export interface UpdateAssetBody {
   description?: string | null;
 }
 
+export interface AssetDocument {
+  id: number;
+  assetId: number;
+  documentId: number;
+  documentTitle: string;
+  documentType: string;
+  documentStatus: string;
+  createdAt: string;
+}
+
+export interface AddAssetDocumentBody {
+  documentId: number;
+}
+
+export type AssetMaintenancePlanType =
+  (typeof AssetMaintenancePlanType)[keyof typeof AssetMaintenancePlanType];
+
+export const AssetMaintenancePlanType = {
+  preventiva: "preventiva",
+  corretiva: "corretiva",
+  inspecao: "inspecao",
+} as const;
+
+export type AssetMaintenancePlanPeriodicity =
+  (typeof AssetMaintenancePlanPeriodicity)[keyof typeof AssetMaintenancePlanPeriodicity];
+
+export const AssetMaintenancePlanPeriodicity = {
+  semanal: "semanal",
+  mensal: "mensal",
+  trimestral: "trimestral",
+  semestral: "semestral",
+  anual: "anual",
+  unica: "unica",
+} as const;
+
+export interface AssetMaintenancePlan {
+  id: number;
+  organizationId: number;
+  assetId: number;
+  title: string;
+  type: AssetMaintenancePlanType;
+  periodicity: AssetMaintenancePlanPeriodicity;
+  checklistItems: string[];
+  /** @nullable */
+  responsibleId?: number | null;
+  /** @nullable */
+  responsibleName?: string | null;
+  /** @nullable */
+  nextDueAt?: string | null;
+  isActive: boolean;
+  recordCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateAssetMaintenancePlanBodyType =
+  (typeof CreateAssetMaintenancePlanBodyType)[keyof typeof CreateAssetMaintenancePlanBodyType];
+
+export const CreateAssetMaintenancePlanBodyType = {
+  preventiva: "preventiva",
+  corretiva: "corretiva",
+  inspecao: "inspecao",
+} as const;
+
+export type CreateAssetMaintenancePlanBodyPeriodicity =
+  (typeof CreateAssetMaintenancePlanBodyPeriodicity)[keyof typeof CreateAssetMaintenancePlanBodyPeriodicity];
+
+export const CreateAssetMaintenancePlanBodyPeriodicity = {
+  semanal: "semanal",
+  mensal: "mensal",
+  trimestral: "trimestral",
+  semestral: "semestral",
+  anual: "anual",
+  unica: "unica",
+} as const;
+
+export interface CreateAssetMaintenancePlanBody {
+  /** @minLength 1 */
+  title: string;
+  type?: CreateAssetMaintenancePlanBodyType;
+  periodicity?: CreateAssetMaintenancePlanBodyPeriodicity;
+  checklistItems?: string[];
+  responsibleId?: number | null;
+  nextDueAt?: string | null;
+}
+
+export type UpdateAssetMaintenancePlanBodyType =
+  (typeof UpdateAssetMaintenancePlanBodyType)[keyof typeof UpdateAssetMaintenancePlanBodyType];
+
+export const UpdateAssetMaintenancePlanBodyType = {
+  preventiva: "preventiva",
+  corretiva: "corretiva",
+  inspecao: "inspecao",
+} as const;
+
+export type UpdateAssetMaintenancePlanBodyPeriodicity =
+  (typeof UpdateAssetMaintenancePlanBodyPeriodicity)[keyof typeof UpdateAssetMaintenancePlanBodyPeriodicity];
+
+export const UpdateAssetMaintenancePlanBodyPeriodicity = {
+  semanal: "semanal",
+  mensal: "mensal",
+  trimestral: "trimestral",
+  semestral: "semestral",
+  anual: "anual",
+  unica: "unica",
+} as const;
+
+export interface UpdateAssetMaintenancePlanBody {
+  /** @minLength 1 */
+  title?: string;
+  type?: UpdateAssetMaintenancePlanBodyType;
+  periodicity?: UpdateAssetMaintenancePlanBodyPeriodicity;
+  checklistItems?: string[];
+  responsibleId?: number | null;
+  nextDueAt?: string | null;
+  isActive?: boolean;
+}
+
+export type AssetMaintenanceRecordStatus =
+  (typeof AssetMaintenanceRecordStatus)[keyof typeof AssetMaintenanceRecordStatus];
+
+export const AssetMaintenanceRecordStatus = {
+  concluida: "concluida",
+  parcial: "parcial",
+  cancelada: "cancelada",
+} as const;
+
+export interface AssetMaintenanceRecord {
+  id: number;
+  organizationId: number;
+  planId: number;
+  assetId: number;
+  executedAt: string;
+  /** @nullable */
+  executedById?: number | null;
+  /** @nullable */
+  executedByName?: string | null;
+  status: AssetMaintenanceRecordStatus;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export type CreateAssetMaintenanceRecordBodyStatus =
+  (typeof CreateAssetMaintenanceRecordBodyStatus)[keyof typeof CreateAssetMaintenanceRecordBodyStatus];
+
+export const CreateAssetMaintenanceRecordBodyStatus = {
+  concluida: "concluida",
+  parcial: "parcial",
+  cancelada: "cancelada",
+} as const;
+
+export interface CreateAssetMaintenanceRecordBody {
+  executedAt: string;
+  executedById?: number | null;
+  status: CreateAssetMaintenanceRecordBodyStatus;
+  notes?: string | null;
+}
+
+export interface MaintenanceRecordAttachment {
+  id: number;
+  organizationId: number;
+  recordId: number;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+  uploadedAt: string;
+}
+
+export interface AddMaintenanceRecordAttachmentBody {
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+}
+
+export type WorkEnvironmentControlFactorType =
+  (typeof WorkEnvironmentControlFactorType)[keyof typeof WorkEnvironmentControlFactorType];
+
+export const WorkEnvironmentControlFactorType = {
+  fisico: "fisico",
+  social: "social",
+  psicologico: "psicologico",
+} as const;
+
+export type WorkEnvironmentControlFrequency =
+  (typeof WorkEnvironmentControlFrequency)[keyof typeof WorkEnvironmentControlFrequency];
+
+export const WorkEnvironmentControlFrequency = {
+  semanal: "semanal",
+  mensal: "mensal",
+  trimestral: "trimestral",
+  semestral: "semestral",
+  anual: "anual",
+} as const;
+
+export type WorkEnvironmentControlStatus =
+  (typeof WorkEnvironmentControlStatus)[keyof typeof WorkEnvironmentControlStatus];
+
+export const WorkEnvironmentControlStatus = {
+  ativo: "ativo",
+  inativo: "inativo",
+} as const;
+
+export interface WorkEnvironmentControl {
+  id: number;
+  organizationId: number;
+  /** @nullable */
+  unitId?: number | null;
+  /** @nullable */
+  unitName?: string | null;
+  factorType: WorkEnvironmentControlFactorType;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  responsibleId?: number | null;
+  /** @nullable */
+  responsibleName?: string | null;
+  frequency: WorkEnvironmentControlFrequency;
+  status: WorkEnvironmentControlStatus;
+  verificationCount: number;
+  /** @nullable */
+  lastResult?: string | null;
+  /** @nullable */
+  lastActionTaken?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateWorkEnvironmentControlBodyFactorType =
+  (typeof CreateWorkEnvironmentControlBodyFactorType)[keyof typeof CreateWorkEnvironmentControlBodyFactorType];
+
+export const CreateWorkEnvironmentControlBodyFactorType = {
+  fisico: "fisico",
+  social: "social",
+  psicologico: "psicologico",
+} as const;
+
+export type CreateWorkEnvironmentControlBodyFrequency =
+  (typeof CreateWorkEnvironmentControlBodyFrequency)[keyof typeof CreateWorkEnvironmentControlBodyFrequency];
+
+export const CreateWorkEnvironmentControlBodyFrequency = {
+  semanal: "semanal",
+  mensal: "mensal",
+  trimestral: "trimestral",
+  semestral: "semestral",
+  anual: "anual",
+} as const;
+
+export interface CreateWorkEnvironmentControlBody {
+  unitId?: number | null;
+  factorType?: CreateWorkEnvironmentControlBodyFactorType;
+  /** @minLength 1 */
+  title: string;
+  description?: string | null;
+  responsibleId?: number | null;
+  frequency?: CreateWorkEnvironmentControlBodyFrequency;
+}
+
+export type UpdateWorkEnvironmentControlBodyFactorType =
+  (typeof UpdateWorkEnvironmentControlBodyFactorType)[keyof typeof UpdateWorkEnvironmentControlBodyFactorType];
+
+export const UpdateWorkEnvironmentControlBodyFactorType = {
+  fisico: "fisico",
+  social: "social",
+  psicologico: "psicologico",
+} as const;
+
+export type UpdateWorkEnvironmentControlBodyFrequency =
+  (typeof UpdateWorkEnvironmentControlBodyFrequency)[keyof typeof UpdateWorkEnvironmentControlBodyFrequency];
+
+export const UpdateWorkEnvironmentControlBodyFrequency = {
+  semanal: "semanal",
+  mensal: "mensal",
+  trimestral: "trimestral",
+  semestral: "semestral",
+  anual: "anual",
+} as const;
+
+export type UpdateWorkEnvironmentControlBodyStatus =
+  (typeof UpdateWorkEnvironmentControlBodyStatus)[keyof typeof UpdateWorkEnvironmentControlBodyStatus];
+
+export const UpdateWorkEnvironmentControlBodyStatus = {
+  ativo: "ativo",
+  inativo: "inativo",
+} as const;
+
+export interface UpdateWorkEnvironmentControlBody {
+  unitId?: number | null;
+  factorType?: UpdateWorkEnvironmentControlBodyFactorType;
+  /** @minLength 1 */
+  title?: string;
+  description?: string | null;
+  responsibleId?: number | null;
+  frequency?: UpdateWorkEnvironmentControlBodyFrequency;
+  status?: UpdateWorkEnvironmentControlBodyStatus;
+}
+
+export type WorkEnvironmentVerificationResult =
+  (typeof WorkEnvironmentVerificationResult)[keyof typeof WorkEnvironmentVerificationResult];
+
+export const WorkEnvironmentVerificationResult = {
+  adequado: "adequado",
+  inadequado: "inadequado",
+  parcial: "parcial",
+} as const;
+
+export interface WorkEnvironmentVerification {
+  id: number;
+  organizationId: number;
+  controlId: number;
+  verifiedAt: string;
+  /** @nullable */
+  verifiedById?: number | null;
+  /** @nullable */
+  verifiedByName?: string | null;
+  result: WorkEnvironmentVerificationResult;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  actionTaken?: string | null;
+  createdAt: string;
+}
+
+export type CreateWorkEnvironmentVerificationBodyResult =
+  (typeof CreateWorkEnvironmentVerificationBodyResult)[keyof typeof CreateWorkEnvironmentVerificationBodyResult];
+
+export const CreateWorkEnvironmentVerificationBodyResult = {
+  adequado: "adequado",
+  inadequado: "inadequado",
+  parcial: "parcial",
+} as const;
+
+export interface CreateWorkEnvironmentVerificationBody {
+  verifiedAt: string;
+  verifiedById?: number | null;
+  result: CreateWorkEnvironmentVerificationBodyResult;
+  notes?: string | null;
+  actionTaken?: string | null;
+}
+
+export interface WorkEnvironmentAttachment {
+  id: number;
+  organizationId: number;
+  verificationId: number;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+  uploadedAt: string;
+}
+
+export interface AddWorkEnvironmentAttachmentBody {
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+}
+
 export type KpiYearRowFeedStatus =
   (typeof KpiYearRowFeedStatus)[keyof typeof KpiYearRowFeedStatus];
 
@@ -3489,6 +3850,163 @@ export interface KpiYearRow {
   average?: number | null;
   accumulated?: number | null;
   feedStatus: KpiYearRowFeedStatus;
+}
+
+export type MeasurementResourceResourceType =
+  (typeof MeasurementResourceResourceType)[keyof typeof MeasurementResourceResourceType];
+
+export const MeasurementResourceResourceType = {
+  instrumento: "instrumento",
+  equipamento: "equipamento",
+  padrao: "padrao",
+} as const;
+
+export type MeasurementResourceStatus =
+  (typeof MeasurementResourceStatus)[keyof typeof MeasurementResourceStatus];
+
+export const MeasurementResourceStatus = {
+  ativo: "ativo",
+  inativo: "inativo",
+  vencido: "vencido",
+} as const;
+
+export interface MeasurementResource {
+  id: number;
+  organizationId: number;
+  /** @nullable */
+  unitId?: number | null;
+  /** @nullable */
+  unitName?: string | null;
+  name: string;
+  /** @nullable */
+  identifier?: string | null;
+  resourceType: MeasurementResourceResourceType;
+  /** @nullable */
+  responsibleId?: number | null;
+  /** @nullable */
+  responsibleName?: string | null;
+  /** @nullable */
+  validUntil?: string | null;
+  status: MeasurementResourceStatus;
+  /** @nullable */
+  notes?: string | null;
+  calibrationCount: number;
+  /** @nullable */
+  lastCalibrationAt?: string | null;
+  /** @nullable */
+  lastCalibrationResult?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateMeasurementResourceBodyResourceType =
+  (typeof CreateMeasurementResourceBodyResourceType)[keyof typeof CreateMeasurementResourceBodyResourceType];
+
+export const CreateMeasurementResourceBodyResourceType = {
+  instrumento: "instrumento",
+  equipamento: "equipamento",
+  padrao: "padrao",
+} as const;
+
+export interface CreateMeasurementResourceBody {
+  name: string;
+  identifier?: string;
+  resourceType?: CreateMeasurementResourceBodyResourceType;
+  unitId?: number;
+  responsibleId?: number;
+  validUntil?: string;
+  notes?: string;
+}
+
+export type UpdateMeasurementResourceBodyResourceType =
+  (typeof UpdateMeasurementResourceBodyResourceType)[keyof typeof UpdateMeasurementResourceBodyResourceType];
+
+export const UpdateMeasurementResourceBodyResourceType = {
+  instrumento: "instrumento",
+  equipamento: "equipamento",
+  padrao: "padrao",
+} as const;
+
+export type UpdateMeasurementResourceBodyStatus =
+  (typeof UpdateMeasurementResourceBodyStatus)[keyof typeof UpdateMeasurementResourceBodyStatus];
+
+export const UpdateMeasurementResourceBodyStatus = {
+  ativo: "ativo",
+  inativo: "inativo",
+  vencido: "vencido",
+} as const;
+
+export interface UpdateMeasurementResourceBody {
+  name?: string;
+  identifier?: string;
+  resourceType?: UpdateMeasurementResourceBodyResourceType;
+  unitId?: number;
+  responsibleId?: number;
+  validUntil?: string;
+  status?: UpdateMeasurementResourceBodyStatus;
+  notes?: string;
+}
+
+export type MeasurementResourceCalibrationResult =
+  (typeof MeasurementResourceCalibrationResult)[keyof typeof MeasurementResourceCalibrationResult];
+
+export const MeasurementResourceCalibrationResult = {
+  apto: "apto",
+  "nao-apto": "nao-apto",
+} as const;
+
+export interface MeasurementResourceCalibration {
+  id: number;
+  organizationId: number;
+  resourceId: number;
+  calibratedAt: string;
+  /** @nullable */
+  calibratedById?: number | null;
+  /** @nullable */
+  calibratedByName?: string | null;
+  /** @nullable */
+  certificateNumber?: string | null;
+  result: MeasurementResourceCalibrationResult;
+  /** @nullable */
+  nextDueAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export type CreateMeasurementResourceCalibrationBodyResult =
+  (typeof CreateMeasurementResourceCalibrationBodyResult)[keyof typeof CreateMeasurementResourceCalibrationBodyResult];
+
+export const CreateMeasurementResourceCalibrationBodyResult = {
+  apto: "apto",
+  "nao-apto": "nao-apto",
+} as const;
+
+export interface CreateMeasurementResourceCalibrationBody {
+  calibratedAt: string;
+  calibratedById?: number;
+  certificateNumber?: string;
+  result: CreateMeasurementResourceCalibrationBodyResult;
+  nextDueAt?: string;
+  notes?: string;
+}
+
+export interface MeasurementResourceAttachment {
+  id: number;
+  organizationId: number;
+  calibrationId: number;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+  uploadedAt: string;
+}
+
+export interface AddMeasurementResourceAttachmentBody {
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
 }
 
 export type ListLegislationsParams = {
@@ -3749,4 +4267,15 @@ export type ListKpiIndicatorsParams = {
 
 export type ListKpiYearDataParams = {
   unit?: string;
+};
+
+export type ListWorkEnvironmentControlsParams = {
+  unitId?: number;
+  factorType?: string;
+};
+
+export type ListMeasurementResourcesParams = {
+  unitId?: number;
+  resourceType?: string;
+  status?: string;
 };

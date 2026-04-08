@@ -48,6 +48,8 @@ import KpiIndicadoresPage from "@/pages/app/kpi/indicadores";
 import KpiLancamentosPage from "@/pages/app/kpi/lancamentos";
 import KpiDashboardPage from "@/pages/app/kpi/dashboard";
 import AtivosPage from "@/pages/app/organizacao/ativos";
+import AmbientePage from "@/pages/app/infraestrutura/ambiente";
+import MedicaoPage from "@/pages/app/infraestrutura/medicao";
 import ProfileSettingsPage from "@/pages/app/configuracoes/perfil";
 import SystemSettingsPage from "@/pages/app/configuracoes/sistema";
 import AcceptInvitePage from "@/pages/accept-invite";
@@ -147,6 +149,10 @@ function AppPages() {
       <Route path="/organizacao/cargos" component={OrganizacaoPositionsPage} />
       <Route path="/infraestrutura/ativos" component={AtivosPage} />
       <Route path="/app/infraestrutura/ativos" component={AtivosPage} />
+      <Route path="/infraestrutura/ambiente" component={AmbientePage} />
+      <Route path="/app/infraestrutura/ambiente" component={AmbientePage} />
+      <Route path="/infraestrutura/medicao" component={MedicaoPage} />
+      <Route path="/app/infraestrutura/medicao" component={MedicaoPage} />
       <Route path="/governanca/planejamento" component={GovernancePage} />
       <Route
         path="/governanca/planejamento/:id"
