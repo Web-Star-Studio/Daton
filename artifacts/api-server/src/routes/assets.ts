@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, sql, lte, gt } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db, assetsTable, employeesTable, assetDocumentsTable, documentsTable, assetMaintenancePlansTable } from "@workspace/db";
 import {
   ListAssetsParams,
@@ -60,22 +60,40 @@ router.get("/organizations/:orgId/assets", requireAuth, async (req, res): Promis
 
   const today = new Date().toISOString().slice(0, 10);
 
+  // Subquery: aggregate plan stats per asset (only active plans)
+  const planStatsSq = db
+    .select({
+      assetId: assetMaintenancePlansTable.assetId,
+      activePlanCount: sql<number>`cast(count(*) as int)`,
+      overdueCount: sql<number>`cast(count(case when next_due_at is not null and next_due_at < ${today} then 1 end) as int)`,
+      nearestDueAt: sql<string | null>`min(next_due_at)`,
+    })
+    .from(assetMaintenancePlansTable)
+    .where(eq(assetMaintenancePlansTable.isActive, true))
+    .groupBy(assetMaintenancePlansTable.assetId)
+    .as("plan_stats");
+
   const rows = await db
     .select({
       asset: assetsTable,
       responsibleName: employeesTable.name,
-      activePlanCount: sql<number>`cast(count(case when ${assetMaintenancePlansTable.isActive} = true then 1 end) as int)`,
-      overdueCount: sql<number>`cast(count(case when ${assetMaintenancePlansTable.isActive} = true and ${assetMaintenancePlansTable.nextDueAt} is not null and ${assetMaintenancePlansTable.nextDueAt} < ${today} then 1 end) as int)`,
-      nearestDueAt: sql<string | null>`min(case when ${assetMaintenancePlansTable.isActive} = true then ${assetMaintenancePlansTable.nextDueAt} end)`,
+      activePlanCount: planStatsSq.activePlanCount,
+      overdueCount: planStatsSq.overdueCount,
+      nearestDueAt: planStatsSq.nearestDueAt,
     })
     .from(assetsTable)
     .leftJoin(employeesTable, eq(assetsTable.responsibleId, employeesTable.id))
-    .leftJoin(assetMaintenancePlansTable, eq(assetsTable.id, assetMaintenancePlansTable.assetId))
+    .leftJoin(planStatsSq, eq(assetsTable.id, planStatsSq.assetId))
     .where(eq(assetsTable.organizationId, params.data.orgId))
-    .groupBy(assetsTable.id, employeesTable.name)
     .orderBy(assetsTable.createdAt);
 
-  res.json(rows.map((r) => serializeAsset(r.asset, r.responsibleName, r.activePlanCount, r.overdueCount, r.nearestDueAt ?? null)));
+  res.json(rows.map((r) => serializeAsset(
+    r.asset,
+    r.responsibleName,
+    r.activePlanCount ?? 0,
+    r.overdueCount ?? 0,
+    r.nearestDueAt ?? null,
+  )));
 });
 
 router.post("/organizations/:orgId/assets", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
