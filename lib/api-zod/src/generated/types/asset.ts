@@ -31,6 +31,7 @@ export interface Asset {
   overdueCount: number;
   /** @nullable */
   nearestDueAt?: string | null;
+  hasPartialExecution: boolean;
   createdAt: string;
   updatedAt: string;
 }

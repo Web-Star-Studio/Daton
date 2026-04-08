@@ -13418,6 +13418,7 @@ export const ListAssetsResponseItem = zod.object({
   activePlanCount: zod.number(),
   overdueCount: zod.number(),
   nearestDueAt: zod.string().nullish(),
+  hasPartialExecution: zod.boolean(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -13466,6 +13467,7 @@ export const GetAssetResponse = zod.object({
   activePlanCount: zod.number(),
   overdueCount: zod.number(),
   nearestDueAt: zod.string().nullish(),
+  hasPartialExecution: zod.boolean(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -13506,6 +13508,7 @@ export const UpdateAssetResponse = zod.object({
   activePlanCount: zod.number(),
   overdueCount: zod.number(),
   nearestDueAt: zod.string().nullish(),
+  hasPartialExecution: zod.boolean(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -13588,6 +13591,7 @@ export const ListAssetMaintenancePlansResponseItem = zod.object({
   nextDueAt: zod.string().date().nullish(),
   isActive: zod.boolean(),
   recordCount: zod.number(),
+  lastRecordStatus: zod.enum(["concluida", "parcial", "cancelada"]).nullable(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -13655,6 +13659,7 @@ export const UpdateAssetMaintenancePlanResponse = zod.object({
   nextDueAt: zod.string().date().nullish(),
   isActive: zod.boolean(),
   recordCount: zod.number(),
+  lastRecordStatus: zod.enum(["concluida", "parcial", "cancelada"]).nullable(),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });

@@ -49,6 +49,7 @@ function serializePlan(
   plan: typeof assetMaintenancePlansTable.$inferSelect,
   responsibleName?: string | null,
   recordCount = 0,
+  lastRecordStatus: string | null = null,
 ) {
   return {
     id: plan.id,
@@ -63,6 +64,7 @@ function serializePlan(
     nextDueAt: plan.nextDueAt ?? null,
     isActive: plan.isActive,
     recordCount,
+    lastRecordStatus,
     createdAt: plan.createdAt.toISOString(),
     updatedAt: plan.updatedAt.toISOString(),
   };
@@ -123,6 +125,12 @@ router.get(
         plan: assetMaintenancePlansTable,
         responsibleName: employeesTable.name,
         recordCount: sql<number>`cast(count(${assetMaintenanceRecordsTable.id}) as int)`,
+        lastRecordStatus: sql<string | null>`(
+          select status from asset_maintenance_records
+          where plan_id = ${assetMaintenancePlansTable.id}
+          order by executed_at desc
+          limit 1
+        )`,
       })
       .from(assetMaintenancePlansTable)
       .leftJoin(employeesTable, eq(assetMaintenancePlansTable.responsibleId, employeesTable.id))
@@ -136,7 +144,7 @@ router.get(
       .groupBy(assetMaintenancePlansTable.id, employeesTable.name)
       .orderBy(assetMaintenancePlansTable.createdAt);
 
-    res.json(rows.map((r) => serializePlan(r.plan, r.responsibleName, r.recordCount)));
+    res.json(rows.map((r) => serializePlan(r.plan, r.responsibleName, r.recordCount, r.lastRecordStatus ?? null)));
   },
 );
 
@@ -167,6 +175,7 @@ router.post(
         checklistItems: body.data.checklistItems ?? [],
         responsibleId: body.data.responsibleId ?? null,
         nextDueAt: body.data.nextDueAt ?? null,
+        originalNextDueAt: body.data.nextDueAt ?? null,
       })
       .returning();
 
@@ -186,9 +195,14 @@ router.patch(
     const body = UpdateAssetMaintenancePlanBody.safeParse(req.body);
     if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
+    // If nextDueAt is being manually updated, also persist it as the new originalNextDueAt
+    const updatePayload = body.data.nextDueAt !== undefined
+      ? { ...body.data, originalNextDueAt: body.data.nextDueAt }
+      : body.data;
+
     const [plan] = await db
       .update(assetMaintenancePlansTable)
-      .set(body.data)
+      .set(updatePayload)
       .where(
         and(
           eq(assetMaintenancePlansTable.id, params.data.planId),
@@ -335,7 +349,10 @@ router.delete(
 
     // Recalculate nextDueAt from the most recent remaining conclusive execution
     const [plan] = await db
-      .select({ periodicity: assetMaintenancePlansTable.periodicity })
+      .select({
+        periodicity: assetMaintenancePlansTable.periodicity,
+        originalNextDueAt: assetMaintenancePlansTable.originalNextDueAt,
+      })
       .from(assetMaintenancePlansTable)
       .where(eq(assetMaintenancePlansTable.id, params.data.planId));
 
@@ -353,7 +370,11 @@ router.delete(
         .limit(1);
 
       const days = PERIODICITY_DAYS[plan.periodicity];
-      const nextDueAt = latestRecord && days != null ? addDays(latestRecord.executedAt, days) : null;
+      // If remaining executions exist, recalculate from the latest one.
+      // Otherwise revert to the original manually-planned date.
+      const nextDueAt = latestRecord && days != null
+        ? addDays(latestRecord.executedAt, days)
+        : (plan.originalNextDueAt ?? null);
       await db
         .update(assetMaintenancePlansTable)
         .set({ nextDueAt })

@@ -5,6 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { AssetMaintenancePlanLastRecordStatus } from "./assetMaintenancePlanLastRecordStatus";
 import type { AssetMaintenancePlanPeriodicity } from "./assetMaintenancePlanPeriodicity";
 import type { AssetMaintenancePlanType } from "./assetMaintenancePlanType";
 
@@ -24,6 +25,8 @@ export interface AssetMaintenancePlan {
   nextDueAt?: string | null;
   isActive: boolean;
   recordCount: number;
+  /** @nullable */
+  lastRecordStatus: AssetMaintenancePlanLastRecordStatus;
   createdAt: string;
   updatedAt: string;
 }

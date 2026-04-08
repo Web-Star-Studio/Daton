@@ -24,6 +24,7 @@ function serializeAsset(
   activePlanCount = 0,
   overdueCount = 0,
   nearestDueAt: string | null = null,
+  hasPartialExecution = false,
 ) {
   return {
     id: a.id,
@@ -41,6 +42,7 @@ function serializeAsset(
     activePlanCount,
     overdueCount,
     nearestDueAt,
+    hasPartialExecution,
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
   };
@@ -80,12 +82,23 @@ router.get("/organizations/:orgId/assets", requireAuth, async (req, res): Promis
       activePlanCount: planStatsSq.activePlanCount,
       overdueCount: planStatsSq.overdueCount,
       nearestDueAt: planStatsSq.nearestDueAt,
+      hasPartialExecution: sql<boolean>`exists(
+        select 1 from asset_maintenance_plans p
+        join asset_maintenance_records r on r.plan_id = p.id
+        where p.asset_id = ${assetsTable.id}
+          and p.is_active = true
+          and r.status = 'parcial'
+          and r.executed_at = (
+            select max(r2.executed_at) from asset_maintenance_records r2
+            where r2.plan_id = p.id
+          )
+      )`,
     })
     .from(assetsTable)
     .leftJoin(employeesTable, eq(assetsTable.responsibleId, employeesTable.id))
     .leftJoin(planStatsSq, eq(assetsTable.id, planStatsSq.assetId))
     .where(eq(assetsTable.organizationId, params.data.orgId))
-    .orderBy(assetsTable.createdAt);
+    .orderBy(assetsTable.createdAt, assetsTable.id);
 
   res.json(rows.map((r) => serializeAsset(
     r.asset,
@@ -93,6 +106,7 @@ router.get("/organizations/:orgId/assets", requireAuth, async (req, res): Promis
     r.activePlanCount ?? 0,
     r.overdueCount ?? 0,
     r.nearestDueAt ?? null,
+    r.hasPartialExecution ?? false,
   )));
 });
 

@@ -6,6 +6,7 @@ import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -58,6 +59,8 @@ import {
   type CreateAssetBody,
   type CreateAssetMaintenancePlanBody,
   type CreateAssetMaintenanceRecordBody,
+  type UpdateAssetBodyStatus,
+  type UpdateAssetBodyCriticality,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createPortal } from "react-dom";
@@ -291,7 +294,7 @@ const RECORD_STATUS_COLORS: Record<string, string> = {
 };
 
 function MaintenanceStatusCell({ asset }: { asset: Asset }) {
-  const { activePlanCount, overdueCount, nearestDueAt } = asset;
+  const { activePlanCount, overdueCount, nearestDueAt, hasPartialExecution } = asset;
 
   if (activePlanCount === 0) {
     return <span className="text-xs text-muted-foreground">Sem planos</span>;
@@ -327,11 +330,11 @@ function MaintenanceStatusCell({ asset }: { asset: Asset }) {
     );
   }
 
-  return (
-    <span className="text-xs text-green-700">
-      Em dia · {due.toLocaleDateString("pt-BR")}
-    </span>
-  );
+  if (hasPartialExecution) {
+    return <Badge variant="outline" className="text-xs bg-orange-100 text-orange-700 border-orange-200">Parcial · {due.toLocaleDateString("pt-BR")}</Badge>;
+  }
+
+  return <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">Em dia · {due.toLocaleDateString("pt-BR")}</Badge>;
 }
 
 function parsePlanDate(dateStr: string | null | undefined): Date | null {
@@ -345,7 +348,7 @@ function dateDiffDays(date: Date): number {
   return Math.round((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function PlanDueBadge({ nextDueAt, recordCount }: { nextDueAt: string | null | undefined; recordCount: number }) {
+function PlanDueBadge({ nextDueAt, recordCount, lastRecordStatus }: { nextDueAt: string | null | undefined; recordCount: number; lastRecordStatus: string | null | undefined }) {
   const due = parsePlanDate(nextDueAt);
 
   if (recordCount === 0) {
@@ -365,6 +368,9 @@ function PlanDueBadge({ nextDueAt, recordCount }: { nextDueAt: string | null | u
   }
   if (diff <= 7) {
     return <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200">Vence em {diff}d · {due.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</Badge>;
+  }
+  if (lastRecordStatus === "parcial") {
+    return <Badge variant="outline" className="text-xs bg-orange-100 text-orange-700 border-orange-200">Parcial · {dateLabel}</Badge>;
   }
   return <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">Em dia · {dateLabel}</Badge>;
 }
@@ -855,7 +861,7 @@ function MaintenancePlansSection({
                   <Badge variant="outline" className={`text-xs shrink-0 ${PLAN_TYPE_COLORS[plan.type]}`}>
                     {PLAN_TYPE_LABELS[plan.type]}
                   </Badge>
-                  <PlanDueBadge nextDueAt={plan.nextDueAt} recordCount={plan.recordCount} />
+                  <PlanDueBadge nextDueAt={plan.nextDueAt} recordCount={plan.recordCount} lastRecordStatus={plan.lastRecordStatus} />
                   {canWrite && (
                     <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                       <button
@@ -1008,6 +1014,7 @@ export default function AtivosPage() {
   const [unitFilter, setUnitFilter] = useState("");
   const [criticalityFilter, setCriticalityFilter] = useState("");
 
+
   const { data: assets = [], isLoading } = useListAssets(orgId);
   const { data: units = [] } = useListUnits(orgId);
   const employeePicker = useEmployeeMultiPicker({ orgId, selectedIds: form.responsibleId ? [form.responsibleId] : [] });
@@ -1029,6 +1036,7 @@ export default function AtivosPage() {
     ) : null,
   );
 
+
   const filtered = assets.filter((a) => {
     if (unitFilter && String(a.unitId ?? "") !== unitFilter) return false;
     if (criticalityFilter && a.criticality !== criticalityFilter) return false;
@@ -1042,6 +1050,8 @@ export default function AtivosPage() {
     }
     return true;
   });
+
+
 
   function openEdit(asset: Asset) {
     setDetailAsset(null);
@@ -1191,21 +1201,81 @@ export default function AtivosPage() {
                   <TableCell>{asset.assetType}</TableCell>
                   <TableCell>{unit?.name ?? "—"}</TableCell>
                   <TableCell>{asset.impactedProcess ?? "—"}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={CRITICALITY_COLORS[asset.criticality]}
-                    >
-                      {CRITICALITY_LABELS[asset.criticality] ?? asset.criticality}
-                    </Badge>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    {canWrite ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Badge
+                            variant="outline"
+                            className={`${CRITICALITY_COLORS[asset.criticality]} cursor-pointer`}
+                          >
+                            {CRITICALITY_LABELS[asset.criticality] ?? asset.criticality}
+                          </Badge>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          {Object.entries(CRITICALITY_LABELS).map(([value, label]) => (
+                            <DropdownMenuItem
+                              key={value}
+                              disabled={value === asset.criticality}
+                              onSelect={async () => {
+                                try {
+                                  await updateMut.mutateAsync({ orgId, assetId: asset.id, data: { criticality: value as UpdateAssetBodyCriticality } });
+                                  queryClient.setQueryData(getListAssetsQueryKey(orgId), (old: Asset[] | undefined) =>
+                                    old?.map((a) => a.id === asset.id ? { ...a, criticality: value } : a)
+                                  );
+                                } catch {
+                                  toast({ title: "Erro ao atualizar criticidade", variant: "destructive" });
+                                }
+                              }}
+                            >
+                              <Badge variant="outline" className={`text-xs ${CRITICALITY_COLORS[value]}`}>{label}</Badge>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <Badge variant="outline" className={CRITICALITY_COLORS[asset.criticality]}>
+                        {CRITICALITY_LABELS[asset.criticality] ?? asset.criticality}
+                      </Badge>
+                    )}
                   </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={STATUS_COLORS[asset.status]}
-                    >
-                      {STATUS_LABELS[asset.status] ?? asset.status}
-                    </Badge>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    {canWrite ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Badge
+                            variant="outline"
+                            className={`${STATUS_COLORS[asset.status]} cursor-pointer`}
+                          >
+                            {STATUS_LABELS[asset.status] ?? asset.status}
+                          </Badge>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                            <DropdownMenuItem
+                              key={value}
+                              disabled={value === asset.status}
+                              onSelect={async () => {
+                                try {
+                                  await updateMut.mutateAsync({ orgId, assetId: asset.id, data: { status: value as UpdateAssetBodyStatus } });
+                                  queryClient.setQueryData(getListAssetsQueryKey(orgId), (old: Asset[] | undefined) =>
+                                    old?.map((a) => a.id === asset.id ? { ...a, status: value } : a)
+                                  );
+                                } catch {
+                                  toast({ title: "Erro ao atualizar status", variant: "destructive" });
+                                }
+                              }}
+                            >
+                              <Badge variant="outline" className={`text-xs ${STATUS_COLORS[value]}`}>{label}</Badge>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <Badge variant="outline" className={STATUS_COLORS[asset.status]}>
+                        {STATUS_LABELS[asset.status] ?? asset.status}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>{asset.responsibleName ?? "—"}</TableCell>
                   <TableCell><MaintenanceStatusCell asset={asset} /></TableCell>

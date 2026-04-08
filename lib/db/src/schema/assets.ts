@@ -37,6 +37,7 @@ export const assetMaintenancePlansTable = pgTable("asset_maintenance_plans", {
   checklistItems: text("checklist_items").array().notNull().default(sql`'{}'::text[]`),
   responsibleId: integer("responsible_id").references(() => employeesTable.id, { onDelete: "set null" }),
   nextDueAt: date("next_due_at"),
+  originalNextDueAt: date("original_next_due_at"), // preserves the manually-set date; never touched by auto-advance
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

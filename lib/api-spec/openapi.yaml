@@ -13504,6 +13504,8 @@ components:
           type: integer
         nearestDueAt:
           type: ["string", "null"]
+        hasPartialExecution:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -13519,6 +13521,7 @@ components:
         - status
         - activePlanCount
         - overdueCount
+        - hasPartialExecution
         - createdAt
         - updatedAt
 
@@ -13654,6 +13657,9 @@ components:
           type: boolean
         recordCount:
           type: integer
+        lastRecordStatus:
+          type: ["string", "null"]
+          enum: [concluida, parcial, cancelada]
         createdAt:
           type: string
           format: date-time
@@ -13670,6 +13676,7 @@ components:
         - checklistItems
         - isActive
         - recordCount
+        - lastRecordStatus
         - createdAt
         - updatedAt
 

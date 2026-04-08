@@ -3409,6 +3409,7 @@ export interface Asset {
   overdueCount: number;
   /** @nullable */
   nearestDueAt?: string | null;
+  hasPartialExecution: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -3512,6 +3513,19 @@ export const AssetMaintenancePlanPeriodicity = {
   unica: "unica",
 } as const;
 
+/**
+ * @nullable
+ */
+export type AssetMaintenancePlanLastRecordStatus =
+  | (typeof AssetMaintenancePlanLastRecordStatus)[keyof typeof AssetMaintenancePlanLastRecordStatus]
+  | null;
+
+export const AssetMaintenancePlanLastRecordStatus = {
+  concluida: "concluida",
+  parcial: "parcial",
+  cancelada: "cancelada",
+} as const;
+
 export interface AssetMaintenancePlan {
   id: number;
   organizationId: number;
@@ -3528,6 +3542,8 @@ export interface AssetMaintenancePlan {
   nextDueAt?: string | null;
   isActive: boolean;
   recordCount: number;
+  /** @nullable */
+  lastRecordStatus: AssetMaintenancePlanLastRecordStatus;
   createdAt: string;
   updatedAt: string;
 }

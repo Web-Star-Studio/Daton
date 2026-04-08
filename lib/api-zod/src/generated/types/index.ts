@@ -19,6 +19,7 @@ export * from "./asset";
 export * from "./assetCriticality";
 export * from "./assetDocument";
 export * from "./assetMaintenancePlan";
+export * from "./assetMaintenancePlanLastRecordStatus";
 export * from "./assetMaintenancePlanPeriodicity";
 export * from "./assetMaintenancePlanType";
 export * from "./assetMaintenanceRecord";
