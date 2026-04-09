@@ -33,6 +33,17 @@ export interface LoginBody {
   password: string;
 }
 
+export interface ConfirmPasswordResetBody {
+  token: string;
+  /** @minLength 6 */
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface RequestPasswordResetBody {
+  email: string;
+}
+
 export interface UpdateMeBody {
   /** @minLength 1 */
   name: string;
@@ -4028,6 +4039,10 @@ export interface AddMeasurementResourceAttachmentBody {
   contentType: string;
   objectPath: string;
 }
+
+export type ValidatePasswordResetToken200 = {
+  valid: boolean;
+};
 
 export type ListLegislationsParams = {
   search?: string;

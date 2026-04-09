@@ -35,6 +35,7 @@ import type {
   BulkDeletePositionsBody,
   CompleteOrganizationOnboardingBody,
   ComplianceTag,
+  ConfirmPasswordResetBody,
   CorrectiveAction,
   CreateAssetBody,
   CreateAssetMaintenancePlanBody,
@@ -167,6 +168,7 @@ import type {
   QuestionnaireTheme,
   RegisterBody,
   RejectDocumentBody,
+  RequestPasswordResetBody,
   SaveQuestionnaireResponsesBody,
   SgqProcessDetail,
   SgqProcessRevision,
@@ -232,6 +234,7 @@ import type {
   UpsertKpiValuesBody,
   UpsertKpiYearConfigBody,
   UserOption,
+  ValidatePasswordResetToken200,
   WorkEnvironmentAttachment,
   WorkEnvironmentControl,
   WorkEnvironmentVerification,
@@ -722,6 +725,275 @@ export const useUpdateMe = <
   TContext
 > => {
   return useMutation(getUpdateMeMutationOptions(options));
+};
+
+/**
+ * @summary Request a password reset link
+ */
+export const getRequestPasswordResetUrl = () => {
+  return `/api/auth/password-reset/request`;
+};
+
+export const requestPasswordReset = async (
+  requestPasswordResetBody: RequestPasswordResetBody,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getRequestPasswordResetUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(requestPasswordResetBody),
+  });
+};
+
+export const getRequestPasswordResetMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestPasswordReset>>,
+    TError,
+    { data: BodyType<RequestPasswordResetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof requestPasswordReset>>,
+  TError,
+  { data: BodyType<RequestPasswordResetBody> },
+  TContext
+> => {
+  const mutationKey = ["requestPasswordReset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof requestPasswordReset>>,
+    { data: BodyType<RequestPasswordResetBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return requestPasswordReset(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RequestPasswordResetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof requestPasswordReset>>
+>;
+export type RequestPasswordResetMutationBody =
+  BodyType<RequestPasswordResetBody>;
+export type RequestPasswordResetMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Request a password reset link
+ */
+export const useRequestPasswordReset = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof requestPasswordReset>>,
+    TError,
+    { data: BodyType<RequestPasswordResetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof requestPasswordReset>>,
+  TError,
+  { data: BodyType<RequestPasswordResetBody> },
+  TContext
+> => {
+  return useMutation(getRequestPasswordResetMutationOptions(options));
+};
+
+/**
+ * @summary Validate a password reset token
+ */
+export const getValidatePasswordResetTokenUrl = (token: string) => {
+  return `/api/auth/password-reset/validate/${token}`;
+};
+
+export const validatePasswordResetToken = async (
+  token: string,
+  options?: RequestInit,
+): Promise<ValidatePasswordResetToken200> => {
+  return customFetch<ValidatePasswordResetToken200>(
+    getValidatePasswordResetTokenUrl(token),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getValidatePasswordResetTokenQueryKey = (token: string) => {
+  return [`/api/auth/password-reset/validate/${token}`] as const;
+};
+
+export const getValidatePasswordResetTokenQueryOptions = <
+  TData = Awaited<ReturnType<typeof validatePasswordResetToken>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof validatePasswordResetToken>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getValidatePasswordResetTokenQueryKey(token);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof validatePasswordResetToken>>
+  > = ({ signal }) =>
+    validatePasswordResetToken(token, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!token,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof validatePasswordResetToken>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ValidatePasswordResetTokenQueryResult = NonNullable<
+  Awaited<ReturnType<typeof validatePasswordResetToken>>
+>;
+export type ValidatePasswordResetTokenQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Validate a password reset token
+ */
+
+export function useValidatePasswordResetToken<
+  TData = Awaited<ReturnType<typeof validatePasswordResetToken>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof validatePasswordResetToken>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getValidatePasswordResetTokenQueryOptions(
+    token,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Reset password using a valid token
+ */
+export const getConfirmPasswordResetUrl = () => {
+  return `/api/auth/password-reset/confirm`;
+};
+
+export const confirmPasswordReset = async (
+  confirmPasswordResetBody: ConfirmPasswordResetBody,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getConfirmPasswordResetUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(confirmPasswordResetBody),
+  });
+};
+
+export const getConfirmPasswordResetMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmPasswordReset>>,
+    TError,
+    { data: BodyType<ConfirmPasswordResetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof confirmPasswordReset>>,
+  TError,
+  { data: BodyType<ConfirmPasswordResetBody> },
+  TContext
+> => {
+  const mutationKey = ["confirmPasswordReset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof confirmPasswordReset>>,
+    { data: BodyType<ConfirmPasswordResetBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return confirmPasswordReset(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConfirmPasswordResetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof confirmPasswordReset>>
+>;
+export type ConfirmPasswordResetMutationBody =
+  BodyType<ConfirmPasswordResetBody>;
+export type ConfirmPasswordResetMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Reset password using a valid token
+ */
+export const useConfirmPasswordReset = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmPasswordReset>>,
+    TError,
+    { data: BodyType<ConfirmPasswordResetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof confirmPasswordReset>>,
+  TError,
+  { data: BodyType<ConfirmPasswordResetBody> },
+  TContext
+> => {
+  return useMutation(getConfirmPasswordResetMutationOptions(options));
 };
 
 /**
