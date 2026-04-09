@@ -294,7 +294,7 @@ const RECORD_STATUS_COLORS: Record<string, string> = {
 };
 
 function MaintenanceStatusCell({ asset }: { asset: Asset }) {
-  const { activePlanCount, overdueCount, nearestDueAt, hasPartialExecution } = asset;
+  const { activePlanCount, overdueCount, pendingPlanCount, nearestDueAt, hasPartialExecution } = asset;
 
   if (activePlanCount === 0) {
     return <span className="text-xs text-muted-foreground">Sem planos</span>;
@@ -334,6 +334,14 @@ function MaintenanceStatusCell({ asset }: { asset: Asset }) {
     return <Badge variant="outline" className="text-xs bg-orange-100 text-orange-700 border-orange-200">Parcial · {due.toLocaleDateString("pt-BR")}</Badge>;
   }
 
+  if (pendingPlanCount > 0) {
+    return (
+      <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-200">
+        {pendingPlanCount > 1 ? `${pendingPlanCount} aguardando` : `Aguardando · ${dateLabel}`}
+      </Badge>
+    );
+  }
+
   return <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">Em dia · {due.toLocaleDateString("pt-BR")}</Badge>;
 }
 
@@ -348,14 +356,19 @@ function dateDiffDays(date: Date): number {
   return Math.round((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function PlanDueBadge({ nextDueAt, recordCount, lastRecordStatus }: { nextDueAt: string | null | undefined; recordCount: number; lastRecordStatus: string | null | undefined }) {
+function PlanDueBadge({ nextDueAt, recordCount, lastRecordStatus, periodicity }: { nextDueAt: string | null | undefined; recordCount: number; lastRecordStatus: string | null | undefined; periodicity: string }) {
   const due = parsePlanDate(nextDueAt);
+
+  if (periodicity === "unica" && lastRecordStatus === "concluida") {
+    return <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-200">Concluído</Badge>;
+  }
 
   if (recordCount === 0) {
     if (!due) return <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-200">Sem execução</Badge>;
     const diff = dateDiffDays(due);
-    if (diff < 0) return <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">Vencido · sem execução</Badge>;
-    return <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-200">Sem execução</Badge>;
+    if (diff < 0) return <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">Vencido · há {Math.abs(diff)}d · sem execução</Badge>;
+    if (diff <= 7) return <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200">Vence em {diff}d · {due.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</Badge>;
+    return <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-200">Aguardando · {due.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</Badge>;
   }
 
   if (!due) return <span className="text-xs text-muted-foreground">Sem data</span>;
@@ -861,7 +874,7 @@ function MaintenancePlansSection({
                   <Badge variant="outline" className={`text-xs shrink-0 ${PLAN_TYPE_COLORS[plan.type]}`}>
                     {PLAN_TYPE_LABELS[plan.type]}
                   </Badge>
-                  <PlanDueBadge nextDueAt={plan.nextDueAt} recordCount={plan.recordCount} lastRecordStatus={plan.lastRecordStatus} />
+                  <PlanDueBadge nextDueAt={plan.nextDueAt} recordCount={plan.recordCount} lastRecordStatus={plan.lastRecordStatus} periodicity={plan.periodicity} />
                   {canWrite && (
                     <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                       <button
@@ -1013,6 +1026,7 @@ export default function AtivosPage() {
   const [search, setSearch] = useState("");
   const [unitFilter, setUnitFilter] = useState("");
   const [criticalityFilter, setCriticalityFilter] = useState("");
+  const [maintenanceFilter, setMaintenanceFilter] = useState<"overdue" | "upcoming" | "ok" | null>(null);
 
 
   const { data: assets = [], isLoading } = useListAssets(orgId);
@@ -1037,19 +1051,36 @@ export default function AtivosPage() {
   );
 
 
-  const filtered = assets.filter((a) => {
-    if (unitFilter && String(a.unitId ?? "") !== unitFilter) return false;
-    if (criticalityFilter && a.criticality !== criticalityFilter) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      return (
-        a.name.toLowerCase().includes(q) ||
-        a.assetType.toLowerCase().includes(q) ||
-        (a.impactedProcess ?? "").toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const overdueTotal = assets.filter((a) => a.overdueCount > 0).length;
+  const upcomingTotal = assets.filter((a) => a.overdueCount === 0 && a.upcomingCount > 0).length;
+  const okTotal = assets.filter((a) => a.activePlanCount > 0 && a.overdueCount === 0 && a.upcomingCount === 0 && a.pendingPlanCount === 0).length;
+
+  function maintenanceUrgency(a: Asset): number {
+    if (a.overdueCount > 0) return 0;
+    if (a.upcomingCount > 0) return 1;
+    if (a.pendingPlanCount > 0) return 2;
+    if (a.activePlanCount > 0) return 3;
+    return 4;
+  }
+
+  const filtered = assets
+    .filter((a) => {
+      if (unitFilter && String(a.unitId ?? "") !== unitFilter) return false;
+      if (criticalityFilter && a.criticality !== criticalityFilter) return false;
+      if (maintenanceFilter === "overdue" && a.overdueCount === 0) return false;
+      if (maintenanceFilter === "upcoming" && (a.overdueCount > 0 || a.upcomingCount === 0)) return false;
+      if (maintenanceFilter === "ok" && (a.overdueCount > 0 || a.upcomingCount > 0 || a.pendingPlanCount > 0 || a.activePlanCount === 0)) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        return (
+          a.name.toLowerCase().includes(q) ||
+          a.assetType.toLowerCase().includes(q) ||
+          (a.impactedProcess ?? "").toLowerCase().includes(q)
+        );
+      }
+      return true;
+    })
+    .sort((a, b) => maintenanceUrgency(a) - maintenanceUrgency(b));
 
 
 
@@ -1149,13 +1180,39 @@ export default function AtivosPage() {
         </Select>
       </div>
 
+      {!isLoading && assets.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <button
+            onClick={() => setMaintenanceFilter(maintenanceFilter === "overdue" ? null : "overdue")}
+            className={`text-left rounded-lg border p-4 transition-colors ${maintenanceFilter === "overdue" ? "border-red-300 bg-red-50" : "border-border bg-card hover:bg-muted/50"}`}
+          >
+            <p className={`text-2xl font-semibold ${overdueTotal > 0 ? "text-red-600" : "text-muted-foreground"}`}>{overdueTotal}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Com manutenção vencida</p>
+          </button>
+          <button
+            onClick={() => setMaintenanceFilter(maintenanceFilter === "upcoming" ? null : "upcoming")}
+            className={`text-left rounded-lg border p-4 transition-colors ${maintenanceFilter === "upcoming" ? "border-yellow-300 bg-yellow-50" : "border-border bg-card hover:bg-muted/50"}`}
+          >
+            <p className={`text-2xl font-semibold ${upcomingTotal > 0 ? "text-yellow-600" : "text-muted-foreground"}`}>{upcomingTotal}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Vencem nos próximos 30 dias</p>
+          </button>
+          <button
+            onClick={() => setMaintenanceFilter(maintenanceFilter === "ok" ? null : "ok")}
+            className={`text-left rounded-lg border p-4 transition-colors ${maintenanceFilter === "ok" ? "border-green-300 bg-green-50" : "border-border bg-card hover:bg-muted/50"}`}
+          >
+            <p className={`text-2xl font-semibold ${okTotal > 0 ? "text-green-600" : "text-muted-foreground"}`}>{okTotal}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Em dia</p>
+          </button>
+        </div>
+      )}
+
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando...</p>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
           <Building2 className="h-12 w-12 text-muted-foreground/40" />
           <p className="text-muted-foreground text-sm">
-            {search || unitFilter || criticalityFilter
+            {search || unitFilter || criticalityFilter || maintenanceFilter
               ? "Nenhum ativo encontrado para os filtros selecionados."
               : "Nenhum ativo cadastrado."}
           </p>

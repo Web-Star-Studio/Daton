@@ -13502,6 +13502,10 @@ components:
           type: integer
         overdueCount:
           type: integer
+        upcomingCount:
+          type: integer
+        pendingPlanCount:
+          type: integer
         nearestDueAt:
           type: ["string", "null"]
         hasPartialExecution:
@@ -13521,6 +13525,8 @@ components:
         - status
         - activePlanCount
         - overdueCount
+        - upcomingCount
+        - pendingPlanCount
         - hasPartialExecution
         - createdAt
         - updatedAt

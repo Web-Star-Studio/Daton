@@ -23,6 +23,8 @@ function serializeAsset(
   responsibleName?: string | null,
   activePlanCount = 0,
   overdueCount = 0,
+  upcomingCount = 0,
+  pendingPlanCount = 0,
   nearestDueAt: string | null = null,
   hasPartialExecution = false,
 ) {
@@ -41,6 +43,8 @@ function serializeAsset(
     description: a.description,
     activePlanCount,
     overdueCount,
+    upcomingCount,
+    pendingPlanCount,
     nearestDueAt,
     hasPartialExecution,
     createdAt: a.createdAt.toISOString(),
@@ -61,13 +65,15 @@ router.get("/organizations/:orgId/assets", requireAuth, async (req, res): Promis
   }
 
   const today = new Date().toISOString().slice(0, 10);
+  const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  // Subquery: aggregate plan stats per asset (only active plans)
+  // Subquery: aggregate plan stats per asset (only active plans).
   const planStatsSq = db
     .select({
       assetId: assetMaintenancePlansTable.assetId,
       activePlanCount: sql<number>`cast(count(*) as int)`.as("active_plan_count"),
       overdueCount: sql<number>`cast(count(case when next_due_at is not null and next_due_at < ${today} then 1 end) as int)`.as("overdue_count"),
+      upcomingCount: sql<number>`cast(count(case when next_due_at is not null and next_due_at >= ${today} and next_due_at <= ${in30Days} then 1 end) as int)`.as("upcoming_count"),
       nearestDueAt: sql<string | null>`min(next_due_at)`.as("nearest_due_at"),
     })
     .from(assetMaintenancePlansTable)
@@ -81,7 +87,21 @@ router.get("/organizations/:orgId/assets", requireAuth, async (req, res): Promis
       responsibleName: employeesTable.name,
       activePlanCount: planStatsSq.activePlanCount,
       overdueCount: planStatsSq.overdueCount,
+      upcomingCount: planStatsSq.upcomingCount,
       nearestDueAt: planStatsSq.nearestDueAt,
+      // pendingPlanCount: active plans with zero execution records for this asset.
+      // Computed in the outer query (same pattern as hasPartialExecution) to avoid
+      // referencing a non-grouped column inside the GROUP BY subquery.
+      pendingPlanCount: sql<number>`(
+        select cast(count(*) as int)
+        from asset_maintenance_plans p
+        where p.asset_id = ${assetsTable.id}
+          and p.is_active = true
+          and not exists (
+            select 1 from asset_maintenance_records r
+            where r.plan_id = p.id
+          )
+      )`,
       hasPartialExecution: sql<boolean>`exists(
         select 1 from asset_maintenance_plans p
         join asset_maintenance_records r on r.plan_id = p.id
@@ -105,6 +125,8 @@ router.get("/organizations/:orgId/assets", requireAuth, async (req, res): Promis
     r.responsibleName,
     r.activePlanCount ?? 0,
     r.overdueCount ?? 0,
+    r.upcomingCount ?? 0,
+    r.pendingPlanCount ?? 0,
     r.nearestDueAt ?? null,
     r.hasPartialExecution ?? false,
   )));

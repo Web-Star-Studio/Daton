@@ -299,8 +299,8 @@ router.post(
       })
       .returning();
 
-    // Recalculate nextDueAt on the plan when execution is conclusive
-    if (body.data.status === "concluida" || body.data.status === "parcial") {
+    // Recalculate nextDueAt on the plan only when execution is fully concluded
+    if (body.data.status === "concluida") {
       const [plan] = await db
         .select({ periodicity: assetMaintenancePlansTable.periodicity, nextDueAt: assetMaintenancePlansTable.nextDueAt })
         .from(assetMaintenancePlansTable)
@@ -363,7 +363,7 @@ router.delete(
         .where(
           and(
             eq(assetMaintenanceRecordsTable.planId, params.data.planId),
-            sql`${assetMaintenanceRecordsTable.status} in ('concluida', 'parcial')`,
+            sql`${assetMaintenanceRecordsTable.status} = 'concluida'`,
           ),
         )
         .orderBy(desc(assetMaintenanceRecordsTable.executedAt))
