@@ -6,11 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-<<<<<<<< HEAD:lib/api-zod/src/generated/types/listKpiYearDataParams.ts
 export type ListKpiYearDataParams = {
   unit?: string;
-========
-export type ValidatePasswordResetToken200 = {
-  valid: boolean;
->>>>>>>> 8cca2dd (feat(auth): implementa fluxo de recuperação de senha):lib/api-zod/src/generated/types/validatePasswordResetToken200.ts
 };

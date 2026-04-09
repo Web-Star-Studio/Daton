@@ -6,16 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-<<<<<<<< HEAD:lib/api-zod/src/generated/types/upsertKpiYearConfigBody.ts
 export interface UpsertKpiYearConfigBody {
   objectiveId?: number | null;
   seq?: number | null;
   goal?: number | null;
-========
-export interface ConfirmPasswordResetBody {
-  token: string;
-  /** @minLength 6 */
-  newPassword: string;
-  confirmPassword: string;
->>>>>>>> 8cca2dd (feat(auth): implementa fluxo de recuperação de senha):lib/api-zod/src/generated/types/confirmPasswordResetBody.ts
 }
