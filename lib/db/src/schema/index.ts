@@ -20,3 +20,6 @@ export * from "./strategic-plans";
 export * from "./product-knowledge";
 export * from "./suppliers";
 export * from "./kpi";
+export * from "./assets";
+export * from "./work-environment";
+export * from "./password-reset-tokens";
