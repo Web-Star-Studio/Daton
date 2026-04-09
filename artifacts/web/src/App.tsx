@@ -50,6 +50,8 @@ import KpiDashboardPage from "@/pages/app/kpi/dashboard";
 import ProfileSettingsPage from "@/pages/app/configuracoes/perfil";
 import SystemSettingsPage from "@/pages/app/configuracoes/sistema";
 import AcceptInvitePage from "@/pages/accept-invite";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -417,6 +419,8 @@ function Router() {
         path="/onboarding/organizacao"
         component={OnboardingOrganizationPage}
       />
+      <Route path="/auth/esqueci-minha-senha" component={ForgotPasswordPage} />
+      <Route path="/auth/redefinir-senha" component={ResetPasswordPage} />
       <Route path="/convite/:token" component={AcceptInvitePage} />
       <Route component={NotFound} />
     </Switch>

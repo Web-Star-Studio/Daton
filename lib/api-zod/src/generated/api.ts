@@ -267,6 +267,43 @@ export const UpdateMeResponse = zod.object({
 });
 
 /**
+ * @summary Request a password reset link
+ */
+export const RequestPasswordResetBody = zod.object({
+  email: zod.string().email(),
+});
+
+export const RequestPasswordResetResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Validate a password reset token
+ */
+export const ValidatePasswordResetTokenParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const ValidatePasswordResetTokenResponse = zod.object({
+  valid: zod.boolean(),
+});
+
+/**
+ * @summary Reset password using a valid token
+ */
+export const confirmPasswordResetBodyNewPasswordMin = 6;
+
+export const ConfirmPasswordResetBody = zod.object({
+  token: zod.string(),
+  newPassword: zod.string().min(confirmPasswordResetBodyNewPasswordMin),
+  confirmPassword: zod.string(),
+});
+
+export const ConfirmPasswordResetResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
  * @summary Update current user password
  */
 export const updateMyPasswordBodyNewPasswordMin = 6;
