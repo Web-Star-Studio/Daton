@@ -13873,6 +13873,9 @@ components:
           type: ["string", "null"]
         lastActionTaken:
           type: ["string", "null"]
+        lastVerifiedAt:
+          type: ["string", "null"]
+          format: date-time
         createdAt:
           type: string
           format: date-time

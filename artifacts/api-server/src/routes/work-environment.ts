@@ -38,6 +38,7 @@ function serializeControl(
   verificationCount: number,
   lastResult: string | null,
   lastActionTaken: string | null,
+  lastVerifiedAt: Date | null,
 ) {
   return {
     id: ctrl.id,
@@ -54,6 +55,7 @@ function serializeControl(
     verificationCount,
     lastResult,
     lastActionTaken,
+    lastVerifiedAt: lastVerifiedAt ? lastVerifiedAt.toISOString() : null,
     createdAt: ctrl.createdAt.toISOString(),
     updatedAt: ctrl.updatedAt.toISOString(),
   };
@@ -90,12 +92,13 @@ router.get(
     const query = ListWorkEnvironmentControlsQueryParams.safeParse(req.query);
     if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
 
-    // Subquery: last verification result and actionTaken per control
+    // Subquery: last verification result, actionTaken and verifiedAt per control
     const lastResultSq = db
       .select({
         controlId: workEnvironmentVerificationsTable.controlId,
         result: workEnvironmentVerificationsTable.result,
         actionTaken: workEnvironmentVerificationsTable.actionTaken,
+        verifiedAt: workEnvironmentVerificationsTable.verifiedAt,
       })
       .from(workEnvironmentVerificationsTable)
       .where(
@@ -119,6 +122,7 @@ router.get(
         verificationCount: sql<number>`cast(count(distinct ${workEnvironmentVerificationsTable.id}) as int)`,
         lastResult: lastResultSq.result,
         lastActionTaken: lastResultSq.actionTaken,
+        lastVerifiedAt: lastResultSq.verifiedAt,
       })
       .from(workEnvironmentControlsTable)
       .leftJoin(employeesTable, eq(workEnvironmentControlsTable.responsibleId, employeesTable.id))
@@ -126,10 +130,10 @@ router.get(
       .leftJoin(workEnvironmentVerificationsTable, eq(workEnvironmentControlsTable.id, workEnvironmentVerificationsTable.controlId))
       .leftJoin(lastResultSq, eq(workEnvironmentControlsTable.id, lastResultSq.controlId))
       .where(and(...conditions))
-      .groupBy(workEnvironmentControlsTable.id, employeesTable.name, unitsTable.name, lastResultSq.result, lastResultSq.actionTaken)
+      .groupBy(workEnvironmentControlsTable.id, employeesTable.name, unitsTable.name, lastResultSq.result, lastResultSq.actionTaken, lastResultSq.verifiedAt)
       .orderBy(workEnvironmentControlsTable.createdAt);
 
-    res.json(rows.map((r) => serializeControl(r.ctrl, r.responsibleName ?? null, r.unitName ?? null, r.verificationCount, r.lastResult ?? null, r.lastActionTaken ?? null)));
+    res.json(rows.map((r) => serializeControl(r.ctrl, r.responsibleName ?? null, r.unitName ?? null, r.verificationCount, r.lastResult ?? null, r.lastActionTaken ?? null, r.lastVerifiedAt ?? null)));
   },
 );
 
@@ -158,7 +162,7 @@ router.post(
       })
       .returning();
 
-    res.status(201).json(serializeControl(ctrl, null, null, 0, null, null));
+    res.status(201).json(serializeControl(ctrl, null, null, 0, null, null, null));
   },
 );
 
@@ -182,7 +186,7 @@ router.patch(
 
     if (!ctrl) { res.status(404).json({ error: "Controle não encontrado" }); return; }
 
-    res.json(serializeControl(ctrl, null, null, 0, null, null));
+    res.json(serializeControl(ctrl, null, null, 0, null, null, null));
   },
 );
 

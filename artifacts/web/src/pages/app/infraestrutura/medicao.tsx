@@ -579,7 +579,7 @@ export default function MedicaoPage() {
   const [filterSearch, setFilterSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<MeasurementResource | null>(null);
-  const [detailResource, setDetailResource] = useState<MeasurementResource | null>(null);
+  const [detailResourceId, setDetailResourceId] = useState<number | null>(null);
 
   const deleteMut = useDeleteMeasurementResource();
 
@@ -595,6 +595,7 @@ export default function MedicaoPage() {
     unitId: filterUnit ? Number(filterUnit) : undefined,
     resourceType: filterType || undefined,
   });
+  const detailResource = detailResourceId != null ? (resources.find((r) => r.id === detailResourceId) ?? null) : null;
 
   const filtered = resources.filter((r) =>
     !filterSearch ||
@@ -689,7 +690,7 @@ export default function MedicaoPage() {
               <TableRow
                 key={r.id}
                 className="cursor-pointer hover:bg-muted/40"
-                onClick={() => setDetailResource(r)}
+                onClick={() => setDetailResourceId(r.id)}
               >
                 <TableCell className="text-xs">
                   <div className="flex flex-col gap-0.5">
@@ -745,8 +746,8 @@ export default function MedicaoPage() {
         orgId={orgId}
         resource={detailResource}
         canWrite={canWrite}
-        onClose={() => setDetailResource(null)}
-        onEdit={(r) => { setDetailResource(null); setEditing(r); setDialogOpen(true); }}
+        onClose={() => setDetailResourceId(null)}
+        onEdit={(r) => { setDetailResourceId(null); setEditing(r); setDialogOpen(true); }}
       />
     </div>
   );

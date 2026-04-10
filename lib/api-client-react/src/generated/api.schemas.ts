@@ -3701,6 +3701,8 @@ export interface WorkEnvironmentControl {
   lastResult?: string | null;
   /** @nullable */
   lastActionTaken?: string | null;
+  /** @nullable */
+  lastVerifiedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

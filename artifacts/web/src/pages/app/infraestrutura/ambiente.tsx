@@ -85,6 +85,14 @@ const FREQUENCY_LABELS: Record<string, string> = {
   anual: "Anual",
 };
 
+const FREQUENCY_DAYS: Record<string, number> = {
+  semanal: 7,
+  mensal: 30,
+  trimestral: 90,
+  semestral: 180,
+  anual: 365,
+};
+
 const STATUS_LABELS: Record<string, string> = { ativo: "Ativo", inativo: "Inativo" };
 const STATUS_COLORS: Record<string, string> = {
   ativo: "bg-green-100 text-green-700 border-green-200",
@@ -92,6 +100,48 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 // --- Helpers ---
+
+function nextDueDate(lastVerifiedAt: string, frequency: string): Date {
+  const days = FREQUENCY_DAYS[frequency] ?? 30;
+  return new Date(new Date(lastVerifiedAt).getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function isOverdue(lastVerifiedAt: string, frequency: string): boolean {
+  return nextDueDate(lastVerifiedAt, frequency) < new Date();
+}
+
+function VerificationDueBadge({
+  lastVerifiedAt,
+  frequency,
+}: {
+  lastVerifiedAt: string | null | undefined;
+  frequency: string;
+}) {
+  if (!lastVerifiedAt) return <span className="text-xs text-muted-foreground">—</span>;
+
+  const freqDays = FREQUENCY_DAYS[frequency] ?? 30;
+  const due = nextDueDate(lastVerifiedAt, frequency);
+  const now = new Date();
+  const daysLeft = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const label = due.toLocaleDateString("pt-BR");
+  const warningDays = Math.max(3, Math.floor(freqDays * 0.2));
+
+  if (daysLeft < 0) {
+    return (
+      <span className="flex items-center gap-1 text-xs text-red-600">
+        <AlertTriangle className="h-3 w-3" /> {label}
+      </span>
+    );
+  }
+  if (daysLeft <= warningDays) {
+    return (
+      <span className="flex items-center gap-1 text-xs text-yellow-600">
+        <AlertTriangle className="h-3 w-3" /> {label}
+      </span>
+    );
+  }
+  return <span className="text-xs text-muted-foreground">{label}</span>;
+}
 
 function controlAlertStatus(ctrl: WorkEnvironmentControl): "desvio" | "sem-verificacao" | "ok" {
   if (ctrl.verificationCount === 0) return "sem-verificacao";
@@ -272,74 +322,9 @@ function VerificationsPanel({
 
   return (
     <div className="flex flex-col gap-2">
-      {canWrite && !adding && (
-        <Button size="sm" variant="outline" className="w-fit" onClick={() => setAdding(true)}>
-          <Plus className="h-3.5 w-3.5 mr-1" />
-          Registrar verificação
-        </Button>
-      )}
-
-      {adding && (
-        <form onSubmit={handleAdd} className="flex flex-col gap-2 rounded-md border p-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">Data/hora *</Label>
-              <Input type="datetime-local" required value={verifForm.verifiedAt}
-                onChange={(e) => setVerifForm((f) => ({ ...f, verifiedAt: e.target.value }))}
-                className="text-xs" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">Resultado *</Label>
-              <Select value={verifForm.result}
-                onChange={(e) => setVerifForm((f) => ({ ...f, result: e.target.value }))}
-                className="text-xs">
-                <option value="adequado">Adequado</option>
-                <option value="parcial">Parcial</option>
-                <option value="inadequado">Inadequado</option>
-              </Select>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs">Verificado por</Label>
-            <Select value={verifForm.verifiedById}
-              onChange={(e) => setVerifForm((f) => ({ ...f, verifiedById: e.target.value }))}
-              className="text-xs">
-              <option value="">Nenhum</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>{emp.name}</option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs">Observações</Label>
-            <Textarea value={verifForm.notes}
-              onChange={(e) => setVerifForm((f) => ({ ...f, notes: e.target.value }))}
-              rows={2} className="text-xs" placeholder="Descreva o que foi observado..." />
-          </div>
-          {(verifForm.result === "inadequado" || verifForm.result === "parcial") && (
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3 text-yellow-600" />
-                Ação tomada
-              </Label>
-              <Textarea value={verifForm.actionTaken}
-                onChange={(e) => setVerifForm((f) => ({ ...f, actionTaken: e.target.value }))}
-                rows={2} className="text-xs" placeholder="Descreva a ação corretiva ou de melhoria..." />
-            </div>
-          )}
-          <div className="flex gap-2">
-            <Button type="submit" size="sm" disabled={createMut.isPending}>Salvar</Button>
-            <Button type="button" size="sm" variant="ghost"
-              onClick={() => { setAdding(false); setVerifForm(defaultVerifForm()); }}>
-              Cancelar
-            </Button>
-          </div>
-        </form>
-      )}
-
       {isLoading ? (
         <p className="text-xs text-muted-foreground">Carregando...</p>
-      ) : verifications.length === 0 ? (
+      ) : verifications.length === 0 && !adding ? (
         <p className="text-xs text-muted-foreground">Nenhuma verificação registrada.</p>
       ) : (
         <div className="flex flex-col gap-1.5">
@@ -399,6 +384,71 @@ function VerificationsPanel({
             );
           })}
         </div>
+      )}
+
+      {adding && (
+        <form onSubmit={handleAdd} className="flex flex-col gap-2 rounded-md border p-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs">Data/hora *</Label>
+              <Input type="datetime-local" required value={verifForm.verifiedAt}
+                onChange={(e) => setVerifForm((f) => ({ ...f, verifiedAt: e.target.value }))}
+                className="text-xs" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs">Resultado *</Label>
+              <Select value={verifForm.result}
+                onChange={(e) => setVerifForm((f) => ({ ...f, result: e.target.value }))}
+                className="text-xs">
+                <option value="adequado">Adequado</option>
+                <option value="parcial">Parcial</option>
+                <option value="inadequado">Inadequado</option>
+            </Select>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs">Verificado por</Label>
+            <Select value={verifForm.verifiedById}
+              onChange={(e) => setVerifForm((f) => ({ ...f, verifiedById: e.target.value }))}
+              className="text-xs">
+              <option value="">Nenhum</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>{emp.name}</option>
+              ))}
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs">Observações</Label>
+            <Textarea value={verifForm.notes}
+              onChange={(e) => setVerifForm((f) => ({ ...f, notes: e.target.value }))}
+              rows={2} className="text-xs" placeholder="Descreva o que foi observado..." />
+          </div>
+          {(verifForm.result === "inadequado" || verifForm.result === "parcial") && (
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3 text-yellow-600" />
+                Ação tomada
+              </Label>
+              <Textarea value={verifForm.actionTaken}
+                onChange={(e) => setVerifForm((f) => ({ ...f, actionTaken: e.target.value }))}
+                rows={2} className="text-xs" placeholder="Descreva a ação corretiva ou de melhoria..." />
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" disabled={createMut.isPending}>Salvar</Button>
+            <Button type="button" size="sm" variant="ghost"
+              onClick={() => { setAdding(false); setVerifForm(defaultVerifForm()); }}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {canWrite && !adding && (
+        <Button size="sm" variant="outline" className="w-fit" onClick={() => setAdding(true)}>
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          Registrar verificação
+        </Button>
       )}
     </div>
   );
@@ -483,6 +533,14 @@ function ControlDetailSheet({
             <DetailField label="Unidade" value={control.unitName} />
             <DetailField label="Frequência" value={FREQUENCY_LABELS[control.frequency]} />
             <DetailField label="Responsável" value={control.responsibleName} />
+            <DetailField
+              label="Última verificação"
+              value={control.lastVerifiedAt ? new Date(control.lastVerifiedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : undefined}
+            />
+            <DetailField
+              label="Próxima verificação"
+              value={<VerificationDueBadge lastVerifiedAt={control.lastVerifiedAt} frequency={control.frequency} />}
+            />
           </div>
           {control.description && (
             <div className="flex flex-col gap-0.5">
@@ -520,7 +578,7 @@ export default function AmbientePage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingControl, setEditingControl] = useState<WorkEnvironmentControl | null>(null);
-  const [detailControl, setDetailControl] = useState<WorkEnvironmentControl | null>(null);
+  const [detailControlId, setDetailControlId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<WorkEnvironmentControl | null>(null);
   const [form, setForm] = useState<ControlForm>(defaultControlForm());
   const [unitFilter, setUnitFilter] = useState("");
@@ -528,6 +586,7 @@ export default function AmbientePage() {
   const [search, setSearch] = useState("");
 
   const { data: controls = [], isLoading } = useListWorkEnvironmentControls(orgId);
+  const detailControl = detailControlId != null ? (controls.find((c) => c.id === detailControlId) ?? null) : null;
   const { data: units = [] } = useListUnits(orgId);
   const employeePicker = useEmployeeMultiPicker({ orgId, selectedIds: [] });
   const createMut = useCreateWorkEnvironmentControl();
@@ -559,7 +618,7 @@ export default function AmbientePage() {
   });
 
   function openEdit(ctrl: WorkEnvironmentControl) {
-    setDetailControl(null);
+    setDetailControlId(null);
     setEditingControl(ctrl);
     setForm({
       title: ctrl.title,
@@ -603,7 +662,7 @@ export default function AmbientePage() {
     try {
       await deleteMut.mutateAsync({ orgId, controlId: deleteTarget.id });
       queryClient.invalidateQueries({ queryKey: getListWorkEnvironmentControlsQueryKey(orgId) });
-      if (detailControl?.id === deleteTarget.id) setDetailControl(null);
+      if (detailControlId === deleteTarget.id) setDetailControlId(null);
       toast({ title: "Controle removido" });
     } catch {
       toast({ title: "Erro ao remover controle", variant: "destructive" });
@@ -612,8 +671,41 @@ export default function AmbientePage() {
     }
   }
 
+  const desvioSemAcaoCount = controls.filter(
+    (c) => c.status === "ativo" && c.lastResult === "inadequado" && !c.lastActionTaken,
+  ).length;
+  const semVerificacaoCount = controls.filter(
+    (c) => c.status === "ativo" && c.verificationCount === 0,
+  ).length;
+  const vencidaCount = controls.filter(
+    (c) => c.status === "ativo" && c.verificationCount > 0 && c.lastVerifiedAt != null && isOverdue(c.lastVerifiedAt, c.frequency),
+  ).length;
+
   return (
     <div className="flex flex-col gap-4 p-6">
+      {(vencidaCount > 0 || desvioSemAcaoCount > 0 || semVerificacaoCount > 0) && (
+        <div className="flex flex-wrap gap-2">
+          {vencidaCount > 0 && (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
+              <AlertTriangle className="h-4 w-4" />
+              {vencidaCount} verificaç{vencidaCount > 1 ? "ões vencidas" : "ão vencida"}
+            </div>
+          )}
+          {desvioSemAcaoCount > 0 && (
+            <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-xs text-orange-700">
+              <AlertTriangle className="h-4 w-4" />
+              {desvioSemAcaoCount} desvio{desvioSemAcaoCount > 1 ? "s" : ""} sem ação tomada
+            </div>
+          )}
+          {semVerificacaoCount > 0 && (
+            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600">
+              <AlertTriangle className="h-4 w-4" />
+              {semVerificacaoCount} controle{semVerificacaoCount > 1 ? "s" : ""} sem verificação registrada
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
         <Input
           placeholder="Buscar por título ou descrição..."
@@ -659,32 +751,38 @@ export default function AmbientePage() {
               <TableHead>Título</TableHead>
               <TableHead>Fator</TableHead>
               <TableHead>Unidade</TableHead>
-              <TableHead>Frequência</TableHead>
+              <TableHead>Próx. verificação</TableHead>
               <TableHead>Responsável</TableHead>
+              <TableHead>Verificações</TableHead>
               <TableHead>Status</TableHead>
               {canWrite && <TableHead className="w-24" />}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.map((ctrl) => (
-              <TableRow key={ctrl.id} className="cursor-pointer" onClick={() => setDetailControl(ctrl)}>
-                <TableCell className="font-medium">
-                  <div className="flex items-center gap-2">
-                    {ctrl.title}
-                    {controlAlertStatus(ctrl) !== "ok" && (
-                      <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                    )}
-                  </div>
-                </TableCell>
+              <TableRow key={ctrl.id} className="cursor-pointer" onClick={() => setDetailControlId(ctrl.id)}>
+                <TableCell className="font-medium">{ctrl.title}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className={FACTOR_TYPE_COLORS[ctrl.factorType]}>
                     {FACTOR_TYPE_LABELS[ctrl.factorType]}
                   </Badge>
                 </TableCell>
                 <TableCell>{ctrl.unitName ?? "—"}</TableCell>
-                <TableCell>{FREQUENCY_LABELS[ctrl.frequency]}</TableCell>
+                <TableCell>
+                  <VerificationDueBadge lastVerifiedAt={ctrl.lastVerifiedAt} frequency={ctrl.frequency} />
+                </TableCell>
                 <TableCell>{ctrl.responsibleName ?? "—"}</TableCell>
-                <TableCell><ControlStatusBadge ctrl={ctrl} /></TableCell>
+                <TableCell className="text-muted-foreground">{ctrl.verificationCount}</TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1 items-center">
+                    {ctrl.status === "inativo" && (
+                      <Badge variant="outline" className={`text-xs ${STATUS_COLORS.inativo}`}>
+                        {STATUS_LABELS.inativo}
+                      </Badge>
+                    )}
+                    <ControlStatusBadge ctrl={ctrl} />
+                  </div>
+                </TableCell>
                 {canWrite && (
                   <TableCell>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
@@ -711,7 +809,7 @@ export default function AmbientePage() {
         orgId={orgId}
         canWrite={canWrite}
         onEdit={openEdit}
-        onClose={() => setDetailControl(null)}
+        onClose={() => setDetailControlId(null)}
       />
 
       {/* Create / Edit dialog */}
