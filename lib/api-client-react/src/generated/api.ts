@@ -21015,6 +21015,7 @@ export const useUpsertKpiValues = <
   return useMutation(getUpsertKpiValuesMutationOptions(options));
 };
 
+/**
  * @summary List assets for an organization
  */
 export const getListAssetsUrl = (orgId: number,) => {
