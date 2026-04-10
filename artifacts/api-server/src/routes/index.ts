@@ -18,6 +18,7 @@ import environmentalRouter from "./environmental/index";
 import governanceRouter from "./governance/index";
 import notificationsRouter from "./notifications";
 import invitationsRouter from "./invitations";
+import passwordResetRouter from "./password-reset";
 import orgUsersRouter from "./org-users";
 import organizationContactsRouter from "./organization-contacts";
 import productKnowledgeRouter from "./product-knowledge";
@@ -47,6 +48,7 @@ function requireModuleAccessForPaths(
 
 router.use(healthRouter);
 router.use(authRouter);
+router.use(passwordResetRouter);
 router.use(storageRouter);
 router.use(invitationsRouter);
 router.use(orgUsersRouter);

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useLogin, useRegister } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
@@ -159,7 +159,15 @@ export default function AuthPage() {
                     )}
                   </div>
                   <div>
-                    <Label htmlFor="login-password">Senha</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="login-password">Senha</Label>
+                      <Link
+                        href="/auth/esqueci-minha-senha"
+                        className="text-[12px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                      >
+                        Esqueci minha senha
+                      </Link>
+                    </div>
                     <div className="relative mt-2">
                       <Input
                         id="login-password"

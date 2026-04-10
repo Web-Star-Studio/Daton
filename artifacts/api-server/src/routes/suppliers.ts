@@ -592,7 +592,7 @@ async function loadSupplierDetail(supplierId: number, orgId: number) {
         .where(eq(usersTable.id, supplier.createdById))
     : [];
 
-  const [units, types, offerings, submissions, documentReviews, communications, qualificationReviews, performanceReviews, receiptChecks, failures] =
+  const [units, types, offerings, submissions, documentReviews, qualificationReviews, performanceReviews, receiptChecks, failures] =
     await Promise.all([
       db
         .select({ id: unitsTable.id, name: unitsTable.name })
