@@ -48,6 +48,9 @@ tags:
     description: Supplier management and external provider control (ISO 9001:2015 §8.4 / §8.6)
   - name: kpi
     description: KPI indicators, objectives and performance data (ISO 9001:2015 §9.1)
+  - name: assets
+  - name: work-environment
+    description: Critical asset registry and infrastructure management (ISO 9001:2015 §7.1.3)
 
 paths:
   /healthz:
@@ -6276,6 +6279,1064 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/KpiMonthlyValue"
+
+  /organizations/{orgId}/assets:
+    get:
+      operationId: listAssets
+      tags: [assets]
+      summary: List assets for an organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of assets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Asset"
+    post:
+      operationId: createAsset
+      tags: [assets]
+      summary: Create an asset
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetBody"
+      responses:
+        "201":
+          description: Asset created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+
+  /organizations/{orgId}/assets/{assetId}:
+    get:
+      operationId: getAsset
+      tags: [assets]
+      summary: Get asset details
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Asset details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+    patch:
+      operationId: updateAsset
+      tags: [assets]
+      summary: Update an asset
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAssetBody"
+      responses:
+        "200":
+          description: Updated asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+    delete:
+      operationId: deleteAsset
+      tags: [assets]
+      summary: Delete an asset
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Asset deleted
+
+  /organizations/{orgId}/assets/{assetId}/documents:
+    get:
+      operationId: listAssetDocuments
+      tags: [assets]
+      summary: List documents linked to an asset
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of linked documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssetDocument"
+    post:
+      operationId: addAssetDocument
+      tags: [assets]
+      summary: Link a document to an asset
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddAssetDocumentBody"
+      responses:
+        "201":
+          description: Document linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetDocument"
+
+  /organizations/{orgId}/assets/{assetId}/documents/{documentId}:
+    delete:
+      operationId: removeAssetDocument
+      tags: [assets]
+      summary: Unlink a document from an asset
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Document unlinked
+
+  /organizations/{orgId}/assets/{assetId}/maintenance-plans:
+    get:
+      operationId: listAssetMaintenancePlans
+      tags: [assets]
+      summary: List maintenance plans for an asset
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of maintenance plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssetMaintenancePlan"
+    post:
+      operationId: createAssetMaintenancePlan
+      tags: [assets]
+      summary: Create a maintenance plan for an asset
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetMaintenancePlanBody"
+      responses:
+        "201":
+          description: Maintenance plan created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetMaintenancePlan"
+
+  /organizations/{orgId}/assets/{assetId}/maintenance-plans/{planId}:
+    patch:
+      operationId: updateAssetMaintenancePlan
+      tags: [assets]
+      summary: Update a maintenance plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAssetMaintenancePlanBody"
+      responses:
+        "200":
+          description: Updated plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetMaintenancePlan"
+    delete:
+      operationId: deleteAssetMaintenancePlan
+      tags: [assets]
+      summary: Delete a maintenance plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Plan deleted
+
+  /organizations/{orgId}/assets/{assetId}/maintenance-plans/{planId}/records:
+    get:
+      operationId: listAssetMaintenanceRecords
+      tags: [assets]
+      summary: List execution records for a maintenance plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssetMaintenanceRecord"
+    post:
+      operationId: createAssetMaintenanceRecord
+      tags: [assets]
+      summary: Register a maintenance execution
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetMaintenanceRecordBody"
+      responses:
+        "201":
+          description: Record created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetMaintenanceRecord"
+
+  /organizations/{orgId}/assets/{assetId}/maintenance-plans/{planId}/records/{recordId}:
+    delete:
+      operationId: deleteAssetMaintenanceRecord
+      tags: [assets]
+      summary: Delete a maintenance record
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Record deleted
+
+  /organizations/{orgId}/assets/{assetId}/maintenance-plans/{planId}/records/{recordId}/attachments:
+    get:
+      operationId: listMaintenanceRecordAttachments
+      tags: [assets]
+      summary: List attachments for a maintenance record
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of attachments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MaintenanceRecordAttachment"
+    post:
+      operationId: addMaintenanceRecordAttachment
+      tags: [assets]
+      summary: Add an attachment to a maintenance record
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddMaintenanceRecordAttachmentBody"
+      responses:
+        "201":
+          description: Attachment added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceRecordAttachment"
+
+  /organizations/{orgId}/assets/{assetId}/maintenance-plans/{planId}/records/{recordId}/attachments/{attachmentId}:
+    delete:
+      operationId: deleteMaintenanceRecordAttachment
+      tags: [assets]
+      summary: Delete an attachment from a maintenance record
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Attachment deleted
+
+  /organizations/{orgId}/work-environment/controls:
+    get:
+      operationId: listWorkEnvironmentControls
+      tags: [work-environment]
+      summary: List work environment controls
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: query
+          schema:
+            type: integer
+        - name: factorType
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of controls
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkEnvironmentControl"
+    post:
+      operationId: createWorkEnvironmentControl
+      tags: [work-environment]
+      summary: Create a work environment control
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkEnvironmentControlBody"
+      responses:
+        "201":
+          description: Control created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkEnvironmentControl"
+
+  /organizations/{orgId}/work-environment/controls/{controlId}:
+    patch:
+      operationId: updateWorkEnvironmentControl
+      tags: [work-environment]
+      summary: Update a work environment control
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: controlId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkEnvironmentControlBody"
+      responses:
+        "200":
+          description: Updated control
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkEnvironmentControl"
+    delete:
+      operationId: deleteWorkEnvironmentControl
+      tags: [work-environment]
+      summary: Delete a work environment control
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: controlId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Control deleted
+
+  /organizations/{orgId}/work-environment/controls/{controlId}/verifications:
+    get:
+      operationId: listWorkEnvironmentVerifications
+      tags: [work-environment]
+      summary: List verifications for a control
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: controlId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of verifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkEnvironmentVerification"
+    post:
+      operationId: createWorkEnvironmentVerification
+      tags: [work-environment]
+      summary: Register a verification
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: controlId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkEnvironmentVerificationBody"
+      responses:
+        "201":
+          description: Verification created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkEnvironmentVerification"
+
+  /organizations/{orgId}/work-environment/controls/{controlId}/verifications/{verificationId}:
+    delete:
+      operationId: deleteWorkEnvironmentVerification
+      tags: [work-environment]
+      summary: Delete a verification
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: controlId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: verificationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Verification deleted
+
+  /organizations/{orgId}/work-environment/controls/{controlId}/verifications/{verificationId}/attachments:
+    get:
+      operationId: listWorkEnvironmentAttachments
+      tags: [work-environment]
+      summary: List attachments for a verification
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: controlId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: verificationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of attachments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkEnvironmentAttachment"
+    post:
+      operationId: addWorkEnvironmentAttachment
+      tags: [work-environment]
+      summary: Add attachment to a verification
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: controlId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: verificationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddWorkEnvironmentAttachmentBody"
+      responses:
+        "201":
+          description: Attachment added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkEnvironmentAttachment"
+
+  /organizations/{orgId}/work-environment/controls/{controlId}/verifications/{verificationId}/attachments/{attachmentId}:
+    delete:
+      operationId: deleteWorkEnvironmentAttachment
+      tags: [work-environment]
+      summary: Delete an attachment
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: controlId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: verificationId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Attachment deleted
+
+  /organizations/{orgId}/measurement-resources:
+    get:
+      operationId: listMeasurementResources
+      tags: [measurement-resources]
+      summary: List measurement resources
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: query
+          schema:
+            type: integer
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of measurement resources
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeasurementResource"
+    post:
+      operationId: createMeasurementResource
+      tags: [measurement-resources]
+      summary: Create a measurement resource
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMeasurementResourceBody"
+      responses:
+        "201":
+          description: Measurement resource created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeasurementResource"
+
+  /organizations/{orgId}/measurement-resources/{resourceId}:
+    patch:
+      operationId: updateMeasurementResource
+      tags: [measurement-resources]
+      summary: Update a measurement resource
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeasurementResourceBody"
+      responses:
+        "200":
+          description: Measurement resource updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeasurementResource"
+    delete:
+      operationId: deleteMeasurementResource
+      tags: [measurement-resources]
+      summary: Delete a measurement resource
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Measurement resource deleted
+
+  /organizations/{orgId}/measurement-resources/{resourceId}/calibrations:
+    get:
+      operationId: listMeasurementResourceCalibrations
+      tags: [measurement-resources]
+      summary: List calibrations for a resource
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of calibrations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeasurementResourceCalibration"
+    post:
+      operationId: createMeasurementResourceCalibration
+      tags: [measurement-resources]
+      summary: Record a calibration
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMeasurementResourceCalibrationBody"
+      responses:
+        "201":
+          description: Calibration recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeasurementResourceCalibration"
+
+  /organizations/{orgId}/measurement-resources/{resourceId}/calibrations/{calibrationId}:
+    delete:
+      operationId: deleteMeasurementResourceCalibration
+      tags: [measurement-resources]
+      summary: Delete a calibration record
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: calibrationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Calibration deleted
+
+  /organizations/{orgId}/measurement-resources/{resourceId}/calibrations/{calibrationId}/attachments:
+    get:
+      operationId: listMeasurementResourceAttachments
+      tags: [measurement-resources]
+      summary: List attachments for a calibration
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: calibrationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of attachments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeasurementResourceAttachment"
+    post:
+      operationId: addMeasurementResourceAttachment
+      tags: [measurement-resources]
+      summary: Add attachment to a calibration
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: calibrationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddMeasurementResourceAttachmentBody"
+      responses:
+        "201":
+          description: Attachment added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeasurementResourceAttachment"
+
+  /organizations/{orgId}/measurement-resources/{resourceId}/calibrations/{calibrationId}/attachments/{attachmentId}:
+    delete:
+      operationId: deleteMeasurementResourceAttachment
+      tags: [measurement-resources]
+      summary: Delete an attachment
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: calibrationId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Attachment deleted
 
 components:
   schemas:
@@ -12512,6 +13573,582 @@ components:
       required:
         - values
 
+    Asset:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        unitId:
+          type: ["integer", "null"]
+        name:
+          type: string
+        assetType:
+          type: string
+        criticality:
+          type: string
+          enum: [alta, media, baixa]
+        status:
+          type: string
+          enum: [ativo, inativo, em_manutencao]
+        location:
+          type: ["string", "null"]
+        impactedProcess:
+          type: ["string", "null"]
+        responsibleId:
+          type: ["integer", "null"]
+        responsibleName:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        activePlanCount:
+          type: integer
+        overdueCount:
+          type: integer
+        upcomingCount:
+          type: integer
+        pendingPlanCount:
+          type: integer
+        nearestDueAt:
+          type: ["string", "null"]
+        hasPartialExecution:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - name
+        - assetType
+        - criticality
+        - status
+        - activePlanCount
+        - overdueCount
+        - upcomingCount
+        - pendingPlanCount
+        - hasPartialExecution
+        - createdAt
+        - updatedAt
+
+    CreateAssetBody:
+      type: object
+      properties:
+        unitId:
+          type: integer
+          nullable: true
+        name:
+          type: string
+          minLength: 1
+        assetType:
+          type: string
+          minLength: 1
+        criticality:
+          type: string
+          enum: [alta, media, baixa]
+        status:
+          type: string
+          enum: [ativo, inativo, em_manutencao]
+        location:
+          type: string
+          nullable: true
+        impactedProcess:
+          type: string
+          nullable: true
+        responsibleId:
+          type: integer
+          nullable: true
+        description:
+          type: string
+          nullable: true
+      required:
+        - name
+        - assetType
+
+    UpdateAssetBody:
+      type: object
+      properties:
+        unitId:
+          type: integer
+          nullable: true
+        name:
+          type: string
+          minLength: 1
+        assetType:
+          type: string
+          minLength: 1
+        criticality:
+          type: string
+          enum: [alta, media, baixa]
+        status:
+          type: string
+          enum: [ativo, inativo, em_manutencao]
+        location:
+          type: string
+          nullable: true
+        impactedProcess:
+          type: string
+          nullable: true
+        responsibleId:
+          type: integer
+          nullable: true
+        description:
+          type: string
+          nullable: true
+
+    AssetDocument:
+      type: object
+      properties:
+        id:
+          type: integer
+        assetId:
+          type: integer
+        documentId:
+          type: integer
+        documentTitle:
+          type: string
+        documentType:
+          type: string
+        documentStatus:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - assetId
+        - documentId
+        - documentTitle
+        - documentType
+        - documentStatus
+        - createdAt
+
+    AddAssetDocumentBody:
+      type: object
+      properties:
+        documentId:
+          type: integer
+      required:
+        - documentId
+
+    AssetMaintenancePlan:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        assetId:
+          type: integer
+        title:
+          type: string
+        type:
+          type: string
+          enum: [preventiva, corretiva, inspecao]
+        periodicity:
+          type: string
+          enum: [semanal, mensal, trimestral, semestral, anual, unica]
+        checklistItems:
+          type: array
+          items:
+            type: string
+        responsibleId:
+          type: ["integer", "null"]
+        responsibleName:
+          type: ["string", "null"]
+        nextDueAt:
+          type: ["string", "null"]
+          format: date
+        isActive:
+          type: boolean
+        recordCount:
+          type: integer
+        lastRecordStatus:
+          type: ["string", "null"]
+          enum: [concluida, parcial, cancelada]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - assetId
+        - title
+        - type
+        - periodicity
+        - checklistItems
+        - isActive
+        - recordCount
+        - lastRecordStatus
+        - createdAt
+        - updatedAt
+
+    CreateAssetMaintenancePlanBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [preventiva, corretiva, inspecao]
+        periodicity:
+          type: string
+          enum: [semanal, mensal, trimestral, semestral, anual, unica]
+        checklistItems:
+          type: array
+          items:
+            type: string
+        responsibleId:
+          type: integer
+          nullable: true
+        nextDueAt:
+          type: string
+          format: date
+          nullable: true
+      required:
+        - title
+
+    UpdateAssetMaintenancePlanBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [preventiva, corretiva, inspecao]
+        periodicity:
+          type: string
+          enum: [semanal, mensal, trimestral, semestral, anual, unica]
+        checklistItems:
+          type: array
+          items:
+            type: string
+        responsibleId:
+          type: integer
+          nullable: true
+        nextDueAt:
+          type: string
+          format: date
+          nullable: true
+        isActive:
+          type: boolean
+
+    AssetMaintenanceRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        planId:
+          type: integer
+        assetId:
+          type: integer
+        executedAt:
+          type: string
+          format: date-time
+        executedById:
+          type: ["integer", "null"]
+        executedByName:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [concluida, parcial, cancelada]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - planId
+        - assetId
+        - executedAt
+        - status
+        - createdAt
+
+    CreateAssetMaintenanceRecordBody:
+      type: object
+      properties:
+        executedAt:
+          type: string
+          format: date-time
+        executedById:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [concluida, parcial, cancelada]
+        notes:
+          type: string
+          nullable: true
+      required:
+        - executedAt
+        - status
+
+    MaintenanceRecordAttachment:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        recordId:
+          type: integer
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        contentType:
+          type: string
+        objectPath:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - recordId
+        - fileName
+        - fileSize
+        - contentType
+        - objectPath
+        - uploadedAt
+
+    AddMaintenanceRecordAttachmentBody:
+      type: object
+      properties:
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        contentType:
+          type: string
+        objectPath:
+          type: string
+      required:
+        - fileName
+        - fileSize
+        - contentType
+        - objectPath
+
+    WorkEnvironmentControl:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        unitId:
+          type: ["integer", "null"]
+        unitName:
+          type: ["string", "null"]
+        factorType:
+          type: string
+          enum: [fisico, social, psicologico]
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        responsibleId:
+          type: ["integer", "null"]
+        responsibleName:
+          type: ["string", "null"]
+        frequency:
+          type: string
+          enum: [semanal, mensal, trimestral, semestral, anual]
+        status:
+          type: string
+          enum: [ativo, inativo]
+        verificationCount:
+          type: integer
+        lastResult:
+          type: ["string", "null"]
+        lastActionTaken:
+          type: ["string", "null"]
+        lastVerifiedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - factorType
+        - title
+        - frequency
+        - status
+        - verificationCount
+        - createdAt
+        - updatedAt
+
+    CreateWorkEnvironmentControlBody:
+      type: object
+      properties:
+        unitId:
+          type: integer
+          nullable: true
+        factorType:
+          type: string
+          enum: [fisico, social, psicologico]
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        responsibleId:
+          type: integer
+          nullable: true
+        frequency:
+          type: string
+          enum: [semanal, mensal, trimestral, semestral, anual]
+      required:
+        - title
+
+    UpdateWorkEnvironmentControlBody:
+      type: object
+      properties:
+        unitId:
+          type: integer
+          nullable: true
+        factorType:
+          type: string
+          enum: [fisico, social, psicologico]
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        responsibleId:
+          type: integer
+          nullable: true
+        frequency:
+          type: string
+          enum: [semanal, mensal, trimestral, semestral, anual]
+        status:
+          type: string
+          enum: [ativo, inativo]
+
+    WorkEnvironmentVerification:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        controlId:
+          type: integer
+        verifiedAt:
+          type: string
+          format: date-time
+        verifiedById:
+          type: ["integer", "null"]
+        verifiedByName:
+          type: ["string", "null"]
+        result:
+          type: string
+          enum: [adequado, inadequado, parcial]
+        notes:
+          type: ["string", "null"]
+        actionTaken:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - controlId
+        - verifiedAt
+        - result
+        - createdAt
+
+    CreateWorkEnvironmentVerificationBody:
+      type: object
+      properties:
+        verifiedAt:
+          type: string
+          format: date-time
+        verifiedById:
+          type: integer
+          nullable: true
+        result:
+          type: string
+          enum: [adequado, inadequado, parcial]
+        notes:
+          type: string
+          nullable: true
+        actionTaken:
+          type: string
+          nullable: true
+      required:
+        - verifiedAt
+        - result
+
+    WorkEnvironmentAttachment:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        verificationId:
+          type: integer
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        contentType:
+          type: string
+        objectPath:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - verificationId
+        - fileName
+        - fileSize
+        - contentType
+        - objectPath
+        - uploadedAt
+
+    AddWorkEnvironmentAttachmentBody:
+      type: object
+      properties:
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        contentType:
+          type: string
+        objectPath:
+          type: string
+      required:
+        - fileName
+        - fileSize
+        - contentType
+        - objectPath
+
     KpiYearRow:
       type: object
       properties:
@@ -12540,3 +14177,195 @@ components:
         - yearConfig
         - monthlyValues
         - feedStatus
+
+    MeasurementResource:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        unitId:
+          type: ["integer", "null"]
+        unitName:
+          type: ["string", "null"]
+        name:
+          type: string
+        identifier:
+          type: ["string", "null"]
+        resourceType:
+          type: string
+          enum: [instrumento, equipamento, padrao]
+        responsibleId:
+          type: ["integer", "null"]
+        responsibleName:
+          type: ["string", "null"]
+        validUntil:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [ativo, inativo, vencido]
+        notes:
+          type: ["string", "null"]
+        calibrationCount:
+          type: integer
+        lastCalibrationAt:
+          type: ["string", "null"]
+        lastCalibrationResult:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - name
+        - resourceType
+        - status
+        - calibrationCount
+        - createdAt
+        - updatedAt
+
+    CreateMeasurementResourceBody:
+      type: object
+      properties:
+        name:
+          type: string
+        identifier:
+          type: string
+        resourceType:
+          type: string
+          enum: [instrumento, equipamento, padrao]
+        unitId:
+          type: integer
+        responsibleId:
+          type: integer
+        validUntil:
+          type: string
+        notes:
+          type: string
+      required:
+        - name
+
+    UpdateMeasurementResourceBody:
+      type: object
+      properties:
+        name:
+          type: string
+        identifier:
+          type: string
+        resourceType:
+          type: string
+          enum: [instrumento, equipamento, padrao]
+        unitId:
+          type: integer
+        responsibleId:
+          type: integer
+        validUntil:
+          type: string
+        status:
+          type: string
+          enum: [ativo, inativo, vencido]
+        notes:
+          type: string
+
+    MeasurementResourceCalibration:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        resourceId:
+          type: integer
+        calibratedAt:
+          type: string
+        calibratedById:
+          type: ["integer", "null"]
+        calibratedByName:
+          type: ["string", "null"]
+        certificateNumber:
+          type: ["string", "null"]
+        result:
+          type: string
+          enum: [apto, nao-apto]
+        nextDueAt:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - resourceId
+        - calibratedAt
+        - result
+        - createdAt
+
+    CreateMeasurementResourceCalibrationBody:
+      type: object
+      properties:
+        calibratedAt:
+          type: string
+        calibratedById:
+          type: integer
+        certificateNumber:
+          type: string
+        result:
+          type: string
+          enum: [apto, nao-apto]
+        nextDueAt:
+          type: string
+        notes:
+          type: string
+      required:
+        - calibratedAt
+        - result
+
+    MeasurementResourceAttachment:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        calibrationId:
+          type: integer
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        contentType:
+          type: string
+        objectPath:
+          type: string
+        uploadedAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - calibrationId
+        - fileName
+        - fileSize
+        - contentType
+        - objectPath
+        - uploadedAt
+
+    AddMeasurementResourceAttachmentBody:
+      type: object
+      properties:
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        contentType:
+          type: string
+        objectPath:
+          type: string
+      required:
+        - fileName
+        - fileSize
+        - contentType
+        - objectPath

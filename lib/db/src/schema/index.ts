@@ -21,3 +21,5 @@ export * from "./product-knowledge";
 export * from "./suppliers";
 export * from "./kpi";
 export * from "./password-reset-tokens";
+export * from "./assets";
+export * from "./work-environment";
