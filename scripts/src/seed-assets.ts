@@ -21,7 +21,8 @@ import {
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
-const DEMO_ORGANIZATION_LEGAL_IDENTIFIER = "12.345.678/0001-90";
+const DEMO_ORGANIZATION_LEGAL_IDENTIFIER =
+  process.env.SEED_ORG_LEGAL_IDENTIFIER ?? "12.345.678/0001-90";
 
 const DEMO_ASSET_NAMES = [
   "Compressor de Ar CP-01",
