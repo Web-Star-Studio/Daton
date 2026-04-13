@@ -1,12 +1,12 @@
 /**
  * Playwright script — Planejamento Operacional screenshots for PDF guide
- * Run: node docs/pdfs/take-screenshots-planejamento-operacional.js
+ * Run: node docs/pdfs/planejamento-operacional/take-screenshots.js
  */
 const { chromium } = require("/home/jp/daton/Daton-ciclo-d/node_modules/.pnpm/@playwright+test@1.58.2/node_modules/@playwright/test");
 const path = require("path");
 
 const BASE_URL = "http://localhost:5173";
-const OUT_DIR = path.join(__dirname, "imgs-planejamento-operacional");
+const OUT_DIR = path.join(__dirname, "imgs");
 const EMAIL = "admin@example.com";
 const PASSWORD = "demo123";
 

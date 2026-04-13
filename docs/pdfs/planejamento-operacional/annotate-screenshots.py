@@ -6,10 +6,11 @@ Strategy:
   - Draw orange border around the whole tab content
   - Draw a red callout border around the specific key element
 """
-from PIL import Image, ImageDraw, ImageFilter
 import os
+from PIL import Image, ImageDraw
 
-IMGS_DIR = "/home/jp/daton/Daton-ciclo-d/docs/pdfs/imgs-planejamento-operacional"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+IMGS_DIR   = os.path.join(SCRIPT_DIR, "imgs")
 ORANGE = (249, 115, 22, 255)
 RED    = (220, 38,  38, 255)
 
