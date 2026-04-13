@@ -29,6 +29,9 @@ import { eq, inArray } from "drizzle-orm";
 
 const DEMO_ORGANIZATION_LEGAL_IDENTIFIER =
   process.env.SEED_ORG_LEGAL_IDENTIFIER ?? "12.345.678/0001-90";
+const SEED_ORG_ID = process.env.SEED_ORG_ID
+  ? parseInt(process.env.SEED_ORG_ID, 10)
+  : null;
 
 const DEMO_PLAN_TITLES = [
   "Atendimento em Campo — SGI",
@@ -37,15 +40,23 @@ const DEMO_PLAN_TITLES = [
 ];
 
 async function seedOperationalPlanning() {
-  // ── Locate demo org ──────────────────────────────────────────────────────
-  const [org] = await db
-    .select({ id: organizationsTable.id })
-    .from(organizationsTable)
-    .where(eq(organizationsTable.legalIdentifier, DEMO_ORGANIZATION_LEGAL_IDENTIFIER));
+  // ── Locate org ───────────────────────────────────────────────────────────
+  const [org] = SEED_ORG_ID
+    ? await db
+        .select({ id: organizationsTable.id })
+        .from(organizationsTable)
+        .where(eq(organizationsTable.id, SEED_ORG_ID))
+    : await db
+        .select({ id: organizationsTable.id })
+        .from(organizationsTable)
+        .where(eq(organizationsTable.legalIdentifier, DEMO_ORGANIZATION_LEGAL_IDENTIFIER));
 
   if (!org) {
     console.error(
-      "Demo organization not found. Run `pnpm --filter @workspace/scripts seed` first.",
+      SEED_ORG_ID
+        ? `Organization id=${SEED_ORG_ID} not found.`
+        : `Organization with legalIdentifier="${DEMO_ORGANIZATION_LEGAL_IDENTIFIER}" not found. ` +
+          "Run `pnpm --filter @workspace/scripts seed` first, or pass SEED_ORG_ID=<id>.",
     );
     process.exit(1);
   }
