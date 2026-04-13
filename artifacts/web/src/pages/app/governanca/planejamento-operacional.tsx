@@ -1,7 +1,23 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, ClipboardCheck, FileText, Pencil, Plus, RefreshCcw, ShieldAlert, Shuffle, Trash2, UploadCloud } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardCheck,
+  FileText,
+  Pencil,
+  Plus,
+  RefreshCcw,
+  ShieldAlert,
+  Shuffle,
+  Trash2,
+  UploadCloud,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
+import {
+  useHeaderActions,
+  usePageSubtitle,
+  usePageTitle,
+} from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -81,7 +97,13 @@ type ChecklistFormState = {
 type CycleFormState = {
   cycleCode: string;
   cycleDate: string;
-  status: "planned" | "ready" | "in_execution" | "completed" | "blocked" | "canceled";
+  status:
+    | "planned"
+    | "ready"
+    | "in_execution"
+    | "completed"
+    | "blocked"
+    | "canceled";
   evidenceSummary: string;
   externalReference: string;
   attachments: OperationalAttachment[];
@@ -217,6 +239,17 @@ function getPlanStatusTone(status: string) {
   }
 }
 
+function getPlanStatusLabel(status: string) {
+  switch (status) {
+    case "active":
+      return "Ativo";
+    case "archived":
+      return "Arquivado";
+    default:
+      return "Rascunho";
+  }
+}
+
 function getCycleStatusTone(status: string) {
   switch (status) {
     case "completed":
@@ -234,6 +267,23 @@ function getCycleStatusTone(status: string) {
   }
 }
 
+function getCycleStatusLabel(status: string) {
+  switch (status) {
+    case "ready":
+      return "Pronto";
+    case "in_execution":
+      return "Em execução";
+    case "completed":
+      return "Concluído";
+    case "blocked":
+      return "Bloqueado";
+    case "canceled":
+      return "Cancelado";
+    default:
+      return "Planejado";
+  }
+}
+
 function getDecisionTone(decision: string) {
   switch (decision) {
     case "approved":
@@ -245,13 +295,103 @@ function getDecisionTone(decision: string) {
   }
 }
 
+function getDecisionLabel(decision: string) {
+  switch (decision) {
+    case "approved":
+      return "Aprovada";
+    case "rejected":
+      return "Rejeitada";
+    default:
+      return "Pendente";
+  }
+}
+
+function getExecutionStatusLabel(status: string) {
+  switch (status) {
+    case "ok":
+      return "Conforme";
+    case "failed":
+      return "Falhou";
+    case "waived":
+      return "Dispensado";
+    default:
+      return "Pendente";
+  }
+}
+
+function getImpactLevelLabel(level: string) {
+  switch (level) {
+    case "low":
+      return "Baixo";
+    case "high":
+      return "Alto";
+    case "critical":
+      return "Crítico";
+    default:
+      return "Médio";
+  }
+}
+
+function getDocumentStatusLabel(status?: string | null) {
+  switch (status) {
+    case "draft":
+      return "Rascunho";
+    case "in_review":
+      return "Em revisão";
+    case "approved":
+      return "Aprovado";
+    case "rejected":
+      return "Rejeitado";
+    case "archived":
+      return "Arquivado";
+    case "obsolete":
+      return "Obsoleto";
+    default:
+      return "Sem status";
+  }
+}
+
+function getRiskTypeLabel(type: string) {
+  switch (type) {
+    case "opportunity":
+      return "Oportunidade";
+    default:
+      return "Risco";
+  }
+}
+
+function getRiskStatusLabel(status?: string | null) {
+  switch (status) {
+    case "identified":
+      return "Identificado";
+    case "assessed":
+      return "Avaliado";
+    case "responding":
+      return "Em tratamento";
+    case "awaiting_effectiveness":
+      return "Aguardando eficácia";
+    case "effective":
+      return "Eficaz";
+    case "ineffective":
+      return "Ineficaz";
+    case "continuous":
+      return "Contínuo";
+    case "canceled":
+      return "Cancelado";
+    default:
+      return status || "Sem status";
+  }
+}
+
 function AttachmentList({
   attachments,
 }: {
   attachments: OperationalAttachment[];
 }) {
   if (attachments.length === 0) {
-    return <p className="text-xs text-muted-foreground">Sem anexos enviados.</p>;
+    return (
+      <p className="text-xs text-muted-foreground">Sem anexos enviados.</p>
+    );
   }
 
   return (
@@ -280,7 +420,9 @@ export default function OperationalPlanningPage() {
   const canWrite = user?.role !== "analyst";
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"" | "draft" | "active" | "archived">("");
+  const [statusFilter, setStatusFilter] = useState<
+    "" | "draft" | "active" | "archived"
+  >("");
   const [unitFilter, setUnitFilter] = useState("");
   const [processFilter, setProcessFilter] = useState("");
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
@@ -289,7 +431,9 @@ export default function OperationalPlanningPage() {
   const [cycleDialogOpen, setCycleDialogOpen] = useState(false);
   const [changeDialogOpen, setChangeDialogOpen] = useState(false);
   const [executionDialogOpen, setExecutionDialogOpen] = useState(false);
-  const [editingChecklistId, setEditingChecklistId] = useState<number | null>(null);
+  const [editingChecklistId, setEditingChecklistId] = useState<number | null>(
+    null,
+  );
   const [editingCycleId, setEditingCycleId] = useState<number | null>(null);
   const [editingChangeId, setEditingChangeId] = useState<number | null>(null);
   const [editingExecution, setEditingExecution] = useState<{
@@ -301,7 +445,8 @@ export default function OperationalPlanningPage() {
   const [checklistForm, setChecklistForm] =
     useState<ChecklistFormState>(emptyChecklistForm);
   const [cycleForm, setCycleForm] = useState<CycleFormState>(emptyCycleForm);
-  const [changeForm, setChangeForm] = useState<ChangeFormState>(emptyChangeForm);
+  const [changeForm, setChangeForm] =
+    useState<ChangeFormState>(emptyChangeForm);
   const [executionForm, setExecutionForm] =
     useState<ExecutionFormState>(emptyExecutionForm);
 
@@ -338,8 +483,11 @@ export default function OperationalPlanningPage() {
     orgId,
     filters,
   );
-  const { data: planDetail, isLoading: detailLoading, refetch: refetchDetail } =
-    useOperationalPlan(orgId, selectedPlanId ?? undefined);
+  const {
+    data: planDetail,
+    isLoading: detailLoading,
+    refetch: refetchDetail,
+  } = useOperationalPlan(orgId, selectedPlanId ?? undefined);
 
   const createPlanMutation = useCreateOperationalPlanMutation(orgId);
   const updatePlanMutation = useUpdateOperationalPlanMutation(
@@ -377,23 +525,24 @@ export default function OperationalPlanningPage() {
     selectedPlanId ?? undefined,
     editingChangeId ?? undefined,
   );
-  const updateExecutionMutation = useUpdateOperationalReadinessExecutionMutation(
-    orgId,
-    selectedPlanId ?? undefined,
-    editingExecution?.cycleId ?? undefined,
-    editingExecution?.checklistItemId ?? undefined,
-  );
+  const updateExecutionMutation =
+    useUpdateOperationalReadinessExecutionMutation(
+      orgId,
+      selectedPlanId ?? undefined,
+      editingExecution?.cycleId ?? undefined,
+      editingExecution?.checklistItemId ?? undefined,
+    );
 
   const { data: units = [] } = useListUnits(orgId ?? 0);
-  const { data: employeesResult } = useListEmployees(
-    orgId ?? 0,
-    { page: 1, pageSize: 100 },
-  );
+  const { data: employeesResult } = useListEmployees(orgId ?? 0, {
+    page: 1,
+    pageSize: 100,
+  });
   const employees = employeesResult?.data ?? [];
-  const { data: documents = [] } = useListDocuments(
-    orgId ?? 0,
-    { page: 1, pageSize: 100 },
-  );
+  const { data: documents = [] } = useListDocuments(orgId ?? 0, {
+    page: 1,
+    pageSize: 100,
+  });
   const { data: processes = [] } = useAllActiveSgqProcesses(orgId);
   const { data: riskItems = [] } = useGovernanceRiskOpportunityItems(orgId);
 
@@ -420,7 +569,9 @@ export default function OperationalPlanningPage() {
       planCode: planForm.planCode || null,
       processId: planForm.processId ? Number(planForm.processId) : null,
       unitId: planForm.unitId ? Number(planForm.unitId) : null,
-      responsibleId: planForm.responsibleId ? Number(planForm.responsibleId) : null,
+      responsibleId: planForm.responsibleId
+        ? Number(planForm.responsibleId)
+        : null,
       serviceType: planForm.serviceType || null,
       scope: planForm.scope || null,
       sequenceDescription: planForm.sequenceDescription || null,
@@ -473,7 +624,8 @@ export default function OperationalPlanningPage() {
       toast({ title: "Checklist de prontidão salva" });
     } catch (error) {
       toast({
-        title: error instanceof Error ? error.message : "Falha ao salvar checklist",
+        title:
+          error instanceof Error ? error.message : "Falha ao salvar checklist",
         variant: "destructive",
       });
     }
@@ -529,7 +681,8 @@ export default function OperationalPlanningPage() {
       toast({ title: "Mudança operacional salva" });
     } catch (error) {
       toast({
-        title: error instanceof Error ? error.message : "Falha ao salvar mudança",
+        title:
+          error instanceof Error ? error.message : "Falha ao salvar mudança",
         variant: "destructive",
       });
     }
@@ -550,7 +703,9 @@ export default function OperationalPlanningPage() {
     } catch (error) {
       toast({
         title:
-          error instanceof Error ? error.message : "Falha ao registrar prontidão",
+          error instanceof Error
+            ? error.message
+            : "Falha ao registrar prontidão",
         variant: "destructive",
       });
     }
@@ -561,7 +716,8 @@ export default function OperationalPlanningPage() {
     return planDetail.cycles
       .find((cycle) => cycle.id === editingExecution.cycleId)
       ?.readinessExecutions.find(
-        (execution) => execution.checklistItemId === editingExecution.checklistItemId,
+        (execution) =>
+          execution.checklistItemId === editingExecution.checklistItemId,
       );
   }, [editingExecution, planDetail]);
 
@@ -614,7 +770,8 @@ export default function OperationalPlanningPage() {
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <ClipboardCheck className="h-4 w-4" />
-              {plans.length} {plans.length === 1 ? "plano operacional" : "planos operacionais"}
+              {plans.length}{" "}
+              {plans.length === 1 ? "plano operacional" : "planos operacionais"}
             </div>
             {(statusFilter || unitFilter || processFilter || search.trim()) && (
               <Button
@@ -640,7 +797,11 @@ export default function OperationalPlanningPage() {
             <CardTitle>Planos operacionais</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {plansLoading && <p className="text-sm text-muted-foreground">Carregando planos...</p>}
+            {plansLoading && (
+              <p className="text-sm text-muted-foreground">
+                Carregando planos...
+              </p>
+            )}
             {!plansLoading && plans.length === 0 && (
               <p className="text-sm text-muted-foreground">
                 Nenhum plano operacional encontrado para os filtros atuais.
@@ -659,18 +820,24 @@ export default function OperationalPlanningPage() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <p className="font-medium leading-snug">{plan.title}</p>
-                  <Badge variant="outline" className={`shrink-0 ${getPlanStatusTone(plan.status)}`}>
-                    {plan.status}
+                  <Badge
+                    variant="outline"
+                    className={`shrink-0 ${getPlanStatusTone(plan.status)}`}
+                  >
+                    {getPlanStatusLabel(plan.status)}
                   </Badge>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {plan.planCode || "Sem código"} • {plan.serviceType || "Serviço não informado"}
+                  {plan.planCode || "Sem código"} •{" "}
+                  {plan.serviceType || "Serviço não informado"}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span>{plan.processName || "Processo não vinculado"}</span>
                   <span>{plan.unitName || "Unidade não vinculada"}</span>
                   {plan.latestCycle && (
-                    <span className="text-primary/70">{plan.latestCycle.cycleCode}</span>
+                    <span className="text-primary/70">
+                      {plan.latestCycle.cycleCode}
+                    </span>
                   )}
                 </div>
               </button>
@@ -706,11 +873,12 @@ export default function OperationalPlanningPage() {
                         variant="outline"
                         className={getPlanStatusTone(planDetail.status)}
                       >
-                        {planDetail.status}
+                        {getPlanStatusLabel(planDetail.status)}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {planDetail.planCode || "Sem código"} • Revisão {planDetail.currentRevisionNumber} • Processo{" "}
+                      {planDetail.planCode || "Sem código"} • Revisão{" "}
+                      {planDetail.currentRevisionNumber} • Processo{" "}
                       {planDetail.processName || "não vinculado"}
                     </p>
                   </div>
@@ -769,7 +937,9 @@ export default function OperationalPlanningPage() {
                       Prontidão
                     </p>
                     <p className="mt-1 font-medium">
-                      {planDetail.readinessBlockingEnabled ? "Bloqueante" : "Livre"}
+                      {planDetail.readinessBlockingEnabled
+                        ? "Bloqueante"
+                        : "Livre"}
                     </p>
                   </div>
                 </CardContent>
@@ -791,25 +961,33 @@ export default function OperationalPlanningPage() {
                     <CardContent className="grid gap-5 lg:grid-cols-2">
                       <div className="space-y-4">
                         <div>
-                          <p className="text-sm font-medium">Escopo operacional</p>
+                          <p className="text-sm font-medium">
+                            Escopo operacional
+                          </p>
                           <p className="text-sm text-muted-foreground">
                             {planDetail.scope || "Não registrado"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium">Sequência de execução</p>
+                          <p className="text-sm font-medium">
+                            Sequência de execução
+                          </p>
                           <p className="text-sm text-muted-foreground">
                             {planDetail.sequenceDescription || "Não registrada"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium">Critérios de execução</p>
+                          <p className="text-sm font-medium">
+                            Critérios de execução
+                          </p>
                           <p className="text-sm text-muted-foreground">
                             {planDetail.executionCriteria || "Não registrados"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium">Considerações ESG/SGI</p>
+                          <p className="text-sm font-medium">
+                            Considerações ESG/SGI
+                          </p>
                           <p className="text-sm text-muted-foreground">
                             {planDetail.esgConsiderations || "Não registradas"}
                           </p>
@@ -817,7 +995,9 @@ export default function OperationalPlanningPage() {
                       </div>
                       <div className="space-y-4">
                         <div>
-                          <p className="text-sm font-medium">Recursos necessários</p>
+                          <p className="text-sm font-medium">
+                            Recursos necessários
+                          </p>
                           <div className="mt-2 flex flex-wrap gap-2">
                             {planDetail.requiredResources.length ? (
                               planDetail.requiredResources.map((resource) => (
@@ -842,7 +1022,9 @@ export default function OperationalPlanningPage() {
                                 </Badge>
                               ))
                             ) : (
-                              <span className="text-sm text-muted-foreground">Não informadas</span>
+                              <span className="text-sm text-muted-foreground">
+                                Não informadas
+                              </span>
                             )}
                           </div>
                         </div>
@@ -856,7 +1038,9 @@ export default function OperationalPlanningPage() {
                                 </Badge>
                               ))
                             ) : (
-                              <span className="text-sm text-muted-foreground">Não informadas</span>
+                              <span className="text-sm text-muted-foreground">
+                                Não informadas
+                              </span>
                             )}
                           </div>
                         </div>
@@ -882,7 +1066,9 @@ export default function OperationalPlanningPage() {
                                   Documento #{document.id}
                                 </p>
                               </div>
-                              <Badge variant="outline">{document.status || "sem status"}</Badge>
+                              <Badge variant="outline">
+                                {getDocumentStatusLabel(document.status)}
+                              </Badge>
                             </div>
                           ))
                         ) : (
@@ -906,10 +1092,13 @@ export default function OperationalPlanningPage() {
                             >
                               <div className="flex items-center justify-between gap-3">
                                 <p className="font-medium">{risk.title}</p>
-                                <Badge variant="outline">{risk.type}</Badge>
+                                <Badge variant="outline">
+                                  {getRiskTypeLabel(risk.type)}
+                                </Badge>
                               </div>
                               <p className="mt-1 text-xs text-muted-foreground">
-                                {risk.planTitle || "Sem plano estratégico"} • {risk.status}
+                                {risk.planTitle || "Sem plano estratégico"} •{" "}
+                                {getRiskStatusLabel(risk.status)}
                               </p>
                             </div>
                           ))
@@ -938,8 +1127,9 @@ export default function OperationalPlanningPage() {
                                 Revisão {revision.revisionNumber}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {revision.changedByName || "Usuário não identificado"} •{" "}
-                                {formatDateTime(revision.createdAt)}
+                                {revision.changedByName ||
+                                  "Usuário não identificado"}{" "}
+                                • {formatDateTime(revision.createdAt)}
                               </p>
                             </div>
                             <Badge variant="outline">Snapshot</Badge>
@@ -1025,8 +1215,12 @@ export default function OperationalPlanningPage() {
                                   size="sm"
                                   onClick={async () => {
                                     try {
-                                      await deleteChecklistMutation.mutateAsync(item.id);
-                                      toast({ title: "Item removido da checklist" });
+                                      await deleteChecklistMutation.mutateAsync(
+                                        item.id,
+                                      );
+                                      toast({
+                                        title: "Item removido da checklist",
+                                      });
                                     } catch (error) {
                                       toast({
                                         title:
@@ -1081,16 +1275,19 @@ export default function OperationalPlanningPage() {
                           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                             <div>
                               <div className="flex items-center gap-2">
-                                <p className="text-lg font-medium">{cycle.cycleCode}</p>
+                                <p className="text-lg font-medium">
+                                  {cycle.cycleCode}
+                                </p>
                                 <Badge
                                   variant="outline"
                                   className={getCycleStatusTone(cycle.status)}
                                 >
-                                  {cycle.status}
+                                  {getCycleStatusLabel(cycle.status)}
                                 </Badge>
                               </div>
                               <p className="mt-1 text-sm text-muted-foreground">
-                                {cycle.evidenceSummary || "Sem resumo de evidência"}
+                                {cycle.evidenceSummary ||
+                                  "Sem resumo de evidência"}
                               </p>
                               <p className="mt-2 text-xs text-muted-foreground">
                                 Data do ciclo: {formatDateTime(cycle.cycleDate)}
@@ -1101,7 +1298,8 @@ export default function OperationalPlanningPage() {
                             </div>
                             <div className="flex items-center gap-2">
                               <Badge variant="secondary">
-                                Pendências críticas: {cycle.readinessSummary.criticalPending}
+                                Pendências críticas:{" "}
+                                {cycle.readinessSummary.criticalPending}
                               </Badge>
                               {canWrite && (
                                 <Button
@@ -1112,11 +1310,15 @@ export default function OperationalPlanningPage() {
                                     setCycleForm({
                                       cycleCode: cycle.cycleCode,
                                       cycleDate: cycle.cycleDate
-                                        ? new Date(cycle.cycleDate).toISOString().slice(0, 16)
+                                        ? new Date(cycle.cycleDate)
+                                            .toISOString()
+                                            .slice(0, 16)
                                         : "",
                                       status: cycle.status,
-                                      evidenceSummary: cycle.evidenceSummary || "",
-                                      externalReference: cycle.externalReference || "",
+                                      evidenceSummary:
+                                        cycle.evidenceSummary || "",
+                                      externalReference:
+                                        cycle.externalReference || "",
                                       attachments: cycle.attachments,
                                     });
                                     setCycleDialogOpen(true);
@@ -1130,7 +1332,9 @@ export default function OperationalPlanningPage() {
 
                           {planDetail.readinessBlockingEnabled &&
                             cycle.readinessSummary.criticalPending > 0 &&
-                            !["completed", "canceled"].includes(cycle.status) && (
+                            !["completed", "canceled"].includes(
+                              cycle.status,
+                            ) && (
                               <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
                                 <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
                                 <span>
@@ -1143,15 +1347,23 @@ export default function OperationalPlanningPage() {
 
                           <div className="mt-4 grid gap-3 md:grid-cols-3">
                             <div className="rounded-xl bg-muted/40 p-3 text-sm">
-                              <p className="text-muted-foreground">Itens totais</p>
-                              <p className="text-lg font-semibold">{cycle.readinessSummary.total}</p>
+                              <p className="text-muted-foreground">
+                                Itens totais
+                              </p>
+                              <p className="text-lg font-semibold">
+                                {cycle.readinessSummary.total}
+                              </p>
                             </div>
                             <div className="rounded-xl bg-muted/40 p-3 text-sm">
                               <p className="text-muted-foreground">Pendentes</p>
-                              <p className="text-lg font-semibold">{cycle.readinessSummary.pending}</p>
+                              <p className="text-lg font-semibold">
+                                {cycle.readinessSummary.pending}
+                              </p>
                             </div>
                             <div className="rounded-xl bg-muted/40 p-3 text-sm">
-                              <p className="text-muted-foreground">Pendências críticas</p>
+                              <p className="text-muted-foreground">
+                                Pendências críticas
+                              </p>
                               <p className="text-lg font-semibold">
                                 {cycle.readinessSummary.criticalPending}
                               </p>
@@ -1159,7 +1371,9 @@ export default function OperationalPlanningPage() {
                           </div>
 
                           <div className="mt-4 space-y-3">
-                            <p className="text-sm font-medium">Execução da prontidão</p>
+                            <p className="text-sm font-medium">
+                              Execução da prontidão
+                            </p>
                             {cycle.readinessExecutions.map((execution) => (
                               <div
                                 key={execution.id}
@@ -1168,7 +1382,9 @@ export default function OperationalPlanningPage() {
                                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                   <div>
                                     <div className="flex items-center gap-2">
-                                      <p className="font-medium">{execution.checklistTitle}</p>
+                                      <p className="font-medium">
+                                        {execution.checklistTitle}
+                                      </p>
                                       {execution.isCritical && (
                                         <Badge
                                           variant="outline"
@@ -1177,14 +1393,20 @@ export default function OperationalPlanningPage() {
                                           Crítico
                                         </Badge>
                                       )}
-                                      <Badge variant="outline">{execution.status}</Badge>
+                                      <Badge variant="outline">
+                                        {getExecutionStatusLabel(
+                                          execution.status,
+                                        )}
+                                      </Badge>
                                     </div>
                                     <p className="mt-1 text-xs text-muted-foreground">
-                                      {execution.executedByName || "Sem executor"} •{" "}
-                                      {formatDateTime(execution.executedAt)}
+                                      {execution.executedByName ||
+                                        "Sem executor"}{" "}
+                                      • {formatDateTime(execution.executedAt)}
                                     </p>
                                     <p className="mt-1 text-sm text-muted-foreground">
-                                      {execution.evidenceNote || "Sem observação registrada"}
+                                      {execution.evidenceNote ||
+                                        "Sem observação registrada"}
                                     </p>
                                   </div>
                                   {canWrite && (
@@ -1194,7 +1416,8 @@ export default function OperationalPlanningPage() {
                                       onClick={() => {
                                         setEditingExecution({
                                           cycleId: cycle.id,
-                                          checklistItemId: execution.checklistItemId,
+                                          checklistItemId:
+                                            execution.checklistItemId,
                                         });
                                         setExecutionForm({
                                           status: execution.status,
@@ -1203,7 +1426,8 @@ export default function OperationalPlanningPage() {
                                             : planDetail.responsibleId
                                               ? String(planDetail.responsibleId)
                                               : "",
-                                          evidenceNote: execution.evidenceNote || "",
+                                          evidenceNote:
+                                            execution.evidenceNote || "",
                                           attachments: execution.attachments,
                                         });
                                         setExecutionDialogOpen(true);
@@ -1215,7 +1439,9 @@ export default function OperationalPlanningPage() {
                                 </div>
                                 {execution.attachments.length > 0 && (
                                   <div className="mt-3">
-                                    <AttachmentList attachments={execution.attachments} />
+                                    <AttachmentList
+                                      attachments={execution.attachments}
+                                    />
                                   </div>
                                 )}
                               </div>
@@ -1224,7 +1450,9 @@ export default function OperationalPlanningPage() {
 
                           {cycle.attachments.length > 0 && (
                             <div className="mt-4 space-y-3">
-                              <p className="text-sm font-medium">Anexos do ciclo</p>
+                              <p className="text-sm font-medium">
+                                Anexos do ciclo
+                              </p>
                               <AttachmentList attachments={cycle.attachments} />
                             </div>
                           )}
@@ -1266,18 +1494,25 @@ export default function OperationalPlanningPage() {
                           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                             <div className="space-y-2">
                               <div className="flex items-center gap-2">
-                                <p className="text-lg font-medium">{change.title}</p>
+                                <p className="text-lg font-medium">
+                                  {change.title}
+                                </p>
                                 <Badge
                                   variant="outline"
                                   className={getDecisionTone(change.decision)}
                                 >
-                                  {change.decision}
+                                  {getDecisionLabel(change.decision)}
                                 </Badge>
-                                <Badge variant="outline">{change.impactLevel}</Badge>
+                                <Badge variant="outline">
+                                  {getImpactLevelLabel(change.impactLevel)}
+                                </Badge>
                               </div>
-                              <p className="text-sm text-muted-foreground">{change.reason}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {change.reason}
+                              </p>
                               <p className="text-xs text-muted-foreground">
-                                Solicitado por {change.requestedByName || "usuário"} em{" "}
+                                Solicitado por{" "}
+                                {change.requestedByName || "usuário"} em{" "}
                                 {formatDateTime(change.createdAt)}
                               </p>
                             </div>
@@ -1294,10 +1529,14 @@ export default function OperationalPlanningPage() {
                                       : "",
                                     reason: change.reason,
                                     impactLevel: change.impactLevel,
-                                    impactDescription: change.impactDescription || "",
-                                    mitigationAction: change.mitigationAction || "",
+                                    impactDescription:
+                                      change.impactDescription || "",
+                                    mitigationAction:
+                                      change.mitigationAction || "",
                                     decision: change.decision,
-                                    riskOpportunityItemIds: change.risks.map((risk) => risk.id),
+                                    riskOpportunityItemIds: change.risks.map(
+                                      (risk) => risk.id,
+                                    ),
                                   });
                                   setChangeDialogOpen(true);
                                 }}
@@ -1309,9 +1548,12 @@ export default function OperationalPlanningPage() {
 
                           <div className="mt-4 grid gap-4 lg:grid-cols-2">
                             <div>
-                              <p className="text-sm font-medium">Impacto avaliado</p>
+                              <p className="text-sm font-medium">
+                                Impacto avaliado
+                              </p>
                               <p className="text-sm text-muted-foreground">
-                                {change.impactDescription || "Sem descrição complementar"}
+                                {change.impactDescription ||
+                                  "Sem descrição complementar"}
                               </p>
                             </div>
                             <div>
@@ -1323,7 +1565,9 @@ export default function OperationalPlanningPage() {
                           </div>
 
                           <div className="mt-4">
-                            <p className="text-sm font-medium">Riscos associados</p>
+                            <p className="text-sm font-medium">
+                              Riscos associados
+                            </p>
                             <div className="mt-2 flex flex-wrap gap-2">
                               {change.risks.length ? (
                                 change.risks.map((risk) => (
@@ -1352,7 +1596,9 @@ export default function OperationalPlanningPage() {
       <Dialog
         open={planDialogOpen}
         onOpenChange={setPlanDialogOpen}
-        title={isEditingPlan ? "Editar plano operacional" : "Novo plano operacional"}
+        title={
+          isEditingPlan ? "Editar plano operacional" : "Novo plano operacional"
+        }
         description="Registre critérios, vínculos e controles de planejamento da realização do serviço."
         size="2xl"
       >
@@ -1363,7 +1609,10 @@ export default function OperationalPlanningPage() {
               <Input
                 value={planForm.title}
                 onChange={(event) =>
-                  setPlanForm((current) => ({ ...current, title: event.target.value }))
+                  setPlanForm((current) => ({
+                    ...current,
+                    title: event.target.value,
+                  }))
                 }
               />
             </div>
@@ -1372,7 +1621,10 @@ export default function OperationalPlanningPage() {
               <Input
                 value={planForm.planCode}
                 onChange={(event) =>
-                  setPlanForm((current) => ({ ...current, planCode: event.target.value }))
+                  setPlanForm((current) => ({
+                    ...current,
+                    planCode: event.target.value,
+                  }))
                 }
               />
             </div>
@@ -1384,7 +1636,10 @@ export default function OperationalPlanningPage() {
               <Select
                 value={planForm.processId}
                 onChange={(event) =>
-                  setPlanForm((current) => ({ ...current, processId: event.target.value }))
+                  setPlanForm((current) => ({
+                    ...current,
+                    processId: event.target.value,
+                  }))
                 }
               >
                 <option value="">Selecionar</option>
@@ -1400,7 +1655,10 @@ export default function OperationalPlanningPage() {
               <Select
                 value={planForm.unitId}
                 onChange={(event) =>
-                  setPlanForm((current) => ({ ...current, unitId: event.target.value }))
+                  setPlanForm((current) => ({
+                    ...current,
+                    unitId: event.target.value,
+                  }))
                 }
               >
                 <option value="">Selecionar</option>
@@ -1453,7 +1711,10 @@ export default function OperationalPlanningPage() {
             <Input
               value={planForm.serviceType}
               onChange={(event) =>
-                setPlanForm((current) => ({ ...current, serviceType: event.target.value }))
+                setPlanForm((current) => ({
+                  ...current,
+                  serviceType: event.target.value,
+                }))
               }
             />
           </div>
@@ -1464,7 +1725,10 @@ export default function OperationalPlanningPage() {
               <Textarea
                 value={planForm.scope}
                 onChange={(event) =>
-                  setPlanForm((current) => ({ ...current, scope: event.target.value }))
+                  setPlanForm((current) => ({
+                    ...current,
+                    scope: event.target.value,
+                  }))
                 }
               />
             </div>
@@ -1528,7 +1792,10 @@ export default function OperationalPlanningPage() {
               <Input
                 value={planForm.inputs}
                 onChange={(event) =>
-                  setPlanForm((current) => ({ ...current, inputs: event.target.value }))
+                  setPlanForm((current) => ({
+                    ...current,
+                    inputs: event.target.value,
+                  }))
                 }
                 placeholder="Ex.: ordem, demanda, dados"
               />
@@ -1538,7 +1805,10 @@ export default function OperationalPlanningPage() {
               <Input
                 value={planForm.outputs}
                 onChange={(event) =>
-                  setPlanForm((current) => ({ ...current, outputs: event.target.value }))
+                  setPlanForm((current) => ({
+                    ...current,
+                    outputs: event.target.value,
+                  }))
                 }
                 placeholder="Ex.: evidência, relatório, entrega"
               />
@@ -1557,7 +1827,9 @@ export default function OperationalPlanningPage() {
                 }
               />
               <div>
-                <p className="font-medium">Bloquear avanço do ciclo quando houver item crítico pendente</p>
+                <p className="font-medium">
+                  Bloquear avanço do ciclo quando houver item crítico pendente
+                </p>
                 <p className="text-sm text-muted-foreground">
                   Mantém o gate operacional ativo para execução controlada.
                 </p>
@@ -1581,7 +1853,9 @@ export default function OperationalPlanningPage() {
                           ...current,
                           documentIds: checked
                             ? [...current.documentIds, document.id]
-                            : current.documentIds.filter((id) => id !== document.id),
+                            : current.documentIds.filter(
+                                (id) => id !== document.id,
+                              ),
                         }))
                       }
                     />
@@ -1599,13 +1873,17 @@ export default function OperationalPlanningPage() {
                     className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/40"
                   >
                     <Checkbox
-                      checked={planForm.riskOpportunityItemIds.includes(risk.id)}
+                      checked={planForm.riskOpportunityItemIds.includes(
+                        risk.id,
+                      )}
                       onCheckedChange={(checked) =>
                         setPlanForm((current) => ({
                           ...current,
                           riskOpportunityItemIds: checked
                             ? [...current.riskOpportunityItemIds, risk.id]
-                            : current.riskOpportunityItemIds.filter((id) => id !== risk.id),
+                            : current.riskOpportunityItemIds.filter(
+                                (id) => id !== risk.id,
+                              ),
                         }))
                       }
                     />
@@ -1636,7 +1914,9 @@ export default function OperationalPlanningPage() {
           </Button>
           <Button
             onClick={() => void submitPlan()}
-            disabled={createPlanMutation.isPending || updatePlanMutation.isPending}
+            disabled={
+              createPlanMutation.isPending || updatePlanMutation.isPending
+            }
           >
             Salvar plano
           </Button>
@@ -1646,7 +1926,11 @@ export default function OperationalPlanningPage() {
       <Dialog
         open={checklistDialogOpen}
         onOpenChange={setChecklistDialogOpen}
-        title={editingChecklistId ? "Editar item de prontidão" : "Novo item de prontidão"}
+        title={
+          editingChecklistId
+            ? "Editar item de prontidão"
+            : "Novo item de prontidão"
+        }
         description="Configure checkpoints mínimos antes da execução do serviço."
       >
         <div className="space-y-4">
@@ -1655,7 +1939,10 @@ export default function OperationalPlanningPage() {
             <Input
               value={checklistForm.title}
               onChange={(event) =>
-                setChecklistForm((current) => ({ ...current, title: event.target.value }))
+                setChecklistForm((current) => ({
+                  ...current,
+                  title: event.target.value,
+                }))
               }
             />
           </div>
@@ -1712,7 +1999,10 @@ export default function OperationalPlanningPage() {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setChecklistDialogOpen(false)}>
+          <Button
+            variant="outline"
+            onClick={() => setChecklistDialogOpen(false)}
+          >
             Cancelar
           </Button>
           <Button onClick={() => void submitChecklist()}>Salvar item</Button>
@@ -1722,7 +2012,9 @@ export default function OperationalPlanningPage() {
       <Dialog
         open={cycleDialogOpen}
         onOpenChange={setCycleDialogOpen}
-        title={editingCycleId ? "Editar ciclo operacional" : "Novo ciclo operacional"}
+        title={
+          editingCycleId ? "Editar ciclo operacional" : "Novo ciclo operacional"
+        }
         description="Registre o ciclo de operação e as evidências da preparação realizada."
         size="lg"
       >
@@ -1812,7 +2104,9 @@ export default function OperationalPlanningPage() {
                 accept={EMPLOYEE_RECORD_ATTACHMENT_ACCEPT}
                 onChange={async (event) => {
                   try {
-                    const uploaded = await handleUploadFiles(event.target.files);
+                    const uploaded = await handleUploadFiles(
+                      event.target.files,
+                    );
                     setCycleForm((current) => ({
                       ...current,
                       attachments: [...current.attachments, ...uploaded],
@@ -1846,7 +2140,11 @@ export default function OperationalPlanningPage() {
       <Dialog
         open={changeDialogOpen}
         onOpenChange={setChangeDialogOpen}
-        title={editingChangeId ? "Editar mudança operacional" : "Nova mudança operacional"}
+        title={
+          editingChangeId
+            ? "Editar mudança operacional"
+            : "Nova mudança operacional"
+        }
         description="Avalie impacto, registre mitigação e vincule riscos associados."
         size="lg"
       >
@@ -1856,7 +2154,10 @@ export default function OperationalPlanningPage() {
             <Input
               value={changeForm.title}
               onChange={(event) =>
-                setChangeForm((current) => ({ ...current, title: event.target.value }))
+                setChangeForm((current) => ({
+                  ...current,
+                  title: event.target.value,
+                }))
               }
             />
           </div>
@@ -1887,7 +2188,8 @@ export default function OperationalPlanningPage() {
                 onChange={(event) =>
                   setChangeForm((current) => ({
                     ...current,
-                    impactLevel: event.target.value as ChangeFormState["impactLevel"],
+                    impactLevel: event.target
+                      .value as ChangeFormState["impactLevel"],
                   }))
                 }
               >
@@ -1903,7 +2205,10 @@ export default function OperationalPlanningPage() {
             <Textarea
               value={changeForm.reason}
               onChange={(event) =>
-                setChangeForm((current) => ({ ...current, reason: event.target.value }))
+                setChangeForm((current) => ({
+                  ...current,
+                  reason: event.target.value,
+                }))
               }
             />
           </div>
@@ -1958,13 +2263,17 @@ export default function OperationalPlanningPage() {
                   className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/40"
                 >
                   <Checkbox
-                    checked={changeForm.riskOpportunityItemIds.includes(risk.id)}
+                    checked={changeForm.riskOpportunityItemIds.includes(
+                      risk.id,
+                    )}
                     onCheckedChange={(checked) =>
                       setChangeForm((current) => ({
                         ...current,
                         riskOpportunityItemIds: checked
                           ? [...current.riskOpportunityItemIds, risk.id]
-                          : current.riskOpportunityItemIds.filter((id) => id !== risk.id),
+                          : current.riskOpportunityItemIds.filter(
+                              (id) => id !== risk.id,
+                            ),
                       }))
                     }
                   />
@@ -1994,7 +2303,8 @@ export default function OperationalPlanningPage() {
             <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
               <p className="font-medium">{selectedExecution.checklistTitle}</p>
               <p className="text-sm text-muted-foreground">
-                Status atual: {selectedExecution.status}
+                Status atual:{" "}
+                {getExecutionStatusLabel(selectedExecution.status)}
               </p>
             </div>
           )}
@@ -2060,7 +2370,9 @@ export default function OperationalPlanningPage() {
                 accept={EMPLOYEE_RECORD_ATTACHMENT_ACCEPT}
                 onChange={async (event) => {
                   try {
-                    const uploaded = await handleUploadFiles(event.target.files);
+                    const uploaded = await handleUploadFiles(
+                      event.target.files,
+                    );
                     setExecutionForm((current) => ({
                       ...current,
                       attachments: [...current.attachments, ...uploaded],
@@ -2084,10 +2396,15 @@ export default function OperationalPlanningPage() {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setExecutionDialogOpen(false)}>
+          <Button
+            variant="outline"
+            onClick={() => setExecutionDialogOpen(false)}
+          >
             Cancelar
           </Button>
-          <Button onClick={() => void submitExecution()}>Salvar prontidão</Button>
+          <Button onClick={() => void submitExecution()}>
+            Salvar prontidão
+          </Button>
         </DialogFooter>
       </Dialog>
     </div>

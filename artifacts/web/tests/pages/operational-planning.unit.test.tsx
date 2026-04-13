@@ -43,7 +43,8 @@ const planDetail = {
   responsibleName: "Ana Lima",
   serviceType: "Operacao assistida",
   scope: "Planejar a execucao do servico com controles SGI.",
-  sequenceDescription: "Receber demanda, validar prontidao e registrar evidencias.",
+  sequenceDescription:
+    "Receber demanda, validar prontidao e registrar evidencias.",
   executionCriteria: "Checklist concluido e documento vigente.",
   requiredResources: ["Equipe", "Veiculo"],
   inputs: ["Demanda aprovada"],
@@ -281,7 +282,10 @@ describe("OperationalPlanningPage", () => {
     render(<OperationalPlanningPage />);
 
     expect(screen.getByText("1 plano(s) operacional(is)")).toBeInTheDocument();
-    expect(screen.getAllByText("Plano SGI Transporte").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Plano SGI Transporte").length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText("Ativo").length).toBeGreaterThan(0);
 
     await waitFor(() => {
       expect(
@@ -303,9 +307,13 @@ describe("OperationalPlanningPage", () => {
     // aba Ciclos
     await user.click(screen.getByRole("tab", { name: "Ciclos" }));
     expect(screen.getByText("CICLO-001")).toBeInTheDocument();
+    expect(screen.getByText("Pronto")).toBeInTheDocument();
+    expect(screen.getByText("Conforme")).toBeInTheDocument();
 
     // aba Mudanças
     await user.click(screen.getByRole("tab", { name: "Mudanças" }));
     expect(screen.getByText("Mudanca de rota")).toBeInTheDocument();
+    expect(screen.getByText("Aprovada")).toBeInTheDocument();
+    expect(screen.getByText("Alto")).toBeInTheDocument();
   });
 });
