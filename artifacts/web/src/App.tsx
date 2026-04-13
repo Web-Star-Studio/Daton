@@ -27,6 +27,7 @@ import GovernanceManagementReviewsPage from "@/pages/app/governanca/analises-cri
 import GovernanceAuditsPage from "@/pages/app/governanca/auditorias";
 import GovernanceKnowledgeAssetsPage from "@/pages/app/governanca/conhecimento-critico";
 import GovernanceNonconformitiesPage from "@/pages/app/governanca/nao-conformidades";
+import ProjectDevelopmentPage from "@/pages/app/governanca/projeto-desenvolvimento";
 import GovernanceProcessesPage from "@/pages/app/governanca/processos-sgq";
 import GovernanceRiskOpportunityPage from "@/pages/app/governanca/riscos-oportunidades";
 import AdminDashboardPage from "@/pages/app/admin/index";
@@ -169,6 +170,10 @@ function AppPages() {
         component={GovernanceProcessesPage}
       />
       <Route
+        path="/governanca/projeto-desenvolvimento"
+        component={ProjectDevelopmentPage}
+      />
+      <Route
         path="/governanca/conhecimento-critico"
         component={GovernanceKnowledgeAssetsPage}
       />
@@ -269,6 +274,10 @@ function AppPages() {
       <Route
         path="/app/governanca/processos-sgq"
         component={GovernanceProcessesPage}
+      />
+      <Route
+        path="/app/governanca/projeto-desenvolvimento"
+        component={ProjectDevelopmentPage}
       />
       <Route
         path="/app/governanca/conhecimento-critico"
