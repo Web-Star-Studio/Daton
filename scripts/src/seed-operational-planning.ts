@@ -73,11 +73,19 @@ async function seedOperationalPlanning() {
     .from(employeesTable)
     .where(eq(employeesTable.organizationId, orgId));
 
-  const adminUser = await db
-    .select({ id: usersTable.id })
-    .from(usersTable)
-    .where(eq(usersTable.email, "admin@example.com"))
-    .then((r) => r[0] ?? null);
+  const seedUserEmail = process.env.SEED_USER_EMAIL;
+  const adminUser = seedUserEmail
+    ? await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.email, seedUserEmail))
+        .then((r) => r[0] ?? null)
+    : await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.organizationId, orgId))
+        .limit(1)
+        .then((r) => r[0] ?? null);
 
   const processes = await db
     .select({ id: sgqProcessesTable.id, name: sgqProcessesTable.name })
@@ -115,7 +123,11 @@ async function seedOperationalPlanning() {
   const createdById = adminUser?.id ?? null;
 
   if (!createdById) {
-    console.error("Admin user (admin@example.com) not found. Run seed first.");
+    console.error(
+      seedUserEmail
+        ? `User "${seedUserEmail}" not found. Check SEED_USER_EMAIL.`
+        : `No user found for org id=${orgId}. Pass SEED_USER_EMAIL=<email>.`,
+    );
     process.exit(1);
   }
 
