@@ -1,5 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ClipboardList, FolderKanban, Plus, ShieldCheck } from "lucide-react";
+import {
+  FolderKanban,
+  Loader2,
+  Plus,
+  ShieldCheck,
+} from "lucide-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import {
   useHeaderActions,
@@ -7,12 +12,23 @@ import {
   usePageTitle,
 } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
@@ -154,7 +170,7 @@ function emptyOutputForm(): OutputFormState {
   return {
     title: "",
     description: "",
-    outputType: "other",
+    outputType: "specification",
     status: "draft",
     sortOrder: "0",
   };
@@ -277,6 +293,57 @@ function formatDateTime(value?: string | null) {
   return new Date(value).toLocaleString("pt-BR");
 }
 
+const PROJECT_STATUS_LABEL: Record<string, string> = {
+  draft: "Rascunho",
+  active: "Ativo",
+  under_review: "Em revisão",
+  completed: "Concluído",
+  canceled: "Cancelado",
+};
+
+const STAGE_STATUS_LABEL: Record<string, string> = {
+  planned: "Planejada",
+  in_progress: "Em andamento",
+  completed: "Concluída",
+  blocked: "Bloqueada",
+  canceled: "Cancelada",
+};
+
+const OUTPUT_STATUS_LABEL: Record<string, string> = {
+  draft: "Rascunho",
+  approved: "Aprovada",
+  released: "Liberada",
+};
+
+const OUTPUT_TYPE_LABEL: Record<string, string> = {
+  specification: "Especificação",
+  report: "Relatório",
+  plan: "Plano",
+  prototype: "Protótipo",
+  certificate: "Certificado",
+  other: "Outro",
+};
+
+const REVIEW_TYPE_LABEL: Record<string, string> = {
+  review: "Revisão",
+  verification: "Verificação",
+  validation: "Validação",
+};
+
+const REVIEW_OUTCOME_LABEL: Record<string, string> = {
+  pending: "Pendente",
+  approved: "Aprovada",
+  rejected: "Rejeitada",
+  needs_changes: "Exige ajustes",
+};
+
+const CHANGE_STATUS_LABEL: Record<string, string> = {
+  pending: "Pendente",
+  approved: "Aprovada",
+  rejected: "Rejeitada",
+  implemented: "Implementada",
+};
+
 function getDecisionTone(decision?: ApplicabilityDecision | null) {
   if (!decision) return "bg-slate-100 text-slate-700 border-slate-200";
   if (decision.approvalStatus === "pending") {
@@ -350,6 +417,11 @@ function SectionHeader({
   );
 }
 
+type PendingDelete = {
+  label: string;
+  onConfirm: () => Promise<void>;
+};
+
 export default function ProjectDevelopmentPage() {
   usePageTitle("Projeto e Desenvolvimento");
   usePageSubtitle(
@@ -378,6 +450,11 @@ export default function ProjectDevelopmentPage() {
   const [editingOutputId, setEditingOutputId] = useState<number | null>(null);
   const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
   const [editingChangeId, setEditingChangeId] = useState<number | null>(null);
+  const [isAddingInput, setIsAddingInput] = useState(false);
+  const [isAddingStage, setIsAddingStage] = useState(false);
+  const [isAddingOutput, setIsAddingOutput] = useState(false);
+  const [isAddingReview, setIsAddingReview] = useState(false);
+  const [isAddingChange, setIsAddingChange] = useState(false);
   const [inputForm, setInputForm] = useState<InputFormState>(emptyInputForm);
   const [stageForm, setStageForm] = useState<StageFormState>(emptyStageForm);
   const [outputForm, setOutputForm] =
@@ -386,6 +463,9 @@ export default function ProjectDevelopmentPage() {
     useState<ReviewFormState>(emptyReviewForm);
   const [changeForm, setChangeForm] =
     useState<ChangeFormState>(emptyChangeForm);
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(
+    null,
+  );
 
   const applicabilityQuery = useProjectDevelopmentApplicability(orgId);
   const projectsQuery = useDevelopmentProjects(orgId);
@@ -470,6 +550,11 @@ export default function ProjectDevelopmentPage() {
       setEditingOutputId(null);
       setEditingReviewId(null);
       setEditingChangeId(null);
+      setIsAddingInput(false);
+      setIsAddingStage(false);
+      setIsAddingOutput(false);
+      setIsAddingReview(false);
+      setIsAddingChange(false);
       setInputForm(emptyInputForm());
       setStageForm(emptyStageForm());
       setOutputForm(emptyOutputForm());
@@ -627,7 +712,7 @@ export default function ProjectDevelopmentPage() {
     }
   }
 
-  async function deleteResource(
+  function deleteResource(
     mutation: {
       mutateAsync: (payload: {
         mode: "delete";
@@ -637,71 +722,61 @@ export default function ProjectDevelopmentPage() {
     resourceId: number,
     label: string,
   ) {
-    if (!window.confirm(`Deseja remover ${label}?`)) {
-      return;
-    }
-
-    try {
-      await mutation.mutateAsync({ mode: "delete", resourceId });
-      toast({ title: "Registro removido" });
-    } catch (error) {
-      toast({
-        title: "Não foi possível remover",
-        description: (error as Error).message,
-        variant: "destructive",
-      });
-    }
+    setPendingDelete({
+      label,
+      onConfirm: async () => {
+        try {
+          await mutation.mutateAsync({ mode: "delete", resourceId });
+          toast({ title: "Registro removido" });
+        } catch (error) {
+          toast({
+            title: "Não foi possível remover",
+            description: (error as Error).message,
+            variant: "destructive",
+          });
+        }
+      },
+    });
   }
 
   return (
     <div className="space-y-6">
       <Card className="border-border/80 shadow-sm">
-        <CardHeader className="space-y-3">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-2">
-              <CardTitle className="text-xl">Item 8.3 sob controle</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Primeiro registramos a aplicabilidade do requisito. Depois, se
-                aplicável, ativamos o workflow de projeto e desenvolvimento.
-              </p>
+        <CardHeader>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base font-semibold">
+                Aplicabilidade do requisito 8.3
+              </CardTitle>
             </div>
             <Badge className={getDecisionTone(currentDecision)}>
               {getDecisionLabel(currentDecision)}
             </Badge>
           </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="rounded-2xl border border-border/70 bg-background/60 p-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <ShieldCheck className="h-4 w-4" />
-                Aplicabilidade atual
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-border/70 bg-muted/30 px-4 py-3">
+              <p className="text-xs font-medium text-muted-foreground">
+                Decisão vigente
+              </p>
+              <p className="mt-1 text-sm text-foreground">
                 {currentDecision
                   ? currentDecision.isApplicable
-                    ? "8.3 aplicável e workflow habilitado."
-                    : "8.3 tratado como não aplicável para o escopo vigente."
-                  : "Ainda não existe decisão aprovada para o requisito 8.3."}
+                    ? "Aplicável — workflow de P&D habilitado"
+                    : "Não aplicável — justificativa registrada"
+                  : "Nenhuma decisão aprovada"}
               </p>
             </div>
-            <div className="rounded-2xl border border-border/70 bg-background/60 p-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <FolderKanban className="h-4 w-4" />
-                Projetos
-              </div>
-              <p className="mt-2 text-2xl font-semibold text-foreground">
-                {projectsQuery.data?.length ?? 0}
+            <div className="rounded-xl border border-border/70 bg-muted/30 px-4 py-3">
+              <p className="text-xs font-medium text-muted-foreground">
+                Projetos de desenvolvimento
               </p>
-            </div>
-            <div className="rounded-2xl border border-border/70 bg-background/60 p-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <ClipboardList className="h-4 w-4" />
-                Governança
+              <div className="mt-1 flex items-baseline gap-1.5">
+                <span className="text-2xl font-semibold text-foreground">
+                  {projectsQuery.data?.length ?? 0}
+                </span>
+                <FolderKanban className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {workflowEnabled
-                  ? "O módulo já pode registrar entradas, etapas, saídas e revisões."
-                  : "O módulo de projetos permanece bloqueado até existir decisão aprovada como aplicável."}
-              </p>
             </div>
           </div>
         </CardHeader>
@@ -717,14 +792,19 @@ export default function ProjectDevelopmentPage() {
           <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
             <Card className="shadow-sm">
               <CardHeader>
-                <CardTitle>Registrar decisão</CardTitle>
+                <CardTitle>
+                  {editingDecisionId ? "Editar decisão" : "Registrar decisão"}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <form className="space-y-4" onSubmit={handleDecisionSubmit}>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>Requisito 8.3</Label>
+                      <Label htmlFor="decision-applicable">
+                        Requisito 8.3 <span className="text-destructive">*</span>
+                      </Label>
                       <Select
+                        id="decision-applicable"
                         value={decisionForm.isApplicable}
                         onChange={(event) =>
                           setDecisionForm((current) => ({
@@ -741,8 +821,11 @@ export default function ProjectDevelopmentPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Responsável</Label>
+                      <Label htmlFor="decision-responsible">
+                        Responsável <span className="text-destructive">*</span>
+                      </Label>
                       <Select
+                        id="decision-responsible"
                         value={decisionForm.responsibleEmployeeId}
                         onChange={(event) =>
                           setDecisionForm((current) => ({
@@ -763,8 +846,9 @@ export default function ProjectDevelopmentPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Escopo avaliado</Label>
-                    <Input
+                    <Label htmlFor="decision-scope">Escopo avaliado</Label>
+                    <Textarea
+                      id="decision-scope"
                       value={decisionForm.scopeSummary}
                       onChange={(event) =>
                         setDecisionForm((current) => ({
@@ -778,8 +862,11 @@ export default function ProjectDevelopmentPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Justificativa</Label>
+                    <Label htmlFor="decision-justification">
+                      Justificativa <span className="text-destructive">*</span>
+                    </Label>
                     <Textarea
+                      id="decision-justification"
                       value={decisionForm.justification}
                       onChange={(event) =>
                         setDecisionForm((current) => ({
@@ -794,8 +881,9 @@ export default function ProjectDevelopmentPage() {
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>Válido a partir de</Label>
+                      <Label htmlFor="decision-valid-from">Válido a partir de</Label>
                       <Input
+                        id="decision-valid-from"
                         type="date"
                         value={decisionForm.validFrom}
                         onChange={(event) =>
@@ -808,8 +896,9 @@ export default function ProjectDevelopmentPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Válido até</Label>
+                      <Label htmlFor="decision-valid-until">Válido até</Label>
                       <Input
+                        id="decision-valid-until"
                         type="date"
                         value={decisionForm.validUntil}
                         onChange={(event) =>
@@ -830,9 +919,16 @@ export default function ProjectDevelopmentPage() {
                         !canManageApplicability || decisionMutation.isPending
                       }
                     >
-                      {editingDecisionId
-                        ? "Salvar decisão"
-                        : "Registrar decisão"}
+                      {decisionMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Salvando…
+                        </>
+                      ) : editingDecisionId ? (
+                        "Salvar decisão"
+                      ) : (
+                        "Registrar decisão"
+                      )}
                     </Button>
                     <Button
                       type="button"
@@ -852,9 +948,10 @@ export default function ProjectDevelopmentPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {applicabilityQuery.isLoading ? (
-                  <p className="text-sm text-muted-foreground">
-                    Carregando decisões...
-                  </p>
+                  <div className="space-y-3">
+                    <Skeleton className="h-24 w-full rounded-2xl" />
+                    <Skeleton className="h-24 w-full rounded-2xl" />
+                  </div>
                 ) : applicabilityQuery.data?.history.length ? (
                   applicabilityQuery.data.history.map((decision) => (
                     <div
@@ -889,18 +986,27 @@ export default function ProjectDevelopmentPage() {
                             <>
                               <Button
                                 type="button"
+                                size="sm"
                                 variant="outline"
+                                aria-label={`Editar decisão: ${decision.scopeSummary || "escopo geral"}`}
                                 onClick={() => syncDecisionForm(decision)}
                               >
                                 Editar
                               </Button>
                               <Button
                                 type="button"
+                                size="sm"
+                                aria-label={`Aprovar decisão de aplicabilidade`}
+                                disabled={decisionMutation.isPending}
                                 onClick={() =>
                                   handleDecisionApprove(decision.id)
                                 }
                               >
-                                Aprovar
+                                {decisionMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  "Aprovar"
+                                )}
                               </Button>
                             </>
                           ) : null}
@@ -944,12 +1050,25 @@ export default function ProjectDevelopmentPage() {
         <TabsContent value="projetos" className="space-y-6">
           {!workflowEnabled ? (
             <Card className="shadow-sm">
-              <CardContent className="py-8">
-                <p className="text-sm text-muted-foreground">
-                  O fluxo de P&D permanece bloqueado. Aprove uma decisão
-                  aplicável do item 8.3 na aba de Aplicabilidade para habilitar
-                  o cadastro de projetos.
-                </p>
+              <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+                <ShieldCheck className="h-10 w-10 text-muted-foreground/40" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">
+                    Workflow de P&D bloqueado
+                  </p>
+                  <p className="max-w-sm text-sm text-muted-foreground">
+                    É necessário registrar e aprovar uma decisão de
+                    aplicabilidade do item 8.3 antes de criar projetos.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setActiveTab("applicabilidade")}
+                >
+                  Ir para Aplicabilidade
+                </Button>
               </CardContent>
             </Card>
           ) : (
@@ -960,9 +1079,11 @@ export default function ProjectDevelopmentPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {projectsQuery.isLoading ? (
-                    <p className="text-sm text-muted-foreground">
-                      Carregando projetos...
-                    </p>
+                    <div className="space-y-3">
+                      <Skeleton className="h-20 w-full rounded-2xl" />
+                      <Skeleton className="h-20 w-full rounded-2xl" />
+                      <Skeleton className="h-20 w-full rounded-2xl" />
+                    </div>
                   ) : projectsQuery.data?.length ? (
                     projectsQuery.data.map((project) => (
                       <button
@@ -987,7 +1108,7 @@ export default function ProjectDevelopmentPage() {
                           <Badge
                             className={getProjectStatusTone(project.status)}
                           >
-                            {project.status}
+                            {PROJECT_STATUS_LABEL[project.status] ?? project.status}
                           </Badge>
                         </div>
                         <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
@@ -996,9 +1117,25 @@ export default function ProjectDevelopmentPage() {
                       </button>
                     ))
                   ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Nenhum projeto criado ainda.
-                    </p>
+                    <div className="space-y-3 py-2">
+                      <p className="text-sm text-muted-foreground">
+                        Nenhum projeto criado ainda.
+                      </p>
+                      {canWriteGovernance && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedProjectId(null);
+                            setProjectForm(emptyProjectForm());
+                          }}
+                        >
+                          <Plus className="mr-1 h-3.5 w-3.5" />
+                          Criar primeiro projeto
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -1014,8 +1151,9 @@ export default function ProjectDevelopmentPage() {
                     <form className="space-y-4" onSubmit={handleProjectSubmit}>
                       <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2">
-                          <Label>Código</Label>
+                          <Label htmlFor="proj-code">Código</Label>
                           <Input
+                            id="proj-code"
                             value={projectForm.projectCode}
                             onChange={(event) =>
                               setProjectForm((current) => ({
@@ -1027,8 +1165,9 @@ export default function ProjectDevelopmentPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Status</Label>
+                          <Label htmlFor="proj-status">Status</Label>
                           <Select
+                            id="proj-status"
                             value={projectForm.status}
                             onChange={(event) =>
                               setProjectForm((current) => ({
@@ -1039,7 +1178,7 @@ export default function ProjectDevelopmentPage() {
                             }
                             disabled={!canWriteGovernance}
                           >
-                            <option value="draft">Draft</option>
+                            <option value="draft">Rascunho</option>
                             <option value="active">Ativo</option>
                             <option value="under_review">Em revisão</option>
                             <option value="completed">Concluído</option>
@@ -1048,8 +1187,11 @@ export default function ProjectDevelopmentPage() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label>Título</Label>
+                        <Label htmlFor="proj-title">
+                          Título <span className="text-destructive">*</span>
+                        </Label>
                         <Input
+                          id="proj-title"
                           value={projectForm.title}
                           onChange={(event) =>
                             setProjectForm((current) => ({
@@ -1061,8 +1203,11 @@ export default function ProjectDevelopmentPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Escopo</Label>
+                        <Label htmlFor="proj-scope">
+                          Escopo <span className="text-destructive">*</span>
+                        </Label>
                         <Textarea
+                          id="proj-scope"
                           value={projectForm.scope}
                           onChange={(event) =>
                             setProjectForm((current) => ({
@@ -1074,8 +1219,9 @@ export default function ProjectDevelopmentPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Objetivo</Label>
+                        <Label htmlFor="proj-objective">Objetivo</Label>
                         <Textarea
+                          id="proj-objective"
                           value={projectForm.objective}
                           onChange={(event) =>
                             setProjectForm((current) => ({
@@ -1088,8 +1234,9 @@ export default function ProjectDevelopmentPage() {
                       </div>
                       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                         <div className="space-y-2">
-                          <Label>Responsável</Label>
+                          <Label htmlFor="proj-responsible">Responsável</Label>
                           <Select
+                            id="proj-responsible"
                             value={projectForm.responsibleEmployeeId}
                             onChange={(event) =>
                               setProjectForm((current) => ({
@@ -1108,8 +1255,9 @@ export default function ProjectDevelopmentPage() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label>Início planejado</Label>
+                          <Label htmlFor="proj-start">Início planejado</Label>
                           <Input
+                            id="proj-start"
                             type="date"
                             value={projectForm.plannedStartDate}
                             onChange={(event) =>
@@ -1122,8 +1270,9 @@ export default function ProjectDevelopmentPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Fim planejado</Label>
+                          <Label htmlFor="proj-end-planned">Fim planejado</Label>
                           <Input
+                            id="proj-end-planned"
                             type="date"
                             value={projectForm.plannedEndDate}
                             onChange={(event) =>
@@ -1136,8 +1285,9 @@ export default function ProjectDevelopmentPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Fim real</Label>
+                          <Label htmlFor="proj-end-actual">Fim real</Label>
                           <Input
+                            id="proj-end-actual"
                             type="date"
                             value={projectForm.actualEndDate}
                             onChange={(event) =>
@@ -1157,9 +1307,16 @@ export default function ProjectDevelopmentPage() {
                             !canWriteGovernance || projectMutation.isPending
                           }
                         >
-                          {selectedProjectId
-                            ? "Salvar projeto"
-                            : "Criar projeto"}
+                          {projectMutation.isPending ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Salvando…
+                            </>
+                          ) : selectedProjectId ? (
+                            "Salvar projeto"
+                          ) : (
+                            "Criar projeto"
+                          )}
                         </Button>
                         <Button
                           type="button"
@@ -1169,7 +1326,7 @@ export default function ProjectDevelopmentPage() {
                             setProjectForm(emptyProjectForm());
                           }}
                         >
-                          Novo
+                          Novo projeto
                         </Button>
                       </div>
                     </form>
@@ -1180,14 +1337,28 @@ export default function ProjectDevelopmentPage() {
                   <div className="grid gap-6">
                     <Card className="shadow-sm">
                       <CardHeader>
-                        <SectionHeader
-                          title="Entradas"
-                          description="Premissas, requisitos e referências de entrada do projeto."
-                        />
+                        <div className="flex items-center justify-between">
+                          <SectionHeader
+                            title="Entradas"
+                            description="Premissas, requisitos e referências de entrada do projeto."
+                          />
+                          {canWriteGovernance && !isAddingInput && !editingInputId && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setIsAddingInput(true)}
+                            >
+                              <Plus className="mr-1 h-3.5 w-3.5" />
+                              Adicionar
+                            </Button>
+                          )}
+                        </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
+                        {(isAddingInput || editingInputId) && (
                         <form
-                          className="grid gap-4 md:grid-cols-4"
+                          className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4"
                           onSubmit={(event) => {
                             event.preventDefault();
                             const payload: DevelopmentProjectInputBody = {
@@ -1205,68 +1376,95 @@ export default function ProjectDevelopmentPage() {
                                 : "Entrada adicionada",
                               () => {
                                 setEditingInputId(null);
+                                setIsAddingInput(false);
                                 setInputForm(emptyInputForm());
                               },
                             );
                           }}
                         >
-                          <Input
-                            placeholder="Título"
-                            value={inputForm.title}
-                            onChange={(event) =>
-                              setInputForm((current) => ({
-                                ...current,
-                                title: event.target.value,
-                              }))
-                            }
-                            disabled={!canWriteGovernance}
-                          />
-                          <Input
-                            placeholder="Fonte"
-                            value={inputForm.source}
-                            onChange={(event) =>
-                              setInputForm((current) => ({
-                                ...current,
-                                source: event.target.value,
-                              }))
-                            }
-                            disabled={!canWriteGovernance}
-                          />
-                          <Input
-                            placeholder="Descrição"
-                            value={inputForm.description}
-                            onChange={(event) =>
-                              setInputForm((current) => ({
-                                ...current,
-                                description: event.target.value,
-                              }))
-                            }
-                            disabled={!canWriteGovernance}
-                          />
-                          <div className="flex gap-2">
-                            <Input
-                              className="max-w-24"
-                              placeholder="Ordem"
-                              value={inputForm.sortOrder}
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="input-title">
+                                Título <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                id="input-title"
+                                value={inputForm.title}
+                                onChange={(event) =>
+                                  setInputForm((current) => ({
+                                    ...current,
+                                    title: event.target.value,
+                                  }))
+                                }
+                                disabled={!canWriteGovernance}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="input-source">Fonte</Label>
+                              <Input
+                                id="input-source"
+                                value={inputForm.source}
+                                onChange={(event) =>
+                                  setInputForm((current) => ({
+                                    ...current,
+                                    source: event.target.value,
+                                  }))
+                                }
+                                disabled={!canWriteGovernance}
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="input-description">Descrição</Label>
+                            <Textarea
+                              id="input-description"
+                              value={inputForm.description}
                               onChange={(event) =>
                                 setInputForm((current) => ({
                                   ...current,
-                                  sortOrder: event.target.value,
+                                  description: event.target.value,
                                 }))
                               }
                               disabled={!canWriteGovernance}
                             />
+                          </div>
+                          <div className="flex gap-2">
                             <Button
                               type="submit"
+                              size="sm"
                               disabled={
                                 !canWriteGovernance || inputMutation.isPending
                               }
                             >
-                              {editingInputId ? "Salvar" : "Adicionar"}
+                              {inputMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : editingInputId ? (
+                                "Salvar"
+                              ) : (
+                                "Adicionar"
+                              )}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingInputId(null);
+                                setIsAddingInput(false);
+                                setInputForm(emptyInputForm());
+                              }}
+                            >
+                              Cancelar
                             </Button>
                           </div>
                         </form>
+                        )}
                         <div className="space-y-3">
+                          {projectDetail.inputs.length === 0 && !isAddingInput && (
+                            <p className="text-xs text-muted-foreground">
+                              Nenhuma entrada registrada.
+                            </p>
+                          )}
                           {projectDetail.inputs.map((item) => (
                             <div
                               key={item.id}
@@ -1277,10 +1475,11 @@ export default function ProjectDevelopmentPage() {
                                   <p className="text-sm font-medium">
                                     {item.title}
                                   </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {item.source || "Sem fonte"} · ordem{" "}
-                                    {item.sortOrder}
-                                  </p>
+                                  {item.source ? (
+                                    <p className="text-xs text-muted-foreground">
+                                      Fonte: {item.source}
+                                    </p>
+                                  ) : null}
                                   {item.description ? (
                                     <p className="mt-2 text-sm text-muted-foreground">
                                       {item.description}
@@ -1291,8 +1490,11 @@ export default function ProjectDevelopmentPage() {
                                   <Button
                                     type="button"
                                     variant="outline"
+                                    size="sm"
+                                    aria-label={`Editar entrada: ${item.title}`}
                                     onClick={() => {
                                       setEditingInputId(item.id);
+                                      setIsAddingInput(false);
                                       setInputForm(inputToForm(item));
                                     }}
                                   >
@@ -1300,9 +1502,12 @@ export default function ProjectDevelopmentPage() {
                                   </Button>
                                   <Button
                                     type="button"
-                                    variant="outline"
+                                    variant="ghost"
+                                    size="sm"
+                                    aria-label={`Excluir entrada: ${item.title}`}
+                                    className="text-muted-foreground hover:text-destructive"
                                     onClick={() =>
-                                      void deleteResource(
+                                      deleteResource(
                                         inputMutation,
                                         item.id,
                                         "esta entrada",
@@ -1321,14 +1526,28 @@ export default function ProjectDevelopmentPage() {
 
                     <Card className="shadow-sm">
                       <CardHeader>
-                        <SectionHeader
-                          title="Etapas"
-                          description="Planejamento com responsável, prazos e evidência mínima por etapa."
-                        />
+                        <div className="flex items-center justify-between">
+                          <SectionHeader
+                            title="Etapas"
+                            description="Planejamento com responsável, prazos e evidência mínima por etapa."
+                          />
+                          {canWriteGovernance && !isAddingStage && !editingStageId && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setIsAddingStage(true)}
+                            >
+                              <Plus className="mr-1 h-3.5 w-3.5" />
+                              Adicionar
+                            </Button>
+                          )}
+                        </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
+                        {(isAddingStage || editingStageId) && (
                         <form
-                          className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"
+                          className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4"
                           onSubmit={(event) => {
                             event.preventDefault();
                             const payload: DevelopmentProjectStageBody = {
@@ -1356,105 +1575,119 @@ export default function ProjectDevelopmentPage() {
                                 : "Etapa adicionada",
                               () => {
                                 setEditingStageId(null);
+                                setIsAddingStage(false);
                                 setStageForm(emptyStageForm());
                               },
                             );
                           }}
                         >
-                          <Input
-                            placeholder="Título da etapa"
-                            value={stageForm.title}
-                            onChange={(event) =>
-                              setStageForm((current) => ({
-                                ...current,
-                                title: event.target.value,
-                              }))
-                            }
-                            disabled={!canWriteGovernance}
-                          />
-                          <Select
-                            value={stageForm.responsibleEmployeeId}
-                            onChange={(event) =>
-                              setStageForm((current) => ({
-                                ...current,
-                                responsibleEmployeeId: event.target.value,
-                              }))
-                            }
-                            disabled={!canWriteGovernance}
-                          >
-                            <option value="">Responsável</option>
-                            {employeeOptions.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </Select>
-                          <Select
-                            value={stageForm.status}
-                            onChange={(event) =>
-                              setStageForm((current) => ({
-                                ...current,
-                                status: event.target
-                                  .value as StageFormState["status"],
-                              }))
-                            }
-                            disabled={!canWriteGovernance}
-                          >
-                            <option value="planned">Planejada</option>
-                            <option value="in_progress">Em andamento</option>
-                            <option value="completed">Concluída</option>
-                            <option value="blocked">Bloqueada</option>
-                            <option value="canceled">Cancelada</option>
-                          </Select>
-                          <Input
-                            type="date"
-                            value={stageForm.dueDate}
-                            onChange={(event) =>
-                              setStageForm((current) => ({
-                                ...current,
-                                dueDate: event.target.value,
-                              }))
-                            }
-                            disabled={!canWriteGovernance}
-                          />
-                          <Input
-                            className="md:col-span-2"
-                            placeholder="Descrição"
-                            value={stageForm.description}
-                            onChange={(event) =>
-                              setStageForm((current) => ({
-                                ...current,
-                                description: event.target.value,
-                              }))
-                            }
-                            disabled={!canWriteGovernance}
-                          />
-                          <Input
-                            className="md:col-span-2"
-                            placeholder="Evidência"
-                            value={stageForm.evidenceNote}
-                            onChange={(event) =>
-                              setStageForm((current) => ({
-                                ...current,
-                                evidenceNote: event.target.value,
-                              }))
-                            }
-                            disabled={!canWriteGovernance}
-                          />
-                          <div className="flex gap-2 md:col-span-2 xl:col-span-4">
-                            <Input
-                              className="max-w-28"
-                              placeholder="Ordem"
-                              value={stageForm.sortOrder}
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="stage-title">
+                                Título <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                id="stage-title"
+                                value={stageForm.title}
+                                onChange={(event) =>
+                                  setStageForm((current) => ({
+                                    ...current,
+                                    title: event.target.value,
+                                  }))
+                                }
+                                disabled={!canWriteGovernance}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="stage-responsible">Responsável</Label>
+                              <Select
+                                id="stage-responsible"
+                                value={stageForm.responsibleEmployeeId}
+                                onChange={(event) =>
+                                  setStageForm((current) => ({
+                                    ...current,
+                                    responsibleEmployeeId: event.target.value,
+                                  }))
+                                }
+                                disabled={!canWriteGovernance}
+                              >
+                                <option value="">Selecione</option>
+                                {employeeOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="stage-status">Status</Label>
+                              <Select
+                                id="stage-status"
+                                value={stageForm.status}
+                                onChange={(event) =>
+                                  setStageForm((current) => ({
+                                    ...current,
+                                    status: event.target
+                                      .value as StageFormState["status"],
+                                  }))
+                                }
+                                disabled={!canWriteGovernance}
+                              >
+                                <option value="planned">Planejada</option>
+                                <option value="in_progress">Em andamento</option>
+                                <option value="completed">Concluída</option>
+                                <option value="blocked">Bloqueada</option>
+                                <option value="canceled">Cancelada</option>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="stage-due">Prazo</Label>
+                              <Input
+                                id="stage-due"
+                                type="date"
+                                value={stageForm.dueDate}
+                                onChange={(event) =>
+                                  setStageForm((current) => ({
+                                    ...current,
+                                    dueDate: event.target.value,
+                                  }))
+                                }
+                                disabled={!canWriteGovernance}
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="stage-description">Descrição</Label>
+                            <Textarea
+                              id="stage-description"
+                              value={stageForm.description}
                               onChange={(event) =>
                                 setStageForm((current) => ({
                                   ...current,
-                                  sortOrder: event.target.value,
+                                  description: event.target.value,
                                 }))
                               }
                               disabled={!canWriteGovernance}
                             />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="stage-evidence">Evidência</Label>
+                            <Textarea
+                              id="stage-evidence"
+                              value={stageForm.evidenceNote}
+                              onChange={(event) =>
+                                setStageForm((current) => ({
+                                  ...current,
+                                  evidenceNote: event.target.value,
+                                }))
+                              }
+                              disabled={!canWriteGovernance}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="stage-completed-at">Concluída em</Label>
                             <Input
+                              id="stage-completed-at"
                               type="datetime-local"
                               value={stageForm.completedAt}
                               onChange={(event) =>
@@ -1465,17 +1698,44 @@ export default function ProjectDevelopmentPage() {
                               }
                               disabled={!canWriteGovernance}
                             />
+                          </div>
+                          <div className="flex gap-2">
                             <Button
                               type="submit"
+                              size="sm"
                               disabled={
                                 !canWriteGovernance || stageMutation.isPending
                               }
                             >
-                              {editingStageId ? "Salvar" : "Adicionar"}
+                              {stageMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : editingStageId ? (
+                                "Salvar"
+                              ) : (
+                                "Adicionar"
+                              )}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingStageId(null);
+                                setIsAddingStage(false);
+                                setStageForm(emptyStageForm());
+                              }}
+                            >
+                              Cancelar
                             </Button>
                           </div>
                         </form>
+                        )}
                         <div className="space-y-3">
+                          {projectDetail.stages.length === 0 && !isAddingStage && (
+                            <p className="text-xs text-muted-foreground">
+                              Nenhuma etapa registrada.
+                            </p>
+                          )}
                           {projectDetail.stages.map((item) => (
                             <div
                               key={item.id}
@@ -1492,7 +1752,7 @@ export default function ProjectDevelopmentPage() {
                                         item.status,
                                       )}
                                     >
-                                      {item.status}
+                                      {STAGE_STATUS_LABEL[item.status] ?? item.status}
                                     </Badge>
                                   </div>
                                   <p className="text-xs text-muted-foreground">
@@ -1515,8 +1775,11 @@ export default function ProjectDevelopmentPage() {
                                   <Button
                                     type="button"
                                     variant="outline"
+                                    size="sm"
+                                    aria-label={`Editar etapa: ${item.title}`}
                                     onClick={() => {
                                       setEditingStageId(item.id);
+                                      setIsAddingStage(false);
                                       setStageForm(stageToForm(item));
                                     }}
                                   >
@@ -1524,9 +1787,12 @@ export default function ProjectDevelopmentPage() {
                                   </Button>
                                   <Button
                                     type="button"
-                                    variant="outline"
+                                    variant="ghost"
+                                    size="sm"
+                                    aria-label={`Excluir etapa: ${item.title}`}
+                                    className="text-muted-foreground hover:text-destructive"
                                     onClick={() =>
-                                      void deleteResource(
+                                      deleteResource(
                                         stageMutation,
                                         item.id,
                                         "esta etapa",
@@ -1546,14 +1812,28 @@ export default function ProjectDevelopmentPage() {
                     <div className="grid gap-6 xl:grid-cols-2">
                       <Card className="shadow-sm">
                         <CardHeader>
-                          <SectionHeader
-                            title="Saídas"
-                            description="Entregas principais do projeto ou desenvolvimento."
-                          />
+                          <div className="flex items-center justify-between">
+                            <SectionHeader
+                              title="Saídas"
+                              description="Entregas principais do projeto ou desenvolvimento."
+                            />
+                            {canWriteGovernance && !isAddingOutput && !editingOutputId && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsAddingOutput(true)}
+                              >
+                                <Plus className="mr-1 h-3.5 w-3.5" />
+                                Adicionar
+                              </Button>
+                            )}
+                          </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                          {(isAddingOutput || editingOutputId) && (
                           <form
-                            className="space-y-3"
+                            className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4"
                             onSubmit={(event) => {
                               event.preventDefault();
                               const payload: DevelopmentProjectOutputBody = {
@@ -1574,84 +1854,122 @@ export default function ProjectDevelopmentPage() {
                                   : "Saída adicionada",
                                 () => {
                                   setEditingOutputId(null);
+                                  setIsAddingOutput(false);
                                   setOutputForm(emptyOutputForm());
                                 },
                               );
                             }}
                           >
-                            <Input
-                              placeholder="Título"
-                              value={outputForm.title}
-                              onChange={(event) =>
-                                setOutputForm((current) => ({
-                                  ...current,
-                                  title: event.target.value,
-                                }))
-                              }
-                              disabled={!canWriteGovernance}
-                            />
-                            <Input
-                              placeholder="Tipo"
-                              value={outputForm.outputType}
-                              onChange={(event) =>
-                                setOutputForm((current) => ({
-                                  ...current,
-                                  outputType: event.target.value,
-                                }))
-                              }
-                              disabled={!canWriteGovernance}
-                            />
-                            <Textarea
-                              placeholder="Descrição"
-                              value={outputForm.description}
-                              onChange={(event) =>
-                                setOutputForm((current) => ({
-                                  ...current,
-                                  description: event.target.value,
-                                }))
-                              }
-                              disabled={!canWriteGovernance}
-                            />
-                            <div className="flex gap-2">
-                              <Select
-                                value={outputForm.status}
-                                onChange={(event) =>
-                                  setOutputForm((current) => ({
-                                    ...current,
-                                    status: event.target
-                                      .value as OutputFormState["status"],
-                                  }))
-                                }
-                                disabled={!canWriteGovernance}
-                              >
-                                <option value="draft">Draft</option>
-                                <option value="approved">Aprovada</option>
-                                <option value="released">Liberada</option>
-                              </Select>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="output-title">
+                                Título <span className="text-destructive">*</span>
+                              </Label>
                               <Input
-                                className="max-w-24"
-                                placeholder="Ordem"
-                                value={outputForm.sortOrder}
+                                id="output-title"
+                                value={outputForm.title}
                                 onChange={(event) =>
                                   setOutputForm((current) => ({
                                     ...current,
-                                    sortOrder: event.target.value,
+                                    title: event.target.value,
                                   }))
                                 }
                                 disabled={!canWriteGovernance}
                               />
+                            </div>
+                            <div className="grid gap-3 md:grid-cols-2">
+                              <div className="space-y-1.5">
+                                <Label htmlFor="output-type">Tipo</Label>
+                                <Select
+                                  id="output-type"
+                                  value={outputForm.outputType}
+                                  onChange={(event) =>
+                                    setOutputForm((current) => ({
+                                      ...current,
+                                      outputType: event.target.value,
+                                    }))
+                                  }
+                                  disabled={!canWriteGovernance}
+                                >
+                                  <option value="specification">Especificação</option>
+                                  <option value="report">Relatório</option>
+                                  <option value="plan">Plano</option>
+                                  <option value="prototype">Protótipo</option>
+                                  <option value="certificate">Certificado</option>
+                                  <option value="other">Outro</option>
+                                </Select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="output-status">Status</Label>
+                                <Select
+                                  id="output-status"
+                                  value={outputForm.status}
+                                  onChange={(event) =>
+                                    setOutputForm((current) => ({
+                                      ...current,
+                                      status: event.target
+                                        .value as OutputFormState["status"],
+                                    }))
+                                  }
+                                  disabled={!canWriteGovernance}
+                                >
+                                  <option value="draft">Rascunho</option>
+                                  <option value="approved">Aprovada</option>
+                                  <option value="released">Liberada</option>
+                                </Select>
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="output-description">Descrição</Label>
+                              <Textarea
+                                id="output-description"
+                                value={outputForm.description}
+                                onChange={(event) =>
+                                  setOutputForm((current) => ({
+                                    ...current,
+                                    description: event.target.value,
+                                  }))
+                                }
+                                disabled={!canWriteGovernance}
+                              />
+                            </div>
+                            <div className="flex gap-2">
                               <Button
                                 type="submit"
+                                size="sm"
                                 disabled={
                                   !canWriteGovernance ||
                                   outputMutation.isPending
                                 }
                               >
-                                {editingOutputId ? "Salvar" : "Adicionar"}
+                                {outputMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : editingOutputId ? (
+                                  "Salvar"
+                                ) : (
+                                  "Adicionar"
+                                )}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingOutputId(null);
+                                  setIsAddingOutput(false);
+                                  setOutputForm(emptyOutputForm());
+                                }}
+                              >
+                                Cancelar
                               </Button>
                             </div>
                           </form>
+                          )}
                           <div className="space-y-3">
+                            {projectDetail.outputs.length === 0 && !isAddingOutput && (
+                              <p className="text-xs text-muted-foreground">
+                                Nenhuma saída registrada.
+                              </p>
+                            )}
                             {projectDetail.outputs.map((item) => (
                               <div
                                 key={item.id}
@@ -1663,7 +1981,8 @@ export default function ProjectDevelopmentPage() {
                                       {item.title}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
-                                      {item.outputType} · {item.status}
+                                      {OUTPUT_TYPE_LABEL[item.outputType] ?? item.outputType} ·{" "}
+                                      {OUTPUT_STATUS_LABEL[item.status] ?? item.status}
                                     </p>
                                     {item.description ? (
                                       <p className="mt-2 text-sm text-muted-foreground">
@@ -1675,8 +1994,11 @@ export default function ProjectDevelopmentPage() {
                                     <Button
                                       type="button"
                                       variant="outline"
+                                      size="sm"
+                                      aria-label={`Editar saída: ${item.title}`}
                                       onClick={() => {
                                         setEditingOutputId(item.id);
+                                        setIsAddingOutput(false);
                                         setOutputForm(outputToForm(item));
                                       }}
                                     >
@@ -1684,9 +2006,12 @@ export default function ProjectDevelopmentPage() {
                                     </Button>
                                     <Button
                                       type="button"
-                                      variant="outline"
+                                      variant="ghost"
+                                      size="sm"
+                                      aria-label={`Excluir saída: ${item.title}`}
+                                      className="text-muted-foreground hover:text-destructive"
                                       onClick={() =>
-                                        void deleteResource(
+                                        deleteResource(
                                           outputMutation,
                                           item.id,
                                           "esta saída",
@@ -1705,14 +2030,28 @@ export default function ProjectDevelopmentPage() {
 
                       <Card className="shadow-sm">
                         <CardHeader>
-                          <SectionHeader
-                            title="Revisões, verificações e validações"
-                            description="Registros mínimos de aprovação técnica e evidência de conformidade."
-                          />
+                          <div className="flex items-center justify-between">
+                            <SectionHeader
+                              title="Revisões, verificações e validações"
+                              description="Registros mínimos de aprovação técnica e evidência de conformidade."
+                            />
+                            {canWriteGovernance && !isAddingReview && !editingReviewId && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsAddingReview(true)}
+                              >
+                                <Plus className="mr-1 h-3.5 w-3.5" />
+                                Registrar
+                              </Button>
+                            )}
+                          </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                          {(isAddingReview || editingReviewId) && (
                           <form
-                            className="space-y-3"
+                            className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4"
                             onSubmit={(event) => {
                               event.preventDefault();
                               const payload: DevelopmentProjectReviewBody = {
@@ -1739,113 +2078,160 @@ export default function ProjectDevelopmentPage() {
                                   : "Registro adicionado",
                                 () => {
                                   setEditingReviewId(null);
+                                  setIsAddingReview(false);
                                   setReviewForm(emptyReviewForm());
                                 },
                               );
                             }}
                           >
                             <div className="grid gap-3 md:grid-cols-2">
-                              <Select
-                                value={reviewForm.reviewType}
-                                onChange={(event) =>
-                                  setReviewForm((current) => ({
-                                    ...current,
-                                    reviewType: event.target
-                                      .value as ReviewFormState["reviewType"],
-                                  }))
-                                }
-                                disabled={!canWriteGovernance}
-                              >
-                                <option value="review">Revisão</option>
-                                <option value="verification">
-                                  Verificação
-                                </option>
-                                <option value="validation">Validação</option>
-                              </Select>
-                              <Select
-                                value={reviewForm.outcome}
-                                onChange={(event) =>
-                                  setReviewForm((current) => ({
-                                    ...current,
-                                    outcome: event.target
-                                      .value as ReviewFormState["outcome"],
-                                  }))
-                                }
-                                disabled={!canWriteGovernance}
-                              >
-                                <option value="pending">Pendente</option>
-                                <option value="approved">Aprovada</option>
-                                <option value="rejected">Rejeitada</option>
-                                <option value="needs_changes">
-                                  Exige ajustes
-                                </option>
-                              </Select>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="review-type">
+                                  Tipo <span className="text-destructive">*</span>
+                                </Label>
+                                <Select
+                                  id="review-type"
+                                  value={reviewForm.reviewType}
+                                  onChange={(event) =>
+                                    setReviewForm((current) => ({
+                                      ...current,
+                                      reviewType: event.target
+                                        .value as ReviewFormState["reviewType"],
+                                    }))
+                                  }
+                                  disabled={!canWriteGovernance}
+                                >
+                                  <option value="review">Revisão</option>
+                                  <option value="verification">Verificação</option>
+                                  <option value="validation">Validação</option>
+                                </Select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="review-outcome">Resultado</Label>
+                                <Select
+                                  id="review-outcome"
+                                  value={reviewForm.outcome}
+                                  onChange={(event) =>
+                                    setReviewForm((current) => ({
+                                      ...current,
+                                      outcome: event.target
+                                        .value as ReviewFormState["outcome"],
+                                    }))
+                                  }
+                                  disabled={!canWriteGovernance}
+                                >
+                                  <option value="pending">Pendente</option>
+                                  <option value="approved">Aprovada</option>
+                                  <option value="rejected">Rejeitada</option>
+                                  <option value="needs_changes">Exige ajustes</option>
+                                </Select>
+                              </div>
                             </div>
-                            <Input
-                              placeholder="Título do registro"
-                              value={reviewForm.title}
-                              onChange={(event) =>
-                                setReviewForm((current) => ({
-                                  ...current,
-                                  title: event.target.value,
-                                }))
-                              }
-                              disabled={!canWriteGovernance}
-                            />
-                            <div className="grid gap-3 md:grid-cols-2">
-                              <Select
-                                value={reviewForm.responsibleEmployeeId}
-                                onChange={(event) =>
-                                  setReviewForm((current) => ({
-                                    ...current,
-                                    responsibleEmployeeId: event.target.value,
-                                  }))
-                                }
-                                disabled={!canWriteGovernance}
-                              >
-                                <option value="">Responsável</option>
-                                {employeeOptions.map((option) => (
-                                  <option
-                                    key={option.value}
-                                    value={option.value}
-                                  >
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </Select>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="review-title">
+                                Título <span className="text-destructive">*</span>
+                              </Label>
                               <Input
-                                type="datetime-local"
-                                value={reviewForm.occurredAt}
+                                id="review-title"
+                                value={reviewForm.title}
                                 onChange={(event) =>
                                   setReviewForm((current) => ({
                                     ...current,
-                                    occurredAt: event.target.value,
+                                    title: event.target.value,
                                   }))
                                 }
                                 disabled={!canWriteGovernance}
                               />
                             </div>
-                            <Textarea
-                              placeholder="Observações"
-                              value={reviewForm.notes}
-                              onChange={(event) =>
-                                setReviewForm((current) => ({
-                                  ...current,
-                                  notes: event.target.value,
-                                }))
-                              }
-                              disabled={!canWriteGovernance}
-                            />
-                            <Button
-                              type="submit"
-                              disabled={
-                                !canWriteGovernance || reviewMutation.isPending
-                              }
-                            >
-                              {editingReviewId ? "Salvar" : "Adicionar"}
-                            </Button>
+                            <div className="grid gap-3 md:grid-cols-2">
+                              <div className="space-y-1.5">
+                                <Label htmlFor="review-responsible">Responsável</Label>
+                                <Select
+                                  id="review-responsible"
+                                  value={reviewForm.responsibleEmployeeId}
+                                  onChange={(event) =>
+                                    setReviewForm((current) => ({
+                                      ...current,
+                                      responsibleEmployeeId: event.target.value,
+                                    }))
+                                  }
+                                  disabled={!canWriteGovernance}
+                                >
+                                  <option value="">Selecione</option>
+                                  {employeeOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </Select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="review-occurred-at">Ocorreu em</Label>
+                                <Input
+                                  id="review-occurred-at"
+                                  type="datetime-local"
+                                  value={reviewForm.occurredAt}
+                                  onChange={(event) =>
+                                    setReviewForm((current) => ({
+                                      ...current,
+                                      occurredAt: event.target.value,
+                                    }))
+                                  }
+                                  disabled={!canWriteGovernance}
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="review-notes">Observações</Label>
+                              <Textarea
+                                id="review-notes"
+                                value={reviewForm.notes}
+                                onChange={(event) =>
+                                  setReviewForm((current) => ({
+                                    ...current,
+                                    notes: event.target.value,
+                                  }))
+                                }
+                                disabled={!canWriteGovernance}
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                type="submit"
+                                size="sm"
+                                disabled={
+                                  !canWriteGovernance || reviewMutation.isPending
+                                }
+                              >
+                                {reviewMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : editingReviewId ? (
+                                  "Salvar"
+                                ) : (
+                                  "Registrar"
+                                )}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingReviewId(null);
+                                  setIsAddingReview(false);
+                                  setReviewForm(emptyReviewForm());
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                            </div>
                           </form>
+                          )}
                           <div className="space-y-3">
+                            {projectDetail.reviews.length === 0 && !isAddingReview && (
+                              <p className="text-xs text-muted-foreground">
+                                Nenhum registro de revisão, verificação ou validação.
+                              </p>
+                            )}
                             {projectDetail.reviews.map((item) => (
                               <div
                                 key={item.id}
@@ -1860,11 +2246,11 @@ export default function ProjectDevelopmentPage() {
                                       <Badge
                                         className={getReviewTone(item.outcome)}
                                       >
-                                        {item.outcome}
+                                        {REVIEW_OUTCOME_LABEL[item.outcome] ?? item.outcome}
                                       </Badge>
                                     </div>
                                     <p className="text-xs text-muted-foreground">
-                                      {item.reviewType} · responsável{" "}
+                                      {REVIEW_TYPE_LABEL[item.reviewType] ?? item.reviewType} · responsável{" "}
                                       {item.responsibleEmployeeName || "—"} ·{" "}
                                       {formatDateTime(item.occurredAt)}
                                     </p>
@@ -1878,8 +2264,11 @@ export default function ProjectDevelopmentPage() {
                                     <Button
                                       type="button"
                                       variant="outline"
+                                      size="sm"
+                                      aria-label={`Editar registro: ${item.title}`}
                                       onClick={() => {
                                         setEditingReviewId(item.id);
+                                        setIsAddingReview(false);
                                         setReviewForm(reviewToForm(item));
                                       }}
                                     >
@@ -1887,9 +2276,12 @@ export default function ProjectDevelopmentPage() {
                                     </Button>
                                     <Button
                                       type="button"
-                                      variant="outline"
+                                      variant="ghost"
+                                      size="sm"
+                                      aria-label={`Excluir registro: ${item.title}`}
+                                      className="text-muted-foreground hover:text-destructive"
                                       onClick={() =>
-                                        void deleteResource(
+                                        deleteResource(
                                           reviewMutation,
                                           item.id,
                                           "este registro",
@@ -1909,14 +2301,28 @@ export default function ProjectDevelopmentPage() {
 
                     <Card className="shadow-sm">
                       <CardHeader>
-                        <SectionHeader
-                          title="Mudanças de projeto"
-                          description="Controle das mudanças com motivo, impacto e decisão."
-                        />
+                        <div className="flex items-center justify-between">
+                          <SectionHeader
+                            title="Mudanças de projeto"
+                            description="Controle das mudanças com motivo, impacto e decisão."
+                          />
+                          {canWriteGovernance && !isAddingChange && !editingChangeId && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setIsAddingChange(true)}
+                            >
+                              <Plus className="mr-1 h-3.5 w-3.5" />
+                              Registrar
+                            </Button>
+                          )}
+                        </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
+                        {(isAddingChange || editingChangeId) && (
                         <form
-                          className="space-y-3"
+                          className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-4"
                           onSubmit={(event) => {
                             event.preventDefault();
                             const payload: DevelopmentProjectChangeBody = {
@@ -1937,83 +2343,133 @@ export default function ProjectDevelopmentPage() {
                                 : "Mudança adicionada",
                               () => {
                                 setEditingChangeId(null);
+                                setIsAddingChange(false);
                                 setChangeForm(emptyChangeForm());
                               },
                             );
                           }}
                         >
                           <div className="grid gap-3 md:grid-cols-2">
-                            <Input
-                              placeholder="Título"
-                              value={changeForm.title}
+                            <div className="space-y-1.5">
+                              <Label htmlFor="change-title">
+                                Título <span className="text-destructive">*</span>
+                              </Label>
+                              <Input
+                                id="change-title"
+                                value={changeForm.title}
+                                onChange={(event) =>
+                                  setChangeForm((current) => ({
+                                    ...current,
+                                    title: event.target.value,
+                                  }))
+                                }
+                                disabled={!canWriteGovernance}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="change-status">Status</Label>
+                              <Select
+                                id="change-status"
+                                value={changeForm.status}
+                                onChange={(event) =>
+                                  setChangeForm((current) => ({
+                                    ...current,
+                                    status: event.target
+                                      .value as ChangeFormState["status"],
+                                  }))
+                                }
+                                disabled={!canWriteGovernance}
+                              >
+                                <option value="pending">Pendente</option>
+                                <option value="approved">Aprovada</option>
+                                <option value="rejected">Rejeitada</option>
+                                <option value="implemented">Implementada</option>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="change-description">
+                              Descrição <span className="text-destructive">*</span>
+                            </Label>
+                            <Textarea
+                              id="change-description"
+                              value={changeForm.changeDescription}
                               onChange={(event) =>
                                 setChangeForm((current) => ({
                                   ...current,
-                                  title: event.target.value,
+                                  changeDescription: event.target.value,
                                 }))
                               }
                               disabled={!canWriteGovernance}
                             />
-                            <Select
-                              value={changeForm.status}
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="change-reason">
+                              Motivo <span className="text-destructive">*</span>
+                            </Label>
+                            <Textarea
+                              id="change-reason"
+                              value={changeForm.reason}
                               onChange={(event) =>
                                 setChangeForm((current) => ({
                                   ...current,
-                                  status: event.target
-                                    .value as ChangeFormState["status"],
+                                  reason: event.target.value,
                                 }))
                               }
                               disabled={!canWriteGovernance}
-                            >
-                              <option value="pending">Pendente</option>
-                              <option value="approved">Aprovada</option>
-                              <option value="rejected">Rejeitada</option>
-                              <option value="implemented">Implementada</option>
-                            </Select>
+                            />
                           </div>
-                          <Textarea
-                            placeholder="Descrição da mudança"
-                            value={changeForm.changeDescription}
-                            onChange={(event) =>
-                              setChangeForm((current) => ({
-                                ...current,
-                                changeDescription: event.target.value,
-                              }))
-                            }
-                            disabled={!canWriteGovernance}
-                          />
-                          <Textarea
-                            placeholder="Motivo"
-                            value={changeForm.reason}
-                            onChange={(event) =>
-                              setChangeForm((current) => ({
-                                ...current,
-                                reason: event.target.value,
-                              }))
-                            }
-                            disabled={!canWriteGovernance}
-                          />
-                          <Textarea
-                            placeholder="Impacto"
-                            value={changeForm.impactDescription}
-                            onChange={(event) =>
-                              setChangeForm((current) => ({
-                                ...current,
-                                impactDescription: event.target.value,
-                              }))
-                            }
-                            disabled={!canWriteGovernance}
-                          />
-                          <Button
-                            type="submit"
-                            disabled={
-                              !canWriteGovernance || changeMutation.isPending
-                            }
-                          >
-                            {editingChangeId ? "Salvar" : "Adicionar"}
-                          </Button>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="change-impact">Impacto</Label>
+                            <Textarea
+                              id="change-impact"
+                              value={changeForm.impactDescription}
+                              onChange={(event) =>
+                                setChangeForm((current) => ({
+                                  ...current,
+                                  impactDescription: event.target.value,
+                                }))
+                              }
+                              disabled={!canWriteGovernance}
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              type="submit"
+                              size="sm"
+                              disabled={
+                                !canWriteGovernance || changeMutation.isPending
+                              }
+                            >
+                              {changeMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : editingChangeId ? (
+                                "Salvar"
+                              ) : (
+                                "Registrar"
+                              )}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingChangeId(null);
+                                setIsAddingChange(false);
+                                setChangeForm(emptyChangeForm());
+                              }}
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
                         </form>
+                        )}
                         <div className="space-y-3">
+                          {projectDetail.changes.length === 0 && !isAddingChange && (
+                            <p className="text-xs text-muted-foreground">
+                              Nenhuma mudança registrada.
+                            </p>
+                          )}
                           {projectDetail.changes.map((item) => (
                             <div
                               key={item.id}
@@ -2028,7 +2484,7 @@ export default function ProjectDevelopmentPage() {
                                     <Badge
                                       className={getChangeTone(item.status)}
                                     >
-                                      {item.status}
+                                      {CHANGE_STATUS_LABEL[item.status] ?? item.status}
                                     </Badge>
                                   </div>
                                   <p className="text-sm text-muted-foreground">
@@ -2051,8 +2507,11 @@ export default function ProjectDevelopmentPage() {
                                   <Button
                                     type="button"
                                     variant="outline"
+                                    size="sm"
+                                    aria-label={`Editar mudança: ${item.title}`}
                                     onClick={() => {
                                       setEditingChangeId(item.id);
+                                      setIsAddingChange(false);
                                       setChangeForm(changeToForm(item));
                                     }}
                                   >
@@ -2060,9 +2519,12 @@ export default function ProjectDevelopmentPage() {
                                   </Button>
                                   <Button
                                     type="button"
-                                    variant="outline"
+                                    variant="ghost"
+                                    size="sm"
+                                    aria-label={`Excluir mudança: ${item.title}`}
+                                    className="text-muted-foreground hover:text-destructive"
                                     onClick={() =>
-                                      void deleteResource(
+                                      deleteResource(
                                         changeMutation,
                                         item.id,
                                         "esta mudança",
@@ -2094,6 +2556,34 @@ export default function ProjectDevelopmentPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja remover {pendingDelete?.label}? Esta ação não pode ser
+              desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                void pendingDelete?.onConfirm();
+                setPendingDelete(null);
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
