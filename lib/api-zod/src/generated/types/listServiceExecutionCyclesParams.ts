@@ -12,5 +12,8 @@ export type ListServiceExecutionCyclesParams = {
   pageSize?: number;
   status?: ServiceExecutionCycleStatus;
   modelId?: number;
+  processId?: number;
+  unitId?: number;
+  customerContactId?: number;
   search?: string;
 };

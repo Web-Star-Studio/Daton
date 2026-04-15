@@ -11390,6 +11390,9 @@ export const ListServiceExecutionCyclesQueryParams = zod.object({
     .enum(["in_progress", "awaiting_release", "released", "blocked"])
     .optional(),
   modelId: zod.coerce.number().optional(),
+  processId: zod.coerce.number().optional(),
+  unitId: zod.coerce.number().optional(),
+  customerContactId: zod.coerce.number().optional(),
   search: zod.coerce.string().optional(),
 });
 
@@ -11787,6 +11790,7 @@ export const GetServiceExecutionCycleResponse = zod
           cycleId: zod.number(),
           title: zod.string(),
           description: zod.string(),
+          impact: zod.string(),
           status: zod.enum(["open", "in_treatment", "resolved", "closed"]),
           disposition: zod
             .enum([
@@ -12209,6 +12213,7 @@ export const UpdateServiceExecutionCycleResponse = zod
           cycleId: zod.number(),
           title: zod.string(),
           description: zod.string(),
+          impact: zod.string(),
           status: zod.enum(["open", "in_treatment", "resolved", "closed"]),
           disposition: zod
             .enum([
@@ -12616,6 +12621,7 @@ export const ReleaseServiceExecutionCycleResponse = zod
           cycleId: zod.number(),
           title: zod.string(),
           description: zod.string(),
+          impact: zod.string(),
           status: zod.enum(["open", "in_treatment", "resolved", "closed"]),
           disposition: zod
             .enum([
@@ -12675,6 +12681,7 @@ export const createServiceNonconformingOutputBodyEvidenceAttachmentsItemOneObjec
 export const CreateServiceNonconformingOutputBody = zod.object({
   title: zod.string(),
   description: zod.string(),
+  impact: zod.string(),
   status: zod.enum(["open", "in_treatment", "resolved", "closed"]).optional(),
   disposition: zod
     .enum([
@@ -12725,6 +12732,7 @@ export const updateServiceNonconformingOutputBodyOneEvidenceAttachmentsItemOneOb
 export const UpdateServiceNonconformingOutputBody = zod.object({
   title: zod.string(),
   description: zod.string(),
+  impact: zod.string(),
   status: zod.enum(["open", "in_treatment", "resolved", "closed"]).optional(),
   disposition: zod
     .enum([
@@ -12769,6 +12777,7 @@ export const UpdateServiceNonconformingOutputResponse = zod.object({
   cycleId: zod.number(),
   title: zod.string(),
   description: zod.string(),
+  impact: zod.string(),
   status: zod.enum(["open", "in_treatment", "resolved", "closed"]),
   disposition: zod
     .enum([

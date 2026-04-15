@@ -2773,6 +2773,7 @@ export interface ServiceNonconformingOutput {
   cycleId: number;
   title: string;
   description: string;
+  impact: string;
   status: ServiceNonconformingOutputStatus;
   disposition?: ServiceNonconformingOutputDisposition | null;
   dispositionNotes?: string | null;
@@ -2924,6 +2925,7 @@ export interface CreateServiceReleaseRecordBody {
 export interface CreateServiceNonconformingOutputBody {
   title: string;
   description: string;
+  impact: string;
   status?: ServiceNonconformingOutputStatus;
   disposition?: ServiceNonconformingOutputDisposition | null;
   dispositionNotes?: string | null;
@@ -4792,6 +4794,9 @@ export type ListServiceExecutionCyclesParams = {
   pageSize?: number;
   status?: ServiceExecutionCycleStatus;
   modelId?: number;
+  processId?: number;
+  unitId?: number;
+  customerContactId?: number;
   search?: string;
 };
 

@@ -1,5 +1,15 @@
 import { Router, type IRouter, type Response } from "express";
-import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  or,
+  sql,
+} from "drizzle-orm";
 import { z } from "zod";
 import {
   db,
@@ -110,8 +120,13 @@ const updateModelBodySchema = z.object({
 });
 
 const listCyclesQuerySchema = paginationSchema.extend({
-  status: z.enum(["in_progress", "awaiting_release", "released", "blocked"]).optional(),
+  status: z
+    .enum(["in_progress", "awaiting_release", "released", "blocked"])
+    .optional(),
   modelId: z.coerce.number().int().positive().optional(),
+  processId: z.coerce.number().int().positive().optional(),
+  unitId: z.coerce.number().int().positive().optional(),
+  customerContactId: z.coerce.number().int().positive().optional(),
 });
 
 const createCycleBodySchema = z.object({
@@ -169,6 +184,7 @@ const nonconformingOutputBodySchema = z
   .object({
     title: z.string().trim().min(1),
     description: z.string().trim().min(1),
+    impact: z.string().trim().min(1),
     status: nonconformingOutputStatusSchema.default("open"),
     disposition: nonconformingOutputDispositionSchema.optional().nullable(),
     dispositionNotes: z.string().trim().optional().nullable(),
@@ -180,7 +196,8 @@ const nonconformingOutputBodySchema = z
     if (value.status !== "open" && !value.disposition) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "A disposição é obrigatória quando a saída já está em tratamento ou encerrada",
+        message:
+          "A disposição é obrigatória quando a saída já está em tratamento ou encerrada",
         path: ["disposition"],
       });
     }
@@ -192,7 +209,9 @@ const thirdPartyPropertyBodySchema = z.object({
   description: z.string().trim().optional().nullable(),
   conditionOnReceipt: z.string().trim().optional().nullable(),
   handlingRequirements: z.string().trim().optional().nullable(),
-  status: z.enum(["received", "in_use", "returned", "lost_or_damaged"]).default("received"),
+  status: z
+    .enum(["received", "in_use", "returned", "lost_or_damaged"])
+    .default("received"),
   responsibleUserId: z.number().int().positive().optional().nullable(),
   evidenceAttachments: z.array(attachmentSchema).default([]),
 });
@@ -213,7 +232,14 @@ const preservationDeliveryBodySchema = z.object({
 
 const postDeliveryEventBodySchema = z.object({
   eventType: z
-    .enum(["monitoring", "complaint", "assistance", "adjustment", "feedback", "other"])
+    .enum([
+      "monitoring",
+      "complaint",
+      "assistance",
+      "adjustment",
+      "feedback",
+      "other",
+    ])
     .default("other"),
   title: z.string().trim().min(1),
   description: z.string().trim().min(1),
@@ -235,7 +261,9 @@ const specialValidationProfileBodySchema = z.object({
 });
 
 const specialValidationEventBodySchema = z.object({
-  eventType: z.enum(["initial_validation", "revalidation"]).default("revalidation"),
+  eventType: z
+    .enum(["initial_validation", "revalidation"])
+    .default("revalidation"),
   result: z.enum(["approved", "rejected"]).default("approved"),
   criteriaSnapshot: z.string().trim().min(1),
   notes: z.string().trim().optional().nullable(),
@@ -311,18 +339,26 @@ async function validateDocumentIds(documentIds: number[], orgId: number) {
   return rows.length === uniqueIds.length;
 }
 
-async function validateUnitId(unitId: number | null | undefined, orgId: number) {
+async function validateUnitId(
+  unitId: number | null | undefined,
+  orgId: number,
+) {
   if (!unitId) return true;
 
   const [row] = await db
     .select({ id: unitsTable.id })
     .from(unitsTable)
-    .where(and(eq(unitsTable.id, unitId), eq(unitsTable.organizationId, orgId)));
+    .where(
+      and(eq(unitsTable.id, unitId), eq(unitsTable.organizationId, orgId)),
+    );
 
   return Boolean(row);
 }
 
-async function validateProcessId(processId: number | null | undefined, orgId: number) {
+async function validateProcessId(
+  processId: number | null | undefined,
+  orgId: number,
+) {
   if (!processId) return true;
 
   const [row] = await db
@@ -338,7 +374,10 @@ async function validateProcessId(processId: number | null | undefined, orgId: nu
   return Boolean(row);
 }
 
-async function validateNonconformityId(nonconformityId: number | null | undefined, orgId: number) {
+async function validateNonconformityId(
+  nonconformityId: number | null | undefined,
+  orgId: number,
+) {
   if (!nonconformityId) return true;
 
   const [row] = await db
@@ -398,7 +437,8 @@ async function getServiceExecutionModelDetail(orgId: number, modelId: number) {
           serviceExecutionModelCheckpointsTable.acceptanceCriteria,
         guidance: serviceExecutionModelCheckpointsTable.guidance,
         isRequired: serviceExecutionModelCheckpointsTable.isRequired,
-        requiresEvidence: serviceExecutionModelCheckpointsTable.requiresEvidence,
+        requiresEvidence:
+          serviceExecutionModelCheckpointsTable.requiresEvidence,
         sortOrder: serviceExecutionModelCheckpointsTable.sortOrder,
       })
       .from(serviceExecutionModelCheckpointsTable)
@@ -431,7 +471,8 @@ async function getServiceExecutionModelDetail(orgId: number, modelId: number) {
     documents,
     specialValidationProfile,
     checkpointCount: checkpoints.length,
-    requiredCheckpointCount: checkpoints.filter((item) => item.isRequired).length,
+    requiredCheckpointCount: checkpoints.filter((item) => item.isRequired)
+      .length,
   };
 }
 
@@ -443,12 +484,14 @@ async function listServiceNonconformingOutputs(orgId: number, cycleId: number) {
       cycleId: serviceNonconformingOutputsTable.cycleId,
       title: serviceNonconformingOutputsTable.title,
       description: serviceNonconformingOutputsTable.description,
+      impact: serviceNonconformingOutputsTable.impact,
       status: serviceNonconformingOutputsTable.status,
       disposition: serviceNonconformingOutputsTable.disposition,
       dispositionNotes: serviceNonconformingOutputsTable.dispositionNotes,
       responsibleUserId: serviceNonconformingOutputsTable.responsibleUserId,
       responsibleUserName: usersTable.name,
-      linkedNonconformityId: serviceNonconformingOutputsTable.linkedNonconformityId,
+      linkedNonconformityId:
+        serviceNonconformingOutputsTable.linkedNonconformityId,
       linkedNonconformityTitle: nonconformitiesTable.title,
       evidenceAttachments: serviceNonconformingOutputsTable.evidenceAttachments,
       detectedById: serviceNonconformingOutputsTable.detectedById,
@@ -464,7 +507,10 @@ async function listServiceNonconformingOutputs(orgId: number, cycleId: number) {
     )
     .leftJoin(
       nonconformitiesTable,
-      eq(serviceNonconformingOutputsTable.linkedNonconformityId, nonconformitiesTable.id),
+      eq(
+        serviceNonconformingOutputsTable.linkedNonconformityId,
+        nonconformitiesTable.id,
+      ),
     )
     .where(
       and(
@@ -472,9 +518,14 @@ async function listServiceNonconformingOutputs(orgId: number, cycleId: number) {
         eq(serviceNonconformingOutputsTable.cycleId, cycleId),
       ),
     )
-    .orderBy(desc(serviceNonconformingOutputsTable.updatedAt), desc(serviceNonconformingOutputsTable.id));
+    .orderBy(
+      desc(serviceNonconformingOutputsTable.updatedAt),
+      desc(serviceNonconformingOutputsTable.id),
+    );
 
-  const detectedByIds = [...new Set(outputs.map((output) => output.detectedById))];
+  const detectedByIds = [
+    ...new Set(outputs.map((output) => output.detectedById)),
+  ];
   const detectedByUsers =
     detectedByIds.length > 0
       ? await db
@@ -506,7 +557,8 @@ async function listServiceThirdPartyProperties(orgId: number, cycleId: number) {
       ownerName: serviceThirdPartyPropertiesTable.ownerName,
       description: serviceThirdPartyPropertiesTable.description,
       conditionOnReceipt: serviceThirdPartyPropertiesTable.conditionOnReceipt,
-      handlingRequirements: serviceThirdPartyPropertiesTable.handlingRequirements,
+      handlingRequirements:
+        serviceThirdPartyPropertiesTable.handlingRequirements,
       status: serviceThirdPartyPropertiesTable.status,
       responsibleUserId: serviceThirdPartyPropertiesTable.responsibleUserId,
       responsibleUserName: usersTable.name,
@@ -518,14 +570,20 @@ async function listServiceThirdPartyProperties(orgId: number, cycleId: number) {
       updatedAt: serviceThirdPartyPropertiesTable.updatedAt,
     })
     .from(serviceThirdPartyPropertiesTable)
-    .leftJoin(usersTable, eq(serviceThirdPartyPropertiesTable.responsibleUserId, usersTable.id))
+    .leftJoin(
+      usersTable,
+      eq(serviceThirdPartyPropertiesTable.responsibleUserId, usersTable.id),
+    )
     .where(
       and(
         eq(serviceThirdPartyPropertiesTable.organizationId, orgId),
         eq(serviceThirdPartyPropertiesTable.cycleId, cycleId),
       ),
     )
-    .orderBy(desc(serviceThirdPartyPropertiesTable.updatedAt), desc(serviceThirdPartyPropertiesTable.id));
+    .orderBy(
+      desc(serviceThirdPartyPropertiesTable.updatedAt),
+      desc(serviceThirdPartyPropertiesTable.id),
+    );
 
   return rows.map((row) => ({
     ...row,
@@ -536,17 +594,23 @@ async function listServiceThirdPartyProperties(orgId: number, cycleId: number) {
   }));
 }
 
-async function getServicePreservationDeliveryRecord(orgId: number, cycleId: number) {
+async function getServicePreservationDeliveryRecord(
+  orgId: number,
+  cycleId: number,
+) {
   const [record] = await db
     .select({
       id: servicePreservationDeliveryRecordsTable.id,
       organizationId: servicePreservationDeliveryRecordsTable.organizationId,
       cycleId: servicePreservationDeliveryRecordsTable.cycleId,
-      preservationNotes: servicePreservationDeliveryRecordsTable.preservationNotes,
-      preservationMethod: servicePreservationDeliveryRecordsTable.preservationMethod,
+      preservationNotes:
+        servicePreservationDeliveryRecordsTable.preservationNotes,
+      preservationMethod:
+        servicePreservationDeliveryRecordsTable.preservationMethod,
       packagingNotes: servicePreservationDeliveryRecordsTable.packagingNotes,
       deliveryNotes: servicePreservationDeliveryRecordsTable.deliveryNotes,
-      deliveryRecipient: servicePreservationDeliveryRecordsTable.deliveryRecipient,
+      deliveryRecipient:
+        servicePreservationDeliveryRecordsTable.deliveryRecipient,
       deliveryMethod: servicePreservationDeliveryRecordsTable.deliveryMethod,
       deliveredById: servicePreservationDeliveryRecordsTable.deliveredById,
       deliveredByName: usersTable.name,
@@ -560,7 +624,10 @@ async function getServicePreservationDeliveryRecord(orgId: number, cycleId: numb
       updatedAt: servicePreservationDeliveryRecordsTable.updatedAt,
     })
     .from(servicePreservationDeliveryRecordsTable)
-    .leftJoin(usersTable, eq(servicePreservationDeliveryRecordsTable.deliveredById, usersTable.id))
+    .leftJoin(
+      usersTable,
+      eq(servicePreservationDeliveryRecordsTable.deliveredById, usersTable.id),
+    )
     .where(
       and(
         eq(servicePreservationDeliveryRecordsTable.organizationId, orgId),
@@ -601,14 +668,20 @@ async function listServicePostDeliveryEvents(orgId: number, cycleId: number) {
       updatedAt: servicePostDeliveryEventsTable.updatedAt,
     })
     .from(servicePostDeliveryEventsTable)
-    .leftJoin(usersTable, eq(servicePostDeliveryEventsTable.responsibleUserId, usersTable.id))
+    .leftJoin(
+      usersTable,
+      eq(servicePostDeliveryEventsTable.responsibleUserId, usersTable.id),
+    )
     .where(
       and(
         eq(servicePostDeliveryEventsTable.organizationId, orgId),
         eq(servicePostDeliveryEventsTable.cycleId, cycleId),
       ),
     )
-    .orderBy(desc(servicePostDeliveryEventsTable.occurredAt), desc(servicePostDeliveryEventsTable.id));
+    .orderBy(
+      desc(servicePostDeliveryEventsTable.occurredAt),
+      desc(servicePostDeliveryEventsTable.id),
+    );
 
   return rows.map((row) => ({
     ...row,
@@ -619,7 +692,10 @@ async function listServicePostDeliveryEvents(orgId: number, cycleId: number) {
   }));
 }
 
-async function getServiceSpecialValidationProfile(orgId: number, modelId: number) {
+async function getServiceSpecialValidationProfile(
+  orgId: number,
+  modelId: number,
+) {
   const [profile] = await db
     .select({
       id: serviceSpecialValidationProfilesTable.id,
@@ -631,9 +707,11 @@ async function getServiceSpecialValidationProfile(orgId: number, modelId: number
       criteria: serviceSpecialValidationProfilesTable.criteria,
       method: serviceSpecialValidationProfilesTable.method,
       status: serviceSpecialValidationProfilesTable.status,
-      responsibleUserId: serviceSpecialValidationProfilesTable.responsibleUserId,
+      responsibleUserId:
+        serviceSpecialValidationProfilesTable.responsibleUserId,
       responsibleUserName: usersTable.name,
-      currentValidUntil: serviceSpecialValidationProfilesTable.currentValidUntil,
+      currentValidUntil:
+        serviceSpecialValidationProfilesTable.currentValidUntil,
       notes: serviceSpecialValidationProfilesTable.notes,
       createdAt: serviceSpecialValidationProfilesTable.createdAt,
       updatedAt: serviceSpecialValidationProfilesTable.updatedAt,
@@ -643,7 +721,13 @@ async function getServiceSpecialValidationProfile(orgId: number, modelId: number
       sgqProcessesTable,
       eq(serviceSpecialValidationProfilesTable.processId, sgqProcessesTable.id),
     )
-    .leftJoin(usersTable, eq(serviceSpecialValidationProfilesTable.responsibleUserId, usersTable.id))
+    .leftJoin(
+      usersTable,
+      eq(
+        serviceSpecialValidationProfilesTable.responsibleUserId,
+        usersTable.id,
+      ),
+    )
     .where(
       and(
         eq(serviceSpecialValidationProfilesTable.organizationId, orgId),
@@ -664,7 +748,8 @@ async function getServiceSpecialValidationProfile(orgId: number, modelId: number
       criteriaSnapshot: serviceSpecialValidationEventsTable.criteriaSnapshot,
       notes: serviceSpecialValidationEventsTable.notes,
       validUntil: serviceSpecialValidationEventsTable.validUntil,
-      evidenceAttachments: serviceSpecialValidationEventsTable.evidenceAttachments,
+      evidenceAttachments:
+        serviceSpecialValidationEventsTable.evidenceAttachments,
       validatedById: serviceSpecialValidationEventsTable.validatedById,
       validatedByName: usersTable.name,
       validatedAt: serviceSpecialValidationEventsTable.validatedAt,
@@ -672,9 +757,15 @@ async function getServiceSpecialValidationProfile(orgId: number, modelId: number
       updatedAt: serviceSpecialValidationEventsTable.updatedAt,
     })
     .from(serviceSpecialValidationEventsTable)
-    .leftJoin(usersTable, eq(serviceSpecialValidationEventsTable.validatedById, usersTable.id))
+    .leftJoin(
+      usersTable,
+      eq(serviceSpecialValidationEventsTable.validatedById, usersTable.id),
+    )
     .where(eq(serviceSpecialValidationEventsTable.profileId, profile.id))
-    .orderBy(desc(serviceSpecialValidationEventsTable.validatedAt), desc(serviceSpecialValidationEventsTable.id));
+    .orderBy(
+      desc(serviceSpecialValidationEventsTable.validatedAt),
+      desc(serviceSpecialValidationEventsTable.id),
+    );
 
   return {
     ...profile,
@@ -708,7 +799,8 @@ async function getServiceExecutionCycleDetail(orgId: number, cycleId: number) {
       customerContactId: serviceExecutionCyclesTable.customerContactId,
       customerName: organizationContactsTable.name,
       customerOrganizationName: organizationContactsTable.organizationName,
-      requiresSpecialValidation: serviceExecutionModelsTable.requiresSpecialValidation,
+      requiresSpecialValidation:
+        serviceExecutionModelsTable.requiresSpecialValidation,
       status: serviceExecutionCyclesTable.status,
       openedById: serviceExecutionCyclesTable.openedById,
       openedByName: usersTable.name,
@@ -729,9 +821,15 @@ async function getServiceExecutionCycleDetail(orgId: number, cycleId: number) {
     .leftJoin(unitsTable, eq(serviceExecutionCyclesTable.unitId, unitsTable.id))
     .leftJoin(
       organizationContactsTable,
-      eq(serviceExecutionCyclesTable.customerContactId, organizationContactsTable.id),
+      eq(
+        serviceExecutionCyclesTable.customerContactId,
+        organizationContactsTable.id,
+      ),
     )
-    .leftJoin(usersTable, eq(serviceExecutionCyclesTable.openedById, usersTable.id))
+    .leftJoin(
+      usersTable,
+      eq(serviceExecutionCyclesTable.openedById, usersTable.id),
+    )
     .where(
       and(
         eq(serviceExecutionCyclesTable.id, cycleId),
@@ -756,14 +854,16 @@ async function getServiceExecutionCycleDetail(orgId: number, cycleId: number) {
     db
       .select({
         id: serviceExecutionCycleCheckpointsTable.id,
-        modelCheckpointId: serviceExecutionCycleCheckpointsTable.modelCheckpointId,
+        modelCheckpointId:
+          serviceExecutionCycleCheckpointsTable.modelCheckpointId,
         kind: serviceExecutionCycleCheckpointsTable.kind,
         label: serviceExecutionCycleCheckpointsTable.label,
         acceptanceCriteria:
           serviceExecutionCycleCheckpointsTable.acceptanceCriteria,
         guidance: serviceExecutionCycleCheckpointsTable.guidance,
         isRequired: serviceExecutionCycleCheckpointsTable.isRequired,
-        requiresEvidence: serviceExecutionCycleCheckpointsTable.requiresEvidence,
+        requiresEvidence:
+          serviceExecutionCycleCheckpointsTable.requiresEvidence,
         sortOrder: serviceExecutionCycleCheckpointsTable.sortOrder,
         status: serviceExecutionCycleCheckpointsTable.status,
         notes: serviceExecutionCycleCheckpointsTable.notes,
@@ -810,7 +910,10 @@ async function getServiceExecutionCycleDetail(orgId: number, cycleId: number) {
         updatedAt: serviceReleaseRecordsTable.updatedAt,
       })
       .from(serviceReleaseRecordsTable)
-      .leftJoin(usersTable, eq(serviceReleaseRecordsTable.decidedById, usersTable.id))
+      .leftJoin(
+        usersTable,
+        eq(serviceReleaseRecordsTable.decidedById, usersTable.id),
+      )
       .where(eq(serviceReleaseRecordsTable.cycleId, cycleId)),
     listServiceNonconformingOutputs(orgId, cycleId),
     listServiceThirdPartyProperties(orgId, cycleId),
@@ -829,27 +932,53 @@ async function getServiceExecutionCycleDetail(orgId: number, cycleId: number) {
     })),
   );
   const outputBlockingIssues = nonconformingOutputs
-    .filter((output) => output.status === "open" || output.status === "in_treatment")
+    .filter(
+      (output) => output.status === "open" || output.status === "in_treatment",
+    )
     .map((output) => `Saída não conforme em aberto: ${output.title}`);
   const preservationBlockingIssues: string[] = [];
   if (!preservationDeliveryRecord) {
-    preservationBlockingIssues.push("Preservação e entrega ainda não registradas");
+    preservationBlockingIssues.push(
+      "Preservação e entrega ainda não registradas",
+    );
   } else {
     if (!preservationDeliveryRecord.preservedAt) {
-      preservationBlockingIssues.push("Preservação da saída sem data registrada");
+      preservationBlockingIssues.push(
+        "Preservação da saída sem data registrada",
+      );
+    } else if (
+      preservationDeliveryRecord.preservationEvidenceAttachments.length === 0
+    ) {
+      preservationBlockingIssues.push(
+        "Preservação da saída sem evidência anexada",
+      );
     }
     if (!preservationDeliveryRecord.deliveredAt) {
       preservationBlockingIssues.push("Entrega da saída sem data registrada");
+    } else if (
+      preservationDeliveryRecord.deliveryEvidenceAttachments.length === 0
+    ) {
+      preservationBlockingIssues.push("Entrega da saída sem evidência anexada");
     }
   }
   const specialValidationBlockingIssues: string[] = [];
   if (cycle.requiresSpecialValidation) {
     if (!specialValidationProfile) {
-      specialValidationBlockingIssues.push("Processo especial sem validação cadastrada");
+      specialValidationBlockingIssues.push(
+        "Processo especial sem validação cadastrada",
+      );
     } else if (specialValidationProfile.status !== "valid") {
-      specialValidationBlockingIssues.push("Validação especial fora de condição válida");
-    } else if (!specialValidationProfile.events.some((event) => event.result === "approved")) {
-      specialValidationBlockingIssues.push("Validação especial sem evidência aprovada");
+      specialValidationBlockingIssues.push(
+        "Validação especial fora de condição válida",
+      );
+    } else if (
+      !specialValidationProfile.events.some(
+        (event) => event.result === "approved",
+      )
+    ) {
+      specialValidationBlockingIssues.push(
+        "Validação especial sem evidência aprovada",
+      );
     }
   }
 
@@ -886,102 +1015,111 @@ async function getServiceExecutionCycleDetail(orgId: number, cycleId: number) {
   };
 }
 
-router.get("/organizations/:orgId/governance/service-execution-models", async (req, res): Promise<void> => {
-  const params = orgParamsSchema.safeParse(req.params);
-  const query = listModelsQuerySchema.safeParse(req.query);
+router.get(
+  "/organizations/:orgId/governance/service-execution-models",
+  async (req, res): Promise<void> => {
+    const params = orgParamsSchema.safeParse(req.params);
+    const query = listModelsQuerySchema.safeParse(req.query);
 
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
 
-  if (!query.success) {
-    res.status(400).json({ error: query.error.message });
-    return;
-  }
+    if (!query.success) {
+      res.status(400).json({ error: query.error.message });
+      return;
+    }
 
-  const { orgId } = params.data;
-  const { page, pageSize, search, status, processId, unitId } = query.data;
+    const { orgId } = params.data;
+    const { page, pageSize, search, status, processId, unitId } = query.data;
 
-  const conditions = [eq(serviceExecutionModelsTable.organizationId, orgId)];
-  if (status) {
-    conditions.push(eq(serviceExecutionModelsTable.status, status));
-  }
-  if (processId) {
-    conditions.push(eq(serviceExecutionModelsTable.processId, processId));
-  }
-  if (unitId) {
-    conditions.push(eq(serviceExecutionModelsTable.unitId, unitId));
-  }
-  if (search) {
-    const escaped = escapeLikePattern(search);
-    conditions.push(
-      or(
-        ilike(serviceExecutionModelsTable.name, `%${escaped}%`),
-        ilike(serviceExecutionModelsTable.description, `%${escaped}%`),
-      )!,
-    );
-  }
+    const conditions = [eq(serviceExecutionModelsTable.organizationId, orgId)];
+    if (status) {
+      conditions.push(eq(serviceExecutionModelsTable.status, status));
+    }
+    if (processId) {
+      conditions.push(eq(serviceExecutionModelsTable.processId, processId));
+    }
+    if (unitId) {
+      conditions.push(eq(serviceExecutionModelsTable.unitId, unitId));
+    }
+    if (search) {
+      const escaped = escapeLikePattern(search);
+      conditions.push(
+        or(
+          ilike(serviceExecutionModelsTable.name, `%${escaped}%`),
+          ilike(serviceExecutionModelsTable.description, `%${escaped}%`),
+        )!,
+      );
+    }
 
-  const where = and(...conditions);
-  const [rows, totalRows] = await Promise.all([
-    db
-      .select({
-        id: serviceExecutionModelsTable.id,
-        organizationId: serviceExecutionModelsTable.organizationId,
-        name: serviceExecutionModelsTable.name,
-        description: serviceExecutionModelsTable.description,
-        processId: serviceExecutionModelsTable.processId,
-        processName: sgqProcessesTable.name,
-        unitId: serviceExecutionModelsTable.unitId,
-        unitName: unitsTable.name,
-        requiresSpecialValidation:
-          serviceExecutionModelsTable.requiresSpecialValidation,
-        status: serviceExecutionModelsTable.status,
-        checkpointCount: sql<number>`(
+    const where = and(...conditions);
+    const [rows, totalRows] = await Promise.all([
+      db
+        .select({
+          id: serviceExecutionModelsTable.id,
+          organizationId: serviceExecutionModelsTable.organizationId,
+          name: serviceExecutionModelsTable.name,
+          description: serviceExecutionModelsTable.description,
+          processId: serviceExecutionModelsTable.processId,
+          processName: sgqProcessesTable.name,
+          unitId: serviceExecutionModelsTable.unitId,
+          unitName: unitsTable.name,
+          requiresSpecialValidation:
+            serviceExecutionModelsTable.requiresSpecialValidation,
+          status: serviceExecutionModelsTable.status,
+          checkpointCount: sql<number>`(
           select count(*)
           from service_execution_model_checkpoints checkpoints
           where checkpoints.model_id = ${serviceExecutionModelsTable.id}
         )`,
-        requiredCheckpointCount: sql<number>`(
+          requiredCheckpointCount: sql<number>`(
           select count(*)
           from service_execution_model_checkpoints checkpoints
           where checkpoints.model_id = ${serviceExecutionModelsTable.id}
             and checkpoints.is_required = true
         )`,
-        documentCount: sql<number>`(
+          documentCount: sql<number>`(
           select count(*)
           from service_execution_model_documents links
           where links.model_id = ${serviceExecutionModelsTable.id}
         )`,
-        createdAt: serviceExecutionModelsTable.createdAt,
-        updatedAt: serviceExecutionModelsTable.updatedAt,
-      })
-      .from(serviceExecutionModelsTable)
-      .leftJoin(
-        sgqProcessesTable,
-        eq(serviceExecutionModelsTable.processId, sgqProcessesTable.id),
-      )
-      .leftJoin(unitsTable, eq(serviceExecutionModelsTable.unitId, unitsTable.id))
-      .where(where)
-      .orderBy(desc(serviceExecutionModelsTable.updatedAt), desc(serviceExecutionModelsTable.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize),
-    db
-      .select({ total: count() })
-      .from(serviceExecutionModelsTable)
-      .where(where),
-  ]);
+          createdAt: serviceExecutionModelsTable.createdAt,
+          updatedAt: serviceExecutionModelsTable.updatedAt,
+        })
+        .from(serviceExecutionModelsTable)
+        .leftJoin(
+          sgqProcessesTable,
+          eq(serviceExecutionModelsTable.processId, sgqProcessesTable.id),
+        )
+        .leftJoin(
+          unitsTable,
+          eq(serviceExecutionModelsTable.unitId, unitsTable.id),
+        )
+        .where(where)
+        .orderBy(
+          desc(serviceExecutionModelsTable.updatedAt),
+          desc(serviceExecutionModelsTable.id),
+        )
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      db
+        .select({ total: count() })
+        .from(serviceExecutionModelsTable)
+        .where(where),
+    ]);
 
-  res.json({
-    data: rows.map((row) => ({
-      ...row,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    })),
-    pagination: buildPaginationMeta(page, pageSize, totalRows[0]?.total ?? 0),
-  });
-});
+    res.json({
+      data: rows.map((row) => ({
+        ...row,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+      })),
+      pagination: buildPaginationMeta(page, pageSize, totalRows[0]?.total ?? 0),
+    });
+  },
+);
 
 router.post(
   "/organizations/:orgId/governance/service-execution-models",
@@ -1012,7 +1150,9 @@ router.post(
       return;
     }
     if (!(await validateDocumentIds(payload.documentIds, orgId))) {
-      res.status(400).json({ error: "documentIds inválidos para a organização" });
+      res
+        .status(400)
+        .json({ error: "documentIds inválidos para a organização" });
       return;
     }
 
@@ -1062,24 +1202,27 @@ router.post(
   },
 );
 
-router.get("/organizations/:orgId/governance/service-execution-models/:modelId", async (req, res): Promise<void> => {
-  const params = modelParamsSchema.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
+router.get(
+  "/organizations/:orgId/governance/service-execution-models/:modelId",
+  async (req, res): Promise<void> => {
+    const params = modelParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
 
-  const detail = await getServiceExecutionModelDetail(
-    params.data.orgId,
-    params.data.modelId,
-  );
-  if (!detail) {
-    res.status(404).json({ error: "Modelo de execução não encontrado" });
-    return;
-  }
+    const detail = await getServiceExecutionModelDetail(
+      params.data.orgId,
+      params.data.modelId,
+    );
+    if (!detail) {
+      res.status(404).json({ error: "Modelo de execução não encontrado" });
+      return;
+    }
 
-  res.json(detail);
-});
+    res.json(detail);
+  },
+);
 
 router.patch(
   "/organizations/:orgId/governance/service-execution-models/:modelId",
@@ -1128,7 +1271,9 @@ router.patch(
       payload.documentIds &&
       !(await validateDocumentIds(payload.documentIds, orgId))
     ) {
-      res.status(400).json({ error: "documentIds inválidos para a organização" });
+      res
+        .status(400)
+        .json({ error: "documentIds inválidos para a organização" });
       return;
     }
 
@@ -1141,10 +1286,13 @@ router.patch(
       if (payload.description !== undefined) {
         updateValues.description = payload.description ?? null;
       }
-      if (payload.processId !== undefined) updateValues.processId = payload.processId ?? null;
-      if (payload.unitId !== undefined) updateValues.unitId = payload.unitId ?? null;
+      if (payload.processId !== undefined)
+        updateValues.processId = payload.processId ?? null;
+      if (payload.unitId !== undefined)
+        updateValues.unitId = payload.unitId ?? null;
       if (payload.requiresSpecialValidation !== undefined) {
-        updateValues.requiresSpecialValidation = payload.requiresSpecialValidation;
+        updateValues.requiresSpecialValidation =
+          payload.requiresSpecialValidation;
       }
       if (payload.status !== undefined) updateValues.status = payload.status;
 
@@ -1194,122 +1342,179 @@ router.patch(
   },
 );
 
-router.get("/organizations/:orgId/governance/service-execution-cycles", async (req, res): Promise<void> => {
-  const params = orgParamsSchema.safeParse(req.params);
-  const query = listCyclesQuerySchema.safeParse(req.query);
+router.get(
+  "/organizations/:orgId/governance/service-execution-cycles",
+  async (req, res): Promise<void> => {
+    const params = orgParamsSchema.safeParse(req.params);
+    const query = listCyclesQuerySchema.safeParse(req.query);
 
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
 
-  if (!query.success) {
-    res.status(400).json({ error: query.error.message });
-    return;
-  }
+    if (!query.success) {
+      res.status(400).json({ error: query.error.message });
+      return;
+    }
 
-  const { orgId } = params.data;
-  const { page, pageSize, search, status, modelId } = query.data;
-  const conditions = [eq(serviceExecutionCyclesTable.organizationId, orgId)];
+    const { orgId } = params.data;
+    const {
+      page,
+      pageSize,
+      search,
+      status,
+      modelId,
+      processId,
+      unitId,
+      customerContactId,
+    } = query.data;
+    const conditions = [eq(serviceExecutionCyclesTable.organizationId, orgId)];
 
-  if (status) {
-    conditions.push(eq(serviceExecutionCyclesTable.status, status));
-  }
-  if (modelId) {
-    conditions.push(eq(serviceExecutionCyclesTable.modelId, modelId));
-  }
-  if (search) {
-    const escaped = escapeLikePattern(search);
-    conditions.push(
-      or(
-        ilike(serviceExecutionCyclesTable.title, `%${escaped}%`),
-        ilike(serviceExecutionCyclesTable.serviceOrderRef, `%${escaped}%`),
-        ilike(serviceExecutionCyclesTable.outputIdentifier, `%${escaped}%`),
-      )!,
-    );
-  }
+    if (status) {
+      conditions.push(eq(serviceExecutionCyclesTable.status, status));
+    }
+    if (modelId) {
+      conditions.push(eq(serviceExecutionCyclesTable.modelId, modelId));
+    }
+    if (processId) {
+      conditions.push(eq(serviceExecutionCyclesTable.processId, processId));
+    }
+    if (unitId) {
+      conditions.push(eq(serviceExecutionCyclesTable.unitId, unitId));
+    }
+    if (customerContactId) {
+      conditions.push(
+        eq(serviceExecutionCyclesTable.customerContactId, customerContactId),
+      );
+    }
+    if (search) {
+      const escaped = escapeLikePattern(search);
+      conditions.push(
+        or(
+          ilike(serviceExecutionCyclesTable.title, `%${escaped}%`),
+          ilike(serviceExecutionCyclesTable.serviceOrderRef, `%${escaped}%`),
+          ilike(serviceExecutionCyclesTable.outputIdentifier, `%${escaped}%`),
+          ilike(organizationContactsTable.name, `%${escaped}%`),
+          ilike(organizationContactsTable.organizationName, `%${escaped}%`),
+          ilike(sgqProcessesTable.name, `%${escaped}%`),
+          ilike(unitsTable.name, `%${escaped}%`),
+        )!,
+      );
+    }
 
-  const where = and(...conditions);
+    const where = and(...conditions);
 
-  const [rows, totalRows] = await Promise.all([
-    db
-      .select({
-        id: serviceExecutionCyclesTable.id,
-        organizationId: serviceExecutionCyclesTable.organizationId,
-        modelId: serviceExecutionCyclesTable.modelId,
-        modelName: serviceExecutionModelsTable.name,
-        title: serviceExecutionCyclesTable.title,
-        serviceOrderRef: serviceExecutionCyclesTable.serviceOrderRef,
-        outputIdentifier: serviceExecutionCyclesTable.outputIdentifier,
-        processId: serviceExecutionCyclesTable.processId,
-        processName: sgqProcessesTable.name,
-        unitId: serviceExecutionCyclesTable.unitId,
-        unitName: unitsTable.name,
-        customerContactId: serviceExecutionCyclesTable.customerContactId,
-        customerName: organizationContactsTable.name,
-        customerOrganizationName: organizationContactsTable.organizationName,
-        status: serviceExecutionCyclesTable.status,
-        releaseDecision: serviceReleaseRecordsTable.decision,
-        pendingRequiredCheckpointCount: sql<number>`(
+    const [rows, totalRows] = await Promise.all([
+      db
+        .select({
+          id: serviceExecutionCyclesTable.id,
+          organizationId: serviceExecutionCyclesTable.organizationId,
+          modelId: serviceExecutionCyclesTable.modelId,
+          modelName: serviceExecutionModelsTable.name,
+          title: serviceExecutionCyclesTable.title,
+          serviceOrderRef: serviceExecutionCyclesTable.serviceOrderRef,
+          outputIdentifier: serviceExecutionCyclesTable.outputIdentifier,
+          processId: serviceExecutionCyclesTable.processId,
+          processName: sgqProcessesTable.name,
+          unitId: serviceExecutionCyclesTable.unitId,
+          unitName: unitsTable.name,
+          customerContactId: serviceExecutionCyclesTable.customerContactId,
+          customerName: organizationContactsTable.name,
+          customerOrganizationName: organizationContactsTable.organizationName,
+          status: serviceExecutionCyclesTable.status,
+          releaseDecision: serviceReleaseRecordsTable.decision,
+          pendingRequiredCheckpointCount: sql<number>`(
           select count(*)
           from service_execution_cycle_checkpoints checkpoints
           where checkpoints.cycle_id = ${serviceExecutionCyclesTable.id}
             and checkpoints.is_required = true
             and checkpoints.status = 'pending'
         )`,
-        failedRequiredCheckpointCount: sql<number>`(
+          failedRequiredCheckpointCount: sql<number>`(
           select count(*)
           from service_execution_cycle_checkpoints checkpoints
           where checkpoints.cycle_id = ${serviceExecutionCyclesTable.id}
             and checkpoints.is_required = true
             and checkpoints.status = 'failed'
         )`,
-        openNonconformingOutputCount: sql<number>`(
+          openNonconformingOutputCount: sql<number>`(
           select count(*)
           from service_nonconforming_outputs outputs
           where outputs.cycle_id = ${serviceExecutionCyclesTable.id}
             and outputs.status in ('open', 'in_treatment')
         )`,
-        createdAt: serviceExecutionCyclesTable.createdAt,
-        updatedAt: serviceExecutionCyclesTable.updatedAt,
-      })
-      .from(serviceExecutionCyclesTable)
-      .innerJoin(
-        serviceExecutionModelsTable,
-        eq(serviceExecutionCyclesTable.modelId, serviceExecutionModelsTable.id),
-      )
-      .leftJoin(
-        sgqProcessesTable,
-        eq(serviceExecutionCyclesTable.processId, sgqProcessesTable.id),
-      )
-      .leftJoin(unitsTable, eq(serviceExecutionCyclesTable.unitId, unitsTable.id))
-      .leftJoin(
-        organizationContactsTable,
-        eq(serviceExecutionCyclesTable.customerContactId, organizationContactsTable.id),
-      )
-      .leftJoin(
-        serviceReleaseRecordsTable,
-        eq(serviceReleaseRecordsTable.cycleId, serviceExecutionCyclesTable.id),
-      )
-      .where(where)
-      .orderBy(desc(serviceExecutionCyclesTable.updatedAt), desc(serviceExecutionCyclesTable.id))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize),
-    db
-      .select({ total: count() })
-      .from(serviceExecutionCyclesTable)
-      .where(where),
-  ]);
+          createdAt: serviceExecutionCyclesTable.createdAt,
+          updatedAt: serviceExecutionCyclesTable.updatedAt,
+        })
+        .from(serviceExecutionCyclesTable)
+        .innerJoin(
+          serviceExecutionModelsTable,
+          eq(
+            serviceExecutionCyclesTable.modelId,
+            serviceExecutionModelsTable.id,
+          ),
+        )
+        .leftJoin(
+          sgqProcessesTable,
+          eq(serviceExecutionCyclesTable.processId, sgqProcessesTable.id),
+        )
+        .leftJoin(
+          unitsTable,
+          eq(serviceExecutionCyclesTable.unitId, unitsTable.id),
+        )
+        .leftJoin(
+          organizationContactsTable,
+          eq(
+            serviceExecutionCyclesTable.customerContactId,
+            organizationContactsTable.id,
+          ),
+        )
+        .leftJoin(
+          serviceReleaseRecordsTable,
+          eq(
+            serviceReleaseRecordsTable.cycleId,
+            serviceExecutionCyclesTable.id,
+          ),
+        )
+        .where(where)
+        .orderBy(
+          desc(serviceExecutionCyclesTable.updatedAt),
+          desc(serviceExecutionCyclesTable.id),
+        )
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      db
+        .select({ total: count() })
+        .from(serviceExecutionCyclesTable)
+        .leftJoin(
+          sgqProcessesTable,
+          eq(serviceExecutionCyclesTable.processId, sgqProcessesTable.id),
+        )
+        .leftJoin(
+          unitsTable,
+          eq(serviceExecutionCyclesTable.unitId, unitsTable.id),
+        )
+        .leftJoin(
+          organizationContactsTable,
+          eq(
+            serviceExecutionCyclesTable.customerContactId,
+            organizationContactsTable.id,
+          ),
+        )
+        .where(where),
+    ]);
 
-  res.json({
-    data: rows.map((row) => ({
-      ...row,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    })),
-    pagination: buildPaginationMeta(page, pageSize, totalRows[0]?.total ?? 0),
-  });
-});
+    res.json({
+      data: rows.map((row) => ({
+        ...row,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+      })),
+      pagination: buildPaginationMeta(page, pageSize, totalRows[0]?.total ?? 0),
+    });
+  },
+);
 
 router.post(
   "/organizations/:orgId/governance/service-execution-cycles",
@@ -1367,14 +1572,18 @@ router.post(
       payload.customerContactId &&
       !(await validateOrgContactIds([payload.customerContactId], orgId))
     ) {
-      res.status(400).json({ error: "customerContactId inválido para a organização" });
+      res
+        .status(400)
+        .json({ error: "customerContactId inválido para a organização" });
       return;
     }
     if (
       payload.documentIds &&
       !(await validateDocumentIds(payload.documentIds, orgId))
     ) {
-      res.status(400).json({ error: "documentIds inválidos para a organização" });
+      res
+        .status(400)
+        .json({ error: "documentIds inválidos para a organização" });
       return;
     }
 
@@ -1383,10 +1592,12 @@ router.post(
         id: serviceExecutionModelCheckpointsTable.id,
         kind: serviceExecutionModelCheckpointsTable.kind,
         label: serviceExecutionModelCheckpointsTable.label,
-        acceptanceCriteria: serviceExecutionModelCheckpointsTable.acceptanceCriteria,
+        acceptanceCriteria:
+          serviceExecutionModelCheckpointsTable.acceptanceCriteria,
         guidance: serviceExecutionModelCheckpointsTable.guidance,
         isRequired: serviceExecutionModelCheckpointsTable.isRequired,
-        requiresEvidence: serviceExecutionModelCheckpointsTable.requiresEvidence,
+        requiresEvidence:
+          serviceExecutionModelCheckpointsTable.requiresEvidence,
         sortOrder: serviceExecutionModelCheckpointsTable.sortOrder,
       })
       .from(serviceExecutionModelCheckpointsTable)
@@ -1400,9 +1611,13 @@ router.post(
       ? [...new Set(payload.documentIds)]
       : (
           await db
-            .select({ documentId: serviceExecutionModelDocumentsTable.documentId })
+            .select({
+              documentId: serviceExecutionModelDocumentsTable.documentId,
+            })
             .from(serviceExecutionModelDocumentsTable)
-            .where(eq(serviceExecutionModelDocumentsTable.modelId, payload.modelId))
+            .where(
+              eq(serviceExecutionModelDocumentsTable.modelId, payload.modelId),
+            )
         ).map((item) => item.documentId);
 
     const cycle = await db.transaction(async (tx) => {
@@ -1456,24 +1671,27 @@ router.post(
   },
 );
 
-router.get("/organizations/:orgId/governance/service-execution-cycles/:cycleId", async (req, res): Promise<void> => {
-  const params = cycleParamsSchema.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
+router.get(
+  "/organizations/:orgId/governance/service-execution-cycles/:cycleId",
+  async (req, res): Promise<void> => {
+    const params = cycleParamsSchema.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
 
-  const detail = await getServiceExecutionCycleDetail(
-    params.data.orgId,
-    params.data.cycleId,
-  );
-  if (!detail) {
-    res.status(404).json({ error: "Ciclo de execução não encontrado" });
-    return;
-  }
+    const detail = await getServiceExecutionCycleDetail(
+      params.data.orgId,
+      params.data.cycleId,
+    );
+    if (!detail) {
+      res.status(404).json({ error: "Ciclo de execução não encontrado" });
+      return;
+    }
 
-  res.json(detail);
-});
+    res.json(detail);
+  },
+);
 
 router.patch(
   "/organizations/:orgId/governance/service-execution-cycles/:cycleId",
@@ -1528,14 +1746,18 @@ router.patch(
       payload.customerContactId &&
       !(await validateOrgContactIds([payload.customerContactId], orgId))
     ) {
-      res.status(400).json({ error: "customerContactId inválido para a organização" });
+      res
+        .status(400)
+        .json({ error: "customerContactId inválido para a organização" });
       return;
     }
     if (
       payload.documentIds &&
       !(await validateDocumentIds(payload.documentIds, orgId))
     ) {
-      res.status(400).json({ error: "documentIds inválidos para a organização" });
+      res
+        .status(400)
+        .json({ error: "documentIds inválidos para a organização" });
       return;
     }
 
@@ -1552,7 +1774,9 @@ router.patch(
         );
 
       if (rows.length !== checkpointIds.length) {
-        res.status(400).json({ error: "Há checkpoints inválidos para este ciclo" });
+        res
+          .status(400)
+          .json({ error: "Há checkpoints inválidos para este ciclo" });
         return;
       }
     }
@@ -1566,8 +1790,10 @@ router.patch(
       if (payload.outputIdentifier !== undefined) {
         updateValues.outputIdentifier = payload.outputIdentifier ?? null;
       }
-      if (payload.processId !== undefined) updateValues.processId = payload.processId ?? null;
-      if (payload.unitId !== undefined) updateValues.unitId = payload.unitId ?? null;
+      if (payload.processId !== undefined)
+        updateValues.processId = payload.processId ?? null;
+      if (payload.unitId !== undefined)
+        updateValues.unitId = payload.unitId ?? null;
       if (payload.customerContactId !== undefined) {
         updateValues.customerContactId = payload.customerContactId ?? null;
       }
@@ -1620,13 +1846,17 @@ router.patch(
         }
       }
 
-      if (existingCycle.status !== "released" && existingCycle.status !== "blocked") {
+      if (
+        existingCycle.status !== "released" &&
+        existingCycle.status !== "blocked"
+      ) {
         const currentCheckpoints = await tx
           .select({
             label: serviceExecutionCycleCheckpointsTable.label,
             status: serviceExecutionCycleCheckpointsTable.status,
             isRequired: serviceExecutionCycleCheckpointsTable.isRequired,
-            requiresEvidence: serviceExecutionCycleCheckpointsTable.requiresEvidence,
+            requiresEvidence:
+              serviceExecutionCycleCheckpointsTable.requiresEvidence,
             evidenceAttachments:
               serviceExecutionCycleCheckpointsTable.evidenceAttachments,
           })
@@ -1637,7 +1867,8 @@ router.patch(
         await tx
           .update(serviceExecutionCyclesTable)
           .set({
-            status: blockingIssues.length === 0 ? "awaiting_release" : "in_progress",
+            status:
+              blockingIssues.length === 0 ? "awaiting_release" : "in_progress",
           })
           .where(eq(serviceExecutionCyclesTable.id, cycleId));
       }
@@ -1674,7 +1905,10 @@ router.post(
       return;
     }
 
-    if (payload.decision === "approved" && detail.pendingBlockingIssues.length > 0) {
+    if (
+      payload.decision === "approved" &&
+      detail.pendingBlockingIssues.length > 0
+    ) {
       res.status(400).json({
         error: "Ainda existem pendências impeditivas para a liberação",
         blockingIssues: detail.pendingBlockingIssues,
@@ -1774,8 +2008,12 @@ router.post(
       return;
     }
 
-    if (!(await validateNonconformityId(payload.linkedNonconformityId, orgId))) {
-      res.status(400).json({ error: "linkedNonconformityId inválido para a organização" });
+    if (
+      !(await validateNonconformityId(payload.linkedNonconformityId, orgId))
+    ) {
+      res
+        .status(400)
+        .json({ error: "linkedNonconformityId inválido para a organização" });
       return;
     }
 
@@ -1787,6 +2025,7 @@ router.post(
           cycleId,
           title: payload.title,
           description: payload.description,
+          impact: payload.impact,
           status: payload.status,
           disposition: payload.disposition ?? null,
           dispositionNotes: payload.dispositionNotes ?? null,
@@ -1796,7 +2035,9 @@ router.post(
           detectedById: req.auth!.userId,
           detectedAt: new Date(),
           resolvedAt:
-            payload.status === "resolved" || payload.status === "closed" ? new Date() : null,
+            payload.status === "resolved" || payload.status === "closed"
+              ? new Date()
+              : null,
           createdById: req.auth!.userId,
           updatedById: req.auth!.userId,
         })
@@ -1813,7 +2054,8 @@ router.post(
             label: serviceExecutionCycleCheckpointsTable.label,
             status: serviceExecutionCycleCheckpointsTable.status,
             isRequired: serviceExecutionCycleCheckpointsTable.isRequired,
-            requiresEvidence: serviceExecutionCycleCheckpointsTable.requiresEvidence,
+            requiresEvidence:
+              serviceExecutionCycleCheckpointsTable.requiresEvidence,
             evidenceAttachments:
               serviceExecutionCycleCheckpointsTable.evidenceAttachments,
           })
@@ -1824,7 +2066,8 @@ router.post(
         await tx
           .update(serviceExecutionCyclesTable)
           .set({
-            status: blockingIssues.length === 0 ? "awaiting_release" : "in_progress",
+            status:
+              blockingIssues.length === 0 ? "awaiting_release" : "in_progress",
           })
           .where(eq(serviceExecutionCyclesTable.id, cycleId));
       }
@@ -1894,8 +2137,12 @@ router.patch(
       return;
     }
 
-    if (!(await validateNonconformityId(payload.linkedNonconformityId, orgId))) {
-      res.status(400).json({ error: "linkedNonconformityId inválido para a organização" });
+    if (
+      !(await validateNonconformityId(payload.linkedNonconformityId, orgId))
+    ) {
+      res
+        .status(400)
+        .json({ error: "linkedNonconformityId inválido para a organização" });
       return;
     }
 
@@ -1905,6 +2152,7 @@ router.patch(
         .set({
           title: payload.title,
           description: payload.description,
+          impact: payload.impact,
           status: payload.status,
           disposition: payload.disposition ?? null,
           dispositionNotes: payload.dispositionNotes ?? null,
@@ -1913,7 +2161,8 @@ router.patch(
           evidenceAttachments: payload.evidenceAttachments,
           resolvedAt:
             payload.status === "resolved" || payload.status === "closed"
-              ? existingOutput.status === "resolved" || existingOutput.status === "closed"
+              ? existingOutput.status === "resolved" ||
+                existingOutput.status === "closed"
                 ? undefined
                 : new Date()
               : null,
@@ -1932,7 +2181,8 @@ router.patch(
             label: serviceExecutionCycleCheckpointsTable.label,
             status: serviceExecutionCycleCheckpointsTable.status,
             isRequired: serviceExecutionCycleCheckpointsTable.isRequired,
-            requiresEvidence: serviceExecutionCycleCheckpointsTable.requiresEvidence,
+            requiresEvidence:
+              serviceExecutionCycleCheckpointsTable.requiresEvidence,
             evidenceAttachments:
               serviceExecutionCycleCheckpointsTable.evidenceAttachments,
           })
@@ -1945,7 +2195,10 @@ router.patch(
           .where(
             and(
               eq(serviceNonconformingOutputsTable.cycleId, cycleId),
-              inArray(serviceNonconformingOutputsTable.status, ["open", "in_treatment"]),
+              inArray(serviceNonconformingOutputsTable.status, [
+                "open",
+                "in_treatment",
+              ]),
             ),
           );
 
@@ -1959,7 +2212,10 @@ router.patch(
           await tx
             .update(serviceExecutionCyclesTable)
             .set({
-              status: blockingIssues.length === 0 ? "awaiting_release" : "in_progress",
+              status:
+                blockingIssues.length === 0
+                  ? "awaiting_release"
+                  : "in_progress",
             })
             .where(eq(serviceExecutionCyclesTable.id, cycleId));
         }
@@ -2058,7 +2314,9 @@ router.patch(
         ),
       );
     if (!existing) {
-      res.status(404).json({ error: "Propriedade de terceiros não encontrada" });
+      res
+        .status(404)
+        .json({ error: "Propriedade de terceiros não encontrada" });
       return;
     }
 
@@ -2131,7 +2389,8 @@ router.put(
         deliveryRecipient: payload.deliveryRecipient ?? null,
         deliveryMethod: payload.deliveryMethod ?? null,
         deliveredById: payload.deliveredById ?? null,
-        preservationEvidenceAttachments: payload.preservationEvidenceAttachments,
+        preservationEvidenceAttachments:
+          payload.preservationEvidenceAttachments,
         deliveryEvidenceAttachments: payload.deliveryEvidenceAttachments,
         preservedAt: payload.preservedAt ? new Date(payload.preservedAt) : null,
         deliveredAt: payload.deliveredAt ? new Date(payload.deliveredAt) : null,
@@ -2201,7 +2460,9 @@ router.post(
         followUpNotes: payload.followUpNotes ?? null,
         responsibleUserId: payload.responsibleUserId ?? null,
         evidenceAttachments: payload.evidenceAttachments,
-        occurredAt: payload.occurredAt ? new Date(payload.occurredAt) : new Date(),
+        occurredAt: payload.occurredAt
+          ? new Date(payload.occurredAt)
+          : new Date(),
         closedAt: payload.status === "closed" ? new Date() : null,
         createdById: req.auth!.userId,
         updatedById: req.auth!.userId,
@@ -2257,7 +2518,9 @@ router.patch(
         followUpNotes: payload.followUpNotes ?? null,
         responsibleUserId: payload.responsibleUserId ?? null,
         evidenceAttachments: payload.evidenceAttachments,
-        occurredAt: payload.occurredAt ? new Date(payload.occurredAt) : new Date(),
+        occurredAt: payload.occurredAt
+          ? new Date(payload.occurredAt)
+          : new Date(),
         closedAt: payload.status === "closed" ? new Date() : null,
         updatedById: req.auth!.userId,
       })
@@ -2319,7 +2582,9 @@ router.put(
         method: payload.method ?? null,
         status: payload.status,
         responsibleUserId: payload.responsibleUserId ?? null,
-        currentValidUntil: payload.currentValidUntil ? new Date(payload.currentValidUntil) : null,
+        currentValidUntil: payload.currentValidUntil
+          ? new Date(payload.currentValidUntil)
+          : null,
         notes: payload.notes ?? null,
         updatedById: req.auth!.userId,
       };
@@ -2383,7 +2648,9 @@ router.post(
         ),
       );
     if (!profile) {
-      res.status(404).json({ error: "Perfil de validação especial não encontrado" });
+      res
+        .status(404)
+        .json({ error: "Perfil de validação especial não encontrado" });
       return;
     }
 
@@ -2404,7 +2671,9 @@ router.post(
         .update(serviceSpecialValidationProfilesTable)
         .set({
           status: payload.result === "approved" ? "valid" : "suspended",
-          currentValidUntil: payload.validUntil ? new Date(payload.validUntil) : null,
+          currentValidUntil: payload.validUntil
+            ? new Date(payload.validUntil)
+            : null,
           updatedById: req.auth!.userId,
         })
         .where(eq(serviceSpecialValidationProfilesTable.id, profileId));

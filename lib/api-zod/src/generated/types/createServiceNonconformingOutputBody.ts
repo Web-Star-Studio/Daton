@@ -12,6 +12,7 @@ import type { ServiceNonconformingOutputStatus } from "./serviceNonconformingOut
 export interface CreateServiceNonconformingOutputBody {
   title: string;
   description: string;
+  impact: string;
   status?: ServiceNonconformingOutputStatus;
   disposition?: ServiceNonconformingOutputDisposition | null;
   dispositionNotes?: string | null;

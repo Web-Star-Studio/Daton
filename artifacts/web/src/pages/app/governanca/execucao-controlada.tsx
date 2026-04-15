@@ -33,7 +33,10 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ProfileItemAttachmentsField, type AttachmentFieldItem } from "@/components/employees/profile-item-form-fields";
+import {
+  ProfileItemAttachmentsField,
+  type AttachmentFieldItem,
+} from "@/components/employees/profile-item-form-fields";
 import { toast } from "@/hooks/use-toast";
 import {
   getListDocumentsQueryKey,
@@ -110,6 +113,7 @@ type ReleaseFormState = {
 type NonconformingOutputFormState = {
   title: string;
   description: string;
+  impact: string;
   status: "open" | "in_treatment" | "resolved" | "closed";
   disposition:
     | ""
@@ -150,7 +154,13 @@ type PreservationDeliveryFormState = {
 };
 
 type PostDeliveryEventFormState = {
-  eventType: "monitoring" | "complaint" | "assistance" | "adjustment" | "feedback" | "other";
+  eventType:
+    | "monitoring"
+    | "complaint"
+    | "assistance"
+    | "adjustment"
+    | "feedback"
+    | "other";
   title: string;
   description: string;
   status: "open" | "in_follow_up" | "closed";
@@ -207,7 +217,11 @@ function emptyModelForm(): ModelFormState {
   };
 }
 
-function emptyCycleForm(model?: { processId?: number | null; unitId?: number | null; documents?: Array<{ id: number }> }): CycleFormState {
+function emptyCycleForm(model?: {
+  processId?: number | null;
+  unitId?: number | null;
+  documents?: Array<{ id: number }>;
+}): CycleFormState {
   return {
     title: "",
     serviceOrderRef: "",
@@ -232,6 +246,7 @@ function emptyNonconformingOutputForm(): NonconformingOutputFormState {
   return {
     title: "",
     description: "",
+    impact: "",
     status: "open",
     disposition: "",
     dispositionNotes: "",
@@ -474,22 +489,31 @@ export default function GovernanceServiceExecutionPage() {
 
   const [selectedModelId, setSelectedModelId] = useState<number | undefined>();
   const [selectedCycleId, setSelectedCycleId] = useState<number | undefined>();
-  const [selectedNonconformingOutputId, setSelectedNonconformingOutputId] = useState<
-    number | undefined
-  >();
-  const [selectedThirdPartyPropertyId, setSelectedThirdPartyPropertyId] = useState<
-    number | undefined
-  >();
-  const [selectedPostDeliveryEventId, setSelectedPostDeliveryEventId] = useState<
-    number | undefined
-  >();
-  const [isCreatingNonconformingOutput, setIsCreatingNonconformingOutput] = useState(false);
-  const [isCreatingThirdPartyProperty, setIsCreatingThirdPartyProperty] = useState(false);
-  const [isCreatingPostDeliveryEvent, setIsCreatingPostDeliveryEvent] = useState(false);
+  const [selectedNonconformingOutputId, setSelectedNonconformingOutputId] =
+    useState<number | undefined>();
+  const [selectedThirdPartyPropertyId, setSelectedThirdPartyPropertyId] =
+    useState<number | undefined>();
+  const [selectedPostDeliveryEventId, setSelectedPostDeliveryEventId] =
+    useState<number | undefined>();
+  const [cycleFilters, setCycleFilters] = useState({
+    search: "",
+    processId: "",
+    unitId: "",
+    customerContactId: "",
+  });
+  const [isCreatingNonconformingOutput, setIsCreatingNonconformingOutput] =
+    useState(false);
+  const [isCreatingThirdPartyProperty, setIsCreatingThirdPartyProperty] =
+    useState(false);
+  const [isCreatingPostDeliveryEvent, setIsCreatingPostDeliveryEvent] =
+    useState(false);
   const [modelForm, setModelForm] = useState<ModelFormState>(emptyModelForm());
   const [cycleForm, setCycleForm] = useState<CycleFormState>(emptyCycleForm());
-  const [cycleCheckpoints, setCycleCheckpoints] = useState<CycleCheckpointDraft[]>([]);
-  const [releaseForm, setReleaseForm] = useState<ReleaseFormState>(emptyReleaseForm());
+  const [cycleCheckpoints, setCycleCheckpoints] = useState<
+    CycleCheckpointDraft[]
+  >([]);
+  const [releaseForm, setReleaseForm] =
+    useState<ReleaseFormState>(emptyReleaseForm());
   const [nonconformingOutputForm, setNonconformingOutputForm] =
     useState<NonconformingOutputFormState>(emptyNonconformingOutputForm());
   const [thirdPartyPropertyForm, setThirdPartyPropertyForm] =
@@ -499,35 +523,69 @@ export default function GovernanceServiceExecutionPage() {
   const [postDeliveryEventForm, setPostDeliveryEventForm] =
     useState<PostDeliveryEventFormState>(emptyPostDeliveryEventForm());
   const [specialValidationProfileForm, setSpecialValidationProfileForm] =
-    useState<SpecialValidationProfileFormState>(emptySpecialValidationProfileForm());
+    useState<SpecialValidationProfileFormState>(
+      emptySpecialValidationProfileForm(),
+    );
   const [specialValidationEventForm, setSpecialValidationEventForm] =
-    useState<SpecialValidationEventFormState>(emptySpecialValidationEventForm());
+    useState<SpecialValidationEventFormState>(
+      emptySpecialValidationEventForm(),
+    );
   const [releaseUploading, setReleaseUploading] = useState(false);
-  const [nonconformingOutputUploading, setNonconformingOutputUploading] = useState(false);
-  const [thirdPartyPropertyUploading, setThirdPartyPropertyUploading] = useState(false);
+  const [nonconformingOutputUploading, setNonconformingOutputUploading] =
+    useState(false);
+  const [thirdPartyPropertyUploading, setThirdPartyPropertyUploading] =
+    useState(false);
   const [preservationUploading, setPreservationUploading] = useState(false);
   const [deliveryUploading, setDeliveryUploading] = useState(false);
   const [postDeliveryUploading, setPostDeliveryUploading] = useState(false);
-  const [specialValidationEventUploading, setSpecialValidationEventUploading] = useState(false);
-  const [uploadingCheckpointId, setUploadingCheckpointId] = useState<number | null>(null);
+  const [specialValidationEventUploading, setSpecialValidationEventUploading] =
+    useState(false);
+  const [uploadingCheckpointId, setUploadingCheckpointId] = useState<
+    number | null
+  >(null);
 
-  const { data: modelList, isLoading: isLoadingModels } = useServiceExecutionModels(orgId, {
-    page: 1,
-    pageSize: 50,
-  });
+  const { data: modelList, isLoading: isLoadingModels } =
+    useServiceExecutionModels(orgId, {
+      page: 1,
+      pageSize: 50,
+    });
   const models = modelList?.data ?? [];
-  const { data: modelDetail } = useServiceExecutionModel(orgId, selectedModelId);
-  const modelMutation = useServiceExecutionModelMutation(orgId, selectedModelId);
+  const { data: modelDetail } = useServiceExecutionModel(
+    orgId,
+    selectedModelId,
+  );
+  const modelMutation = useServiceExecutionModelMutation(
+    orgId,
+    selectedModelId,
+  );
 
-  const { data: cycleList, isLoading: isLoadingCycles } = useServiceExecutionCycles(orgId, {
-    page: 1,
-    pageSize: 50,
-    modelId: selectedModelId,
-  });
+  const { data: cycleList, isLoading: isLoadingCycles } =
+    useServiceExecutionCycles(orgId, {
+      page: 1,
+      pageSize: 50,
+      modelId: selectedModelId,
+      search: cycleFilters.search.trim() || undefined,
+      processId: cycleFilters.processId
+        ? Number(cycleFilters.processId)
+        : undefined,
+      unitId: cycleFilters.unitId ? Number(cycleFilters.unitId) : undefined,
+      customerContactId: cycleFilters.customerContactId
+        ? Number(cycleFilters.customerContactId)
+        : undefined,
+    });
   const cycles = cycleList?.data ?? [];
-  const { data: cycleDetail } = useServiceExecutionCycle(orgId, selectedCycleId);
-  const cycleMutation = useServiceExecutionCycleMutation(orgId, selectedCycleId);
-  const releaseMutation = useServiceExecutionReleaseMutation(orgId, selectedCycleId);
+  const { data: cycleDetail } = useServiceExecutionCycle(
+    orgId,
+    selectedCycleId,
+  );
+  const cycleMutation = useServiceExecutionCycleMutation(
+    orgId,
+    selectedCycleId,
+  );
+  const releaseMutation = useServiceExecutionReleaseMutation(
+    orgId,
+    selectedCycleId,
+  );
   const nonconformingOutputMutation = useServiceNonconformingOutputMutation(
     orgId,
     selectedCycleId,
@@ -547,15 +605,14 @@ export default function GovernanceServiceExecutionPage() {
     selectedCycleId,
     selectedPostDeliveryEventId,
   );
-  const specialValidationProfileMutation = useServiceSpecialValidationProfileMutation(
-    orgId,
-    selectedModelId,
-  );
-  const specialValidationEventMutation = useServiceSpecialValidationEventMutation(
-    orgId,
-    selectedModelId,
-    modelDetail?.specialValidationProfile?.id,
-  );
+  const specialValidationProfileMutation =
+    useServiceSpecialValidationProfileMutation(orgId, selectedModelId);
+  const specialValidationEventMutation =
+    useServiceSpecialValidationEventMutation(
+      orgId,
+      selectedModelId,
+      modelDetail?.specialValidationProfile?.id,
+    );
 
   const { data: processesData } = useAllActiveSgqProcesses(orgId);
   const processes = processesData ?? [];
@@ -621,7 +678,10 @@ export default function GovernanceServiceExecutionPage() {
       return;
     }
 
-    if (!selectedModelId || !models.some((model) => model.id === selectedModelId)) {
+    if (
+      !selectedModelId ||
+      !models.some((model) => model.id === selectedModelId)
+    ) {
       setSelectedModelId(models[0].id);
     }
   }, [models, selectedModelId]);
@@ -663,7 +723,9 @@ export default function GovernanceServiceExecutionPage() {
       notes: modelDetail.specialValidationProfile?.notes ?? "",
     });
     setSpecialValidationEventForm(
-      emptySpecialValidationEventForm(modelDetail.specialValidationProfile ?? null),
+      emptySpecialValidationEventForm(
+        modelDetail.specialValidationProfile ?? null,
+      ),
     );
   }, [modelDetail]);
 
@@ -690,7 +752,10 @@ export default function GovernanceServiceExecutionPage() {
       return;
     }
 
-    if (!selectedCycleId || !cycles.some((cycle) => cycle.id === selectedCycleId)) {
+    if (
+      !selectedCycleId ||
+      !cycles.some((cycle) => cycle.id === selectedCycleId)
+    ) {
       setSelectedCycleId(cycles[0].id);
     }
   }, [cycles, selectedCycleId, selectedModelId]);
@@ -735,19 +800,27 @@ export default function GovernanceServiceExecutionPage() {
       evidenceAttachments: cycleDetail.releaseRecord?.evidenceAttachments ?? [],
     });
     setPreservationDeliveryForm({
-      preservationNotes: cycleDetail.preservationDeliveryRecord?.preservationNotes ?? "",
-      preservationMethod: cycleDetail.preservationDeliveryRecord?.preservationMethod ?? "",
-      packagingNotes: cycleDetail.preservationDeliveryRecord?.packagingNotes ?? "",
-      deliveryNotes: cycleDetail.preservationDeliveryRecord?.deliveryNotes ?? "",
-      deliveryRecipient: cycleDetail.preservationDeliveryRecord?.deliveryRecipient ?? "",
-      deliveryMethod: cycleDetail.preservationDeliveryRecord?.deliveryMethod ?? "",
+      preservationNotes:
+        cycleDetail.preservationDeliveryRecord?.preservationNotes ?? "",
+      preservationMethod:
+        cycleDetail.preservationDeliveryRecord?.preservationMethod ?? "",
+      packagingNotes:
+        cycleDetail.preservationDeliveryRecord?.packagingNotes ?? "",
+      deliveryNotes:
+        cycleDetail.preservationDeliveryRecord?.deliveryNotes ?? "",
+      deliveryRecipient:
+        cycleDetail.preservationDeliveryRecord?.deliveryRecipient ?? "",
+      deliveryMethod:
+        cycleDetail.preservationDeliveryRecord?.deliveryMethod ?? "",
       deliveredById: cycleDetail.preservationDeliveryRecord?.deliveredById
         ? String(cycleDetail.preservationDeliveryRecord.deliveredById)
         : "",
       preservationEvidenceAttachments:
-        cycleDetail.preservationDeliveryRecord?.preservationEvidenceAttachments ?? [],
+        cycleDetail.preservationDeliveryRecord
+          ?.preservationEvidenceAttachments ?? [],
       deliveryEvidenceAttachments:
-        cycleDetail.preservationDeliveryRecord?.deliveryEvidenceAttachments ?? [],
+        cycleDetail.preservationDeliveryRecord?.deliveryEvidenceAttachments ??
+        [],
       preservedAt: formatDateTimeLocalInput(
         cycleDetail.preservationDeliveryRecord?.preservedAt,
       ),
@@ -776,7 +849,11 @@ export default function GovernanceServiceExecutionPage() {
     ) {
       setSelectedNonconformingOutputId(outputs[0].id);
     }
-  }, [cycleDetail?.nonconformingOutputs, isCreatingNonconformingOutput, selectedNonconformingOutputId]);
+  }, [
+    cycleDetail?.nonconformingOutputs,
+    isCreatingNonconformingOutput,
+    selectedNonconformingOutputId,
+  ]);
 
   useEffect(() => {
     const items = cycleDetail?.thirdPartyProperties ?? [];
@@ -797,7 +874,11 @@ export default function GovernanceServiceExecutionPage() {
     ) {
       setSelectedThirdPartyPropertyId(items[0].id);
     }
-  }, [cycleDetail?.thirdPartyProperties, isCreatingThirdPartyProperty, selectedThirdPartyPropertyId]);
+  }, [
+    cycleDetail?.thirdPartyProperties,
+    isCreatingThirdPartyProperty,
+    selectedThirdPartyPropertyId,
+  ]);
 
   useEffect(() => {
     const selectedProperty = cycleDetail?.thirdPartyProperties.find(
@@ -839,10 +920,17 @@ export default function GovernanceServiceExecutionPage() {
       return;
     }
 
-    if (!selectedPostDeliveryEventId || !items.some((item) => item.id === selectedPostDeliveryEventId)) {
+    if (
+      !selectedPostDeliveryEventId ||
+      !items.some((item) => item.id === selectedPostDeliveryEventId)
+    ) {
       setSelectedPostDeliveryEventId(items[0].id);
     }
-  }, [cycleDetail?.postDeliveryEvents, isCreatingPostDeliveryEvent, selectedPostDeliveryEventId]);
+  }, [
+    cycleDetail?.postDeliveryEvents,
+    isCreatingPostDeliveryEvent,
+    selectedPostDeliveryEventId,
+  ]);
 
   useEffect(() => {
     const selectedEvent = cycleDetail?.postDeliveryEvents.find(
@@ -888,6 +976,7 @@ export default function GovernanceServiceExecutionPage() {
     setNonconformingOutputForm({
       title: selectedOutput.title,
       description: selectedOutput.description,
+      impact: selectedOutput.impact,
       status: selectedOutput.status,
       disposition: selectedOutput.disposition ?? "",
       dispositionNotes: selectedOutput.dispositionNotes ?? "",
@@ -903,9 +992,76 @@ export default function GovernanceServiceExecutionPage() {
 
   const customerOptions = useMemo(
     () =>
-      contacts.filter((contact) => contact.classificationType === "customer" || contact.classificationType === "other"),
+      contacts.filter(
+        (contact) =>
+          contact.classificationType === "customer" ||
+          contact.classificationType === "other",
+      ),
     [contacts],
   );
+
+  const cycleFilterFields = selectedModelId ? (
+    <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
+      <Input
+        value={cycleFilters.search}
+        onChange={(event) =>
+          setCycleFilters((current) => ({
+            ...current,
+            search: event.target.value,
+          }))
+        }
+        placeholder="Buscar por ciclo, cliente, processo ou unidade"
+      />
+      <Select
+        value={cycleFilters.processId}
+        onChange={(event) =>
+          setCycleFilters((current) => ({
+            ...current,
+            processId: event.target.value,
+          }))
+        }
+      >
+        <option value="">Todos os processos</option>
+        {processes.map((process) => (
+          <option key={process.id} value={process.id}>
+            {process.name}
+          </option>
+        ))}
+      </Select>
+      <Select
+        value={cycleFilters.unitId}
+        onChange={(event) =>
+          setCycleFilters((current) => ({
+            ...current,
+            unitId: event.target.value,
+          }))
+        }
+      >
+        <option value="">Todas as unidades</option>
+        {units.map((unit) => (
+          <option key={unit.id} value={unit.id}>
+            {unit.name}
+          </option>
+        ))}
+      </Select>
+      <Select
+        value={cycleFilters.customerContactId}
+        onChange={(event) =>
+          setCycleFilters((current) => ({
+            ...current,
+            customerContactId: event.target.value,
+          }))
+        }
+      >
+        <option value="">Todos os clientes</option>
+        {customerOptions.map((contact) => (
+          <option key={contact.id} value={contact.id}>
+            {contact.name}
+          </option>
+        ))}
+      </Select>
+    </div>
+  ) : null;
 
   const handleNewModel = () => {
     setSelectedModelId(undefined);
@@ -983,7 +1139,8 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Não foi possível salvar o modelo",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -1045,7 +1202,8 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Não foi possível criar o ciclo",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -1085,7 +1243,8 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Não foi possível salvar o ciclo",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -1108,7 +1267,8 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Não foi possível registrar a liberação",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -1119,7 +1279,9 @@ export default function GovernanceServiceExecutionPage() {
     files: FileList | null,
   ) => {
     const fileArray = Array.from(files ?? []);
-    const checkpoint = cycleCheckpoints.find((item) => item.id === checkpointId);
+    const checkpoint = cycleCheckpoints.find(
+      (item) => item.id === checkpointId,
+    );
     if (!checkpoint || fileArray.length === 0) return;
 
     const validationError = validateProfileItemUploadSelection(
@@ -1147,7 +1309,8 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Falha ao enviar anexos do checkpoint",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -1178,7 +1341,8 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Falha ao enviar anexos da liberação",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -1219,6 +1383,13 @@ export default function GovernanceServiceExecutionPage() {
       });
       return;
     }
+    if (!nonconformingOutputForm.impact.trim()) {
+      toast({
+        title: "Descreva o impacto da saída não conforme",
+        variant: "destructive",
+      });
+      return;
+    }
     if (
       nonconformingOutputForm.status !== "open" &&
       !nonconformingOutputForm.disposition
@@ -1236,9 +1407,11 @@ export default function GovernanceServiceExecutionPage() {
         body: {
           title: nonconformingOutputForm.title.trim(),
           description: nonconformingOutputForm.description.trim(),
+          impact: nonconformingOutputForm.impact.trim(),
           status: nonconformingOutputForm.status,
           disposition: nonconformingOutputForm.disposition || null,
-          dispositionNotes: nonconformingOutputForm.dispositionNotes.trim() || null,
+          dispositionNotes:
+            nonconformingOutputForm.dispositionNotes.trim() || null,
           responsibleUserId: nonconformingOutputForm.responsibleUserId
             ? Number(nonconformingOutputForm.responsibleUserId)
             : null,
@@ -1258,13 +1431,16 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Não foi possível salvar a saída não conforme",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
   };
 
-  const handleUploadNonconformingOutputAttachments = async (files: FileList | null) => {
+  const handleUploadNonconformingOutputAttachments = async (
+    files: FileList | null,
+  ) => {
     const fileArray = Array.from(files ?? []);
     if (fileArray.length === 0) return;
 
@@ -1287,7 +1463,8 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Falha ao enviar evidências da saída não conforme",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -1310,7 +1487,10 @@ export default function GovernanceServiceExecutionPage() {
       toast({ title: "Selecione um ciclo", variant: "destructive" });
       return;
     }
-    if (!thirdPartyPropertyForm.title.trim() || !thirdPartyPropertyForm.ownerName.trim()) {
+    if (
+      !thirdPartyPropertyForm.title.trim() ||
+      !thirdPartyPropertyForm.ownerName.trim()
+    ) {
       toast({
         title: "Informe o item e o proprietário",
         variant: "destructive",
@@ -1325,8 +1505,10 @@ export default function GovernanceServiceExecutionPage() {
           title: thirdPartyPropertyForm.title.trim(),
           ownerName: thirdPartyPropertyForm.ownerName.trim(),
           description: thirdPartyPropertyForm.description.trim() || null,
-          conditionOnReceipt: thirdPartyPropertyForm.conditionOnReceipt.trim() || null,
-          handlingRequirements: thirdPartyPropertyForm.handlingRequirements.trim() || null,
+          conditionOnReceipt:
+            thirdPartyPropertyForm.conditionOnReceipt.trim() || null,
+          handlingRequirements:
+            thirdPartyPropertyForm.handlingRequirements.trim() || null,
           status: thirdPartyPropertyForm.status,
           responsibleUserId: thirdPartyPropertyForm.responsibleUserId
             ? Number(thirdPartyPropertyForm.responsibleUserId)
@@ -1344,13 +1526,16 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Não foi possível salvar a propriedade de terceiros",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
   };
 
-  const handleUploadThirdPartyPropertyAttachments = async (files: FileList | null) => {
+  const handleUploadThirdPartyPropertyAttachments = async (
+    files: FileList | null,
+  ) => {
     const fileArray = Array.from(files ?? []);
     if (fileArray.length === 0) return;
 
@@ -1373,7 +1558,8 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Falha ao enviar anexos da propriedade de terceiros",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -1389,18 +1575,22 @@ export default function GovernanceServiceExecutionPage() {
 
     try {
       await preservationDeliveryMutation.mutateAsync({
-        preservationNotes: preservationDeliveryForm.preservationNotes.trim() || null,
-        preservationMethod: preservationDeliveryForm.preservationMethod.trim() || null,
+        preservationNotes:
+          preservationDeliveryForm.preservationNotes.trim() || null,
+        preservationMethod:
+          preservationDeliveryForm.preservationMethod.trim() || null,
         packagingNotes: preservationDeliveryForm.packagingNotes.trim() || null,
         deliveryNotes: preservationDeliveryForm.deliveryNotes.trim() || null,
-        deliveryRecipient: preservationDeliveryForm.deliveryRecipient.trim() || null,
+        deliveryRecipient:
+          preservationDeliveryForm.deliveryRecipient.trim() || null,
         deliveryMethod: preservationDeliveryForm.deliveryMethod.trim() || null,
         deliveredById: preservationDeliveryForm.deliveredById
           ? Number(preservationDeliveryForm.deliveredById)
           : null,
         preservationEvidenceAttachments:
           preservationDeliveryForm.preservationEvidenceAttachments,
-        deliveryEvidenceAttachments: preservationDeliveryForm.deliveryEvidenceAttachments,
+        deliveryEvidenceAttachments:
+          preservationDeliveryForm.deliveryEvidenceAttachments,
         preservedAt: preservationDeliveryForm.preservedAt
           ? new Date(preservationDeliveryForm.preservedAt).toISOString()
           : null,
@@ -1412,13 +1602,16 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Não foi possível salvar preservação e entrega",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
   };
 
-  const handleUploadPreservationAttachments = async (files: FileList | null) => {
+  const handleUploadPreservationAttachments = async (
+    files: FileList | null,
+  ) => {
     const fileArray = Array.from(files ?? []);
     if (fileArray.length === 0) return;
 
@@ -1444,7 +1637,8 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Falha ao enviar evidências de preservação",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -1470,12 +1664,16 @@ export default function GovernanceServiceExecutionPage() {
       const uploaded = await uploadFilesToStorage(fileArray);
       setPreservationDeliveryForm((current) => ({
         ...current,
-        deliveryEvidenceAttachments: [...current.deliveryEvidenceAttachments, ...uploaded],
+        deliveryEvidenceAttachments: [
+          ...current.deliveryEvidenceAttachments,
+          ...uploaded,
+        ],
       }));
     } catch (error) {
       toast({
         title: "Falha ao enviar evidências de entrega",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -1498,7 +1696,10 @@ export default function GovernanceServiceExecutionPage() {
       toast({ title: "Selecione um ciclo", variant: "destructive" });
       return;
     }
-    if (!postDeliveryEventForm.title.trim() || !postDeliveryEventForm.description.trim()) {
+    if (
+      !postDeliveryEventForm.title.trim() ||
+      !postDeliveryEventForm.description.trim()
+    ) {
       toast({
         title: "Informe título e descrição do evento",
         variant: "destructive",
@@ -1534,13 +1735,16 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Não foi possível salvar o evento de pós-serviço",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
   };
 
-  const handleUploadPostDeliveryAttachments = async (files: FileList | null) => {
+  const handleUploadPostDeliveryAttachments = async (
+    files: FileList | null,
+  ) => {
     const fileArray = Array.from(files ?? []);
     if (fileArray.length === 0) return;
 
@@ -1563,7 +1767,8 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Falha ao enviar evidências do pós-serviço",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -1597,7 +1802,9 @@ export default function GovernanceServiceExecutionPage() {
           ? Number(specialValidationProfileForm.responsibleUserId)
           : null,
         currentValidUntil: specialValidationProfileForm.currentValidUntil
-          ? new Date(specialValidationProfileForm.currentValidUntil).toISOString()
+          ? new Date(
+              specialValidationProfileForm.currentValidUntil,
+            ).toISOString()
           : null,
         notes: specialValidationProfileForm.notes.trim() || null,
       });
@@ -1605,7 +1812,8 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Não foi possível salvar a validação especial",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
@@ -1642,19 +1850,24 @@ export default function GovernanceServiceExecutionPage() {
         evidenceAttachments: specialValidationEventForm.evidenceAttachments,
       });
       setSpecialValidationEventForm(
-        emptySpecialValidationEventForm(modelDetail.specialValidationProfile ?? null),
+        emptySpecialValidationEventForm(
+          modelDetail.specialValidationProfile ?? null,
+        ),
       );
       toast({ title: "Validação/revalidação registrada" });
     } catch (error) {
       toast({
         title: "Não foi possível registrar o evento de validação",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     }
   };
 
-  const handleUploadSpecialValidationEventAttachments = async (files: FileList | null) => {
+  const handleUploadSpecialValidationEventAttachments = async (
+    files: FileList | null,
+  ) => {
     const fileArray = Array.from(files ?? []);
     if (fileArray.length === 0) return;
 
@@ -1677,7 +1890,8 @@ export default function GovernanceServiceExecutionPage() {
     } catch (error) {
       toast({
         title: "Falha ao enviar evidências da validação especial",
-        description: error instanceof Error ? error.message : "Tente novamente.",
+        description:
+          error instanceof Error ? error.message : "Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -1689,7 +1903,8 @@ export default function GovernanceServiceExecutionPage() {
   const operationalOutputs = cycleDetail?.nonconformingOutputs ?? [];
   const thirdPartyProperties = cycleDetail?.thirdPartyProperties ?? [];
   const postDeliveryEvents = cycleDetail?.postDeliveryEvents ?? [];
-  const specialValidationProfile = modelDetail?.specialValidationProfile ?? null;
+  const specialValidationProfile =
+    modelDetail?.specialValidationProfile ?? null;
 
   return (
     <div className="space-y-6">
@@ -1699,7 +1914,8 @@ export default function GovernanceServiceExecutionPage() {
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           Estruture modelos reutilizáveis de execução, abra ciclos auditáveis e
-          formalize a liberação da saída com evidências e pendências impeditivas.
+          formalize a liberação da saída com evidências e pendências
+          impeditivas.
         </CardContent>
       </Card>
 
@@ -1717,7 +1933,9 @@ export default function GovernanceServiceExecutionPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {isLoadingModels ? (
-              <p className="text-sm text-muted-foreground">Carregando modelos...</p>
+              <p className="text-sm text-muted-foreground">
+                Carregando modelos...
+              </p>
             ) : models.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Nenhum modelo cadastrado ainda.
@@ -1742,13 +1960,18 @@ export default function GovernanceServiceExecutionPage() {
                         {model.unitName ?? "Sem unidade"}
                       </p>
                     </div>
-                    <Badge variant={model.status === "active" ? "default" : "secondary"}>
+                    <Badge
+                      variant={
+                        model.status === "active" ? "default" : "secondary"
+                      }
+                    >
                       {statusLabel(model.status)}
                     </Badge>
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {model.requiredCheckpointCount}/{model.checkpointCount} checkpoints
-                    obrigatórios • {model.documentCount} documento(s)
+                    {model.requiredCheckpointCount}/{model.checkpointCount}{" "}
+                    checkpoints obrigatórios • {model.documentCount}{" "}
+                    documento(s)
                   </p>
                 </button>
               ))
@@ -1759,10 +1982,13 @@ export default function GovernanceServiceExecutionPage() {
         <Card>
           <CardHeader className="space-y-2">
             <CardTitle>
-              {selectedModelId ? "Detalhes do modelo" : "Novo modelo de execução"}
+              {selectedModelId
+                ? "Detalhes do modelo"
+                : "Novo modelo de execução"}
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Associe o fluxo a um processo SGQ, unidade e documentos controlados.
+              Associe o fluxo a um processo SGQ, unidade e documentos
+              controlados.
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -1773,7 +1999,10 @@ export default function GovernanceServiceExecutionPage() {
                   className="mt-1"
                   value={modelForm.name}
                   onChange={(event) =>
-                    setModelForm((current) => ({ ...current, name: event.target.value }))
+                    setModelForm((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
                   }
                   disabled={!canWrite}
                 />
@@ -1897,7 +2126,9 @@ export default function GovernanceServiceExecutionPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold">Checkpoints e controles</h3>
+                  <h3 className="text-sm font-semibold">
+                    Checkpoints e controles
+                  </h3>
                   <p className="text-xs text-muted-foreground">
                     Inclua critérios, obrigatoriedade e exigência de evidência.
                   </p>
@@ -1923,7 +2154,10 @@ export default function GovernanceServiceExecutionPage() {
               </div>
 
               {modelForm.checkpoints.map((checkpoint, index) => (
-                <Card key={checkpoint.id ?? `new-${index}`} className="border-dashed">
+                <Card
+                  key={checkpoint.id ?? `new-${index}`}
+                  className="border-dashed"
+                >
                   <CardContent className="pt-6">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
@@ -1934,20 +2168,24 @@ export default function GovernanceServiceExecutionPage() {
                           onChange={(event) =>
                             setModelForm((current) => ({
                               ...current,
-                              checkpoints: current.checkpoints.map((item, itemIndex) =>
-                                itemIndex === index
-                                  ? {
-                                      ...item,
-                                      kind: event.target.value as ModelCheckpointDraft["kind"],
-                                    }
-                                  : item,
+                              checkpoints: current.checkpoints.map(
+                                (item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        kind: event.target
+                                          .value as ModelCheckpointDraft["kind"],
+                                      }
+                                    : item,
                               ),
                             }))
                           }
                           disabled={!canWrite}
                         >
                           <option value="checkpoint">Checkpoint</option>
-                          <option value="preventive_control">Controle preventivo</option>
+                          <option value="preventive_control">
+                            Controle preventivo
+                          </option>
                         </Select>
                       </div>
                       <div>
@@ -1959,13 +2197,16 @@ export default function GovernanceServiceExecutionPage() {
                           onChange={(event) =>
                             setModelForm((current) => ({
                               ...current,
-                              checkpoints: current.checkpoints.map((item, itemIndex) =>
-                                itemIndex === index
-                                  ? {
-                                      ...item,
-                                      sortOrder: Number(event.target.value || itemIndex),
-                                    }
-                                  : item,
+                              checkpoints: current.checkpoints.map(
+                                (item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        sortOrder: Number(
+                                          event.target.value || itemIndex,
+                                        ),
+                                      }
+                                    : item,
                               ),
                             }))
                           }
@@ -1980,10 +2221,11 @@ export default function GovernanceServiceExecutionPage() {
                           onChange={(event) =>
                             setModelForm((current) => ({
                               ...current,
-                              checkpoints: current.checkpoints.map((item, itemIndex) =>
-                                itemIndex === index
-                                  ? { ...item, label: event.target.value }
-                                  : item,
+                              checkpoints: current.checkpoints.map(
+                                (item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, label: event.target.value }
+                                    : item,
                               ),
                             }))
                           }
@@ -1998,13 +2240,14 @@ export default function GovernanceServiceExecutionPage() {
                           onChange={(event) =>
                             setModelForm((current) => ({
                               ...current,
-                              checkpoints: current.checkpoints.map((item, itemIndex) =>
-                                itemIndex === index
-                                  ? {
-                                      ...item,
-                                      acceptanceCriteria: event.target.value,
-                                    }
-                                  : item,
+                              checkpoints: current.checkpoints.map(
+                                (item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        acceptanceCriteria: event.target.value,
+                                      }
+                                    : item,
                               ),
                             }))
                           }
@@ -2019,10 +2262,11 @@ export default function GovernanceServiceExecutionPage() {
                           onChange={(event) =>
                             setModelForm((current) => ({
                               ...current,
-                              checkpoints: current.checkpoints.map((item, itemIndex) =>
-                                itemIndex === index
-                                  ? { ...item, guidance: event.target.value }
-                                  : item,
+                              checkpoints: current.checkpoints.map(
+                                (item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, guidance: event.target.value }
+                                    : item,
                               ),
                             }))
                           }
@@ -2036,10 +2280,14 @@ export default function GovernanceServiceExecutionPage() {
                           onChange={(event) =>
                             setModelForm((current) => ({
                               ...current,
-                              checkpoints: current.checkpoints.map((item, itemIndex) =>
-                                itemIndex === index
-                                  ? { ...item, isRequired: event.target.checked }
-                                  : item,
+                              checkpoints: current.checkpoints.map(
+                                (item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        isRequired: event.target.checked,
+                                      }
+                                    : item,
                               ),
                             }))
                           }
@@ -2054,13 +2302,14 @@ export default function GovernanceServiceExecutionPage() {
                           onChange={(event) =>
                             setModelForm((current) => ({
                               ...current,
-                              checkpoints: current.checkpoints.map((item, itemIndex) =>
-                                itemIndex === index
-                                  ? {
-                                      ...item,
-                                      requiresEvidence: event.target.checked,
-                                    }
-                                  : item,
+                              checkpoints: current.checkpoints.map(
+                                (item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        requiresEvidence: event.target.checked,
+                                      }
+                                    : item,
                               ),
                             }))
                           }
@@ -2095,7 +2344,10 @@ export default function GovernanceServiceExecutionPage() {
 
             {canWrite ? (
               <div className="flex justify-end">
-                <Button onClick={handleSaveModel} disabled={modelMutation.isPending}>
+                <Button
+                  onClick={handleSaveModel}
+                  disabled={modelMutation.isPending}
+                >
                   {selectedModelId ? "Salvar modelo" : "Criar modelo"}
                 </Button>
               </div>
@@ -2108,8 +2360,9 @@ export default function GovernanceServiceExecutionPage() {
         <CardHeader className="space-y-2">
           <CardTitle>Validação especial do processo</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Quando o resultado não puder ser totalmente verificado apenas ao final,
-            registre critérios, vigência e revalidações diretamente no modelo.
+            Quando o resultado não puder ser totalmente verificado apenas ao
+            final, registre critérios, vigência e revalidações diretamente no
+            modelo.
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -2136,7 +2389,8 @@ export default function GovernanceServiceExecutionPage() {
                 onChange={(event) =>
                   setSpecialValidationProfileForm((current) => ({
                     ...current,
-                    status: event.target.value as SpecialValidationProfileFormState["status"],
+                    status: event.target
+                      .value as SpecialValidationProfileFormState["status"],
                   }))
                 }
                 disabled={!canWrite || !selectedModelId}
@@ -2231,7 +2485,9 @@ export default function GovernanceServiceExecutionPage() {
             <div className="flex justify-end">
               <Button
                 onClick={handleSaveSpecialValidationProfile}
-                disabled={specialValidationProfileMutation.isPending || !selectedModelId}
+                disabled={
+                  specialValidationProfileMutation.isPending || !selectedModelId
+                }
               >
                 Salvar validação especial
               </Button>
@@ -2240,7 +2496,9 @@ export default function GovernanceServiceExecutionPage() {
 
           <Card className="border-dashed">
             <CardHeader>
-              <CardTitle className="text-base">Eventos de validação e revalidação</CardTitle>
+              <CardTitle className="text-base">
+                Eventos de validação e revalidação
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {specialValidationProfile?.events?.length ? (
@@ -2258,14 +2516,21 @@ export default function GovernanceServiceExecutionPage() {
                               : "Revalidação"}
                           </p>
                           <p className="text-muted-foreground">
-                            {event.validatedByName || "Responsável não identificado"} •{" "}
-                            {formatDateTime(event.validatedAt)}
+                            {event.validatedByName ||
+                              "Responsável não identificado"}{" "}
+                            • {formatDateTime(event.validatedAt)}
                           </p>
                         </div>
                         <Badge
-                          variant={event.result === "approved" ? "default" : "destructive"}
+                          variant={
+                            event.result === "approved"
+                              ? "default"
+                              : "destructive"
+                          }
                         >
-                          {event.result === "approved" ? "Aprovada" : "Reprovada"}
+                          {event.result === "approved"
+                            ? "Aprovada"
+                            : "Reprovada"}
                         </Badge>
                       </div>
                       <p className="mt-2 text-muted-foreground">
@@ -2289,12 +2554,15 @@ export default function GovernanceServiceExecutionPage() {
                     onChange={(event) =>
                       setSpecialValidationEventForm((current) => ({
                         ...current,
-                        eventType: event.target.value as SpecialValidationEventFormState["eventType"],
+                        eventType: event.target
+                          .value as SpecialValidationEventFormState["eventType"],
                       }))
                     }
                     disabled={!canWrite || !selectedModelId}
                   >
-                    <option value="initial_validation">Validação inicial</option>
+                    <option value="initial_validation">
+                      Validação inicial
+                    </option>
                     <option value="revalidation">Revalidação</option>
                   </Select>
                 </div>
@@ -2306,7 +2574,8 @@ export default function GovernanceServiceExecutionPage() {
                     onChange={(event) =>
                       setSpecialValidationEventForm((current) => ({
                         ...current,
-                        result: event.target.value as SpecialValidationEventFormState["result"],
+                        result: event.target
+                          .value as SpecialValidationEventFormState["result"],
                       }))
                     }
                     disabled={!canWrite || !selectedModelId}
@@ -2387,15 +2656,20 @@ export default function GovernanceServiceExecutionPage() {
                         ? (objectPath) =>
                             setSpecialValidationEventForm((current) => ({
                               ...current,
-                              evidenceAttachments: current.evidenceAttachments.filter(
-                                (attachment) => attachment.objectPath !== objectPath,
-                              ),
+                              evidenceAttachments:
+                                current.evidenceAttachments.filter(
+                                  (attachment) =>
+                                    attachment.objectPath !== objectPath,
+                                ),
                             }))
                         : undefined,
                     )}
                     onUpload={
                       canWrite
-                        ? (files) => void handleUploadSpecialValidationEventAttachments(files)
+                        ? (files) =>
+                            void handleUploadSpecialValidationEventAttachments(
+                              files,
+                            )
                         : undefined
                     }
                     uploading={specialValidationEventUploading}
@@ -2447,51 +2721,72 @@ export default function GovernanceServiceExecutionPage() {
               <p className="text-sm text-muted-foreground">
                 Selecione um modelo para visualizar ou abrir ciclos.
               </p>
-            ) : isLoadingCycles ? (
-              <p className="text-sm text-muted-foreground">Carregando ciclos...</p>
             ) : cycles.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Nenhum ciclo foi iniciado para este modelo.
-              </p>
-            ) : (
-              cycles.map((cycle) => (
-                <button
-                  key={cycle.id}
-                  type="button"
-                  onClick={() => setSelectedCycleId(cycle.id)}
-                  className={`w-full rounded-lg border px-3 py-3 text-left transition ${
-                    selectedCycleId === cycle.id
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:bg-muted/40"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <p className="font-medium">{cycle.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {cycle.serviceOrderRef || "Sem ordem"} •{" "}
-                        {cycle.customerName || "Sem cliente"}
-                      </p>
-                    </div>
-                    <Badge
-                      variant={
-                        cycle.status === "released"
-                          ? "default"
-                          : cycle.status === "blocked"
-                            ? "destructive"
-                            : "secondary"
-                      }
-                    >
-                      {statusLabel(cycle.status)}
-                    </Badge>
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {cycle.pendingRequiredCheckpointCount} pendente(s) •{" "}
-                    {cycle.failedRequiredCheckpointCount} reprovado(s) •{" "}
-                    {cycle.openNonconformingOutputCount} saída(s) NC em aberto
+              <>
+                {cycleFilterFields}
+                {isLoadingCycles ? (
+                  <p className="text-sm text-muted-foreground">
+                    Carregando ciclos...
                   </p>
-                </button>
-              ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum ciclo encontrado para este modelo e filtros.
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                {cycleFilterFields}
+                {isLoadingCycles ? (
+                  <p className="text-sm text-muted-foreground">
+                    Carregando ciclos...
+                  </p>
+                ) : (
+                  cycles.map((cycle) => (
+                    <button
+                      key={cycle.id}
+                      type="button"
+                      onClick={() => setSelectedCycleId(cycle.id)}
+                      className={`w-full rounded-lg border px-3 py-3 text-left transition ${
+                        selectedCycleId === cycle.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:bg-muted/40"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <p className="font-medium">{cycle.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {cycle.serviceOrderRef || "Sem ordem"} •{" "}
+                            {cycle.customerName || "Sem cliente"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {cycle.processName || "Sem processo"} •{" "}
+                            {cycle.unitName || "Sem unidade"}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={
+                            cycle.status === "released"
+                              ? "default"
+                              : cycle.status === "blocked"
+                                ? "destructive"
+                                : "secondary"
+                          }
+                        >
+                          {statusLabel(cycle.status)}
+                        </Badge>
+                      </div>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {cycle.pendingRequiredCheckpointCount} pendente(s) •{" "}
+                        {cycle.failedRequiredCheckpointCount} reprovado(s) •{" "}
+                        {cycle.openNonconformingOutputCount} saída(s) NC em
+                        aberto
+                      </p>
+                    </button>
+                  ))
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -2500,7 +2795,9 @@ export default function GovernanceServiceExecutionPage() {
           <Card>
             <CardHeader>
               <CardTitle>
-                {selectedCycleId ? "Ciclo selecionado" : "Novo ciclo de execução"}
+                {selectedCycleId
+                  ? "Ciclo selecionado"
+                  : "Novo ciclo de execução"}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -2511,7 +2808,10 @@ export default function GovernanceServiceExecutionPage() {
                     className="mt-1"
                     value={cycleForm.title}
                     onChange={(event) =>
-                      setCycleForm((current) => ({ ...current, title: event.target.value }))
+                      setCycleForm((current) => ({
+                        ...current,
+                        title: event.target.value,
+                      }))
                     }
                     disabled={!canWrite || !selectedModelId}
                   />
@@ -2561,7 +2861,9 @@ export default function GovernanceServiceExecutionPage() {
                     {customerOptions.map((contact) => (
                       <option key={contact.id} value={contact.id}>
                         {contact.name}
-                        {contact.organizationName ? ` • ${contact.organizationName}` : ""}
+                        {contact.organizationName
+                          ? ` • ${contact.organizationName}`
+                          : ""}
                       </option>
                     ))}
                   </Select>
@@ -2641,7 +2943,10 @@ export default function GovernanceServiceExecutionPage() {
                       Criar ciclo
                     </Button>
                   ) : (
-                    <Button onClick={handleSaveCycle} disabled={cycleMutation.isPending}>
+                    <Button
+                      onClick={handleSaveCycle}
+                      disabled={cycleMutation.isPending}
+                    >
                       Salvar ciclo
                     </Button>
                   )}
@@ -2657,7 +2962,8 @@ export default function GovernanceServiceExecutionPage() {
             <CardContent className="space-y-4">
               {!selectedCycleId ? (
                 <p className="text-sm text-muted-foreground">
-                  Crie ou selecione um ciclo para registrar execução e evidências.
+                  Crie ou selecione um ciclo para registrar execução e
+                  evidências.
                 </p>
               ) : cycleCheckpoints.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
@@ -2679,7 +2985,8 @@ export default function GovernanceServiceExecutionPage() {
                             ) : null}
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {checkpoint.acceptanceCriteria || "Sem critério informado"}
+                            {checkpoint.acceptanceCriteria ||
+                              "Sem critério informado"}
                           </p>
                           {checkpoint.guidance ? (
                             <p className="mt-1 text-xs text-muted-foreground">
@@ -2712,7 +3019,8 @@ export default function GovernanceServiceExecutionPage() {
                                   item.id === checkpoint.id
                                     ? {
                                         ...item,
-                                        status: event.target.value as CycleCheckpointDraft["status"],
+                                        status: event.target
+                                          .value as CycleCheckpointDraft["status"],
                                       }
                                     : item,
                                 ),
@@ -2761,10 +3069,12 @@ export default function GovernanceServiceExecutionPage() {
                                     item.id === checkpoint.id
                                       ? {
                                           ...item,
-                                          evidenceAttachments: item.evidenceAttachments.filter(
-                                            (attachment) =>
-                                              attachment.objectPath !== objectPath,
-                                          ),
+                                          evidenceAttachments:
+                                            item.evidenceAttachments.filter(
+                                              (attachment) =>
+                                                attachment.objectPath !==
+                                                objectPath,
+                                            ),
                                         }
                                       : item,
                                   ),
@@ -2773,7 +3083,11 @@ export default function GovernanceServiceExecutionPage() {
                         )}
                         onUpload={
                           canWrite
-                            ? (files) => void handleUploadCheckpointAttachments(checkpoint.id, files)
+                            ? (files) =>
+                                void handleUploadCheckpointAttachments(
+                                  checkpoint.id,
+                                  files,
+                                )
                             : undefined
                         }
                         uploading={uploadingCheckpointId === checkpoint.id}
@@ -2811,7 +3125,8 @@ export default function GovernanceServiceExecutionPage() {
             <CardContent className="space-y-4">
               {!selectedCycleId ? (
                 <p className="text-sm text-muted-foreground">
-                  Selecione um ciclo para registrar e tratar saídas não conformes.
+                  Selecione um ciclo para registrar e tratar saídas não
+                  conformes.
                 </p>
               ) : (
                 <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
@@ -2841,8 +3156,9 @@ export default function GovernanceServiceExecutionPage() {
                                 {nonconformingOutputLabel(output)}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {output.responsibleUserName || "Sem responsável"} •{" "}
-                                {formatDateTime(output.detectedAt)}
+                                {output.responsibleUserName ||
+                                  "Sem responsável"}{" "}
+                                • {formatDateTime(output.detectedAt)}
                               </p>
                             </div>
                             <Badge
@@ -2859,7 +3175,9 @@ export default function GovernanceServiceExecutionPage() {
                           </div>
                           <p className="mt-2 text-xs text-muted-foreground">
                             {output.disposition
-                              ? nonconformingDispositionLabel(output.disposition)
+                              ? nonconformingDispositionLabel(
+                                  output.disposition,
+                                )
                               : "Disposição pendente"}
                             {" • "}
                             {output.linkedNonconformityTitle
@@ -2896,7 +3214,8 @@ export default function GovernanceServiceExecutionPage() {
                             onChange={(event) =>
                               setNonconformingOutputForm((current) => ({
                                 ...current,
-                                status: event.target.value as NonconformingOutputFormState["status"],
+                                status: event.target
+                                  .value as NonconformingOutputFormState["status"],
                               }))
                             }
                             disabled={!canWrite || !selectedCycleId}
@@ -2921,6 +3240,21 @@ export default function GovernanceServiceExecutionPage() {
                             disabled={!canWrite || !selectedCycleId}
                           />
                         </div>
+                        <div className="md:col-span-2">
+                          <Label>Impacto *</Label>
+                          <Textarea
+                            className="mt-1 min-h-20"
+                            value={nonconformingOutputForm.impact}
+                            onChange={(event) =>
+                              setNonconformingOutputForm((current) => ({
+                                ...current,
+                                impact: event.target.value,
+                              }))
+                            }
+                            disabled={!canWrite || !selectedCycleId}
+                            placeholder="Descreva o impacto no cliente, entrega, requisito ou conformidade."
+                          />
+                        </div>
                         <div>
                           <Label>Disposição adotada</Label>
                           <Select
@@ -2929,8 +3263,8 @@ export default function GovernanceServiceExecutionPage() {
                             onChange={(event) =>
                               setNonconformingOutputForm((current) => ({
                                 ...current,
-                                disposition:
-                                  event.target.value as NonconformingOutputFormState["disposition"],
+                                disposition: event.target
+                                  .value as NonconformingOutputFormState["disposition"],
                               }))
                             }
                             disabled={!canWrite || !selectedCycleId}
@@ -2970,7 +3304,9 @@ export default function GovernanceServiceExecutionPage() {
                           <Label>NC sistêmica vinculada</Label>
                           <Select
                             className="mt-1"
-                            value={nonconformingOutputForm.linkedNonconformityId}
+                            value={
+                              nonconformingOutputForm.linkedNonconformityId
+                            }
                             onChange={(event) =>
                               setNonconformingOutputForm((current) => ({
                                 ...current,
@@ -2980,11 +3316,13 @@ export default function GovernanceServiceExecutionPage() {
                             disabled={!canWrite || !selectedCycleId}
                           >
                             <option value="">Sem vínculo</option>
-                            {systemicNonconformities.map((item: NonconformitySummary) => (
-                              <option key={item.id} value={item.id}>
-                                {item.title}
-                              </option>
-                            ))}
+                            {systemicNonconformities.map(
+                              (item: NonconformitySummary) => (
+                                <option key={item.id} value={item.id}>
+                                  {item.title}
+                                </option>
+                              ),
+                            )}
                           </Select>
                         </div>
                         <div>
@@ -3012,7 +3350,8 @@ export default function GovernanceServiceExecutionPage() {
                                       evidenceAttachments:
                                         current.evidenceAttachments.filter(
                                           (attachment) =>
-                                            attachment.objectPath !== objectPath,
+                                            attachment.objectPath !==
+                                            objectPath,
                                         ),
                                     }))
                                 : undefined,
@@ -3020,7 +3359,9 @@ export default function GovernanceServiceExecutionPage() {
                             onUpload={
                               canWrite
                                 ? (files) =>
-                                    void handleUploadNonconformingOutputAttachments(files)
+                                    void handleUploadNonconformingOutputAttachments(
+                                      files,
+                                    )
                                 : undefined
                             }
                             uploading={nonconformingOutputUploading}
@@ -3036,8 +3377,8 @@ export default function GovernanceServiceExecutionPage() {
                             Evento operacional #{selectedNonconformingOutputId}
                           </p>
                           <p className="mt-1 text-muted-foreground">
-                            Atualize a disposição e o desfecho sem perder o vínculo
-                            com o ciclo.
+                            Atualize a disposição e o desfecho sem perder o
+                            vínculo com o ciclo.
                           </p>
                         </div>
                       ) : null}
@@ -3082,7 +3423,8 @@ export default function GovernanceServiceExecutionPage() {
                 ) : null}
               </div>
               <p className="text-sm text-muted-foreground">
-                Registre bens, materiais ou itens do cliente/terceiros ligados ao ciclo.
+                Registre bens, materiais ou itens do cliente/terceiros ligados
+                ao ciclo.
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -3114,12 +3456,17 @@ export default function GovernanceServiceExecutionPage() {
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="space-y-1">
-                              <p className="font-medium">{thirdPartyPropertyLabel(item)}</p>
+                              <p className="font-medium">
+                                {thirdPartyPropertyLabel(item)}
+                              </p>
                               <p className="text-xs text-muted-foreground">
-                                {item.ownerName} • {item.responsibleUserName || "Sem responsável"}
+                                {item.ownerName} •{" "}
+                                {item.responsibleUserName || "Sem responsável"}
                               </p>
                             </div>
-                            <Badge variant="secondary">{statusLabel(item.status)}</Badge>
+                            <Badge variant="secondary">
+                              {statusLabel(item.status)}
+                            </Badge>
                           </div>
                         </button>
                       ))
@@ -3193,7 +3540,8 @@ export default function GovernanceServiceExecutionPage() {
                             onChange={(event) =>
                               setThirdPartyPropertyForm((current) => ({
                                 ...current,
-                                status: event.target.value as ThirdPartyPropertyFormState["status"],
+                                status: event.target
+                                  .value as ThirdPartyPropertyFormState["status"],
                               }))
                             }
                             disabled={!canWrite || !selectedCycleId}
@@ -3201,7 +3549,9 @@ export default function GovernanceServiceExecutionPage() {
                             <option value="received">Recebida</option>
                             <option value="in_use">Em uso</option>
                             <option value="returned">Devolvida</option>
-                            <option value="lost_or_damaged">Perdida ou danificada</option>
+                            <option value="lost_or_damaged">
+                              Perdida ou danificada
+                            </option>
                           </Select>
                         </div>
                         <div>
@@ -3250,14 +3600,18 @@ export default function GovernanceServiceExecutionPage() {
                                       evidenceAttachments:
                                         current.evidenceAttachments.filter(
                                           (attachment) =>
-                                            attachment.objectPath !== objectPath,
+                                            attachment.objectPath !==
+                                            objectPath,
                                         ),
                                     }))
                                 : undefined,
                             )}
                             onUpload={
                               canWrite
-                                ? (files) => void handleUploadThirdPartyPropertyAttachments(files)
+                                ? (files) =>
+                                    void handleUploadThirdPartyPropertyAttachments(
+                                      files,
+                                    )
                                 : undefined
                             }
                             uploading={thirdPartyPropertyUploading}
@@ -3277,7 +3631,9 @@ export default function GovernanceServiceExecutionPage() {
                               !selectedCycleId
                             }
                           >
-                            {selectedThirdPartyPropertyId ? "Salvar item" : "Registrar item"}
+                            {selectedThirdPartyPropertyId
+                              ? "Salvar item"
+                              : "Registrar item"}
                           </Button>
                         </div>
                       ) : null}
@@ -3449,14 +3805,16 @@ export default function GovernanceServiceExecutionPage() {
                                   ...current,
                                   preservationEvidenceAttachments:
                                     current.preservationEvidenceAttachments.filter(
-                                      (attachment) => attachment.objectPath !== objectPath,
+                                      (attachment) =>
+                                        attachment.objectPath !== objectPath,
                                     ),
                                 }))
                             : undefined,
                         )}
                         onUpload={
                           canWrite
-                            ? (files) => void handleUploadPreservationAttachments(files)
+                            ? (files) =>
+                                void handleUploadPreservationAttachments(files)
                             : undefined
                         }
                         uploading={preservationUploading}
@@ -3475,14 +3833,16 @@ export default function GovernanceServiceExecutionPage() {
                                   ...current,
                                   deliveryEvidenceAttachments:
                                     current.deliveryEvidenceAttachments.filter(
-                                      (attachment) => attachment.objectPath !== objectPath,
+                                      (attachment) =>
+                                        attachment.objectPath !== objectPath,
                                     ),
                                 }))
                             : undefined,
                         )}
                         onUpload={
                           canWrite
-                            ? (files) => void handleUploadDeliveryAttachments(files)
+                            ? (files) =>
+                                void handleUploadDeliveryAttachments(files)
                             : undefined
                         }
                         uploading={deliveryUploading}
@@ -3529,7 +3889,8 @@ export default function GovernanceServiceExecutionPage() {
                 ) : null}
               </div>
               <p className="text-sm text-muted-foreground">
-                Documente monitoramentos, ajustes, assistência ou outros eventos após a entrega.
+                Documente monitoramentos, ajustes, assistência ou outros eventos
+                após a entrega.
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -3561,14 +3922,18 @@ export default function GovernanceServiceExecutionPage() {
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="space-y-1">
-                              <p className="font-medium">{postDeliveryEventLabel(item)}</p>
+                              <p className="font-medium">
+                                {postDeliveryEventLabel(item)}
+                              </p>
                               <p className="text-xs text-muted-foreground">
                                 {formatDateTime(item.occurredAt)}
                               </p>
                             </div>
                             <Badge
                               variant={
-                                item.status === "closed" ? "default" : "secondary"
+                                item.status === "closed"
+                                  ? "default"
+                                  : "secondary"
                               }
                             >
                               {statusLabel(item.status)}
@@ -3590,7 +3955,8 @@ export default function GovernanceServiceExecutionPage() {
                             onChange={(event) =>
                               setPostDeliveryEventForm((current) => ({
                                 ...current,
-                                eventType: event.target.value as PostDeliveryEventFormState["eventType"],
+                                eventType: event.target
+                                  .value as PostDeliveryEventFormState["eventType"],
                               }))
                             }
                             disabled={!canWrite || !selectedCycleId}
@@ -3611,13 +3977,16 @@ export default function GovernanceServiceExecutionPage() {
                             onChange={(event) =>
                               setPostDeliveryEventForm((current) => ({
                                 ...current,
-                                status: event.target.value as PostDeliveryEventFormState["status"],
+                                status: event.target
+                                  .value as PostDeliveryEventFormState["status"],
                               }))
                             }
                             disabled={!canWrite || !selectedCycleId}
                           >
                             <option value="open">Aberto</option>
-                            <option value="in_follow_up">Em acompanhamento</option>
+                            <option value="in_follow_up">
+                              Em acompanhamento
+                            </option>
                             <option value="closed">Encerrado</option>
                           </Select>
                         </div>
@@ -3710,14 +4079,18 @@ export default function GovernanceServiceExecutionPage() {
                                       evidenceAttachments:
                                         current.evidenceAttachments.filter(
                                           (attachment) =>
-                                            attachment.objectPath !== objectPath,
+                                            attachment.objectPath !==
+                                            objectPath,
                                         ),
                                     }))
                                 : undefined,
                             )}
                             onUpload={
                               canWrite
-                                ? (files) => void handleUploadPostDeliveryAttachments(files)
+                                ? (files) =>
+                                    void handleUploadPostDeliveryAttachments(
+                                      files,
+                                    )
                                 : undefined
                             }
                             uploading={postDeliveryUploading}
@@ -3757,13 +4130,16 @@ export default function GovernanceServiceExecutionPage() {
             <CardContent className="space-y-4">
               {!selectedCycleId ? (
                 <p className="text-sm text-muted-foreground">
-                  Selecione um ciclo para revisar pendências e registrar a decisão.
+                  Selecione um ciclo para revisar pendências e registrar a
+                  decisão.
                 </p>
               ) : (
                 <>
                   {pendingBlockingIssues.length > 0 ? (
                     <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                      <p className="font-medium">Pendências impeditivas atuais</p>
+                      <p className="font-medium">
+                        Pendências impeditivas atuais
+                      </p>
                       <ul className="mt-2 list-disc space-y-1 pl-5">
                         {pendingBlockingIssues.map((issue) => (
                           <li key={issue}>{issue}</li>
@@ -3772,18 +4148,25 @@ export default function GovernanceServiceExecutionPage() {
                     </div>
                   ) : (
                     <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                      Todos os checkpoints obrigatórios estão aptos para liberação.
+                      Todos os checkpoints obrigatórios estão aptos para
+                      liberação.
                     </div>
                   )}
 
                   {cycleDetail?.releaseRecord ? (
                     <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
                       <p className="font-medium">
-                        Última decisão: {statusLabel(cycleDetail.releaseRecord.decision === "approved" ? "released" : "blocked")}
+                        Última decisão:{" "}
+                        {statusLabel(
+                          cycleDetail.releaseRecord.decision === "approved"
+                            ? "released"
+                            : "blocked",
+                        )}
                       </p>
                       <p className="mt-1 text-muted-foreground">
-                        {cycleDetail.releaseRecord.decidedByName ?? "Responsável não identificado"} •{" "}
-                        {formatDateTime(cycleDetail.releaseRecord.decidedAt)}
+                        {cycleDetail.releaseRecord.decidedByName ??
+                          "Responsável não identificado"}{" "}
+                        • {formatDateTime(cycleDetail.releaseRecord.decidedAt)}
                       </p>
                     </div>
                   ) : null}
@@ -3797,7 +4180,8 @@ export default function GovernanceServiceExecutionPage() {
                         onChange={(event) =>
                           setReleaseForm((current) => ({
                             ...current,
-                            decision: event.target.value as ReleaseFormState["decision"],
+                            decision: event.target
+                              .value as ReleaseFormState["decision"],
                           }))
                         }
                         disabled={!canWrite}
@@ -3842,13 +4226,20 @@ export default function GovernanceServiceExecutionPage() {
                             ? (objectPath) =>
                                 setReleaseForm((current) => ({
                                   ...current,
-                                  evidenceAttachments: current.evidenceAttachments.filter(
-                                    (attachment) => attachment.objectPath !== objectPath,
-                                  ),
+                                  evidenceAttachments:
+                                    current.evidenceAttachments.filter(
+                                      (attachment) =>
+                                        attachment.objectPath !== objectPath,
+                                    ),
                                 }))
                             : undefined,
                         )}
-                        onUpload={canWrite ? (files) => void handleUploadReleaseAttachments(files) : undefined}
+                        onUpload={
+                          canWrite
+                            ? (files) =>
+                                void handleUploadReleaseAttachments(files)
+                            : undefined
+                        }
                         uploading={releaseUploading}
                         disabled={!canWrite}
                         emptyText="A liberação exige pelo menos uma evidência."

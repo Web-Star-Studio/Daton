@@ -15,6 +15,7 @@ export interface ServiceNonconformingOutput {
   cycleId: number;
   title: string;
   description: string;
+  impact: string;
   status: ServiceNonconformingOutputStatus;
   disposition?: ServiceNonconformingOutputDisposition | null;
   dispositionNotes?: string | null;

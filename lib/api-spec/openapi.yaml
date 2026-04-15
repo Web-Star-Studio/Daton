@@ -5270,6 +5270,18 @@ paths:
           in: query
           schema:
             type: integer
+        - name: processId
+          in: query
+          schema:
+            type: integer
+        - name: unitId
+          in: query
+          schema:
+            type: integer
+        - name: customerContactId
+          in: query
+          schema:
+            type: integer
         - name: search
           in: query
           schema:
@@ -12162,7 +12174,8 @@ components:
 
     ServiceNonconformingOutputDisposition:
       type: string
-      enum: [blocked, reworked, reclassified, accepted_under_concession, scrapped]
+      enum:
+        [blocked, reworked, reclassified, accepted_under_concession, scrapped]
 
     ServiceThirdPartyPropertyStatus:
       type: string
@@ -12517,6 +12530,8 @@ components:
           type: string
         description:
           type: string
+        impact:
+          type: string
         status:
           $ref: "#/components/schemas/ServiceNonconformingOutputStatus"
         disposition:
@@ -12564,6 +12579,7 @@ components:
         - cycleId
         - title
         - description
+        - impact
         - status
         - evidenceAttachments
         - detectedById
@@ -13064,6 +13080,8 @@ components:
           type: string
         description:
           type: string
+        impact:
+          type: string
         status:
           $ref: "#/components/schemas/ServiceNonconformingOutputStatus"
         disposition:
@@ -13085,6 +13103,7 @@ components:
       required:
         - title
         - description
+        - impact
 
     UpdateServiceNonconformingOutputBody:
       allOf:
@@ -15097,7 +15116,8 @@ components:
           enum: [up, down]
         periodicity:
           type: string
-          enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+          enum:
+            [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
         createdAt:
           type: string
         updatedAt:
@@ -15132,7 +15152,8 @@ components:
           enum: [up, down]
         periodicity:
           type: string
-          enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+          enum:
+            [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
         objectiveId:
           type: integer
           nullable: true
@@ -15168,7 +15189,8 @@ components:
           enum: [up, down]
         periodicity:
           type: string
-          enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+          enum:
+            [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
 
     KpiYearConfig:
       type: object
