@@ -21,7 +21,7 @@ import fs from "fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const IMGS_DIR  = path.join(__dirname, "imgs");
-const BASE_URL  = "http://localhost:5173";
+const BASE_URL  = process.env.BASE_URL || "http://localhost:5173";
 const EMAIL     = process.env.LOGIN_EMAIL    || "TODO@example.com";
 const PASSWORD  = process.env.LOGIN_PASSWORD || "TODO";
 
