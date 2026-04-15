@@ -11068,6 +11068,2258 @@ export const ListSgqProcessRevisionsResponse = zod.array(
 );
 
 /**
+ * @summary List service execution models
+ */
+export const ListServiceExecutionModelsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListServiceExecutionModelsQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+  status: zod.enum(["active", "inactive"]).optional(),
+  processId: zod.coerce.number().optional(),
+  unitId: zod.coerce.number().optional(),
+  search: zod.coerce.string().optional(),
+});
+
+export const ListServiceExecutionModelsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      organizationId: zod.number(),
+      name: zod.string(),
+      description: zod.string().nullish(),
+      processId: zod.number().nullish(),
+      processName: zod.string().nullish(),
+      unitId: zod.number().nullish(),
+      unitName: zod.string().nullish(),
+      requiresSpecialValidation: zod.boolean(),
+      status: zod.enum(["active", "inactive"]),
+      checkpointCount: zod.number(),
+      requiredCheckpointCount: zod.number(),
+      documentCount: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    pageSize: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary Create a service execution model
+ */
+export const CreateServiceExecutionModelParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateServiceExecutionModelBody = zod.object({
+  name: zod.string(),
+  description: zod.string().nullish(),
+  processId: zod.number().nullish(),
+  unitId: zod.number().nullish(),
+  requiresSpecialValidation: zod.boolean().optional(),
+  status: zod.enum(["active", "inactive"]).optional(),
+  documentIds: zod.array(zod.number()).optional(),
+  checkpoints: zod.array(
+    zod.object({
+      id: zod.number().optional(),
+      kind: zod.enum(["checkpoint", "preventive_control"]).optional(),
+      label: zod.string(),
+      acceptanceCriteria: zod.string().nullish(),
+      guidance: zod.string().nullish(),
+      isRequired: zod.boolean().optional(),
+      requiresEvidence: zod.boolean().optional(),
+      sortOrder: zod.number().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get service execution model detail
+ */
+export const GetServiceExecutionModelParams = zod.object({
+  orgId: zod.coerce.number(),
+  modelId: zod.coerce.number(),
+});
+
+export const getServiceExecutionModelResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getServiceExecutionModelResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const GetServiceExecutionModelResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    name: zod.string(),
+    description: zod.string().nullish(),
+    processId: zod.number().nullish(),
+    processName: zod.string().nullish(),
+    unitId: zod.number().nullish(),
+    unitName: zod.string().nullish(),
+    requiresSpecialValidation: zod.boolean(),
+    status: zod.enum(["active", "inactive"]),
+    checkpointCount: zod.number(),
+    requiredCheckpointCount: zod.number(),
+    documentCount: zod.number(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      checkpoints: zod.array(
+        zod.object({
+          id: zod.number(),
+          kind: zod.enum(["checkpoint", "preventive_control"]),
+          label: zod.string(),
+          acceptanceCriteria: zod.string().nullish(),
+          guidance: zod.string().nullish(),
+          isRequired: zod.boolean(),
+          requiresEvidence: zod.boolean(),
+          sortOrder: zod.number(),
+        }),
+      ),
+      documents: zod.array(
+        zod.object({
+          id: zod.number(),
+          title: zod.string(),
+          status: zod.string(),
+        }),
+      ),
+      specialValidationProfile: zod
+        .object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          modelId: zod.number(),
+          processId: zod.number().nullish(),
+          processName: zod.string().nullish(),
+          title: zod.string(),
+          criteria: zod.string(),
+          method: zod.string().nullish(),
+          status: zod.enum(["draft", "valid", "expired", "suspended"]),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          currentValidUntil: zod.string().nullish(),
+          notes: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+          events: zod.array(
+            zod.object({
+              id: zod.number(),
+              profileId: zod.number(),
+              eventType: zod.enum(["initial_validation", "revalidation"]),
+              result: zod.enum(["approved", "rejected"]),
+              criteriaSnapshot: zod.string(),
+              notes: zod.string().nullish(),
+              validUntil: zod.string().nullish(),
+              evidenceAttachments: zod.array(
+                zod.object({
+                  fileName: zod.string(),
+                  fileSize: zod
+                    .number()
+                    .max(
+                      getServiceExecutionModelResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneFileSizeMax,
+                    ),
+                  contentType: zod.string(),
+                  objectPath: zod
+                    .string()
+                    .regex(
+                      getServiceExecutionModelResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                    ),
+                }),
+              ),
+              validatedById: zod.number().nullish(),
+              validatedByName: zod.string().nullish(),
+              validatedAt: zod.string().nullish(),
+              createdAt: zod.string().nullish(),
+              updatedAt: zod.string().nullish(),
+            }),
+          ),
+        })
+        .nullish(),
+    }),
+  );
+
+/**
+ * @summary Update a service execution model
+ */
+export const UpdateServiceExecutionModelParams = zod.object({
+  orgId: zod.coerce.number(),
+  modelId: zod.coerce.number(),
+});
+
+export const UpdateServiceExecutionModelBody = zod.object({
+  name: zod.string().optional(),
+  description: zod.string().nullish(),
+  processId: zod.number().nullish(),
+  unitId: zod.number().nullish(),
+  requiresSpecialValidation: zod.boolean().optional(),
+  status: zod.enum(["active", "inactive"]).optional(),
+  documentIds: zod.array(zod.number()).optional(),
+  checkpoints: zod
+    .array(
+      zod.object({
+        id: zod.number().optional(),
+        kind: zod.enum(["checkpoint", "preventive_control"]).optional(),
+        label: zod.string(),
+        acceptanceCriteria: zod.string().nullish(),
+        guidance: zod.string().nullish(),
+        isRequired: zod.boolean().optional(),
+        requiresEvidence: zod.boolean().optional(),
+        sortOrder: zod.number().optional(),
+      }),
+    )
+    .optional(),
+});
+
+export const updateServiceExecutionModelResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServiceExecutionModelResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateServiceExecutionModelResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    name: zod.string(),
+    description: zod.string().nullish(),
+    processId: zod.number().nullish(),
+    processName: zod.string().nullish(),
+    unitId: zod.number().nullish(),
+    unitName: zod.string().nullish(),
+    requiresSpecialValidation: zod.boolean(),
+    status: zod.enum(["active", "inactive"]),
+    checkpointCount: zod.number(),
+    requiredCheckpointCount: zod.number(),
+    documentCount: zod.number(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      checkpoints: zod.array(
+        zod.object({
+          id: zod.number(),
+          kind: zod.enum(["checkpoint", "preventive_control"]),
+          label: zod.string(),
+          acceptanceCriteria: zod.string().nullish(),
+          guidance: zod.string().nullish(),
+          isRequired: zod.boolean(),
+          requiresEvidence: zod.boolean(),
+          sortOrder: zod.number(),
+        }),
+      ),
+      documents: zod.array(
+        zod.object({
+          id: zod.number(),
+          title: zod.string(),
+          status: zod.string(),
+        }),
+      ),
+      specialValidationProfile: zod
+        .object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          modelId: zod.number(),
+          processId: zod.number().nullish(),
+          processName: zod.string().nullish(),
+          title: zod.string(),
+          criteria: zod.string(),
+          method: zod.string().nullish(),
+          status: zod.enum(["draft", "valid", "expired", "suspended"]),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          currentValidUntil: zod.string().nullish(),
+          notes: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+          events: zod.array(
+            zod.object({
+              id: zod.number(),
+              profileId: zod.number(),
+              eventType: zod.enum(["initial_validation", "revalidation"]),
+              result: zod.enum(["approved", "rejected"]),
+              criteriaSnapshot: zod.string(),
+              notes: zod.string().nullish(),
+              validUntil: zod.string().nullish(),
+              evidenceAttachments: zod.array(
+                zod.object({
+                  fileName: zod.string(),
+                  fileSize: zod
+                    .number()
+                    .max(
+                      updateServiceExecutionModelResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneFileSizeMax,
+                    ),
+                  contentType: zod.string(),
+                  objectPath: zod
+                    .string()
+                    .regex(
+                      updateServiceExecutionModelResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                    ),
+                }),
+              ),
+              validatedById: zod.number().nullish(),
+              validatedByName: zod.string().nullish(),
+              validatedAt: zod.string().nullish(),
+              createdAt: zod.string().nullish(),
+              updatedAt: zod.string().nullish(),
+            }),
+          ),
+        })
+        .nullish(),
+    }),
+  );
+
+/**
+ * @summary List service execution cycles
+ */
+export const ListServiceExecutionCyclesParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListServiceExecutionCyclesQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+  status: zod
+    .enum(["in_progress", "awaiting_release", "released", "blocked"])
+    .optional(),
+  modelId: zod.coerce.number().optional(),
+  search: zod.coerce.string().optional(),
+});
+
+export const ListServiceExecutionCyclesResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      organizationId: zod.number(),
+      modelId: zod.number(),
+      modelName: zod.string(),
+      title: zod.string(),
+      serviceOrderRef: zod.string().nullish(),
+      outputIdentifier: zod.string().nullish(),
+      processId: zod.number().nullish(),
+      processName: zod.string().nullish(),
+      unitId: zod.number().nullish(),
+      unitName: zod.string().nullish(),
+      customerContactId: zod.number().nullish(),
+      customerName: zod.string().nullish(),
+      customerOrganizationName: zod.string().nullish(),
+      status: zod.enum([
+        "in_progress",
+        "awaiting_release",
+        "released",
+        "blocked",
+      ]),
+      releaseDecision: zod.enum(["approved", "blocked"]).nullish(),
+      pendingRequiredCheckpointCount: zod.number(),
+      failedRequiredCheckpointCount: zod.number(),
+      openNonconformingOutputCount: zod.number(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+  pagination: zod.object({
+    page: zod.number(),
+    pageSize: zod.number(),
+    total: zod.number(),
+    totalPages: zod.number(),
+  }),
+});
+
+/**
+ * @summary Create a service execution cycle
+ */
+export const CreateServiceExecutionCycleParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateServiceExecutionCycleBody = zod.object({
+  modelId: zod.number(),
+  title: zod.string(),
+  serviceOrderRef: zod.string().nullish(),
+  outputIdentifier: zod.string().nullish(),
+  processId: zod.number().nullish(),
+  unitId: zod.number().nullish(),
+  customerContactId: zod.number().nullish(),
+  documentIds: zod.array(zod.number()).optional(),
+});
+
+/**
+ * @summary Get service execution cycle detail
+ */
+export const GetServiceExecutionCycleParams = zod.object({
+  orgId: zod.coerce.number(),
+  cycleId: zod.coerce.number(),
+});
+
+export const getServiceExecutionCycleResponseTwoCheckpointsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getServiceExecutionCycleResponseTwoCheckpointsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const getServiceExecutionCycleResponseTwoReleaseRecordEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getServiceExecutionCycleResponseTwoReleaseRecordEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const getServiceExecutionCycleResponseTwoThirdPartyPropertiesItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getServiceExecutionCycleResponseTwoThirdPartyPropertiesItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const getServiceExecutionCycleResponseTwoPreservationDeliveryRecordPreservationEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getServiceExecutionCycleResponseTwoPreservationDeliveryRecordPreservationEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const getServiceExecutionCycleResponseTwoPreservationDeliveryRecordDeliveryEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getServiceExecutionCycleResponseTwoPreservationDeliveryRecordDeliveryEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const getServiceExecutionCycleResponseTwoPostDeliveryEventsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getServiceExecutionCycleResponseTwoPostDeliveryEventsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const getServiceExecutionCycleResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getServiceExecutionCycleResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const getServiceExecutionCycleResponseTwoNonconformingOutputsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const getServiceExecutionCycleResponseTwoNonconformingOutputsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const GetServiceExecutionCycleResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    modelId: zod.number(),
+    modelName: zod.string(),
+    title: zod.string(),
+    serviceOrderRef: zod.string().nullish(),
+    outputIdentifier: zod.string().nullish(),
+    processId: zod.number().nullish(),
+    processName: zod.string().nullish(),
+    unitId: zod.number().nullish(),
+    unitName: zod.string().nullish(),
+    customerContactId: zod.number().nullish(),
+    customerName: zod.string().nullish(),
+    customerOrganizationName: zod.string().nullish(),
+    status: zod.enum([
+      "in_progress",
+      "awaiting_release",
+      "released",
+      "blocked",
+    ]),
+    releaseDecision: zod.enum(["approved", "blocked"]).nullish(),
+    pendingRequiredCheckpointCount: zod.number(),
+    failedRequiredCheckpointCount: zod.number(),
+    openNonconformingOutputCount: zod.number(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      openedById: zod.number().nullish(),
+      openedByName: zod.string().nullish(),
+      startedAt: zod.string().nullish(),
+      completedAt: zod.string().nullish(),
+      checkpoints: zod.array(
+        zod.object({
+          id: zod.number(),
+          modelCheckpointId: zod.number().nullish(),
+          kind: zod.enum(["checkpoint", "preventive_control"]),
+          label: zod.string(),
+          acceptanceCriteria: zod.string().nullish(),
+          guidance: zod.string().nullish(),
+          isRequired: zod.boolean(),
+          requiresEvidence: zod.boolean(),
+          sortOrder: zod.number(),
+          status: zod.enum(["pending", "passed", "failed", "waived"]),
+          notes: zod.string().nullish(),
+          evidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  getServiceExecutionCycleResponseTwoCheckpointsItemEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  getServiceExecutionCycleResponseTwoCheckpointsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          checkedById: zod.number().nullish(),
+          checkedByName: zod.string().nullish(),
+          checkedAt: zod.string().nullish(),
+        }),
+      ),
+      documents: zod.array(
+        zod.object({
+          id: zod.number(),
+          title: zod.string(),
+          status: zod.string(),
+        }),
+      ),
+      releaseRecord: zod
+        .object({
+          id: zod.number(),
+          decision: zod.enum(["approved", "blocked"]),
+          decisionNotes: zod.string().nullish(),
+          blockingIssues: zod.array(zod.string()),
+          evidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  getServiceExecutionCycleResponseTwoReleaseRecordEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  getServiceExecutionCycleResponseTwoReleaseRecordEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          decidedById: zod.number().nullish(),
+          decidedByName: zod.string().nullish(),
+          decidedAt: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        })
+        .nullish(),
+      thirdPartyProperties: zod.array(
+        zod.object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          cycleId: zod.number(),
+          title: zod.string(),
+          ownerName: zod.string(),
+          description: zod.string().nullish(),
+          conditionOnReceipt: zod.string().nullish(),
+          handlingRequirements: zod.string().nullish(),
+          status: zod.enum([
+            "received",
+            "in_use",
+            "returned",
+            "lost_or_damaged",
+          ]),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          evidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  getServiceExecutionCycleResponseTwoThirdPartyPropertiesItemEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  getServiceExecutionCycleResponseTwoThirdPartyPropertiesItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          registeredById: zod.number(),
+          receivedAt: zod.string().nullish(),
+          returnedAt: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      preservationDeliveryRecord: zod
+        .object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          cycleId: zod.number(),
+          preservationNotes: zod.string().nullish(),
+          preservationMethod: zod.string().nullish(),
+          packagingNotes: zod.string().nullish(),
+          deliveryNotes: zod.string().nullish(),
+          deliveryRecipient: zod.string().nullish(),
+          deliveryMethod: zod.string().nullish(),
+          deliveredById: zod.number().nullish(),
+          deliveredByName: zod.string().nullish(),
+          preservationEvidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  getServiceExecutionCycleResponseTwoPreservationDeliveryRecordPreservationEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  getServiceExecutionCycleResponseTwoPreservationDeliveryRecordPreservationEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          deliveryEvidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  getServiceExecutionCycleResponseTwoPreservationDeliveryRecordDeliveryEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  getServiceExecutionCycleResponseTwoPreservationDeliveryRecordDeliveryEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          preservedAt: zod.string().nullish(),
+          deliveredAt: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        })
+        .nullish(),
+      postDeliveryEvents: zod.array(
+        zod.object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          cycleId: zod.number(),
+          eventType: zod.enum([
+            "monitoring",
+            "complaint",
+            "assistance",
+            "adjustment",
+            "feedback",
+            "other",
+          ]),
+          title: zod.string(),
+          description: zod.string(),
+          status: zod.enum(["open", "in_follow_up", "closed"]),
+          followUpNotes: zod.string().nullish(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          evidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  getServiceExecutionCycleResponseTwoPostDeliveryEventsItemEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  getServiceExecutionCycleResponseTwoPostDeliveryEventsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          occurredAt: zod.string().nullish(),
+          closedAt: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      specialValidationProfile: zod
+        .object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          modelId: zod.number(),
+          processId: zod.number().nullish(),
+          processName: zod.string().nullish(),
+          title: zod.string(),
+          criteria: zod.string(),
+          method: zod.string().nullish(),
+          status: zod.enum(["draft", "valid", "expired", "suspended"]),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          currentValidUntil: zod.string().nullish(),
+          notes: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+          events: zod.array(
+            zod.object({
+              id: zod.number(),
+              profileId: zod.number(),
+              eventType: zod.enum(["initial_validation", "revalidation"]),
+              result: zod.enum(["approved", "rejected"]),
+              criteriaSnapshot: zod.string(),
+              notes: zod.string().nullish(),
+              validUntil: zod.string().nullish(),
+              evidenceAttachments: zod.array(
+                zod.object({
+                  fileName: zod.string(),
+                  fileSize: zod
+                    .number()
+                    .max(
+                      getServiceExecutionCycleResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneFileSizeMax,
+                    ),
+                  contentType: zod.string(),
+                  objectPath: zod
+                    .string()
+                    .regex(
+                      getServiceExecutionCycleResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                    ),
+                }),
+              ),
+              validatedById: zod.number().nullish(),
+              validatedByName: zod.string().nullish(),
+              validatedAt: zod.string().nullish(),
+              createdAt: zod.string().nullish(),
+              updatedAt: zod.string().nullish(),
+            }),
+          ),
+        })
+        .nullish(),
+      nonconformingOutputs: zod.array(
+        zod.object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          cycleId: zod.number(),
+          title: zod.string(),
+          description: zod.string(),
+          status: zod.enum(["open", "in_treatment", "resolved", "closed"]),
+          disposition: zod
+            .enum([
+              "blocked",
+              "reworked",
+              "reclassified",
+              "accepted_under_concession",
+              "scrapped",
+            ])
+            .nullish(),
+          dispositionNotes: zod.string().nullish(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          linkedNonconformityId: zod.number().nullish(),
+          linkedNonconformityTitle: zod.string().nullish(),
+          evidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  getServiceExecutionCycleResponseTwoNonconformingOutputsItemEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  getServiceExecutionCycleResponseTwoNonconformingOutputsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          detectedById: zod.number(),
+          detectedByName: zod.string().nullish(),
+          detectedAt: zod.string().nullish(),
+          resolvedAt: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      pendingBlockingIssues: zod.array(zod.string()),
+    }),
+  );
+
+/**
+ * @summary Update a service execution cycle
+ */
+export const UpdateServiceExecutionCycleParams = zod.object({
+  orgId: zod.coerce.number(),
+  cycleId: zod.coerce.number(),
+});
+
+export const updateServiceExecutionCycleBodyCheckpointsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServiceExecutionCycleBodyCheckpointsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateServiceExecutionCycleBody = zod.object({
+  title: zod.string().optional(),
+  serviceOrderRef: zod.string().nullish(),
+  outputIdentifier: zod.string().nullish(),
+  processId: zod.number().nullish(),
+  unitId: zod.number().nullish(),
+  customerContactId: zod.number().nullish(),
+  documentIds: zod.array(zod.number()).optional(),
+  checkpoints: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        status: zod.enum(["pending", "passed", "failed", "waived"]),
+        notes: zod.string().nullish(),
+        evidenceAttachments: zod
+          .array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  updateServiceExecutionCycleBodyCheckpointsItemEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  updateServiceExecutionCycleBodyCheckpointsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          )
+          .optional(),
+      }),
+    )
+    .optional(),
+});
+
+export const updateServiceExecutionCycleResponseTwoCheckpointsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServiceExecutionCycleResponseTwoCheckpointsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const updateServiceExecutionCycleResponseTwoReleaseRecordEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServiceExecutionCycleResponseTwoReleaseRecordEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const updateServiceExecutionCycleResponseTwoThirdPartyPropertiesItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServiceExecutionCycleResponseTwoThirdPartyPropertiesItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const updateServiceExecutionCycleResponseTwoPreservationDeliveryRecordPreservationEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServiceExecutionCycleResponseTwoPreservationDeliveryRecordPreservationEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const updateServiceExecutionCycleResponseTwoPreservationDeliveryRecordDeliveryEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServiceExecutionCycleResponseTwoPreservationDeliveryRecordDeliveryEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const updateServiceExecutionCycleResponseTwoPostDeliveryEventsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServiceExecutionCycleResponseTwoPostDeliveryEventsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const updateServiceExecutionCycleResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServiceExecutionCycleResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const updateServiceExecutionCycleResponseTwoNonconformingOutputsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServiceExecutionCycleResponseTwoNonconformingOutputsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateServiceExecutionCycleResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    modelId: zod.number(),
+    modelName: zod.string(),
+    title: zod.string(),
+    serviceOrderRef: zod.string().nullish(),
+    outputIdentifier: zod.string().nullish(),
+    processId: zod.number().nullish(),
+    processName: zod.string().nullish(),
+    unitId: zod.number().nullish(),
+    unitName: zod.string().nullish(),
+    customerContactId: zod.number().nullish(),
+    customerName: zod.string().nullish(),
+    customerOrganizationName: zod.string().nullish(),
+    status: zod.enum([
+      "in_progress",
+      "awaiting_release",
+      "released",
+      "blocked",
+    ]),
+    releaseDecision: zod.enum(["approved", "blocked"]).nullish(),
+    pendingRequiredCheckpointCount: zod.number(),
+    failedRequiredCheckpointCount: zod.number(),
+    openNonconformingOutputCount: zod.number(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      openedById: zod.number().nullish(),
+      openedByName: zod.string().nullish(),
+      startedAt: zod.string().nullish(),
+      completedAt: zod.string().nullish(),
+      checkpoints: zod.array(
+        zod.object({
+          id: zod.number(),
+          modelCheckpointId: zod.number().nullish(),
+          kind: zod.enum(["checkpoint", "preventive_control"]),
+          label: zod.string(),
+          acceptanceCriteria: zod.string().nullish(),
+          guidance: zod.string().nullish(),
+          isRequired: zod.boolean(),
+          requiresEvidence: zod.boolean(),
+          sortOrder: zod.number(),
+          status: zod.enum(["pending", "passed", "failed", "waived"]),
+          notes: zod.string().nullish(),
+          evidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  updateServiceExecutionCycleResponseTwoCheckpointsItemEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  updateServiceExecutionCycleResponseTwoCheckpointsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          checkedById: zod.number().nullish(),
+          checkedByName: zod.string().nullish(),
+          checkedAt: zod.string().nullish(),
+        }),
+      ),
+      documents: zod.array(
+        zod.object({
+          id: zod.number(),
+          title: zod.string(),
+          status: zod.string(),
+        }),
+      ),
+      releaseRecord: zod
+        .object({
+          id: zod.number(),
+          decision: zod.enum(["approved", "blocked"]),
+          decisionNotes: zod.string().nullish(),
+          blockingIssues: zod.array(zod.string()),
+          evidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  updateServiceExecutionCycleResponseTwoReleaseRecordEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  updateServiceExecutionCycleResponseTwoReleaseRecordEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          decidedById: zod.number().nullish(),
+          decidedByName: zod.string().nullish(),
+          decidedAt: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        })
+        .nullish(),
+      thirdPartyProperties: zod.array(
+        zod.object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          cycleId: zod.number(),
+          title: zod.string(),
+          ownerName: zod.string(),
+          description: zod.string().nullish(),
+          conditionOnReceipt: zod.string().nullish(),
+          handlingRequirements: zod.string().nullish(),
+          status: zod.enum([
+            "received",
+            "in_use",
+            "returned",
+            "lost_or_damaged",
+          ]),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          evidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  updateServiceExecutionCycleResponseTwoThirdPartyPropertiesItemEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  updateServiceExecutionCycleResponseTwoThirdPartyPropertiesItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          registeredById: zod.number(),
+          receivedAt: zod.string().nullish(),
+          returnedAt: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      preservationDeliveryRecord: zod
+        .object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          cycleId: zod.number(),
+          preservationNotes: zod.string().nullish(),
+          preservationMethod: zod.string().nullish(),
+          packagingNotes: zod.string().nullish(),
+          deliveryNotes: zod.string().nullish(),
+          deliveryRecipient: zod.string().nullish(),
+          deliveryMethod: zod.string().nullish(),
+          deliveredById: zod.number().nullish(),
+          deliveredByName: zod.string().nullish(),
+          preservationEvidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  updateServiceExecutionCycleResponseTwoPreservationDeliveryRecordPreservationEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  updateServiceExecutionCycleResponseTwoPreservationDeliveryRecordPreservationEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          deliveryEvidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  updateServiceExecutionCycleResponseTwoPreservationDeliveryRecordDeliveryEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  updateServiceExecutionCycleResponseTwoPreservationDeliveryRecordDeliveryEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          preservedAt: zod.string().nullish(),
+          deliveredAt: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        })
+        .nullish(),
+      postDeliveryEvents: zod.array(
+        zod.object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          cycleId: zod.number(),
+          eventType: zod.enum([
+            "monitoring",
+            "complaint",
+            "assistance",
+            "adjustment",
+            "feedback",
+            "other",
+          ]),
+          title: zod.string(),
+          description: zod.string(),
+          status: zod.enum(["open", "in_follow_up", "closed"]),
+          followUpNotes: zod.string().nullish(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          evidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  updateServiceExecutionCycleResponseTwoPostDeliveryEventsItemEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  updateServiceExecutionCycleResponseTwoPostDeliveryEventsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          occurredAt: zod.string().nullish(),
+          closedAt: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      specialValidationProfile: zod
+        .object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          modelId: zod.number(),
+          processId: zod.number().nullish(),
+          processName: zod.string().nullish(),
+          title: zod.string(),
+          criteria: zod.string(),
+          method: zod.string().nullish(),
+          status: zod.enum(["draft", "valid", "expired", "suspended"]),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          currentValidUntil: zod.string().nullish(),
+          notes: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+          events: zod.array(
+            zod.object({
+              id: zod.number(),
+              profileId: zod.number(),
+              eventType: zod.enum(["initial_validation", "revalidation"]),
+              result: zod.enum(["approved", "rejected"]),
+              criteriaSnapshot: zod.string(),
+              notes: zod.string().nullish(),
+              validUntil: zod.string().nullish(),
+              evidenceAttachments: zod.array(
+                zod.object({
+                  fileName: zod.string(),
+                  fileSize: zod
+                    .number()
+                    .max(
+                      updateServiceExecutionCycleResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneFileSizeMax,
+                    ),
+                  contentType: zod.string(),
+                  objectPath: zod
+                    .string()
+                    .regex(
+                      updateServiceExecutionCycleResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                    ),
+                }),
+              ),
+              validatedById: zod.number().nullish(),
+              validatedByName: zod.string().nullish(),
+              validatedAt: zod.string().nullish(),
+              createdAt: zod.string().nullish(),
+              updatedAt: zod.string().nullish(),
+            }),
+          ),
+        })
+        .nullish(),
+      nonconformingOutputs: zod.array(
+        zod.object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          cycleId: zod.number(),
+          title: zod.string(),
+          description: zod.string(),
+          status: zod.enum(["open", "in_treatment", "resolved", "closed"]),
+          disposition: zod
+            .enum([
+              "blocked",
+              "reworked",
+              "reclassified",
+              "accepted_under_concession",
+              "scrapped",
+            ])
+            .nullish(),
+          dispositionNotes: zod.string().nullish(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          linkedNonconformityId: zod.number().nullish(),
+          linkedNonconformityTitle: zod.string().nullish(),
+          evidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  updateServiceExecutionCycleResponseTwoNonconformingOutputsItemEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  updateServiceExecutionCycleResponseTwoNonconformingOutputsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          detectedById: zod.number(),
+          detectedByName: zod.string().nullish(),
+          detectedAt: zod.string().nullish(),
+          resolvedAt: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      pendingBlockingIssues: zod.array(zod.string()),
+    }),
+  );
+
+/**
+ * @summary Register a release decision for a service execution cycle
+ */
+export const ReleaseServiceExecutionCycleParams = zod.object({
+  orgId: zod.coerce.number(),
+  cycleId: zod.coerce.number(),
+});
+
+export const releaseServiceExecutionCycleBodyEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const releaseServiceExecutionCycleBodyEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const ReleaseServiceExecutionCycleBody = zod.object({
+  decision: zod.enum(["approved", "blocked"]),
+  decisionNotes: zod.string().nullish(),
+  blockingIssues: zod.array(zod.string()).optional(),
+  evidenceAttachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(
+          releaseServiceExecutionCycleBodyEvidenceAttachmentsItemOneFileSizeMax,
+        ),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(
+          releaseServiceExecutionCycleBodyEvidenceAttachmentsItemOneObjectPathRegExp,
+        ),
+    }),
+  ),
+});
+
+export const releaseServiceExecutionCycleResponseTwoCheckpointsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const releaseServiceExecutionCycleResponseTwoCheckpointsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const releaseServiceExecutionCycleResponseTwoReleaseRecordEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const releaseServiceExecutionCycleResponseTwoReleaseRecordEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const releaseServiceExecutionCycleResponseTwoThirdPartyPropertiesItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const releaseServiceExecutionCycleResponseTwoThirdPartyPropertiesItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const releaseServiceExecutionCycleResponseTwoPreservationDeliveryRecordPreservationEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const releaseServiceExecutionCycleResponseTwoPreservationDeliveryRecordPreservationEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const releaseServiceExecutionCycleResponseTwoPreservationDeliveryRecordDeliveryEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const releaseServiceExecutionCycleResponseTwoPreservationDeliveryRecordDeliveryEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const releaseServiceExecutionCycleResponseTwoPostDeliveryEventsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const releaseServiceExecutionCycleResponseTwoPostDeliveryEventsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const releaseServiceExecutionCycleResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const releaseServiceExecutionCycleResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const releaseServiceExecutionCycleResponseTwoNonconformingOutputsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const releaseServiceExecutionCycleResponseTwoNonconformingOutputsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const ReleaseServiceExecutionCycleResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    modelId: zod.number(),
+    modelName: zod.string(),
+    title: zod.string(),
+    serviceOrderRef: zod.string().nullish(),
+    outputIdentifier: zod.string().nullish(),
+    processId: zod.number().nullish(),
+    processName: zod.string().nullish(),
+    unitId: zod.number().nullish(),
+    unitName: zod.string().nullish(),
+    customerContactId: zod.number().nullish(),
+    customerName: zod.string().nullish(),
+    customerOrganizationName: zod.string().nullish(),
+    status: zod.enum([
+      "in_progress",
+      "awaiting_release",
+      "released",
+      "blocked",
+    ]),
+    releaseDecision: zod.enum(["approved", "blocked"]).nullish(),
+    pendingRequiredCheckpointCount: zod.number(),
+    failedRequiredCheckpointCount: zod.number(),
+    openNonconformingOutputCount: zod.number(),
+    createdAt: zod.string().nullish(),
+    updatedAt: zod.string().nullish(),
+  })
+  .and(
+    zod.object({
+      openedById: zod.number().nullish(),
+      openedByName: zod.string().nullish(),
+      startedAt: zod.string().nullish(),
+      completedAt: zod.string().nullish(),
+      checkpoints: zod.array(
+        zod.object({
+          id: zod.number(),
+          modelCheckpointId: zod.number().nullish(),
+          kind: zod.enum(["checkpoint", "preventive_control"]),
+          label: zod.string(),
+          acceptanceCriteria: zod.string().nullish(),
+          guidance: zod.string().nullish(),
+          isRequired: zod.boolean(),
+          requiresEvidence: zod.boolean(),
+          sortOrder: zod.number(),
+          status: zod.enum(["pending", "passed", "failed", "waived"]),
+          notes: zod.string().nullish(),
+          evidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  releaseServiceExecutionCycleResponseTwoCheckpointsItemEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  releaseServiceExecutionCycleResponseTwoCheckpointsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          checkedById: zod.number().nullish(),
+          checkedByName: zod.string().nullish(),
+          checkedAt: zod.string().nullish(),
+        }),
+      ),
+      documents: zod.array(
+        zod.object({
+          id: zod.number(),
+          title: zod.string(),
+          status: zod.string(),
+        }),
+      ),
+      releaseRecord: zod
+        .object({
+          id: zod.number(),
+          decision: zod.enum(["approved", "blocked"]),
+          decisionNotes: zod.string().nullish(),
+          blockingIssues: zod.array(zod.string()),
+          evidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  releaseServiceExecutionCycleResponseTwoReleaseRecordEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  releaseServiceExecutionCycleResponseTwoReleaseRecordEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          decidedById: zod.number().nullish(),
+          decidedByName: zod.string().nullish(),
+          decidedAt: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        })
+        .nullish(),
+      thirdPartyProperties: zod.array(
+        zod.object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          cycleId: zod.number(),
+          title: zod.string(),
+          ownerName: zod.string(),
+          description: zod.string().nullish(),
+          conditionOnReceipt: zod.string().nullish(),
+          handlingRequirements: zod.string().nullish(),
+          status: zod.enum([
+            "received",
+            "in_use",
+            "returned",
+            "lost_or_damaged",
+          ]),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          evidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  releaseServiceExecutionCycleResponseTwoThirdPartyPropertiesItemEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  releaseServiceExecutionCycleResponseTwoThirdPartyPropertiesItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          registeredById: zod.number(),
+          receivedAt: zod.string().nullish(),
+          returnedAt: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      preservationDeliveryRecord: zod
+        .object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          cycleId: zod.number(),
+          preservationNotes: zod.string().nullish(),
+          preservationMethod: zod.string().nullish(),
+          packagingNotes: zod.string().nullish(),
+          deliveryNotes: zod.string().nullish(),
+          deliveryRecipient: zod.string().nullish(),
+          deliveryMethod: zod.string().nullish(),
+          deliveredById: zod.number().nullish(),
+          deliveredByName: zod.string().nullish(),
+          preservationEvidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  releaseServiceExecutionCycleResponseTwoPreservationDeliveryRecordPreservationEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  releaseServiceExecutionCycleResponseTwoPreservationDeliveryRecordPreservationEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          deliveryEvidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  releaseServiceExecutionCycleResponseTwoPreservationDeliveryRecordDeliveryEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  releaseServiceExecutionCycleResponseTwoPreservationDeliveryRecordDeliveryEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          preservedAt: zod.string().nullish(),
+          deliveredAt: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        })
+        .nullish(),
+      postDeliveryEvents: zod.array(
+        zod.object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          cycleId: zod.number(),
+          eventType: zod.enum([
+            "monitoring",
+            "complaint",
+            "assistance",
+            "adjustment",
+            "feedback",
+            "other",
+          ]),
+          title: zod.string(),
+          description: zod.string(),
+          status: zod.enum(["open", "in_follow_up", "closed"]),
+          followUpNotes: zod.string().nullish(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          evidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  releaseServiceExecutionCycleResponseTwoPostDeliveryEventsItemEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  releaseServiceExecutionCycleResponseTwoPostDeliveryEventsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          occurredAt: zod.string().nullish(),
+          closedAt: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      specialValidationProfile: zod
+        .object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          modelId: zod.number(),
+          processId: zod.number().nullish(),
+          processName: zod.string().nullish(),
+          title: zod.string(),
+          criteria: zod.string(),
+          method: zod.string().nullish(),
+          status: zod.enum(["draft", "valid", "expired", "suspended"]),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          currentValidUntil: zod.string().nullish(),
+          notes: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+          events: zod.array(
+            zod.object({
+              id: zod.number(),
+              profileId: zod.number(),
+              eventType: zod.enum(["initial_validation", "revalidation"]),
+              result: zod.enum(["approved", "rejected"]),
+              criteriaSnapshot: zod.string(),
+              notes: zod.string().nullish(),
+              validUntil: zod.string().nullish(),
+              evidenceAttachments: zod.array(
+                zod.object({
+                  fileName: zod.string(),
+                  fileSize: zod
+                    .number()
+                    .max(
+                      releaseServiceExecutionCycleResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneFileSizeMax,
+                    ),
+                  contentType: zod.string(),
+                  objectPath: zod
+                    .string()
+                    .regex(
+                      releaseServiceExecutionCycleResponseTwoSpecialValidationProfileEventsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                    ),
+                }),
+              ),
+              validatedById: zod.number().nullish(),
+              validatedByName: zod.string().nullish(),
+              validatedAt: zod.string().nullish(),
+              createdAt: zod.string().nullish(),
+              updatedAt: zod.string().nullish(),
+            }),
+          ),
+        })
+        .nullish(),
+      nonconformingOutputs: zod.array(
+        zod.object({
+          id: zod.number(),
+          organizationId: zod.number(),
+          cycleId: zod.number(),
+          title: zod.string(),
+          description: zod.string(),
+          status: zod.enum(["open", "in_treatment", "resolved", "closed"]),
+          disposition: zod
+            .enum([
+              "blocked",
+              "reworked",
+              "reclassified",
+              "accepted_under_concession",
+              "scrapped",
+            ])
+            .nullish(),
+          dispositionNotes: zod.string().nullish(),
+          responsibleUserId: zod.number().nullish(),
+          responsibleUserName: zod.string().nullish(),
+          linkedNonconformityId: zod.number().nullish(),
+          linkedNonconformityTitle: zod.string().nullish(),
+          evidenceAttachments: zod.array(
+            zod.object({
+              fileName: zod.string(),
+              fileSize: zod
+                .number()
+                .max(
+                  releaseServiceExecutionCycleResponseTwoNonconformingOutputsItemEvidenceAttachmentsItemOneFileSizeMax,
+                ),
+              contentType: zod.string(),
+              objectPath: zod
+                .string()
+                .regex(
+                  releaseServiceExecutionCycleResponseTwoNonconformingOutputsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+                ),
+            }),
+          ),
+          detectedById: zod.number(),
+          detectedByName: zod.string().nullish(),
+          detectedAt: zod.string().nullish(),
+          resolvedAt: zod.string().nullish(),
+          createdAt: zod.string().nullish(),
+          updatedAt: zod.string().nullish(),
+        }),
+      ),
+      pendingBlockingIssues: zod.array(zod.string()),
+    }),
+  );
+
+/**
+ * @summary Register an operational nonconforming output for a service execution cycle
+ */
+export const CreateServiceNonconformingOutputParams = zod.object({
+  orgId: zod.coerce.number(),
+  cycleId: zod.coerce.number(),
+});
+
+export const createServiceNonconformingOutputBodyEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const createServiceNonconformingOutputBodyEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const CreateServiceNonconformingOutputBody = zod.object({
+  title: zod.string(),
+  description: zod.string(),
+  status: zod.enum(["open", "in_treatment", "resolved", "closed"]).optional(),
+  disposition: zod
+    .enum([
+      "blocked",
+      "reworked",
+      "reclassified",
+      "accepted_under_concession",
+      "scrapped",
+    ])
+    .nullish(),
+  dispositionNotes: zod.string().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  linkedNonconformityId: zod.number().nullish(),
+  evidenceAttachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(
+            createServiceNonconformingOutputBodyEvidenceAttachmentsItemOneFileSizeMax,
+          ),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            createServiceNonconformingOutputBodyEvidenceAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Update an operational nonconforming output for a service execution cycle
+ */
+export const UpdateServiceNonconformingOutputParams = zod.object({
+  orgId: zod.coerce.number(),
+  cycleId: zod.coerce.number(),
+  outputId: zod.coerce.number(),
+});
+
+export const updateServiceNonconformingOutputBodyOneEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServiceNonconformingOutputBodyOneEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateServiceNonconformingOutputBody = zod.object({
+  title: zod.string(),
+  description: zod.string(),
+  status: zod.enum(["open", "in_treatment", "resolved", "closed"]).optional(),
+  disposition: zod
+    .enum([
+      "blocked",
+      "reworked",
+      "reclassified",
+      "accepted_under_concession",
+      "scrapped",
+    ])
+    .nullish(),
+  dispositionNotes: zod.string().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  linkedNonconformityId: zod.number().nullish(),
+  evidenceAttachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(
+            updateServiceNonconformingOutputBodyOneEvidenceAttachmentsItemOneFileSizeMax,
+          ),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            updateServiceNonconformingOutputBodyOneEvidenceAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    )
+    .optional(),
+});
+
+export const updateServiceNonconformingOutputResponseEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServiceNonconformingOutputResponseEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateServiceNonconformingOutputResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  cycleId: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  status: zod.enum(["open", "in_treatment", "resolved", "closed"]),
+  disposition: zod
+    .enum([
+      "blocked",
+      "reworked",
+      "reclassified",
+      "accepted_under_concession",
+      "scrapped",
+    ])
+    .nullish(),
+  dispositionNotes: zod.string().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  linkedNonconformityId: zod.number().nullish(),
+  linkedNonconformityTitle: zod.string().nullish(),
+  evidenceAttachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(
+          updateServiceNonconformingOutputResponseEvidenceAttachmentsItemOneFileSizeMax,
+        ),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(
+          updateServiceNonconformingOutputResponseEvidenceAttachmentsItemOneObjectPathRegExp,
+        ),
+    }),
+  ),
+  detectedById: zod.number(),
+  detectedByName: zod.string().nullish(),
+  detectedAt: zod.string().nullish(),
+  resolvedAt: zod.string().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
+ * @summary Register third-party property within a service execution cycle
+ */
+export const CreateServiceThirdPartyPropertyParams = zod.object({
+  orgId: zod.coerce.number(),
+  cycleId: zod.coerce.number(),
+});
+
+export const createServiceThirdPartyPropertyBodyEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const createServiceThirdPartyPropertyBodyEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const CreateServiceThirdPartyPropertyBody = zod.object({
+  title: zod.string(),
+  ownerName: zod.string(),
+  description: zod.string().nullish(),
+  conditionOnReceipt: zod.string().nullish(),
+  handlingRequirements: zod.string().nullish(),
+  status: zod
+    .enum(["received", "in_use", "returned", "lost_or_damaged"])
+    .optional(),
+  responsibleUserId: zod.number().nullish(),
+  evidenceAttachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(
+            createServiceThirdPartyPropertyBodyEvidenceAttachmentsItemOneFileSizeMax,
+          ),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            createServiceThirdPartyPropertyBodyEvidenceAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Update third-party property within a service execution cycle
+ */
+export const UpdateServiceThirdPartyPropertyParams = zod.object({
+  orgId: zod.coerce.number(),
+  cycleId: zod.coerce.number(),
+  propertyId: zod.coerce.number(),
+});
+
+export const updateServiceThirdPartyPropertyBodyOneEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServiceThirdPartyPropertyBodyOneEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateServiceThirdPartyPropertyBody = zod.object({
+  title: zod.string(),
+  ownerName: zod.string(),
+  description: zod.string().nullish(),
+  conditionOnReceipt: zod.string().nullish(),
+  handlingRequirements: zod.string().nullish(),
+  status: zod
+    .enum(["received", "in_use", "returned", "lost_or_damaged"])
+    .optional(),
+  responsibleUserId: zod.number().nullish(),
+  evidenceAttachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(
+            updateServiceThirdPartyPropertyBodyOneEvidenceAttachmentsItemOneFileSizeMax,
+          ),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            updateServiceThirdPartyPropertyBodyOneEvidenceAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    )
+    .optional(),
+});
+
+export const updateServiceThirdPartyPropertyResponseEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServiceThirdPartyPropertyResponseEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateServiceThirdPartyPropertyResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  cycleId: zod.number(),
+  title: zod.string(),
+  ownerName: zod.string(),
+  description: zod.string().nullish(),
+  conditionOnReceipt: zod.string().nullish(),
+  handlingRequirements: zod.string().nullish(),
+  status: zod.enum(["received", "in_use", "returned", "lost_or_damaged"]),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  evidenceAttachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(
+          updateServiceThirdPartyPropertyResponseEvidenceAttachmentsItemOneFileSizeMax,
+        ),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(
+          updateServiceThirdPartyPropertyResponseEvidenceAttachmentsItemOneObjectPathRegExp,
+        ),
+    }),
+  ),
+  registeredById: zod.number(),
+  receivedAt: zod.string().nullish(),
+  returnedAt: zod.string().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
+ * @summary Register preservation and delivery details for a service execution cycle
+ */
+export const UpsertServicePreservationDeliveryParams = zod.object({
+  orgId: zod.coerce.number(),
+  cycleId: zod.coerce.number(),
+});
+
+export const upsertServicePreservationDeliveryBodyPreservationEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const upsertServicePreservationDeliveryBodyPreservationEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const upsertServicePreservationDeliveryBodyDeliveryEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const upsertServicePreservationDeliveryBodyDeliveryEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpsertServicePreservationDeliveryBody = zod.object({
+  preservationNotes: zod.string().nullish(),
+  preservationMethod: zod.string().nullish(),
+  packagingNotes: zod.string().nullish(),
+  deliveryNotes: zod.string().nullish(),
+  deliveryRecipient: zod.string().nullish(),
+  deliveryMethod: zod.string().nullish(),
+  deliveredById: zod.number().nullish(),
+  preservationEvidenceAttachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(
+            upsertServicePreservationDeliveryBodyPreservationEvidenceAttachmentsItemOneFileSizeMax,
+          ),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            upsertServicePreservationDeliveryBodyPreservationEvidenceAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    )
+    .optional(),
+  deliveryEvidenceAttachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(
+            upsertServicePreservationDeliveryBodyDeliveryEvidenceAttachmentsItemOneFileSizeMax,
+          ),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            upsertServicePreservationDeliveryBodyDeliveryEvidenceAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    )
+    .optional(),
+  preservedAt: zod.string().datetime({}).nullish(),
+  deliveredAt: zod.string().datetime({}).nullish(),
+});
+
+export const upsertServicePreservationDeliveryResponsePreservationEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const upsertServicePreservationDeliveryResponsePreservationEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+export const upsertServicePreservationDeliveryResponseDeliveryEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const upsertServicePreservationDeliveryResponseDeliveryEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpsertServicePreservationDeliveryResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  cycleId: zod.number(),
+  preservationNotes: zod.string().nullish(),
+  preservationMethod: zod.string().nullish(),
+  packagingNotes: zod.string().nullish(),
+  deliveryNotes: zod.string().nullish(),
+  deliveryRecipient: zod.string().nullish(),
+  deliveryMethod: zod.string().nullish(),
+  deliveredById: zod.number().nullish(),
+  deliveredByName: zod.string().nullish(),
+  preservationEvidenceAttachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(
+          upsertServicePreservationDeliveryResponsePreservationEvidenceAttachmentsItemOneFileSizeMax,
+        ),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(
+          upsertServicePreservationDeliveryResponsePreservationEvidenceAttachmentsItemOneObjectPathRegExp,
+        ),
+    }),
+  ),
+  deliveryEvidenceAttachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(
+          upsertServicePreservationDeliveryResponseDeliveryEvidenceAttachmentsItemOneFileSizeMax,
+        ),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(
+          upsertServicePreservationDeliveryResponseDeliveryEvidenceAttachmentsItemOneObjectPathRegExp,
+        ),
+    }),
+  ),
+  preservedAt: zod.string().nullish(),
+  deliveredAt: zod.string().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
+ * @summary Register a post-delivery event for a service execution cycle
+ */
+export const CreateServicePostDeliveryEventParams = zod.object({
+  orgId: zod.coerce.number(),
+  cycleId: zod.coerce.number(),
+});
+
+export const createServicePostDeliveryEventBodyEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const createServicePostDeliveryEventBodyEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const CreateServicePostDeliveryEventBody = zod.object({
+  eventType: zod
+    .enum([
+      "monitoring",
+      "complaint",
+      "assistance",
+      "adjustment",
+      "feedback",
+      "other",
+    ])
+    .optional(),
+  title: zod.string(),
+  description: zod.string(),
+  status: zod.enum(["open", "in_follow_up", "closed"]).optional(),
+  followUpNotes: zod.string().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  evidenceAttachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(
+            createServicePostDeliveryEventBodyEvidenceAttachmentsItemOneFileSizeMax,
+          ),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            createServicePostDeliveryEventBodyEvidenceAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    )
+    .optional(),
+  occurredAt: zod.string().datetime({}).nullish(),
+});
+
+/**
+ * @summary Update a post-delivery event for a service execution cycle
+ */
+export const UpdateServicePostDeliveryEventParams = zod.object({
+  orgId: zod.coerce.number(),
+  cycleId: zod.coerce.number(),
+  eventId: zod.coerce.number(),
+});
+
+export const updateServicePostDeliveryEventBodyOneEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServicePostDeliveryEventBodyOneEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateServicePostDeliveryEventBody = zod.object({
+  eventType: zod
+    .enum([
+      "monitoring",
+      "complaint",
+      "assistance",
+      "adjustment",
+      "feedback",
+      "other",
+    ])
+    .optional(),
+  title: zod.string(),
+  description: zod.string(),
+  status: zod.enum(["open", "in_follow_up", "closed"]).optional(),
+  followUpNotes: zod.string().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  evidenceAttachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(
+            updateServicePostDeliveryEventBodyOneEvidenceAttachmentsItemOneFileSizeMax,
+          ),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            updateServicePostDeliveryEventBodyOneEvidenceAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    )
+    .optional(),
+  occurredAt: zod.string().datetime({}).nullish(),
+});
+
+export const updateServicePostDeliveryEventResponseEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const updateServicePostDeliveryEventResponseEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpdateServicePostDeliveryEventResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  cycleId: zod.number(),
+  eventType: zod.enum([
+    "monitoring",
+    "complaint",
+    "assistance",
+    "adjustment",
+    "feedback",
+    "other",
+  ]),
+  title: zod.string(),
+  description: zod.string(),
+  status: zod.enum(["open", "in_follow_up", "closed"]),
+  followUpNotes: zod.string().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  evidenceAttachments: zod.array(
+    zod.object({
+      fileName: zod.string(),
+      fileSize: zod
+        .number()
+        .max(
+          updateServicePostDeliveryEventResponseEvidenceAttachmentsItemOneFileSizeMax,
+        ),
+      contentType: zod.string(),
+      objectPath: zod
+        .string()
+        .regex(
+          updateServicePostDeliveryEventResponseEvidenceAttachmentsItemOneObjectPathRegExp,
+        ),
+    }),
+  ),
+  occurredAt: zod.string().nullish(),
+  closedAt: zod.string().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+});
+
+/**
+ * @summary Create or update the special validation profile for a service execution model
+ */
+export const UpsertServiceSpecialValidationProfileParams = zod.object({
+  orgId: zod.coerce.number(),
+  modelId: zod.coerce.number(),
+});
+
+export const UpsertServiceSpecialValidationProfileBody = zod.object({
+  title: zod.string(),
+  criteria: zod.string(),
+  method: zod.string().nullish(),
+  status: zod.enum(["draft", "valid", "expired", "suspended"]).optional(),
+  responsibleUserId: zod.number().nullish(),
+  currentValidUntil: zod.string().datetime({}).nullish(),
+  notes: zod.string().nullish(),
+});
+
+export const upsertServiceSpecialValidationProfileResponseEventsItemEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const upsertServiceSpecialValidationProfileResponseEventsItemEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const UpsertServiceSpecialValidationProfileResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  modelId: zod.number(),
+  processId: zod.number().nullish(),
+  processName: zod.string().nullish(),
+  title: zod.string(),
+  criteria: zod.string(),
+  method: zod.string().nullish(),
+  status: zod.enum(["draft", "valid", "expired", "suspended"]),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  currentValidUntil: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.string().nullish(),
+  updatedAt: zod.string().nullish(),
+  events: zod.array(
+    zod.object({
+      id: zod.number(),
+      profileId: zod.number(),
+      eventType: zod.enum(["initial_validation", "revalidation"]),
+      result: zod.enum(["approved", "rejected"]),
+      criteriaSnapshot: zod.string(),
+      notes: zod.string().nullish(),
+      validUntil: zod.string().nullish(),
+      evidenceAttachments: zod.array(
+        zod.object({
+          fileName: zod.string(),
+          fileSize: zod
+            .number()
+            .max(
+              upsertServiceSpecialValidationProfileResponseEventsItemEvidenceAttachmentsItemOneFileSizeMax,
+            ),
+          contentType: zod.string(),
+          objectPath: zod
+            .string()
+            .regex(
+              upsertServiceSpecialValidationProfileResponseEventsItemEvidenceAttachmentsItemOneObjectPathRegExp,
+            ),
+        }),
+      ),
+      validatedById: zod.number().nullish(),
+      validatedByName: zod.string().nullish(),
+      validatedAt: zod.string().nullish(),
+      createdAt: zod.string().nullish(),
+      updatedAt: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Register a validation or revalidation event for a service execution model
+ */
+export const CreateServiceSpecialValidationEventParams = zod.object({
+  orgId: zod.coerce.number(),
+  modelId: zod.coerce.number(),
+  profileId: zod.coerce.number(),
+});
+
+export const createServiceSpecialValidationEventBodyEvidenceAttachmentsItemOneFileSizeMax = 20971520;
+
+export const createServiceSpecialValidationEventBodyEvidenceAttachmentsItemOneObjectPathRegExp =
+  new RegExp("^\/objects\/uploads\/.+");
+
+export const CreateServiceSpecialValidationEventBody = zod.object({
+  eventType: zod.enum(["initial_validation", "revalidation"]).optional(),
+  result: zod.enum(["approved", "rejected"]).optional(),
+  criteriaSnapshot: zod.string(),
+  notes: zod.string().nullish(),
+  validUntil: zod.string().datetime({}).nullish(),
+  evidenceAttachments: zod
+    .array(
+      zod.object({
+        fileName: zod.string(),
+        fileSize: zod
+          .number()
+          .max(
+            createServiceSpecialValidationEventBodyEvidenceAttachmentsItemOneFileSizeMax,
+          ),
+        contentType: zod.string(),
+        objectPath: zod
+          .string()
+          .regex(
+            createServiceSpecialValidationEventBodyEvidenceAttachmentsItemOneObjectPathRegExp,
+          ),
+      }),
+    )
+    .optional(),
+  validatedById: zod.number().nullish(),
+});
+
+/**
  * @summary List internal audits
  */
 export const ListInternalAuditsParams = zod.object({
@@ -13436,799 +15688,796 @@ export const UpsertKpiValuesResponse = zod.array(UpsertKpiValuesResponseItem);
  * @summary List assets for an organization
  */
 export const ListAssetsParams = zod.object({
-  "orgId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+});
 
 export const ListAssetsResponseItem = zod.object({
-  "id": zod.number(),
-  "organizationId": zod.number(),
-  "unitId": zod.number().nullish(),
-  "name": zod.string(),
-  "assetType": zod.string(),
-  "criticality": zod.enum(['alta', 'media', 'baixa']),
-  "status": zod.enum(['ativo', 'inativo', 'em_manutencao']),
-  "location": zod.string().nullish(),
-  "impactedProcess": zod.string().nullish(),
-  "responsibleId": zod.number().nullish(),
-  "responsibleName": zod.string().nullish(),
-  "description": zod.string().nullish(),
-  "activePlanCount": zod.number(),
-  "overdueCount": zod.number(),
-  "upcomingCount": zod.number(),
-  "pendingPlanCount": zod.number(),
-  "nearestDueAt": zod.string().nullish(),
-  "hasPartialExecution": zod.boolean(),
-  "createdAt": zod.string().datetime({}),
-  "updatedAt": zod.string().datetime({})
-})
-export const ListAssetsResponse = zod.array(ListAssetsResponseItem)
-
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullish(),
+  name: zod.string(),
+  assetType: zod.string(),
+  criticality: zod.enum(["alta", "media", "baixa"]),
+  status: zod.enum(["ativo", "inativo", "em_manutencao"]),
+  location: zod.string().nullish(),
+  impactedProcess: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  description: zod.string().nullish(),
+  activePlanCount: zod.number(),
+  overdueCount: zod.number(),
+  upcomingCount: zod.number(),
+  pendingPlanCount: zod.number(),
+  nearestDueAt: zod.string().nullish(),
+  hasPartialExecution: zod.boolean(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+export const ListAssetsResponse = zod.array(ListAssetsResponseItem);
 
 /**
  * @summary Create an asset
  */
 export const CreateAssetParams = zod.object({
-  "orgId": zod.coerce.number()
-})
-
-
-
-
+  orgId: zod.coerce.number(),
+});
 
 export const CreateAssetBody = zod.object({
-  "unitId": zod.number().nullish(),
-  "name": zod.string().min(1),
-  "assetType": zod.string().min(1),
-  "criticality": zod.enum(['alta', 'media', 'baixa']).optional(),
-  "status": zod.enum(['ativo', 'inativo', 'em_manutencao']).optional(),
-  "location": zod.string().nullish(),
-  "impactedProcess": zod.string().nullish(),
-  "responsibleId": zod.number().nullish(),
-  "description": zod.string().nullish()
-})
-
+  unitId: zod.number().nullish(),
+  name: zod.string().min(1),
+  assetType: zod.string().min(1),
+  criticality: zod.enum(["alta", "media", "baixa"]).optional(),
+  status: zod.enum(["ativo", "inativo", "em_manutencao"]).optional(),
+  location: zod.string().nullish(),
+  impactedProcess: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  description: zod.string().nullish(),
+});
 
 /**
  * @summary Get asset details
  */
 export const GetAssetParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
 
 export const GetAssetResponse = zod.object({
-  "id": zod.number(),
-  "organizationId": zod.number(),
-  "unitId": zod.number().nullish(),
-  "name": zod.string(),
-  "assetType": zod.string(),
-  "criticality": zod.enum(['alta', 'media', 'baixa']),
-  "status": zod.enum(['ativo', 'inativo', 'em_manutencao']),
-  "location": zod.string().nullish(),
-  "impactedProcess": zod.string().nullish(),
-  "responsibleId": zod.number().nullish(),
-  "responsibleName": zod.string().nullish(),
-  "description": zod.string().nullish(),
-  "activePlanCount": zod.number(),
-  "overdueCount": zod.number(),
-  "upcomingCount": zod.number(),
-  "pendingPlanCount": zod.number(),
-  "nearestDueAt": zod.string().nullish(),
-  "hasPartialExecution": zod.boolean(),
-  "createdAt": zod.string().datetime({}),
-  "updatedAt": zod.string().datetime({})
-})
-
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullish(),
+  name: zod.string(),
+  assetType: zod.string(),
+  criticality: zod.enum(["alta", "media", "baixa"]),
+  status: zod.enum(["ativo", "inativo", "em_manutencao"]),
+  location: zod.string().nullish(),
+  impactedProcess: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  description: zod.string().nullish(),
+  activePlanCount: zod.number(),
+  overdueCount: zod.number(),
+  upcomingCount: zod.number(),
+  pendingPlanCount: zod.number(),
+  nearestDueAt: zod.string().nullish(),
+  hasPartialExecution: zod.boolean(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
 
 /**
  * @summary Update an asset
  */
 export const UpdateAssetParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number()
-})
-
-
-
-
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
 
 export const UpdateAssetBody = zod.object({
-  "unitId": zod.number().nullish(),
-  "name": zod.string().min(1).optional(),
-  "assetType": zod.string().min(1).optional(),
-  "criticality": zod.enum(['alta', 'media', 'baixa']).optional(),
-  "status": zod.enum(['ativo', 'inativo', 'em_manutencao']).optional(),
-  "location": zod.string().nullish(),
-  "impactedProcess": zod.string().nullish(),
-  "responsibleId": zod.number().nullish(),
-  "description": zod.string().nullish()
-})
+  unitId: zod.number().nullish(),
+  name: zod.string().min(1).optional(),
+  assetType: zod.string().min(1).optional(),
+  criticality: zod.enum(["alta", "media", "baixa"]).optional(),
+  status: zod.enum(["ativo", "inativo", "em_manutencao"]).optional(),
+  location: zod.string().nullish(),
+  impactedProcess: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  description: zod.string().nullish(),
+});
 
 export const UpdateAssetResponse = zod.object({
-  "id": zod.number(),
-  "organizationId": zod.number(),
-  "unitId": zod.number().nullish(),
-  "name": zod.string(),
-  "assetType": zod.string(),
-  "criticality": zod.enum(['alta', 'media', 'baixa']),
-  "status": zod.enum(['ativo', 'inativo', 'em_manutencao']),
-  "location": zod.string().nullish(),
-  "impactedProcess": zod.string().nullish(),
-  "responsibleId": zod.number().nullish(),
-  "responsibleName": zod.string().nullish(),
-  "description": zod.string().nullish(),
-  "activePlanCount": zod.number(),
-  "overdueCount": zod.number(),
-  "upcomingCount": zod.number(),
-  "pendingPlanCount": zod.number(),
-  "nearestDueAt": zod.string().nullish(),
-  "hasPartialExecution": zod.boolean(),
-  "createdAt": zod.string().datetime({}),
-  "updatedAt": zod.string().datetime({})
-})
-
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullish(),
+  name: zod.string(),
+  assetType: zod.string(),
+  criticality: zod.enum(["alta", "media", "baixa"]),
+  status: zod.enum(["ativo", "inativo", "em_manutencao"]),
+  location: zod.string().nullish(),
+  impactedProcess: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  description: zod.string().nullish(),
+  activePlanCount: zod.number(),
+  overdueCount: zod.number(),
+  upcomingCount: zod.number(),
+  pendingPlanCount: zod.number(),
+  nearestDueAt: zod.string().nullish(),
+  hasPartialExecution: zod.boolean(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
 
 /**
  * @summary Delete an asset
  */
 export const DeleteAssetParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number()
-})
-
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
 
 /**
  * @summary List documents linked to an asset
  */
 export const ListAssetDocumentsParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
 
 export const ListAssetDocumentsResponseItem = zod.object({
-  "id": zod.number(),
-  "assetId": zod.number(),
-  "documentId": zod.number(),
-  "documentTitle": zod.string(),
-  "documentType": zod.string(),
-  "documentStatus": zod.string(),
-  "createdAt": zod.string().datetime({})
-})
-export const ListAssetDocumentsResponse = zod.array(ListAssetDocumentsResponseItem)
-
+  id: zod.number(),
+  assetId: zod.number(),
+  documentId: zod.number(),
+  documentTitle: zod.string(),
+  documentType: zod.string(),
+  documentStatus: zod.string(),
+  createdAt: zod.string().datetime({}),
+});
+export const ListAssetDocumentsResponse = zod.array(
+  ListAssetDocumentsResponseItem,
+);
 
 /**
  * @summary Link a document to an asset
  */
 export const AddAssetDocumentParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
 
 export const AddAssetDocumentBody = zod.object({
-  "documentId": zod.number()
-})
-
+  documentId: zod.number(),
+});
 
 /**
  * @summary Unlink a document from an asset
  */
 export const RemoveAssetDocumentParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number(),
-  "documentId": zod.coerce.number()
-})
-
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  documentId: zod.coerce.number(),
+});
 
 /**
  * @summary List maintenance plans for an asset
  */
 export const ListAssetMaintenancePlansParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
 
 export const ListAssetMaintenancePlansResponseItem = zod.object({
-  "id": zod.number(),
-  "organizationId": zod.number(),
-  "assetId": zod.number(),
-  "title": zod.string(),
-  "type": zod.enum(['preventiva', 'corretiva', 'inspecao']),
-  "periodicity": zod.enum(['semanal', 'mensal', 'trimestral', 'semestral', 'anual', 'unica']),
-  "checklistItems": zod.array(zod.string()),
-  "responsibleId": zod.number().nullish(),
-  "responsibleName": zod.string().nullish(),
-  "nextDueAt": zod.string().date().nullish(),
-  "isActive": zod.boolean(),
-  "recordCount": zod.number(),
-  "lastRecordStatus": zod.enum(['concluida', 'parcial', 'cancelada']).nullable(),
-  "createdAt": zod.string().datetime({}),
-  "updatedAt": zod.string().datetime({})
-})
-export const ListAssetMaintenancePlansResponse = zod.array(ListAssetMaintenancePlansResponseItem)
-
+  id: zod.number(),
+  organizationId: zod.number(),
+  assetId: zod.number(),
+  title: zod.string(),
+  type: zod.enum(["preventiva", "corretiva", "inspecao"]),
+  periodicity: zod.enum([
+    "semanal",
+    "mensal",
+    "trimestral",
+    "semestral",
+    "anual",
+    "unica",
+  ]),
+  checklistItems: zod.array(zod.string()),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  nextDueAt: zod.string().date().nullish(),
+  isActive: zod.boolean(),
+  recordCount: zod.number(),
+  lastRecordStatus: zod.enum(["concluida", "parcial", "cancelada"]).nullable(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+export const ListAssetMaintenancePlansResponse = zod.array(
+  ListAssetMaintenancePlansResponseItem,
+);
 
 /**
  * @summary Create a maintenance plan for an asset
  */
 export const CreateAssetMaintenancePlanParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number()
-})
-
-
-
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+});
 
 export const CreateAssetMaintenancePlanBody = zod.object({
-  "title": zod.string().min(1),
-  "type": zod.enum(['preventiva', 'corretiva', 'inspecao']).optional(),
-  "periodicity": zod.enum(['semanal', 'mensal', 'trimestral', 'semestral', 'anual', 'unica']).optional(),
-  "checklistItems": zod.array(zod.string()).optional(),
-  "responsibleId": zod.number().nullish(),
-  "nextDueAt": zod.string().date().nullish()
-})
-
+  title: zod.string().min(1),
+  type: zod.enum(["preventiva", "corretiva", "inspecao"]).optional(),
+  periodicity: zod
+    .enum(["semanal", "mensal", "trimestral", "semestral", "anual", "unica"])
+    .optional(),
+  checklistItems: zod.array(zod.string()).optional(),
+  responsibleId: zod.number().nullish(),
+  nextDueAt: zod.string().date().nullish(),
+});
 
 /**
  * @summary Update a maintenance plan
  */
 export const UpdateAssetMaintenancePlanParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number(),
-  "planId": zod.coerce.number()
-})
-
-
-
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
 
 export const UpdateAssetMaintenancePlanBody = zod.object({
-  "title": zod.string().min(1).optional(),
-  "type": zod.enum(['preventiva', 'corretiva', 'inspecao']).optional(),
-  "periodicity": zod.enum(['semanal', 'mensal', 'trimestral', 'semestral', 'anual', 'unica']).optional(),
-  "checklistItems": zod.array(zod.string()).optional(),
-  "responsibleId": zod.number().nullish(),
-  "nextDueAt": zod.string().date().nullish(),
-  "isActive": zod.boolean().optional()
-})
+  title: zod.string().min(1).optional(),
+  type: zod.enum(["preventiva", "corretiva", "inspecao"]).optional(),
+  periodicity: zod
+    .enum(["semanal", "mensal", "trimestral", "semestral", "anual", "unica"])
+    .optional(),
+  checklistItems: zod.array(zod.string()).optional(),
+  responsibleId: zod.number().nullish(),
+  nextDueAt: zod.string().date().nullish(),
+  isActive: zod.boolean().optional(),
+});
 
 export const UpdateAssetMaintenancePlanResponse = zod.object({
-  "id": zod.number(),
-  "organizationId": zod.number(),
-  "assetId": zod.number(),
-  "title": zod.string(),
-  "type": zod.enum(['preventiva', 'corretiva', 'inspecao']),
-  "periodicity": zod.enum(['semanal', 'mensal', 'trimestral', 'semestral', 'anual', 'unica']),
-  "checklistItems": zod.array(zod.string()),
-  "responsibleId": zod.number().nullish(),
-  "responsibleName": zod.string().nullish(),
-  "nextDueAt": zod.string().date().nullish(),
-  "isActive": zod.boolean(),
-  "recordCount": zod.number(),
-  "lastRecordStatus": zod.enum(['concluida', 'parcial', 'cancelada']).nullable(),
-  "createdAt": zod.string().datetime({}),
-  "updatedAt": zod.string().datetime({})
-})
-
+  id: zod.number(),
+  organizationId: zod.number(),
+  assetId: zod.number(),
+  title: zod.string(),
+  type: zod.enum(["preventiva", "corretiva", "inspecao"]),
+  periodicity: zod.enum([
+    "semanal",
+    "mensal",
+    "trimestral",
+    "semestral",
+    "anual",
+    "unica",
+  ]),
+  checklistItems: zod.array(zod.string()),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  nextDueAt: zod.string().date().nullish(),
+  isActive: zod.boolean(),
+  recordCount: zod.number(),
+  lastRecordStatus: zod.enum(["concluida", "parcial", "cancelada"]).nullable(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
 
 /**
  * @summary Delete a maintenance plan
  */
 export const DeleteAssetMaintenancePlanParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number(),
-  "planId": zod.coerce.number()
-})
-
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
 
 /**
  * @summary List execution records for a maintenance plan
  */
 export const ListAssetMaintenanceRecordsParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number(),
-  "planId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
 
 export const ListAssetMaintenanceRecordsResponseItem = zod.object({
-  "id": zod.number(),
-  "organizationId": zod.number(),
-  "planId": zod.number(),
-  "assetId": zod.number(),
-  "executedAt": zod.string().datetime({}),
-  "executedById": zod.number().nullish(),
-  "executedByName": zod.string().nullish(),
-  "status": zod.enum(['concluida', 'parcial', 'cancelada']),
-  "notes": zod.string().nullish(),
-  "createdAt": zod.string().datetime({})
-})
-export const ListAssetMaintenanceRecordsResponse = zod.array(ListAssetMaintenanceRecordsResponseItem)
-
+  id: zod.number(),
+  organizationId: zod.number(),
+  planId: zod.number(),
+  assetId: zod.number(),
+  executedAt: zod.string().datetime({}),
+  executedById: zod.number().nullish(),
+  executedByName: zod.string().nullish(),
+  status: zod.enum(["concluida", "parcial", "cancelada"]),
+  notes: zod.string().nullish(),
+  createdAt: zod.string().datetime({}),
+});
+export const ListAssetMaintenanceRecordsResponse = zod.array(
+  ListAssetMaintenanceRecordsResponseItem,
+);
 
 /**
  * @summary Register a maintenance execution
  */
 export const CreateAssetMaintenanceRecordParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number(),
-  "planId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
 
 export const CreateAssetMaintenanceRecordBody = zod.object({
-  "executedAt": zod.string().datetime({}),
-  "executedById": zod.number().nullish(),
-  "status": zod.enum(['concluida', 'parcial', 'cancelada']),
-  "notes": zod.string().nullish()
-})
-
+  executedAt: zod.string().datetime({}),
+  executedById: zod.number().nullish(),
+  status: zod.enum(["concluida", "parcial", "cancelada"]),
+  notes: zod.string().nullish(),
+});
 
 /**
  * @summary Delete a maintenance record
  */
 export const DeleteAssetMaintenanceRecordParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number(),
-  "planId": zod.coerce.number(),
-  "recordId": zod.coerce.number()
-})
-
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  recordId: zod.coerce.number(),
+});
 
 /**
  * @summary List attachments for a maintenance record
  */
 export const ListMaintenanceRecordAttachmentsParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number(),
-  "planId": zod.coerce.number(),
-  "recordId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  recordId: zod.coerce.number(),
+});
 
 export const ListMaintenanceRecordAttachmentsResponseItem = zod.object({
-  "id": zod.number(),
-  "organizationId": zod.number(),
-  "recordId": zod.number(),
-  "fileName": zod.string(),
-  "fileSize": zod.number(),
-  "contentType": zod.string(),
-  "objectPath": zod.string(),
-  "uploadedAt": zod.string().datetime({})
-})
-export const ListMaintenanceRecordAttachmentsResponse = zod.array(ListMaintenanceRecordAttachmentsResponseItem)
-
+  id: zod.number(),
+  organizationId: zod.number(),
+  recordId: zod.number(),
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+  uploadedAt: zod.string().datetime({}),
+});
+export const ListMaintenanceRecordAttachmentsResponse = zod.array(
+  ListMaintenanceRecordAttachmentsResponseItem,
+);
 
 /**
  * @summary Add an attachment to a maintenance record
  */
 export const AddMaintenanceRecordAttachmentParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number(),
-  "planId": zod.coerce.number(),
-  "recordId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  recordId: zod.coerce.number(),
+});
 
 export const AddMaintenanceRecordAttachmentBody = zod.object({
-  "fileName": zod.string(),
-  "fileSize": zod.number(),
-  "contentType": zod.string(),
-  "objectPath": zod.string()
-})
-
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+});
 
 /**
  * @summary Delete an attachment from a maintenance record
  */
 export const DeleteMaintenanceRecordAttachmentParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "assetId": zod.coerce.number(),
-  "planId": zod.coerce.number(),
-  "recordId": zod.coerce.number(),
-  "attachmentId": zod.coerce.number()
-})
-
+  orgId: zod.coerce.number(),
+  assetId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  recordId: zod.coerce.number(),
+  attachmentId: zod.coerce.number(),
+});
 
 /**
  * @summary List work environment controls
  */
 export const ListWorkEnvironmentControlsParams = zod.object({
-  "orgId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+});
 
 export const ListWorkEnvironmentControlsQueryParams = zod.object({
-  "unitId": zod.coerce.number().optional(),
-  "factorType": zod.coerce.string().optional()
-})
+  unitId: zod.coerce.number().optional(),
+  factorType: zod.coerce.string().optional(),
+});
 
 export const ListWorkEnvironmentControlsResponseItem = zod.object({
-  "id": zod.number(),
-  "organizationId": zod.number(),
-  "unitId": zod.number().nullish(),
-  "unitName": zod.string().nullish(),
-  "factorType": zod.enum(['fisico', 'social', 'psicologico']),
-  "title": zod.string(),
-  "description": zod.string().nullish(),
-  "responsibleId": zod.number().nullish(),
-  "responsibleName": zod.string().nullish(),
-  "frequency": zod.enum(['semanal', 'mensal', 'trimestral', 'semestral', 'anual']),
-  "status": zod.enum(['ativo', 'inativo']),
-  "verificationCount": zod.number(),
-  "lastResult": zod.string().nullish(),
-  "lastActionTaken": zod.string().nullish(),
-  "createdAt": zod.string().datetime({}),
-  "updatedAt": zod.string().datetime({})
-})
-export const ListWorkEnvironmentControlsResponse = zod.array(ListWorkEnvironmentControlsResponseItem)
-
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullish(),
+  unitName: zod.string().nullish(),
+  factorType: zod.enum(["fisico", "social", "psicologico"]),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  frequency: zod.enum([
+    "semanal",
+    "mensal",
+    "trimestral",
+    "semestral",
+    "anual",
+  ]),
+  status: zod.enum(["ativo", "inativo"]),
+  verificationCount: zod.number(),
+  lastResult: zod.string().nullish(),
+  lastActionTaken: zod.string().nullish(),
+  lastVerifiedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+export const ListWorkEnvironmentControlsResponse = zod.array(
+  ListWorkEnvironmentControlsResponseItem,
+);
 
 /**
  * @summary Create a work environment control
  */
 export const CreateWorkEnvironmentControlParams = zod.object({
-  "orgId": zod.coerce.number()
-})
-
-
-
+  orgId: zod.coerce.number(),
+});
 
 export const CreateWorkEnvironmentControlBody = zod.object({
-  "unitId": zod.number().nullish(),
-  "factorType": zod.enum(['fisico', 'social', 'psicologico']).optional(),
-  "title": zod.string().min(1),
-  "description": zod.string().nullish(),
-  "responsibleId": zod.number().nullish(),
-  "frequency": zod.enum(['semanal', 'mensal', 'trimestral', 'semestral', 'anual']).optional()
-})
-
+  unitId: zod.number().nullish(),
+  factorType: zod.enum(["fisico", "social", "psicologico"]).optional(),
+  title: zod.string().min(1),
+  description: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  frequency: zod
+    .enum(["semanal", "mensal", "trimestral", "semestral", "anual"])
+    .optional(),
+});
 
 /**
  * @summary Update a work environment control
  */
 export const UpdateWorkEnvironmentControlParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "controlId": zod.coerce.number()
-})
-
-
-
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+});
 
 export const UpdateWorkEnvironmentControlBody = zod.object({
-  "unitId": zod.number().nullish(),
-  "factorType": zod.enum(['fisico', 'social', 'psicologico']).optional(),
-  "title": zod.string().min(1).optional(),
-  "description": zod.string().nullish(),
-  "responsibleId": zod.number().nullish(),
-  "frequency": zod.enum(['semanal', 'mensal', 'trimestral', 'semestral', 'anual']).optional(),
-  "status": zod.enum(['ativo', 'inativo']).optional()
-})
+  unitId: zod.number().nullish(),
+  factorType: zod.enum(["fisico", "social", "psicologico"]).optional(),
+  title: zod.string().min(1).optional(),
+  description: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  frequency: zod
+    .enum(["semanal", "mensal", "trimestral", "semestral", "anual"])
+    .optional(),
+  status: zod.enum(["ativo", "inativo"]).optional(),
+});
 
 export const UpdateWorkEnvironmentControlResponse = zod.object({
-  "id": zod.number(),
-  "organizationId": zod.number(),
-  "unitId": zod.number().nullish(),
-  "unitName": zod.string().nullish(),
-  "factorType": zod.enum(['fisico', 'social', 'psicologico']),
-  "title": zod.string(),
-  "description": zod.string().nullish(),
-  "responsibleId": zod.number().nullish(),
-  "responsibleName": zod.string().nullish(),
-  "frequency": zod.enum(['semanal', 'mensal', 'trimestral', 'semestral', 'anual']),
-  "status": zod.enum(['ativo', 'inativo']),
-  "verificationCount": zod.number(),
-  "lastResult": zod.string().nullish(),
-  "lastActionTaken": zod.string().nullish(),
-  "createdAt": zod.string().datetime({}),
-  "updatedAt": zod.string().datetime({})
-})
-
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullish(),
+  unitName: zod.string().nullish(),
+  factorType: zod.enum(["fisico", "social", "psicologico"]),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  frequency: zod.enum([
+    "semanal",
+    "mensal",
+    "trimestral",
+    "semestral",
+    "anual",
+  ]),
+  status: zod.enum(["ativo", "inativo"]),
+  verificationCount: zod.number(),
+  lastResult: zod.string().nullish(),
+  lastActionTaken: zod.string().nullish(),
+  lastVerifiedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
 
 /**
  * @summary Delete a work environment control
  */
 export const DeleteWorkEnvironmentControlParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "controlId": zod.coerce.number()
-})
-
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+});
 
 /**
  * @summary List verifications for a control
  */
 export const ListWorkEnvironmentVerificationsParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "controlId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+});
 
 export const ListWorkEnvironmentVerificationsResponseItem = zod.object({
-  "id": zod.number(),
-  "organizationId": zod.number(),
-  "controlId": zod.number(),
-  "verifiedAt": zod.string().datetime({}),
-  "verifiedById": zod.number().nullish(),
-  "verifiedByName": zod.string().nullish(),
-  "result": zod.enum(['adequado', 'inadequado', 'parcial']),
-  "notes": zod.string().nullish(),
-  "actionTaken": zod.string().nullish(),
-  "createdAt": zod.string().datetime({})
-})
-export const ListWorkEnvironmentVerificationsResponse = zod.array(ListWorkEnvironmentVerificationsResponseItem)
-
+  id: zod.number(),
+  organizationId: zod.number(),
+  controlId: zod.number(),
+  verifiedAt: zod.string().datetime({}),
+  verifiedById: zod.number().nullish(),
+  verifiedByName: zod.string().nullish(),
+  result: zod.enum(["adequado", "inadequado", "parcial"]),
+  notes: zod.string().nullish(),
+  actionTaken: zod.string().nullish(),
+  createdAt: zod.string().datetime({}),
+});
+export const ListWorkEnvironmentVerificationsResponse = zod.array(
+  ListWorkEnvironmentVerificationsResponseItem,
+);
 
 /**
  * @summary Register a verification
  */
 export const CreateWorkEnvironmentVerificationParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "controlId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+});
 
 export const CreateWorkEnvironmentVerificationBody = zod.object({
-  "verifiedAt": zod.string().datetime({}),
-  "verifiedById": zod.number().nullish(),
-  "result": zod.enum(['adequado', 'inadequado', 'parcial']),
-  "notes": zod.string().nullish(),
-  "actionTaken": zod.string().nullish()
-})
-
+  verifiedAt: zod.string().datetime({}),
+  verifiedById: zod.number().nullish(),
+  result: zod.enum(["adequado", "inadequado", "parcial"]),
+  notes: zod.string().nullish(),
+  actionTaken: zod.string().nullish(),
+});
 
 /**
  * @summary Delete a verification
  */
 export const DeleteWorkEnvironmentVerificationParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "controlId": zod.coerce.number(),
-  "verificationId": zod.coerce.number()
-})
-
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+  verificationId: zod.coerce.number(),
+});
 
 /**
  * @summary List attachments for a verification
  */
 export const ListWorkEnvironmentAttachmentsParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "controlId": zod.coerce.number(),
-  "verificationId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+  verificationId: zod.coerce.number(),
+});
 
 export const ListWorkEnvironmentAttachmentsResponseItem = zod.object({
-  "id": zod.number(),
-  "organizationId": zod.number(),
-  "verificationId": zod.number(),
-  "fileName": zod.string(),
-  "fileSize": zod.number(),
-  "contentType": zod.string(),
-  "objectPath": zod.string(),
-  "uploadedAt": zod.string().datetime({})
-})
-export const ListWorkEnvironmentAttachmentsResponse = zod.array(ListWorkEnvironmentAttachmentsResponseItem)
-
+  id: zod.number(),
+  organizationId: zod.number(),
+  verificationId: zod.number(),
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+  uploadedAt: zod.string().datetime({}),
+});
+export const ListWorkEnvironmentAttachmentsResponse = zod.array(
+  ListWorkEnvironmentAttachmentsResponseItem,
+);
 
 /**
  * @summary Add attachment to a verification
  */
 export const AddWorkEnvironmentAttachmentParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "controlId": zod.coerce.number(),
-  "verificationId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+  verificationId: zod.coerce.number(),
+});
 
 export const AddWorkEnvironmentAttachmentBody = zod.object({
-  "fileName": zod.string(),
-  "fileSize": zod.number(),
-  "contentType": zod.string(),
-  "objectPath": zod.string()
-})
-
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+});
 
 /**
  * @summary Delete an attachment
  */
 export const DeleteWorkEnvironmentAttachmentParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "controlId": zod.coerce.number(),
-  "verificationId": zod.coerce.number(),
-  "attachmentId": zod.coerce.number()
-})
-
+  orgId: zod.coerce.number(),
+  controlId: zod.coerce.number(),
+  verificationId: zod.coerce.number(),
+  attachmentId: zod.coerce.number(),
+});
 
 /**
  * @summary List measurement resources
  */
 export const ListMeasurementResourcesParams = zod.object({
-  "orgId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+});
 
 export const ListMeasurementResourcesQueryParams = zod.object({
-  "unitId": zod.coerce.number().optional(),
-  "resourceType": zod.coerce.string().optional(),
-  "status": zod.coerce.string().optional()
-})
+  unitId: zod.coerce.number().optional(),
+  resourceType: zod.coerce.string().optional(),
+  status: zod.coerce.string().optional(),
+});
 
 export const ListMeasurementResourcesResponseItem = zod.object({
-  "id": zod.number(),
-  "organizationId": zod.number(),
-  "unitId": zod.number().nullish(),
-  "unitName": zod.string().nullish(),
-  "name": zod.string(),
-  "identifier": zod.string().nullish(),
-  "resourceType": zod.enum(['instrumento', 'equipamento', 'padrao']),
-  "responsibleId": zod.number().nullish(),
-  "responsibleName": zod.string().nullish(),
-  "validUntil": zod.string().nullish(),
-  "status": zod.enum(['ativo', 'inativo', 'vencido']),
-  "notes": zod.string().nullish(),
-  "calibrationCount": zod.number(),
-  "lastCalibrationAt": zod.string().nullish(),
-  "lastCalibrationResult": zod.string().nullish(),
-  "createdAt": zod.string(),
-  "updatedAt": zod.string()
-})
-export const ListMeasurementResourcesResponse = zod.array(ListMeasurementResourcesResponseItem)
-
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullish(),
+  unitName: zod.string().nullish(),
+  name: zod.string(),
+  identifier: zod.string().nullish(),
+  resourceType: zod.enum(["instrumento", "equipamento", "padrao"]),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  validUntil: zod.string().nullish(),
+  status: zod.enum(["ativo", "inativo", "vencido"]),
+  notes: zod.string().nullish(),
+  calibrationCount: zod.number(),
+  lastCalibrationAt: zod.string().nullish(),
+  lastCalibrationResult: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListMeasurementResourcesResponse = zod.array(
+  ListMeasurementResourcesResponseItem,
+);
 
 /**
  * @summary Create a measurement resource
  */
 export const CreateMeasurementResourceParams = zod.object({
-  "orgId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+});
 
 export const CreateMeasurementResourceBody = zod.object({
-  "name": zod.string(),
-  "identifier": zod.string().optional(),
-  "resourceType": zod.enum(['instrumento', 'equipamento', 'padrao']).optional(),
-  "unitId": zod.number().optional(),
-  "responsibleId": zod.number().optional(),
-  "validUntil": zod.string().optional(),
-  "notes": zod.string().optional()
-})
-
+  name: zod.string(),
+  identifier: zod.string().optional(),
+  resourceType: zod.enum(["instrumento", "equipamento", "padrao"]).optional(),
+  unitId: zod.number().optional(),
+  responsibleId: zod.number().optional(),
+  validUntil: zod.string().optional(),
+  notes: zod.string().optional(),
+});
 
 /**
  * @summary Update a measurement resource
  */
 export const UpdateMeasurementResourceParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "resourceId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+});
 
 export const UpdateMeasurementResourceBody = zod.object({
-  "name": zod.string().optional(),
-  "identifier": zod.string().optional(),
-  "resourceType": zod.enum(['instrumento', 'equipamento', 'padrao']).optional(),
-  "unitId": zod.number().optional(),
-  "responsibleId": zod.number().optional(),
-  "validUntil": zod.string().optional(),
-  "status": zod.enum(['ativo', 'inativo', 'vencido']).optional(),
-  "notes": zod.string().optional()
-})
+  name: zod.string().optional(),
+  identifier: zod.string().optional(),
+  resourceType: zod.enum(["instrumento", "equipamento", "padrao"]).optional(),
+  unitId: zod.number().optional(),
+  responsibleId: zod.number().optional(),
+  validUntil: zod.string().optional(),
+  status: zod.enum(["ativo", "inativo", "vencido"]).optional(),
+  notes: zod.string().optional(),
+});
 
 export const UpdateMeasurementResourceResponse = zod.object({
-  "id": zod.number(),
-  "organizationId": zod.number(),
-  "unitId": zod.number().nullish(),
-  "unitName": zod.string().nullish(),
-  "name": zod.string(),
-  "identifier": zod.string().nullish(),
-  "resourceType": zod.enum(['instrumento', 'equipamento', 'padrao']),
-  "responsibleId": zod.number().nullish(),
-  "responsibleName": zod.string().nullish(),
-  "validUntil": zod.string().nullish(),
-  "status": zod.enum(['ativo', 'inativo', 'vencido']),
-  "notes": zod.string().nullish(),
-  "calibrationCount": zod.number(),
-  "lastCalibrationAt": zod.string().nullish(),
-  "lastCalibrationResult": zod.string().nullish(),
-  "createdAt": zod.string(),
-  "updatedAt": zod.string()
-})
-
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullish(),
+  unitName: zod.string().nullish(),
+  name: zod.string(),
+  identifier: zod.string().nullish(),
+  resourceType: zod.enum(["instrumento", "equipamento", "padrao"]),
+  responsibleId: zod.number().nullish(),
+  responsibleName: zod.string().nullish(),
+  validUntil: zod.string().nullish(),
+  status: zod.enum(["ativo", "inativo", "vencido"]),
+  notes: zod.string().nullish(),
+  calibrationCount: zod.number(),
+  lastCalibrationAt: zod.string().nullish(),
+  lastCalibrationResult: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
 
 /**
  * @summary Delete a measurement resource
  */
 export const DeleteMeasurementResourceParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "resourceId": zod.coerce.number()
-})
-
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+});
 
 /**
  * @summary List calibrations for a resource
  */
 export const ListMeasurementResourceCalibrationsParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "resourceId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+});
 
 export const ListMeasurementResourceCalibrationsResponseItem = zod.object({
-  "id": zod.number(),
-  "organizationId": zod.number(),
-  "resourceId": zod.number(),
-  "calibratedAt": zod.string(),
-  "calibratedById": zod.number().nullish(),
-  "calibratedByName": zod.string().nullish(),
-  "certificateNumber": zod.string().nullish(),
-  "result": zod.enum(['apto', 'nao-apto']),
-  "nextDueAt": zod.string().nullish(),
-  "notes": zod.string().nullish(),
-  "createdAt": zod.string()
-})
-export const ListMeasurementResourceCalibrationsResponse = zod.array(ListMeasurementResourceCalibrationsResponseItem)
-
+  id: zod.number(),
+  organizationId: zod.number(),
+  resourceId: zod.number(),
+  calibratedAt: zod.string(),
+  calibratedById: zod.number().nullish(),
+  calibratedByName: zod.string().nullish(),
+  certificateNumber: zod.string().nullish(),
+  result: zod.enum(["apto", "nao-apto"]),
+  nextDueAt: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+export const ListMeasurementResourceCalibrationsResponse = zod.array(
+  ListMeasurementResourceCalibrationsResponseItem,
+);
 
 /**
  * @summary Record a calibration
  */
 export const CreateMeasurementResourceCalibrationParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "resourceId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+});
 
 export const CreateMeasurementResourceCalibrationBody = zod.object({
-  "calibratedAt": zod.string(),
-  "calibratedById": zod.number().optional(),
-  "certificateNumber": zod.string().optional(),
-  "result": zod.enum(['apto', 'nao-apto']),
-  "nextDueAt": zod.string().optional(),
-  "notes": zod.string().optional()
-})
-
+  calibratedAt: zod.string(),
+  calibratedById: zod.number().optional(),
+  certificateNumber: zod.string().optional(),
+  result: zod.enum(["apto", "nao-apto"]),
+  nextDueAt: zod.string().optional(),
+  notes: zod.string().optional(),
+});
 
 /**
  * @summary Delete a calibration record
  */
 export const DeleteMeasurementResourceCalibrationParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "resourceId": zod.coerce.number(),
-  "calibrationId": zod.coerce.number()
-})
-
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+  calibrationId: zod.coerce.number(),
+});
 
 /**
  * @summary List attachments for a calibration
  */
 export const ListMeasurementResourceAttachmentsParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "resourceId": zod.coerce.number(),
-  "calibrationId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+  calibrationId: zod.coerce.number(),
+});
 
 export const ListMeasurementResourceAttachmentsResponseItem = zod.object({
-  "id": zod.number(),
-  "organizationId": zod.number(),
-  "calibrationId": zod.number(),
-  "fileName": zod.string(),
-  "fileSize": zod.number(),
-  "contentType": zod.string(),
-  "objectPath": zod.string(),
-  "uploadedAt": zod.string()
-})
-export const ListMeasurementResourceAttachmentsResponse = zod.array(ListMeasurementResourceAttachmentsResponseItem)
-
+  id: zod.number(),
+  organizationId: zod.number(),
+  calibrationId: zod.number(),
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+  uploadedAt: zod.string(),
+});
+export const ListMeasurementResourceAttachmentsResponse = zod.array(
+  ListMeasurementResourceAttachmentsResponseItem,
+);
 
 /**
  * @summary Add attachment to a calibration
  */
 export const AddMeasurementResourceAttachmentParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "resourceId": zod.coerce.number(),
-  "calibrationId": zod.coerce.number()
-})
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+  calibrationId: zod.coerce.number(),
+});
 
 export const AddMeasurementResourceAttachmentBody = zod.object({
-  "fileName": zod.string(),
-  "fileSize": zod.number(),
-  "contentType": zod.string(),
-  "objectPath": zod.string()
-})
-
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+});
 
 /**
  * @summary Delete an attachment
  */
 export const DeleteMeasurementResourceAttachmentParams = zod.object({
-  "orgId": zod.coerce.number(),
-  "resourceId": zod.coerce.number(),
-  "calibrationId": zod.coerce.number(),
-  "attachmentId": zod.coerce.number()
-})
-
-
+  orgId: zod.coerce.number(),
+  resourceId: zod.coerce.number(),
+  calibrationId: zod.coerce.number(),
+  attachmentId: zod.coerce.number(),
+});

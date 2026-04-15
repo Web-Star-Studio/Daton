@@ -5125,6 +5125,558 @@ paths:
                 items:
                   $ref: "#/components/schemas/SgqProcessRevision"
 
+  /organizations/{orgId}/governance/service-execution-models:
+    get:
+      operationId: listServiceExecutionModels
+      tags: [governance]
+      summary: List service execution models
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ServiceExecutionModelStatus"
+        - name: processId
+          in: query
+          schema:
+            type: integer
+        - name: unitId
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated service execution models
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedServiceExecutionModels"
+    post:
+      operationId: createServiceExecutionModel
+      tags: [governance]
+      summary: Create a service execution model
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceExecutionModelBody"
+      responses:
+        "201":
+          description: Service execution model created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceExecutionModelDetail"
+
+  /organizations/{orgId}/governance/service-execution-models/{modelId}:
+    get:
+      operationId: getServiceExecutionModel
+      tags: [governance]
+      summary: Get service execution model detail
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: modelId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Service execution model detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceExecutionModelDetail"
+    patch:
+      operationId: updateServiceExecutionModel
+      tags: [governance]
+      summary: Update a service execution model
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: modelId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServiceExecutionModelBody"
+      responses:
+        "200":
+          description: Updated service execution model
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceExecutionModelDetail"
+
+  /organizations/{orgId}/governance/service-execution-cycles:
+    get:
+      operationId: listServiceExecutionCycles
+      tags: [governance]
+      summary: List service execution cycles
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ServiceExecutionCycleStatus"
+        - name: modelId
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated service execution cycles
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedServiceExecutionCycles"
+    post:
+      operationId: createServiceExecutionCycle
+      tags: [governance]
+      summary: Create a service execution cycle
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceExecutionCycleBody"
+      responses:
+        "201":
+          description: Service execution cycle created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceExecutionCycleDetail"
+
+  /organizations/{orgId}/governance/service-execution-cycles/{cycleId}:
+    get:
+      operationId: getServiceExecutionCycle
+      tags: [governance]
+      summary: Get service execution cycle detail
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: cycleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Service execution cycle detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceExecutionCycleDetail"
+    patch:
+      operationId: updateServiceExecutionCycle
+      tags: [governance]
+      summary: Update a service execution cycle
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: cycleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServiceExecutionCycleBody"
+      responses:
+        "200":
+          description: Updated service execution cycle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceExecutionCycleDetail"
+
+  /organizations/{orgId}/governance/service-execution-cycles/{cycleId}/release:
+    post:
+      operationId: releaseServiceExecutionCycle
+      tags: [governance]
+      summary: Register a release decision for a service execution cycle
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: cycleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceReleaseRecordBody"
+      responses:
+        "200":
+          description: Updated service execution cycle after release decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceExecutionCycleDetail"
+
+  /organizations/{orgId}/governance/service-execution-cycles/{cycleId}/nonconforming-outputs:
+    post:
+      operationId: createServiceNonconformingOutput
+      tags: [governance]
+      summary: Register an operational nonconforming output for a service execution cycle
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: cycleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceNonconformingOutputBody"
+      responses:
+        "201":
+          description: Operational nonconforming output created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceNonconformingOutput"
+
+  /organizations/{orgId}/governance/service-execution-cycles/{cycleId}/nonconforming-outputs/{outputId}:
+    patch:
+      operationId: updateServiceNonconformingOutput
+      tags: [governance]
+      summary: Update an operational nonconforming output for a service execution cycle
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: cycleId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: outputId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServiceNonconformingOutputBody"
+      responses:
+        "200":
+          description: Operational nonconforming output updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceNonconformingOutput"
+
+  /organizations/{orgId}/governance/service-execution-cycles/{cycleId}/third-party-properties:
+    post:
+      operationId: createServiceThirdPartyProperty
+      tags: [governance]
+      summary: Register third-party property within a service execution cycle
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: cycleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceThirdPartyPropertyBody"
+      responses:
+        "201":
+          description: Third-party property created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceThirdPartyProperty"
+
+  /organizations/{orgId}/governance/service-execution-cycles/{cycleId}/third-party-properties/{propertyId}:
+    patch:
+      operationId: updateServiceThirdPartyProperty
+      tags: [governance]
+      summary: Update third-party property within a service execution cycle
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: cycleId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: propertyId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServiceThirdPartyPropertyBody"
+      responses:
+        "200":
+          description: Third-party property updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceThirdPartyProperty"
+
+  /organizations/{orgId}/governance/service-execution-cycles/{cycleId}/preservation-delivery:
+    put:
+      operationId: upsertServicePreservationDelivery
+      tags: [governance]
+      summary: Register preservation and delivery details for a service execution cycle
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: cycleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertServicePreservationDeliveryBody"
+      responses:
+        "200":
+          description: Preservation and delivery record saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServicePreservationDeliveryRecord"
+
+  /organizations/{orgId}/governance/service-execution-cycles/{cycleId}/post-delivery-events:
+    post:
+      operationId: createServicePostDeliveryEvent
+      tags: [governance]
+      summary: Register a post-delivery event for a service execution cycle
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: cycleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServicePostDeliveryEventBody"
+      responses:
+        "201":
+          description: Post-delivery event created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServicePostDeliveryEvent"
+
+  /organizations/{orgId}/governance/service-execution-cycles/{cycleId}/post-delivery-events/{eventId}:
+    patch:
+      operationId: updateServicePostDeliveryEvent
+      tags: [governance]
+      summary: Update a post-delivery event for a service execution cycle
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: cycleId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServicePostDeliveryEventBody"
+      responses:
+        "200":
+          description: Post-delivery event updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServicePostDeliveryEvent"
+
+  /organizations/{orgId}/governance/service-execution-models/{modelId}/special-validation-profile:
+    put:
+      operationId: upsertServiceSpecialValidationProfile
+      tags: [governance]
+      summary: Create or update the special validation profile for a service execution model
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: modelId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertServiceSpecialValidationProfileBody"
+      responses:
+        "200":
+          description: Special validation profile saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceSpecialValidationProfile"
+
+  /organizations/{orgId}/governance/service-execution-models/{modelId}/special-validation-profile/{profileId}/events:
+    post:
+      operationId: createServiceSpecialValidationEvent
+      tags: [governance]
+      summary: Register a validation or revalidation event for a service execution model
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: modelId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceSpecialValidationEventBody"
+      responses:
+        "201":
+          description: Validation event registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceSpecialValidationProfile"
+
   /organizations/{orgId}/governance/internal-audits:
     get:
       operationId: listInternalAudits
@@ -11583,6 +12135,1119 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SgqProcessInteractionInput"
+
+    ServiceExecutionModelStatus:
+      type: string
+      enum: [active, inactive]
+
+    ServiceExecutionCheckpointKind:
+      type: string
+      enum: [checkpoint, preventive_control]
+
+    ServiceExecutionCycleStatus:
+      type: string
+      enum: [in_progress, awaiting_release, released, blocked]
+
+    ServiceExecutionCheckpointStatus:
+      type: string
+      enum: [pending, passed, failed, waived]
+
+    ServiceReleaseDecision:
+      type: string
+      enum: [approved, blocked]
+
+    ServiceNonconformingOutputStatus:
+      type: string
+      enum: [open, in_treatment, resolved, closed]
+
+    ServiceNonconformingOutputDisposition:
+      type: string
+      enum: [blocked, reworked, reclassified, accepted_under_concession, scrapped]
+
+    ServiceThirdPartyPropertyStatus:
+      type: string
+      enum: [received, in_use, returned, lost_or_damaged]
+
+    ServicePostDeliveryEventStatus:
+      type: string
+      enum: [open, in_follow_up, closed]
+
+    ServicePostDeliveryEventType:
+      type: string
+      enum: [monitoring, complaint, assistance, adjustment, feedback, other]
+
+    ServiceSpecialValidationStatus:
+      type: string
+      enum: [draft, valid, expired, suspended]
+
+    ServiceSpecialValidationEventType:
+      type: string
+      enum: [initial_validation, revalidation]
+
+    ServiceSpecialValidationResult:
+      type: string
+      enum: [approved, rejected]
+
+    ServiceExecutionDocumentLink:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        status:
+          type: string
+      required:
+        - id
+        - title
+        - status
+
+    ServiceExecutionModelCheckpoint:
+      type: object
+      properties:
+        id:
+          type: integer
+        kind:
+          $ref: "#/components/schemas/ServiceExecutionCheckpointKind"
+        label:
+          type: string
+        acceptanceCriteria:
+          type: string
+          nullable: true
+        guidance:
+          type: string
+          nullable: true
+        isRequired:
+          type: boolean
+        requiresEvidence:
+          type: boolean
+        sortOrder:
+          type: integer
+      required:
+        - id
+        - kind
+        - label
+        - isRequired
+        - requiresEvidence
+        - sortOrder
+
+    ServiceExecutionModelCheckpointInput:
+      type: object
+      properties:
+        id:
+          type: integer
+        kind:
+          $ref: "#/components/schemas/ServiceExecutionCheckpointKind"
+        label:
+          type: string
+        acceptanceCriteria:
+          type: string
+          nullable: true
+        guidance:
+          type: string
+          nullable: true
+        isRequired:
+          type: boolean
+        requiresEvidence:
+          type: boolean
+        sortOrder:
+          type: integer
+      required:
+        - label
+
+    ServiceExecutionModelListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        processName:
+          type: string
+          nullable: true
+        unitId:
+          type: integer
+          nullable: true
+        unitName:
+          type: string
+          nullable: true
+        requiresSpecialValidation:
+          type: boolean
+        status:
+          $ref: "#/components/schemas/ServiceExecutionModelStatus"
+        checkpointCount:
+          type: integer
+        requiredCheckpointCount:
+          type: integer
+        documentCount:
+          type: integer
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - organizationId
+        - name
+        - requiresSpecialValidation
+        - status
+        - checkpointCount
+        - requiredCheckpointCount
+        - documentCount
+
+    ServiceExecutionModelDetail:
+      allOf:
+        - $ref: "#/components/schemas/ServiceExecutionModelListItem"
+        - type: object
+          properties:
+            checkpoints:
+              type: array
+              items:
+                $ref: "#/components/schemas/ServiceExecutionModelCheckpoint"
+            documents:
+              type: array
+              items:
+                $ref: "#/components/schemas/ServiceExecutionDocumentLink"
+            specialValidationProfile:
+              $ref: "#/components/schemas/ServiceSpecialValidationProfile"
+              nullable: true
+          required:
+            - checkpoints
+            - documents
+
+    PaginatedServiceExecutionModels:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceExecutionModelListItem"
+        pagination:
+          $ref: "#/components/schemas/PaginatedResponseMeta"
+      required:
+        - data
+        - pagination
+
+    CreateServiceExecutionModelBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        unitId:
+          type: integer
+          nullable: true
+        requiresSpecialValidation:
+          type: boolean
+        status:
+          $ref: "#/components/schemas/ServiceExecutionModelStatus"
+        documentIds:
+          type: array
+          items:
+            type: integer
+        checkpoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceExecutionModelCheckpointInput"
+      required:
+        - name
+        - checkpoints
+
+    UpdateServiceExecutionModelBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        unitId:
+          type: integer
+          nullable: true
+        requiresSpecialValidation:
+          type: boolean
+        status:
+          $ref: "#/components/schemas/ServiceExecutionModelStatus"
+        documentIds:
+          type: array
+          items:
+            type: integer
+        checkpoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceExecutionModelCheckpointInput"
+
+    ServiceExecutionCycleCheckpoint:
+      type: object
+      properties:
+        id:
+          type: integer
+        modelCheckpointId:
+          type: integer
+          nullable: true
+        kind:
+          $ref: "#/components/schemas/ServiceExecutionCheckpointKind"
+        label:
+          type: string
+        acceptanceCriteria:
+          type: string
+          nullable: true
+        guidance:
+          type: string
+          nullable: true
+        isRequired:
+          type: boolean
+        requiresEvidence:
+          type: boolean
+        sortOrder:
+          type: integer
+        status:
+          $ref: "#/components/schemas/ServiceExecutionCheckpointStatus"
+        notes:
+          type: string
+          nullable: true
+        evidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        checkedById:
+          type: integer
+          nullable: true
+        checkedByName:
+          type: string
+          nullable: true
+        checkedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - kind
+        - label
+        - isRequired
+        - requiresEvidence
+        - sortOrder
+        - status
+        - evidenceAttachments
+
+    ServiceExecutionCycleCheckpointUpdate:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          $ref: "#/components/schemas/ServiceExecutionCheckpointStatus"
+        notes:
+          type: string
+          nullable: true
+        evidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+      required:
+        - id
+        - status
+
+    ServiceReleaseRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        decision:
+          $ref: "#/components/schemas/ServiceReleaseDecision"
+        decisionNotes:
+          type: string
+          nullable: true
+        blockingIssues:
+          type: array
+          items:
+            type: string
+        evidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        decidedById:
+          type: integer
+          nullable: true
+        decidedByName:
+          type: string
+          nullable: true
+        decidedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - decision
+        - blockingIssues
+        - evidenceAttachments
+
+    ServiceNonconformingOutput:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        cycleId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/ServiceNonconformingOutputStatus"
+        disposition:
+          $ref: "#/components/schemas/ServiceNonconformingOutputDisposition"
+          nullable: true
+        dispositionNotes:
+          type: string
+          nullable: true
+        responsibleUserId:
+          type: integer
+          nullable: true
+        responsibleUserName:
+          type: string
+          nullable: true
+        linkedNonconformityId:
+          type: integer
+          nullable: true
+        linkedNonconformityTitle:
+          type: string
+          nullable: true
+        evidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        detectedById:
+          type: integer
+        detectedByName:
+          type: string
+          nullable: true
+        detectedAt:
+          type: string
+          nullable: true
+        resolvedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - organizationId
+        - cycleId
+        - title
+        - description
+        - status
+        - evidenceAttachments
+        - detectedById
+
+    ServiceThirdPartyProperty:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        cycleId:
+          type: integer
+        title:
+          type: string
+        ownerName:
+          type: string
+        description:
+          type: string
+          nullable: true
+        conditionOnReceipt:
+          type: string
+          nullable: true
+        handlingRequirements:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ServiceThirdPartyPropertyStatus"
+        responsibleUserId:
+          type: integer
+          nullable: true
+        responsibleUserName:
+          type: string
+          nullable: true
+        evidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        registeredById:
+          type: integer
+        receivedAt:
+          type: string
+          nullable: true
+        returnedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - organizationId
+        - cycleId
+        - title
+        - ownerName
+        - status
+        - evidenceAttachments
+        - registeredById
+
+    ServicePreservationDeliveryRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        cycleId:
+          type: integer
+        preservationNotes:
+          type: string
+          nullable: true
+        preservationMethod:
+          type: string
+          nullable: true
+        packagingNotes:
+          type: string
+          nullable: true
+        deliveryNotes:
+          type: string
+          nullable: true
+        deliveryRecipient:
+          type: string
+          nullable: true
+        deliveryMethod:
+          type: string
+          nullable: true
+        deliveredById:
+          type: integer
+          nullable: true
+        deliveredByName:
+          type: string
+          nullable: true
+        preservationEvidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        deliveryEvidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        preservedAt:
+          type: string
+          nullable: true
+        deliveredAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - organizationId
+        - cycleId
+        - preservationEvidenceAttachments
+        - deliveryEvidenceAttachments
+
+    ServicePostDeliveryEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        cycleId:
+          type: integer
+        eventType:
+          $ref: "#/components/schemas/ServicePostDeliveryEventType"
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/ServicePostDeliveryEventStatus"
+        followUpNotes:
+          type: string
+          nullable: true
+        responsibleUserId:
+          type: integer
+          nullable: true
+        responsibleUserName:
+          type: string
+          nullable: true
+        evidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        occurredAt:
+          type: string
+          nullable: true
+        closedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - organizationId
+        - cycleId
+        - eventType
+        - title
+        - description
+        - status
+        - evidenceAttachments
+
+    ServiceSpecialValidationEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        profileId:
+          type: integer
+        eventType:
+          $ref: "#/components/schemas/ServiceSpecialValidationEventType"
+        result:
+          $ref: "#/components/schemas/ServiceSpecialValidationResult"
+        criteriaSnapshot:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        validUntil:
+          type: string
+          nullable: true
+        evidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        validatedById:
+          type: integer
+          nullable: true
+        validatedByName:
+          type: string
+          nullable: true
+        validatedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - profileId
+        - eventType
+        - result
+        - criteriaSnapshot
+        - evidenceAttachments
+
+    ServiceSpecialValidationProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        modelId:
+          type: integer
+        processId:
+          type: integer
+          nullable: true
+        processName:
+          type: string
+          nullable: true
+        title:
+          type: string
+        criteria:
+          type: string
+        method:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ServiceSpecialValidationStatus"
+        responsibleUserId:
+          type: integer
+          nullable: true
+        responsibleUserName:
+          type: string
+          nullable: true
+        currentValidUntil:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceSpecialValidationEvent"
+      required:
+        - id
+        - organizationId
+        - modelId
+        - title
+        - criteria
+        - status
+        - events
+
+    ServiceExecutionCycleListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        modelId:
+          type: integer
+        modelName:
+          type: string
+        title:
+          type: string
+        serviceOrderRef:
+          type: string
+          nullable: true
+        outputIdentifier:
+          type: string
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        processName:
+          type: string
+          nullable: true
+        unitId:
+          type: integer
+          nullable: true
+        unitName:
+          type: string
+          nullable: true
+        customerContactId:
+          type: integer
+          nullable: true
+        customerName:
+          type: string
+          nullable: true
+        customerOrganizationName:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ServiceExecutionCycleStatus"
+        releaseDecision:
+          $ref: "#/components/schemas/ServiceReleaseDecision"
+          nullable: true
+        pendingRequiredCheckpointCount:
+          type: integer
+        failedRequiredCheckpointCount:
+          type: integer
+        openNonconformingOutputCount:
+          type: integer
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - organizationId
+        - modelId
+        - modelName
+        - title
+        - status
+        - pendingRequiredCheckpointCount
+        - failedRequiredCheckpointCount
+        - openNonconformingOutputCount
+
+    ServiceExecutionCycleDetail:
+      allOf:
+        - $ref: "#/components/schemas/ServiceExecutionCycleListItem"
+        - type: object
+          properties:
+            openedById:
+              type: integer
+              nullable: true
+            openedByName:
+              type: string
+              nullable: true
+            startedAt:
+              type: string
+              nullable: true
+            completedAt:
+              type: string
+              nullable: true
+            checkpoints:
+              type: array
+              items:
+                $ref: "#/components/schemas/ServiceExecutionCycleCheckpoint"
+            documents:
+              type: array
+              items:
+                $ref: "#/components/schemas/ServiceExecutionDocumentLink"
+            releaseRecord:
+              $ref: "#/components/schemas/ServiceReleaseRecord"
+              nullable: true
+            thirdPartyProperties:
+              type: array
+              items:
+                $ref: "#/components/schemas/ServiceThirdPartyProperty"
+            preservationDeliveryRecord:
+              $ref: "#/components/schemas/ServicePreservationDeliveryRecord"
+              nullable: true
+            postDeliveryEvents:
+              type: array
+              items:
+                $ref: "#/components/schemas/ServicePostDeliveryEvent"
+            specialValidationProfile:
+              $ref: "#/components/schemas/ServiceSpecialValidationProfile"
+              nullable: true
+            nonconformingOutputs:
+              type: array
+              items:
+                $ref: "#/components/schemas/ServiceNonconformingOutput"
+            pendingBlockingIssues:
+              type: array
+              items:
+                type: string
+          required:
+            - checkpoints
+            - documents
+            - thirdPartyProperties
+            - postDeliveryEvents
+            - nonconformingOutputs
+            - pendingBlockingIssues
+
+    PaginatedServiceExecutionCycles:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceExecutionCycleListItem"
+        pagination:
+          $ref: "#/components/schemas/PaginatedResponseMeta"
+      required:
+        - data
+        - pagination
+
+    CreateServiceExecutionCycleBody:
+      type: object
+      properties:
+        modelId:
+          type: integer
+        title:
+          type: string
+        serviceOrderRef:
+          type: string
+          nullable: true
+        outputIdentifier:
+          type: string
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        unitId:
+          type: integer
+          nullable: true
+        customerContactId:
+          type: integer
+          nullable: true
+        documentIds:
+          type: array
+          items:
+            type: integer
+      required:
+        - modelId
+        - title
+
+    UpdateServiceExecutionCycleBody:
+      type: object
+      properties:
+        title:
+          type: string
+        serviceOrderRef:
+          type: string
+          nullable: true
+        outputIdentifier:
+          type: string
+          nullable: true
+        processId:
+          type: integer
+          nullable: true
+        unitId:
+          type: integer
+          nullable: true
+        customerContactId:
+          type: integer
+          nullable: true
+        documentIds:
+          type: array
+          items:
+            type: integer
+        checkpoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceExecutionCycleCheckpointUpdate"
+
+    CreateServiceReleaseRecordBody:
+      type: object
+      properties:
+        decision:
+          $ref: "#/components/schemas/ServiceReleaseDecision"
+        decisionNotes:
+          type: string
+          nullable: true
+        blockingIssues:
+          type: array
+          items:
+            type: string
+        evidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+      required:
+        - decision
+        - evidenceAttachments
+
+    CreateServiceNonconformingOutputBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/ServiceNonconformingOutputStatus"
+        disposition:
+          $ref: "#/components/schemas/ServiceNonconformingOutputDisposition"
+          nullable: true
+        dispositionNotes:
+          type: string
+          nullable: true
+        responsibleUserId:
+          type: integer
+          nullable: true
+        linkedNonconformityId:
+          type: integer
+          nullable: true
+        evidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+      required:
+        - title
+        - description
+
+    UpdateServiceNonconformingOutputBody:
+      allOf:
+        - $ref: "#/components/schemas/CreateServiceNonconformingOutputBody"
+
+    CreateServiceThirdPartyPropertyBody:
+      type: object
+      properties:
+        title:
+          type: string
+        ownerName:
+          type: string
+        description:
+          type: string
+          nullable: true
+        conditionOnReceipt:
+          type: string
+          nullable: true
+        handlingRequirements:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ServiceThirdPartyPropertyStatus"
+        responsibleUserId:
+          type: integer
+          nullable: true
+        evidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+      required:
+        - title
+        - ownerName
+
+    UpdateServiceThirdPartyPropertyBody:
+      allOf:
+        - $ref: "#/components/schemas/CreateServiceThirdPartyPropertyBody"
+
+    UpsertServicePreservationDeliveryBody:
+      type: object
+      properties:
+        preservationNotes:
+          type: string
+          nullable: true
+        preservationMethod:
+          type: string
+          nullable: true
+        packagingNotes:
+          type: string
+          nullable: true
+        deliveryNotes:
+          type: string
+          nullable: true
+        deliveryRecipient:
+          type: string
+          nullable: true
+        deliveryMethod:
+          type: string
+          nullable: true
+        deliveredById:
+          type: integer
+          nullable: true
+        preservationEvidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        deliveryEvidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        preservedAt:
+          type: string
+          format: date-time
+          nullable: true
+        deliveredAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateServicePostDeliveryEventBody:
+      type: object
+      properties:
+        eventType:
+          $ref: "#/components/schemas/ServicePostDeliveryEventType"
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/ServicePostDeliveryEventStatus"
+        followUpNotes:
+          type: string
+          nullable: true
+        responsibleUserId:
+          type: integer
+          nullable: true
+        evidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        occurredAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - title
+        - description
+
+    UpdateServicePostDeliveryEventBody:
+      allOf:
+        - $ref: "#/components/schemas/CreateServicePostDeliveryEventBody"
+
+    UpsertServiceSpecialValidationProfileBody:
+      type: object
+      properties:
+        title:
+          type: string
+        criteria:
+          type: string
+        method:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ServiceSpecialValidationStatus"
+        responsibleUserId:
+          type: integer
+          nullable: true
+        currentValidUntil:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      required:
+        - title
+        - criteria
+
+    CreateServiceSpecialValidationEventBody:
+      type: object
+      properties:
+        eventType:
+          $ref: "#/components/schemas/ServiceSpecialValidationEventType"
+        result:
+          $ref: "#/components/schemas/ServiceSpecialValidationResult"
+        criteriaSnapshot:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        validUntil:
+          type: string
+          format: date-time
+          nullable: true
+        evidenceAttachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        validatedById:
+          type: integer
+          nullable: true
+      required:
+        - criteriaSnapshot
 
     InternalAuditChecklistItem:
       type: object

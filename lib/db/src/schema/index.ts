@@ -13,6 +13,7 @@ export * from "./department-units";
 export * from "./documents";
 export * from "./organization-contacts";
 export * from "./governance-system";
+export * from "./service-execution";
 export * from "./laia";
 export * from "./notifications";
 export * from "./invitations";

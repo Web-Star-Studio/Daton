@@ -64,6 +64,13 @@ import type {
   CreateOrgUserResponse,
   CreatePositionBody,
   CreatePositionCompetencyRequirementBody,
+  CreateServiceExecutionCycleBody,
+  CreateServiceExecutionModelBody,
+  CreateServiceNonconformingOutputBody,
+  CreateServicePostDeliveryEventBody,
+  CreateServiceReleaseRecordBody,
+  CreateServiceSpecialValidationEventBody,
+  CreateServiceThirdPartyPropertyBody,
   CreateSgqProcessBody,
   CreateStrategicPlanActionBody,
   CreateStrategicPlanBody,
@@ -133,6 +140,8 @@ import type {
   ListOrgUsers200,
   ListOrganizationContactsParams,
   ListOrganizationTrainingsParams,
+  ListServiceExecutionCyclesParams,
+  ListServiceExecutionModelsParams,
   ListSgqProcessesParams,
   ListUserOptionsParams,
   ListWorkEnvironmentControlsParams,
@@ -161,6 +170,8 @@ import type {
   PaginatedManagementReviews,
   PaginatedNonconformities,
   PaginatedOrganizationTrainings,
+  PaginatedServiceExecutionCycles,
+  PaginatedServiceExecutionModels,
   PaginatedSgqProcesses,
   Position,
   PositionCompetencyMatrixRevision,
@@ -170,6 +181,13 @@ import type {
   RejectDocumentBody,
   RequestPasswordResetBody,
   SaveQuestionnaireResponsesBody,
+  ServiceExecutionCycleDetail,
+  ServiceExecutionModelDetail,
+  ServiceNonconformingOutput,
+  ServicePostDeliveryEvent,
+  ServicePreservationDeliveryRecord,
+  ServiceSpecialValidationProfile,
+  ServiceThirdPartyProperty,
   SgqProcessDetail,
   SgqProcessRevision,
   StrategicPlanAction,
@@ -217,6 +235,11 @@ import type {
   UpdateOrganizationContactGroupBody,
   UpdatePositionBody,
   UpdatePositionCompetencyRequirementBody,
+  UpdateServiceExecutionCycleBody,
+  UpdateServiceExecutionModelBody,
+  UpdateServiceNonconformingOutputBody,
+  UpdateServicePostDeliveryEventBody,
+  UpdateServiceThirdPartyPropertyBody,
   UpdateSgqProcessBody,
   UpdateStrategicPlanActionBody,
   UpdateStrategicPlanBody,
@@ -233,6 +256,8 @@ import type {
   UpdateWorkEnvironmentControlBody,
   UpsertKpiValuesBody,
   UpsertKpiYearConfigBody,
+  UpsertServicePreservationDeliveryBody,
+  UpsertServiceSpecialValidationProfileBody,
   UserOption,
   ValidatePasswordResetToken200,
   WorkEnvironmentAttachment,
@@ -16720,6 +16745,2114 @@ export function useListSgqProcessRevisions<
 }
 
 /**
+ * @summary List service execution models
+ */
+export const getListServiceExecutionModelsUrl = (
+  orgId: number,
+  params?: ListServiceExecutionModelsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/governance/service-execution-models?${stringifiedParams}`
+    : `/api/organizations/${orgId}/governance/service-execution-models`;
+};
+
+export const listServiceExecutionModels = async (
+  orgId: number,
+  params?: ListServiceExecutionModelsParams,
+  options?: RequestInit,
+): Promise<PaginatedServiceExecutionModels> => {
+  return customFetch<PaginatedServiceExecutionModels>(
+    getListServiceExecutionModelsUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListServiceExecutionModelsQueryKey = (
+  orgId: number,
+  params?: ListServiceExecutionModelsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/service-execution-models`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListServiceExecutionModelsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listServiceExecutionModels>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListServiceExecutionModelsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listServiceExecutionModels>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListServiceExecutionModelsQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listServiceExecutionModels>>
+  > = ({ signal }) =>
+    listServiceExecutionModels(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listServiceExecutionModels>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListServiceExecutionModelsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listServiceExecutionModels>>
+>;
+export type ListServiceExecutionModelsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List service execution models
+ */
+
+export function useListServiceExecutionModels<
+  TData = Awaited<ReturnType<typeof listServiceExecutionModels>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListServiceExecutionModelsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listServiceExecutionModels>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListServiceExecutionModelsQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a service execution model
+ */
+export const getCreateServiceExecutionModelUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/governance/service-execution-models`;
+};
+
+export const createServiceExecutionModel = async (
+  orgId: number,
+  createServiceExecutionModelBody: CreateServiceExecutionModelBody,
+  options?: RequestInit,
+): Promise<ServiceExecutionModelDetail> => {
+  return customFetch<ServiceExecutionModelDetail>(
+    getCreateServiceExecutionModelUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createServiceExecutionModelBody),
+    },
+  );
+};
+
+export const getCreateServiceExecutionModelMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createServiceExecutionModel>>,
+    TError,
+    { orgId: number; data: BodyType<CreateServiceExecutionModelBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createServiceExecutionModel>>,
+  TError,
+  { orgId: number; data: BodyType<CreateServiceExecutionModelBody> },
+  TContext
+> => {
+  const mutationKey = ["createServiceExecutionModel"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createServiceExecutionModel>>,
+    { orgId: number; data: BodyType<CreateServiceExecutionModelBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createServiceExecutionModel(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateServiceExecutionModelMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createServiceExecutionModel>>
+>;
+export type CreateServiceExecutionModelMutationBody =
+  BodyType<CreateServiceExecutionModelBody>;
+export type CreateServiceExecutionModelMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a service execution model
+ */
+export const useCreateServiceExecutionModel = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createServiceExecutionModel>>,
+    TError,
+    { orgId: number; data: BodyType<CreateServiceExecutionModelBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createServiceExecutionModel>>,
+  TError,
+  { orgId: number; data: BodyType<CreateServiceExecutionModelBody> },
+  TContext
+> => {
+  return useMutation(getCreateServiceExecutionModelMutationOptions(options));
+};
+
+/**
+ * @summary Get service execution model detail
+ */
+export const getGetServiceExecutionModelUrl = (
+  orgId: number,
+  modelId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/service-execution-models/${modelId}`;
+};
+
+export const getServiceExecutionModel = async (
+  orgId: number,
+  modelId: number,
+  options?: RequestInit,
+): Promise<ServiceExecutionModelDetail> => {
+  return customFetch<ServiceExecutionModelDetail>(
+    getGetServiceExecutionModelUrl(orgId, modelId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetServiceExecutionModelQueryKey = (
+  orgId: number,
+  modelId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/service-execution-models/${modelId}`,
+  ] as const;
+};
+
+export const getGetServiceExecutionModelQueryOptions = <
+  TData = Awaited<ReturnType<typeof getServiceExecutionModel>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  modelId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getServiceExecutionModel>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetServiceExecutionModelQueryKey(orgId, modelId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getServiceExecutionModel>>
+  > = ({ signal }) =>
+    getServiceExecutionModel(orgId, modelId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && modelId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getServiceExecutionModel>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetServiceExecutionModelQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getServiceExecutionModel>>
+>;
+export type GetServiceExecutionModelQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get service execution model detail
+ */
+
+export function useGetServiceExecutionModel<
+  TData = Awaited<ReturnType<typeof getServiceExecutionModel>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  modelId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getServiceExecutionModel>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetServiceExecutionModelQueryOptions(
+    orgId,
+    modelId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a service execution model
+ */
+export const getUpdateServiceExecutionModelUrl = (
+  orgId: number,
+  modelId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/service-execution-models/${modelId}`;
+};
+
+export const updateServiceExecutionModel = async (
+  orgId: number,
+  modelId: number,
+  updateServiceExecutionModelBody: UpdateServiceExecutionModelBody,
+  options?: RequestInit,
+): Promise<ServiceExecutionModelDetail> => {
+  return customFetch<ServiceExecutionModelDetail>(
+    getUpdateServiceExecutionModelUrl(orgId, modelId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateServiceExecutionModelBody),
+    },
+  );
+};
+
+export const getUpdateServiceExecutionModelMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateServiceExecutionModel>>,
+    TError,
+    {
+      orgId: number;
+      modelId: number;
+      data: BodyType<UpdateServiceExecutionModelBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateServiceExecutionModel>>,
+  TError,
+  {
+    orgId: number;
+    modelId: number;
+    data: BodyType<UpdateServiceExecutionModelBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateServiceExecutionModel"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateServiceExecutionModel>>,
+    {
+      orgId: number;
+      modelId: number;
+      data: BodyType<UpdateServiceExecutionModelBody>;
+    }
+  > = (props) => {
+    const { orgId, modelId, data } = props ?? {};
+
+    return updateServiceExecutionModel(orgId, modelId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateServiceExecutionModelMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateServiceExecutionModel>>
+>;
+export type UpdateServiceExecutionModelMutationBody =
+  BodyType<UpdateServiceExecutionModelBody>;
+export type UpdateServiceExecutionModelMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a service execution model
+ */
+export const useUpdateServiceExecutionModel = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateServiceExecutionModel>>,
+    TError,
+    {
+      orgId: number;
+      modelId: number;
+      data: BodyType<UpdateServiceExecutionModelBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateServiceExecutionModel>>,
+  TError,
+  {
+    orgId: number;
+    modelId: number;
+    data: BodyType<UpdateServiceExecutionModelBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateServiceExecutionModelMutationOptions(options));
+};
+
+/**
+ * @summary List service execution cycles
+ */
+export const getListServiceExecutionCyclesUrl = (
+  orgId: number,
+  params?: ListServiceExecutionCyclesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/governance/service-execution-cycles?${stringifiedParams}`
+    : `/api/organizations/${orgId}/governance/service-execution-cycles`;
+};
+
+export const listServiceExecutionCycles = async (
+  orgId: number,
+  params?: ListServiceExecutionCyclesParams,
+  options?: RequestInit,
+): Promise<PaginatedServiceExecutionCycles> => {
+  return customFetch<PaginatedServiceExecutionCycles>(
+    getListServiceExecutionCyclesUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListServiceExecutionCyclesQueryKey = (
+  orgId: number,
+  params?: ListServiceExecutionCyclesParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/service-execution-cycles`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListServiceExecutionCyclesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listServiceExecutionCycles>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListServiceExecutionCyclesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listServiceExecutionCycles>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListServiceExecutionCyclesQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listServiceExecutionCycles>>
+  > = ({ signal }) =>
+    listServiceExecutionCycles(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listServiceExecutionCycles>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListServiceExecutionCyclesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listServiceExecutionCycles>>
+>;
+export type ListServiceExecutionCyclesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List service execution cycles
+ */
+
+export function useListServiceExecutionCycles<
+  TData = Awaited<ReturnType<typeof listServiceExecutionCycles>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListServiceExecutionCyclesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listServiceExecutionCycles>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListServiceExecutionCyclesQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a service execution cycle
+ */
+export const getCreateServiceExecutionCycleUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/governance/service-execution-cycles`;
+};
+
+export const createServiceExecutionCycle = async (
+  orgId: number,
+  createServiceExecutionCycleBody: CreateServiceExecutionCycleBody,
+  options?: RequestInit,
+): Promise<ServiceExecutionCycleDetail> => {
+  return customFetch<ServiceExecutionCycleDetail>(
+    getCreateServiceExecutionCycleUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createServiceExecutionCycleBody),
+    },
+  );
+};
+
+export const getCreateServiceExecutionCycleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createServiceExecutionCycle>>,
+    TError,
+    { orgId: number; data: BodyType<CreateServiceExecutionCycleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createServiceExecutionCycle>>,
+  TError,
+  { orgId: number; data: BodyType<CreateServiceExecutionCycleBody> },
+  TContext
+> => {
+  const mutationKey = ["createServiceExecutionCycle"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createServiceExecutionCycle>>,
+    { orgId: number; data: BodyType<CreateServiceExecutionCycleBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createServiceExecutionCycle(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateServiceExecutionCycleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createServiceExecutionCycle>>
+>;
+export type CreateServiceExecutionCycleMutationBody =
+  BodyType<CreateServiceExecutionCycleBody>;
+export type CreateServiceExecutionCycleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a service execution cycle
+ */
+export const useCreateServiceExecutionCycle = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createServiceExecutionCycle>>,
+    TError,
+    { orgId: number; data: BodyType<CreateServiceExecutionCycleBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createServiceExecutionCycle>>,
+  TError,
+  { orgId: number; data: BodyType<CreateServiceExecutionCycleBody> },
+  TContext
+> => {
+  return useMutation(getCreateServiceExecutionCycleMutationOptions(options));
+};
+
+/**
+ * @summary Get service execution cycle detail
+ */
+export const getGetServiceExecutionCycleUrl = (
+  orgId: number,
+  cycleId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/service-execution-cycles/${cycleId}`;
+};
+
+export const getServiceExecutionCycle = async (
+  orgId: number,
+  cycleId: number,
+  options?: RequestInit,
+): Promise<ServiceExecutionCycleDetail> => {
+  return customFetch<ServiceExecutionCycleDetail>(
+    getGetServiceExecutionCycleUrl(orgId, cycleId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetServiceExecutionCycleQueryKey = (
+  orgId: number,
+  cycleId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/service-execution-cycles/${cycleId}`,
+  ] as const;
+};
+
+export const getGetServiceExecutionCycleQueryOptions = <
+  TData = Awaited<ReturnType<typeof getServiceExecutionCycle>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  cycleId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getServiceExecutionCycle>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetServiceExecutionCycleQueryKey(orgId, cycleId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getServiceExecutionCycle>>
+  > = ({ signal }) =>
+    getServiceExecutionCycle(orgId, cycleId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && cycleId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getServiceExecutionCycle>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetServiceExecutionCycleQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getServiceExecutionCycle>>
+>;
+export type GetServiceExecutionCycleQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get service execution cycle detail
+ */
+
+export function useGetServiceExecutionCycle<
+  TData = Awaited<ReturnType<typeof getServiceExecutionCycle>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  cycleId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getServiceExecutionCycle>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetServiceExecutionCycleQueryOptions(
+    orgId,
+    cycleId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a service execution cycle
+ */
+export const getUpdateServiceExecutionCycleUrl = (
+  orgId: number,
+  cycleId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/service-execution-cycles/${cycleId}`;
+};
+
+export const updateServiceExecutionCycle = async (
+  orgId: number,
+  cycleId: number,
+  updateServiceExecutionCycleBody: UpdateServiceExecutionCycleBody,
+  options?: RequestInit,
+): Promise<ServiceExecutionCycleDetail> => {
+  return customFetch<ServiceExecutionCycleDetail>(
+    getUpdateServiceExecutionCycleUrl(orgId, cycleId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateServiceExecutionCycleBody),
+    },
+  );
+};
+
+export const getUpdateServiceExecutionCycleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateServiceExecutionCycle>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<UpdateServiceExecutionCycleBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateServiceExecutionCycle>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    data: BodyType<UpdateServiceExecutionCycleBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateServiceExecutionCycle"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateServiceExecutionCycle>>,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<UpdateServiceExecutionCycleBody>;
+    }
+  > = (props) => {
+    const { orgId, cycleId, data } = props ?? {};
+
+    return updateServiceExecutionCycle(orgId, cycleId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateServiceExecutionCycleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateServiceExecutionCycle>>
+>;
+export type UpdateServiceExecutionCycleMutationBody =
+  BodyType<UpdateServiceExecutionCycleBody>;
+export type UpdateServiceExecutionCycleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a service execution cycle
+ */
+export const useUpdateServiceExecutionCycle = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateServiceExecutionCycle>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<UpdateServiceExecutionCycleBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateServiceExecutionCycle>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    data: BodyType<UpdateServiceExecutionCycleBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateServiceExecutionCycleMutationOptions(options));
+};
+
+/**
+ * @summary Register a release decision for a service execution cycle
+ */
+export const getReleaseServiceExecutionCycleUrl = (
+  orgId: number,
+  cycleId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/service-execution-cycles/${cycleId}/release`;
+};
+
+export const releaseServiceExecutionCycle = async (
+  orgId: number,
+  cycleId: number,
+  createServiceReleaseRecordBody: CreateServiceReleaseRecordBody,
+  options?: RequestInit,
+): Promise<ServiceExecutionCycleDetail> => {
+  return customFetch<ServiceExecutionCycleDetail>(
+    getReleaseServiceExecutionCycleUrl(orgId, cycleId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createServiceReleaseRecordBody),
+    },
+  );
+};
+
+export const getReleaseServiceExecutionCycleMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof releaseServiceExecutionCycle>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<CreateServiceReleaseRecordBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof releaseServiceExecutionCycle>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    data: BodyType<CreateServiceReleaseRecordBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["releaseServiceExecutionCycle"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof releaseServiceExecutionCycle>>,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<CreateServiceReleaseRecordBody>;
+    }
+  > = (props) => {
+    const { orgId, cycleId, data } = props ?? {};
+
+    return releaseServiceExecutionCycle(orgId, cycleId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReleaseServiceExecutionCycleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof releaseServiceExecutionCycle>>
+>;
+export type ReleaseServiceExecutionCycleMutationBody =
+  BodyType<CreateServiceReleaseRecordBody>;
+export type ReleaseServiceExecutionCycleMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register a release decision for a service execution cycle
+ */
+export const useReleaseServiceExecutionCycle = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof releaseServiceExecutionCycle>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<CreateServiceReleaseRecordBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof releaseServiceExecutionCycle>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    data: BodyType<CreateServiceReleaseRecordBody>;
+  },
+  TContext
+> => {
+  return useMutation(getReleaseServiceExecutionCycleMutationOptions(options));
+};
+
+/**
+ * @summary Register an operational nonconforming output for a service execution cycle
+ */
+export const getCreateServiceNonconformingOutputUrl = (
+  orgId: number,
+  cycleId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/service-execution-cycles/${cycleId}/nonconforming-outputs`;
+};
+
+export const createServiceNonconformingOutput = async (
+  orgId: number,
+  cycleId: number,
+  createServiceNonconformingOutputBody: CreateServiceNonconformingOutputBody,
+  options?: RequestInit,
+): Promise<ServiceNonconformingOutput> => {
+  return customFetch<ServiceNonconformingOutput>(
+    getCreateServiceNonconformingOutputUrl(orgId, cycleId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createServiceNonconformingOutputBody),
+    },
+  );
+};
+
+export const getCreateServiceNonconformingOutputMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createServiceNonconformingOutput>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<CreateServiceNonconformingOutputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createServiceNonconformingOutput>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    data: BodyType<CreateServiceNonconformingOutputBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createServiceNonconformingOutput"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createServiceNonconformingOutput>>,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<CreateServiceNonconformingOutputBody>;
+    }
+  > = (props) => {
+    const { orgId, cycleId, data } = props ?? {};
+
+    return createServiceNonconformingOutput(
+      orgId,
+      cycleId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateServiceNonconformingOutputMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createServiceNonconformingOutput>>
+>;
+export type CreateServiceNonconformingOutputMutationBody =
+  BodyType<CreateServiceNonconformingOutputBody>;
+export type CreateServiceNonconformingOutputMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register an operational nonconforming output for a service execution cycle
+ */
+export const useCreateServiceNonconformingOutput = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createServiceNonconformingOutput>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<CreateServiceNonconformingOutputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createServiceNonconformingOutput>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    data: BodyType<CreateServiceNonconformingOutputBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateServiceNonconformingOutputMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Update an operational nonconforming output for a service execution cycle
+ */
+export const getUpdateServiceNonconformingOutputUrl = (
+  orgId: number,
+  cycleId: number,
+  outputId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/service-execution-cycles/${cycleId}/nonconforming-outputs/${outputId}`;
+};
+
+export const updateServiceNonconformingOutput = async (
+  orgId: number,
+  cycleId: number,
+  outputId: number,
+  updateServiceNonconformingOutputBody: UpdateServiceNonconformingOutputBody,
+  options?: RequestInit,
+): Promise<ServiceNonconformingOutput> => {
+  return customFetch<ServiceNonconformingOutput>(
+    getUpdateServiceNonconformingOutputUrl(orgId, cycleId, outputId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateServiceNonconformingOutputBody),
+    },
+  );
+};
+
+export const getUpdateServiceNonconformingOutputMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateServiceNonconformingOutput>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      outputId: number;
+      data: BodyType<UpdateServiceNonconformingOutputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateServiceNonconformingOutput>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    outputId: number;
+    data: BodyType<UpdateServiceNonconformingOutputBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateServiceNonconformingOutput"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateServiceNonconformingOutput>>,
+    {
+      orgId: number;
+      cycleId: number;
+      outputId: number;
+      data: BodyType<UpdateServiceNonconformingOutputBody>;
+    }
+  > = (props) => {
+    const { orgId, cycleId, outputId, data } = props ?? {};
+
+    return updateServiceNonconformingOutput(
+      orgId,
+      cycleId,
+      outputId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateServiceNonconformingOutputMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateServiceNonconformingOutput>>
+>;
+export type UpdateServiceNonconformingOutputMutationBody =
+  BodyType<UpdateServiceNonconformingOutputBody>;
+export type UpdateServiceNonconformingOutputMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update an operational nonconforming output for a service execution cycle
+ */
+export const useUpdateServiceNonconformingOutput = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateServiceNonconformingOutput>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      outputId: number;
+      data: BodyType<UpdateServiceNonconformingOutputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateServiceNonconformingOutput>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    outputId: number;
+    data: BodyType<UpdateServiceNonconformingOutputBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getUpdateServiceNonconformingOutputMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Register third-party property within a service execution cycle
+ */
+export const getCreateServiceThirdPartyPropertyUrl = (
+  orgId: number,
+  cycleId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/service-execution-cycles/${cycleId}/third-party-properties`;
+};
+
+export const createServiceThirdPartyProperty = async (
+  orgId: number,
+  cycleId: number,
+  createServiceThirdPartyPropertyBody: CreateServiceThirdPartyPropertyBody,
+  options?: RequestInit,
+): Promise<ServiceThirdPartyProperty> => {
+  return customFetch<ServiceThirdPartyProperty>(
+    getCreateServiceThirdPartyPropertyUrl(orgId, cycleId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createServiceThirdPartyPropertyBody),
+    },
+  );
+};
+
+export const getCreateServiceThirdPartyPropertyMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createServiceThirdPartyProperty>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<CreateServiceThirdPartyPropertyBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createServiceThirdPartyProperty>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    data: BodyType<CreateServiceThirdPartyPropertyBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createServiceThirdPartyProperty"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createServiceThirdPartyProperty>>,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<CreateServiceThirdPartyPropertyBody>;
+    }
+  > = (props) => {
+    const { orgId, cycleId, data } = props ?? {};
+
+    return createServiceThirdPartyProperty(
+      orgId,
+      cycleId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateServiceThirdPartyPropertyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createServiceThirdPartyProperty>>
+>;
+export type CreateServiceThirdPartyPropertyMutationBody =
+  BodyType<CreateServiceThirdPartyPropertyBody>;
+export type CreateServiceThirdPartyPropertyMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register third-party property within a service execution cycle
+ */
+export const useCreateServiceThirdPartyProperty = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createServiceThirdPartyProperty>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<CreateServiceThirdPartyPropertyBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createServiceThirdPartyProperty>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    data: BodyType<CreateServiceThirdPartyPropertyBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateServiceThirdPartyPropertyMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Update third-party property within a service execution cycle
+ */
+export const getUpdateServiceThirdPartyPropertyUrl = (
+  orgId: number,
+  cycleId: number,
+  propertyId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/service-execution-cycles/${cycleId}/third-party-properties/${propertyId}`;
+};
+
+export const updateServiceThirdPartyProperty = async (
+  orgId: number,
+  cycleId: number,
+  propertyId: number,
+  updateServiceThirdPartyPropertyBody: UpdateServiceThirdPartyPropertyBody,
+  options?: RequestInit,
+): Promise<ServiceThirdPartyProperty> => {
+  return customFetch<ServiceThirdPartyProperty>(
+    getUpdateServiceThirdPartyPropertyUrl(orgId, cycleId, propertyId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateServiceThirdPartyPropertyBody),
+    },
+  );
+};
+
+export const getUpdateServiceThirdPartyPropertyMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateServiceThirdPartyProperty>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      propertyId: number;
+      data: BodyType<UpdateServiceThirdPartyPropertyBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateServiceThirdPartyProperty>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    propertyId: number;
+    data: BodyType<UpdateServiceThirdPartyPropertyBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateServiceThirdPartyProperty"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateServiceThirdPartyProperty>>,
+    {
+      orgId: number;
+      cycleId: number;
+      propertyId: number;
+      data: BodyType<UpdateServiceThirdPartyPropertyBody>;
+    }
+  > = (props) => {
+    const { orgId, cycleId, propertyId, data } = props ?? {};
+
+    return updateServiceThirdPartyProperty(
+      orgId,
+      cycleId,
+      propertyId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateServiceThirdPartyPropertyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateServiceThirdPartyProperty>>
+>;
+export type UpdateServiceThirdPartyPropertyMutationBody =
+  BodyType<UpdateServiceThirdPartyPropertyBody>;
+export type UpdateServiceThirdPartyPropertyMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update third-party property within a service execution cycle
+ */
+export const useUpdateServiceThirdPartyProperty = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateServiceThirdPartyProperty>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      propertyId: number;
+      data: BodyType<UpdateServiceThirdPartyPropertyBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateServiceThirdPartyProperty>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    propertyId: number;
+    data: BodyType<UpdateServiceThirdPartyPropertyBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getUpdateServiceThirdPartyPropertyMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Register preservation and delivery details for a service execution cycle
+ */
+export const getUpsertServicePreservationDeliveryUrl = (
+  orgId: number,
+  cycleId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/service-execution-cycles/${cycleId}/preservation-delivery`;
+};
+
+export const upsertServicePreservationDelivery = async (
+  orgId: number,
+  cycleId: number,
+  upsertServicePreservationDeliveryBody: UpsertServicePreservationDeliveryBody,
+  options?: RequestInit,
+): Promise<ServicePreservationDeliveryRecord> => {
+  return customFetch<ServicePreservationDeliveryRecord>(
+    getUpsertServicePreservationDeliveryUrl(orgId, cycleId),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(upsertServicePreservationDeliveryBody),
+    },
+  );
+};
+
+export const getUpsertServicePreservationDeliveryMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertServicePreservationDelivery>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<UpsertServicePreservationDeliveryBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertServicePreservationDelivery>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    data: BodyType<UpsertServicePreservationDeliveryBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["upsertServicePreservationDelivery"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertServicePreservationDelivery>>,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<UpsertServicePreservationDeliveryBody>;
+    }
+  > = (props) => {
+    const { orgId, cycleId, data } = props ?? {};
+
+    return upsertServicePreservationDelivery(
+      orgId,
+      cycleId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertServicePreservationDeliveryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertServicePreservationDelivery>>
+>;
+export type UpsertServicePreservationDeliveryMutationBody =
+  BodyType<UpsertServicePreservationDeliveryBody>;
+export type UpsertServicePreservationDeliveryMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register preservation and delivery details for a service execution cycle
+ */
+export const useUpsertServicePreservationDelivery = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertServicePreservationDelivery>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<UpsertServicePreservationDeliveryBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertServicePreservationDelivery>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    data: BodyType<UpsertServicePreservationDeliveryBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getUpsertServicePreservationDeliveryMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Register a post-delivery event for a service execution cycle
+ */
+export const getCreateServicePostDeliveryEventUrl = (
+  orgId: number,
+  cycleId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/service-execution-cycles/${cycleId}/post-delivery-events`;
+};
+
+export const createServicePostDeliveryEvent = async (
+  orgId: number,
+  cycleId: number,
+  createServicePostDeliveryEventBody: CreateServicePostDeliveryEventBody,
+  options?: RequestInit,
+): Promise<ServicePostDeliveryEvent> => {
+  return customFetch<ServicePostDeliveryEvent>(
+    getCreateServicePostDeliveryEventUrl(orgId, cycleId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createServicePostDeliveryEventBody),
+    },
+  );
+};
+
+export const getCreateServicePostDeliveryEventMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createServicePostDeliveryEvent>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<CreateServicePostDeliveryEventBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createServicePostDeliveryEvent>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    data: BodyType<CreateServicePostDeliveryEventBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createServicePostDeliveryEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createServicePostDeliveryEvent>>,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<CreateServicePostDeliveryEventBody>;
+    }
+  > = (props) => {
+    const { orgId, cycleId, data } = props ?? {};
+
+    return createServicePostDeliveryEvent(orgId, cycleId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateServicePostDeliveryEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createServicePostDeliveryEvent>>
+>;
+export type CreateServicePostDeliveryEventMutationBody =
+  BodyType<CreateServicePostDeliveryEventBody>;
+export type CreateServicePostDeliveryEventMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register a post-delivery event for a service execution cycle
+ */
+export const useCreateServicePostDeliveryEvent = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createServicePostDeliveryEvent>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      data: BodyType<CreateServicePostDeliveryEventBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createServicePostDeliveryEvent>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    data: BodyType<CreateServicePostDeliveryEventBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateServicePostDeliveryEventMutationOptions(options));
+};
+
+/**
+ * @summary Update a post-delivery event for a service execution cycle
+ */
+export const getUpdateServicePostDeliveryEventUrl = (
+  orgId: number,
+  cycleId: number,
+  eventId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/service-execution-cycles/${cycleId}/post-delivery-events/${eventId}`;
+};
+
+export const updateServicePostDeliveryEvent = async (
+  orgId: number,
+  cycleId: number,
+  eventId: number,
+  updateServicePostDeliveryEventBody: UpdateServicePostDeliveryEventBody,
+  options?: RequestInit,
+): Promise<ServicePostDeliveryEvent> => {
+  return customFetch<ServicePostDeliveryEvent>(
+    getUpdateServicePostDeliveryEventUrl(orgId, cycleId, eventId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateServicePostDeliveryEventBody),
+    },
+  );
+};
+
+export const getUpdateServicePostDeliveryEventMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateServicePostDeliveryEvent>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      eventId: number;
+      data: BodyType<UpdateServicePostDeliveryEventBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateServicePostDeliveryEvent>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    eventId: number;
+    data: BodyType<UpdateServicePostDeliveryEventBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateServicePostDeliveryEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateServicePostDeliveryEvent>>,
+    {
+      orgId: number;
+      cycleId: number;
+      eventId: number;
+      data: BodyType<UpdateServicePostDeliveryEventBody>;
+    }
+  > = (props) => {
+    const { orgId, cycleId, eventId, data } = props ?? {};
+
+    return updateServicePostDeliveryEvent(
+      orgId,
+      cycleId,
+      eventId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateServicePostDeliveryEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateServicePostDeliveryEvent>>
+>;
+export type UpdateServicePostDeliveryEventMutationBody =
+  BodyType<UpdateServicePostDeliveryEventBody>;
+export type UpdateServicePostDeliveryEventMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a post-delivery event for a service execution cycle
+ */
+export const useUpdateServicePostDeliveryEvent = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateServicePostDeliveryEvent>>,
+    TError,
+    {
+      orgId: number;
+      cycleId: number;
+      eventId: number;
+      data: BodyType<UpdateServicePostDeliveryEventBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateServicePostDeliveryEvent>>,
+  TError,
+  {
+    orgId: number;
+    cycleId: number;
+    eventId: number;
+    data: BodyType<UpdateServicePostDeliveryEventBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateServicePostDeliveryEventMutationOptions(options));
+};
+
+/**
+ * @summary Create or update the special validation profile for a service execution model
+ */
+export const getUpsertServiceSpecialValidationProfileUrl = (
+  orgId: number,
+  modelId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/service-execution-models/${modelId}/special-validation-profile`;
+};
+
+export const upsertServiceSpecialValidationProfile = async (
+  orgId: number,
+  modelId: number,
+  upsertServiceSpecialValidationProfileBody: UpsertServiceSpecialValidationProfileBody,
+  options?: RequestInit,
+): Promise<ServiceSpecialValidationProfile> => {
+  return customFetch<ServiceSpecialValidationProfile>(
+    getUpsertServiceSpecialValidationProfileUrl(orgId, modelId),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(upsertServiceSpecialValidationProfileBody),
+    },
+  );
+};
+
+export const getUpsertServiceSpecialValidationProfileMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertServiceSpecialValidationProfile>>,
+    TError,
+    {
+      orgId: number;
+      modelId: number;
+      data: BodyType<UpsertServiceSpecialValidationProfileBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof upsertServiceSpecialValidationProfile>>,
+  TError,
+  {
+    orgId: number;
+    modelId: number;
+    data: BodyType<UpsertServiceSpecialValidationProfileBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["upsertServiceSpecialValidationProfile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof upsertServiceSpecialValidationProfile>>,
+    {
+      orgId: number;
+      modelId: number;
+      data: BodyType<UpsertServiceSpecialValidationProfileBody>;
+    }
+  > = (props) => {
+    const { orgId, modelId, data } = props ?? {};
+
+    return upsertServiceSpecialValidationProfile(
+      orgId,
+      modelId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpsertServiceSpecialValidationProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof upsertServiceSpecialValidationProfile>>
+>;
+export type UpsertServiceSpecialValidationProfileMutationBody =
+  BodyType<UpsertServiceSpecialValidationProfileBody>;
+export type UpsertServiceSpecialValidationProfileMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Create or update the special validation profile for a service execution model
+ */
+export const useUpsertServiceSpecialValidationProfile = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof upsertServiceSpecialValidationProfile>>,
+    TError,
+    {
+      orgId: number;
+      modelId: number;
+      data: BodyType<UpsertServiceSpecialValidationProfileBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof upsertServiceSpecialValidationProfile>>,
+  TError,
+  {
+    orgId: number;
+    modelId: number;
+    data: BodyType<UpsertServiceSpecialValidationProfileBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getUpsertServiceSpecialValidationProfileMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Register a validation or revalidation event for a service execution model
+ */
+export const getCreateServiceSpecialValidationEventUrl = (
+  orgId: number,
+  modelId: number,
+  profileId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/service-execution-models/${modelId}/special-validation-profile/${profileId}/events`;
+};
+
+export const createServiceSpecialValidationEvent = async (
+  orgId: number,
+  modelId: number,
+  profileId: number,
+  createServiceSpecialValidationEventBody: CreateServiceSpecialValidationEventBody,
+  options?: RequestInit,
+): Promise<ServiceSpecialValidationProfile> => {
+  return customFetch<ServiceSpecialValidationProfile>(
+    getCreateServiceSpecialValidationEventUrl(orgId, modelId, profileId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createServiceSpecialValidationEventBody),
+    },
+  );
+};
+
+export const getCreateServiceSpecialValidationEventMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createServiceSpecialValidationEvent>>,
+    TError,
+    {
+      orgId: number;
+      modelId: number;
+      profileId: number;
+      data: BodyType<CreateServiceSpecialValidationEventBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createServiceSpecialValidationEvent>>,
+  TError,
+  {
+    orgId: number;
+    modelId: number;
+    profileId: number;
+    data: BodyType<CreateServiceSpecialValidationEventBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createServiceSpecialValidationEvent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createServiceSpecialValidationEvent>>,
+    {
+      orgId: number;
+      modelId: number;
+      profileId: number;
+      data: BodyType<CreateServiceSpecialValidationEventBody>;
+    }
+  > = (props) => {
+    const { orgId, modelId, profileId, data } = props ?? {};
+
+    return createServiceSpecialValidationEvent(
+      orgId,
+      modelId,
+      profileId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateServiceSpecialValidationEventMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createServiceSpecialValidationEvent>>
+>;
+export type CreateServiceSpecialValidationEventMutationBody =
+  BodyType<CreateServiceSpecialValidationEventBody>;
+export type CreateServiceSpecialValidationEventMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Register a validation or revalidation event for a service execution model
+ */
+export const useCreateServiceSpecialValidationEvent = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createServiceSpecialValidationEvent>>,
+    TError,
+    {
+      orgId: number;
+      modelId: number;
+      profileId: number;
+      data: BodyType<CreateServiceSpecialValidationEventBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createServiceSpecialValidationEvent>>,
+  TError,
+  {
+    orgId: number;
+    modelId: number;
+    profileId: number;
+    data: BodyType<CreateServiceSpecialValidationEventBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateServiceSpecialValidationEventMutationOptions(options),
+  );
+};
+
+/**
  * @summary List internal audits
  */
 export const getListInternalAuditsUrl = (
@@ -21046,2952 +23179,4182 @@ export const useUpsertKpiValues = <
 /**
  * @summary List assets for an organization
  */
-export const getListAssetsUrl = (orgId: number,) => {
+export const getListAssetsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/assets`;
+};
 
-
-
-
-  return `/api/organizations/${orgId}/assets`
-}
-
-export const listAssets = async (orgId: number, options?: RequestInit): Promise<Asset[]> => {
-
-  return customFetch<Asset[]>(getListAssetsUrl(orgId),
-  {
+export const listAssets = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<Asset[]> => {
+  return customFetch<Asset[]>(getListAssetsUrl(orgId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
+export const getListAssetsQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/assets`] as const;
+};
 
-  }
-);}
-
-
-
-
-
-export const getListAssetsQueryKey = (orgId: number,) => {
-    return [
-    `/api/organizations/${orgId}/assets`
-    ] as const;
-    }
-
-
-export const getListAssetsQueryOptions = <TData = Awaited<ReturnType<typeof listAssets>>, TError = ErrorType<unknown>>(orgId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListAssetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAssets>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
 ) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getListAssetsQueryKey(orgId);
 
-  const queryKey =  queryOptions?.queryKey ?? getListAssetsQueryKey(orgId);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssets>>> = ({
+    signal,
+  }) => listAssets(orgId, { signal, ...requestOptions });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAssets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssets>>> = ({ signal }) => listAssets(orgId, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAssets>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListAssetsQueryResult = NonNullable<Awaited<ReturnType<typeof listAssets>>>
-export type ListAssetsQueryError = ErrorType<unknown>
-
+export type ListAssetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAssets>>
+>;
+export type ListAssetsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List assets for an organization
  */
 
-export function useListAssets<TData = Awaited<ReturnType<typeof listAssets>>, TError = ErrorType<unknown>>(
- orgId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListAssets<
+  TData = Awaited<ReturnType<typeof listAssets>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAssetsQueryOptions(orgId, options);
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListAssetsQueryOptions(orgId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-
-
-
-
-
 
 /**
  * @summary Create an asset
  */
-export const getCreateAssetUrl = (orgId: number,) => {
+export const getCreateAssetUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/assets`;
+};
 
-
-
-
-  return `/api/organizations/${orgId}/assets`
-}
-
-export const createAsset = async (orgId: number,
-    createAssetBody: CreateAssetBody, options?: RequestInit): Promise<Asset> => {
-
-  return customFetch<Asset>(getCreateAssetUrl(orgId),
-  {
+export const createAsset = async (
+  orgId: number,
+  createAssetBody: CreateAssetBody,
+  options?: RequestInit,
+): Promise<Asset> => {
+  return customFetch<Asset>(getCreateAssetUrl(orgId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      createAssetBody,)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAssetBody),
+  });
+};
 
+export const getCreateAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAsset>>,
+    TError,
+    { orgId: number; data: BodyType<CreateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAsset>>,
+  TError,
+  { orgId: number; data: BodyType<CreateAssetBody> },
+  TContext
+> => {
+  const mutationKey = ["createAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAsset>>,
+    { orgId: number; data: BodyType<CreateAssetBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
 
+    return createAsset(orgId, data, requestOptions);
+  };
 
-export const getCreateAssetMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAsset>>, TError,{orgId: number;data: BodyType<CreateAssetBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createAsset>>, TError,{orgId: number;data: BodyType<CreateAssetBody>}, TContext> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-const mutationKey = ['createAsset'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
+export type CreateAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAsset>>
+>;
+export type CreateAssetMutationBody = BodyType<CreateAssetBody>;
+export type CreateAssetMutationError = ErrorType<unknown>;
 
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAsset>>, {orgId: number;data: BodyType<CreateAssetBody>}> = (props) => {
-          const {orgId,data} = props ?? {};
-
-          return  createAsset(orgId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateAssetMutationResult = NonNullable<Awaited<ReturnType<typeof createAsset>>>
-    export type CreateAssetMutationBody = BodyType<CreateAssetBody>
-    export type CreateAssetMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Create an asset
  */
-export const useCreateAsset = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAsset>>, TError,{orgId: number;data: BodyType<CreateAssetBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createAsset>>,
-        TError,
-        {orgId: number;data: BodyType<CreateAssetBody>},
-        TContext
-      > => {
-      return useMutation(getCreateAssetMutationOptions(options));
-    }
+export const useCreateAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAsset>>,
+    TError,
+    { orgId: number; data: BodyType<CreateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAsset>>,
+  TError,
+  { orgId: number; data: BodyType<CreateAssetBody> },
+  TContext
+> => {
+  return useMutation(getCreateAssetMutationOptions(options));
+};
 
 /**
  * @summary Get asset details
  */
-export const getGetAssetUrl = (orgId: number,
-    assetId: number,) => {
+export const getGetAssetUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/assets/${assetId}`;
+};
 
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}`
-}
-
-export const getAsset = async (orgId: number,
-    assetId: number, options?: RequestInit): Promise<Asset> => {
-
-  return customFetch<Asset>(getGetAssetUrl(orgId,assetId),
-  {
+export const getAsset = async (
+  orgId: number,
+  assetId: number,
+  options?: RequestInit,
+): Promise<Asset> => {
+  return customFetch<Asset>(getGetAssetUrl(orgId, assetId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
+export const getGetAssetQueryKey = (orgId: number, assetId: number) => {
+  return [`/api/organizations/${orgId}/assets/${assetId}`] as const;
+};
 
-  }
-);}
-
-
-
-
-
-export const getGetAssetQueryKey = (orgId: number,
-    assetId: number,) => {
-    return [
-    `/api/organizations/${orgId}/assets/${assetId}`
-    ] as const;
-    }
-
-
-export const getGetAssetQueryOptions = <TData = Awaited<ReturnType<typeof getAsset>>, TError = ErrorType<unknown>>(orgId: number,
-    assetId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAsset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetAssetQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAsset>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAsset>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
 ) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAssetQueryKey(orgId, assetId);
 
-  const queryKey =  queryOptions?.queryKey ?? getGetAssetQueryKey(orgId,assetId);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAsset>>> = ({
+    signal,
+  }) => getAsset(orgId, assetId, { signal, ...requestOptions });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && assetId),
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getAsset>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
 
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAsset>>> = ({ signal }) => getAsset(orgId,assetId, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId && assetId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAsset>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetAssetQueryResult = NonNullable<Awaited<ReturnType<typeof getAsset>>>
-export type GetAssetQueryError = ErrorType<unknown>
-
+export type GetAssetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAsset>>
+>;
+export type GetAssetQueryError = ErrorType<unknown>;
 
 /**
  * @summary Get asset details
  */
 
-export function useGetAsset<TData = Awaited<ReturnType<typeof getAsset>>, TError = ErrorType<unknown>>(
- orgId: number,
-    assetId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAsset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useGetAsset<
+  TData = Awaited<ReturnType<typeof getAsset>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAsset>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAssetQueryOptions(orgId, assetId, options);
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getGetAssetQueryOptions(orgId,assetId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-
-
-
-
-
 
 /**
  * @summary Update an asset
  */
-export const getUpdateAssetUrl = (orgId: number,
-    assetId: number,) => {
+export const getUpdateAssetUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/assets/${assetId}`;
+};
 
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}`
-}
-
-export const updateAsset = async (orgId: number,
-    assetId: number,
-    updateAssetBody: UpdateAssetBody, options?: RequestInit): Promise<Asset> => {
-
-  return customFetch<Asset>(getUpdateAssetUrl(orgId,assetId),
-  {
+export const updateAsset = async (
+  orgId: number,
+  assetId: number,
+  updateAssetBody: UpdateAssetBody,
+  options?: RequestInit,
+): Promise<Asset> => {
+  return customFetch<Asset>(getUpdateAssetUrl(orgId, assetId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      updateAssetBody,)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateAssetBody),
+  });
+};
 
+export const getUpdateAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAsset>>,
+    TError,
+    { orgId: number; assetId: number; data: BodyType<UpdateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAsset>>,
+  TError,
+  { orgId: number; assetId: number; data: BodyType<UpdateAssetBody> },
+  TContext
+> => {
+  const mutationKey = ["updateAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAsset>>,
+    { orgId: number; assetId: number; data: BodyType<UpdateAssetBody> }
+  > = (props) => {
+    const { orgId, assetId, data } = props ?? {};
 
+    return updateAsset(orgId, assetId, data, requestOptions);
+  };
 
-export const getUpdateAssetMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAsset>>, TError,{orgId: number;assetId: number;data: BodyType<UpdateAssetBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateAsset>>, TError,{orgId: number;assetId: number;data: BodyType<UpdateAssetBody>}, TContext> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-const mutationKey = ['updateAsset'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
+export type UpdateAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAsset>>
+>;
+export type UpdateAssetMutationBody = BodyType<UpdateAssetBody>;
+export type UpdateAssetMutationError = ErrorType<unknown>;
 
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAsset>>, {orgId: number;assetId: number;data: BodyType<UpdateAssetBody>}> = (props) => {
-          const {orgId,assetId,data} = props ?? {};
-
-          return  updateAsset(orgId,assetId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type UpdateAssetMutationResult = NonNullable<Awaited<ReturnType<typeof updateAsset>>>
-    export type UpdateAssetMutationBody = BodyType<UpdateAssetBody>
-    export type UpdateAssetMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Update an asset
  */
-export const useUpdateAsset = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAsset>>, TError,{orgId: number;assetId: number;data: BodyType<UpdateAssetBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof updateAsset>>,
-        TError,
-        {orgId: number;assetId: number;data: BodyType<UpdateAssetBody>},
-        TContext
-      > => {
-      return useMutation(getUpdateAssetMutationOptions(options));
-    }
+export const useUpdateAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAsset>>,
+    TError,
+    { orgId: number; assetId: number; data: BodyType<UpdateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAsset>>,
+  TError,
+  { orgId: number; assetId: number; data: BodyType<UpdateAssetBody> },
+  TContext
+> => {
+  return useMutation(getUpdateAssetMutationOptions(options));
+};
 
 /**
  * @summary Delete an asset
  */
-export const getDeleteAssetUrl = (orgId: number,
-    assetId: number,) => {
+export const getDeleteAssetUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/assets/${assetId}`;
+};
 
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}`
-}
-
-export const deleteAsset = async (orgId: number,
-    assetId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteAssetUrl(orgId,assetId),
-  {
+export const deleteAsset = async (
+  orgId: number,
+  assetId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteAssetUrl(orgId, assetId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
+export const getDeleteAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAsset>>,
+    TError,
+    { orgId: number; assetId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAsset>>,
+  TError,
+  { orgId: number; assetId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
-  }
-);}
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAsset>>,
+    { orgId: number; assetId: number }
+  > = (props) => {
+    const { orgId, assetId } = props ?? {};
 
+    return deleteAsset(orgId, assetId, requestOptions);
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
+export type DeleteAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAsset>>
+>;
 
-export const getDeleteAssetMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAsset>>, TError,{orgId: number;assetId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteAsset>>, TError,{orgId: number;assetId: number}, TContext> => {
+export type DeleteAssetMutationError = ErrorType<unknown>;
 
-const mutationKey = ['deleteAsset'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAsset>>, {orgId: number;assetId: number}> = (props) => {
-          const {orgId,assetId} = props ?? {};
-
-          return  deleteAsset(orgId,assetId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteAssetMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAsset>>>
-
-    export type DeleteAssetMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Delete an asset
  */
-export const useDeleteAsset = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAsset>>, TError,{orgId: number;assetId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteAsset>>,
-        TError,
-        {orgId: number;assetId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteAssetMutationOptions(options));
-    }
+export const useDeleteAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAsset>>,
+    TError,
+    { orgId: number; assetId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAsset>>,
+  TError,
+  { orgId: number; assetId: number },
+  TContext
+> => {
+  return useMutation(getDeleteAssetMutationOptions(options));
+};
 
 /**
  * @summary List documents linked to an asset
  */
-export const getListAssetDocumentsUrl = (orgId: number,
-    assetId: number,) => {
+export const getListAssetDocumentsUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/documents`;
+};
 
+export const listAssetDocuments = async (
+  orgId: number,
+  assetId: number,
+  options?: RequestInit,
+): Promise<AssetDocument[]> => {
+  return customFetch<AssetDocument[]>(
+    getListAssetDocumentsUrl(orgId, assetId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/documents`
-}
-
-export const listAssetDocuments = async (orgId: number,
-    assetId: number, options?: RequestInit): Promise<AssetDocument[]> => {
-
-  return customFetch<AssetDocument[]>(getListAssetDocumentsUrl(orgId,assetId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListAssetDocumentsQueryKey = (orgId: number,
-    assetId: number,) => {
-    return [
-    `/api/organizations/${orgId}/assets/${assetId}/documents`
-    ] as const;
-    }
-
-
-export const getListAssetDocumentsQueryOptions = <TData = Awaited<ReturnType<typeof listAssetDocuments>>, TError = ErrorType<unknown>>(orgId: number,
-    assetId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetDocuments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListAssetDocumentsQueryKey = (
+  orgId: number,
+  assetId: number,
 ) => {
+  return [`/api/organizations/${orgId}/assets/${assetId}/documents`] as const;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const getListAssetDocumentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAssetDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssetDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListAssetDocumentsQueryKey(orgId,assetId);
+  const queryKey =
+    queryOptions?.queryKey ?? getListAssetDocumentsQueryKey(orgId, assetId);
 
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAssetDocuments>>
+  > = ({ signal }) =>
+    listAssetDocuments(orgId, assetId, { signal, ...requestOptions });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && assetId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAssetDocuments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssetDocuments>>> = ({ signal }) => listAssetDocuments(orgId,assetId, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId && assetId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAssetDocuments>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListAssetDocumentsQueryResult = NonNullable<Awaited<ReturnType<typeof listAssetDocuments>>>
-export type ListAssetDocumentsQueryError = ErrorType<unknown>
-
+export type ListAssetDocumentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAssetDocuments>>
+>;
+export type ListAssetDocumentsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List documents linked to an asset
  */
 
-export function useListAssetDocuments<TData = Awaited<ReturnType<typeof listAssetDocuments>>, TError = ErrorType<unknown>>(
- orgId: number,
-    assetId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetDocuments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListAssetDocuments<
+  TData = Awaited<ReturnType<typeof listAssetDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssetDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAssetDocumentsQueryOptions(
+    orgId,
+    assetId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListAssetDocumentsQueryOptions(orgId,assetId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-
-
-
-
-
 
 /**
  * @summary Link a document to an asset
  */
-export const getAddAssetDocumentUrl = (orgId: number,
-    assetId: number,) => {
+export const getAddAssetDocumentUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/documents`;
+};
 
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/documents`
-}
-
-export const addAssetDocument = async (orgId: number,
-    assetId: number,
-    addAssetDocumentBody: AddAssetDocumentBody, options?: RequestInit): Promise<AssetDocument> => {
-
-  return customFetch<AssetDocument>(getAddAssetDocumentUrl(orgId,assetId),
-  {
+export const addAssetDocument = async (
+  orgId: number,
+  assetId: number,
+  addAssetDocumentBody: AddAssetDocumentBody,
+  options?: RequestInit,
+): Promise<AssetDocument> => {
+  return customFetch<AssetDocument>(getAddAssetDocumentUrl(orgId, assetId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      addAssetDocumentBody,)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addAssetDocumentBody),
+  });
+};
 
+export const getAddAssetDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addAssetDocument>>,
+    TError,
+    { orgId: number; assetId: number; data: BodyType<AddAssetDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addAssetDocument>>,
+  TError,
+  { orgId: number; assetId: number; data: BodyType<AddAssetDocumentBody> },
+  TContext
+> => {
+  const mutationKey = ["addAssetDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addAssetDocument>>,
+    { orgId: number; assetId: number; data: BodyType<AddAssetDocumentBody> }
+  > = (props) => {
+    const { orgId, assetId, data } = props ?? {};
 
+    return addAssetDocument(orgId, assetId, data, requestOptions);
+  };
 
-export const getAddAssetDocumentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addAssetDocument>>, TError,{orgId: number;assetId: number;data: BodyType<AddAssetDocumentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof addAssetDocument>>, TError,{orgId: number;assetId: number;data: BodyType<AddAssetDocumentBody>}, TContext> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-const mutationKey = ['addAssetDocument'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
+export type AddAssetDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addAssetDocument>>
+>;
+export type AddAssetDocumentMutationBody = BodyType<AddAssetDocumentBody>;
+export type AddAssetDocumentMutationError = ErrorType<unknown>;
 
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addAssetDocument>>, {orgId: number;assetId: number;data: BodyType<AddAssetDocumentBody>}> = (props) => {
-          const {orgId,assetId,data} = props ?? {};
-
-          return  addAssetDocument(orgId,assetId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type AddAssetDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof addAssetDocument>>>
-    export type AddAssetDocumentMutationBody = BodyType<AddAssetDocumentBody>
-    export type AddAssetDocumentMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Link a document to an asset
  */
-export const useAddAssetDocument = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addAssetDocument>>, TError,{orgId: number;assetId: number;data: BodyType<AddAssetDocumentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof addAssetDocument>>,
-        TError,
-        {orgId: number;assetId: number;data: BodyType<AddAssetDocumentBody>},
-        TContext
-      > => {
-      return useMutation(getAddAssetDocumentMutationOptions(options));
-    }
+export const useAddAssetDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addAssetDocument>>,
+    TError,
+    { orgId: number; assetId: number; data: BodyType<AddAssetDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addAssetDocument>>,
+  TError,
+  { orgId: number; assetId: number; data: BodyType<AddAssetDocumentBody> },
+  TContext
+> => {
+  return useMutation(getAddAssetDocumentMutationOptions(options));
+};
 
 /**
  * @summary Unlink a document from an asset
  */
-export const getRemoveAssetDocumentUrl = (orgId: number,
-    assetId: number,
-    documentId: number,) => {
+export const getRemoveAssetDocumentUrl = (
+  orgId: number,
+  assetId: number,
+  documentId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/documents/${documentId}`;
+};
 
+export const removeAssetDocument = async (
+  orgId: number,
+  assetId: number,
+  documentId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getRemoveAssetDocumentUrl(orgId, assetId, documentId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
+export const getRemoveAssetDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeAssetDocument>>,
+    TError,
+    { orgId: number; assetId: number; documentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeAssetDocument>>,
+  TError,
+  { orgId: number; assetId: number; documentId: number },
+  TContext
+> => {
+  const mutationKey = ["removeAssetDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeAssetDocument>>,
+    { orgId: number; assetId: number; documentId: number }
+  > = (props) => {
+    const { orgId, assetId, documentId } = props ?? {};
 
-  return `/api/organizations/${orgId}/assets/${assetId}/documents/${documentId}`
-}
+    return removeAssetDocument(orgId, assetId, documentId, requestOptions);
+  };
 
-export const removeAssetDocument = async (orgId: number,
-    assetId: number,
-    documentId: number, options?: RequestInit): Promise<void> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-  return customFetch<void>(getRemoveAssetDocumentUrl(orgId,assetId,documentId),
-  {
-    ...options,
-    method: 'DELETE'
+export type RemoveAssetDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeAssetDocument>>
+>;
 
+export type RemoveAssetDocumentMutationError = ErrorType<unknown>;
 
-  }
-);}
-
-
-
-
-export const getRemoveAssetDocumentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeAssetDocument>>, TError,{orgId: number;assetId: number;documentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof removeAssetDocument>>, TError,{orgId: number;assetId: number;documentId: number}, TContext> => {
-
-const mutationKey = ['removeAssetDocument'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeAssetDocument>>, {orgId: number;assetId: number;documentId: number}> = (props) => {
-          const {orgId,assetId,documentId} = props ?? {};
-
-          return  removeAssetDocument(orgId,assetId,documentId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type RemoveAssetDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof removeAssetDocument>>>
-
-    export type RemoveAssetDocumentMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Unlink a document from an asset
  */
-export const useRemoveAssetDocument = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeAssetDocument>>, TError,{orgId: number;assetId: number;documentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof removeAssetDocument>>,
-        TError,
-        {orgId: number;assetId: number;documentId: number},
-        TContext
-      > => {
-      return useMutation(getRemoveAssetDocumentMutationOptions(options));
-    }
+export const useRemoveAssetDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeAssetDocument>>,
+    TError,
+    { orgId: number; assetId: number; documentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeAssetDocument>>,
+  TError,
+  { orgId: number; assetId: number; documentId: number },
+  TContext
+> => {
+  return useMutation(getRemoveAssetDocumentMutationOptions(options));
+};
 
 /**
  * @summary List maintenance plans for an asset
  */
-export const getListAssetMaintenancePlansUrl = (orgId: number,
-    assetId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans`
-}
-
-export const listAssetMaintenancePlans = async (orgId: number,
-    assetId: number, options?: RequestInit): Promise<AssetMaintenancePlan[]> => {
-
-  return customFetch<AssetMaintenancePlan[]>(getListAssetMaintenancePlansUrl(orgId,assetId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListAssetMaintenancePlansQueryKey = (orgId: number,
-    assetId: number,) => {
-    return [
-    `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans`
-    ] as const;
-    }
-
-
-export const getListAssetMaintenancePlansQueryOptions = <TData = Awaited<ReturnType<typeof listAssetMaintenancePlans>>, TError = ErrorType<unknown>>(orgId: number,
-    assetId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetMaintenancePlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListAssetMaintenancePlansUrl = (
+  orgId: number,
+  assetId: number,
 ) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans`;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const listAssetMaintenancePlans = async (
+  orgId: number,
+  assetId: number,
+  options?: RequestInit,
+): Promise<AssetMaintenancePlan[]> => {
+  return customFetch<AssetMaintenancePlan[]>(
+    getListAssetMaintenancePlansUrl(orgId, assetId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
 
-  const queryKey =  queryOptions?.queryKey ?? getListAssetMaintenancePlansQueryKey(orgId,assetId);
+export const getListAssetMaintenancePlansQueryKey = (
+  orgId: number,
+  assetId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans`,
+  ] as const;
+};
 
+export const getListAssetMaintenancePlansQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAssetMaintenancePlans>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssetMaintenancePlans>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListAssetMaintenancePlansQueryKey(orgId, assetId);
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssetMaintenancePlans>>> = ({ signal }) => listAssetMaintenancePlans(orgId,assetId, { signal, ...requestOptions });
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAssetMaintenancePlans>>
+  > = ({ signal }) =>
+    listAssetMaintenancePlans(orgId, assetId, { signal, ...requestOptions });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && assetId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAssetMaintenancePlans>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId && assetId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAssetMaintenancePlans>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListAssetMaintenancePlansQueryResult = NonNullable<Awaited<ReturnType<typeof listAssetMaintenancePlans>>>
-export type ListAssetMaintenancePlansQueryError = ErrorType<unknown>
-
+export type ListAssetMaintenancePlansQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAssetMaintenancePlans>>
+>;
+export type ListAssetMaintenancePlansQueryError = ErrorType<unknown>;
 
 /**
  * @summary List maintenance plans for an asset
  */
 
-export function useListAssetMaintenancePlans<TData = Awaited<ReturnType<typeof listAssetMaintenancePlans>>, TError = ErrorType<unknown>>(
- orgId: number,
-    assetId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetMaintenancePlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListAssetMaintenancePlans<
+  TData = Awaited<ReturnType<typeof listAssetMaintenancePlans>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssetMaintenancePlans>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAssetMaintenancePlansQueryOptions(
+    orgId,
+    assetId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListAssetMaintenancePlansQueryOptions(orgId,assetId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-
-
-
-
-
 
 /**
  * @summary Create a maintenance plan for an asset
  */
-export const getCreateAssetMaintenancePlanUrl = (orgId: number,
-    assetId: number,) => {
+export const getCreateAssetMaintenancePlanUrl = (
+  orgId: number,
+  assetId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans`;
+};
 
+export const createAssetMaintenancePlan = async (
+  orgId: number,
+  assetId: number,
+  createAssetMaintenancePlanBody: CreateAssetMaintenancePlanBody,
+  options?: RequestInit,
+): Promise<AssetMaintenancePlan> => {
+  return customFetch<AssetMaintenancePlan>(
+    getCreateAssetMaintenancePlanUrl(orgId, assetId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createAssetMaintenancePlanBody),
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans`
-}
-
-export const createAssetMaintenancePlan = async (orgId: number,
-    assetId: number,
-    createAssetMaintenancePlanBody: CreateAssetMaintenancePlanBody, options?: RequestInit): Promise<AssetMaintenancePlan> => {
-
-  return customFetch<AssetMaintenancePlan>(getCreateAssetMaintenancePlanUrl(orgId,assetId),
+export const getCreateAssetMaintenancePlanMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAssetMaintenancePlan>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      data: BodyType<CreateAssetMaintenancePlanBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAssetMaintenancePlan>>,
+  TError,
   {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      createAssetMaintenancePlanBody,)
-  }
-);}
+    orgId: number;
+    assetId: number;
+    data: BodyType<CreateAssetMaintenancePlanBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createAssetMaintenancePlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAssetMaintenancePlan>>,
+    {
+      orgId: number;
+      assetId: number;
+      data: BodyType<CreateAssetMaintenancePlanBody>;
+    }
+  > = (props) => {
+    const { orgId, assetId, data } = props ?? {};
 
+    return createAssetMaintenancePlan(orgId, assetId, data, requestOptions);
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
-export const getCreateAssetMaintenancePlanMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;data: BodyType<CreateAssetMaintenancePlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;data: BodyType<CreateAssetMaintenancePlanBody>}, TContext> => {
+export type CreateAssetMaintenancePlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAssetMaintenancePlan>>
+>;
+export type CreateAssetMaintenancePlanMutationBody =
+  BodyType<CreateAssetMaintenancePlanBody>;
+export type CreateAssetMaintenancePlanMutationError = ErrorType<unknown>;
 
-const mutationKey = ['createAssetMaintenancePlan'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAssetMaintenancePlan>>, {orgId: number;assetId: number;data: BodyType<CreateAssetMaintenancePlanBody>}> = (props) => {
-          const {orgId,assetId,data} = props ?? {};
-
-          return  createAssetMaintenancePlan(orgId,assetId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateAssetMaintenancePlanMutationResult = NonNullable<Awaited<ReturnType<typeof createAssetMaintenancePlan>>>
-    export type CreateAssetMaintenancePlanMutationBody = BodyType<CreateAssetMaintenancePlanBody>
-    export type CreateAssetMaintenancePlanMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Create a maintenance plan for an asset
  */
-export const useCreateAssetMaintenancePlan = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;data: BodyType<CreateAssetMaintenancePlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createAssetMaintenancePlan>>,
-        TError,
-        {orgId: number;assetId: number;data: BodyType<CreateAssetMaintenancePlanBody>},
-        TContext
-      > => {
-      return useMutation(getCreateAssetMaintenancePlanMutationOptions(options));
-    }
+export const useCreateAssetMaintenancePlan = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAssetMaintenancePlan>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      data: BodyType<CreateAssetMaintenancePlanBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAssetMaintenancePlan>>,
+  TError,
+  {
+    orgId: number;
+    assetId: number;
+    data: BodyType<CreateAssetMaintenancePlanBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateAssetMaintenancePlanMutationOptions(options));
+};
 
 /**
  * @summary Update a maintenance plan
  */
-export const getUpdateAssetMaintenancePlanUrl = (orgId: number,
-    assetId: number,
-    planId: number,) => {
+export const getUpdateAssetMaintenancePlanUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}`;
+};
 
+export const updateAssetMaintenancePlan = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  updateAssetMaintenancePlanBody: UpdateAssetMaintenancePlanBody,
+  options?: RequestInit,
+): Promise<AssetMaintenancePlan> => {
+  return customFetch<AssetMaintenancePlan>(
+    getUpdateAssetMaintenancePlanUrl(orgId, assetId, planId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateAssetMaintenancePlanBody),
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}`
-}
-
-export const updateAssetMaintenancePlan = async (orgId: number,
-    assetId: number,
-    planId: number,
-    updateAssetMaintenancePlanBody: UpdateAssetMaintenancePlanBody, options?: RequestInit): Promise<AssetMaintenancePlan> => {
-
-  return customFetch<AssetMaintenancePlan>(getUpdateAssetMaintenancePlanUrl(orgId,assetId,planId),
+export const getUpdateAssetMaintenancePlanMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAssetMaintenancePlan>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      data: BodyType<UpdateAssetMaintenancePlanBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAssetMaintenancePlan>>,
+  TError,
   {
-    ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      updateAssetMaintenancePlanBody,)
-  }
-);}
+    orgId: number;
+    assetId: number;
+    planId: number;
+    data: BodyType<UpdateAssetMaintenancePlanBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateAssetMaintenancePlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAssetMaintenancePlan>>,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      data: BodyType<UpdateAssetMaintenancePlanBody>;
+    }
+  > = (props) => {
+    const { orgId, assetId, planId, data } = props ?? {};
 
+    return updateAssetMaintenancePlan(
+      orgId,
+      assetId,
+      planId,
+      data,
+      requestOptions,
+    );
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
-export const getUpdateAssetMaintenancePlanMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;planId: number;data: BodyType<UpdateAssetMaintenancePlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;planId: number;data: BodyType<UpdateAssetMaintenancePlanBody>}, TContext> => {
+export type UpdateAssetMaintenancePlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAssetMaintenancePlan>>
+>;
+export type UpdateAssetMaintenancePlanMutationBody =
+  BodyType<UpdateAssetMaintenancePlanBody>;
+export type UpdateAssetMaintenancePlanMutationError = ErrorType<unknown>;
 
-const mutationKey = ['updateAssetMaintenancePlan'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAssetMaintenancePlan>>, {orgId: number;assetId: number;planId: number;data: BodyType<UpdateAssetMaintenancePlanBody>}> = (props) => {
-          const {orgId,assetId,planId,data} = props ?? {};
-
-          return  updateAssetMaintenancePlan(orgId,assetId,planId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type UpdateAssetMaintenancePlanMutationResult = NonNullable<Awaited<ReturnType<typeof updateAssetMaintenancePlan>>>
-    export type UpdateAssetMaintenancePlanMutationBody = BodyType<UpdateAssetMaintenancePlanBody>
-    export type UpdateAssetMaintenancePlanMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Update a maintenance plan
  */
-export const useUpdateAssetMaintenancePlan = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;planId: number;data: BodyType<UpdateAssetMaintenancePlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof updateAssetMaintenancePlan>>,
-        TError,
-        {orgId: number;assetId: number;planId: number;data: BodyType<UpdateAssetMaintenancePlanBody>},
-        TContext
-      > => {
-      return useMutation(getUpdateAssetMaintenancePlanMutationOptions(options));
-    }
+export const useUpdateAssetMaintenancePlan = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAssetMaintenancePlan>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      data: BodyType<UpdateAssetMaintenancePlanBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAssetMaintenancePlan>>,
+  TError,
+  {
+    orgId: number;
+    assetId: number;
+    planId: number;
+    data: BodyType<UpdateAssetMaintenancePlanBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateAssetMaintenancePlanMutationOptions(options));
+};
 
 /**
  * @summary Delete a maintenance plan
  */
-export const getDeleteAssetMaintenancePlanUrl = (orgId: number,
-    assetId: number,
-    planId: number,) => {
+export const getDeleteAssetMaintenancePlanUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}`;
+};
 
+export const deleteAssetMaintenancePlan = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteAssetMaintenancePlanUrl(orgId, assetId, planId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
+export const getDeleteAssetMaintenancePlanMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>,
+    TError,
+    { orgId: number; assetId: number; planId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>,
+  TError,
+  { orgId: number; assetId: number; planId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAssetMaintenancePlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>,
+    { orgId: number; assetId: number; planId: number }
+  > = (props) => {
+    const { orgId, assetId, planId } = props ?? {};
 
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}`
-}
+    return deleteAssetMaintenancePlan(orgId, assetId, planId, requestOptions);
+  };
 
-export const deleteAssetMaintenancePlan = async (orgId: number,
-    assetId: number,
-    planId: number, options?: RequestInit): Promise<void> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-  return customFetch<void>(getDeleteAssetMaintenancePlanUrl(orgId,assetId,planId),
-  {
-    ...options,
-    method: 'DELETE'
+export type DeleteAssetMaintenancePlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>
+>;
 
+export type DeleteAssetMaintenancePlanMutationError = ErrorType<unknown>;
 
-  }
-);}
-
-
-
-
-export const getDeleteAssetMaintenancePlanMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;planId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;planId: number}, TContext> => {
-
-const mutationKey = ['deleteAssetMaintenancePlan'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>, {orgId: number;assetId: number;planId: number}> = (props) => {
-          const {orgId,assetId,planId} = props ?? {};
-
-          return  deleteAssetMaintenancePlan(orgId,assetId,planId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteAssetMaintenancePlanMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>>
-
-    export type DeleteAssetMaintenancePlanMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Delete a maintenance plan
  */
-export const useDeleteAssetMaintenancePlan = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;planId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>,
-        TError,
-        {orgId: number;assetId: number;planId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteAssetMaintenancePlanMutationOptions(options));
-    }
+export const useDeleteAssetMaintenancePlan = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>,
+    TError,
+    { orgId: number; assetId: number; planId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>,
+  TError,
+  { orgId: number; assetId: number; planId: number },
+  TContext
+> => {
+  return useMutation(getDeleteAssetMaintenancePlanMutationOptions(options));
+};
 
 /**
  * @summary List execution records for a maintenance plan
  */
-export const getListAssetMaintenanceRecordsUrl = (orgId: number,
-    assetId: number,
-    planId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records`
-}
-
-export const listAssetMaintenanceRecords = async (orgId: number,
-    assetId: number,
-    planId: number, options?: RequestInit): Promise<AssetMaintenanceRecord[]> => {
-
-  return customFetch<AssetMaintenanceRecord[]>(getListAssetMaintenanceRecordsUrl(orgId,assetId,planId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListAssetMaintenanceRecordsQueryKey = (orgId: number,
-    assetId: number,
-    planId: number,) => {
-    return [
-    `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records`
-    ] as const;
-    }
-
-
-export const getListAssetMaintenanceRecordsQueryOptions = <TData = Awaited<ReturnType<typeof listAssetMaintenanceRecords>>, TError = ErrorType<unknown>>(orgId: number,
-    assetId: number,
-    planId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetMaintenanceRecords>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListAssetMaintenanceRecordsUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
 ) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records`;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const listAssetMaintenanceRecords = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<AssetMaintenanceRecord[]> => {
+  return customFetch<AssetMaintenanceRecord[]>(
+    getListAssetMaintenanceRecordsUrl(orgId, assetId, planId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
 
-  const queryKey =  queryOptions?.queryKey ?? getListAssetMaintenanceRecordsQueryKey(orgId,assetId,planId);
+export const getListAssetMaintenanceRecordsQueryKey = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records`,
+  ] as const;
+};
 
+export const getListAssetMaintenanceRecordsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAssetMaintenanceRecords>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssetMaintenanceRecords>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListAssetMaintenanceRecordsQueryKey(orgId, assetId, planId);
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssetMaintenanceRecords>>> = ({ signal }) => listAssetMaintenanceRecords(orgId,assetId,planId, { signal, ...requestOptions });
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAssetMaintenanceRecords>>
+  > = ({ signal }) =>
+    listAssetMaintenanceRecords(orgId, assetId, planId, {
+      signal,
+      ...requestOptions,
+    });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && assetId && planId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAssetMaintenanceRecords>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId && assetId && planId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAssetMaintenanceRecords>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListAssetMaintenanceRecordsQueryResult = NonNullable<Awaited<ReturnType<typeof listAssetMaintenanceRecords>>>
-export type ListAssetMaintenanceRecordsQueryError = ErrorType<unknown>
-
+export type ListAssetMaintenanceRecordsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAssetMaintenanceRecords>>
+>;
+export type ListAssetMaintenanceRecordsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List execution records for a maintenance plan
  */
 
-export function useListAssetMaintenanceRecords<TData = Awaited<ReturnType<typeof listAssetMaintenanceRecords>>, TError = ErrorType<unknown>>(
- orgId: number,
-    assetId: number,
-    planId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetMaintenanceRecords>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListAssetMaintenanceRecords<
+  TData = Awaited<ReturnType<typeof listAssetMaintenanceRecords>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssetMaintenanceRecords>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAssetMaintenanceRecordsQueryOptions(
+    orgId,
+    assetId,
+    planId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListAssetMaintenanceRecordsQueryOptions(orgId,assetId,planId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
-
-
-
-
-
-
 /**
  * @summary Register a maintenance execution
  */
-export const getCreateAssetMaintenanceRecordUrl = (orgId: number,
-    assetId: number,
-    planId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records`
-}
-
-export const createAssetMaintenanceRecord = async (orgId: number,
-    assetId: number,
-    planId: number,
-    createAssetMaintenanceRecordBody: CreateAssetMaintenanceRecordBody, options?: RequestInit): Promise<AssetMaintenanceRecord> => {
-
-  return customFetch<AssetMaintenanceRecord>(getCreateAssetMaintenanceRecordUrl(orgId,assetId,planId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      createAssetMaintenanceRecordBody,)
-  }
-);}
-
-
-
-
-export const getCreateAssetMaintenanceRecordMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAssetMaintenanceRecord>>, TError,{orgId: number;assetId: number;planId: number;data: BodyType<CreateAssetMaintenanceRecordBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createAssetMaintenanceRecord>>, TError,{orgId: number;assetId: number;planId: number;data: BodyType<CreateAssetMaintenanceRecordBody>}, TContext> => {
-
-const mutationKey = ['createAssetMaintenanceRecord'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAssetMaintenanceRecord>>, {orgId: number;assetId: number;planId: number;data: BodyType<CreateAssetMaintenanceRecordBody>}> = (props) => {
-          const {orgId,assetId,planId,data} = props ?? {};
-
-          return  createAssetMaintenanceRecord(orgId,assetId,planId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateAssetMaintenanceRecordMutationResult = NonNullable<Awaited<ReturnType<typeof createAssetMaintenanceRecord>>>
-    export type CreateAssetMaintenanceRecordMutationBody = BodyType<CreateAssetMaintenanceRecordBody>
-    export type CreateAssetMaintenanceRecordMutationError = ErrorType<unknown>
-
-    /**
- * @summary Register a maintenance execution
- */
-export const useCreateAssetMaintenanceRecord = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAssetMaintenanceRecord>>, TError,{orgId: number;assetId: number;planId: number;data: BodyType<CreateAssetMaintenanceRecordBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createAssetMaintenanceRecord>>,
-        TError,
-        {orgId: number;assetId: number;planId: number;data: BodyType<CreateAssetMaintenanceRecordBody>},
-        TContext
-      > => {
-      return useMutation(getCreateAssetMaintenanceRecordMutationOptions(options));
-    }
-
-/**
- * @summary Delete a maintenance record
- */
-export const getDeleteAssetMaintenanceRecordUrl = (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}`
-}
-
-export const deleteAssetMaintenanceRecord = async (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteAssetMaintenanceRecordUrl(orgId,assetId,planId,recordId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
-
-
-
-
-export const getDeleteAssetMaintenanceRecordMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>, TError,{orgId: number;assetId: number;planId: number;recordId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>, TError,{orgId: number;assetId: number;planId: number;recordId: number}, TContext> => {
-
-const mutationKey = ['deleteAssetMaintenanceRecord'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>, {orgId: number;assetId: number;planId: number;recordId: number}> = (props) => {
-          const {orgId,assetId,planId,recordId} = props ?? {};
-
-          return  deleteAssetMaintenanceRecord(orgId,assetId,planId,recordId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteAssetMaintenanceRecordMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>>
-
-    export type DeleteAssetMaintenanceRecordMutationError = ErrorType<unknown>
-
-    /**
- * @summary Delete a maintenance record
- */
-export const useDeleteAssetMaintenanceRecord = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>, TError,{orgId: number;assetId: number;planId: number;recordId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>,
-        TError,
-        {orgId: number;assetId: number;planId: number;recordId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteAssetMaintenanceRecordMutationOptions(options));
-    }
-
-/**
- * @summary List attachments for a maintenance record
- */
-export const getListMaintenanceRecordAttachmentsUrl = (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments`
-}
-
-export const listMaintenanceRecordAttachments = async (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number, options?: RequestInit): Promise<MaintenanceRecordAttachment[]> => {
-
-  return customFetch<MaintenanceRecordAttachment[]>(getListMaintenanceRecordAttachmentsUrl(orgId,assetId,planId,recordId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListMaintenanceRecordAttachmentsQueryKey = (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number,) => {
-    return [
-    `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments`
-    ] as const;
-    }
-
-
-export const getListMaintenanceRecordAttachmentsQueryOptions = <TData = Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>, TError = ErrorType<unknown>>(orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getCreateAssetMaintenanceRecordUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
 ) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records`;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const createAssetMaintenanceRecord = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  createAssetMaintenanceRecordBody: CreateAssetMaintenanceRecordBody,
+  options?: RequestInit,
+): Promise<AssetMaintenanceRecord> => {
+  return customFetch<AssetMaintenanceRecord>(
+    getCreateAssetMaintenanceRecordUrl(orgId, assetId, planId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createAssetMaintenanceRecordBody),
+    },
+  );
+};
 
-  const queryKey =  queryOptions?.queryKey ?? getListMaintenanceRecordAttachmentsQueryKey(orgId,assetId,planId,recordId);
+export const getCreateAssetMaintenanceRecordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAssetMaintenanceRecord>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      data: BodyType<CreateAssetMaintenanceRecordBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAssetMaintenanceRecord>>,
+  TError,
+  {
+    orgId: number;
+    assetId: number;
+    planId: number;
+    data: BodyType<CreateAssetMaintenanceRecordBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createAssetMaintenanceRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAssetMaintenanceRecord>>,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      data: BodyType<CreateAssetMaintenanceRecordBody>;
+    }
+  > = (props) => {
+    const { orgId, assetId, planId, data } = props ?? {};
 
+    return createAssetMaintenanceRecord(
+      orgId,
+      assetId,
+      planId,
+      data,
+      requestOptions,
+    );
+  };
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>> = ({ signal }) => listMaintenanceRecordAttachments(orgId,assetId,planId,recordId, { signal, ...requestOptions });
+  return { mutationFn, ...mutationOptions };
+};
 
+export type CreateAssetMaintenanceRecordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAssetMaintenanceRecord>>
+>;
+export type CreateAssetMaintenanceRecordMutationBody =
+  BodyType<CreateAssetMaintenanceRecordBody>;
+export type CreateAssetMaintenanceRecordMutationError = ErrorType<unknown>;
 
+/**
+ * @summary Register a maintenance execution
+ */
+export const useCreateAssetMaintenanceRecord = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAssetMaintenanceRecord>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      data: BodyType<CreateAssetMaintenanceRecordBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAssetMaintenanceRecord>>,
+  TError,
+  {
+    orgId: number;
+    assetId: number;
+    planId: number;
+    data: BodyType<CreateAssetMaintenanceRecordBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateAssetMaintenanceRecordMutationOptions(options));
+};
 
+/**
+ * @summary Delete a maintenance record
+ */
+export const getDeleteAssetMaintenanceRecordUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}`;
+};
 
+export const deleteAssetMaintenanceRecord = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteAssetMaintenanceRecordUrl(orgId, assetId, planId, recordId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
-   return  { queryKey, queryFn, enabled: !!(orgId && assetId && planId && recordId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>, TError, TData> & { queryKey: QueryKey }
-}
+export const getDeleteAssetMaintenanceRecordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>,
+    TError,
+    { orgId: number; assetId: number; planId: number; recordId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>,
+  TError,
+  { orgId: number; assetId: number; planId: number; recordId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAssetMaintenanceRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
-export type ListMaintenanceRecordAttachmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>>
-export type ListMaintenanceRecordAttachmentsQueryError = ErrorType<unknown>
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>,
+    { orgId: number; assetId: number; planId: number; recordId: number }
+  > = (props) => {
+    const { orgId, assetId, planId, recordId } = props ?? {};
 
+    return deleteAssetMaintenanceRecord(
+      orgId,
+      assetId,
+      planId,
+      recordId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAssetMaintenanceRecordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>
+>;
+
+export type DeleteAssetMaintenanceRecordMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a maintenance record
+ */
+export const useDeleteAssetMaintenanceRecord = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>,
+    TError,
+    { orgId: number; assetId: number; planId: number; recordId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>,
+  TError,
+  { orgId: number; assetId: number; planId: number; recordId: number },
+  TContext
+> => {
+  return useMutation(getDeleteAssetMaintenanceRecordMutationOptions(options));
+};
+
+/**
+ * @summary List attachments for a maintenance record
+ */
+export const getListMaintenanceRecordAttachmentsUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments`;
+};
+
+export const listMaintenanceRecordAttachments = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+  options?: RequestInit,
+): Promise<MaintenanceRecordAttachment[]> => {
+  return customFetch<MaintenanceRecordAttachment[]>(
+    getListMaintenanceRecordAttachmentsUrl(orgId, assetId, planId, recordId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListMaintenanceRecordAttachmentsQueryKey = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments`,
+  ] as const;
+};
+
+export const getListMaintenanceRecordAttachmentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListMaintenanceRecordAttachmentsQueryKey(
+      orgId,
+      assetId,
+      planId,
+      recordId,
+    );
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>
+  > = ({ signal }) =>
+    listMaintenanceRecordAttachments(orgId, assetId, planId, recordId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && assetId && planId && recordId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMaintenanceRecordAttachmentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>
+>;
+export type ListMaintenanceRecordAttachmentsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List attachments for a maintenance record
  */
 
-export function useListMaintenanceRecordAttachments<TData = Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>, TError = ErrorType<unknown>>(
- orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListMaintenanceRecordAttachments<
+  TData = Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMaintenanceRecordAttachmentsQueryOptions(
+    orgId,
+    assetId,
+    planId,
+    recordId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListMaintenanceRecordAttachmentsQueryOptions(orgId,assetId,planId,recordId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
+/**
+ * @summary Add an attachment to a maintenance record
+ */
+export const getAddMaintenanceRecordAttachmentUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments`;
+};
 
+export const addMaintenanceRecordAttachment = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+  addMaintenanceRecordAttachmentBody: AddMaintenanceRecordAttachmentBody,
+  options?: RequestInit,
+): Promise<MaintenanceRecordAttachment> => {
+  return customFetch<MaintenanceRecordAttachment>(
+    getAddMaintenanceRecordAttachmentUrl(orgId, assetId, planId, recordId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(addMaintenanceRecordAttachmentBody),
+    },
+  );
+};
 
+export const getAddMaintenanceRecordAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      recordId: number;
+      data: BodyType<AddMaintenanceRecordAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>,
+  TError,
+  {
+    orgId: number;
+    assetId: number;
+    planId: number;
+    recordId: number;
+    data: BodyType<AddMaintenanceRecordAttachmentBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["addMaintenanceRecordAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      recordId: number;
+      data: BodyType<AddMaintenanceRecordAttachmentBody>;
+    }
+  > = (props) => {
+    const { orgId, assetId, planId, recordId, data } = props ?? {};
 
+    return addMaintenanceRecordAttachment(
+      orgId,
+      assetId,
+      planId,
+      recordId,
+      data,
+      requestOptions,
+    );
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddMaintenanceRecordAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>
+>;
+export type AddMaintenanceRecordAttachmentMutationBody =
+  BodyType<AddMaintenanceRecordAttachmentBody>;
+export type AddMaintenanceRecordAttachmentMutationError = ErrorType<unknown>;
 
 /**
  * @summary Add an attachment to a maintenance record
  */
-export const getAddMaintenanceRecordAttachmentUrl = (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments`
-}
-
-export const addMaintenanceRecordAttachment = async (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number,
-    addMaintenanceRecordAttachmentBody: AddMaintenanceRecordAttachmentBody, options?: RequestInit): Promise<MaintenanceRecordAttachment> => {
-
-  return customFetch<MaintenanceRecordAttachment>(getAddMaintenanceRecordAttachmentUrl(orgId,assetId,planId,recordId),
+export const useAddMaintenanceRecordAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      recordId: number;
+      data: BodyType<AddMaintenanceRecordAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>,
+  TError,
   {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      addMaintenanceRecordAttachmentBody,)
-  }
-);}
-
-
-
-
-export const getAddMaintenanceRecordAttachmentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>, TError,{orgId: number;assetId: number;planId: number;recordId: number;data: BodyType<AddMaintenanceRecordAttachmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>, TError,{orgId: number;assetId: number;planId: number;recordId: number;data: BodyType<AddMaintenanceRecordAttachmentBody>}, TContext> => {
-
-const mutationKey = ['addMaintenanceRecordAttachment'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>, {orgId: number;assetId: number;planId: number;recordId: number;data: BodyType<AddMaintenanceRecordAttachmentBody>}> = (props) => {
-          const {orgId,assetId,planId,recordId,data} = props ?? {};
-
-          return  addMaintenanceRecordAttachment(orgId,assetId,planId,recordId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type AddMaintenanceRecordAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>>
-    export type AddMaintenanceRecordAttachmentMutationBody = BodyType<AddMaintenanceRecordAttachmentBody>
-    export type AddMaintenanceRecordAttachmentMutationError = ErrorType<unknown>
-
-    /**
- * @summary Add an attachment to a maintenance record
- */
-export const useAddMaintenanceRecordAttachment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>, TError,{orgId: number;assetId: number;planId: number;recordId: number;data: BodyType<AddMaintenanceRecordAttachmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>,
-        TError,
-        {orgId: number;assetId: number;planId: number;recordId: number;data: BodyType<AddMaintenanceRecordAttachmentBody>},
-        TContext
-      > => {
-      return useMutation(getAddMaintenanceRecordAttachmentMutationOptions(options));
-    }
+    orgId: number;
+    assetId: number;
+    planId: number;
+    recordId: number;
+    data: BodyType<AddMaintenanceRecordAttachmentBody>;
+  },
+  TContext
+> => {
+  return useMutation(getAddMaintenanceRecordAttachmentMutationOptions(options));
+};
 
 /**
  * @summary Delete an attachment from a maintenance record
  */
-export const getDeleteMaintenanceRecordAttachmentUrl = (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number,
-    attachmentId: number,) => {
+export const getDeleteMaintenanceRecordAttachmentUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+  attachmentId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments/${attachmentId}`;
+};
 
+export const deleteMaintenanceRecordAttachment = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+  attachmentId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteMaintenanceRecordAttachmentUrl(
+      orgId,
+      assetId,
+      planId,
+      recordId,
+      attachmentId,
+    ),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments/${attachmentId}`
-}
-
-export const deleteMaintenanceRecordAttachment = async (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number,
-    attachmentId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteMaintenanceRecordAttachmentUrl(orgId,assetId,planId,recordId,attachmentId),
+export const getDeleteMaintenanceRecordAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      recordId: number;
+      attachmentId: number;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>,
+  TError,
   {
-    ...options,
-    method: 'DELETE'
+    orgId: number;
+    assetId: number;
+    planId: number;
+    recordId: number;
+    attachmentId: number;
+  },
+  TContext
+> => {
+  const mutationKey = ["deleteMaintenanceRecordAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      recordId: number;
+      attachmentId: number;
+    }
+  > = (props) => {
+    const { orgId, assetId, planId, recordId, attachmentId } = props ?? {};
 
-  }
-);}
+    return deleteMaintenanceRecordAttachment(
+      orgId,
+      assetId,
+      planId,
+      recordId,
+      attachmentId,
+      requestOptions,
+    );
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
+export type DeleteMaintenanceRecordAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>
+>;
 
+export type DeleteMaintenanceRecordAttachmentMutationError = ErrorType<unknown>;
 
-export const getDeleteMaintenanceRecordAttachmentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>, TError,{orgId: number;assetId: number;planId: number;recordId: number;attachmentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>, TError,{orgId: number;assetId: number;planId: number;recordId: number;attachmentId: number}, TContext> => {
-
-const mutationKey = ['deleteMaintenanceRecordAttachment'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>, {orgId: number;assetId: number;planId: number;recordId: number;attachmentId: number}> = (props) => {
-          const {orgId,assetId,planId,recordId,attachmentId} = props ?? {};
-
-          return  deleteMaintenanceRecordAttachment(orgId,assetId,planId,recordId,attachmentId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteMaintenanceRecordAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>>
-
-    export type DeleteMaintenanceRecordAttachmentMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Delete an attachment from a maintenance record
  */
-export const useDeleteMaintenanceRecordAttachment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>, TError,{orgId: number;assetId: number;planId: number;recordId: number;attachmentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>,
-        TError,
-        {orgId: number;assetId: number;planId: number;recordId: number;attachmentId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteMaintenanceRecordAttachmentMutationOptions(options));
-    }
+export const useDeleteMaintenanceRecordAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      recordId: number;
+      attachmentId: number;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>,
+  TError,
+  {
+    orgId: number;
+    assetId: number;
+    planId: number;
+    recordId: number;
+    attachmentId: number;
+  },
+  TContext
+> => {
+  return useMutation(
+    getDeleteMaintenanceRecordAttachmentMutationOptions(options),
+  );
+};
 
 /**
  * @summary List work environment controls
  */
-export const getListWorkEnvironmentControlsUrl = (orgId: number,
-    params?: ListWorkEnvironmentControlsParams,) => {
+export const getListWorkEnvironmentControlsUrl = (
+  orgId: number,
+  params?: ListWorkEnvironmentControlsParams,
+) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
-
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : value.toString())
+      normalizedParams.append(key, value === null ? "null" : value.toString());
     }
   });
 
   const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/organizations/${orgId}/work-environment/controls?${stringifiedParams}` : `/api/organizations/${orgId}/work-environment/controls`
-}
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/work-environment/controls?${stringifiedParams}`
+    : `/api/organizations/${orgId}/work-environment/controls`;
+};
 
-export const listWorkEnvironmentControls = async (orgId: number,
-    params?: ListWorkEnvironmentControlsParams, options?: RequestInit): Promise<WorkEnvironmentControl[]> => {
+export const listWorkEnvironmentControls = async (
+  orgId: number,
+  params?: ListWorkEnvironmentControlsParams,
+  options?: RequestInit,
+): Promise<WorkEnvironmentControl[]> => {
+  return customFetch<WorkEnvironmentControl[]>(
+    getListWorkEnvironmentControlsUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
 
-  return customFetch<WorkEnvironmentControl[]>(getListWorkEnvironmentControlsUrl(orgId,params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListWorkEnvironmentControlsQueryKey = (orgId: number,
-    params?: ListWorkEnvironmentControlsParams,) => {
-    return [
-    `/api/organizations/${orgId}/work-environment/controls`, ...(params ? [params] : [])
-    ] as const;
-    }
-
-
-export const getListWorkEnvironmentControlsQueryOptions = <TData = Awaited<ReturnType<typeof listWorkEnvironmentControls>>, TError = ErrorType<unknown>>(orgId: number,
-    params?: ListWorkEnvironmentControlsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentControls>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListWorkEnvironmentControlsQueryKey = (
+  orgId: number,
+  params?: ListWorkEnvironmentControlsParams,
 ) => {
+  return [
+    `/api/organizations/${orgId}/work-environment/controls`,
+    ...(params ? [params] : []),
+  ] as const;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const getListWorkEnvironmentControlsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listWorkEnvironmentControls>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListWorkEnvironmentControlsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWorkEnvironmentControls>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListWorkEnvironmentControlsQueryKey(orgId,params);
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListWorkEnvironmentControlsQueryKey(orgId, params);
 
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listWorkEnvironmentControls>>
+  > = ({ signal }) =>
+    listWorkEnvironmentControls(orgId, params, { signal, ...requestOptions });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listWorkEnvironmentControls>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWorkEnvironmentControls>>> = ({ signal }) => listWorkEnvironmentControls(orgId,params, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentControls>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListWorkEnvironmentControlsQueryResult = NonNullable<Awaited<ReturnType<typeof listWorkEnvironmentControls>>>
-export type ListWorkEnvironmentControlsQueryError = ErrorType<unknown>
-
+export type ListWorkEnvironmentControlsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listWorkEnvironmentControls>>
+>;
+export type ListWorkEnvironmentControlsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List work environment controls
  */
 
-export function useListWorkEnvironmentControls<TData = Awaited<ReturnType<typeof listWorkEnvironmentControls>>, TError = ErrorType<unknown>>(
- orgId: number,
-    params?: ListWorkEnvironmentControlsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentControls>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListWorkEnvironmentControls<
+  TData = Awaited<ReturnType<typeof listWorkEnvironmentControls>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListWorkEnvironmentControlsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWorkEnvironmentControls>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListWorkEnvironmentControlsQueryOptions(
+    orgId,
+    params,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListWorkEnvironmentControlsQueryOptions(orgId,params,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-
-
-
-
-
 
 /**
  * @summary Create a work environment control
  */
-export const getCreateWorkEnvironmentControlUrl = (orgId: number,) => {
+export const getCreateWorkEnvironmentControlUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/work-environment/controls`;
+};
 
+export const createWorkEnvironmentControl = async (
+  orgId: number,
+  createWorkEnvironmentControlBody: CreateWorkEnvironmentControlBody,
+  options?: RequestInit,
+): Promise<WorkEnvironmentControl> => {
+  return customFetch<WorkEnvironmentControl>(
+    getCreateWorkEnvironmentControlUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createWorkEnvironmentControlBody),
+    },
+  );
+};
 
+export const getCreateWorkEnvironmentControlMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createWorkEnvironmentControl>>,
+    TError,
+    { orgId: number; data: BodyType<CreateWorkEnvironmentControlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createWorkEnvironmentControl>>,
+  TError,
+  { orgId: number; data: BodyType<CreateWorkEnvironmentControlBody> },
+  TContext
+> => {
+  const mutationKey = ["createWorkEnvironmentControl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createWorkEnvironmentControl>>,
+    { orgId: number; data: BodyType<CreateWorkEnvironmentControlBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
 
-  return `/api/organizations/${orgId}/work-environment/controls`
-}
+    return createWorkEnvironmentControl(orgId, data, requestOptions);
+  };
 
-export const createWorkEnvironmentControl = async (orgId: number,
-    createWorkEnvironmentControlBody: CreateWorkEnvironmentControlBody, options?: RequestInit): Promise<WorkEnvironmentControl> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-  return customFetch<WorkEnvironmentControl>(getCreateWorkEnvironmentControlUrl(orgId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      createWorkEnvironmentControlBody,)
-  }
-);}
+export type CreateWorkEnvironmentControlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createWorkEnvironmentControl>>
+>;
+export type CreateWorkEnvironmentControlMutationBody =
+  BodyType<CreateWorkEnvironmentControlBody>;
+export type CreateWorkEnvironmentControlMutationError = ErrorType<unknown>;
 
-
-
-
-export const getCreateWorkEnvironmentControlMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkEnvironmentControl>>, TError,{orgId: number;data: BodyType<CreateWorkEnvironmentControlBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createWorkEnvironmentControl>>, TError,{orgId: number;data: BodyType<CreateWorkEnvironmentControlBody>}, TContext> => {
-
-const mutationKey = ['createWorkEnvironmentControl'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createWorkEnvironmentControl>>, {orgId: number;data: BodyType<CreateWorkEnvironmentControlBody>}> = (props) => {
-          const {orgId,data} = props ?? {};
-
-          return  createWorkEnvironmentControl(orgId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateWorkEnvironmentControlMutationResult = NonNullable<Awaited<ReturnType<typeof createWorkEnvironmentControl>>>
-    export type CreateWorkEnvironmentControlMutationBody = BodyType<CreateWorkEnvironmentControlBody>
-    export type CreateWorkEnvironmentControlMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Create a work environment control
  */
-export const useCreateWorkEnvironmentControl = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkEnvironmentControl>>, TError,{orgId: number;data: BodyType<CreateWorkEnvironmentControlBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createWorkEnvironmentControl>>,
-        TError,
-        {orgId: number;data: BodyType<CreateWorkEnvironmentControlBody>},
-        TContext
-      > => {
-      return useMutation(getCreateWorkEnvironmentControlMutationOptions(options));
-    }
+export const useCreateWorkEnvironmentControl = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createWorkEnvironmentControl>>,
+    TError,
+    { orgId: number; data: BodyType<CreateWorkEnvironmentControlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createWorkEnvironmentControl>>,
+  TError,
+  { orgId: number; data: BodyType<CreateWorkEnvironmentControlBody> },
+  TContext
+> => {
+  return useMutation(getCreateWorkEnvironmentControlMutationOptions(options));
+};
 
 /**
  * @summary Update a work environment control
  */
-export const getUpdateWorkEnvironmentControlUrl = (orgId: number,
-    controlId: number,) => {
+export const getUpdateWorkEnvironmentControlUrl = (
+  orgId: number,
+  controlId: number,
+) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}`;
+};
 
+export const updateWorkEnvironmentControl = async (
+  orgId: number,
+  controlId: number,
+  updateWorkEnvironmentControlBody: UpdateWorkEnvironmentControlBody,
+  options?: RequestInit,
+): Promise<WorkEnvironmentControl> => {
+  return customFetch<WorkEnvironmentControl>(
+    getUpdateWorkEnvironmentControlUrl(orgId, controlId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateWorkEnvironmentControlBody),
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}`
-}
-
-export const updateWorkEnvironmentControl = async (orgId: number,
-    controlId: number,
-    updateWorkEnvironmentControlBody: UpdateWorkEnvironmentControlBody, options?: RequestInit): Promise<WorkEnvironmentControl> => {
-
-  return customFetch<WorkEnvironmentControl>(getUpdateWorkEnvironmentControlUrl(orgId,controlId),
+export const getUpdateWorkEnvironmentControlMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateWorkEnvironmentControl>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      data: BodyType<UpdateWorkEnvironmentControlBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateWorkEnvironmentControl>>,
+  TError,
   {
-    ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      updateWorkEnvironmentControlBody,)
-  }
-);}
+    orgId: number;
+    controlId: number;
+    data: BodyType<UpdateWorkEnvironmentControlBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateWorkEnvironmentControl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateWorkEnvironmentControl>>,
+    {
+      orgId: number;
+      controlId: number;
+      data: BodyType<UpdateWorkEnvironmentControlBody>;
+    }
+  > = (props) => {
+    const { orgId, controlId, data } = props ?? {};
 
+    return updateWorkEnvironmentControl(orgId, controlId, data, requestOptions);
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
-export const getUpdateWorkEnvironmentControlMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWorkEnvironmentControl>>, TError,{orgId: number;controlId: number;data: BodyType<UpdateWorkEnvironmentControlBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateWorkEnvironmentControl>>, TError,{orgId: number;controlId: number;data: BodyType<UpdateWorkEnvironmentControlBody>}, TContext> => {
+export type UpdateWorkEnvironmentControlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateWorkEnvironmentControl>>
+>;
+export type UpdateWorkEnvironmentControlMutationBody =
+  BodyType<UpdateWorkEnvironmentControlBody>;
+export type UpdateWorkEnvironmentControlMutationError = ErrorType<unknown>;
 
-const mutationKey = ['updateWorkEnvironmentControl'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWorkEnvironmentControl>>, {orgId: number;controlId: number;data: BodyType<UpdateWorkEnvironmentControlBody>}> = (props) => {
-          const {orgId,controlId,data} = props ?? {};
-
-          return  updateWorkEnvironmentControl(orgId,controlId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type UpdateWorkEnvironmentControlMutationResult = NonNullable<Awaited<ReturnType<typeof updateWorkEnvironmentControl>>>
-    export type UpdateWorkEnvironmentControlMutationBody = BodyType<UpdateWorkEnvironmentControlBody>
-    export type UpdateWorkEnvironmentControlMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Update a work environment control
  */
-export const useUpdateWorkEnvironmentControl = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWorkEnvironmentControl>>, TError,{orgId: number;controlId: number;data: BodyType<UpdateWorkEnvironmentControlBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof updateWorkEnvironmentControl>>,
-        TError,
-        {orgId: number;controlId: number;data: BodyType<UpdateWorkEnvironmentControlBody>},
-        TContext
-      > => {
-      return useMutation(getUpdateWorkEnvironmentControlMutationOptions(options));
-    }
+export const useUpdateWorkEnvironmentControl = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateWorkEnvironmentControl>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      data: BodyType<UpdateWorkEnvironmentControlBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateWorkEnvironmentControl>>,
+  TError,
+  {
+    orgId: number;
+    controlId: number;
+    data: BodyType<UpdateWorkEnvironmentControlBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateWorkEnvironmentControlMutationOptions(options));
+};
 
 /**
  * @summary Delete a work environment control
  */
-export const getDeleteWorkEnvironmentControlUrl = (orgId: number,
-    controlId: number,) => {
+export const getDeleteWorkEnvironmentControlUrl = (
+  orgId: number,
+  controlId: number,
+) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}`;
+};
 
+export const deleteWorkEnvironmentControl = async (
+  orgId: number,
+  controlId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteWorkEnvironmentControlUrl(orgId, controlId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
+export const getDeleteWorkEnvironmentControlMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>,
+    TError,
+    { orgId: number; controlId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>,
+  TError,
+  { orgId: number; controlId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteWorkEnvironmentControl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>,
+    { orgId: number; controlId: number }
+  > = (props) => {
+    const { orgId, controlId } = props ?? {};
 
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}`
-}
+    return deleteWorkEnvironmentControl(orgId, controlId, requestOptions);
+  };
 
-export const deleteWorkEnvironmentControl = async (orgId: number,
-    controlId: number, options?: RequestInit): Promise<void> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-  return customFetch<void>(getDeleteWorkEnvironmentControlUrl(orgId,controlId),
-  {
-    ...options,
-    method: 'DELETE'
+export type DeleteWorkEnvironmentControlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>
+>;
 
+export type DeleteWorkEnvironmentControlMutationError = ErrorType<unknown>;
 
-  }
-);}
-
-
-
-
-export const getDeleteWorkEnvironmentControlMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>, TError,{orgId: number;controlId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>, TError,{orgId: number;controlId: number}, TContext> => {
-
-const mutationKey = ['deleteWorkEnvironmentControl'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>, {orgId: number;controlId: number}> = (props) => {
-          const {orgId,controlId} = props ?? {};
-
-          return  deleteWorkEnvironmentControl(orgId,controlId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteWorkEnvironmentControlMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>>
-
-    export type DeleteWorkEnvironmentControlMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Delete a work environment control
  */
-export const useDeleteWorkEnvironmentControl = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>, TError,{orgId: number;controlId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>,
-        TError,
-        {orgId: number;controlId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteWorkEnvironmentControlMutationOptions(options));
-    }
+export const useDeleteWorkEnvironmentControl = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>,
+    TError,
+    { orgId: number; controlId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>,
+  TError,
+  { orgId: number; controlId: number },
+  TContext
+> => {
+  return useMutation(getDeleteWorkEnvironmentControlMutationOptions(options));
+};
 
 /**
  * @summary List verifications for a control
  */
-export const getListWorkEnvironmentVerificationsUrl = (orgId: number,
-    controlId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications`
-}
-
-export const listWorkEnvironmentVerifications = async (orgId: number,
-    controlId: number, options?: RequestInit): Promise<WorkEnvironmentVerification[]> => {
-
-  return customFetch<WorkEnvironmentVerification[]>(getListWorkEnvironmentVerificationsUrl(orgId,controlId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListWorkEnvironmentVerificationsQueryKey = (orgId: number,
-    controlId: number,) => {
-    return [
-    `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications`
-    ] as const;
-    }
-
-
-export const getListWorkEnvironmentVerificationsQueryOptions = <TData = Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>, TError = ErrorType<unknown>>(orgId: number,
-    controlId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListWorkEnvironmentVerificationsUrl = (
+  orgId: number,
+  controlId: number,
 ) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications`;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const listWorkEnvironmentVerifications = async (
+  orgId: number,
+  controlId: number,
+  options?: RequestInit,
+): Promise<WorkEnvironmentVerification[]> => {
+  return customFetch<WorkEnvironmentVerification[]>(
+    getListWorkEnvironmentVerificationsUrl(orgId, controlId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
 
-  const queryKey =  queryOptions?.queryKey ?? getListWorkEnvironmentVerificationsQueryKey(orgId,controlId);
+export const getListWorkEnvironmentVerificationsQueryKey = (
+  orgId: number,
+  controlId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications`,
+  ] as const;
+};
 
+export const getListWorkEnvironmentVerificationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  controlId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListWorkEnvironmentVerificationsQueryKey(orgId, controlId);
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>> = ({ signal }) => listWorkEnvironmentVerifications(orgId,controlId, { signal, ...requestOptions });
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>
+  > = ({ signal }) =>
+    listWorkEnvironmentVerifications(orgId, controlId, {
+      signal,
+      ...requestOptions,
+    });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && controlId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId && controlId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListWorkEnvironmentVerificationsQueryResult = NonNullable<Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>>
-export type ListWorkEnvironmentVerificationsQueryError = ErrorType<unknown>
-
+export type ListWorkEnvironmentVerificationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>
+>;
+export type ListWorkEnvironmentVerificationsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List verifications for a control
  */
 
-export function useListWorkEnvironmentVerifications<TData = Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>, TError = ErrorType<unknown>>(
- orgId: number,
-    controlId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListWorkEnvironmentVerifications<
+  TData = Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  controlId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListWorkEnvironmentVerificationsQueryOptions(
+    orgId,
+    controlId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListWorkEnvironmentVerificationsQueryOptions(orgId,controlId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
-
-
-
-
-
-
 /**
  * @summary Register a verification
  */
-export const getCreateWorkEnvironmentVerificationUrl = (orgId: number,
-    controlId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications`
-}
-
-export const createWorkEnvironmentVerification = async (orgId: number,
-    controlId: number,
-    createWorkEnvironmentVerificationBody: CreateWorkEnvironmentVerificationBody, options?: RequestInit): Promise<WorkEnvironmentVerification> => {
-
-  return customFetch<WorkEnvironmentVerification>(getCreateWorkEnvironmentVerificationUrl(orgId,controlId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      createWorkEnvironmentVerificationBody,)
-  }
-);}
-
-
-
-
-export const getCreateWorkEnvironmentVerificationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkEnvironmentVerification>>, TError,{orgId: number;controlId: number;data: BodyType<CreateWorkEnvironmentVerificationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createWorkEnvironmentVerification>>, TError,{orgId: number;controlId: number;data: BodyType<CreateWorkEnvironmentVerificationBody>}, TContext> => {
-
-const mutationKey = ['createWorkEnvironmentVerification'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createWorkEnvironmentVerification>>, {orgId: number;controlId: number;data: BodyType<CreateWorkEnvironmentVerificationBody>}> = (props) => {
-          const {orgId,controlId,data} = props ?? {};
-
-          return  createWorkEnvironmentVerification(orgId,controlId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateWorkEnvironmentVerificationMutationResult = NonNullable<Awaited<ReturnType<typeof createWorkEnvironmentVerification>>>
-    export type CreateWorkEnvironmentVerificationMutationBody = BodyType<CreateWorkEnvironmentVerificationBody>
-    export type CreateWorkEnvironmentVerificationMutationError = ErrorType<unknown>
-
-    /**
- * @summary Register a verification
- */
-export const useCreateWorkEnvironmentVerification = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkEnvironmentVerification>>, TError,{orgId: number;controlId: number;data: BodyType<CreateWorkEnvironmentVerificationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createWorkEnvironmentVerification>>,
-        TError,
-        {orgId: number;controlId: number;data: BodyType<CreateWorkEnvironmentVerificationBody>},
-        TContext
-      > => {
-      return useMutation(getCreateWorkEnvironmentVerificationMutationOptions(options));
-    }
-
-/**
- * @summary Delete a verification
- */
-export const getDeleteWorkEnvironmentVerificationUrl = (orgId: number,
-    controlId: number,
-    verificationId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}`
-}
-
-export const deleteWorkEnvironmentVerification = async (orgId: number,
-    controlId: number,
-    verificationId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteWorkEnvironmentVerificationUrl(orgId,controlId,verificationId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
-
-
-
-
-export const getDeleteWorkEnvironmentVerificationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>, TError,{orgId: number;controlId: number;verificationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>, TError,{orgId: number;controlId: number;verificationId: number}, TContext> => {
-
-const mutationKey = ['deleteWorkEnvironmentVerification'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>, {orgId: number;controlId: number;verificationId: number}> = (props) => {
-          const {orgId,controlId,verificationId} = props ?? {};
-
-          return  deleteWorkEnvironmentVerification(orgId,controlId,verificationId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteWorkEnvironmentVerificationMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>>
-
-    export type DeleteWorkEnvironmentVerificationMutationError = ErrorType<unknown>
-
-    /**
- * @summary Delete a verification
- */
-export const useDeleteWorkEnvironmentVerification = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>, TError,{orgId: number;controlId: number;verificationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>,
-        TError,
-        {orgId: number;controlId: number;verificationId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteWorkEnvironmentVerificationMutationOptions(options));
-    }
-
-/**
- * @summary List attachments for a verification
- */
-export const getListWorkEnvironmentAttachmentsUrl = (orgId: number,
-    controlId: number,
-    verificationId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments`
-}
-
-export const listWorkEnvironmentAttachments = async (orgId: number,
-    controlId: number,
-    verificationId: number, options?: RequestInit): Promise<WorkEnvironmentAttachment[]> => {
-
-  return customFetch<WorkEnvironmentAttachment[]>(getListWorkEnvironmentAttachmentsUrl(orgId,controlId,verificationId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListWorkEnvironmentAttachmentsQueryKey = (orgId: number,
-    controlId: number,
-    verificationId: number,) => {
-    return [
-    `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments`
-    ] as const;
-    }
-
-
-export const getListWorkEnvironmentAttachmentsQueryOptions = <TData = Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>, TError = ErrorType<unknown>>(orgId: number,
-    controlId: number,
-    verificationId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getCreateWorkEnvironmentVerificationUrl = (
+  orgId: number,
+  controlId: number,
 ) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications`;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const createWorkEnvironmentVerification = async (
+  orgId: number,
+  controlId: number,
+  createWorkEnvironmentVerificationBody: CreateWorkEnvironmentVerificationBody,
+  options?: RequestInit,
+): Promise<WorkEnvironmentVerification> => {
+  return customFetch<WorkEnvironmentVerification>(
+    getCreateWorkEnvironmentVerificationUrl(orgId, controlId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createWorkEnvironmentVerificationBody),
+    },
+  );
+};
 
-  const queryKey =  queryOptions?.queryKey ?? getListWorkEnvironmentAttachmentsQueryKey(orgId,controlId,verificationId);
+export const getCreateWorkEnvironmentVerificationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createWorkEnvironmentVerification>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      data: BodyType<CreateWorkEnvironmentVerificationBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createWorkEnvironmentVerification>>,
+  TError,
+  {
+    orgId: number;
+    controlId: number;
+    data: BodyType<CreateWorkEnvironmentVerificationBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createWorkEnvironmentVerification"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createWorkEnvironmentVerification>>,
+    {
+      orgId: number;
+      controlId: number;
+      data: BodyType<CreateWorkEnvironmentVerificationBody>;
+    }
+  > = (props) => {
+    const { orgId, controlId, data } = props ?? {};
 
+    return createWorkEnvironmentVerification(
+      orgId,
+      controlId,
+      data,
+      requestOptions,
+    );
+  };
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>> = ({ signal }) => listWorkEnvironmentAttachments(orgId,controlId,verificationId, { signal, ...requestOptions });
+  return { mutationFn, ...mutationOptions };
+};
 
+export type CreateWorkEnvironmentVerificationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createWorkEnvironmentVerification>>
+>;
+export type CreateWorkEnvironmentVerificationMutationBody =
+  BodyType<CreateWorkEnvironmentVerificationBody>;
+export type CreateWorkEnvironmentVerificationMutationError = ErrorType<unknown>;
 
+/**
+ * @summary Register a verification
+ */
+export const useCreateWorkEnvironmentVerification = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createWorkEnvironmentVerification>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      data: BodyType<CreateWorkEnvironmentVerificationBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createWorkEnvironmentVerification>>,
+  TError,
+  {
+    orgId: number;
+    controlId: number;
+    data: BodyType<CreateWorkEnvironmentVerificationBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateWorkEnvironmentVerificationMutationOptions(options),
+  );
+};
 
+/**
+ * @summary Delete a verification
+ */
+export const getDeleteWorkEnvironmentVerificationUrl = (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}`;
+};
 
+export const deleteWorkEnvironmentVerification = async (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteWorkEnvironmentVerificationUrl(orgId, controlId, verificationId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
-   return  { queryKey, queryFn, enabled: !!(orgId && controlId && verificationId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>, TError, TData> & { queryKey: QueryKey }
-}
+export const getDeleteWorkEnvironmentVerificationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>,
+    TError,
+    { orgId: number; controlId: number; verificationId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>,
+  TError,
+  { orgId: number; controlId: number; verificationId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteWorkEnvironmentVerification"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
-export type ListWorkEnvironmentAttachmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>>
-export type ListWorkEnvironmentAttachmentsQueryError = ErrorType<unknown>
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>,
+    { orgId: number; controlId: number; verificationId: number }
+  > = (props) => {
+    const { orgId, controlId, verificationId } = props ?? {};
 
+    return deleteWorkEnvironmentVerification(
+      orgId,
+      controlId,
+      verificationId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteWorkEnvironmentVerificationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>
+>;
+
+export type DeleteWorkEnvironmentVerificationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a verification
+ */
+export const useDeleteWorkEnvironmentVerification = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>,
+    TError,
+    { orgId: number; controlId: number; verificationId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>,
+  TError,
+  { orgId: number; controlId: number; verificationId: number },
+  TContext
+> => {
+  return useMutation(
+    getDeleteWorkEnvironmentVerificationMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List attachments for a verification
+ */
+export const getListWorkEnvironmentAttachmentsUrl = (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments`;
+};
+
+export const listWorkEnvironmentAttachments = async (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+  options?: RequestInit,
+): Promise<WorkEnvironmentAttachment[]> => {
+  return customFetch<WorkEnvironmentAttachment[]>(
+    getListWorkEnvironmentAttachmentsUrl(orgId, controlId, verificationId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListWorkEnvironmentAttachmentsQueryKey = (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments`,
+  ] as const;
+};
+
+export const getListWorkEnvironmentAttachmentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListWorkEnvironmentAttachmentsQueryKey(orgId, controlId, verificationId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>
+  > = ({ signal }) =>
+    listWorkEnvironmentAttachments(orgId, controlId, verificationId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && controlId && verificationId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListWorkEnvironmentAttachmentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>
+>;
+export type ListWorkEnvironmentAttachmentsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List attachments for a verification
  */
 
-export function useListWorkEnvironmentAttachments<TData = Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>, TError = ErrorType<unknown>>(
- orgId: number,
-    controlId: number,
-    verificationId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListWorkEnvironmentAttachments<
+  TData = Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListWorkEnvironmentAttachmentsQueryOptions(
+    orgId,
+    controlId,
+    verificationId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListWorkEnvironmentAttachmentsQueryOptions(orgId,controlId,verificationId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
+/**
+ * @summary Add attachment to a verification
+ */
+export const getAddWorkEnvironmentAttachmentUrl = (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments`;
+};
 
+export const addWorkEnvironmentAttachment = async (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+  addWorkEnvironmentAttachmentBody: AddWorkEnvironmentAttachmentBody,
+  options?: RequestInit,
+): Promise<WorkEnvironmentAttachment> => {
+  return customFetch<WorkEnvironmentAttachment>(
+    getAddWorkEnvironmentAttachmentUrl(orgId, controlId, verificationId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(addWorkEnvironmentAttachmentBody),
+    },
+  );
+};
 
+export const getAddWorkEnvironmentAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      verificationId: number;
+      data: BodyType<AddWorkEnvironmentAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>,
+  TError,
+  {
+    orgId: number;
+    controlId: number;
+    verificationId: number;
+    data: BodyType<AddWorkEnvironmentAttachmentBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["addWorkEnvironmentAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>,
+    {
+      orgId: number;
+      controlId: number;
+      verificationId: number;
+      data: BodyType<AddWorkEnvironmentAttachmentBody>;
+    }
+  > = (props) => {
+    const { orgId, controlId, verificationId, data } = props ?? {};
 
+    return addWorkEnvironmentAttachment(
+      orgId,
+      controlId,
+      verificationId,
+      data,
+      requestOptions,
+    );
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddWorkEnvironmentAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>
+>;
+export type AddWorkEnvironmentAttachmentMutationBody =
+  BodyType<AddWorkEnvironmentAttachmentBody>;
+export type AddWorkEnvironmentAttachmentMutationError = ErrorType<unknown>;
 
 /**
  * @summary Add attachment to a verification
  */
-export const getAddWorkEnvironmentAttachmentUrl = (orgId: number,
-    controlId: number,
-    verificationId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments`
-}
-
-export const addWorkEnvironmentAttachment = async (orgId: number,
-    controlId: number,
-    verificationId: number,
-    addWorkEnvironmentAttachmentBody: AddWorkEnvironmentAttachmentBody, options?: RequestInit): Promise<WorkEnvironmentAttachment> => {
-
-  return customFetch<WorkEnvironmentAttachment>(getAddWorkEnvironmentAttachmentUrl(orgId,controlId,verificationId),
+export const useAddWorkEnvironmentAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      verificationId: number;
+      data: BodyType<AddWorkEnvironmentAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>,
+  TError,
   {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      addWorkEnvironmentAttachmentBody,)
-  }
-);}
-
-
-
-
-export const getAddWorkEnvironmentAttachmentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>, TError,{orgId: number;controlId: number;verificationId: number;data: BodyType<AddWorkEnvironmentAttachmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>, TError,{orgId: number;controlId: number;verificationId: number;data: BodyType<AddWorkEnvironmentAttachmentBody>}, TContext> => {
-
-const mutationKey = ['addWorkEnvironmentAttachment'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>, {orgId: number;controlId: number;verificationId: number;data: BodyType<AddWorkEnvironmentAttachmentBody>}> = (props) => {
-          const {orgId,controlId,verificationId,data} = props ?? {};
-
-          return  addWorkEnvironmentAttachment(orgId,controlId,verificationId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type AddWorkEnvironmentAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>>
-    export type AddWorkEnvironmentAttachmentMutationBody = BodyType<AddWorkEnvironmentAttachmentBody>
-    export type AddWorkEnvironmentAttachmentMutationError = ErrorType<unknown>
-
-    /**
- * @summary Add attachment to a verification
- */
-export const useAddWorkEnvironmentAttachment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>, TError,{orgId: number;controlId: number;verificationId: number;data: BodyType<AddWorkEnvironmentAttachmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>,
-        TError,
-        {orgId: number;controlId: number;verificationId: number;data: BodyType<AddWorkEnvironmentAttachmentBody>},
-        TContext
-      > => {
-      return useMutation(getAddWorkEnvironmentAttachmentMutationOptions(options));
-    }
+    orgId: number;
+    controlId: number;
+    verificationId: number;
+    data: BodyType<AddWorkEnvironmentAttachmentBody>;
+  },
+  TContext
+> => {
+  return useMutation(getAddWorkEnvironmentAttachmentMutationOptions(options));
+};
 
 /**
  * @summary Delete an attachment
  */
-export const getDeleteWorkEnvironmentAttachmentUrl = (orgId: number,
-    controlId: number,
-    verificationId: number,
-    attachmentId: number,) => {
+export const getDeleteWorkEnvironmentAttachmentUrl = (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+  attachmentId: number,
+) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments/${attachmentId}`;
+};
 
+export const deleteWorkEnvironmentAttachment = async (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+  attachmentId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteWorkEnvironmentAttachmentUrl(
+      orgId,
+      controlId,
+      verificationId,
+      attachmentId,
+    ),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments/${attachmentId}`
-}
-
-export const deleteWorkEnvironmentAttachment = async (orgId: number,
-    controlId: number,
-    verificationId: number,
-    attachmentId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteWorkEnvironmentAttachmentUrl(orgId,controlId,verificationId,attachmentId),
+export const getDeleteWorkEnvironmentAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      verificationId: number;
+      attachmentId: number;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>,
+  TError,
   {
-    ...options,
-    method: 'DELETE'
+    orgId: number;
+    controlId: number;
+    verificationId: number;
+    attachmentId: number;
+  },
+  TContext
+> => {
+  const mutationKey = ["deleteWorkEnvironmentAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>,
+    {
+      orgId: number;
+      controlId: number;
+      verificationId: number;
+      attachmentId: number;
+    }
+  > = (props) => {
+    const { orgId, controlId, verificationId, attachmentId } = props ?? {};
 
-  }
-);}
+    return deleteWorkEnvironmentAttachment(
+      orgId,
+      controlId,
+      verificationId,
+      attachmentId,
+      requestOptions,
+    );
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
+export type DeleteWorkEnvironmentAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>
+>;
 
+export type DeleteWorkEnvironmentAttachmentMutationError = ErrorType<unknown>;
 
-export const getDeleteWorkEnvironmentAttachmentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>, TError,{orgId: number;controlId: number;verificationId: number;attachmentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>, TError,{orgId: number;controlId: number;verificationId: number;attachmentId: number}, TContext> => {
-
-const mutationKey = ['deleteWorkEnvironmentAttachment'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>, {orgId: number;controlId: number;verificationId: number;attachmentId: number}> = (props) => {
-          const {orgId,controlId,verificationId,attachmentId} = props ?? {};
-
-          return  deleteWorkEnvironmentAttachment(orgId,controlId,verificationId,attachmentId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteWorkEnvironmentAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>>
-
-    export type DeleteWorkEnvironmentAttachmentMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Delete an attachment
  */
-export const useDeleteWorkEnvironmentAttachment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>, TError,{orgId: number;controlId: number;verificationId: number;attachmentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>,
-        TError,
-        {orgId: number;controlId: number;verificationId: number;attachmentId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteWorkEnvironmentAttachmentMutationOptions(options));
-    }
+export const useDeleteWorkEnvironmentAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      verificationId: number;
+      attachmentId: number;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>,
+  TError,
+  {
+    orgId: number;
+    controlId: number;
+    verificationId: number;
+    attachmentId: number;
+  },
+  TContext
+> => {
+  return useMutation(
+    getDeleteWorkEnvironmentAttachmentMutationOptions(options),
+  );
+};
 
 /**
  * @summary List measurement resources
  */
-export const getListMeasurementResourcesUrl = (orgId: number,
-    params?: ListMeasurementResourcesParams,) => {
+export const getListMeasurementResourcesUrl = (
+  orgId: number,
+  params?: ListMeasurementResourcesParams,
+) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
-
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : value.toString())
+      normalizedParams.append(key, value === null ? "null" : value.toString());
     }
   });
 
   const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/organizations/${orgId}/measurement-resources?${stringifiedParams}` : `/api/organizations/${orgId}/measurement-resources`
-}
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/measurement-resources?${stringifiedParams}`
+    : `/api/organizations/${orgId}/measurement-resources`;
+};
 
-export const listMeasurementResources = async (orgId: number,
-    params?: ListMeasurementResourcesParams, options?: RequestInit): Promise<MeasurementResource[]> => {
+export const listMeasurementResources = async (
+  orgId: number,
+  params?: ListMeasurementResourcesParams,
+  options?: RequestInit,
+): Promise<MeasurementResource[]> => {
+  return customFetch<MeasurementResource[]>(
+    getListMeasurementResourcesUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
 
-  return customFetch<MeasurementResource[]>(getListMeasurementResourcesUrl(orgId,params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListMeasurementResourcesQueryKey = (orgId: number,
-    params?: ListMeasurementResourcesParams,) => {
-    return [
-    `/api/organizations/${orgId}/measurement-resources`, ...(params ? [params] : [])
-    ] as const;
-    }
-
-
-export const getListMeasurementResourcesQueryOptions = <TData = Awaited<ReturnType<typeof listMeasurementResources>>, TError = ErrorType<unknown>>(orgId: number,
-    params?: ListMeasurementResourcesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResources>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListMeasurementResourcesQueryKey = (
+  orgId: number,
+  params?: ListMeasurementResourcesParams,
 ) => {
+  return [
+    `/api/organizations/${orgId}/measurement-resources`,
+    ...(params ? [params] : []),
+  ] as const;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const getListMeasurementResourcesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMeasurementResources>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListMeasurementResourcesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMeasurementResources>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListMeasurementResourcesQueryKey(orgId,params);
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListMeasurementResourcesQueryKey(orgId, params);
 
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMeasurementResources>>
+  > = ({ signal }) =>
+    listMeasurementResources(orgId, params, { signal, ...requestOptions });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMeasurementResources>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMeasurementResources>>> = ({ signal }) => listMeasurementResources(orgId,params, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResources>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListMeasurementResourcesQueryResult = NonNullable<Awaited<ReturnType<typeof listMeasurementResources>>>
-export type ListMeasurementResourcesQueryError = ErrorType<unknown>
-
+export type ListMeasurementResourcesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMeasurementResources>>
+>;
+export type ListMeasurementResourcesQueryError = ErrorType<unknown>;
 
 /**
  * @summary List measurement resources
  */
 
-export function useListMeasurementResources<TData = Awaited<ReturnType<typeof listMeasurementResources>>, TError = ErrorType<unknown>>(
- orgId: number,
-    params?: ListMeasurementResourcesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResources>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListMeasurementResources<
+  TData = Awaited<ReturnType<typeof listMeasurementResources>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListMeasurementResourcesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMeasurementResources>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMeasurementResourcesQueryOptions(
+    orgId,
+    params,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListMeasurementResourcesQueryOptions(orgId,params,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-
-
-
-
-
 
 /**
  * @summary Create a measurement resource
  */
-export const getCreateMeasurementResourceUrl = (orgId: number,) => {
+export const getCreateMeasurementResourceUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/measurement-resources`;
+};
 
+export const createMeasurementResource = async (
+  orgId: number,
+  createMeasurementResourceBody: CreateMeasurementResourceBody,
+  options?: RequestInit,
+): Promise<MeasurementResource> => {
+  return customFetch<MeasurementResource>(
+    getCreateMeasurementResourceUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createMeasurementResourceBody),
+    },
+  );
+};
 
+export const getCreateMeasurementResourceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMeasurementResource>>,
+    TError,
+    { orgId: number; data: BodyType<CreateMeasurementResourceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createMeasurementResource>>,
+  TError,
+  { orgId: number; data: BodyType<CreateMeasurementResourceBody> },
+  TContext
+> => {
+  const mutationKey = ["createMeasurementResource"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createMeasurementResource>>,
+    { orgId: number; data: BodyType<CreateMeasurementResourceBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
 
-  return `/api/organizations/${orgId}/measurement-resources`
-}
+    return createMeasurementResource(orgId, data, requestOptions);
+  };
 
-export const createMeasurementResource = async (orgId: number,
-    createMeasurementResourceBody: CreateMeasurementResourceBody, options?: RequestInit): Promise<MeasurementResource> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-  return customFetch<MeasurementResource>(getCreateMeasurementResourceUrl(orgId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      createMeasurementResourceBody,)
-  }
-);}
+export type CreateMeasurementResourceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createMeasurementResource>>
+>;
+export type CreateMeasurementResourceMutationBody =
+  BodyType<CreateMeasurementResourceBody>;
+export type CreateMeasurementResourceMutationError = ErrorType<unknown>;
 
-
-
-
-export const getCreateMeasurementResourceMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMeasurementResource>>, TError,{orgId: number;data: BodyType<CreateMeasurementResourceBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createMeasurementResource>>, TError,{orgId: number;data: BodyType<CreateMeasurementResourceBody>}, TContext> => {
-
-const mutationKey = ['createMeasurementResource'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createMeasurementResource>>, {orgId: number;data: BodyType<CreateMeasurementResourceBody>}> = (props) => {
-          const {orgId,data} = props ?? {};
-
-          return  createMeasurementResource(orgId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateMeasurementResourceMutationResult = NonNullable<Awaited<ReturnType<typeof createMeasurementResource>>>
-    export type CreateMeasurementResourceMutationBody = BodyType<CreateMeasurementResourceBody>
-    export type CreateMeasurementResourceMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Create a measurement resource
  */
-export const useCreateMeasurementResource = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMeasurementResource>>, TError,{orgId: number;data: BodyType<CreateMeasurementResourceBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createMeasurementResource>>,
-        TError,
-        {orgId: number;data: BodyType<CreateMeasurementResourceBody>},
-        TContext
-      > => {
-      return useMutation(getCreateMeasurementResourceMutationOptions(options));
-    }
+export const useCreateMeasurementResource = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMeasurementResource>>,
+    TError,
+    { orgId: number; data: BodyType<CreateMeasurementResourceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createMeasurementResource>>,
+  TError,
+  { orgId: number; data: BodyType<CreateMeasurementResourceBody> },
+  TContext
+> => {
+  return useMutation(getCreateMeasurementResourceMutationOptions(options));
+};
 
 /**
  * @summary Update a measurement resource
  */
-export const getUpdateMeasurementResourceUrl = (orgId: number,
-    resourceId: number,) => {
+export const getUpdateMeasurementResourceUrl = (
+  orgId: number,
+  resourceId: number,
+) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}`;
+};
 
+export const updateMeasurementResource = async (
+  orgId: number,
+  resourceId: number,
+  updateMeasurementResourceBody: UpdateMeasurementResourceBody,
+  options?: RequestInit,
+): Promise<MeasurementResource> => {
+  return customFetch<MeasurementResource>(
+    getUpdateMeasurementResourceUrl(orgId, resourceId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateMeasurementResourceBody),
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}`
-}
-
-export const updateMeasurementResource = async (orgId: number,
-    resourceId: number,
-    updateMeasurementResourceBody: UpdateMeasurementResourceBody, options?: RequestInit): Promise<MeasurementResource> => {
-
-  return customFetch<MeasurementResource>(getUpdateMeasurementResourceUrl(orgId,resourceId),
+export const getUpdateMeasurementResourceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMeasurementResource>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      data: BodyType<UpdateMeasurementResourceBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMeasurementResource>>,
+  TError,
   {
-    ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      updateMeasurementResourceBody,)
-  }
-);}
+    orgId: number;
+    resourceId: number;
+    data: BodyType<UpdateMeasurementResourceBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateMeasurementResource"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMeasurementResource>>,
+    {
+      orgId: number;
+      resourceId: number;
+      data: BodyType<UpdateMeasurementResourceBody>;
+    }
+  > = (props) => {
+    const { orgId, resourceId, data } = props ?? {};
 
+    return updateMeasurementResource(orgId, resourceId, data, requestOptions);
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
-export const getUpdateMeasurementResourceMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMeasurementResource>>, TError,{orgId: number;resourceId: number;data: BodyType<UpdateMeasurementResourceBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateMeasurementResource>>, TError,{orgId: number;resourceId: number;data: BodyType<UpdateMeasurementResourceBody>}, TContext> => {
+export type UpdateMeasurementResourceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMeasurementResource>>
+>;
+export type UpdateMeasurementResourceMutationBody =
+  BodyType<UpdateMeasurementResourceBody>;
+export type UpdateMeasurementResourceMutationError = ErrorType<unknown>;
 
-const mutationKey = ['updateMeasurementResource'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMeasurementResource>>, {orgId: number;resourceId: number;data: BodyType<UpdateMeasurementResourceBody>}> = (props) => {
-          const {orgId,resourceId,data} = props ?? {};
-
-          return  updateMeasurementResource(orgId,resourceId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type UpdateMeasurementResourceMutationResult = NonNullable<Awaited<ReturnType<typeof updateMeasurementResource>>>
-    export type UpdateMeasurementResourceMutationBody = BodyType<UpdateMeasurementResourceBody>
-    export type UpdateMeasurementResourceMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Update a measurement resource
  */
-export const useUpdateMeasurementResource = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMeasurementResource>>, TError,{orgId: number;resourceId: number;data: BodyType<UpdateMeasurementResourceBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof updateMeasurementResource>>,
-        TError,
-        {orgId: number;resourceId: number;data: BodyType<UpdateMeasurementResourceBody>},
-        TContext
-      > => {
-      return useMutation(getUpdateMeasurementResourceMutationOptions(options));
-    }
+export const useUpdateMeasurementResource = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMeasurementResource>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      data: BodyType<UpdateMeasurementResourceBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMeasurementResource>>,
+  TError,
+  {
+    orgId: number;
+    resourceId: number;
+    data: BodyType<UpdateMeasurementResourceBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateMeasurementResourceMutationOptions(options));
+};
 
 /**
  * @summary Delete a measurement resource
  */
-export const getDeleteMeasurementResourceUrl = (orgId: number,
-    resourceId: number,) => {
+export const getDeleteMeasurementResourceUrl = (
+  orgId: number,
+  resourceId: number,
+) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}`;
+};
 
-
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}`
-}
-
-export const deleteMeasurementResource = async (orgId: number,
-    resourceId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteMeasurementResourceUrl(orgId,resourceId),
-  {
+export const deleteMeasurementResource = async (
+  orgId: number,
+  resourceId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteMeasurementResourceUrl(orgId, resourceId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
+export const getDeleteMeasurementResourceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMeasurementResource>>,
+    TError,
+    { orgId: number; resourceId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMeasurementResource>>,
+  TError,
+  { orgId: number; resourceId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteMeasurementResource"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
-  }
-);}
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMeasurementResource>>,
+    { orgId: number; resourceId: number }
+  > = (props) => {
+    const { orgId, resourceId } = props ?? {};
 
+    return deleteMeasurementResource(orgId, resourceId, requestOptions);
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
+export type DeleteMeasurementResourceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMeasurementResource>>
+>;
 
-export const getDeleteMeasurementResourceMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResource>>, TError,{orgId: number;resourceId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResource>>, TError,{orgId: number;resourceId: number}, TContext> => {
+export type DeleteMeasurementResourceMutationError = ErrorType<unknown>;
 
-const mutationKey = ['deleteMeasurementResource'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMeasurementResource>>, {orgId: number;resourceId: number}> = (props) => {
-          const {orgId,resourceId} = props ?? {};
-
-          return  deleteMeasurementResource(orgId,resourceId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteMeasurementResourceMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMeasurementResource>>>
-
-    export type DeleteMeasurementResourceMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Delete a measurement resource
  */
-export const useDeleteMeasurementResource = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResource>>, TError,{orgId: number;resourceId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteMeasurementResource>>,
-        TError,
-        {orgId: number;resourceId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteMeasurementResourceMutationOptions(options));
-    }
+export const useDeleteMeasurementResource = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMeasurementResource>>,
+    TError,
+    { orgId: number; resourceId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMeasurementResource>>,
+  TError,
+  { orgId: number; resourceId: number },
+  TContext
+> => {
+  return useMutation(getDeleteMeasurementResourceMutationOptions(options));
+};
 
 /**
  * @summary List calibrations for a resource
  */
-export const getListMeasurementResourceCalibrationsUrl = (orgId: number,
-    resourceId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations`
-}
-
-export const listMeasurementResourceCalibrations = async (orgId: number,
-    resourceId: number, options?: RequestInit): Promise<MeasurementResourceCalibration[]> => {
-
-  return customFetch<MeasurementResourceCalibration[]>(getListMeasurementResourceCalibrationsUrl(orgId,resourceId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListMeasurementResourceCalibrationsQueryKey = (orgId: number,
-    resourceId: number,) => {
-    return [
-    `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations`
-    ] as const;
-    }
-
-
-export const getListMeasurementResourceCalibrationsQueryOptions = <TData = Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>, TError = ErrorType<unknown>>(orgId: number,
-    resourceId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListMeasurementResourceCalibrationsUrl = (
+  orgId: number,
+  resourceId: number,
 ) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations`;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const listMeasurementResourceCalibrations = async (
+  orgId: number,
+  resourceId: number,
+  options?: RequestInit,
+): Promise<MeasurementResourceCalibration[]> => {
+  return customFetch<MeasurementResourceCalibration[]>(
+    getListMeasurementResourceCalibrationsUrl(orgId, resourceId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
 
-  const queryKey =  queryOptions?.queryKey ?? getListMeasurementResourceCalibrationsQueryKey(orgId,resourceId);
+export const getListMeasurementResourceCalibrationsQueryKey = (
+  orgId: number,
+  resourceId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations`,
+  ] as const;
+};
 
+export const getListMeasurementResourceCalibrationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  resourceId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListMeasurementResourceCalibrationsQueryKey(orgId, resourceId);
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>> = ({ signal }) => listMeasurementResourceCalibrations(orgId,resourceId, { signal, ...requestOptions });
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>
+  > = ({ signal }) =>
+    listMeasurementResourceCalibrations(orgId, resourceId, {
+      signal,
+      ...requestOptions,
+    });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && resourceId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId && resourceId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListMeasurementResourceCalibrationsQueryResult = NonNullable<Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>>
-export type ListMeasurementResourceCalibrationsQueryError = ErrorType<unknown>
-
+export type ListMeasurementResourceCalibrationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>
+>;
+export type ListMeasurementResourceCalibrationsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List calibrations for a resource
  */
 
-export function useListMeasurementResourceCalibrations<TData = Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>, TError = ErrorType<unknown>>(
- orgId: number,
-    resourceId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListMeasurementResourceCalibrations<
+  TData = Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  resourceId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMeasurementResourceCalibrationsQueryOptions(
+    orgId,
+    resourceId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListMeasurementResourceCalibrationsQueryOptions(orgId,resourceId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
-
-
-
-
-
-
 /**
  * @summary Record a calibration
  */
-export const getCreateMeasurementResourceCalibrationUrl = (orgId: number,
-    resourceId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations`
-}
-
-export const createMeasurementResourceCalibration = async (orgId: number,
-    resourceId: number,
-    createMeasurementResourceCalibrationBody: CreateMeasurementResourceCalibrationBody, options?: RequestInit): Promise<MeasurementResourceCalibration> => {
-
-  return customFetch<MeasurementResourceCalibration>(getCreateMeasurementResourceCalibrationUrl(orgId,resourceId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      createMeasurementResourceCalibrationBody,)
-  }
-);}
-
-
-
-
-export const getCreateMeasurementResourceCalibrationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMeasurementResourceCalibration>>, TError,{orgId: number;resourceId: number;data: BodyType<CreateMeasurementResourceCalibrationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createMeasurementResourceCalibration>>, TError,{orgId: number;resourceId: number;data: BodyType<CreateMeasurementResourceCalibrationBody>}, TContext> => {
-
-const mutationKey = ['createMeasurementResourceCalibration'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createMeasurementResourceCalibration>>, {orgId: number;resourceId: number;data: BodyType<CreateMeasurementResourceCalibrationBody>}> = (props) => {
-          const {orgId,resourceId,data} = props ?? {};
-
-          return  createMeasurementResourceCalibration(orgId,resourceId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateMeasurementResourceCalibrationMutationResult = NonNullable<Awaited<ReturnType<typeof createMeasurementResourceCalibration>>>
-    export type CreateMeasurementResourceCalibrationMutationBody = BodyType<CreateMeasurementResourceCalibrationBody>
-    export type CreateMeasurementResourceCalibrationMutationError = ErrorType<unknown>
-
-    /**
- * @summary Record a calibration
- */
-export const useCreateMeasurementResourceCalibration = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMeasurementResourceCalibration>>, TError,{orgId: number;resourceId: number;data: BodyType<CreateMeasurementResourceCalibrationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createMeasurementResourceCalibration>>,
-        TError,
-        {orgId: number;resourceId: number;data: BodyType<CreateMeasurementResourceCalibrationBody>},
-        TContext
-      > => {
-      return useMutation(getCreateMeasurementResourceCalibrationMutationOptions(options));
-    }
-
-/**
- * @summary Delete a calibration record
- */
-export const getDeleteMeasurementResourceCalibrationUrl = (orgId: number,
-    resourceId: number,
-    calibrationId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}`
-}
-
-export const deleteMeasurementResourceCalibration = async (orgId: number,
-    resourceId: number,
-    calibrationId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteMeasurementResourceCalibrationUrl(orgId,resourceId,calibrationId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
-
-
-
-
-export const getDeleteMeasurementResourceCalibrationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>, TError,{orgId: number;resourceId: number;calibrationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>, TError,{orgId: number;resourceId: number;calibrationId: number}, TContext> => {
-
-const mutationKey = ['deleteMeasurementResourceCalibration'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>, {orgId: number;resourceId: number;calibrationId: number}> = (props) => {
-          const {orgId,resourceId,calibrationId} = props ?? {};
-
-          return  deleteMeasurementResourceCalibration(orgId,resourceId,calibrationId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteMeasurementResourceCalibrationMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>>
-
-    export type DeleteMeasurementResourceCalibrationMutationError = ErrorType<unknown>
-
-    /**
- * @summary Delete a calibration record
- */
-export const useDeleteMeasurementResourceCalibration = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>, TError,{orgId: number;resourceId: number;calibrationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>,
-        TError,
-        {orgId: number;resourceId: number;calibrationId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteMeasurementResourceCalibrationMutationOptions(options));
-    }
-
-/**
- * @summary List attachments for a calibration
- */
-export const getListMeasurementResourceAttachmentsUrl = (orgId: number,
-    resourceId: number,
-    calibrationId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments`
-}
-
-export const listMeasurementResourceAttachments = async (orgId: number,
-    resourceId: number,
-    calibrationId: number, options?: RequestInit): Promise<MeasurementResourceAttachment[]> => {
-
-  return customFetch<MeasurementResourceAttachment[]>(getListMeasurementResourceAttachmentsUrl(orgId,resourceId,calibrationId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListMeasurementResourceAttachmentsQueryKey = (orgId: number,
-    resourceId: number,
-    calibrationId: number,) => {
-    return [
-    `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments`
-    ] as const;
-    }
-
-
-export const getListMeasurementResourceAttachmentsQueryOptions = <TData = Awaited<ReturnType<typeof listMeasurementResourceAttachments>>, TError = ErrorType<unknown>>(orgId: number,
-    resourceId: number,
-    calibrationId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResourceAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getCreateMeasurementResourceCalibrationUrl = (
+  orgId: number,
+  resourceId: number,
 ) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations`;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const createMeasurementResourceCalibration = async (
+  orgId: number,
+  resourceId: number,
+  createMeasurementResourceCalibrationBody: CreateMeasurementResourceCalibrationBody,
+  options?: RequestInit,
+): Promise<MeasurementResourceCalibration> => {
+  return customFetch<MeasurementResourceCalibration>(
+    getCreateMeasurementResourceCalibrationUrl(orgId, resourceId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createMeasurementResourceCalibrationBody),
+    },
+  );
+};
 
-  const queryKey =  queryOptions?.queryKey ?? getListMeasurementResourceAttachmentsQueryKey(orgId,resourceId,calibrationId);
+export const getCreateMeasurementResourceCalibrationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMeasurementResourceCalibration>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      data: BodyType<CreateMeasurementResourceCalibrationBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createMeasurementResourceCalibration>>,
+  TError,
+  {
+    orgId: number;
+    resourceId: number;
+    data: BodyType<CreateMeasurementResourceCalibrationBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createMeasurementResourceCalibration"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createMeasurementResourceCalibration>>,
+    {
+      orgId: number;
+      resourceId: number;
+      data: BodyType<CreateMeasurementResourceCalibrationBody>;
+    }
+  > = (props) => {
+    const { orgId, resourceId, data } = props ?? {};
 
+    return createMeasurementResourceCalibration(
+      orgId,
+      resourceId,
+      data,
+      requestOptions,
+    );
+  };
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMeasurementResourceAttachments>>> = ({ signal }) => listMeasurementResourceAttachments(orgId,resourceId,calibrationId, { signal, ...requestOptions });
+  return { mutationFn, ...mutationOptions };
+};
 
+export type CreateMeasurementResourceCalibrationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createMeasurementResourceCalibration>>
+>;
+export type CreateMeasurementResourceCalibrationMutationBody =
+  BodyType<CreateMeasurementResourceCalibrationBody>;
+export type CreateMeasurementResourceCalibrationMutationError =
+  ErrorType<unknown>;
 
+/**
+ * @summary Record a calibration
+ */
+export const useCreateMeasurementResourceCalibration = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMeasurementResourceCalibration>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      data: BodyType<CreateMeasurementResourceCalibrationBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createMeasurementResourceCalibration>>,
+  TError,
+  {
+    orgId: number;
+    resourceId: number;
+    data: BodyType<CreateMeasurementResourceCalibrationBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateMeasurementResourceCalibrationMutationOptions(options),
+  );
+};
 
+/**
+ * @summary Delete a calibration record
+ */
+export const getDeleteMeasurementResourceCalibrationUrl = (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}`;
+};
 
+export const deleteMeasurementResourceCalibration = async (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteMeasurementResourceCalibrationUrl(
+      orgId,
+      resourceId,
+      calibrationId,
+    ),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
-   return  { queryKey, queryFn, enabled: !!(orgId && resourceId && calibrationId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResourceAttachments>>, TError, TData> & { queryKey: QueryKey }
-}
+export const getDeleteMeasurementResourceCalibrationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>,
+    TError,
+    { orgId: number; resourceId: number; calibrationId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>,
+  TError,
+  { orgId: number; resourceId: number; calibrationId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteMeasurementResourceCalibration"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
-export type ListMeasurementResourceAttachmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listMeasurementResourceAttachments>>>
-export type ListMeasurementResourceAttachmentsQueryError = ErrorType<unknown>
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>,
+    { orgId: number; resourceId: number; calibrationId: number }
+  > = (props) => {
+    const { orgId, resourceId, calibrationId } = props ?? {};
 
+    return deleteMeasurementResourceCalibration(
+      orgId,
+      resourceId,
+      calibrationId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMeasurementResourceCalibrationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>
+>;
+
+export type DeleteMeasurementResourceCalibrationMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Delete a calibration record
+ */
+export const useDeleteMeasurementResourceCalibration = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>,
+    TError,
+    { orgId: number; resourceId: number; calibrationId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>,
+  TError,
+  { orgId: number; resourceId: number; calibrationId: number },
+  TContext
+> => {
+  return useMutation(
+    getDeleteMeasurementResourceCalibrationMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List attachments for a calibration
+ */
+export const getListMeasurementResourceAttachmentsUrl = (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments`;
+};
+
+export const listMeasurementResourceAttachments = async (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+  options?: RequestInit,
+): Promise<MeasurementResourceAttachment[]> => {
+  return customFetch<MeasurementResourceAttachment[]>(
+    getListMeasurementResourceAttachmentsUrl(orgId, resourceId, calibrationId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListMeasurementResourceAttachmentsQueryKey = (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments`,
+  ] as const;
+};
+
+export const getListMeasurementResourceAttachmentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMeasurementResourceAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMeasurementResourceAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListMeasurementResourceAttachmentsQueryKey(
+      orgId,
+      resourceId,
+      calibrationId,
+    );
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMeasurementResourceAttachments>>
+  > = ({ signal }) =>
+    listMeasurementResourceAttachments(orgId, resourceId, calibrationId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && resourceId && calibrationId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMeasurementResourceAttachments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMeasurementResourceAttachmentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMeasurementResourceAttachments>>
+>;
+export type ListMeasurementResourceAttachmentsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List attachments for a calibration
  */
 
-export function useListMeasurementResourceAttachments<TData = Awaited<ReturnType<typeof listMeasurementResourceAttachments>>, TError = ErrorType<unknown>>(
- orgId: number,
-    resourceId: number,
-    calibrationId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResourceAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListMeasurementResourceAttachments<
+  TData = Awaited<ReturnType<typeof listMeasurementResourceAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMeasurementResourceAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMeasurementResourceAttachmentsQueryOptions(
+    orgId,
+    resourceId,
+    calibrationId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListMeasurementResourceAttachmentsQueryOptions(orgId,resourceId,calibrationId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
+/**
+ * @summary Add attachment to a calibration
+ */
+export const getAddMeasurementResourceAttachmentUrl = (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments`;
+};
 
+export const addMeasurementResourceAttachment = async (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+  addMeasurementResourceAttachmentBody: AddMeasurementResourceAttachmentBody,
+  options?: RequestInit,
+): Promise<MeasurementResourceAttachment> => {
+  return customFetch<MeasurementResourceAttachment>(
+    getAddMeasurementResourceAttachmentUrl(orgId, resourceId, calibrationId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(addMeasurementResourceAttachmentBody),
+    },
+  );
+};
 
+export const getAddMeasurementResourceAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addMeasurementResourceAttachment>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      calibrationId: number;
+      data: BodyType<AddMeasurementResourceAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addMeasurementResourceAttachment>>,
+  TError,
+  {
+    orgId: number;
+    resourceId: number;
+    calibrationId: number;
+    data: BodyType<AddMeasurementResourceAttachmentBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["addMeasurementResourceAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addMeasurementResourceAttachment>>,
+    {
+      orgId: number;
+      resourceId: number;
+      calibrationId: number;
+      data: BodyType<AddMeasurementResourceAttachmentBody>;
+    }
+  > = (props) => {
+    const { orgId, resourceId, calibrationId, data } = props ?? {};
 
+    return addMeasurementResourceAttachment(
+      orgId,
+      resourceId,
+      calibrationId,
+      data,
+      requestOptions,
+    );
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddMeasurementResourceAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addMeasurementResourceAttachment>>
+>;
+export type AddMeasurementResourceAttachmentMutationBody =
+  BodyType<AddMeasurementResourceAttachmentBody>;
+export type AddMeasurementResourceAttachmentMutationError = ErrorType<unknown>;
 
 /**
  * @summary Add attachment to a calibration
  */
-export const getAddMeasurementResourceAttachmentUrl = (orgId: number,
-    resourceId: number,
-    calibrationId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments`
-}
-
-export const addMeasurementResourceAttachment = async (orgId: number,
-    resourceId: number,
-    calibrationId: number,
-    addMeasurementResourceAttachmentBody: AddMeasurementResourceAttachmentBody, options?: RequestInit): Promise<MeasurementResourceAttachment> => {
-
-  return customFetch<MeasurementResourceAttachment>(getAddMeasurementResourceAttachmentUrl(orgId,resourceId,calibrationId),
+export const useAddMeasurementResourceAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addMeasurementResourceAttachment>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      calibrationId: number;
+      data: BodyType<AddMeasurementResourceAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addMeasurementResourceAttachment>>,
+  TError,
   {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      addMeasurementResourceAttachmentBody,)
-  }
-);}
-
-
-
-
-export const getAddMeasurementResourceAttachmentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addMeasurementResourceAttachment>>, TError,{orgId: number;resourceId: number;calibrationId: number;data: BodyType<AddMeasurementResourceAttachmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof addMeasurementResourceAttachment>>, TError,{orgId: number;resourceId: number;calibrationId: number;data: BodyType<AddMeasurementResourceAttachmentBody>}, TContext> => {
-
-const mutationKey = ['addMeasurementResourceAttachment'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addMeasurementResourceAttachment>>, {orgId: number;resourceId: number;calibrationId: number;data: BodyType<AddMeasurementResourceAttachmentBody>}> = (props) => {
-          const {orgId,resourceId,calibrationId,data} = props ?? {};
-
-          return  addMeasurementResourceAttachment(orgId,resourceId,calibrationId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type AddMeasurementResourceAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof addMeasurementResourceAttachment>>>
-    export type AddMeasurementResourceAttachmentMutationBody = BodyType<AddMeasurementResourceAttachmentBody>
-    export type AddMeasurementResourceAttachmentMutationError = ErrorType<unknown>
-
-    /**
- * @summary Add attachment to a calibration
- */
-export const useAddMeasurementResourceAttachment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addMeasurementResourceAttachment>>, TError,{orgId: number;resourceId: number;calibrationId: number;data: BodyType<AddMeasurementResourceAttachmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof addMeasurementResourceAttachment>>,
-        TError,
-        {orgId: number;resourceId: number;calibrationId: number;data: BodyType<AddMeasurementResourceAttachmentBody>},
-        TContext
-      > => {
-      return useMutation(getAddMeasurementResourceAttachmentMutationOptions(options));
-    }
+    orgId: number;
+    resourceId: number;
+    calibrationId: number;
+    data: BodyType<AddMeasurementResourceAttachmentBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getAddMeasurementResourceAttachmentMutationOptions(options),
+  );
+};
 
 /**
  * @summary Delete an attachment
  */
-export const getDeleteMeasurementResourceAttachmentUrl = (orgId: number,
-    resourceId: number,
-    calibrationId: number,
-    attachmentId: number,) => {
+export const getDeleteMeasurementResourceAttachmentUrl = (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+  attachmentId: number,
+) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments/${attachmentId}`;
+};
 
+export const deleteMeasurementResourceAttachment = async (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+  attachmentId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteMeasurementResourceAttachmentUrl(
+      orgId,
+      resourceId,
+      calibrationId,
+      attachmentId,
+    ),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments/${attachmentId}`
-}
-
-export const deleteMeasurementResourceAttachment = async (orgId: number,
-    resourceId: number,
-    calibrationId: number,
-    attachmentId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteMeasurementResourceAttachmentUrl(orgId,resourceId,calibrationId,attachmentId),
+export const getDeleteMeasurementResourceAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      calibrationId: number;
+      attachmentId: number;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>,
+  TError,
   {
-    ...options,
-    method: 'DELETE'
+    orgId: number;
+    resourceId: number;
+    calibrationId: number;
+    attachmentId: number;
+  },
+  TContext
+> => {
+  const mutationKey = ["deleteMeasurementResourceAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>,
+    {
+      orgId: number;
+      resourceId: number;
+      calibrationId: number;
+      attachmentId: number;
+    }
+  > = (props) => {
+    const { orgId, resourceId, calibrationId, attachmentId } = props ?? {};
 
-  }
-);}
+    return deleteMeasurementResourceAttachment(
+      orgId,
+      resourceId,
+      calibrationId,
+      attachmentId,
+      requestOptions,
+    );
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
+export type DeleteMeasurementResourceAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>
+>;
 
+export type DeleteMeasurementResourceAttachmentMutationError =
+  ErrorType<unknown>;
 
-export const getDeleteMeasurementResourceAttachmentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>, TError,{orgId: number;resourceId: number;calibrationId: number;attachmentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>, TError,{orgId: number;resourceId: number;calibrationId: number;attachmentId: number}, TContext> => {
-
-const mutationKey = ['deleteMeasurementResourceAttachment'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>, {orgId: number;resourceId: number;calibrationId: number;attachmentId: number}> = (props) => {
-          const {orgId,resourceId,calibrationId,attachmentId} = props ?? {};
-
-          return  deleteMeasurementResourceAttachment(orgId,resourceId,calibrationId,attachmentId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteMeasurementResourceAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>>
-
-    export type DeleteMeasurementResourceAttachmentMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Delete an attachment
  */
-export const useDeleteMeasurementResourceAttachment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>, TError,{orgId: number;resourceId: number;calibrationId: number;attachmentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>,
-        TError,
-        {orgId: number;resourceId: number;calibrationId: number;attachmentId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteMeasurementResourceAttachmentMutationOptions(options));
-    }
-
+export const useDeleteMeasurementResourceAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      calibrationId: number;
+      attachmentId: number;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>,
+  TError,
+  {
+    orgId: number;
+    resourceId: number;
+    calibrationId: number;
+    attachmentId: number;
+  },
+  TContext
+> => {
+  return useMutation(
+    getDeleteMeasurementResourceAttachmentMutationOptions(options),
+  );
+};

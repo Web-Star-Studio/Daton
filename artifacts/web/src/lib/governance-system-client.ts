@@ -1,22 +1,39 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  getGetServiceExecutionCycleQueryKey,
+  getGetServiceExecutionModelQueryKey,
   getGetKnowledgeAssetQueryKey,
   getGetDocumentQueryKey,
   getGetInternalAuditQueryKey,
   getListKnowledgeAssetsQueryKey,
   getGetManagementReviewQueryKey,
   getGetNonconformityQueryKey,
+  getListServiceExecutionCyclesQueryKey,
+  getListServiceExecutionModelsQueryKey,
   getGetSgqProcessQueryKey,
+  useCreateServiceExecutionCycle,
+  useCreateServiceExecutionModel,
+  useCreateServiceNonconformingOutput,
+  useCreateServicePostDeliveryEvent,
+  useCreateServiceSpecialValidationEvent,
+  useCreateServiceThirdPartyProperty,
   useCreateKnowledgeAsset,
   getListDocumentCommunicationPlansQueryKey,
   getListInternalAuditsQueryKey,
   useDeleteKnowledgeAsset,
+  useGetServiceExecutionCycle,
+  useGetServiceExecutionModel,
   useGetKnowledgeAsset,
   getListManagementReviewsQueryKey,
   useListKnowledgeAssets,
   getListNonconformitiesQueryKey,
+  useListServiceExecutionCycles,
+  useListServiceExecutionModels,
   getListSgqProcessesQueryKey,
   listSgqProcesses,
+  useReleaseServiceExecutionCycle,
+  useUpsertServicePreservationDelivery,
+  useUpsertServiceSpecialValidationProfile,
   useUpdateKnowledgeAsset,
   useCreateCorrectiveAction,
   useCreateDocumentCommunicationPlan,
@@ -51,9 +68,21 @@ import {
   useUpdateManagementReviewInput,
   useUpdateManagementReviewOutput,
   useUpdateNonconformity,
+  useUpdateServiceExecutionCycle,
+  useUpdateServiceExecutionModel,
+  useUpdateServiceNonconformingOutput,
+  useUpdateServicePostDeliveryEvent,
+  useUpdateServiceThirdPartyProperty,
   useUpdateSgqProcess,
+  type CreateServiceReleaseRecordBody,
   type CorrectiveAction,
   type CreateCorrectiveActionBody,
+  type CreateServiceExecutionCycleBody,
+  type CreateServiceExecutionModelBody,
+  type CreateServiceNonconformingOutputBody,
+  type CreateServicePostDeliveryEventBody,
+  type CreateServiceSpecialValidationEventBody,
+  type CreateServiceThirdPartyPropertyBody,
   type CreateInternalAuditBody,
   type CreateKnowledgeAssetBody,
   type CreateInternalAuditFindingBody,
@@ -78,6 +107,8 @@ import {
   type ListInternalAuditsParams,
   type ListManagementReviewsParams,
   type ListNonconformitiesParams,
+  type ListServiceExecutionCyclesParams,
+  type ListServiceExecutionModelsParams,
   type ListSgqProcessesParams,
   type ManagementReviewDetail,
   type ManagementReviewInput,
@@ -89,7 +120,22 @@ import {
   type PaginatedKnowledgeAssets,
   type PaginatedManagementReviews,
   type PaginatedNonconformities,
+  type PaginatedServiceExecutionCycles,
+  type PaginatedServiceExecutionModels,
   type PaginatedSgqProcesses,
+  type ServiceExecutionCycleCheckpoint,
+  type ServiceExecutionCycleDetail,
+  type ServiceExecutionCycleListItem as ServiceExecutionCycleSummary,
+  type ServiceExecutionDocumentLink,
+  type ServiceExecutionModelCheckpoint,
+  type ServiceExecutionModelDetail,
+  type ServiceExecutionModelListItem as ServiceExecutionModelSummary,
+  type ServiceNonconformingOutput,
+  type ServicePostDeliveryEvent,
+  type ServicePreservationDeliveryRecord,
+  type ServiceReleaseRecord,
+  type ServiceSpecialValidationProfile,
+  type ServiceThirdPartyProperty,
   type SgqProcessDetail,
   type SgqProcessInteraction,
   type SgqProcessListItem as SgqProcessSummary,
@@ -103,7 +149,14 @@ import {
   type UpdateManagementReviewInputBody,
   type UpdateManagementReviewOutputBody,
   type UpdateNonconformityBody,
+  type UpdateServiceExecutionCycleBody,
+  type UpdateServiceExecutionModelBody,
+  type UpdateServiceNonconformingOutputBody,
+  type UpdateServicePostDeliveryEventBody,
   type UpdateSgqProcessBody,
+  type UpsertServicePreservationDeliveryBody,
+  type UpsertServiceSpecialValidationProfileBody,
+  type UpdateServiceThirdPartyPropertyBody,
 } from "@workspace/api-client-react";
 
 export type {
@@ -125,6 +178,19 @@ export type {
   ManagementReviewSummary,
   NonconformityDetail,
   NonconformitySummary,
+  ServiceExecutionCycleCheckpoint,
+  ServiceExecutionCycleDetail,
+  ServiceExecutionCycleSummary,
+  ServiceExecutionDocumentLink,
+  ServiceExecutionModelCheckpoint,
+  ServiceExecutionModelDetail,
+  ServiceExecutionModelSummary,
+  ServiceNonconformingOutput,
+  ServicePostDeliveryEvent,
+  ServicePreservationDeliveryRecord,
+  ServiceReleaseRecord,
+  ServiceSpecialValidationProfile,
+  ServiceThirdPartyProperty,
   SgqProcessDetail,
   SgqProcessInteraction,
   SgqProcessRevision,
@@ -142,6 +208,36 @@ async function invalidateGovernanceProcesses(queryClient: ReturnType<typeof useQ
   await queryClient.invalidateQueries({ queryKey: getListSgqProcessesQueryKey(orgId) });
   if (processId) {
     await queryClient.invalidateQueries({ queryKey: getGetSgqProcessQueryKey(orgId, processId) });
+  }
+}
+
+async function invalidateGovernanceServiceExecutionModels(
+  queryClient: ReturnType<typeof useQueryClient>,
+  orgId: number,
+  modelId?: number,
+) {
+  await queryClient.invalidateQueries({
+    queryKey: getListServiceExecutionModelsQueryKey(orgId),
+  });
+  if (modelId) {
+    await queryClient.invalidateQueries({
+      queryKey: getGetServiceExecutionModelQueryKey(orgId, modelId),
+    });
+  }
+}
+
+async function invalidateGovernanceServiceExecutionCycles(
+  queryClient: ReturnType<typeof useQueryClient>,
+  orgId: number,
+  cycleId?: number,
+) {
+  await queryClient.invalidateQueries({
+    queryKey: getListServiceExecutionCyclesQueryKey(orgId),
+  });
+  if (cycleId) {
+    await queryClient.invalidateQueries({
+      queryKey: getGetServiceExecutionCycleQueryKey(orgId, cycleId),
+    });
   }
 }
 
@@ -348,6 +444,322 @@ export function useSgqProcessLifecycleMutation(
     onSuccess: async (data) => {
       if (!orgId) return;
       await invalidateGovernanceProcesses(queryClient, orgId, data.id);
+    },
+  });
+}
+
+export function useServiceExecutionModels(
+  orgId?: number,
+  params?: ListServiceExecutionModelsParams,
+) {
+  return useListServiceExecutionModels(orgId ?? 0, params, {
+    query: {
+      enabled: !!orgId,
+      queryKey: getListServiceExecutionModelsQueryKey(orgId ?? 0, params),
+    },
+  });
+}
+
+export function useServiceExecutionModel(orgId?: number, modelId?: number) {
+  return useGetServiceExecutionModel(orgId ?? 0, modelId ?? 0, {
+    query: {
+      enabled: !!orgId && !!modelId,
+      queryKey: getGetServiceExecutionModelQueryKey(orgId ?? 0, modelId ?? 0),
+    },
+  });
+}
+
+export function useServiceExecutionModelMutation(orgId?: number, modelId?: number) {
+  const queryClient = useQueryClient();
+  const createMutation = useCreateServiceExecutionModel();
+  const updateMutation = useUpdateServiceExecutionModel();
+
+  return useMutation({
+    mutationFn: async (payload: {
+      method: "POST" | "PATCH";
+      body: CreateServiceExecutionModelBody | UpdateServiceExecutionModelBody;
+    }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      if (payload.method === "POST") {
+        return createMutation.mutateAsync({
+          orgId: validOrgId,
+          data: payload.body as CreateServiceExecutionModelBody,
+        });
+      }
+
+      const validModelId = assertNumberId(modelId, "Modelo");
+      return updateMutation.mutateAsync({
+        orgId: validOrgId,
+        modelId: validModelId,
+        data: payload.body as UpdateServiceExecutionModelBody,
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceServiceExecutionModels(queryClient, orgId, data.id);
+    },
+  });
+}
+
+export function useServiceExecutionCycles(
+  orgId?: number,
+  params?: ListServiceExecutionCyclesParams,
+) {
+  return useListServiceExecutionCycles(orgId ?? 0, params, {
+    query: {
+      enabled: !!orgId,
+      queryKey: getListServiceExecutionCyclesQueryKey(orgId ?? 0, params),
+    },
+  });
+}
+
+export function useServiceExecutionCycle(orgId?: number, cycleId?: number) {
+  return useGetServiceExecutionCycle(orgId ?? 0, cycleId ?? 0, {
+    query: {
+      enabled: !!orgId && !!cycleId,
+      queryKey: getGetServiceExecutionCycleQueryKey(orgId ?? 0, cycleId ?? 0),
+    },
+  });
+}
+
+export function useServiceExecutionCycleMutation(orgId?: number, cycleId?: number) {
+  const queryClient = useQueryClient();
+  const createMutation = useCreateServiceExecutionCycle();
+  const updateMutation = useUpdateServiceExecutionCycle();
+
+  return useMutation({
+    mutationFn: async (payload: {
+      method: "POST" | "PATCH";
+      body: CreateServiceExecutionCycleBody | UpdateServiceExecutionCycleBody;
+    }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      if (payload.method === "POST") {
+        return createMutation.mutateAsync({
+          orgId: validOrgId,
+          data: payload.body as CreateServiceExecutionCycleBody,
+        });
+      }
+
+      const validCycleId = assertNumberId(cycleId, "Ciclo");
+      return updateMutation.mutateAsync({
+        orgId: validOrgId,
+        cycleId: validCycleId,
+        data: payload.body as UpdateServiceExecutionCycleBody,
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceServiceExecutionCycles(queryClient, orgId, data.id);
+    },
+  });
+}
+
+export function useServiceExecutionReleaseMutation(orgId?: number, cycleId?: number) {
+  const queryClient = useQueryClient();
+  const releaseMutation = useReleaseServiceExecutionCycle();
+
+  return useMutation({
+    mutationFn: async (body: CreateServiceReleaseRecordBody) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const validCycleId = assertNumberId(cycleId, "Ciclo");
+      return releaseMutation.mutateAsync({
+        orgId: validOrgId,
+        cycleId: validCycleId,
+        data: body,
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceServiceExecutionCycles(queryClient, orgId, data.id);
+    },
+  });
+}
+
+export function useServiceNonconformingOutputMutation(
+  orgId?: number,
+  cycleId?: number,
+  outputId?: number,
+) {
+  const queryClient = useQueryClient();
+  const createMutation = useCreateServiceNonconformingOutput();
+  const updateMutation = useUpdateServiceNonconformingOutput();
+
+  return useMutation({
+    mutationFn: async (payload: {
+      method: "POST" | "PATCH";
+      body: CreateServiceNonconformingOutputBody | UpdateServiceNonconformingOutputBody;
+    }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const validCycleId = assertNumberId(cycleId, "Ciclo");
+      if (payload.method === "POST") {
+        return createMutation.mutateAsync({
+          orgId: validOrgId,
+          cycleId: validCycleId,
+          data: payload.body as CreateServiceNonconformingOutputBody,
+        });
+      }
+
+      const validOutputId = assertNumberId(outputId, "Saída não conforme");
+      return updateMutation.mutateAsync({
+        orgId: validOrgId,
+        cycleId: validCycleId,
+        outputId: validOutputId,
+        data: payload.body as UpdateServiceNonconformingOutputBody,
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceServiceExecutionCycles(queryClient, orgId, data.cycleId);
+    },
+  });
+}
+
+export function useServiceThirdPartyPropertyMutation(
+  orgId?: number,
+  cycleId?: number,
+  propertyId?: number,
+) {
+  const queryClient = useQueryClient();
+  const createMutation = useCreateServiceThirdPartyProperty();
+  const updateMutation = useUpdateServiceThirdPartyProperty();
+
+  return useMutation({
+    mutationFn: async (payload: {
+      method: "POST" | "PATCH";
+      body: CreateServiceThirdPartyPropertyBody | UpdateServiceThirdPartyPropertyBody;
+    }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const validCycleId = assertNumberId(cycleId, "Ciclo");
+      if (payload.method === "POST") {
+        return createMutation.mutateAsync({
+          orgId: validOrgId,
+          cycleId: validCycleId,
+          data: payload.body as CreateServiceThirdPartyPropertyBody,
+        });
+      }
+
+      const validPropertyId = assertNumberId(propertyId, "Propriedade de terceiros");
+      return updateMutation.mutateAsync({
+        orgId: validOrgId,
+        cycleId: validCycleId,
+        propertyId: validPropertyId,
+        data: payload.body as UpdateServiceThirdPartyPropertyBody,
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceServiceExecutionCycles(queryClient, orgId, data.cycleId);
+    },
+  });
+}
+
+export function useServicePreservationDeliveryMutation(orgId?: number, cycleId?: number) {
+  const queryClient = useQueryClient();
+  const upsertMutation = useUpsertServicePreservationDelivery();
+
+  return useMutation({
+    mutationFn: async (body: UpsertServicePreservationDeliveryBody) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const validCycleId = assertNumberId(cycleId, "Ciclo");
+      return upsertMutation.mutateAsync({
+        orgId: validOrgId,
+        cycleId: validCycleId,
+        data: body,
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceServiceExecutionCycles(queryClient, orgId, data.cycleId);
+    },
+  });
+}
+
+export function useServicePostDeliveryEventMutation(
+  orgId?: number,
+  cycleId?: number,
+  eventId?: number,
+) {
+  const queryClient = useQueryClient();
+  const createMutation = useCreateServicePostDeliveryEvent();
+  const updateMutation = useUpdateServicePostDeliveryEvent();
+
+  return useMutation({
+    mutationFn: async (payload: {
+      method: "POST" | "PATCH";
+      body: CreateServicePostDeliveryEventBody | UpdateServicePostDeliveryEventBody;
+    }) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const validCycleId = assertNumberId(cycleId, "Ciclo");
+      if (payload.method === "POST") {
+        return createMutation.mutateAsync({
+          orgId: validOrgId,
+          cycleId: validCycleId,
+          data: payload.body as CreateServicePostDeliveryEventBody,
+        });
+      }
+
+      const validEventId = assertNumberId(eventId, "Evento de pós-serviço");
+      return updateMutation.mutateAsync({
+        orgId: validOrgId,
+        cycleId: validCycleId,
+        eventId: validEventId,
+        data: payload.body as UpdateServicePostDeliveryEventBody,
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceServiceExecutionCycles(queryClient, orgId, data.cycleId);
+    },
+  });
+}
+
+export function useServiceSpecialValidationProfileMutation(orgId?: number, modelId?: number) {
+  const queryClient = useQueryClient();
+  const upsertMutation = useUpsertServiceSpecialValidationProfile();
+
+  return useMutation({
+    mutationFn: async (body: UpsertServiceSpecialValidationProfileBody) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const validModelId = assertNumberId(modelId, "Modelo");
+      return upsertMutation.mutateAsync({
+        orgId: validOrgId,
+        modelId: validModelId,
+        data: body,
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceServiceExecutionModels(queryClient, orgId, data.modelId);
+    },
+  });
+}
+
+export function useServiceSpecialValidationEventMutation(
+  orgId?: number,
+  modelId?: number,
+  profileId?: number,
+) {
+  const queryClient = useQueryClient();
+  const createMutation = useCreateServiceSpecialValidationEvent();
+
+  return useMutation({
+    mutationFn: async (body: CreateServiceSpecialValidationEventBody) => {
+      const validOrgId = assertNumberId(orgId, "Organização");
+      const validModelId = assertNumberId(modelId, "Modelo");
+      const validProfileId = assertNumberId(profileId, "Perfil de validação especial");
+      return createMutation.mutateAsync({
+        orgId: validOrgId,
+        modelId: validModelId,
+        profileId: validProfileId,
+        data: body,
+      });
+    },
+    onSuccess: async (data) => {
+      if (!orgId) return;
+      await invalidateGovernanceServiceExecutionModels(queryClient, orgId, data.modelId);
+      await queryClient.invalidateQueries({
+        queryKey: getListServiceExecutionCyclesQueryKey(orgId),
+      });
     },
   });
 }

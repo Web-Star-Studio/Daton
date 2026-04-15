@@ -256,6 +256,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           label: "Conhecimento Crítico",
           href: "/governanca/conhecimento-critico",
         });
+      } else if (normalizedLocation.startsWith("/governanca/execucao-controlada")) {
+        crumbs.push({
+          label: "Execução Controlada",
+          href: "/governanca/execucao-controlada",
+        });
       } else if (normalizedLocation.startsWith("/governanca/processos-sgq")) {
         crumbs.push({
           label: "Processos SGQ",
@@ -358,6 +363,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       label: "Gestão do Sistema",
       links: [
         { href: "/governanca/processos-sgq", label: "Processos SGQ" },
+        { href: "/governanca/execucao-controlada", label: "Execução Controlada" },
         { href: "/governanca/conhecimento-critico", label: "Conhecimento Crítico" },
         { href: "/governanca/auditorias", label: "Auditorias" },
         { href: "/governanca/nao-conformidades", label: "Não Conformidades" },

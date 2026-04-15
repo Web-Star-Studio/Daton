@@ -2493,6 +2493,510 @@ export interface UpdateSgqProcessBody {
   interactions?: SgqProcessInteractionInput[];
 }
 
+export type ServiceExecutionModelStatus =
+  (typeof ServiceExecutionModelStatus)[keyof typeof ServiceExecutionModelStatus];
+
+export const ServiceExecutionModelStatus = {
+  active: "active",
+  inactive: "inactive",
+} as const;
+
+export type ServiceExecutionCheckpointKind =
+  (typeof ServiceExecutionCheckpointKind)[keyof typeof ServiceExecutionCheckpointKind];
+
+export const ServiceExecutionCheckpointKind = {
+  checkpoint: "checkpoint",
+  preventive_control: "preventive_control",
+} as const;
+
+export type ServiceExecutionCycleStatus =
+  (typeof ServiceExecutionCycleStatus)[keyof typeof ServiceExecutionCycleStatus];
+
+export const ServiceExecutionCycleStatus = {
+  in_progress: "in_progress",
+  awaiting_release: "awaiting_release",
+  released: "released",
+  blocked: "blocked",
+} as const;
+
+export type ServiceExecutionCheckpointStatus =
+  (typeof ServiceExecutionCheckpointStatus)[keyof typeof ServiceExecutionCheckpointStatus];
+
+export const ServiceExecutionCheckpointStatus = {
+  pending: "pending",
+  passed: "passed",
+  failed: "failed",
+  waived: "waived",
+} as const;
+
+export type ServiceReleaseDecision =
+  (typeof ServiceReleaseDecision)[keyof typeof ServiceReleaseDecision];
+
+export const ServiceReleaseDecision = {
+  approved: "approved",
+  blocked: "blocked",
+} as const;
+
+export type ServiceNonconformingOutputStatus =
+  (typeof ServiceNonconformingOutputStatus)[keyof typeof ServiceNonconformingOutputStatus];
+
+export const ServiceNonconformingOutputStatus = {
+  open: "open",
+  in_treatment: "in_treatment",
+  resolved: "resolved",
+  closed: "closed",
+} as const;
+
+export type ServiceNonconformingOutputDisposition =
+  (typeof ServiceNonconformingOutputDisposition)[keyof typeof ServiceNonconformingOutputDisposition];
+
+export const ServiceNonconformingOutputDisposition = {
+  blocked: "blocked",
+  reworked: "reworked",
+  reclassified: "reclassified",
+  accepted_under_concession: "accepted_under_concession",
+  scrapped: "scrapped",
+} as const;
+
+export type ServiceThirdPartyPropertyStatus =
+  (typeof ServiceThirdPartyPropertyStatus)[keyof typeof ServiceThirdPartyPropertyStatus];
+
+export const ServiceThirdPartyPropertyStatus = {
+  received: "received",
+  in_use: "in_use",
+  returned: "returned",
+  lost_or_damaged: "lost_or_damaged",
+} as const;
+
+export type ServicePostDeliveryEventStatus =
+  (typeof ServicePostDeliveryEventStatus)[keyof typeof ServicePostDeliveryEventStatus];
+
+export const ServicePostDeliveryEventStatus = {
+  open: "open",
+  in_follow_up: "in_follow_up",
+  closed: "closed",
+} as const;
+
+export type ServicePostDeliveryEventType =
+  (typeof ServicePostDeliveryEventType)[keyof typeof ServicePostDeliveryEventType];
+
+export const ServicePostDeliveryEventType = {
+  monitoring: "monitoring",
+  complaint: "complaint",
+  assistance: "assistance",
+  adjustment: "adjustment",
+  feedback: "feedback",
+  other: "other",
+} as const;
+
+export type ServiceSpecialValidationStatus =
+  (typeof ServiceSpecialValidationStatus)[keyof typeof ServiceSpecialValidationStatus];
+
+export const ServiceSpecialValidationStatus = {
+  draft: "draft",
+  valid: "valid",
+  expired: "expired",
+  suspended: "suspended",
+} as const;
+
+export type ServiceSpecialValidationEventType =
+  (typeof ServiceSpecialValidationEventType)[keyof typeof ServiceSpecialValidationEventType];
+
+export const ServiceSpecialValidationEventType = {
+  initial_validation: "initial_validation",
+  revalidation: "revalidation",
+} as const;
+
+export type ServiceSpecialValidationResult =
+  (typeof ServiceSpecialValidationResult)[keyof typeof ServiceSpecialValidationResult];
+
+export const ServiceSpecialValidationResult = {
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export interface ServiceExecutionDocumentLink {
+  id: number;
+  title: string;
+  status: string;
+}
+
+export interface ServiceExecutionModelCheckpoint {
+  id: number;
+  kind: ServiceExecutionCheckpointKind;
+  label: string;
+  acceptanceCriteria?: string | null;
+  guidance?: string | null;
+  isRequired: boolean;
+  requiresEvidence: boolean;
+  sortOrder: number;
+}
+
+export interface ServiceExecutionModelCheckpointInput {
+  id?: number;
+  kind?: ServiceExecutionCheckpointKind;
+  label: string;
+  acceptanceCriteria?: string | null;
+  guidance?: string | null;
+  isRequired?: boolean;
+  requiresEvidence?: boolean;
+  sortOrder?: number;
+}
+
+export interface ServiceExecutionModelListItem {
+  id: number;
+  organizationId: number;
+  name: string;
+  description?: string | null;
+  processId?: number | null;
+  processName?: string | null;
+  unitId?: number | null;
+  unitName?: string | null;
+  requiresSpecialValidation: boolean;
+  status: ServiceExecutionModelStatus;
+  checkpointCount: number;
+  requiredCheckpointCount: number;
+  documentCount: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ServiceSpecialValidationEvent {
+  id: number;
+  profileId: number;
+  eventType: ServiceSpecialValidationEventType;
+  result: ServiceSpecialValidationResult;
+  criteriaSnapshot: string;
+  notes?: string | null;
+  validUntil?: string | null;
+  evidenceAttachments: GovernanceSystemAttachment[];
+  validatedById?: number | null;
+  validatedByName?: string | null;
+  validatedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ServiceSpecialValidationProfile {
+  id: number;
+  organizationId: number;
+  modelId: number;
+  processId?: number | null;
+  processName?: string | null;
+  title: string;
+  criteria: string;
+  method?: string | null;
+  status: ServiceSpecialValidationStatus;
+  responsibleUserId?: number | null;
+  responsibleUserName?: string | null;
+  currentValidUntil?: string | null;
+  notes?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  events: ServiceSpecialValidationEvent[];
+}
+
+export type ServiceExecutionModelDetail = ServiceExecutionModelListItem & {
+  checkpoints: ServiceExecutionModelCheckpoint[];
+  documents: ServiceExecutionDocumentLink[];
+  specialValidationProfile?: ServiceSpecialValidationProfile | null;
+};
+
+export interface PaginatedServiceExecutionModels {
+  data: ServiceExecutionModelListItem[];
+  pagination: PaginatedResponseMeta;
+}
+
+export interface CreateServiceExecutionModelBody {
+  name: string;
+  description?: string | null;
+  processId?: number | null;
+  unitId?: number | null;
+  requiresSpecialValidation?: boolean;
+  status?: ServiceExecutionModelStatus;
+  documentIds?: number[];
+  checkpoints: ServiceExecutionModelCheckpointInput[];
+}
+
+export interface UpdateServiceExecutionModelBody {
+  name?: string;
+  description?: string | null;
+  processId?: number | null;
+  unitId?: number | null;
+  requiresSpecialValidation?: boolean;
+  status?: ServiceExecutionModelStatus;
+  documentIds?: number[];
+  checkpoints?: ServiceExecutionModelCheckpointInput[];
+}
+
+export interface ServiceExecutionCycleCheckpoint {
+  id: number;
+  modelCheckpointId?: number | null;
+  kind: ServiceExecutionCheckpointKind;
+  label: string;
+  acceptanceCriteria?: string | null;
+  guidance?: string | null;
+  isRequired: boolean;
+  requiresEvidence: boolean;
+  sortOrder: number;
+  status: ServiceExecutionCheckpointStatus;
+  notes?: string | null;
+  evidenceAttachments: GovernanceSystemAttachment[];
+  checkedById?: number | null;
+  checkedByName?: string | null;
+  checkedAt?: string | null;
+}
+
+export interface ServiceExecutionCycleCheckpointUpdate {
+  id: number;
+  status: ServiceExecutionCheckpointStatus;
+  notes?: string | null;
+  evidenceAttachments?: GovernanceSystemAttachment[];
+}
+
+export interface ServiceReleaseRecord {
+  id: number;
+  decision: ServiceReleaseDecision;
+  decisionNotes?: string | null;
+  blockingIssues: string[];
+  evidenceAttachments: GovernanceSystemAttachment[];
+  decidedById?: number | null;
+  decidedByName?: string | null;
+  decidedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ServiceNonconformingOutput {
+  id: number;
+  organizationId: number;
+  cycleId: number;
+  title: string;
+  description: string;
+  status: ServiceNonconformingOutputStatus;
+  disposition?: ServiceNonconformingOutputDisposition | null;
+  dispositionNotes?: string | null;
+  responsibleUserId?: number | null;
+  responsibleUserName?: string | null;
+  linkedNonconformityId?: number | null;
+  linkedNonconformityTitle?: string | null;
+  evidenceAttachments: GovernanceSystemAttachment[];
+  detectedById: number;
+  detectedByName?: string | null;
+  detectedAt?: string | null;
+  resolvedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ServiceThirdPartyProperty {
+  id: number;
+  organizationId: number;
+  cycleId: number;
+  title: string;
+  ownerName: string;
+  description?: string | null;
+  conditionOnReceipt?: string | null;
+  handlingRequirements?: string | null;
+  status: ServiceThirdPartyPropertyStatus;
+  responsibleUserId?: number | null;
+  responsibleUserName?: string | null;
+  evidenceAttachments: GovernanceSystemAttachment[];
+  registeredById: number;
+  receivedAt?: string | null;
+  returnedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ServicePreservationDeliveryRecord {
+  id: number;
+  organizationId: number;
+  cycleId: number;
+  preservationNotes?: string | null;
+  preservationMethod?: string | null;
+  packagingNotes?: string | null;
+  deliveryNotes?: string | null;
+  deliveryRecipient?: string | null;
+  deliveryMethod?: string | null;
+  deliveredById?: number | null;
+  deliveredByName?: string | null;
+  preservationEvidenceAttachments: GovernanceSystemAttachment[];
+  deliveryEvidenceAttachments: GovernanceSystemAttachment[];
+  preservedAt?: string | null;
+  deliveredAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ServicePostDeliveryEvent {
+  id: number;
+  organizationId: number;
+  cycleId: number;
+  eventType: ServicePostDeliveryEventType;
+  title: string;
+  description: string;
+  status: ServicePostDeliveryEventStatus;
+  followUpNotes?: string | null;
+  responsibleUserId?: number | null;
+  responsibleUserName?: string | null;
+  evidenceAttachments: GovernanceSystemAttachment[];
+  occurredAt?: string | null;
+  closedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface ServiceExecutionCycleListItem {
+  id: number;
+  organizationId: number;
+  modelId: number;
+  modelName: string;
+  title: string;
+  serviceOrderRef?: string | null;
+  outputIdentifier?: string | null;
+  processId?: number | null;
+  processName?: string | null;
+  unitId?: number | null;
+  unitName?: string | null;
+  customerContactId?: number | null;
+  customerName?: string | null;
+  customerOrganizationName?: string | null;
+  status: ServiceExecutionCycleStatus;
+  releaseDecision?: ServiceReleaseDecision | null;
+  pendingRequiredCheckpointCount: number;
+  failedRequiredCheckpointCount: number;
+  openNonconformingOutputCount: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export type ServiceExecutionCycleDetail = ServiceExecutionCycleListItem & {
+  openedById?: number | null;
+  openedByName?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  checkpoints: ServiceExecutionCycleCheckpoint[];
+  documents: ServiceExecutionDocumentLink[];
+  releaseRecord?: ServiceReleaseRecord | null;
+  thirdPartyProperties: ServiceThirdPartyProperty[];
+  preservationDeliveryRecord?: ServicePreservationDeliveryRecord | null;
+  postDeliveryEvents: ServicePostDeliveryEvent[];
+  specialValidationProfile?: ServiceSpecialValidationProfile | null;
+  nonconformingOutputs: ServiceNonconformingOutput[];
+  pendingBlockingIssues: string[];
+};
+
+export interface PaginatedServiceExecutionCycles {
+  data: ServiceExecutionCycleListItem[];
+  pagination: PaginatedResponseMeta;
+}
+
+export interface CreateServiceExecutionCycleBody {
+  modelId: number;
+  title: string;
+  serviceOrderRef?: string | null;
+  outputIdentifier?: string | null;
+  processId?: number | null;
+  unitId?: number | null;
+  customerContactId?: number | null;
+  documentIds?: number[];
+}
+
+export interface UpdateServiceExecutionCycleBody {
+  title?: string;
+  serviceOrderRef?: string | null;
+  outputIdentifier?: string | null;
+  processId?: number | null;
+  unitId?: number | null;
+  customerContactId?: number | null;
+  documentIds?: number[];
+  checkpoints?: ServiceExecutionCycleCheckpointUpdate[];
+}
+
+export interface CreateServiceReleaseRecordBody {
+  decision: ServiceReleaseDecision;
+  decisionNotes?: string | null;
+  blockingIssues?: string[];
+  evidenceAttachments: GovernanceSystemAttachment[];
+}
+
+export interface CreateServiceNonconformingOutputBody {
+  title: string;
+  description: string;
+  status?: ServiceNonconformingOutputStatus;
+  disposition?: ServiceNonconformingOutputDisposition | null;
+  dispositionNotes?: string | null;
+  responsibleUserId?: number | null;
+  linkedNonconformityId?: number | null;
+  evidenceAttachments?: GovernanceSystemAttachment[];
+}
+
+export type UpdateServiceNonconformingOutputBody =
+  CreateServiceNonconformingOutputBody;
+
+export interface CreateServiceThirdPartyPropertyBody {
+  title: string;
+  ownerName: string;
+  description?: string | null;
+  conditionOnReceipt?: string | null;
+  handlingRequirements?: string | null;
+  status?: ServiceThirdPartyPropertyStatus;
+  responsibleUserId?: number | null;
+  evidenceAttachments?: GovernanceSystemAttachment[];
+}
+
+export type UpdateServiceThirdPartyPropertyBody =
+  CreateServiceThirdPartyPropertyBody;
+
+export interface UpsertServicePreservationDeliveryBody {
+  preservationNotes?: string | null;
+  preservationMethod?: string | null;
+  packagingNotes?: string | null;
+  deliveryNotes?: string | null;
+  deliveryRecipient?: string | null;
+  deliveryMethod?: string | null;
+  deliveredById?: number | null;
+  preservationEvidenceAttachments?: GovernanceSystemAttachment[];
+  deliveryEvidenceAttachments?: GovernanceSystemAttachment[];
+  preservedAt?: string | null;
+  deliveredAt?: string | null;
+}
+
+export interface CreateServicePostDeliveryEventBody {
+  eventType?: ServicePostDeliveryEventType;
+  title: string;
+  description: string;
+  status?: ServicePostDeliveryEventStatus;
+  followUpNotes?: string | null;
+  responsibleUserId?: number | null;
+  evidenceAttachments?: GovernanceSystemAttachment[];
+  occurredAt?: string | null;
+}
+
+export type UpdateServicePostDeliveryEventBody =
+  CreateServicePostDeliveryEventBody;
+
+export interface UpsertServiceSpecialValidationProfileBody {
+  title: string;
+  criteria: string;
+  method?: string | null;
+  status?: ServiceSpecialValidationStatus;
+  responsibleUserId?: number | null;
+  currentValidUntil?: string | null;
+  notes?: string | null;
+}
+
+export interface CreateServiceSpecialValidationEventBody {
+  eventType?: ServiceSpecialValidationEventType;
+  result?: ServiceSpecialValidationResult;
+  criteriaSnapshot: string;
+  notes?: string | null;
+  validUntil?: string | null;
+  evidenceAttachments?: GovernanceSystemAttachment[];
+  validatedById?: number | null;
+}
+
 export interface InternalAuditChecklistItem {
   id: number;
   auditId: number;
@@ -3380,6 +3884,495 @@ export interface UpsertKpiValuesBody {
   values: KpiMonthlyValue[];
 }
 
+export type AssetCriticality =
+  (typeof AssetCriticality)[keyof typeof AssetCriticality];
+
+export const AssetCriticality = {
+  alta: "alta",
+  media: "media",
+  baixa: "baixa",
+} as const;
+
+export type AssetStatus = (typeof AssetStatus)[keyof typeof AssetStatus];
+
+export const AssetStatus = {
+  ativo: "ativo",
+  inativo: "inativo",
+  em_manutencao: "em_manutencao",
+} as const;
+
+export interface Asset {
+  id: number;
+  organizationId: number;
+  /** @nullable */
+  unitId?: number | null;
+  name: string;
+  assetType: string;
+  criticality: AssetCriticality;
+  status: AssetStatus;
+  /** @nullable */
+  location?: string | null;
+  /** @nullable */
+  impactedProcess?: string | null;
+  /** @nullable */
+  responsibleId?: number | null;
+  /** @nullable */
+  responsibleName?: string | null;
+  /** @nullable */
+  description?: string | null;
+  activePlanCount: number;
+  overdueCount: number;
+  upcomingCount: number;
+  pendingPlanCount: number;
+  /** @nullable */
+  nearestDueAt?: string | null;
+  hasPartialExecution: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateAssetBodyCriticality =
+  (typeof CreateAssetBodyCriticality)[keyof typeof CreateAssetBodyCriticality];
+
+export const CreateAssetBodyCriticality = {
+  alta: "alta",
+  media: "media",
+  baixa: "baixa",
+} as const;
+
+export type CreateAssetBodyStatus =
+  (typeof CreateAssetBodyStatus)[keyof typeof CreateAssetBodyStatus];
+
+export const CreateAssetBodyStatus = {
+  ativo: "ativo",
+  inativo: "inativo",
+  em_manutencao: "em_manutencao",
+} as const;
+
+export interface CreateAssetBody {
+  unitId?: number | null;
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  assetType: string;
+  criticality?: CreateAssetBodyCriticality;
+  status?: CreateAssetBodyStatus;
+  location?: string | null;
+  impactedProcess?: string | null;
+  responsibleId?: number | null;
+  description?: string | null;
+}
+
+export type UpdateAssetBodyCriticality =
+  (typeof UpdateAssetBodyCriticality)[keyof typeof UpdateAssetBodyCriticality];
+
+export const UpdateAssetBodyCriticality = {
+  alta: "alta",
+  media: "media",
+  baixa: "baixa",
+} as const;
+
+export type UpdateAssetBodyStatus =
+  (typeof UpdateAssetBodyStatus)[keyof typeof UpdateAssetBodyStatus];
+
+export const UpdateAssetBodyStatus = {
+  ativo: "ativo",
+  inativo: "inativo",
+  em_manutencao: "em_manutencao",
+} as const;
+
+export interface UpdateAssetBody {
+  unitId?: number | null;
+  /** @minLength 1 */
+  name?: string;
+  /** @minLength 1 */
+  assetType?: string;
+  criticality?: UpdateAssetBodyCriticality;
+  status?: UpdateAssetBodyStatus;
+  location?: string | null;
+  impactedProcess?: string | null;
+  responsibleId?: number | null;
+  description?: string | null;
+}
+
+export interface AssetDocument {
+  id: number;
+  assetId: number;
+  documentId: number;
+  documentTitle: string;
+  documentType: string;
+  documentStatus: string;
+  createdAt: string;
+}
+
+export interface AddAssetDocumentBody {
+  documentId: number;
+}
+
+export type AssetMaintenancePlanType =
+  (typeof AssetMaintenancePlanType)[keyof typeof AssetMaintenancePlanType];
+
+export const AssetMaintenancePlanType = {
+  preventiva: "preventiva",
+  corretiva: "corretiva",
+  inspecao: "inspecao",
+} as const;
+
+export type AssetMaintenancePlanPeriodicity =
+  (typeof AssetMaintenancePlanPeriodicity)[keyof typeof AssetMaintenancePlanPeriodicity];
+
+export const AssetMaintenancePlanPeriodicity = {
+  semanal: "semanal",
+  mensal: "mensal",
+  trimestral: "trimestral",
+  semestral: "semestral",
+  anual: "anual",
+  unica: "unica",
+} as const;
+
+/**
+ * @nullable
+ */
+export type AssetMaintenancePlanLastRecordStatus =
+  | (typeof AssetMaintenancePlanLastRecordStatus)[keyof typeof AssetMaintenancePlanLastRecordStatus]
+  | null;
+
+export const AssetMaintenancePlanLastRecordStatus = {
+  concluida: "concluida",
+  parcial: "parcial",
+  cancelada: "cancelada",
+} as const;
+
+export interface AssetMaintenancePlan {
+  id: number;
+  organizationId: number;
+  assetId: number;
+  title: string;
+  type: AssetMaintenancePlanType;
+  periodicity: AssetMaintenancePlanPeriodicity;
+  checklistItems: string[];
+  /** @nullable */
+  responsibleId?: number | null;
+  /** @nullable */
+  responsibleName?: string | null;
+  /** @nullable */
+  nextDueAt?: string | null;
+  isActive: boolean;
+  recordCount: number;
+  /** @nullable */
+  lastRecordStatus: AssetMaintenancePlanLastRecordStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateAssetMaintenancePlanBodyType =
+  (typeof CreateAssetMaintenancePlanBodyType)[keyof typeof CreateAssetMaintenancePlanBodyType];
+
+export const CreateAssetMaintenancePlanBodyType = {
+  preventiva: "preventiva",
+  corretiva: "corretiva",
+  inspecao: "inspecao",
+} as const;
+
+export type CreateAssetMaintenancePlanBodyPeriodicity =
+  (typeof CreateAssetMaintenancePlanBodyPeriodicity)[keyof typeof CreateAssetMaintenancePlanBodyPeriodicity];
+
+export const CreateAssetMaintenancePlanBodyPeriodicity = {
+  semanal: "semanal",
+  mensal: "mensal",
+  trimestral: "trimestral",
+  semestral: "semestral",
+  anual: "anual",
+  unica: "unica",
+} as const;
+
+export interface CreateAssetMaintenancePlanBody {
+  /** @minLength 1 */
+  title: string;
+  type?: CreateAssetMaintenancePlanBodyType;
+  periodicity?: CreateAssetMaintenancePlanBodyPeriodicity;
+  checklistItems?: string[];
+  responsibleId?: number | null;
+  nextDueAt?: string | null;
+}
+
+export type UpdateAssetMaintenancePlanBodyType =
+  (typeof UpdateAssetMaintenancePlanBodyType)[keyof typeof UpdateAssetMaintenancePlanBodyType];
+
+export const UpdateAssetMaintenancePlanBodyType = {
+  preventiva: "preventiva",
+  corretiva: "corretiva",
+  inspecao: "inspecao",
+} as const;
+
+export type UpdateAssetMaintenancePlanBodyPeriodicity =
+  (typeof UpdateAssetMaintenancePlanBodyPeriodicity)[keyof typeof UpdateAssetMaintenancePlanBodyPeriodicity];
+
+export const UpdateAssetMaintenancePlanBodyPeriodicity = {
+  semanal: "semanal",
+  mensal: "mensal",
+  trimestral: "trimestral",
+  semestral: "semestral",
+  anual: "anual",
+  unica: "unica",
+} as const;
+
+export interface UpdateAssetMaintenancePlanBody {
+  /** @minLength 1 */
+  title?: string;
+  type?: UpdateAssetMaintenancePlanBodyType;
+  periodicity?: UpdateAssetMaintenancePlanBodyPeriodicity;
+  checklistItems?: string[];
+  responsibleId?: number | null;
+  nextDueAt?: string | null;
+  isActive?: boolean;
+}
+
+export type AssetMaintenanceRecordStatus =
+  (typeof AssetMaintenanceRecordStatus)[keyof typeof AssetMaintenanceRecordStatus];
+
+export const AssetMaintenanceRecordStatus = {
+  concluida: "concluida",
+  parcial: "parcial",
+  cancelada: "cancelada",
+} as const;
+
+export interface AssetMaintenanceRecord {
+  id: number;
+  organizationId: number;
+  planId: number;
+  assetId: number;
+  executedAt: string;
+  /** @nullable */
+  executedById?: number | null;
+  /** @nullable */
+  executedByName?: string | null;
+  status: AssetMaintenanceRecordStatus;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export type CreateAssetMaintenanceRecordBodyStatus =
+  (typeof CreateAssetMaintenanceRecordBodyStatus)[keyof typeof CreateAssetMaintenanceRecordBodyStatus];
+
+export const CreateAssetMaintenanceRecordBodyStatus = {
+  concluida: "concluida",
+  parcial: "parcial",
+  cancelada: "cancelada",
+} as const;
+
+export interface CreateAssetMaintenanceRecordBody {
+  executedAt: string;
+  executedById?: number | null;
+  status: CreateAssetMaintenanceRecordBodyStatus;
+  notes?: string | null;
+}
+
+export interface MaintenanceRecordAttachment {
+  id: number;
+  organizationId: number;
+  recordId: number;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+  uploadedAt: string;
+}
+
+export interface AddMaintenanceRecordAttachmentBody {
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+}
+
+export type WorkEnvironmentControlFactorType =
+  (typeof WorkEnvironmentControlFactorType)[keyof typeof WorkEnvironmentControlFactorType];
+
+export const WorkEnvironmentControlFactorType = {
+  fisico: "fisico",
+  social: "social",
+  psicologico: "psicologico",
+} as const;
+
+export type WorkEnvironmentControlFrequency =
+  (typeof WorkEnvironmentControlFrequency)[keyof typeof WorkEnvironmentControlFrequency];
+
+export const WorkEnvironmentControlFrequency = {
+  semanal: "semanal",
+  mensal: "mensal",
+  trimestral: "trimestral",
+  semestral: "semestral",
+  anual: "anual",
+} as const;
+
+export type WorkEnvironmentControlStatus =
+  (typeof WorkEnvironmentControlStatus)[keyof typeof WorkEnvironmentControlStatus];
+
+export const WorkEnvironmentControlStatus = {
+  ativo: "ativo",
+  inativo: "inativo",
+} as const;
+
+export interface WorkEnvironmentControl {
+  id: number;
+  organizationId: number;
+  /** @nullable */
+  unitId?: number | null;
+  /** @nullable */
+  unitName?: string | null;
+  factorType: WorkEnvironmentControlFactorType;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  responsibleId?: number | null;
+  /** @nullable */
+  responsibleName?: string | null;
+  frequency: WorkEnvironmentControlFrequency;
+  status: WorkEnvironmentControlStatus;
+  verificationCount: number;
+  /** @nullable */
+  lastResult?: string | null;
+  /** @nullable */
+  lastActionTaken?: string | null;
+  /** @nullable */
+  lastVerifiedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateWorkEnvironmentControlBodyFactorType =
+  (typeof CreateWorkEnvironmentControlBodyFactorType)[keyof typeof CreateWorkEnvironmentControlBodyFactorType];
+
+export const CreateWorkEnvironmentControlBodyFactorType = {
+  fisico: "fisico",
+  social: "social",
+  psicologico: "psicologico",
+} as const;
+
+export type CreateWorkEnvironmentControlBodyFrequency =
+  (typeof CreateWorkEnvironmentControlBodyFrequency)[keyof typeof CreateWorkEnvironmentControlBodyFrequency];
+
+export const CreateWorkEnvironmentControlBodyFrequency = {
+  semanal: "semanal",
+  mensal: "mensal",
+  trimestral: "trimestral",
+  semestral: "semestral",
+  anual: "anual",
+} as const;
+
+export interface CreateWorkEnvironmentControlBody {
+  unitId?: number | null;
+  factorType?: CreateWorkEnvironmentControlBodyFactorType;
+  /** @minLength 1 */
+  title: string;
+  description?: string | null;
+  responsibleId?: number | null;
+  frequency?: CreateWorkEnvironmentControlBodyFrequency;
+}
+
+export type UpdateWorkEnvironmentControlBodyFactorType =
+  (typeof UpdateWorkEnvironmentControlBodyFactorType)[keyof typeof UpdateWorkEnvironmentControlBodyFactorType];
+
+export const UpdateWorkEnvironmentControlBodyFactorType = {
+  fisico: "fisico",
+  social: "social",
+  psicologico: "psicologico",
+} as const;
+
+export type UpdateWorkEnvironmentControlBodyFrequency =
+  (typeof UpdateWorkEnvironmentControlBodyFrequency)[keyof typeof UpdateWorkEnvironmentControlBodyFrequency];
+
+export const UpdateWorkEnvironmentControlBodyFrequency = {
+  semanal: "semanal",
+  mensal: "mensal",
+  trimestral: "trimestral",
+  semestral: "semestral",
+  anual: "anual",
+} as const;
+
+export type UpdateWorkEnvironmentControlBodyStatus =
+  (typeof UpdateWorkEnvironmentControlBodyStatus)[keyof typeof UpdateWorkEnvironmentControlBodyStatus];
+
+export const UpdateWorkEnvironmentControlBodyStatus = {
+  ativo: "ativo",
+  inativo: "inativo",
+} as const;
+
+export interface UpdateWorkEnvironmentControlBody {
+  unitId?: number | null;
+  factorType?: UpdateWorkEnvironmentControlBodyFactorType;
+  /** @minLength 1 */
+  title?: string;
+  description?: string | null;
+  responsibleId?: number | null;
+  frequency?: UpdateWorkEnvironmentControlBodyFrequency;
+  status?: UpdateWorkEnvironmentControlBodyStatus;
+}
+
+export type WorkEnvironmentVerificationResult =
+  (typeof WorkEnvironmentVerificationResult)[keyof typeof WorkEnvironmentVerificationResult];
+
+export const WorkEnvironmentVerificationResult = {
+  adequado: "adequado",
+  inadequado: "inadequado",
+  parcial: "parcial",
+} as const;
+
+export interface WorkEnvironmentVerification {
+  id: number;
+  organizationId: number;
+  controlId: number;
+  verifiedAt: string;
+  /** @nullable */
+  verifiedById?: number | null;
+  /** @nullable */
+  verifiedByName?: string | null;
+  result: WorkEnvironmentVerificationResult;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  actionTaken?: string | null;
+  createdAt: string;
+}
+
+export type CreateWorkEnvironmentVerificationBodyResult =
+  (typeof CreateWorkEnvironmentVerificationBodyResult)[keyof typeof CreateWorkEnvironmentVerificationBodyResult];
+
+export const CreateWorkEnvironmentVerificationBodyResult = {
+  adequado: "adequado",
+  inadequado: "inadequado",
+  parcial: "parcial",
+} as const;
+
+export interface CreateWorkEnvironmentVerificationBody {
+  verifiedAt: string;
+  verifiedById?: number | null;
+  result: CreateWorkEnvironmentVerificationBodyResult;
+  notes?: string | null;
+  actionTaken?: string | null;
+}
+
+export interface WorkEnvironmentAttachment {
+  id: number;
+  organizationId: number;
+  verificationId: number;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+  uploadedAt: string;
+}
+
+export interface AddWorkEnvironmentAttachmentBody {
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+}
+
 export type KpiYearRowFeedStatus =
   (typeof KpiYearRowFeedStatus)[keyof typeof KpiYearRowFeedStatus];
 
@@ -3396,6 +4389,163 @@ export interface KpiYearRow {
   average?: number | null;
   accumulated?: number | null;
   feedStatus: KpiYearRowFeedStatus;
+}
+
+export type MeasurementResourceResourceType =
+  (typeof MeasurementResourceResourceType)[keyof typeof MeasurementResourceResourceType];
+
+export const MeasurementResourceResourceType = {
+  instrumento: "instrumento",
+  equipamento: "equipamento",
+  padrao: "padrao",
+} as const;
+
+export type MeasurementResourceStatus =
+  (typeof MeasurementResourceStatus)[keyof typeof MeasurementResourceStatus];
+
+export const MeasurementResourceStatus = {
+  ativo: "ativo",
+  inativo: "inativo",
+  vencido: "vencido",
+} as const;
+
+export interface MeasurementResource {
+  id: number;
+  organizationId: number;
+  /** @nullable */
+  unitId?: number | null;
+  /** @nullable */
+  unitName?: string | null;
+  name: string;
+  /** @nullable */
+  identifier?: string | null;
+  resourceType: MeasurementResourceResourceType;
+  /** @nullable */
+  responsibleId?: number | null;
+  /** @nullable */
+  responsibleName?: string | null;
+  /** @nullable */
+  validUntil?: string | null;
+  status: MeasurementResourceStatus;
+  /** @nullable */
+  notes?: string | null;
+  calibrationCount: number;
+  /** @nullable */
+  lastCalibrationAt?: string | null;
+  /** @nullable */
+  lastCalibrationResult?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateMeasurementResourceBodyResourceType =
+  (typeof CreateMeasurementResourceBodyResourceType)[keyof typeof CreateMeasurementResourceBodyResourceType];
+
+export const CreateMeasurementResourceBodyResourceType = {
+  instrumento: "instrumento",
+  equipamento: "equipamento",
+  padrao: "padrao",
+} as const;
+
+export interface CreateMeasurementResourceBody {
+  name: string;
+  identifier?: string;
+  resourceType?: CreateMeasurementResourceBodyResourceType;
+  unitId?: number;
+  responsibleId?: number;
+  validUntil?: string;
+  notes?: string;
+}
+
+export type UpdateMeasurementResourceBodyResourceType =
+  (typeof UpdateMeasurementResourceBodyResourceType)[keyof typeof UpdateMeasurementResourceBodyResourceType];
+
+export const UpdateMeasurementResourceBodyResourceType = {
+  instrumento: "instrumento",
+  equipamento: "equipamento",
+  padrao: "padrao",
+} as const;
+
+export type UpdateMeasurementResourceBodyStatus =
+  (typeof UpdateMeasurementResourceBodyStatus)[keyof typeof UpdateMeasurementResourceBodyStatus];
+
+export const UpdateMeasurementResourceBodyStatus = {
+  ativo: "ativo",
+  inativo: "inativo",
+  vencido: "vencido",
+} as const;
+
+export interface UpdateMeasurementResourceBody {
+  name?: string;
+  identifier?: string;
+  resourceType?: UpdateMeasurementResourceBodyResourceType;
+  unitId?: number;
+  responsibleId?: number;
+  validUntil?: string;
+  status?: UpdateMeasurementResourceBodyStatus;
+  notes?: string;
+}
+
+export type MeasurementResourceCalibrationResult =
+  (typeof MeasurementResourceCalibrationResult)[keyof typeof MeasurementResourceCalibrationResult];
+
+export const MeasurementResourceCalibrationResult = {
+  apto: "apto",
+  "nao-apto": "nao-apto",
+} as const;
+
+export interface MeasurementResourceCalibration {
+  id: number;
+  organizationId: number;
+  resourceId: number;
+  calibratedAt: string;
+  /** @nullable */
+  calibratedById?: number | null;
+  /** @nullable */
+  calibratedByName?: string | null;
+  /** @nullable */
+  certificateNumber?: string | null;
+  result: MeasurementResourceCalibrationResult;
+  /** @nullable */
+  nextDueAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export type CreateMeasurementResourceCalibrationBodyResult =
+  (typeof CreateMeasurementResourceCalibrationBodyResult)[keyof typeof CreateMeasurementResourceCalibrationBodyResult];
+
+export const CreateMeasurementResourceCalibrationBodyResult = {
+  apto: "apto",
+  "nao-apto": "nao-apto",
+} as const;
+
+export interface CreateMeasurementResourceCalibrationBody {
+  calibratedAt: string;
+  calibratedById?: number;
+  certificateNumber?: string;
+  result: CreateMeasurementResourceCalibrationBodyResult;
+  nextDueAt?: string;
+  notes?: string;
+}
+
+export interface MeasurementResourceAttachment {
+  id: number;
+  organizationId: number;
+  calibrationId: number;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+  uploadedAt: string;
+}
+
+export interface AddMeasurementResourceAttachmentBody {
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
 }
 
 export type ValidatePasswordResetToken200 = {
@@ -3628,6 +4778,23 @@ export type ListSgqProcessesParams = {
   search?: string;
 };
 
+export type ListServiceExecutionModelsParams = {
+  page?: number;
+  pageSize?: number;
+  status?: ServiceExecutionModelStatus;
+  processId?: number;
+  unitId?: number;
+  search?: string;
+};
+
+export type ListServiceExecutionCyclesParams = {
+  page?: number;
+  pageSize?: number;
+  status?: ServiceExecutionCycleStatus;
+  modelId?: number;
+  search?: string;
+};
+
 export type ListInternalAuditsParams = {
   page?: number;
   pageSize?: number;
@@ -3662,660 +4829,13 @@ export type ListKpiYearDataParams = {
   unit?: string;
 };
 
-export type AssetCriticality = typeof AssetCriticality[keyof typeof AssetCriticality];
-
-
-export const AssetCriticality = {
-  alta: 'alta',
-  media: 'media',
-  baixa: 'baixa',
-} as const;
-
-export type AssetStatus = typeof AssetStatus[keyof typeof AssetStatus];
-
-
-export const AssetStatus = {
-  ativo: 'ativo',
-  inativo: 'inativo',
-  em_manutencao: 'em_manutencao',
-} as const;
-
-export interface Asset {
-  id: number;
-  organizationId: number;
-  /** @nullable */
-  unitId?: number | null;
-  name: string;
-  assetType: string;
-  criticality: AssetCriticality;
-  status: AssetStatus;
-  /** @nullable */
-  location?: string | null;
-  /** @nullable */
-  impactedProcess?: string | null;
-  /** @nullable */
-  responsibleId?: number | null;
-  /** @nullable */
-  responsibleName?: string | null;
-  /** @nullable */
-  description?: string | null;
-  activePlanCount: number;
-  overdueCount: number;
-  upcomingCount: number;
-  pendingPlanCount: number;
-  /** @nullable */
-  nearestDueAt?: string | null;
-  hasPartialExecution: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type CreateAssetBodyCriticality = typeof CreateAssetBodyCriticality[keyof typeof CreateAssetBodyCriticality];
-
-
-export const CreateAssetBodyCriticality = {
-  alta: 'alta',
-  media: 'media',
-  baixa: 'baixa',
-} as const;
-
-export type CreateAssetBodyStatus = typeof CreateAssetBodyStatus[keyof typeof CreateAssetBodyStatus];
-
-
-export const CreateAssetBodyStatus = {
-  ativo: 'ativo',
-  inativo: 'inativo',
-  em_manutencao: 'em_manutencao',
-} as const;
-
-export interface CreateAssetBody {
-  unitId?: number | null;
-  /** @minLength 1 */
-  name: string;
-  /** @minLength 1 */
-  assetType: string;
-  criticality?: CreateAssetBodyCriticality;
-  status?: CreateAssetBodyStatus;
-  location?: string | null;
-  impactedProcess?: string | null;
-  responsibleId?: number | null;
-  description?: string | null;
-}
-
-export type UpdateAssetBodyCriticality = typeof UpdateAssetBodyCriticality[keyof typeof UpdateAssetBodyCriticality];
-
-
-export const UpdateAssetBodyCriticality = {
-  alta: 'alta',
-  media: 'media',
-  baixa: 'baixa',
-} as const;
-
-export type UpdateAssetBodyStatus = typeof UpdateAssetBodyStatus[keyof typeof UpdateAssetBodyStatus];
-
-
-export const UpdateAssetBodyStatus = {
-  ativo: 'ativo',
-  inativo: 'inativo',
-  em_manutencao: 'em_manutencao',
-} as const;
-
-export interface UpdateAssetBody {
-  unitId?: number | null;
-  /** @minLength 1 */
-  name?: string;
-  /** @minLength 1 */
-  assetType?: string;
-  criticality?: UpdateAssetBodyCriticality;
-  status?: UpdateAssetBodyStatus;
-  location?: string | null;
-  impactedProcess?: string | null;
-  responsibleId?: number | null;
-  description?: string | null;
-}
-
-export interface AssetDocument {
-  id: number;
-  assetId: number;
-  documentId: number;
-  documentTitle: string;
-  documentType: string;
-  documentStatus: string;
-  createdAt: string;
-}
-
-export interface AddAssetDocumentBody {
-  documentId: number;
-}
-
-export type AssetMaintenancePlanType = typeof AssetMaintenancePlanType[keyof typeof AssetMaintenancePlanType];
-
-
-export const AssetMaintenancePlanType = {
-  preventiva: 'preventiva',
-  corretiva: 'corretiva',
-  inspecao: 'inspecao',
-} as const;
-
-export type AssetMaintenancePlanPeriodicity = typeof AssetMaintenancePlanPeriodicity[keyof typeof AssetMaintenancePlanPeriodicity];
-
-
-export const AssetMaintenancePlanPeriodicity = {
-  semanal: 'semanal',
-  mensal: 'mensal',
-  trimestral: 'trimestral',
-  semestral: 'semestral',
-  anual: 'anual',
-  unica: 'unica',
-} as const;
-
-/**
- * @nullable
- */
-export type AssetMaintenancePlanLastRecordStatus = typeof AssetMaintenancePlanLastRecordStatus[keyof typeof AssetMaintenancePlanLastRecordStatus] | null;
-
-
-export const AssetMaintenancePlanLastRecordStatus = {
-  concluida: 'concluida',
-  parcial: 'parcial',
-  cancelada: 'cancelada',
-} as const;
-
-export interface AssetMaintenancePlan {
-  id: number;
-  organizationId: number;
-  assetId: number;
-  title: string;
-  type: AssetMaintenancePlanType;
-  periodicity: AssetMaintenancePlanPeriodicity;
-  checklistItems: string[];
-  /** @nullable */
-  responsibleId?: number | null;
-  /** @nullable */
-  responsibleName?: string | null;
-  /** @nullable */
-  nextDueAt?: string | null;
-  isActive: boolean;
-  recordCount: number;
-  /** @nullable */
-  lastRecordStatus: AssetMaintenancePlanLastRecordStatus;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type CreateAssetMaintenancePlanBodyType = typeof CreateAssetMaintenancePlanBodyType[keyof typeof CreateAssetMaintenancePlanBodyType];
-
-
-export const CreateAssetMaintenancePlanBodyType = {
-  preventiva: 'preventiva',
-  corretiva: 'corretiva',
-  inspecao: 'inspecao',
-} as const;
-
-export type CreateAssetMaintenancePlanBodyPeriodicity = typeof CreateAssetMaintenancePlanBodyPeriodicity[keyof typeof CreateAssetMaintenancePlanBodyPeriodicity];
-
-
-export const CreateAssetMaintenancePlanBodyPeriodicity = {
-  semanal: 'semanal',
-  mensal: 'mensal',
-  trimestral: 'trimestral',
-  semestral: 'semestral',
-  anual: 'anual',
-  unica: 'unica',
-} as const;
-
-export interface CreateAssetMaintenancePlanBody {
-  /** @minLength 1 */
-  title: string;
-  type?: CreateAssetMaintenancePlanBodyType;
-  periodicity?: CreateAssetMaintenancePlanBodyPeriodicity;
-  checklistItems?: string[];
-  responsibleId?: number | null;
-  nextDueAt?: string | null;
-}
-
-export type UpdateAssetMaintenancePlanBodyType = typeof UpdateAssetMaintenancePlanBodyType[keyof typeof UpdateAssetMaintenancePlanBodyType];
-
-
-export const UpdateAssetMaintenancePlanBodyType = {
-  preventiva: 'preventiva',
-  corretiva: 'corretiva',
-  inspecao: 'inspecao',
-} as const;
-
-export type UpdateAssetMaintenancePlanBodyPeriodicity = typeof UpdateAssetMaintenancePlanBodyPeriodicity[keyof typeof UpdateAssetMaintenancePlanBodyPeriodicity];
-
-
-export const UpdateAssetMaintenancePlanBodyPeriodicity = {
-  semanal: 'semanal',
-  mensal: 'mensal',
-  trimestral: 'trimestral',
-  semestral: 'semestral',
-  anual: 'anual',
-  unica: 'unica',
-} as const;
-
-export interface UpdateAssetMaintenancePlanBody {
-  /** @minLength 1 */
-  title?: string;
-  type?: UpdateAssetMaintenancePlanBodyType;
-  periodicity?: UpdateAssetMaintenancePlanBodyPeriodicity;
-  checklistItems?: string[];
-  responsibleId?: number | null;
-  nextDueAt?: string | null;
-  isActive?: boolean;
-}
-
-export type AssetMaintenanceRecordStatus = typeof AssetMaintenanceRecordStatus[keyof typeof AssetMaintenanceRecordStatus];
-
-
-export const AssetMaintenanceRecordStatus = {
-  concluida: 'concluida',
-  parcial: 'parcial',
-  cancelada: 'cancelada',
-} as const;
-
-export interface AssetMaintenanceRecord {
-  id: number;
-  organizationId: number;
-  planId: number;
-  assetId: number;
-  executedAt: string;
-  /** @nullable */
-  executedById?: number | null;
-  /** @nullable */
-  executedByName?: string | null;
-  status: AssetMaintenanceRecordStatus;
-  /** @nullable */
-  notes?: string | null;
-  createdAt: string;
-}
-
-export type CreateAssetMaintenanceRecordBodyStatus = typeof CreateAssetMaintenanceRecordBodyStatus[keyof typeof CreateAssetMaintenanceRecordBodyStatus];
-
-
-export const CreateAssetMaintenanceRecordBodyStatus = {
-  concluida: 'concluida',
-  parcial: 'parcial',
-  cancelada: 'cancelada',
-} as const;
-
-export interface CreateAssetMaintenanceRecordBody {
-  executedAt: string;
-  executedById?: number | null;
-  status: CreateAssetMaintenanceRecordBodyStatus;
-  notes?: string | null;
-}
-
-export interface MaintenanceRecordAttachment {
-  id: number;
-  organizationId: number;
-  recordId: number;
-  fileName: string;
-  fileSize: number;
-  contentType: string;
-  objectPath: string;
-  uploadedAt: string;
-}
-
-export interface AddMaintenanceRecordAttachmentBody {
-  fileName: string;
-  fileSize: number;
-  contentType: string;
-  objectPath: string;
-}
-
-export type WorkEnvironmentControlFactorType = typeof WorkEnvironmentControlFactorType[keyof typeof WorkEnvironmentControlFactorType];
-
-
-export const WorkEnvironmentControlFactorType = {
-  fisico: 'fisico',
-  social: 'social',
-  psicologico: 'psicologico',
-} as const;
-
-export type WorkEnvironmentControlFrequency = typeof WorkEnvironmentControlFrequency[keyof typeof WorkEnvironmentControlFrequency];
-
-
-export const WorkEnvironmentControlFrequency = {
-  semanal: 'semanal',
-  mensal: 'mensal',
-  trimestral: 'trimestral',
-  semestral: 'semestral',
-  anual: 'anual',
-} as const;
-
-export type WorkEnvironmentControlStatus = typeof WorkEnvironmentControlStatus[keyof typeof WorkEnvironmentControlStatus];
-
-
-export const WorkEnvironmentControlStatus = {
-  ativo: 'ativo',
-  inativo: 'inativo',
-} as const;
-
-export interface WorkEnvironmentControl {
-  id: number;
-  organizationId: number;
-  /** @nullable */
-  unitId?: number | null;
-  /** @nullable */
-  unitName?: string | null;
-  factorType: WorkEnvironmentControlFactorType;
-  title: string;
-  /** @nullable */
-  description?: string | null;
-  /** @nullable */
-  responsibleId?: number | null;
-  /** @nullable */
-  responsibleName?: string | null;
-  frequency: WorkEnvironmentControlFrequency;
-  status: WorkEnvironmentControlStatus;
-  verificationCount: number;
-  /** @nullable */
-  lastResult?: string | null;
-  /** @nullable */
-  lastActionTaken?: string | null;
-  /** @nullable */
-  lastVerifiedAt?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type CreateWorkEnvironmentControlBodyFactorType = typeof CreateWorkEnvironmentControlBodyFactorType[keyof typeof CreateWorkEnvironmentControlBodyFactorType];
-
-
-export const CreateWorkEnvironmentControlBodyFactorType = {
-  fisico: 'fisico',
-  social: 'social',
-  psicologico: 'psicologico',
-} as const;
-
-export type CreateWorkEnvironmentControlBodyFrequency = typeof CreateWorkEnvironmentControlBodyFrequency[keyof typeof CreateWorkEnvironmentControlBodyFrequency];
-
-
-export const CreateWorkEnvironmentControlBodyFrequency = {
-  semanal: 'semanal',
-  mensal: 'mensal',
-  trimestral: 'trimestral',
-  semestral: 'semestral',
-  anual: 'anual',
-} as const;
-
-export interface CreateWorkEnvironmentControlBody {
-  unitId?: number | null;
-  factorType?: CreateWorkEnvironmentControlBodyFactorType;
-  /** @minLength 1 */
-  title: string;
-  description?: string | null;
-  responsibleId?: number | null;
-  frequency?: CreateWorkEnvironmentControlBodyFrequency;
-}
-
-export type UpdateWorkEnvironmentControlBodyFactorType = typeof UpdateWorkEnvironmentControlBodyFactorType[keyof typeof UpdateWorkEnvironmentControlBodyFactorType];
-
-
-export const UpdateWorkEnvironmentControlBodyFactorType = {
-  fisico: 'fisico',
-  social: 'social',
-  psicologico: 'psicologico',
-} as const;
-
-export type UpdateWorkEnvironmentControlBodyFrequency = typeof UpdateWorkEnvironmentControlBodyFrequency[keyof typeof UpdateWorkEnvironmentControlBodyFrequency];
-
-
-export const UpdateWorkEnvironmentControlBodyFrequency = {
-  semanal: 'semanal',
-  mensal: 'mensal',
-  trimestral: 'trimestral',
-  semestral: 'semestral',
-  anual: 'anual',
-} as const;
-
-export type UpdateWorkEnvironmentControlBodyStatus = typeof UpdateWorkEnvironmentControlBodyStatus[keyof typeof UpdateWorkEnvironmentControlBodyStatus];
-
-
-export const UpdateWorkEnvironmentControlBodyStatus = {
-  ativo: 'ativo',
-  inativo: 'inativo',
-} as const;
-
-export interface UpdateWorkEnvironmentControlBody {
-  unitId?: number | null;
-  factorType?: UpdateWorkEnvironmentControlBodyFactorType;
-  /** @minLength 1 */
-  title?: string;
-  description?: string | null;
-  responsibleId?: number | null;
-  frequency?: UpdateWorkEnvironmentControlBodyFrequency;
-  status?: UpdateWorkEnvironmentControlBodyStatus;
-}
-
-export type WorkEnvironmentVerificationResult = typeof WorkEnvironmentVerificationResult[keyof typeof WorkEnvironmentVerificationResult];
-
-
-export const WorkEnvironmentVerificationResult = {
-  adequado: 'adequado',
-  inadequado: 'inadequado',
-  parcial: 'parcial',
-} as const;
-
-export interface WorkEnvironmentVerification {
-  id: number;
-  organizationId: number;
-  controlId: number;
-  verifiedAt: string;
-  /** @nullable */
-  verifiedById?: number | null;
-  /** @nullable */
-  verifiedByName?: string | null;
-  result: WorkEnvironmentVerificationResult;
-  /** @nullable */
-  notes?: string | null;
-  /** @nullable */
-  actionTaken?: string | null;
-  createdAt: string;
-}
-
-export type CreateWorkEnvironmentVerificationBodyResult = typeof CreateWorkEnvironmentVerificationBodyResult[keyof typeof CreateWorkEnvironmentVerificationBodyResult];
-
-
-export const CreateWorkEnvironmentVerificationBodyResult = {
-  adequado: 'adequado',
-  inadequado: 'inadequado',
-  parcial: 'parcial',
-} as const;
-
-export interface CreateWorkEnvironmentVerificationBody {
-  verifiedAt: string;
-  verifiedById?: number | null;
-  result: CreateWorkEnvironmentVerificationBodyResult;
-  notes?: string | null;
-  actionTaken?: string | null;
-}
-
-export interface WorkEnvironmentAttachment {
-  id: number;
-  organizationId: number;
-  verificationId: number;
-  fileName: string;
-  fileSize: number;
-  contentType: string;
-  objectPath: string;
-  uploadedAt: string;
-}
-
-export interface AddWorkEnvironmentAttachmentBody {
-  fileName: string;
-  fileSize: number;
-  contentType: string;
-  objectPath: string;
-}
-
-export type MeasurementResourceResourceType = typeof MeasurementResourceResourceType[keyof typeof MeasurementResourceResourceType];
-
-
-export const MeasurementResourceResourceType = {
-  instrumento: 'instrumento',
-  equipamento: 'equipamento',
-  padrao: 'padrao',
-} as const;
-
-export type MeasurementResourceStatus = typeof MeasurementResourceStatus[keyof typeof MeasurementResourceStatus];
-
-
-export const MeasurementResourceStatus = {
-  ativo: 'ativo',
-  inativo: 'inativo',
-  vencido: 'vencido',
-} as const;
-
-export interface MeasurementResource {
-  id: number;
-  organizationId: number;
-  /** @nullable */
-  unitId?: number | null;
-  /** @nullable */
-  unitName?: string | null;
-  name: string;
-  /** @nullable */
-  identifier?: string | null;
-  resourceType: MeasurementResourceResourceType;
-  /** @nullable */
-  responsibleId?: number | null;
-  /** @nullable */
-  responsibleName?: string | null;
-  /** @nullable */
-  validUntil?: string | null;
-  status: MeasurementResourceStatus;
-  /** @nullable */
-  notes?: string | null;
-  calibrationCount: number;
-  /** @nullable */
-  lastCalibrationAt?: string | null;
-  /** @nullable */
-  lastCalibrationResult?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type CreateMeasurementResourceBodyResourceType = typeof CreateMeasurementResourceBodyResourceType[keyof typeof CreateMeasurementResourceBodyResourceType];
-
-
-export const CreateMeasurementResourceBodyResourceType = {
-  instrumento: 'instrumento',
-  equipamento: 'equipamento',
-  padrao: 'padrao',
-} as const;
-
-export interface CreateMeasurementResourceBody {
-  name: string;
-  identifier?: string;
-  resourceType?: CreateMeasurementResourceBodyResourceType;
-  unitId?: number;
-  responsibleId?: number;
-  validUntil?: string;
-  notes?: string;
-}
-
-export type UpdateMeasurementResourceBodyResourceType = typeof UpdateMeasurementResourceBodyResourceType[keyof typeof UpdateMeasurementResourceBodyResourceType];
-
-
-export const UpdateMeasurementResourceBodyResourceType = {
-  instrumento: 'instrumento',
-  equipamento: 'equipamento',
-  padrao: 'padrao',
-} as const;
-
-export type UpdateMeasurementResourceBodyStatus = typeof UpdateMeasurementResourceBodyStatus[keyof typeof UpdateMeasurementResourceBodyStatus];
-
-
-export const UpdateMeasurementResourceBodyStatus = {
-  ativo: 'ativo',
-  inativo: 'inativo',
-  vencido: 'vencido',
-} as const;
-
-export interface UpdateMeasurementResourceBody {
-  name?: string;
-  identifier?: string;
-  resourceType?: UpdateMeasurementResourceBodyResourceType;
-  unitId?: number;
-  responsibleId?: number;
-  validUntil?: string;
-  status?: UpdateMeasurementResourceBodyStatus;
-  notes?: string;
-}
-
-export type MeasurementResourceCalibrationResult = typeof MeasurementResourceCalibrationResult[keyof typeof MeasurementResourceCalibrationResult];
-
-
-export const MeasurementResourceCalibrationResult = {
-  apto: 'apto',
-  'nao-apto': 'nao-apto',
-} as const;
-
-export interface MeasurementResourceCalibration {
-  id: number;
-  organizationId: number;
-  resourceId: number;
-  calibratedAt: string;
-  /** @nullable */
-  calibratedById?: number | null;
-  /** @nullable */
-  calibratedByName?: string | null;
-  /** @nullable */
-  certificateNumber?: string | null;
-  result: MeasurementResourceCalibrationResult;
-  /** @nullable */
-  nextDueAt?: string | null;
-  /** @nullable */
-  notes?: string | null;
-  createdAt: string;
-}
-
-export type CreateMeasurementResourceCalibrationBodyResult = typeof CreateMeasurementResourceCalibrationBodyResult[keyof typeof CreateMeasurementResourceCalibrationBodyResult];
-
-
-export const CreateMeasurementResourceCalibrationBodyResult = {
-  apto: 'apto',
-  'nao-apto': 'nao-apto',
-} as const;
-
-export interface CreateMeasurementResourceCalibrationBody {
-  calibratedAt: string;
-  calibratedById?: number;
-  certificateNumber?: string;
-  result: CreateMeasurementResourceCalibrationBodyResult;
-  nextDueAt?: string;
-  notes?: string;
-}
-
-export interface MeasurementResourceAttachment {
-  id: number;
-  organizationId: number;
-  calibrationId: number;
-  fileName: string;
-  fileSize: number;
-  contentType: string;
-  objectPath: string;
-  uploadedAt: string;
-}
-
-export interface AddMeasurementResourceAttachmentBody {
-  fileName: string;
-  fileSize: number;
-  contentType: string;
-  objectPath: string;
-}
-
 export type ListWorkEnvironmentControlsParams = {
-unitId?: number;
-factorType?: string;
+  unitId?: number;
+  factorType?: string;
 };
 
 export type ListMeasurementResourcesParams = {
-unitId?: number;
-resourceType?: string;
-status?: string;
+  unitId?: number;
+  resourceType?: string;
+  status?: string;
 };
-
