@@ -80,6 +80,7 @@ import {
   sgqProcessInteractionsTable,
   sgqProcessesTable,
   sgqProcessRevisionsTable,
+  operationalPlansTable,
 } from "@workspace/db";
 
 type CleanupTransaction = Pick<typeof db, "delete">;
@@ -715,6 +716,15 @@ export async function cleanupTestData(prefix: string) {
 
     if (unitIds.length > 0) {
       await tx.delete(unitsTable).where(inArray(unitsTable.id, unitIds));
+    }
+
+    if (orgIds.length > 0) {
+      // operational_plans cascades to operational_changes, operational_cycle_evidences,
+      // operational_readiness_checklists, operational_plan_revisions, etc.
+      // Must be deleted before users due to FK refs on created_by_id/updated_by_id/requested_by_id.
+      await tx
+        .delete(operationalPlansTable)
+        .where(inArray(operationalPlansTable.organizationId, orgIds));
     }
 
     if (userIds.length > 0) {

@@ -23,4 +23,5 @@ export * from "./kpi";
 export * from "./password-reset-tokens";
 export * from "./assets";
 export * from "./work-environment";
+export * from "./operational-planning";
 export * from "./project-development";

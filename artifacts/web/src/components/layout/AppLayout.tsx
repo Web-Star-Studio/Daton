@@ -206,9 +206,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isActive = (path: string) => normalizedLocation.startsWith(path);
   const isNavLinkActive = (href: string) =>
-    href === "/organizacao"
-      ? normalizedLocation === "/organizacao"
-      : isActive(href);
+    normalizedLocation === href || normalizedLocation.startsWith(`${href}/`);
 
   const getBreadcrumbs = (): { label: string; href?: string }[] => {
     const crumbs: { label: string; href?: string }[] = [];
@@ -280,9 +278,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           label: "Riscos e Oportunidades",
           href: "/governanca/riscos-oportunidades",
         });
-      } else if (
-        normalizedLocation.startsWith("/governanca/conhecimento-critico")
-      ) {
+      } else if (normalizedLocation.startsWith("/governanca/planejamento-operacional")) {
+        crumbs.push({
+          label: "Planejamento Operacional",
+          href: "/governanca/planejamento-operacional",
+        });
+      } else if (normalizedLocation.startsWith("/governanca/conhecimento-critico")) {
         crumbs.push({
           label: "Conhecimento Crítico",
           href: "/governanca/conhecimento-critico",
@@ -398,6 +399,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     {
       label: "Planejamento Estratégico",
       links: governancaLinks,
+    },
+    {
+      label: "Planejamento Operacional",
+      links: [
+        {
+          href: "/governanca/planejamento-operacional",
+          label: "Planejamento Operacional",
+        },
+      ],
     },
     {
       label: "Gestão do Sistema",
