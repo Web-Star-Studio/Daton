@@ -318,7 +318,7 @@ function emptySpecialValidationEventForm(
     result: "approved",
     criteriaSnapshot: profile?.criteria ?? "",
     notes: "",
-    validUntil: profile?.currentValidUntil ?? "",
+    validUntil: formatDateTimeLocalInput(profile?.currentValidUntil),
     validatedById: "",
     evidenceAttachments: [],
   };

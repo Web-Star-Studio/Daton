@@ -41,6 +41,19 @@ import {
   strategicPlanRevisionsTable,
   productKnowledgeArticlesTable,
   productKnowledgeArticleRevisionsTable,
+  sgqProcessesTable,
+  organizationContactsTable,
+  serviceExecutionModelsTable,
+  serviceExecutionModelCheckpointsTable,
+  serviceExecutionCyclesTable,
+  serviceExecutionCycleCheckpointsTable,
+  serviceReleaseRecordsTable,
+  serviceNonconformingOutputsTable,
+  serviceThirdPartyPropertiesTable,
+  servicePostDeliveryEventsTable,
+  servicePreservationDeliveryRecordsTable,
+  serviceSpecialValidationProfilesTable,
+  serviceSpecialValidationEventsTable,
 } from "@workspace/db";
 import { eq, inArray, or } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -227,6 +240,32 @@ async function resetDemoSeedState(db: SeedDatabase) {
       .delete(legislationsTable)
       .where(inArray(legislationsTable.id, legislationIds));
   }
+
+  // Ciclo E — service execution (cascade deletes most children, but models/processes need explicit cleanup)
+  await db
+    .delete(serviceExecutionCyclesTable)
+    .where(inArray(serviceExecutionCyclesTable.organizationId, orgIds));
+  await db
+    .delete(serviceNonconformingOutputsTable)
+    .where(inArray(serviceNonconformingOutputsTable.organizationId, orgIds));
+  await db
+    .delete(serviceThirdPartyPropertiesTable)
+    .where(inArray(serviceThirdPartyPropertiesTable.organizationId, orgIds));
+  await db
+    .delete(servicePostDeliveryEventsTable)
+    .where(inArray(servicePostDeliveryEventsTable.organizationId, orgIds));
+  await db
+    .delete(servicePreservationDeliveryRecordsTable)
+    .where(inArray(servicePreservationDeliveryRecordsTable.organizationId, orgIds));
+  await db
+    .delete(serviceExecutionModelsTable)
+    .where(inArray(serviceExecutionModelsTable.organizationId, orgIds));
+  await db
+    .delete(sgqProcessesTable)
+    .where(inArray(sgqProcessesTable.organizationId, orgIds));
+  await db
+    .delete(organizationContactsTable)
+    .where(inArray(organizationContactsTable.organizationId, orgIds));
 
   await db
     .delete(departmentsTable)
@@ -2847,6 +2886,818 @@ async function seed() {
       publishedAt: legislacoesRevision.publishedAt,
     });
     console.log(`✅ Product knowledge article revisions: 2 created`);
+
+    // ─── 40. SGQ Processes ────────────────────────────────────────────────────────
+    const [processoInstalacao] = await db
+      .insert(sgqProcessesTable)
+      .values({
+        organizationId: org.id,
+        name: "Instalação e Comissionamento",
+        objective:
+          "Executar instalações de equipamentos industriais conforme especificações técnicas e requisitos do cliente.",
+        ownerUserId: adminUser.id,
+        inputs: ["Ordem de serviço", "Projeto técnico", "Equipamentos"],
+        outputs: ["Relatório de comissionamento", "Termo de aceite", "Checklist de entrega"],
+        criteria: "Conformidade com normas técnicas e requisitos contratuais",
+        indicators: "Taxa de retrabalho, índice de satisfação do cliente, prazo de entrega",
+        status: "active",
+        currentRevisionNumber: 2,
+        createdById: adminUser.id,
+        updatedById: adminUser.id,
+      })
+      .returning();
+
+    const [processoManutencao] = await db
+      .insert(sgqProcessesTable)
+      .values({
+        organizationId: org.id,
+        name: "Manutenção Preventiva e Corretiva",
+        objective:
+          "Manter a disponibilidade e confiabilidade dos equipamentos dos clientes por meio de intervenções planejadas e corretivas.",
+        ownerUserId: operatorUser.id,
+        inputs: ["Plano de manutenção", "Histórico do equipamento", "OS de manutenção"],
+        outputs: ["Relatório técnico de manutenção", "Laudo de condições", "Peças substituídas"],
+        criteria: "MTBF > 2000h, MTTR < 4h, disponibilidade ≥ 95%",
+        indicators: "MTBF, MTTR, disponibilidade operacional, custo por intervenção",
+        status: "active",
+        currentRevisionNumber: 1,
+        createdById: adminUser.id,
+        updatedById: adminUser.id,
+      })
+      .returning();
+
+    const [processoFabricacao] = await db
+      .insert(sgqProcessesTable)
+      .values({
+        organizationId: org.id,
+        name: "Fabricação de Componentes",
+        objective:
+          "Produzir componentes metálicos conforme desenhos técnicos, tolerâncias e requisitos de qualidade definidos.",
+        ownerUserId: operator2User.id,
+        inputs: ["Ordem de produção", "Matéria-prima", "Instruções de trabalho"],
+        outputs: ["Componentes fabricados", "Registro de inspeção", "Relatório de não conformidades"],
+        criteria: "Conformidade dimensional ≥ 98%, índice de rejeição < 2%",
+        indicators: "Índice de rejeição, conformidade dimensional, OEE",
+        status: "active",
+        currentRevisionNumber: 1,
+        createdById: adminUser.id,
+        updatedById: adminUser.id,
+      })
+      .returning();
+
+    console.log(`✅ SGQ Processes: 3 created`);
+
+    // ─── 41. Organization Contacts (clients) ──────────────────────────────────────
+    const [clienteAuto] = await db
+      .insert(organizationContactsTable)
+      .values({
+        organizationId: org.id,
+        sourceType: "external_contact",
+        name: "Eng. Rafael Borges",
+        email: "rafael.borges@automotiva.com.br",
+        phone: "(11) 9 8765-4321",
+        organizationName: "AutoMotiva Indústria S.A.",
+        classificationType: "customer",
+        classificationDescription: "Cliente industrial — segmento automotivo",
+        notes: "Contato principal para projetos de instalação na planta de Sorocaba.",
+        createdById: adminUser.id,
+      })
+      .returning();
+
+    const [clienteEnergia] = await db
+      .insert(organizationContactsTable)
+      .values({
+        organizationId: org.id,
+        sourceType: "external_contact",
+        name: "Dra. Carla Mendonça",
+        email: "c.mendonca@energiatec.com.br",
+        phone: "(21) 3456-7890",
+        organizationName: "EnergiaTec Sistemas",
+        classificationType: "customer",
+        classificationDescription: "Cliente — setor de energia renovável",
+        notes: "Responsável pela aprovação técnica dos laudos de comissionamento.",
+        createdById: adminUser.id,
+      })
+      .returning();
+
+    console.log(`✅ Organization contacts: 2 created`);
+
+    // ─── 42. Service Execution Models ─────────────────────────────────────────────
+    const [modeloInstalacao] = await db
+      .insert(serviceExecutionModelsTable)
+      .values({
+        organizationId: org.id,
+        name: "Modelo — Instalação Industrial",
+        description:
+          "Modelo padrão para execução de instalações industriais. Cobre inspeção pré-obra, comissionamento e aceite final.",
+        processId: processoInstalacao.id,
+        unitId: sede.id,
+        requiresSpecialValidation: true,
+        status: "active",
+        createdById: adminUser.id,
+        updatedById: adminUser.id,
+      })
+      .returning();
+
+    const [modeloManutencao] = await db
+      .insert(serviceExecutionModelsTable)
+      .values({
+        organizationId: org.id,
+        name: "Modelo — Manutenção Preventiva",
+        description:
+          "Modelo para execução de manutenção preventiva periódica. Inclui checkpoints de segurança e verificação funcional.",
+        processId: processoManutencao.id,
+        unitId: filialRJ.id,
+        requiresSpecialValidation: false,
+        status: "active",
+        createdById: adminUser.id,
+        updatedById: adminUser.id,
+      })
+      .returning();
+
+    const [modeloFabricacao] = await db
+      .insert(serviceExecutionModelsTable)
+      .values({
+        organizationId: org.id,
+        name: "Modelo — Fabricação de Componentes",
+        description:
+          "Modelo para controle de fabricação. Cobre inspeção de matéria-prima, controle em processo e inspeção final.",
+        processId: processoFabricacao.id,
+        unitId: sede.id,
+        requiresSpecialValidation: false,
+        status: "active",
+        createdById: adminUser.id,
+        updatedById: adminUser.id,
+      })
+      .returning();
+
+    console.log(`✅ Service execution models: 3 created`);
+
+    // ─── 43. Model Checkpoints ────────────────────────────────────────────────────
+    // Checkpoints para modelo de instalação
+    const [cpDocumentacao] = await db
+      .insert(serviceExecutionModelCheckpointsTable)
+      .values({
+        modelId: modeloInstalacao.id,
+        kind: "checkpoint",
+        label: "Conferência de documentação técnica",
+        acceptanceCriteria:
+          "Projeto aprovado, ART emitida, licenças necessárias anexadas.",
+        guidance: "Verificar se todos os documentos do projeto estão disponíveis antes de iniciar.",
+        isRequired: true,
+        requiresEvidence: true,
+        sortOrder: 1,
+      })
+      .returning();
+
+    const [cpSeguranca] = await db
+      .insert(serviceExecutionModelCheckpointsTable)
+      .values({
+        modelId: modeloInstalacao.id,
+        kind: "preventive_control",
+        label: "Inspeção de segurança — EPI e área de trabalho",
+        acceptanceCriteria:
+          "EPI completo, área sinalizada, PT (permissão de trabalho) emitida.",
+        guidance: "Realizar DDS antes do início. Registrar presença de todos os colaboradores.",
+        isRequired: true,
+        requiresEvidence: false,
+        sortOrder: 2,
+      })
+      .returning();
+
+    const [cpInstalacao] = await db
+      .insert(serviceExecutionModelCheckpointsTable)
+      .values({
+        modelId: modeloInstalacao.id,
+        kind: "checkpoint",
+        label: "Inspeção de recebimento dos equipamentos",
+        acceptanceCriteria:
+          "Equipamento sem avarias, lacres intactos, nota fiscal confere.",
+        guidance: "Fotografar o estado de recebimento e registrar qualquer divergência.",
+        isRequired: true,
+        requiresEvidence: true,
+        sortOrder: 3,
+      })
+      .returning();
+
+    const [cpComissionamento] = await db
+      .insert(serviceExecutionModelCheckpointsTable)
+      .values({
+        modelId: modeloInstalacao.id,
+        kind: "checkpoint",
+        label: "Testes de comissionamento e partida",
+        acceptanceCriteria:
+          "Todos os parâmetros dentro dos limites especificados. Sistema operacional.",
+        guidance: "Executar roteiro de testes conforme manual do fabricante. Registrar todos os valores medidos.",
+        isRequired: true,
+        requiresEvidence: true,
+        sortOrder: 4,
+      })
+      .returning();
+
+    const [cpAceiteCliente] = await db
+      .insert(serviceExecutionModelCheckpointsTable)
+      .values({
+        modelId: modeloInstalacao.id,
+        kind: "checkpoint",
+        label: "Aceite formal do cliente",
+        acceptanceCriteria:
+          "Termo de aceite assinado pelo responsável técnico do cliente.",
+        guidance: "Apresentar relatório de comissionamento antes de solicitar o aceite.",
+        isRequired: true,
+        requiresEvidence: true,
+        sortOrder: 5,
+      })
+      .returning();
+
+    // Checkpoints para modelo de manutenção
+    await db.insert(serviceExecutionModelCheckpointsTable).values({
+      modelId: modeloManutencao.id,
+      kind: "preventive_control",
+      label: "Verificação de bloqueio e travamento (LOTO)",
+      acceptanceCriteria: "Energia isolada, travamento aplicado, testado.",
+      isRequired: true,
+      requiresEvidence: false,
+      sortOrder: 1,
+    });
+
+    await db.insert(serviceExecutionModelCheckpointsTable).values({
+      modelId: modeloManutencao.id,
+      kind: "checkpoint",
+      label: "Inspeção visual dos componentes",
+      acceptanceCriteria: "Sem desgaste excessivo, corrosão ou avaria estrutural.",
+      isRequired: true,
+      requiresEvidence: true,
+      sortOrder: 2,
+    });
+
+    await db.insert(serviceExecutionModelCheckpointsTable).values({
+      modelId: modeloManutencao.id,
+      kind: "checkpoint",
+      label: "Testes funcionais pós-manutenção",
+      acceptanceCriteria: "Equipamento opera dentro dos parâmetros nominais.",
+      isRequired: true,
+      requiresEvidence: true,
+      sortOrder: 3,
+    });
+
+    // Checkpoints para modelo de fabricação
+    await db.insert(serviceExecutionModelCheckpointsTable).values({
+      modelId: modeloFabricacao.id,
+      kind: "checkpoint",
+      label: "Inspeção de matéria-prima",
+      acceptanceCriteria: "Material conforme especificação do certificado de qualidade.",
+      isRequired: true,
+      requiresEvidence: true,
+      sortOrder: 1,
+    });
+
+    await db.insert(serviceExecutionModelCheckpointsTable).values({
+      modelId: modeloFabricacao.id,
+      kind: "checkpoint",
+      label: "Controle dimensional em processo",
+      acceptanceCriteria: "Dimensões dentro das tolerâncias do desenho técnico.",
+      isRequired: true,
+      requiresEvidence: false,
+      sortOrder: 2,
+    });
+
+    await db.insert(serviceExecutionModelCheckpointsTable).values({
+      modelId: modeloFabricacao.id,
+      kind: "checkpoint",
+      label: "Inspeção final do lote",
+      acceptanceCriteria: "100% das peças inspecionadas conforme AQL definido. Relatório de inspeção emitido.",
+      isRequired: true,
+      requiresEvidence: true,
+      sortOrder: 3,
+    });
+
+    console.log(`✅ Model checkpoints created`);
+
+    // ─── 44. Special Validation Profile (para instalação) ─────────────────────────
+    const [perfilValidacaoEspecial] = await db
+      .insert(serviceSpecialValidationProfilesTable)
+      .values({
+        organizationId: org.id,
+        modelId: modeloInstalacao.id,
+        processId: processoInstalacao.id,
+        title: "Validação de Processo — Instalação em Alta Tensão",
+        criteria:
+          "Processo de instalação em sistemas de alta tensão (> 1kV). Requer validação periódica conforme NR-10 e procedimento interno PQ-ELT-001.",
+        method:
+          "Simulação supervisionada por técnico certificado + revisão documental semestral.",
+        status: "valid",
+        responsibleUserId: adminUser.id,
+        currentValidUntil: new Date("2026-12-31"),
+        notes:
+          "Validação inicial aprovada em Jan/2025. Próxima revalidação: Dez/2025.",
+        createdById: adminUser.id,
+        updatedById: adminUser.id,
+      })
+      .returning();
+
+    await db.insert(serviceSpecialValidationEventsTable).values({
+      profileId: perfilValidacaoEspecial.id,
+      eventType: "initial_validation",
+      result: "approved",
+      criteriaSnapshot:
+        "Processo de instalação em alta tensão validado conforme NR-10 e PQ-ELT-001.",
+      notes: "Equipe técnica avaliada e aprovada. Equipamentos de medição calibrados.",
+      validUntil: new Date("2026-12-31"),
+      validatedById: adminUser.id,
+      validatedAt: new Date("2025-01-15"),
+    });
+
+    console.log(`✅ Special validation profile + event created`);
+
+    // ─── 45. Service Execution Cycles ─────────────────────────────────────────────
+    // Ciclo 1: Em andamento — instalação industrial
+    const [cicloInstalacaoAtivo] = await db
+      .insert(serviceExecutionCyclesTable)
+      .values({
+        organizationId: org.id,
+        modelId: modeloInstalacao.id,
+        title: "Instalação — Linha de Montagem AutoMotiva Sorocaba",
+        serviceOrderRef: "OS-2026-0312",
+        outputIdentifier: "INST-AM-0312",
+        processId: processoInstalacao.id,
+        unitId: sede.id,
+        customerContactId: clienteAuto.id,
+        status: "in_progress",
+        openedById: operatorUser.id,
+        startedAt: new Date("2026-04-08"),
+      })
+      .returning();
+
+    // Ciclo 2: Aguardando liberação — instalação concluída
+    const [cicloInstalacaoLiberacao] = await db
+      .insert(serviceExecutionCyclesTable)
+      .values({
+        organizationId: org.id,
+        modelId: modeloInstalacao.id,
+        title: "Instalação — Painéis Elétricos EnergiaTec Filial RJ",
+        serviceOrderRef: "OS-2026-0287",
+        outputIdentifier: "INST-ET-0287",
+        processId: processoInstalacao.id,
+        unitId: filialRJ.id,
+        customerContactId: clienteEnergia.id,
+        status: "awaiting_release",
+        openedById: operatorUser.id,
+        startedAt: new Date("2026-04-01"),
+      })
+      .returning();
+
+    // Ciclo 3: Liberado — manutenção concluída
+    const [cicloManutencaoLiberado] = await db
+      .insert(serviceExecutionCyclesTable)
+      .values({
+        organizationId: org.id,
+        modelId: modeloManutencao.id,
+        title: "Manutenção Preventiva — Compressores AutoMotiva Mar/2026",
+        serviceOrderRef: "OS-2026-0241",
+        outputIdentifier: "MANUT-AM-0241",
+        processId: processoManutencao.id,
+        unitId: filialRJ.id,
+        customerContactId: clienteAuto.id,
+        status: "released",
+        openedById: operator2User.id,
+        startedAt: new Date("2026-03-10"),
+        completedAt: new Date("2026-03-12"),
+      })
+      .returning();
+
+    // Ciclo 4: Bloqueado — saída não conforme
+    const [cicloFabricacaoBloqueado] = await db
+      .insert(serviceExecutionCyclesTable)
+      .values({
+        organizationId: org.id,
+        modelId: modeloFabricacao.id,
+        title: "Fabricação Lote #L-2026-088 — Flanges DN150",
+        serviceOrderRef: "OP-2026-0088",
+        outputIdentifier: "LOTE-FL-088",
+        processId: processoFabricacao.id,
+        unitId: sede.id,
+        status: "blocked",
+        openedById: operator2User.id,
+        startedAt: new Date("2026-04-05"),
+      })
+      .returning();
+
+    // Ciclo 5: Em andamento — fabricação recente
+    const [cicloFabricacaoAtivo] = await db
+      .insert(serviceExecutionCyclesTable)
+      .values({
+        organizationId: org.id,
+        modelId: modeloFabricacao.id,
+        title: "Fabricação Lote #L-2026-091 — Buchas de Bronze",
+        serviceOrderRef: "OP-2026-0091",
+        outputIdentifier: "LOTE-BZ-091",
+        processId: processoFabricacao.id,
+        unitId: sede.id,
+        status: "in_progress",
+        openedById: operator2User.id,
+        startedAt: new Date("2026-04-14"),
+      })
+      .returning();
+
+    console.log(`✅ Service execution cycles: 5 created`);
+
+    // ─── 46. Cycle Checkpoints ────────────────────────────────────────────────────
+    // Checkpoints do ciclo em andamento (cicloInstalacaoAtivo) — parcialmente executados
+    await db.insert(serviceExecutionCycleCheckpointsTable).values({
+      cycleId: cicloInstalacaoAtivo.id,
+      modelCheckpointId: cpDocumentacao.id,
+      kind: "checkpoint",
+      label: "Conferência de documentação técnica",
+      acceptanceCriteria: "Projeto aprovado, ART emitida, licenças necessárias anexadas.",
+      isRequired: true,
+      requiresEvidence: true,
+      status: "passed",
+      notes: "Documentação completa. ART #2026-4521 em anexo.",
+      checkedById: operatorUser.id,
+      checkedAt: new Date("2026-04-08T09:30:00"),
+      sortOrder: 1,
+    });
+
+    await db.insert(serviceExecutionCycleCheckpointsTable).values({
+      cycleId: cicloInstalacaoAtivo.id,
+      modelCheckpointId: cpSeguranca.id,
+      kind: "preventive_control",
+      label: "Inspeção de segurança — EPI e área de trabalho",
+      acceptanceCriteria: "EPI completo, área sinalizada, PT (permissão de trabalho) emitida.",
+      isRequired: true,
+      requiresEvidence: false,
+      status: "passed",
+      notes: "DDS realizado com 5 colaboradores. PT #PT-2026-0312 emitida.",
+      checkedById: operatorUser.id,
+      checkedAt: new Date("2026-04-08T07:45:00"),
+      sortOrder: 2,
+    });
+
+    await db.insert(serviceExecutionCycleCheckpointsTable).values({
+      cycleId: cicloInstalacaoAtivo.id,
+      modelCheckpointId: cpInstalacao.id,
+      kind: "checkpoint",
+      label: "Inspeção de recebimento dos equipamentos",
+      acceptanceCriteria: "Equipamento sem avarias, lacres intactos, nota fiscal confere.",
+      isRequired: true,
+      requiresEvidence: true,
+      status: "passed",
+      notes: "Equipamentos recebidos em perfeito estado. NF #45678 confere.",
+      checkedById: operatorUser.id,
+      checkedAt: new Date("2026-04-09T08:00:00"),
+      sortOrder: 3,
+    });
+
+    await db.insert(serviceExecutionCycleCheckpointsTable).values({
+      cycleId: cicloInstalacaoAtivo.id,
+      modelCheckpointId: cpComissionamento.id,
+      kind: "checkpoint",
+      label: "Testes de comissionamento e partida",
+      acceptanceCriteria: "Todos os parâmetros dentro dos limites especificados.",
+      isRequired: true,
+      requiresEvidence: true,
+      status: "pending",
+      sortOrder: 4,
+    });
+
+    await db.insert(serviceExecutionCycleCheckpointsTable).values({
+      cycleId: cicloInstalacaoAtivo.id,
+      modelCheckpointId: cpAceiteCliente.id,
+      kind: "checkpoint",
+      label: "Aceite formal do cliente",
+      acceptanceCriteria: "Termo de aceite assinado pelo responsável técnico do cliente.",
+      isRequired: true,
+      requiresEvidence: true,
+      status: "pending",
+      sortOrder: 5,
+    });
+
+    // Checkpoints do ciclo aguardando liberação — todos passed
+    await db.insert(serviceExecutionCycleCheckpointsTable).values([
+      {
+        cycleId: cicloInstalacaoLiberacao.id,
+        modelCheckpointId: cpDocumentacao.id,
+        kind: "checkpoint",
+        label: "Conferência de documentação técnica",
+        acceptanceCriteria: "Projeto aprovado, ART emitida, licenças necessárias anexadas.",
+        isRequired: true,
+        requiresEvidence: true,
+        status: "passed",
+        notes: "Documentação completa.",
+        checkedById: operatorUser.id,
+        checkedAt: new Date("2026-04-01T08:00:00"),
+        sortOrder: 1,
+      },
+      {
+        cycleId: cicloInstalacaoLiberacao.id,
+        modelCheckpointId: cpSeguranca.id,
+        kind: "preventive_control",
+        label: "Inspeção de segurança — EPI e área de trabalho",
+        acceptanceCriteria: "EPI completo, área sinalizada, PT emitida.",
+        isRequired: true,
+        requiresEvidence: false,
+        status: "passed",
+        checkedById: operatorUser.id,
+        checkedAt: new Date("2026-04-01T07:30:00"),
+        sortOrder: 2,
+      },
+      {
+        cycleId: cicloInstalacaoLiberacao.id,
+        modelCheckpointId: cpInstalacao.id,
+        kind: "checkpoint",
+        label: "Inspeção de recebimento dos equipamentos",
+        acceptanceCriteria: "Equipamento sem avarias.",
+        isRequired: true,
+        requiresEvidence: true,
+        status: "passed",
+        checkedById: operatorUser.id,
+        checkedAt: new Date("2026-04-02T09:00:00"),
+        sortOrder: 3,
+      },
+      {
+        cycleId: cicloInstalacaoLiberacao.id,
+        modelCheckpointId: cpComissionamento.id,
+        kind: "checkpoint",
+        label: "Testes de comissionamento e partida",
+        acceptanceCriteria: "Todos os parâmetros dentro dos limites especificados.",
+        isRequired: true,
+        requiresEvidence: true,
+        status: "passed",
+        notes: "Todos os parâmetros dentro dos limites. Relatório de testes registrado.",
+        checkedById: operatorUser.id,
+        checkedAt: new Date("2026-04-07T16:00:00"),
+        sortOrder: 4,
+      },
+      {
+        cycleId: cicloInstalacaoLiberacao.id,
+        modelCheckpointId: cpAceiteCliente.id,
+        kind: "checkpoint",
+        label: "Aceite formal do cliente",
+        acceptanceCriteria: "Termo de aceite assinado.",
+        isRequired: true,
+        requiresEvidence: true,
+        status: "passed",
+        notes: "Aceite assinado pela Dra. Carla Mendonça em 07/04/2026.",
+        checkedById: operatorUser.id,
+        checkedAt: new Date("2026-04-07T17:30:00"),
+        sortOrder: 5,
+      },
+    ]);
+
+    // Checkpoints do ciclo liberado (manutenção) — todos passed
+    await db.insert(serviceExecutionCycleCheckpointsTable).values([
+      {
+        cycleId: cicloManutencaoLiberado.id,
+        kind: "preventive_control",
+        label: "Verificação de bloqueio e travamento (LOTO)",
+        acceptanceCriteria: "Energia isolada, travamento aplicado, testado.",
+        isRequired: true,
+        requiresEvidence: false,
+        status: "passed",
+        checkedById: operator2User.id,
+        checkedAt: new Date("2026-03-10T08:00:00"),
+        sortOrder: 1,
+      },
+      {
+        cycleId: cicloManutencaoLiberado.id,
+        kind: "checkpoint",
+        label: "Inspeção visual dos componentes",
+        acceptanceCriteria: "Sem desgaste excessivo ou avaria estrutural.",
+        isRequired: true,
+        requiresEvidence: true,
+        status: "passed",
+        notes: "Filtros substituídos. Rolamentos com desgaste normal.",
+        checkedById: operator2User.id,
+        checkedAt: new Date("2026-03-10T10:00:00"),
+        sortOrder: 2,
+      },
+      {
+        cycleId: cicloManutencaoLiberado.id,
+        kind: "checkpoint",
+        label: "Testes funcionais pós-manutenção",
+        acceptanceCriteria: "Equipamento opera dentro dos parâmetros nominais.",
+        isRequired: true,
+        requiresEvidence: true,
+        status: "passed",
+        notes: "Pressão: 8,2 bar. Temperatura: 42°C. Dentro dos parâmetros nominais.",
+        checkedById: operator2User.id,
+        checkedAt: new Date("2026-03-12T14:00:00"),
+        sortOrder: 3,
+      },
+    ]);
+
+    // Checkpoints do ciclo bloqueado (fabricação) — com falha
+    await db.insert(serviceExecutionCycleCheckpointsTable).values([
+      {
+        cycleId: cicloFabricacaoBloqueado.id,
+        kind: "checkpoint",
+        label: "Inspeção de matéria-prima",
+        acceptanceCriteria: "Material conforme certificado de qualidade.",
+        isRequired: true,
+        requiresEvidence: true,
+        status: "passed",
+        notes: "Certificado de qualidade do aço conferido.",
+        checkedById: operator2User.id,
+        checkedAt: new Date("2026-04-05T08:00:00"),
+        sortOrder: 1,
+      },
+      {
+        cycleId: cicloFabricacaoBloqueado.id,
+        kind: "checkpoint",
+        label: "Controle dimensional em processo",
+        acceptanceCriteria: "Dimensões dentro das tolerâncias do desenho técnico.",
+        isRequired: true,
+        requiresEvidence: false,
+        status: "failed",
+        notes: "Diâmetro externo fora de tolerância em 3 peças do lote. Desvio de +0,15mm (tolerância ±0,05mm).",
+        checkedById: operator2User.id,
+        checkedAt: new Date("2026-04-07T11:00:00"),
+        sortOrder: 2,
+      },
+      {
+        cycleId: cicloFabricacaoBloqueado.id,
+        kind: "checkpoint",
+        label: "Inspeção final do lote",
+        acceptanceCriteria: "100% das peças inspecionadas conforme AQL.",
+        isRequired: true,
+        requiresEvidence: true,
+        status: "failed",
+        notes: "Lote reprovado na inspeção dimensional. 3 de 20 peças com desvio.",
+        checkedById: operator2User.id,
+        checkedAt: new Date("2026-04-07T14:30:00"),
+        sortOrder: 3,
+      },
+    ]);
+
+    console.log(`✅ Cycle checkpoints created`);
+
+    // ─── 47. Release Records ──────────────────────────────────────────────────────
+    // Liberação do ciclo de manutenção (approved)
+    await db.insert(serviceReleaseRecordsTable).values({
+      cycleId: cicloManutencaoLiberado.id,
+      decision: "approved",
+      decisionNotes:
+        "Todos os checkpoints atendidos. Relatório de manutenção e testes funcionais em ordem. Saída liberada para entrega ao cliente.",
+      blockingIssues: [],
+      decidedById: adminUser.id,
+      decidedAt: new Date("2026-03-12T15:30:00"),
+    });
+
+    // Liberação pendente — ciclo aguardando liberação (nenhum registro ainda, ciclo está awaiting_release)
+
+    console.log(`✅ Release records: 1 created`);
+
+    // ─── 48. Nonconforming Outputs ────────────────────────────────────────────────
+    // NC do ciclo de fabricação bloqueado
+    await db.insert(serviceNonconformingOutputsTable).values({
+      organizationId: org.id,
+      cycleId: cicloFabricacaoBloqueado.id,
+      title: "Desvio dimensional — Flanges DN150 Lote L-2026-088",
+      description:
+        "3 flanges de 20 apresentaram desvio no diâmetro externo de +0,15mm, excedendo a tolerância de ±0,05mm. Identificado na inspeção dimensional em processo.",
+      impact:
+        "Risco de incompatibilidade na montagem. Possível comprometimento da vedação no cliente.",
+      status: "in_treatment",
+      disposition: "reworked",
+      dispositionNotes:
+        "As 3 peças serão submetidas a reusino para correção dimensional. Restante do lote (17 peças) aprovado e segregado.",
+      responsibleUserId: operator2User.id,
+      detectedById: operator2User.id,
+      detectedAt: new Date("2026-04-07T11:00:00"),
+      createdById: operator2User.id,
+      updatedById: operator2User.id,
+    });
+
+    // NC de manutenção (histórica, resolvida)
+    await db.insert(serviceNonconformingOutputsTable).values({
+      organizationId: org.id,
+      cycleId: cicloManutencaoLiberado.id,
+      title: "Vazamento residual identificado pós-partida — Compressor #3",
+      description:
+        "Após a manutenção preventiva, identificado vazamento de óleo no compressor #3 durante o teste funcional. Ponto de vazamento: gaxeta do cabeçote.",
+      impact: "Operação do equipamento comprometida. Risco de parada não planejada.",
+      status: "resolved",
+      disposition: "reworked",
+      dispositionNotes:
+        "Gaxeta substituída imediatamente. Novo teste funcional realizado com sucesso. Liberação mantida.",
+      responsibleUserId: operator2User.id,
+      detectedById: operator2User.id,
+      detectedAt: new Date("2026-03-12T14:30:00"),
+      resolvedAt: new Date("2026-03-12T15:00:00"),
+      createdById: operator2User.id,
+      updatedById: operator2User.id,
+    });
+
+    console.log(`✅ Nonconforming outputs: 2 created`);
+
+    // ─── 49. Third Party Properties ───────────────────────────────────────────────
+    // Propriedade do cliente durante a instalação ativa
+    await db.insert(serviceThirdPartyPropertiesTable).values({
+      organizationId: org.id,
+      cycleId: cicloInstalacaoAtivo.id,
+      title: "Painel elétrico de controle — AutoMotiva",
+      ownerName: "AutoMotiva Indústria S.A.",
+      description:
+        "Painel elétrico de controle da linha de montagem fornecido pelo cliente para integração ao sistema.",
+      conditionOnReceipt: "Bom estado. Sem avarias visíveis. Lacrado de fábrica.",
+      handlingRequirements:
+        "Manter em ambiente seco. Não empilhar. Instalar conforme diagrama fornecido.",
+      status: "in_use",
+      responsibleUserId: operatorUser.id,
+      registeredById: operatorUser.id,
+      receivedAt: new Date("2026-04-09T10:00:00"),
+    });
+
+    // Propriedade devolvida na instalação liberada
+    await db.insert(serviceThirdPartyPropertiesTable).values({
+      organizationId: org.id,
+      cycleId: cicloInstalacaoLiberacao.id,
+      title: "Ferramentas especiais de alta tensão — EnergiaTec",
+      ownerName: "EnergiaTec Sistemas",
+      description:
+        "Kit de ferramentas dielétricas para 36kV fornecidas pelo cliente. Utilizadas para instalação dos painéis.",
+      conditionOnReceipt: "Excelente estado. Kits completos e calibrados.",
+      status: "returned",
+      responsibleUserId: operatorUser.id,
+      registeredById: operatorUser.id,
+      receivedAt: new Date("2026-04-01T09:00:00"),
+      returnedAt: new Date("2026-04-07T18:00:00"),
+    });
+
+    console.log(`✅ Third party properties: 2 created`);
+
+    // ─── 50. Preservation & Delivery Records ─────────────────────────────────────
+    // Registro do ciclo liberado (manutenção)
+    await db.insert(servicePreservationDeliveryRecordsTable).values({
+      organizationId: org.id,
+      cycleId: cicloManutencaoLiberado.id,
+      preservationNotes:
+        "Componentes substituídos embalados e identificados. Peças antigas retidas para análise.",
+      preservationMethod: "Embalagem individual em plástico bolha + caixa papelão identificada.",
+      packagingNotes: "Relatório técnico impresso em 2 vias e digitalizado.",
+      deliveryNotes: "Entrega realizada ao responsável de manutenção do cliente.",
+      deliveryRecipient: "Eng. Rafael Borges — AutoMotiva",
+      deliveryMethod: "Entrega presencial na planta",
+      deliveredById: operator2User.id,
+      preservedAt: new Date("2026-03-12T14:00:00"),
+      deliveredAt: new Date("2026-03-12T16:00:00"),
+      createdById: operator2User.id,
+      updatedById: operator2User.id,
+    });
+
+    console.log(`✅ Preservation & delivery record: 1 created`);
+
+    // ─── 51. Post Delivery Events ─────────────────────────────────────────────────
+    // Evento de monitoramento pós-entrega (manutenção liberada)
+    await db.insert(servicePostDeliveryEventsTable).values({
+      organizationId: org.id,
+      cycleId: cicloManutencaoLiberado.id,
+      eventType: "monitoring",
+      title: "Acompanhamento 7 dias — Compressores AutoMotiva",
+      description:
+        "Monitoramento remoto realizado 7 dias após a manutenção preventiva. Verificação de parâmetros de pressão e temperatura via dados do cliente.",
+      status: "closed",
+      followUpNotes:
+        "Todos os parâmetros estáveis. Pressão: 8,1-8,3 bar. Temperatura: 40-44°C. Sem ocorrências.",
+      responsibleUserId: operator2User.id,
+      occurredAt: new Date("2026-03-19T10:00:00"),
+      closedAt: new Date("2026-03-19T11:00:00"),
+      createdById: operator2User.id,
+      updatedById: operator2User.id,
+    });
+
+    // Reclamação aberta pós-entrega (instalação liberada)
+    await db.insert(servicePostDeliveryEventsTable).values({
+      organizationId: org.id,
+      cycleId: cicloInstalacaoLiberacao.id,
+      eventType: "complaint",
+      title: "Reclamação — Alarme de temperatura intermitente",
+      description:
+        "Cliente EnergiaTec relata alarme de temperatura intermitente nos painéis instalados, ocorrendo 3x na semana após a entrega.",
+      status: "in_follow_up",
+      followUpNotes:
+        "Técnico deslocado ao local. Investigação em andamento. Suspeita de sensor de temperatura com defeito de fábrica.",
+      responsibleUserId: operatorUser.id,
+      occurredAt: new Date("2026-04-14T09:00:00"),
+      createdById: operatorUser.id,
+      updatedById: operatorUser.id,
+    });
+
+    console.log(`✅ Post delivery events: 2 created`);
+
+    // ─── Summary (Ciclo E) ─────────────────────────────────────────────────────────
+    console.log(`✅ Ciclo E — Produção/Prestação de Serviços:`);
+    console.log(`   SGQ Processes: 3`);
+    console.log(`   Organization contacts: 2`);
+    console.log(`   Execution models: 3 (with checkpoints)`);
+    console.log(`   Special validation: 1 profile + 1 event`);
+    console.log(`   Execution cycles: 5 (in_progress×2, awaiting_release×1, released×1, blocked×1)`);
+    console.log(`   Release records: 1`);
+    console.log(`   Nonconforming outputs: 2`);
+    console.log(`   Third party properties: 2`);
+    console.log(`   Preservation/delivery: 1`);
+    console.log(`   Post delivery events: 2`);
 
     // ─── Summary ──────────────────────────────────────────────────────────────────
     console.log("\n" + "═".repeat(60));
