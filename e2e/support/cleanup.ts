@@ -61,6 +61,12 @@ import {
   usersTable,
   notificationsTable,
   correctiveActionsTable,
+  developmentProjectsTable,
+  developmentProjectChangesTable,
+  developmentProjectInputsTable,
+  developmentProjectOutputsTable,
+  developmentProjectReviewsTable,
+  developmentProjectStagesTable,
   internalAuditChecklistItemsTable,
   internalAuditFindingsTable,
   internalAuditsTable,
@@ -70,6 +76,7 @@ import {
   managementReviewOutputsTable,
   managementReviewsTable,
   nonconformitiesTable,
+  requirementApplicabilityDecisionsTable,
   sgqProcessInteractionsTable,
   sgqProcessesTable,
   sgqProcessRevisionsTable,
@@ -260,6 +267,14 @@ export async function cleanupTestData(prefix: string) {
       .where(inArray(knowledgeAssetsTable.organizationId, orgIds));
     const knowledgeAssetIds = knowledgeAssets.map((asset) => asset.id);
 
+    const developmentProjects = await tx
+      .select({ id: developmentProjectsTable.id })
+      .from(developmentProjectsTable)
+      .where(inArray(developmentProjectsTable.organizationId, orgIds));
+    const developmentProjectIds = developmentProjects.map(
+      (project) => project.id,
+    );
+
     if (planIds.length > 0) {
       const actions = await tx
         .select({ id: strategicPlanActionsTable.id })
@@ -370,11 +385,65 @@ export async function cleanupTestData(prefix: string) {
     if (knowledgeAssetIds.length > 0) {
       await tx
         .delete(knowledgeAssetLinksTable)
-        .where(inArray(knowledgeAssetLinksTable.knowledgeAssetId, knowledgeAssetIds));
+        .where(
+          inArray(knowledgeAssetLinksTable.knowledgeAssetId, knowledgeAssetIds),
+        );
       await tx
         .delete(knowledgeAssetsTable)
         .where(inArray(knowledgeAssetsTable.id, knowledgeAssetIds));
     }
+
+    if (developmentProjectIds.length > 0) {
+      await tx
+        .delete(developmentProjectInputsTable)
+        .where(
+          inArray(
+            developmentProjectInputsTable.projectId,
+            developmentProjectIds,
+          ),
+        );
+      await tx
+        .delete(developmentProjectStagesTable)
+        .where(
+          inArray(
+            developmentProjectStagesTable.projectId,
+            developmentProjectIds,
+          ),
+        );
+      await tx
+        .delete(developmentProjectOutputsTable)
+        .where(
+          inArray(
+            developmentProjectOutputsTable.projectId,
+            developmentProjectIds,
+          ),
+        );
+      await tx
+        .delete(developmentProjectReviewsTable)
+        .where(
+          inArray(
+            developmentProjectReviewsTable.projectId,
+            developmentProjectIds,
+          ),
+        );
+      await tx
+        .delete(developmentProjectChangesTable)
+        .where(
+          inArray(
+            developmentProjectChangesTable.projectId,
+            developmentProjectIds,
+          ),
+        );
+      await tx
+        .delete(developmentProjectsTable)
+        .where(inArray(developmentProjectsTable.id, developmentProjectIds));
+    }
+
+    await tx
+      .delete(requirementApplicabilityDecisionsTable)
+      .where(
+        inArray(requirementApplicabilityDecisionsTable.organizationId, orgIds),
+      );
 
     if (departmentIds.length > 0) {
       await tx

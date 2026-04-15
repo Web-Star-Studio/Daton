@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import operationalPlanningRouter from "./operational-planning";
 import plansRouter from "./plans";
+import projectDevelopmentRouter from "./project-development";
 import resourcesRouter from "./resources";
 import systemRouter from "./system";
 
@@ -10,5 +11,6 @@ router.use(plansRouter);
 router.use(resourcesRouter);
 router.use(systemRouter);
 router.use(operationalPlanningRouter);
+router.use(projectDevelopmentRouter);
 
 export default router;

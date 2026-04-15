@@ -41,6 +41,13 @@ import {
   strategicPlanRevisionsTable,
   productKnowledgeArticlesTable,
   productKnowledgeArticleRevisionsTable,
+  requirementApplicabilityDecisionsTable,
+  developmentProjectsTable,
+  developmentProjectInputsTable,
+  developmentProjectStagesTable,
+  developmentProjectOutputsTable,
+  developmentProjectReviewsTable,
+  developmentProjectChangesTable,
 } from "@workspace/db";
 import { eq, inArray, or } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -228,6 +235,14 @@ async function resetDemoSeedState(db: SeedDatabase) {
       .where(inArray(legislationsTable.id, legislationIds));
   }
 
+  await db
+    .delete(requirementApplicabilityDecisionsTable)
+    .where(
+      inArray(requirementApplicabilityDecisionsTable.organizationId, orgIds),
+    );
+  await db
+    .delete(developmentProjectsTable)
+    .where(inArray(developmentProjectsTable.organizationId, orgIds));
   await db
     .delete(departmentsTable)
     .where(inArray(departmentsTable.organizationId, orgIds));
@@ -2848,6 +2863,308 @@ async function seed() {
     });
     console.log(`✅ Product knowledge article revisions: 2 created`);
 
+    // ─── P&D — Projeto e Desenvolvimento (ISO 8.3) ───────────────────────────────
+    const [applicabilityDecision] = await db
+      .insert(requirementApplicabilityDecisionsTable)
+      .values({
+        organizationId: org.id,
+        requirementCode: "8.3",
+        isApplicable: true,
+        scopeSummary:
+          "Desenvolvemos produtos sob encomenda para clientes industriais, exigindo controle formal de P&D conforme ISO 9001:2015 cláusula 8.3.",
+        justification:
+          "A empresa realiza atividades de projeto e desenvolvimento de novos produtos e processos de forma recorrente. O controle formal é necessário para garantir rastreabilidade, aprovação de clientes e conformidade do produto final.",
+        responsibleEmployeeId: roberto.id,
+        approvalStatus: "approved",
+        approvedById: adminUser.id,
+        approvedAt: new Date("2025-03-01"),
+        validFrom: "2025-01-01",
+        validUntil: "2026-12-31",
+        createdById: adminUser.id,
+        updatedById: adminUser.id,
+      })
+      .returning();
+    console.log(
+      `✅ P&D applicability decision: applicable=true, approved (id: ${applicabilityDecision.id})`,
+    );
+
+    // Project 1 — active, with all sub-entities
+    const [projectSensor] = await db
+      .insert(developmentProjectsTable)
+      .values({
+        organizationId: org.id,
+        applicabilityDecisionId: applicabilityDecision.id,
+        projectCode: "PD-2025-001",
+        title: "Sensor de Temperatura Industrial — 4ª Geração",
+        scope:
+          "Desenvolver a 4ª geração do sensor de temperatura industrial, incorporando comunicação sem fio (BLE/LoRa), faixa de medição ampliada (-50°C a +300°C) e certificação INMETRO.",
+        objective:
+          "Lançar produto certificado até dezembro de 2025, substituindo a 3ª geração nas linhas de produção de clientes-chave.",
+        status: "active",
+        responsibleEmployeeId: roberto.id,
+        plannedStartDate: "2025-02-01",
+        plannedEndDate: "2025-12-15",
+        attachments: [],
+        createdById: adminUser.id,
+        updatedById: adminUser.id,
+      })
+      .returning();
+
+    // Inputs for project 1
+    await db.insert(developmentProjectInputsTable).values([
+      {
+        organizationId: org.id,
+        projectId: projectSensor.id,
+        title: "Especificações do cliente ABC Indústrias",
+        description:
+          "Requisitos técnicos e de interface definidos em contrato com o cliente ABC Indústrias, incluindo faixa de temperatura, precisão mínima e protocolo de comunicação.",
+        source: "Contrato ABC-2024-089",
+        sortOrder: 1,
+      },
+      {
+        organizationId: org.id,
+        projectId: projectSensor.id,
+        title: "Norma IEC 60584 — Termopares industriais",
+        description:
+          "Requisitos normativos para calibração e precisão de termopares a serem atendidos pelo produto.",
+        source: "IEC 60584:2013",
+        sortOrder: 2,
+      },
+      {
+        organizationId: org.id,
+        projectId: projectSensor.id,
+        title: "Lições aprendidas — 3ª geração",
+        description:
+          "Registro de falhas e melhorias identificadas no ciclo de vida do sensor Gen3, incluindo problemas de selagem e durabilidade da bateria.",
+        source: "Relatório interno RI-2024-17",
+        sortOrder: 3,
+      },
+    ]);
+
+    // Stages for project 1
+    await db.insert(developmentProjectStagesTable).values({
+      organizationId: org.id,
+      projectId: projectSensor.id,
+      title: "Conceituação e Viabilidade",
+      description:
+        "Análise de viabilidade técnica e econômica, definição da arquitetura de hardware e seleção de fornecedores de componentes críticos.",
+      responsibleEmployeeId: roberto.id,
+      status: "completed",
+      dueDate: "2025-03-31",
+      completedAt: new Date("2025-03-28"),
+      evidenceNote:
+        "Relatório de viabilidade aprovado pela diretoria técnica em 28/03/2025.",
+      sortOrder: 1,
+    });
+
+    await db.insert(developmentProjectStagesTable).values([
+      {
+        organizationId: org.id,
+        projectId: projectSensor.id,
+        title: "Projeto Detalhado — Hardware",
+        description:
+          "Desenvolvimento do esquemático, layout de PCB, especificação de firmware e desenhos mecânicos da carcaça.",
+        responsibleEmployeeId: marcos.id,
+        status: "in_progress",
+        dueDate: "2025-06-30",
+        sortOrder: 2,
+      },
+      {
+        organizationId: org.id,
+        projectId: projectSensor.id,
+        title: "Prototipagem e Testes de Bancada",
+        description:
+          "Fabricação de 10 protótipos e execução de testes de bancada conforme plano de verificação.",
+        responsibleEmployeeId: juliana.id,
+        status: "planned",
+        dueDate: "2025-09-30",
+        sortOrder: 3,
+      },
+      {
+        organizationId: org.id,
+        projectId: projectSensor.id,
+        title: "Certificação INMETRO e Homologação",
+        description:
+          "Submissão do produto ao processo de certificação compulsória e homologação com clientes-piloto.",
+        responsibleEmployeeId: roberto.id,
+        status: "planned",
+        dueDate: "2025-11-30",
+        sortOrder: 4,
+      },
+    ]);
+
+    // Outputs for project 1
+    await db.insert(developmentProjectOutputsTable).values([
+      {
+        organizationId: org.id,
+        projectId: projectSensor.id,
+        title: "Especificação Técnica do Produto — Rev. A",
+        description:
+          "Documento formal com todos os parâmetros técnicos, faixas nominais, tolerâncias, interfaces e condições de operação do sensor Gen4.",
+        outputType: "specification",
+        status: "approved",
+        sortOrder: 1,
+      },
+      {
+        organizationId: org.id,
+        projectId: projectSensor.id,
+        title: "Plano de Verificação e Validação",
+        description:
+          "Plano com todos os testes e critérios de aceitação necessários para validar o produto antes do lançamento.",
+        outputType: "plan",
+        status: "approved",
+        sortOrder: 2,
+      },
+      {
+        organizationId: org.id,
+        projectId: projectSensor.id,
+        title: "Relatório de Prototipagem — Iteração 1",
+        description:
+          "Resultados dos testes de bancada com 10 protótipos da 1ª iteração, incluindo não conformidades identificadas.",
+        outputType: "report",
+        status: "draft",
+        sortOrder: 3,
+      },
+    ]);
+
+    // Reviews for project 1
+    await db.insert(developmentProjectReviewsTable).values([
+      {
+        organizationId: org.id,
+        projectId: projectSensor.id,
+        reviewType: "review",
+        title: "Revisão de Projeto — Gate 1 (Conceituação)",
+        notes:
+          "Revisão formal da fase de conceituação. Todos os requisitos do cliente foram capturados nas entradas. Arquitetura de hardware aprovada com ressalva sobre seleção do módulo BLE — necessário avaliar alternativas com menor consumo.",
+        outcome: "needs_changes",
+        responsibleEmployeeId: roberto.id,
+        occurredAt: new Date("2025-03-28"),
+        createdById: adminUser.id,
+      },
+      {
+        organizationId: org.id,
+        projectId: projectSensor.id,
+        reviewType: "review",
+        title: "Revisão de Projeto — Gate 1b (Ação corretiva BLE)",
+        notes:
+          "Módulo BLE substituído pelo nRF52840. Consumo energético atende à especificação de 5 anos com bateria CR2450. Conceituação aprovada sem pendências.",
+        outcome: "approved",
+        responsibleEmployeeId: roberto.id,
+        occurredAt: new Date("2025-04-05"),
+        createdById: adminUser.id,
+      },
+      {
+        organizationId: org.id,
+        projectId: projectSensor.id,
+        reviewType: "verification",
+        title: "Verificação — Esquemático PCB Rev. B",
+        notes:
+          "Verificação do esquemático contra os requisitos de entrada. Pendente execução após entrega do layout Rev. B pelo contratado.",
+        outcome: "pending",
+        responsibleEmployeeId: marcos.id,
+        createdById: adminUser.id,
+      },
+    ]);
+
+    // Changes for project 1
+    await db.insert(developmentProjectChangesTable).values([
+      {
+        organizationId: org.id,
+        projectId: projectSensor.id,
+        title: "Substituição do módulo de comunicação BLE",
+        changeDescription:
+          "Troca do módulo ESP32-C3 pelo nRF52840 como componente de comunicação BLE.",
+        reason:
+          "Módulo original não atingia o requisito de consumo energético para vida útil de bateria de 5 anos.",
+        impactDescription:
+          "Necessidade de revisão do esquemático (2 dias). Sem impacto no cronograma geral. Custo de componente aumenta R$ 12/unidade.",
+        status: "approved",
+        decidedById: adminUser.id,
+        decidedAt: new Date("2025-04-04"),
+        createdById: adminUser.id,
+        updatedById: adminUser.id,
+      },
+    ]);
+
+    console.log(
+      `✅ P&D project 1: "${projectSensor.title}" (active, with inputs/stages/outputs/reviews/changes)`,
+    );
+
+    // Project 2 — completed
+    const [projectProcess] = await db
+      .insert(developmentProjectsTable)
+      .values({
+        organizationId: org.id,
+        applicabilityDecisionId: applicabilityDecision.id,
+        projectCode: "PD-2024-003",
+        title: "Processo de Soldagem por Refluxo — Qualificação",
+        scope:
+          "Qualificar processo de soldagem por refluxo para placas com componentes BGA, estabelecendo parâmetros de temperatura e velocidade de esteira para os fornos Heller 1800EXL.",
+        objective:
+          "Eliminar defeitos de soldagem em placas BGA, reduzindo retrabalho em 80% até o final de 2024.",
+        status: "completed",
+        responsibleEmployeeId: juliana.id,
+        plannedStartDate: "2024-04-01",
+        plannedEndDate: "2024-09-30",
+        actualEndDate: "2024-09-25",
+        attachments: [],
+        createdById: adminUser.id,
+        updatedById: adminUser.id,
+      })
+      .returning();
+
+    await db.insert(developmentProjectInputsTable).values([
+      {
+        organizationId: org.id,
+        projectId: projectProcess.id,
+        title: "Especificação de processo do fornecedor Heller",
+        description:
+          "Manual de parâmetros recomendados para soldagem de componentes BGA nos fornos Heller 1800EXL.",
+        source: "Heller Industries — Application Note AN-REF-BGA-2022",
+        sortOrder: 1,
+      },
+      {
+        organizationId: org.id,
+        projectId: projectProcess.id,
+        title: "Relatório de rejeição Q1/2024",
+        description:
+          "Análise de defeitos de soldagem identificados em inspeção AOI no primeiro trimestre de 2024.",
+        source: "Qualidade — QA-REP-2024-001",
+        sortOrder: 2,
+      },
+    ]);
+
+    await db.insert(developmentProjectReviewsTable).values([
+      {
+        organizationId: org.id,
+        projectId: projectProcess.id,
+        reviewType: "verification",
+        title: "Verificação do Perfil de Temperatura",
+        notes:
+          "Perfil de temperatura validado com termopares em 9 pontos da placa. Todos dentro da janela especificada (220-245°C). Parâmetros aprovados.",
+        outcome: "approved",
+        responsibleEmployeeId: juliana.id,
+        occurredAt: new Date("2024-08-15"),
+        createdById: adminUser.id,
+      },
+      {
+        organizationId: org.id,
+        projectId: projectProcess.id,
+        reviewType: "validation",
+        title: "Validação com Lote Piloto — 500 placas",
+        notes:
+          "Produção piloto de 500 placas com parâmetros qualificados. Taxa de defeito: 0,4% (versus 8,2% antes do projeto). Meta de 80% de redução atingida. Processo validado para produção em série.",
+        outcome: "approved",
+        responsibleEmployeeId: juliana.id,
+        occurredAt: new Date("2024-09-20"),
+        createdById: adminUser.id,
+      },
+    ]);
+
+    console.log(
+      `✅ P&D project 2: "${projectProcess.title}" (completed, with inputs/reviews)`,
+    );
+
     // ─── Summary ──────────────────────────────────────────────────────────────────
     console.log("\n" + "═".repeat(60));
     console.log("  SEED COMPLETE — All tables populated!");
@@ -2886,6 +3203,8 @@ async function seed() {
   Plan revisions:   1
   KB articles:      ${createdArticles.length}
   KB revisions:     2
+  P&D decisão:      1  (aplicável, aprovada)
+  P&D projetos:     2  (1 ativo, 1 concluído)
   `);
     if (process.env.SEED_DEMO_PRINT_CREDS === "true") {
       console.log(`

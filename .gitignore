@@ -57,3 +57,5 @@ Thumbs.db
 
 .env
 .env.integration
+__pycache__/
+*.pyc
