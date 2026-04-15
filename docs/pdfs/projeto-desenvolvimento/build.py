@@ -72,7 +72,7 @@ def build():
     story.append(PageBreak())
 
     # ── SEÇÃO 1 — APLICABILIDADE DO REQUISITO 8.3 ─────────────────────────────
-    story.append(Spacer(1, 4*mm))
+    story.append(Spacer(1, 2*mm))
     story.append(SectionHeader("Aplicabilidade do Requisito 8.3"))
     story.append(Spacer(1, 3*mm))
 
@@ -84,15 +84,15 @@ def build():
         "quando substituídas por decisões posteriores.",
         ST_BODY))
 
-    story.append(Spacer(1, 3*mm))
-    story.append(img_flowable(f"{IMGS_DIR}/01-aplicabilidade-annotated.png", max_height=78*mm))
+    story.append(Spacer(1, 2*mm))
+    story.append(img_flowable(f"{IMGS_DIR}/01-aplicabilidade-annotated.png", max_height=62*mm))
     story.append(Spacer(1, 2*mm))
     story.append(Paragraph(
         "Aba Aplicabilidade: formulário de registro (esquerda) e histórico auditável (direita). "
         "Em destaque, o card de status superior com a decisão vigente e o contador de projetos.",
         ST_CAPTION))
 
-    story.append(Spacer(1, 4*mm))
+    story.append(Spacer(1, 2*mm))
     story.append(label_tag("Como registrar uma decisão"))
     story.append(Spacer(1, 2*mm))
     story.append(steps_list([
@@ -116,7 +116,7 @@ def build():
         "Bloqueio automático do workflow enquanto não houver aprovação como aplicável",
     ]))
 
-    story.append(Spacer(1, 3*mm))
+    story.append(Spacer(1, 2*mm))
     story.append(note_box(
         "ISO 9001:2015, cláusula 8.3.1 — A organização deve estabelecer, implementar e manter um "
         "processo de projeto e desenvolvimento adequado para assegurar a posterior provisão de "
@@ -220,7 +220,7 @@ def build():
     story.append(PageBreak())
 
     # ── SEÇÃO 4 — SAÍDAS, REVISÕES E VALIDAÇÕES ───────────────────────────────
-    story.append(Spacer(1, 4*mm))
+    story.append(Spacer(1, 2*mm))
     story.append(SectionHeader("Saídas, Revisões e Validações"))
     story.append(Spacer(1, 3*mm))
 
@@ -232,7 +232,7 @@ def build():
         ST_BODY))
 
     story.append(Spacer(1, 3*mm))
-    story.append(img_flowable(f"{IMGS_DIR}/04-saidas-revisoes-annotated.png", max_height=78*mm))
+    story.append(img_flowable(f"{IMGS_DIR}/04-saidas-revisoes-annotated.png", max_height=62*mm))
     story.append(Spacer(1, 2*mm))
     story.append(Paragraph(
         "Seções de Saídas (superior) e Revisões/Verificações/Validações (inferior). "
@@ -262,7 +262,7 @@ def build():
         "Status de saída: Rascunho → Aprovada → Liberada",
     ]))
 
-    story.append(Spacer(1, 3*mm))
+    story.append(Spacer(1, 2*mm))
     story.append(note_box(
         "ISO 9001:2015, cláusulas 8.3.4 / 8.3.5 / 8.3.6 — O projeto deve ser submetido a: "
         "<b>revisões</b> para avaliar a capacidade de atender aos requisitos; "
@@ -321,7 +321,7 @@ def build():
     ))
 
     # ── RODAPÉ FINAL ──────────────────────────────────────────────────────────
-    story.append(Spacer(1, 8*mm))
+    story.append(Spacer(1, 3*mm))
     story.append(HLine())
     story.append(Spacer(1, 3*mm))
     story.append(Paragraph("Documento de uso restrito. daton © 2026", ST_FOOTER))

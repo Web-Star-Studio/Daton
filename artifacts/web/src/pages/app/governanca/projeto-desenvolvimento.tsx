@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 import {
   FolderKanban,
   Loader2,
@@ -1975,52 +1976,63 @@ export default function ProjectDevelopmentPage() {
                                 key={item.id}
                                 className="rounded-2xl border border-border/70 p-4"
                               >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="text-sm font-medium">
+                                <div className="space-y-1.5">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className="text-sm font-medium leading-snug">
                                       {item.title}
                                     </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {OUTPUT_TYPE_LABEL[item.outputType] ?? item.outputType} ·{" "}
-                                      {OUTPUT_STATUS_LABEL[item.status] ?? item.status}
-                                    </p>
-                                    {item.description ? (
-                                      <p className="mt-2 text-sm text-muted-foreground">
-                                        {item.description}
-                                      </p>
-                                    ) : null}
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      type="button"
+                                    <Badge
                                       variant="outline"
-                                      size="sm"
-                                      aria-label={`Editar saída: ${item.title}`}
-                                      onClick={() => {
-                                        setEditingOutputId(item.id);
-                                        setIsAddingOutput(false);
-                                        setOutputForm(outputToForm(item));
-                                      }}
+                                      className={cn(
+                                        "shrink-0 text-xs",
+                                        item.status === "approved" &&
+                                          "border-green-200 bg-green-50 text-green-700",
+                                        item.status === "released" &&
+                                          "border-blue-200 bg-blue-50 text-blue-700",
+                                      )}
                                     >
-                                      Editar
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      aria-label={`Excluir saída: ${item.title}`}
-                                      className="text-muted-foreground hover:text-destructive"
-                                      onClick={() =>
-                                        deleteResource(
-                                          outputMutation,
-                                          item.id,
-                                          "esta saída",
-                                        )
-                                      }
-                                    >
-                                      Excluir
-                                    </Button>
+                                      {OUTPUT_STATUS_LABEL[item.status] ?? item.status}
+                                    </Badge>
                                   </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    {OUTPUT_TYPE_LABEL[item.outputType] ?? item.outputType}
+                                  </p>
+                                  {item.description ? (
+                                    <p className="line-clamp-2 text-xs text-muted-foreground">
+                                      {item.description}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className="mt-3 flex justify-end gap-1.5 border-t border-border/40 pt-3">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    aria-label={`Editar saída: ${item.title}`}
+                                    onClick={() => {
+                                      setEditingOutputId(item.id);
+                                      setIsAddingOutput(false);
+                                      setOutputForm(outputToForm(item));
+                                    }}
+                                  >
+                                    Editar
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    aria-label={`Excluir saída: ${item.title}`}
+                                    className="text-muted-foreground hover:text-destructive"
+                                    onClick={() =>
+                                      deleteResource(
+                                        outputMutation,
+                                        item.id,
+                                        "esta saída",
+                                      )
+                                    }
+                                  >
+                                    Excluir
+                                  </Button>
                                 </div>
                               </div>
                             ))}
@@ -2237,60 +2249,58 @@ export default function ProjectDevelopmentPage() {
                                 key={item.id}
                                 className="rounded-2xl border border-border/70 p-4"
                               >
-                                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                                  <div className="space-y-2">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <p className="text-sm font-medium">
-                                        {item.title}
-                                      </p>
-                                      <Badge
-                                        className={getReviewTone(item.outcome)}
-                                      >
-                                        {REVIEW_OUTCOME_LABEL[item.outcome] ?? item.outcome}
-                                      </Badge>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">
-                                      {REVIEW_TYPE_LABEL[item.reviewType] ?? item.reviewType} · responsável{" "}
-                                      {item.responsibleEmployeeName || "—"} ·{" "}
-                                      {formatDateTime(item.occurredAt)}
+                                <div className="space-y-1.5">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <p className="text-sm font-medium leading-snug">
+                                      {item.title}
                                     </p>
-                                    {item.notes ? (
-                                      <p className="text-sm text-muted-foreground">
-                                        {item.notes}
-                                      </p>
-                                    ) : null}
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      aria-label={`Editar registro: ${item.title}`}
-                                      onClick={() => {
-                                        setEditingReviewId(item.id);
-                                        setIsAddingReview(false);
-                                        setReviewForm(reviewToForm(item));
-                                      }}
+                                    <Badge
+                                      className={cn("text-xs", getReviewTone(item.outcome))}
                                     >
-                                      Editar
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      aria-label={`Excluir registro: ${item.title}`}
-                                      className="text-muted-foreground hover:text-destructive"
-                                      onClick={() =>
-                                        deleteResource(
-                                          reviewMutation,
-                                          item.id,
-                                          "este registro",
-                                        )
-                                      }
-                                    >
-                                      Excluir
-                                    </Button>
+                                      {REVIEW_OUTCOME_LABEL[item.outcome] ?? item.outcome}
+                                    </Badge>
                                   </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    {REVIEW_TYPE_LABEL[item.reviewType] ?? item.reviewType} ·{" "}
+                                    {item.responsibleEmployeeName || "—"} ·{" "}
+                                    {formatDateTime(item.occurredAt)}
+                                  </p>
+                                  {item.notes ? (
+                                    <p className="line-clamp-2 text-xs text-muted-foreground">
+                                      {item.notes}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className="mt-3 flex justify-end gap-1.5 border-t border-border/40 pt-3">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    aria-label={`Editar registro: ${item.title}`}
+                                    onClick={() => {
+                                      setEditingReviewId(item.id);
+                                      setIsAddingReview(false);
+                                      setReviewForm(reviewToForm(item));
+                                    }}
+                                  >
+                                    Editar
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    aria-label={`Excluir registro: ${item.title}`}
+                                    className="text-muted-foreground hover:text-destructive"
+                                    onClick={() =>
+                                      deleteResource(
+                                        reviewMutation,
+                                        item.id,
+                                        "este registro",
+                                      )
+                                    }
+                                  >
+                                    Excluir
+                                  </Button>
                                 </div>
                               </div>
                             ))}
