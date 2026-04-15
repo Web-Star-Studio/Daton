@@ -37,11 +37,11 @@ import {
   useUpdateUserRole,
   useUpdateUserModules,
   getListOrgUsersQueryKey,
-  type AppModule,
+  type AppModule as GeneratedAppModule,
   type UpdateUserRoleBodyRole,
 } from "@workspace/api-client-react";
 
-type OrgUserModule = AppModule;
+type OrgUserModule = string;
 
 type CreateUserFormData = {
   name: string;
@@ -73,6 +73,7 @@ const MODULE_LABELS: Record<string, string> = {
   positions: "Cargos",
   governance: "Governança",
   suppliers: "Fornecedores",
+  customers: "Clientes SGI",
   environmental: "Ambiental",
 };
 
@@ -85,6 +86,7 @@ const ALL_MODULES: OrgUserModule[] = [
   "positions",
   "governance",
   "suppliers",
+  "customers",
   "environmental",
 ];
 
@@ -148,10 +150,10 @@ export function OrganizationUsersSettingsSection() {
     name: string;
     email: string;
     role: string;
-    modules: AppModule[];
+    modules: OrgUserModule[];
   } | null>(null);
   const [editRole, setEditRole] = useState<UpdateUserRoleBodyRole>("operator");
-  const [editModules, setEditModules] = useState<AppModule[]>([]);
+  const [editModules, setEditModules] = useState<OrgUserModule[]>([]);
   const createUserRole = createUserForm.watch("role");
   const createUserModules = createUserForm.watch("modules") || [];
 
@@ -678,8 +680,9 @@ export function OrganizationUsersSettingsSection() {
                 data: {
                   email: inviteForm.email.trim(),
                   role: inviteForm.role,
-                  modules:
-                    inviteForm.role === "org_admin" ? [] : inviteForm.modules,
+                  modules: (inviteForm.role === "org_admin"
+                    ? []
+                    : inviteForm.modules) as GeneratedAppModule[],
                 },
               });
               setInviteForm(emptyInviteForm);
@@ -828,7 +831,9 @@ export function OrganizationUsersSettingsSection() {
                   email: data.email.trim(),
                   password: data.password,
                   role: data.role,
-                  modules: data.role === "org_admin" ? [] : data.modules,
+                  modules: (data.role === "org_admin"
+                    ? []
+                    : data.modules) as GeneratedAppModule[],
                 },
               });
               queryClient.invalidateQueries({
@@ -1079,7 +1084,7 @@ export function OrganizationUsersSettingsSection() {
                       await updateModulesMut.mutateAsync({
                         orgId,
                         userId: editingUser.id,
-                        data: { modules: editModules },
+                        data: { modules: editModules as GeneratedAppModule[] },
                       });
                     }
 

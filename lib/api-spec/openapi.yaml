@@ -10223,6 +10223,7 @@ components:
           positions,
           governance,
           suppliers,
+          customers,
           environmental,
         ]
 

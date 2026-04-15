@@ -38,6 +38,8 @@ import LegislationDetailPage from "@/pages/app/qualidade/legislacoes/[id]";
 import DocumentacaoPage from "@/pages/app/qualidade/documentacao";
 import DocumentDetailPage from "@/pages/app/qualidade/documentacao/[id]";
 import SuppliersPage from "@/pages/app/qualidade/fornecedores";
+import CustomersPage from "@/pages/app/qualidade/clientes";
+import CustomerDetailPage from "@/pages/app/qualidade/clientes/[id]";
 import SupplierCategoriesPage from "@/pages/app/qualidade/fornecedores/categorias";
 import SupplierCatalogItemsPage from "@/pages/app/qualidade/fornecedores/catalogo-itens";
 import SupplierMasterEditPage from "@/pages/app/qualidade/fornecedores/[id]-cadastro";
@@ -201,6 +203,8 @@ function AppPages() {
         path="/qualidade/documentacao/:id"
         component={DocumentDetailPage}
       />
+      <Route path="/qualidade/clientes" component={CustomersPage} />
+      <Route path="/qualidade/clientes/:id" component={CustomerDetailPage} />
       <Route path="/qualidade/fornecedores" component={SuppliersPage} />
       <Route
         path="/qualidade/fornecedores/categorias"
@@ -313,6 +317,11 @@ function AppPages() {
       <Route
         path="/app/qualidade/documentacao/:id"
         component={DocumentDetailPage}
+      />
+      <Route path="/app/qualidade/clientes" component={CustomersPage} />
+      <Route
+        path="/app/qualidade/clientes/:id"
+        component={CustomerDetailPage}
       />
       <Route path="/app/qualidade/fornecedores" component={SuppliersPage} />
       <Route

@@ -1,5 +1,9 @@
 import { Router, type IRouter } from "express";
-import { requireAuth, requireCompletedOnboarding, requireModuleAccess } from "../middlewares/auth";
+import {
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccess,
+} from "../middlewares/auth";
 import healthRouter from "./health";
 import authRouter from "./auth";
 import organizationsRouter from "./organizations";
@@ -23,6 +27,7 @@ import orgUsersRouter from "./org-users";
 import organizationContactsRouter from "./organization-contacts";
 import productKnowledgeRouter from "./product-knowledge";
 import suppliersRouter from "./suppliers";
+import customersRouter from "./customers";
 import kpiRouter from "./kpi/index";
 import assetsRouter from "./assets";
 import assetMaintenanceRouter from "./asset-maintenance";
@@ -36,7 +41,11 @@ function requireModuleAccessForPaths(
 ) {
   const middleware = requireModuleAccess(moduleName);
 
-  return (req: Parameters<typeof middleware>[0], res: Parameters<typeof middleware>[1], next: Parameters<typeof middleware>[2]) => {
+  return (
+    req: Parameters<typeof middleware>[0],
+    res: Parameters<typeof middleware>[1],
+    next: Parameters<typeof middleware>[2],
+  ) => {
     if (!patterns.some((pattern) => pattern.test(req.path))) {
       next();
       return;
@@ -64,7 +73,9 @@ router.use(requireAuth, requireCompletedOnboarding, autoTagRouter);
 router.use(
   requireAuth,
   requireCompletedOnboarding,
-  requireModuleAccessForPaths("units", [/^\/organizations\/[^/]+\/units(?:\/|$)/]),
+  requireModuleAccessForPaths("units", [
+    /^\/organizations\/[^/]+\/units(?:\/|$)/,
+  ]),
   unitsRouter,
 );
 router.use(
@@ -136,6 +147,14 @@ router.use(
     /^\/organizations\/[^/]+\/suppliers(?:\/|$)/,
   ]),
   suppliersRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("customers", [
+    /^\/organizations\/[^/]+\/customers(?:\/|$)/,
+  ]),
+  customersRouter,
 );
 router.use(
   requireAuth,

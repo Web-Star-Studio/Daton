@@ -372,6 +372,7 @@ async function seed() {
       "positions",
       "governance",
       "suppliers",
+      "customers",
       "environmental",
     ];
 
@@ -1638,12 +1639,10 @@ async function seed() {
     }
     // Procedimento de Controle applies to all units
     for (const unit of [sede, filialRJ, filialBH]) {
-      await db
-        .insert(documentUnitsTable)
-        .values({
-          documentId: procedimentoControleDocumentos.id,
-          unitId: unit.id,
-        });
+      await db.insert(documentUnitsTable).values({
+        documentId: procedimentoControleDocumentos.id,
+        unitId: unit.id,
+      });
     }
     // Auditoria Interna — sede only
     await db
@@ -1653,12 +1652,10 @@ async function seed() {
     await db
       .insert(documentUnitsTable)
       .values({ documentId: instrucaoInspecaoRecebimento.id, unitId: sede.id });
-    await db
-      .insert(documentUnitsTable)
-      .values({
-        documentId: instrucaoInspecaoRecebimento.id,
-        unitId: filialRJ.id,
-      });
+    await db.insert(documentUnitsTable).values({
+      documentId: instrucaoInspecaoRecebimento.id,
+      unitId: filialRJ.id,
+    });
     // Política da Qualidade — all units
     for (const unit of [sede, filialRJ, filialBH]) {
       await db
@@ -1674,174 +1671,132 @@ async function seed() {
     await db
       .insert(documentElaboratorsTable)
       .values({ documentId: manualQualidade.id, employeeId: juliana.id });
-    await db
-      .insert(documentElaboratorsTable)
-      .values({
-        documentId: procedimentoControleDocumentos.id,
-        employeeId: roberto.id,
-      });
-    await db
-      .insert(documentElaboratorsTable)
-      .values({
-        documentId: procedimentoAuditoriaInterna.id,
-        employeeId: juliana.id,
-      });
-    await db
-      .insert(documentElaboratorsTable)
-      .values({
-        documentId: instrucaoInspecaoRecebimento.id,
-        employeeId: marcos.id,
-      });
+    await db.insert(documentElaboratorsTable).values({
+      documentId: procedimentoControleDocumentos.id,
+      employeeId: roberto.id,
+    });
+    await db.insert(documentElaboratorsTable).values({
+      documentId: procedimentoAuditoriaInterna.id,
+      employeeId: juliana.id,
+    });
+    await db.insert(documentElaboratorsTable).values({
+      documentId: instrucaoInspecaoRecebimento.id,
+      employeeId: marcos.id,
+    });
     await db
       .insert(documentElaboratorsTable)
       .values({ documentId: politicaQualidade.id, employeeId: roberto.id });
-    await db
-      .insert(documentElaboratorsTable)
-      .values({
-        documentId: procedimentoAcaoCorretiva.id,
-        employeeId: juliana.id,
-      });
-    await db
-      .insert(documentElaboratorsTable)
-      .values({
-        documentId: planoGerenciamentoResiduos.id,
-        employeeId: ricardo.id,
-      });
+    await db.insert(documentElaboratorsTable).values({
+      documentId: procedimentoAcaoCorretiva.id,
+      employeeId: juliana.id,
+    });
+    await db.insert(documentElaboratorsTable).values({
+      documentId: planoGerenciamentoResiduos.id,
+      employeeId: ricardo.id,
+    });
     console.log(`✅ Document elaborators assigned`);
 
     // ─── 20. Document Approvers ───────────────────────────────────────────────────
-    await db
-      .insert(documentApproversTable)
-      .values({
-        documentId: manualQualidade.id,
-        userId: adminUser.id,
-        status: "approved",
-        approvedAt: new Date("2024-01-15"),
-        comment: "Manual revisado e aprovado.",
-      });
-    await db
-      .insert(documentApproversTable)
-      .values({
-        documentId: procedimentoControleDocumentos.id,
-        userId: adminUser.id,
-        status: "approved",
-        approvedAt: new Date("2024-02-01"),
-        comment: "Aprovado.",
-      });
-    await db
-      .insert(documentApproversTable)
-      .values({
-        documentId: procedimentoAuditoriaInterna.id,
-        userId: adminUser.id,
-        status: "approved",
-        approvedAt: new Date("2024-03-10"),
-      });
-    await db
-      .insert(documentApproversTable)
-      .values({
-        documentId: instrucaoInspecaoRecebimento.id,
-        userId: adminUser.id,
-        status: "approved",
-        approvedAt: new Date("2024-04-01"),
-      });
-    await db
-      .insert(documentApproversTable)
-      .values({
-        documentId: politicaQualidade.id,
-        userId: adminUser.id,
-        status: "approved",
-        approvedAt: new Date("2024-01-05"),
-        comment: "Política aprovada pela diretoria.",
-      });
-    await db
-      .insert(documentApproversTable)
-      .values({
-        documentId: procedimentoAcaoCorretiva.id,
-        userId: adminUser.id,
-        status: "pending",
-      }); // Draft — pending
-    await db
-      .insert(documentApproversTable)
-      .values({
-        documentId: registroTreinamentoIntegracao.id,
-        userId: operatorUser.id,
-        status: "approved",
-        approvedAt: new Date("2024-01-20"),
-      });
+    await db.insert(documentApproversTable).values({
+      documentId: manualQualidade.id,
+      userId: adminUser.id,
+      status: "approved",
+      approvedAt: new Date("2024-01-15"),
+      comment: "Manual revisado e aprovado.",
+    });
+    await db.insert(documentApproversTable).values({
+      documentId: procedimentoControleDocumentos.id,
+      userId: adminUser.id,
+      status: "approved",
+      approvedAt: new Date("2024-02-01"),
+      comment: "Aprovado.",
+    });
+    await db.insert(documentApproversTable).values({
+      documentId: procedimentoAuditoriaInterna.id,
+      userId: adminUser.id,
+      status: "approved",
+      approvedAt: new Date("2024-03-10"),
+    });
+    await db.insert(documentApproversTable).values({
+      documentId: instrucaoInspecaoRecebimento.id,
+      userId: adminUser.id,
+      status: "approved",
+      approvedAt: new Date("2024-04-01"),
+    });
+    await db.insert(documentApproversTable).values({
+      documentId: politicaQualidade.id,
+      userId: adminUser.id,
+      status: "approved",
+      approvedAt: new Date("2024-01-05"),
+      comment: "Política aprovada pela diretoria.",
+    });
+    await db.insert(documentApproversTable).values({
+      documentId: procedimentoAcaoCorretiva.id,
+      userId: adminUser.id,
+      status: "pending",
+    }); // Draft — pending
+    await db.insert(documentApproversTable).values({
+      documentId: registroTreinamentoIntegracao.id,
+      userId: operatorUser.id,
+      status: "approved",
+      approvedAt: new Date("2024-01-20"),
+    });
     console.log(`✅ Document approvers assigned`);
 
     // ─── 21. Document Recipients ──────────────────────────────────────────────────
     const now = new Date();
-    await db
-      .insert(documentRecipientsTable)
-      .values({
-        documentId: manualQualidade.id,
-        userId: operatorUser.id,
-        receivedAt: now,
-        readAt: now,
-      });
-    await db
-      .insert(documentRecipientsTable)
-      .values({
-        documentId: manualQualidade.id,
-        userId: analystUser.id,
-        receivedAt: now,
-        readAt: now,
-      });
-    await db
-      .insert(documentRecipientsTable)
-      .values({
-        documentId: manualQualidade.id,
-        userId: operator2User.id,
-        receivedAt: now,
-      });
-    await db
-      .insert(documentRecipientsTable)
-      .values({
-        documentId: politicaQualidade.id,
-        userId: operatorUser.id,
-        receivedAt: now,
-        readAt: now,
-      });
-    await db
-      .insert(documentRecipientsTable)
-      .values({
-        documentId: politicaQualidade.id,
-        userId: analystUser.id,
-        receivedAt: now,
-      });
-    await db
-      .insert(documentRecipientsTable)
-      .values({
-        documentId: politicaQualidade.id,
-        userId: operator2User.id,
-        receivedAt: now,
-        readAt: now,
-      });
+    await db.insert(documentRecipientsTable).values({
+      documentId: manualQualidade.id,
+      userId: operatorUser.id,
+      receivedAt: now,
+      readAt: now,
+    });
+    await db.insert(documentRecipientsTable).values({
+      documentId: manualQualidade.id,
+      userId: analystUser.id,
+      receivedAt: now,
+      readAt: now,
+    });
+    await db.insert(documentRecipientsTable).values({
+      documentId: manualQualidade.id,
+      userId: operator2User.id,
+      receivedAt: now,
+    });
+    await db.insert(documentRecipientsTable).values({
+      documentId: politicaQualidade.id,
+      userId: operatorUser.id,
+      receivedAt: now,
+      readAt: now,
+    });
+    await db.insert(documentRecipientsTable).values({
+      documentId: politicaQualidade.id,
+      userId: analystUser.id,
+      receivedAt: now,
+    });
+    await db.insert(documentRecipientsTable).values({
+      documentId: politicaQualidade.id,
+      userId: operator2User.id,
+      receivedAt: now,
+      readAt: now,
+    });
     console.log(`✅ Document recipients assigned`);
 
     // ─── 22. Document References ──────────────────────────────────────────────────
     // Manual da Qualidade references Política da Qualidade
-    await db
-      .insert(documentReferencesTable)
-      .values({
-        documentId: manualQualidade.id,
-        referencedDocumentId: politicaQualidade.id,
-      });
+    await db.insert(documentReferencesTable).values({
+      documentId: manualQualidade.id,
+      referencedDocumentId: politicaQualidade.id,
+    });
     // Auditoria Interna references Controle de Documentos
-    await db
-      .insert(documentReferencesTable)
-      .values({
-        documentId: procedimentoAuditoriaInterna.id,
-        referencedDocumentId: procedimentoControleDocumentos.id,
-      });
+    await db.insert(documentReferencesTable).values({
+      documentId: procedimentoAuditoriaInterna.id,
+      referencedDocumentId: procedimentoControleDocumentos.id,
+    });
     // Ação Corretiva references Auditoria Interna
-    await db
-      .insert(documentReferencesTable)
-      .values({
-        documentId: procedimentoAcaoCorretiva.id,
-        referencedDocumentId: procedimentoAuditoriaInterna.id,
-      });
+    await db.insert(documentReferencesTable).values({
+      documentId: procedimentoAcaoCorretiva.id,
+      referencedDocumentId: procedimentoAuditoriaInterna.id,
+    });
     console.log(`✅ Document references: 3 created`);
 
     // ─── 23. Document Attachments ─────────────────────────────────────────────────

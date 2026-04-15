@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import {
   db,
+  customersTable,
   departmentsTable,
   departmentUnitsTable,
   employeesTable,
@@ -17,7 +18,11 @@ import {
   userModulePermissionsTable,
   usersTable,
 } from "@workspace/db";
-import { issueAuthToken, type AppModule, type UserRole } from "../../artifacts/api-server/src/middlewares/auth";
+import {
+  issueAuthToken,
+  type AppModule,
+  type UserRole,
+} from "../../artifacts/api-server/src/middlewares/auth";
 import { cleanupTestData } from "../../e2e/support/cleanup";
 import { makeTestPrefix } from "../../e2e/support/data";
 
@@ -84,7 +89,9 @@ export async function createTestContext(options: {
   } satisfies TestOrgContext;
 }
 
-export async function cleanupTestContext(context: Pick<TestOrgContext, "prefix">) {
+export async function cleanupTestContext(
+  context: Pick<TestOrgContext, "prefix">,
+) {
   await cleanupTestData(context.prefix);
 }
 
@@ -346,6 +353,31 @@ export async function createSupplierOffering(
     .returning();
 
   return offering;
+}
+
+export async function createCustomer(
+  context: Pick<TestOrgContext, "organizationId" | "userId">,
+  options: {
+    legalIdentifier: string;
+    legalName: string;
+    personType?: "pj" | "pf";
+    criticality?: "low" | "medium" | "high";
+  },
+) {
+  const [customer] = await db
+    .insert(customersTable)
+    .values({
+      organizationId: context.organizationId,
+      createdById: context.userId,
+      personType: options.personType ?? "pj",
+      legalIdentifier: options.legalIdentifier,
+      legalName: options.legalName,
+      status: "active",
+      criticality: options.criticality ?? "medium",
+    })
+    .returning();
+
+  return customer;
 }
 
 export async function getSupplierStatus(supplierId: number) {

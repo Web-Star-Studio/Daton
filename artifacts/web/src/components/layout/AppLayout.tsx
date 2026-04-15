@@ -37,6 +37,7 @@ type AppModule =
   | "positions"
   | "governance"
   | "suppliers"
+  | "customers"
   | "environmental"
   | "kpi"
   | "assets";
@@ -183,6 +184,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const moduleByPath: Array<{ prefix: string; module: AppModule }> = [
       { prefix: "/qualidade/legislacoes", module: "legislations" },
       { prefix: "/qualidade/fornecedores", module: "suppliers" },
+      { prefix: "/qualidade/clientes", module: "customers" },
       { prefix: "/organizacao/colaboradores", module: "employees" },
       { prefix: "/organizacao/unidades", module: "units" },
       { prefix: "/organizacao/departamentos", module: "departments" },
@@ -227,6 +229,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       } else if (normalizedLocation.startsWith("/qualidade/fornecedores")) {
         crumbs.push({ label: "Fornecedores", href: "/qualidade/fornecedores" });
         if (pageTitle && normalizedLocation !== "/qualidade/fornecedores") {
+          crumbs.push({ label: pageTitle });
+        }
+      } else if (normalizedLocation.startsWith("/qualidade/clientes")) {
+        crumbs.push({ label: "Clientes SGI", href: "/qualidade/clientes" });
+        if (pageTitle && normalizedLocation !== "/qualidade/clientes") {
           crumbs.push({ label: pageTitle });
         }
       }
@@ -278,12 +285,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           label: "Riscos e Oportunidades",
           href: "/governanca/riscos-oportunidades",
         });
-      } else if (normalizedLocation.startsWith("/governanca/planejamento-operacional")) {
+      } else if (
+        normalizedLocation.startsWith("/governanca/planejamento-operacional")
+      ) {
         crumbs.push({
           label: "Planejamento Operacional",
           href: "/governanca/planejamento-operacional",
         });
-      } else if (normalizedLocation.startsWith("/governanca/conhecimento-critico")) {
+      } else if (
+        normalizedLocation.startsWith("/governanca/conhecimento-critico")
+      ) {
         crumbs.push({
           label: "Conhecimento Crítico",
           href: "/governanca/conhecimento-critico",
@@ -384,6 +395,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       : []),
     ...(hasModuleAccess("suppliers")
       ? [{ href: "/qualidade/fornecedores", label: "Fornecedores" }]
+      : []),
+    ...(hasModuleAccess("customers")
+      ? [{ href: "/qualidade/clientes", label: "Clientes SGI" }]
       : []),
     { href: "/qualidade/documentacao", label: "Documentação" },
   ];

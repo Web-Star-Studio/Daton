@@ -12,6 +12,7 @@ type AppModule =
   | "positions"
   | "governance"
   | "suppliers"
+  | "customers"
   | "environmental"
   | "kpi"
   | "assets";

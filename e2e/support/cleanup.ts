@@ -61,6 +61,10 @@ import {
   usersTable,
   notificationsTable,
   correctiveActionsTable,
+  customerRequirementHistoryTable,
+  customerRequirementReviewsTable,
+  customerRequirementsTable,
+  customersTable,
   developmentProjectsTable,
   developmentProjectChangesTable,
   developmentProjectInputsTable,
@@ -160,6 +164,12 @@ export async function cleanupTestData(prefix: string) {
       .from(suppliersTable)
       .where(inArray(suppliersTable.organizationId, orgIds));
     const supplierIds = suppliers.map((supplier) => supplier.id);
+
+    const customers = await tx
+      .select({ id: customersTable.id })
+      .from(customersTable)
+      .where(inArray(customersTable.organizationId, orgIds));
+    const customerIds = customers.map((customer) => customer.id);
 
     const documents = await tx
       .select({ id: documentsTable.id })
@@ -518,6 +528,40 @@ export async function cleanupTestData(prefix: string) {
       await tx
         .delete(suppliersTable)
         .where(inArray(suppliersTable.id, supplierIds));
+    }
+
+    if (customerIds.length > 0) {
+      const requirements = await tx
+        .select({ id: customerRequirementsTable.id })
+        .from(customerRequirementsTable)
+        .where(inArray(customerRequirementsTable.customerId, customerIds));
+      const requirementIds = requirements.map((requirement) => requirement.id);
+
+      if (requirementIds.length > 0) {
+        await tx
+          .delete(customerRequirementHistoryTable)
+          .where(
+            inArray(
+              customerRequirementHistoryTable.requirementId,
+              requirementIds,
+            ),
+          );
+        await tx
+          .delete(customerRequirementReviewsTable)
+          .where(
+            inArray(
+              customerRequirementReviewsTable.requirementId,
+              requirementIds,
+            ),
+          );
+        await tx
+          .delete(customerRequirementsTable)
+          .where(inArray(customerRequirementsTable.id, requirementIds));
+      }
+
+      await tx
+        .delete(customersTable)
+        .where(inArray(customersTable.id, customerIds));
     }
 
     if (documentIds.length > 0) {

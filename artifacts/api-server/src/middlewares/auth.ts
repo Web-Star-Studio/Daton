@@ -1,7 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
-import { db, organizationsTable, userModulePermissionsTable, type OrganizationOnboardingStatus } from "@workspace/db";
+import {
+  db,
+  organizationsTable,
+  userModulePermissionsTable,
+  type OrganizationOnboardingStatus,
+} from "@workspace/db";
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -26,11 +31,12 @@ export const APP_MODULES = [
   "positions",
   "governance",
   "suppliers",
+  "customers",
   "environmental",
   "kpi",
   "assets",
 ] as const;
-export type AppModule = typeof APP_MODULES[number];
+export type AppModule = (typeof APP_MODULES)[number];
 
 export interface AuthPayload {
   userId: number;
@@ -45,7 +51,10 @@ interface OrganizationAuthState {
   onboardingStatus: OrganizationOnboardingStatus;
 }
 
-const organizationAuthStateCache = new Map<number, OrganizationAuthState & { expiresAt: number }>();
+const organizationAuthStateCache = new Map<
+  number,
+  OrganizationAuthState & { expiresAt: number }
+>();
 let lastOrganizationAuthStateCleanupAt = 0;
 
 declare global {
@@ -61,13 +70,19 @@ function signToken(payload: AuthPayload): string {
 }
 
 function cleanupExpiredOrganizationAuthState(now = Date.now()): void {
-  if (now - lastOrganizationAuthStateCleanupAt < ORGANIZATION_AUTH_STATE_CLEANUP_INTERVAL_MS) {
+  if (
+    now - lastOrganizationAuthStateCleanupAt <
+    ORGANIZATION_AUTH_STATE_CLEANUP_INTERVAL_MS
+  ) {
     return;
   }
 
   lastOrganizationAuthStateCleanupAt = now;
 
-  for (const [organizationId, cachedState] of organizationAuthStateCache.entries()) {
+  for (const [
+    organizationId,
+    cachedState,
+  ] of organizationAuthStateCache.entries()) {
     if (cachedState.expiresAt <= now) {
       organizationAuthStateCache.delete(organizationId);
     }
@@ -116,7 +131,8 @@ async function loadOrganizationAuthState(
 
   return cacheOrganizationAuthState(organizationId, {
     authVersion: organization.authVersion,
-    onboardingStatus: organization.onboardingStatus as OrganizationOnboardingStatus,
+    onboardingStatus:
+      organization.onboardingStatus as OrganizationOnboardingStatus,
   });
 }
 
@@ -167,7 +183,11 @@ export async function issueAuthToken({
   });
 }
 
-export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function requireAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   const header = req.headers.authorization;
   if (!header || !header.startsWith("Bearer ")) {
     res.status(401).json({ error: "Não autenticado" });
@@ -176,7 +196,10 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   const token = header.slice(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as unknown as Partial<AuthPayload>;
+    const payload = jwt.verify(
+      token,
+      JWT_SECRET,
+    ) as unknown as Partial<AuthPayload>;
     if (
       typeof payload.userId !== "number" ||
       typeof payload.organizationId !== "number" ||
@@ -188,7 +211,9 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       return;
     }
 
-    const organization = await loadOrganizationAuthState(payload.organizationId);
+    const organization = await loadOrganizationAuthState(
+      payload.organizationId,
+    );
     if (!organization) {
       res.status(404).json({ error: "Organização não encontrada" });
       return;
@@ -210,7 +235,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       organizationId: payload.organizationId,
       role: payload.role as UserRole,
       organizationAuthVersion: organization.authVersion,
-      onboardingStatus: organization.onboardingStatus as OrganizationOnboardingStatus,
+      onboardingStatus:
+        organization.onboardingStatus as OrganizationOnboardingStatus,
     };
     next();
   } catch {
@@ -238,7 +264,11 @@ export function requireRole(...allowedRoles: UserRole[]) {
 }
 
 export function requireModuleAccess(moduleName: AppModule) {
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
     if (!req.auth) {
       res.status(401).json({ error: "Não autenticado" });
       return;
@@ -247,9 +277,11 @@ export function requireModuleAccess(moduleName: AppModule) {
       next();
       return;
     }
-    const perms = await db.select().from(userModulePermissionsTable)
+    const perms = await db
+      .select()
+      .from(userModulePermissionsTable)
       .where(eq(userModulePermissionsTable.userId, req.auth.userId));
-    const hasAccess = perms.some(p => p.module === moduleName);
+    const hasAccess = perms.some((p) => p.module === moduleName);
     if (!hasAccess) {
       res.status(403).json({ error: "Sem acesso a este módulo" });
       return;
@@ -258,7 +290,11 @@ export function requireModuleAccess(moduleName: AppModule) {
   };
 }
 
-export function requireCompletedOnboarding(req: Request, res: Response, next: NextFunction): void {
+export function requireCompletedOnboarding(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
   if (!req.auth) {
     res.status(401).json({ error: "Não autenticado" });
     return;
@@ -287,7 +323,9 @@ export function requireWriteAccess() {
       return;
     }
     if (req.auth.role === "analyst") {
-      res.status(403).json({ error: "Analistas possuem apenas acesso de leitura" });
+      res
+        .status(403)
+        .json({ error: "Analistas possuem apenas acesso de leitura" });
       return;
     }
     next();
