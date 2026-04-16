@@ -108,11 +108,12 @@ annotate(
 )
 
 # 1b — Checkpoints do modelo: callout no primeiro checkpoint card
+# Medido: heading "Checkpoints e controles" y=67; card começa y=90, termina y=448
 annotate(
     "01b-checkpoints-modelo",
     dim_boxes=[DIM_NAV, DIM_LIST],
     content_box=CONTENT,
-    callout_box=(LIST_END + 12, 67, RIGHT_END - 12, 310),  # primeiro checkpoint card
+    callout_box=(LIST_END + 8, 90, RIGHT_END - 8, 448),  # primeiro checkpoint card
 )
 
 # 2 — Ciclos: spotlight o painel de detalhe do ciclo selecionado
@@ -141,11 +142,12 @@ annotate(
 )
 
 # 5 — Preservação e entrega: callout no bloco de entrega (método + destinatário)
+# Medido: "Método de entrega" y=471, "Data da entrega" y=539+12=551 → callout y=455–575
 annotate(
     "05-preservacao-entrega",
     dim_boxes=[DIM_NAV, DIM_LIST],
     content_box=CONTENT,
-    callout_box=(LIST_END + 6, 225, RIGHT_END - 6, 332),  # linha de entrega — mais respiro
+    callout_box=(LIST_END + 6, 455, RIGHT_END - 6, 575),  # linha de entrega
 )
 
 # 6 — Pós-serviço: callout no card de evento; dim duplo no formulário de detalhe
@@ -163,6 +165,29 @@ annotate(
     dim_boxes=[DIM_NAV, DIM_LIST],
     content_box=CONTENT,
     callout_box=(LIST_END + 12, 88, RIGHT_END - 12, 230),  # box "Pendências impeditivas"
+)
+
+# 8 — Propriedade de terceiros: callout no card do item registrado
+# Medido: card button x=697, y=149, width=280, height=134 → y=149–283
+# DIM_DETAIL custom a partir de x=987 (não corta o card de 280px)
+DIM_DETAIL_08 = (LIST_END + 290, CONTENT_TOP, RIGHT_END, BOTTOM)
+annotate(
+    "08-propriedade-terceiros",
+    dim_boxes=[DIM_NAV, DIM_LIST],
+    heavy_dim_boxes=[DIM_DETAIL_08],
+    content_box=CONTENT,
+    callout_box=(703, 145, 971, 291),  # card "Ferramentas especiais de alta tensão"
+)
+
+# 9 — Validação especial do processo: callout no formulário de validação
+# Medido: seção full-width x=353–1163, heading y=67, "Validade" y=872
+# Não aplicar DIM_LIST — a seção começa em x=353 (dentro do painel de lista)
+CONTENT_VAL = (353, CONTENT_TOP, 1163, BOTTOM)
+annotate(
+    "09-validacao-especial",
+    dim_boxes=[DIM_NAV],
+    content_box=CONTENT_VAL,
+    callout_box=(366, 96, 1152, 876),  # formulário de validação (abaixo do heading)
 )
 
 print("\nDone. Verifique os arquivos -annotated.png.")

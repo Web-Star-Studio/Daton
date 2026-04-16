@@ -35,7 +35,7 @@ def build():
     meta_data = [
         [Paragraph("Módulo",       ST_META_LABEL), Paragraph("Governança › Execução Controlada",       ST_META_VALUE)],
         [Paragraph("Público-alvo", ST_META_LABEL), Paragraph("Operadores de serviço, Gestores da qualidade", ST_META_VALUE)],
-        [Paragraph("Norma",        ST_META_LABEL), Paragraph("ISO 9001:2015 — cláusulas 8.5.1, 8.5.4, 8.5.5, 8.6, 8.7", ST_META_VALUE)],
+        [Paragraph("Norma",        ST_META_LABEL), Paragraph("ISO 9001:2015 — cláusulas 8.5.1, 8.5.2, 8.5.3, 8.5.4, 8.5.5, 8.6, 8.7", ST_META_VALUE)],
         [Paragraph("Versão",       ST_META_LABEL), Paragraph("Abril 2026",                             ST_META_VALUE)],
     ]
     meta_t = Table(meta_data, colWidths=[35*mm, None])
@@ -64,6 +64,8 @@ def build():
         ("Ciclos", "Execuções individuais por ordem\nde serviço ou lote"),
         ("Checkpoints", "Controles obrigatórios com\nevidências e critérios"),
         ("Saídas NC", "Registro e disposição de\nnão conformidades operacionais"),
+        ("Propriedade", "Controle de bens e materiais\nde clientes e terceiros"),
+        ("Validação", "Validação e revalidação de\nprocessos especiais"),
         ("Liberação", "Porta de saída: libera apenas\nquando todos os controles passam"),
     ]))
     story.append(Spacer(1, 24*mm))
@@ -350,7 +352,123 @@ def build():
 
     story.append(PageBreak())
 
-    # ── SEÇÃO 6 — LIBERAÇÃO DA SAÍDA ──────────────────────────────────────────
+    # ── SEÇÃO 6 — PROPRIEDADE DE TERCEIROS ───────────────────────────────────
+    story.append(Spacer(1, 2*mm))
+    story.append(SectionHeader("Propriedade de Terceiros", "ISO 8.5.3"))
+    story.append(Spacer(1, 3*mm))
+
+    story.append(Paragraph(
+        "Quando a execução do serviço envolve bens, materiais, equipamentos ou ferramentas "
+        "pertencentes ao cliente ou a terceiros, esses itens devem ser identificados, "
+        "controlados e preservados durante todo o ciclo. "
+        "O Daton mantém um registro próprio por ciclo para rastrear cada item recebido, "
+        "seu estado, responsável e devolução — criando evidência auditável do cuidado com "
+        "propriedade alheia.",
+        ST_BODY,
+    ))
+
+    story.append(Spacer(1, 3*mm))
+    story.append(img_flowable(f"{IMGS_DIR}/08-propriedade-terceiros-annotated.png", max_height=68*mm))
+    story.append(Spacer(1, 2*mm))
+    story.append(Paragraph(
+        "Seção <b>Propriedade de terceiros</b> com item registrado (card vermelho: "
+        "Ferramentas especiais de alta tensão — EnergiaTec, status Devolvida) "
+        "e painel de detalhes à direita.",
+        ST_CAPTION,
+    ))
+
+    story.append(Spacer(1, 2*mm))
+    story.append(label_tag("Como registrar propriedade de terceiros"))
+    story.append(Spacer(1, 2*mm))
+    story.append(steps_list([
+        "No ciclo aberto, role até <b>Propriedade de terceiros</b> e clique em <b>Novo item</b>.",
+        "Informe o <b>Nome do item</b> e o <b>Proprietário</b> (cliente ou terceiro).",
+        "Descreva o item e registre a <b>Condição no recebimento</b>.",
+        "Selecione o <b>Status</b>: Recebida, Em uso, Devolvida ou Perdida/danificada.",
+        "Informe o <b>Responsável</b> pelo controle e preencha os campos de preservação.",
+        "Adicione evidências (fotos, termos) e clique em <b>Salvar</b>.",
+    ]))
+
+    story.append(Spacer(1, 2*mm))
+    story.append(label_tag("Recursos disponíveis"))
+    story.append(Spacer(1, 2*mm))
+    story.append(resources_list([
+        "Status de ciclo de vida: Recebida → Em uso → Devolvida (ou Perdida/danificada)",
+        "Campo de condição no recebimento para registrar o estado original do item",
+        "Campo de observações de preservação para descrever os cuidados aplicados",
+        "Upload de evidências: fotos de recebimento, termos de entrega, laudos",
+        "Vínculo com o ciclo operacional para rastreabilidade completa",
+    ]))
+
+    story.append(Spacer(1, 2*mm))
+    story.append(note_box(
+        "<b>ISO 9001:2015, 8.5.3 —</b> A organização deve ter cuidado com propriedade "
+        "pertencente a clientes ou provedores externos enquanto estiver sob o controle da "
+        "organização ou estiver sendo usada por ela. A organização deve identificar, verificar, "
+        "proteger e salvaguardar a propriedade. Se for perdida, danificada ou de outro modo "
+        "considerada inadequada, a organização deve relatar ao cliente ou provedor externo."
+    ))
+
+    story.append(PageBreak())
+
+    # ── SEÇÃO 7 — VALIDAÇÃO DE PROCESSOS ESPECIAIS ────────────────────────────
+    story.append(Spacer(1, 2*mm))
+    story.append(SectionHeader("Validação de Processos Especiais", "ISO 8.5.1.f"))
+    story.append(Spacer(1, 3*mm))
+
+    story.append(Paragraph(
+        "Alguns processos produzem saídas cujo resultado <b>não pode ser verificado integralmente "
+        "apenas ao final</b> — soldagem, tratamento térmico, aplicação de revestimentos e processos "
+        "similares. A ISO 9001:2015 exige que esses processos sejam <b>validados e revalidados</b> "
+        "periodicamente para demonstrar que continuam aptos a entregar resultados conformes. "
+        "No Daton, o modelo de execução pode ser marcado como processo especial, e cada ciclo "
+        "herda automaticamente esse requisito de controle.",
+        ST_BODY,
+    ))
+
+    story.append(Spacer(1, 3*mm))
+    story.append(img_flowable(f"{IMGS_DIR}/09-validacao-especial-annotated.png", max_height=68*mm))
+    story.append(Spacer(1, 2*mm))
+    story.append(Paragraph(
+        "Formulário <b>Validação especial do processo</b> (destaque vermelho) no painel "
+        "de configuração do modelo. Define critérios, método, responsável e validade "
+        "para controle de processos que exigem revalidação periódica.",
+        ST_CAPTION,
+    ))
+
+    story.append(Spacer(1, 2*mm))
+    story.append(label_tag("Como configurar validação especial no modelo"))
+    story.append(Spacer(1, 2*mm))
+    story.append(steps_list([
+        "No painel de <b>Modelos</b>, selecione o modelo e ative <b>Exige validação especial</b>.",
+        "Role até o card <b>Validação especial do processo</b>.",
+        "Preencha o <b>Título</b>, <b>Status</b> (Ativo/Inativo) e o <b>Critério</b> de validação.",
+        "Informe o <b>Método/Abordagem</b> e o <b>Responsável</b> pela validação.",
+        "Defina a <b>Validade</b> (data de expiração) e adicione <b>Observações</b>.",
+        "Salve o perfil — o modelo passará a exibir o controle em todos os ciclos vinculados.",
+    ]))
+
+    story.append(Spacer(1, 2*mm))
+    story.append(label_tag("Como registrar um evento de revalidação"))
+    story.append(Spacer(1, 2*mm))
+    story.append(steps_list([
+        "No modelo, localize a seção <b>Validação especial</b> e clique em <b>Registrar validação</b>.",
+        "Selecione o <b>Tipo</b>: Validação inicial, Revalidação periódica, Revalidação por mudança ou Revalidação corretiva.",
+        "Informe data, resultado, responsável e anexe evidências (laudos, certificados, registros).",
+        "Salve — o evento entra no histórico cronológico de validações do processo.",
+    ]))
+
+    story.append(Spacer(1, 2*mm))
+    story.append(note_box(
+        "<b>ISO 9001:2015, 8.5.1.f —</b> A organização deve implementar atividades de validação "
+        "e revalidação periódica de processos de produção e provisão de serviço onde as saídas "
+        "resultantes não possam ser verificadas por monitoramento ou medição subsequente — "
+        "incluindo quaisquer processos nos quais as deficiências se tornem aparentes somente "
+        "após o produto ser entregue ou o serviço ser provido."
+    ))
+
+    story.append(PageBreak())
+
     story.append(Spacer(1, 2*mm))
     story.append(SectionHeader("Liberação da Saída", "ISO 8.6"))
     story.append(Spacer(1, 3*mm))
