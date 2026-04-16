@@ -125,9 +125,9 @@ def build():
 
     story.append(PageBreak())
 
-    # ── SEÇÃO 2 — ADICIONANDO LEGISLAÇÕES COM TAGS ────────────────────────────
+    # ── SEÇÃO 2 — GERENCIANDO LEGISLAÇÕES COM TAGS ───────────────────────────
     story.append(Spacer(1, 2*mm))
-    story.append(SectionHeader("Adicionando Legislações com Tags"))
+    story.append(SectionHeader("Gerenciando Legislações com Tags"))
     story.append(Spacer(1, 3*mm))
 
     story.append(Paragraph(
@@ -135,8 +135,8 @@ def build():
         "que coincida com as tags de alguma unidade da organização. "
         "As tags podem ser atribuídas manualmente no formulário de cadastro, via importação em "
         "massa ou pelo recurso de auto-tagging com inteligência artificial. "
-        "O disparo acontece automaticamente no momento da criação — tanto no cadastro individual "
-        "quanto na importação bulk.",
+        "O disparo acontece automaticamente tanto na <b>criação</b> quanto na <b>edição</b> de uma legislação — "
+        "sempre que as tags da norma coincidem com as tags de compliance de alguma unidade.",
         ST_BODY))
 
     story.append(Spacer(1, 3*mm))
@@ -160,12 +160,13 @@ def build():
     ]))
 
     story.append(Spacer(1, 2*mm))
-    story.append(label_tag("Outras formas de adicionar tags"))
+    story.append(label_tag("Formas de adicionar ou atualizar tags"))
     story.append(Spacer(1, 2*mm))
     story.append(resources_list([
+        "<b>Cadastro individual</b> — preencha o campo Tags ao criar uma nova legislação; notificação disparada automaticamente",
+        "<b>Edição existente</b> — altere as tags na página de detalhes de uma legislação já cadastrada; notificação de atualização é disparada para usuários com tags coincidentes",
         "<b>Importação bulk</b> — importe um arquivo Excel/CSV com legislações e tags; notificações são disparadas para cada lei nova com tags relevantes",
         "<b>Auto-tagging com IA</b> — selecione legislações sem tags e clique em Auto-tagging; a IA sugere as tags com base no conteúdo da norma",
-        "<b>Edição manual</b> — tags podem ser adicionadas ou alteradas na página de detalhes de qualquer legislação existente",
     ]))
 
     story.append(Spacer(1, 2*mm))
@@ -183,15 +184,16 @@ def build():
     story.append(Spacer(1, 3*mm))
 
     story.append(Paragraph(
-        "Quando uma legislação com tags relevantes é adicionada, o Daton envia automaticamente "
-        "uma notificação para todos os administradores da organização e para os usuários com "
-        "permissão no módulo de Legislações. "
-        "A notificação aparece no painel acessível pelo ícone de sino no cabeçalho e inclui "
-        "um link direto para a legislação adicionada.",
+        "O sistema dispara dois tipos de notificação: <b>Nova legislação relevante</b> quando uma "
+        "legislação com tags coincidentes é criada ou importada, e <b>Legislação relevante atualizada</b> "
+        "quando uma legislação existente tem seus dados editados e suas tags continuam coincidindo "
+        "com unidades da organização. "
+        "As notificações aparecem no painel acessível pelo ícone de sino no cabeçalho e incluem "
+        "link direto para a legislação.",
         ST_BODY))
 
     story.append(Spacer(1, 3*mm))
-    story.append(img_flowable(f"{IMGS_DIR}/03-notificacoes-annotated.png", max_height=70*mm))
+    story.append(img_flowable(f"{IMGS_DIR}/03-notificacoes-annotated.png", max_height=58*mm))
     story.append(Spacer(1, 2*mm))
     story.append(Paragraph(
         "Painel de notificações com alerta de nova legislação relevante: título, descrição "
@@ -211,13 +213,14 @@ def build():
     ]))
 
     story.append(Spacer(1, 2*mm))
-    story.append(label_tag("Quem recebe as notificações"))
+    story.append(label_tag("Tipos de notificação e destinatários"))
     story.append(Spacer(1, 2*mm))
     story.append(resources_list([
-        "<b>Administradores da organização</b> — recebem todas as notificações automaticamente",
-        "<b>Usuários com permissão no módulo Legislações</b> — recebem notificações de novas normas relevantes",
-        "A notificação só é disparada se ao menos uma unidade tiver tags coincidentes com a legislação adicionada",
-        "Legislações sem tags não geram notificações",
+        "<b>Nova legislação relevante</b> — disparada ao criar ou importar uma legislação com tags coincidentes",
+        "<b>Legislação relevante atualizada</b> — disparada ao editar uma legislação cujas tags continuam relevantes para a organização",
+        "<b>Administradores da organização</b> — recebem automaticamente todos os tipos de notificação",
+        "<b>Usuários com permissão no módulo Legislações</b> — também recebem ambos os tipos",
+        "Legislações sem tags nunca geram notificações",
     ]))
 
     story.append(Spacer(1, 2*mm))
@@ -227,7 +230,7 @@ def build():
         "legislações no cadastro ou via auto-tagging com IA."
     ))
 
-    story.append(Spacer(1, 8*mm))
+    story.append(Spacer(1, 3*mm))
     story.append(HLine())
     story.append(Spacer(1, 3*mm))
     story.append(Paragraph("Documento de uso restrito. daton © 2026", ST_FOOTER))
