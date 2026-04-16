@@ -12,6 +12,7 @@ const {
   whereUpdateMock,
   eqMock,
   andMock,
+  notifyLegislationBecameRelevantMock,
 } = vi.hoisted(() => ({
   createCompletionMock: vi.fn(),
   selectMock: vi.fn(),
@@ -22,6 +23,7 @@ const {
   whereUpdateMock: vi.fn(),
   eqMock: vi.fn((...args: unknown[]) => ({ kind: "eq", args })),
   andMock: vi.fn((...args: unknown[]) => ({ kind: "and", args })),
+  notifyLegislationBecameRelevantMock: vi.fn(),
 }));
 
 vi.mock("../../src/middlewares/auth", () => ({
@@ -46,6 +48,10 @@ vi.mock("@workspace/integrations-openai-ai-server", () => ({
       },
     },
   },
+}));
+
+vi.mock("../../src/lib/legislations", () => ({
+  notifyLegislationBecameRelevant: notifyLegislationBecameRelevantMock,
 }));
 
 vi.mock("@workspace/db", () => ({
@@ -80,6 +86,7 @@ describe("auto-tag route", () => {
     whereUpdateMock.mockReset();
     eqMock.mockClear();
     andMock.mockClear();
+    notifyLegislationBecameRelevantMock.mockReset();
 
     createCompletionMock.mockResolvedValue({
       choices: [
@@ -110,6 +117,7 @@ describe("auto-tag route", () => {
     whereUpdateMock.mockResolvedValue(undefined);
     setMock.mockReturnValue({ where: whereUpdateMock });
     updateMock.mockReturnValue({ set: setMock });
+    notifyLegislationBecameRelevantMock.mockResolvedValue(undefined);
   });
 
   it("uses max_completion_tokens when auto-tagging legislation", async () => {
@@ -142,6 +150,15 @@ describe("auto-tag route", () => {
       expect.objectContaining({
         max_tokens: expect.anything(),
       }),
+    );
+    expect(notifyLegislationBecameRelevantMock).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        id: 10,
+        title: "NR-17 Ergonomia",
+        tags: ["saude_trabalhador", "nr17_ergonomia"],
+      }),
+      undefined,
     );
   });
 });
