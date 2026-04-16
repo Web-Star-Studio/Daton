@@ -20,7 +20,10 @@ import {
 import { cn, formatFirstAndLastName } from "@/lib/utils";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
-import { getListNotificationsQueryKey, useListNotifications } from "@workspace/api-client-react";
+import {
+  getListNotificationsQueryKey,
+  useListNotifications,
+} from "@workspace/api-client-react";
 
 const datonLogo = "/images/daton-logo.png";
 const appBg = "/images/bg-auth.png";
@@ -72,30 +75,35 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     top: 0,
     left: 0,
   });
-  const [qualidadePopoverPos, setQualidadePopoverPos] = useState<PopoverPosition>({
-    top: 0,
-    left: 0,
-  });
-  const [governancaPopoverPos, setGovernancaPopoverPos] = useState<PopoverPosition>({
-    top: 0,
-    left: 0,
-  });
-  const [ambientalPopoverPos, setAmbientalPopoverPos] = useState<PopoverPosition>({
-    top: 0,
-    left: 0,
-  });
+  const [qualidadePopoverPos, setQualidadePopoverPos] =
+    useState<PopoverPosition>({
+      top: 0,
+      left: 0,
+    });
+  const [governancaPopoverPos, setGovernancaPopoverPos] =
+    useState<PopoverPosition>({
+      top: 0,
+      left: 0,
+    });
+  const [ambientalPopoverPos, setAmbientalPopoverPos] =
+    useState<PopoverPosition>({
+      top: 0,
+      left: 0,
+    });
   const [kpiPopoverPos, setKpiPopoverPos] = useState<PopoverPosition>({
     top: 0,
     left: 0,
   });
-  const [infraestruturaPopoverPos, setInfraestruturaPopoverPos] = useState<PopoverPosition>({
-    top: 0,
-    left: 0,
-  });
-  const [configuracoesPopoverPos, setConfiguracoesPopoverPos] = useState<PopoverPosition>({
-    left: 0,
-    bottom: 0,
-  });
+  const [infraestruturaPopoverPos, setInfraestruturaPopoverPos] =
+    useState<PopoverPosition>({
+      top: 0,
+      left: 0,
+    });
+  const [configuracoesPopoverPos, setConfiguracoesPopoverPos] =
+    useState<PopoverPosition>({
+      left: 0,
+      bottom: 0,
+    });
   const organizacaoRef = useRef<HTMLDivElement>(null);
   const qualidadeRef = useRef<HTMLDivElement>(null);
   const governancaRef = useRef<HTMLDivElement>(null);
@@ -103,13 +111,25 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const kpiRef = useRef<HTMLDivElement>(null);
   const infraestruturaRef = useRef<HTMLDivElement>(null);
   const configuracoesRef = useRef<HTMLDivElement>(null);
-  const organizacaoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const qualidadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const governancaTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const ambientalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const organizacaoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const qualidadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const governancaTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const ambientalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const kpiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const infraestruturaTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const configuracoesTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const infraestruturaTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const configuracoesTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const { headerActions, pageTitle } = useLayoutState();
   const orgId = organization?.id;
   const { data: notifData } = useListNotifications(orgId!, {
@@ -121,7 +141,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   });
   const unreadNotifCount = notifData?.unreadCount ?? 0;
   const normalizedLocation =
-    location === "/app" ? "/organizacao" : location.replace(/^\/app(?=\/|$)/, "");
+    location === "/app"
+      ? "/organizacao"
+      : location.replace(/^\/app(?=\/|$)/, "");
   const displayName = formatFirstAndLastName(user?.name);
 
   useEffect(() => {
@@ -180,12 +202,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       navigate("/organizacao");
       return;
     }
-
   }, [hasModuleAccess, navigate, normalizedLocation]);
 
   const isActive = (path: string) => normalizedLocation.startsWith(path);
   const isNavLinkActive = (href: string) =>
-    href === "/organizacao" ? normalizedLocation === "/organizacao" : isActive(href);
+    normalizedLocation === href || normalizedLocation.startsWith(`${href}/`);
 
   const getBreadcrumbs = (): { label: string; href?: string }[] => {
     const crumbs: { label: string; href?: string }[] = [];
@@ -239,9 +260,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       if (normalizedLocation.startsWith("/infraestrutura/ativos")) {
         crumbs.push({ label: "Ativos", href: "/infraestrutura/ativos" });
       } else if (normalizedLocation.startsWith("/infraestrutura/ambiente")) {
-        crumbs.push({ label: "Ambiente Operacional", href: "/infraestrutura/ambiente" });
+        crumbs.push({
+          label: "Ambiente Operacional",
+          href: "/infraestrutura/ambiente",
+        });
       } else if (normalizedLocation.startsWith("/infraestrutura/medicao")) {
-        crumbs.push({ label: "Instrumentos de Medição", href: "/infraestrutura/medicao" });
+        crumbs.push({
+          label: "Instrumentos de Medição",
+          href: "/infraestrutura/medicao",
+        });
       }
     } else if (normalizedLocation.startsWith("/governanca")) {
       crumbs.push({ label: "Governança" });
@@ -250,6 +277,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         crumbs.push({
           label: "Riscos e Oportunidades",
           href: "/governanca/riscos-oportunidades",
+        });
+      } else if (normalizedLocation.startsWith("/governanca/planejamento-operacional")) {
+        crumbs.push({
+          label: "Planejamento Operacional",
+          href: "/governanca/planejamento-operacional",
         });
       } else if (normalizedLocation.startsWith("/governanca/conhecimento-critico")) {
         crumbs.push({
@@ -266,17 +298,28 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           label: "Processos SGQ",
           href: "/governanca/processos-sgq",
         });
+      } else if (
+        normalizedLocation.startsWith("/governanca/projeto-desenvolvimento")
+      ) {
+        crumbs.push({
+          label: "Projeto e Desenvolvimento",
+          href: "/governanca/projeto-desenvolvimento",
+        });
       } else if (normalizedLocation.startsWith("/governanca/auditorias")) {
         crumbs.push({
           label: "Auditorias",
           href: "/governanca/auditorias",
         });
-      } else if (normalizedLocation.startsWith("/governanca/nao-conformidades")) {
+      } else if (
+        normalizedLocation.startsWith("/governanca/nao-conformidades")
+      ) {
         crumbs.push({
           label: "Não Conformidades",
           href: "/governanca/nao-conformidades",
         });
-      } else if (normalizedLocation.startsWith("/governanca/analises-criticas")) {
+      } else if (
+        normalizedLocation.startsWith("/governanca/analises-criticas")
+      ) {
         crumbs.push({
           label: "Análises Críticas",
           href: "/governanca/analises-criticas",
@@ -352,7 +395,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const governancaLinks: NavLink[] = [
     { href: "/governanca/planejamento", label: "Planejamento" },
-    { href: "/governanca/riscos-oportunidades", label: "Riscos e Oportunidades" },
+    {
+      href: "/governanca/riscos-oportunidades",
+      label: "Riscos e Oportunidades",
+    },
   ];
   const governancaSections: NavSection[] = [
     {
@@ -360,11 +406,27 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       links: governancaLinks,
     },
     {
+      label: "Planejamento Operacional",
+      links: [
+        {
+          href: "/governanca/planejamento-operacional",
+          label: "Planejamento Operacional",
+        },
+      ],
+    },
+    {
       label: "Gestão do Sistema",
       links: [
         { href: "/governanca/processos-sgq", label: "Processos SGQ" },
         { href: "/governanca/execucao-controlada", label: "Execução Controlada" },
-        { href: "/governanca/conhecimento-critico", label: "Conhecimento Crítico" },
+        {
+          href: "/governanca/projeto-desenvolvimento",
+          label: "Projeto e Desenvolvimento",
+        },
+        {
+          href: "/governanca/conhecimento-critico",
+          label: "Conhecimento Crítico",
+        },
         { href: "/governanca/auditorias", label: "Auditorias" },
         { href: "/governanca/nao-conformidades", label: "Não Conformidades" },
         { href: "/governanca/analises-criticas", label: "Análises Críticas" },
@@ -694,9 +756,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   kpiTimeoutRef,
                 )
               }
-              onMouseLeave={() =>
-                closePopover(setKpiPopover, kpiTimeoutRef)
-              }
+              onMouseLeave={() => closePopover(setKpiPopover, kpiTimeoutRef)}
             >
               <Link
                 href="/kpi/indicadores"
@@ -880,10 +940,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <Settings
                   className={cn(
                     "h-[18px] w-[18px] shrink-0",
-                      isSidebarOpen && "mr-2.5",
-                    )}
-                  />
-                {isSidebarOpen && <span className="block leading-none">Ajustes</span>}
+                    isSidebarOpen && "mr-2.5",
+                  )}
+                />
+                {isSidebarOpen && (
+                  <span className="block leading-none">Ajustes</span>
+                )}
               </div>
               {isSidebarOpen && (
                 <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
@@ -988,9 +1050,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               )}
             </button>
             {isNotificationsOpen && (
-              <NotificationsPanel
-                onClose={() => setNotificationsOpen(false)}
-              />
+              <NotificationsPanel onClose={() => setNotificationsOpen(false)} />
             )}
             {!isChatOpen && (
               <button

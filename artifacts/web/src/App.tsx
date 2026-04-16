@@ -28,6 +28,8 @@ import GovernanceAuditsPage from "@/pages/app/governanca/auditorias";
 import GovernanceKnowledgeAssetsPage from "@/pages/app/governanca/conhecimento-critico";
 import GovernanceServiceExecutionPage from "@/pages/app/governanca/execucao-controlada";
 import GovernanceNonconformitiesPage from "@/pages/app/governanca/nao-conformidades";
+import OperationalPlanningPage from "@/pages/app/governanca/planejamento-operacional";
+import ProjectDevelopmentPage from "@/pages/app/governanca/projeto-desenvolvimento";
 import GovernanceProcessesPage from "@/pages/app/governanca/processos-sgq";
 import GovernanceRiskOpportunityPage from "@/pages/app/governanca/riscos-oportunidades";
 import AdminDashboardPage from "@/pages/app/admin/index";
@@ -166,12 +168,20 @@ function AppPages() {
         component={GovernanceRiskOpportunityPage}
       />
       <Route
+        path="/governanca/planejamento-operacional"
+        component={OperationalPlanningPage}
+      />
+      <Route
         path="/governanca/processos-sgq"
         component={GovernanceProcessesPage}
       />
       <Route
         path="/governanca/execucao-controlada"
         component={GovernanceServiceExecutionPage}
+      />
+      <Route
+        path="/governanca/projeto-desenvolvimento"
+        component={ProjectDevelopmentPage}
       />
       <Route
         path="/governanca/conhecimento-critico"
@@ -272,12 +282,20 @@ function AppPages() {
         component={GovernanceRiskOpportunityPage}
       />
       <Route
+        path="/app/governanca/planejamento-operacional"
+        component={OperationalPlanningPage}
+      />
+      <Route
         path="/app/governanca/processos-sgq"
         component={GovernanceProcessesPage}
       />
       <Route
         path="/app/governanca/execucao-controlada"
         component={GovernanceServiceExecutionPage}
+      />
+      <Route
+        path="/app/governanca/projeto-desenvolvimento"
+        component={ProjectDevelopmentPage}
       />
       <Route
         path="/app/governanca/conhecimento-critico"

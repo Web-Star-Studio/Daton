@@ -7902,6 +7902,638 @@ paths:
         "204":
           description: Attachment deleted
 
+  /organizations/{orgId}/governance/project-development/applicability:
+    get:
+      operationId: getProjectDevelopmentApplicability
+      tags: [governance]
+      summary: Get applicability state and decision history for req. 8.3 (ISO 9001:2015 §8.3)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Applicability state and full decision history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectDevelopmentApplicabilityState"
+    post:
+      operationId: createApplicabilityDecision
+      tags: [governance]
+      summary: Register an applicability decision for req. 8.3
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicabilityDecisionBody"
+      responses:
+        "201":
+          description: Applicability decision created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicabilityDecision"
+
+  /organizations/{orgId}/governance/project-development/applicability/{decisionId}:
+    patch:
+      operationId: updateApplicabilityDecision
+      tags: [governance]
+      summary: Update a pending applicability decision
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateApplicabilityDecisionBody"
+      responses:
+        "200":
+          description: Updated applicability decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicabilityDecision"
+
+  /organizations/{orgId}/governance/project-development/applicability/{decisionId}/approve:
+    post:
+      operationId: approveApplicabilityDecision
+      tags: [governance]
+      summary: Approve an applicability decision (org_admin only)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Approved applicability decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicabilityDecision"
+
+  /organizations/{orgId}/governance/project-development/projects:
+    get:
+      operationId: listDevelopmentProjects
+      tags: [governance]
+      summary: List development projects for the organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of development projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DevelopmentProjectSummary"
+    post:
+      operationId: createDevelopmentProject
+      tags: [governance]
+      summary: Create a development project (requires approved applicable decision)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DevelopmentProjectBody"
+      responses:
+        "201":
+          description: Development project created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevelopmentProjectDetail"
+
+  /organizations/{orgId}/governance/project-development/projects/{projectId}:
+    get:
+      operationId: getDevelopmentProject
+      tags: [governance]
+      summary: Get development project with all sub-resources
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Development project detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevelopmentProjectDetail"
+    patch:
+      operationId: updateDevelopmentProject
+      tags: [governance]
+      summary: Update a development project
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDevelopmentProjectBody"
+      responses:
+        "200":
+          description: Updated development project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevelopmentProjectDetail"
+
+  /organizations/{orgId}/governance/project-development/projects/{projectId}/inputs:
+    post:
+      operationId: createProjectInput
+      tags: [governance]
+      summary: Add an input to a development project
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DevelopmentProjectInputBody"
+      responses:
+        "201":
+          description: Project input created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevelopmentProjectInput"
+
+  /organizations/{orgId}/governance/project-development/projects/{projectId}/inputs/{inputId}:
+    patch:
+      operationId: updateProjectInput
+      tags: [governance]
+      summary: Update a project input
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: inputId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDevelopmentProjectInputBody"
+      responses:
+        "200":
+          description: Updated project input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevelopmentProjectInput"
+    delete:
+      operationId: deleteProjectInput
+      tags: [governance]
+      summary: Delete a project input
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: inputId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Project input deleted
+
+  /organizations/{orgId}/governance/project-development/projects/{projectId}/stages:
+    post:
+      operationId: createProjectStage
+      tags: [governance]
+      summary: Add a stage to a development project
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DevelopmentProjectStageBody"
+      responses:
+        "201":
+          description: Project stage created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevelopmentProjectStage"
+
+  /organizations/{orgId}/governance/project-development/projects/{projectId}/stages/{stageId}:
+    patch:
+      operationId: updateProjectStage
+      tags: [governance]
+      summary: Update a project stage
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: stageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDevelopmentProjectStageBody"
+      responses:
+        "200":
+          description: Updated project stage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevelopmentProjectStage"
+    delete:
+      operationId: deleteProjectStage
+      tags: [governance]
+      summary: Delete a project stage
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: stageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Project stage deleted
+
+  /organizations/{orgId}/governance/project-development/projects/{projectId}/outputs:
+    post:
+      operationId: createProjectOutput
+      tags: [governance]
+      summary: Add an output to a development project
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DevelopmentProjectOutputBody"
+      responses:
+        "201":
+          description: Project output created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevelopmentProjectOutput"
+
+  /organizations/{orgId}/governance/project-development/projects/{projectId}/outputs/{outputId}:
+    patch:
+      operationId: updateProjectOutput
+      tags: [governance]
+      summary: Update a project output
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: outputId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDevelopmentProjectOutputBody"
+      responses:
+        "200":
+          description: Updated project output
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevelopmentProjectOutput"
+    delete:
+      operationId: deleteProjectOutput
+      tags: [governance]
+      summary: Delete a project output
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: outputId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Project output deleted
+
+  /organizations/{orgId}/governance/project-development/projects/{projectId}/reviews:
+    post:
+      operationId: createProjectReview
+      tags: [governance]
+      summary: Add a review, verification or validation to a development project
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DevelopmentProjectReviewBody"
+      responses:
+        "201":
+          description: Project review created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevelopmentProjectReview"
+
+  /organizations/{orgId}/governance/project-development/projects/{projectId}/reviews/{reviewId}:
+    patch:
+      operationId: updateProjectReview
+      tags: [governance]
+      summary: Update a project review
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDevelopmentProjectReviewBody"
+      responses:
+        "200":
+          description: Updated project review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevelopmentProjectReview"
+    delete:
+      operationId: deleteProjectReview
+      tags: [governance]
+      summary: Delete a project review
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Project review deleted
+
+  /organizations/{orgId}/governance/project-development/projects/{projectId}/changes:
+    post:
+      operationId: createProjectChange
+      tags: [governance]
+      summary: Register a design change for a development project
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DevelopmentProjectChangeBody"
+      responses:
+        "201":
+          description: Project change created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevelopmentProjectChange"
+
+  /organizations/{orgId}/governance/project-development/projects/{projectId}/changes/{changeId}:
+    patch:
+      operationId: updateProjectChange
+      tags: [governance]
+      summary: Update a project change record
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: changeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDevelopmentProjectChangeBody"
+      responses:
+        "200":
+          description: Updated project change
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevelopmentProjectChange"
+    delete:
+      operationId: deleteProjectChange
+      tags: [governance]
+      summary: Delete a project change record
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: changeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Project change deleted
+
 components:
   schemas:
     HealthStatus:
@@ -16056,3 +16688,811 @@ components:
         - fileSize
         - contentType
         - objectPath
+
+    # ── Project & Development (ISO 9001:2015 §8.3) ────────────────────────────
+
+    RequirementApplicabilityApprovalStatus:
+      type: string
+      enum: [pending, approved, superseded]
+
+    DevelopmentProjectStatus:
+      type: string
+      enum: [draft, active, under_review, completed, canceled]
+
+    DevelopmentProjectStageStatus:
+      type: string
+      enum: [planned, in_progress, completed, blocked, canceled]
+
+    DevelopmentProjectOutputStatus:
+      type: string
+      enum: [draft, approved, released]
+
+    DevelopmentProjectReviewType:
+      type: string
+      enum: [review, verification, validation]
+
+    DevelopmentProjectReviewOutcome:
+      type: string
+      enum: [pending, approved, rejected, needs_changes]
+
+    DevelopmentProjectChangeStatus:
+      type: string
+      enum: [pending, approved, rejected, implemented]
+
+    ApplicabilityDecisionBody:
+      type: object
+      properties:
+        isApplicable:
+          type: boolean
+        scopeSummary:
+          type: string
+          nullable: true
+        justification:
+          type: string
+          minLength: 1
+        responsibleEmployeeId:
+          type: integer
+        validFrom:
+          type: string
+          format: date
+          nullable: true
+        validUntil:
+          type: string
+          format: date
+          nullable: true
+      required:
+        - isApplicable
+        - justification
+        - responsibleEmployeeId
+
+    UpdateApplicabilityDecisionBody:
+      type: object
+      properties:
+        isApplicable:
+          type: boolean
+        scopeSummary:
+          type: string
+          nullable: true
+        justification:
+          type: string
+        responsibleEmployeeId:
+          type: integer
+        validFrom:
+          type: string
+          format: date
+          nullable: true
+        validUntil:
+          type: string
+          format: date
+          nullable: true
+
+    ApplicabilityDecision:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        requirementCode:
+          type: string
+        isApplicable:
+          type: boolean
+        scopeSummary:
+          type: string
+          nullable: true
+        justification:
+          type: string
+        responsibleEmployeeId:
+          type: integer
+          nullable: true
+        responsibleEmployeeName:
+          type: string
+          nullable: true
+        approvalStatus:
+          $ref: "#/components/schemas/RequirementApplicabilityApprovalStatus"
+        approvedById:
+          type: integer
+          nullable: true
+        approvedByName:
+          type: string
+          nullable: true
+        approvedAt:
+          type: string
+          nullable: true
+        validFrom:
+          type: string
+          nullable: true
+        validUntil:
+          type: string
+          nullable: true
+        isCurrentActive:
+          type: boolean
+        createdById:
+          type: integer
+          nullable: true
+        createdByName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - requirementCode
+        - isApplicable
+        - justification
+        - approvalStatus
+        - isCurrentActive
+        - createdAt
+        - updatedAt
+
+    ProjectDevelopmentApplicabilityState:
+      type: object
+      properties:
+        workflowEnabled:
+          type: boolean
+        currentDecision:
+          $ref: "#/components/schemas/ApplicabilityDecision"
+          nullable: true
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApplicabilityDecision"
+      required:
+        - workflowEnabled
+        - history
+
+    DevelopmentProjectBody:
+      type: object
+      properties:
+        projectCode:
+          type: string
+          nullable: true
+        title:
+          type: string
+          minLength: 1
+        scope:
+          type: string
+          minLength: 1
+        objective:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/DevelopmentProjectStatus"
+        responsibleEmployeeId:
+          type: integer
+          nullable: true
+        plannedStartDate:
+          type: string
+          format: date
+          nullable: true
+        plannedEndDate:
+          type: string
+          format: date
+          nullable: true
+        actualEndDate:
+          type: string
+          format: date
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+      required:
+        - title
+        - scope
+
+    UpdateDevelopmentProjectBody:
+      type: object
+      properties:
+        projectCode:
+          type: string
+          nullable: true
+        title:
+          type: string
+        scope:
+          type: string
+        objective:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/DevelopmentProjectStatus"
+        responsibleEmployeeId:
+          type: integer
+          nullable: true
+        plannedStartDate:
+          type: string
+          format: date
+          nullable: true
+        plannedEndDate:
+          type: string
+          format: date
+          nullable: true
+        actualEndDate:
+          type: string
+          format: date
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+
+    DevelopmentProjectSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        applicabilityDecisionId:
+          type: integer
+          nullable: true
+        projectCode:
+          type: string
+          nullable: true
+        title:
+          type: string
+        scope:
+          type: string
+        status:
+          $ref: "#/components/schemas/DevelopmentProjectStatus"
+        responsibleEmployeeId:
+          type: integer
+          nullable: true
+        responsibleEmployeeName:
+          type: string
+          nullable: true
+        plannedStartDate:
+          type: string
+          nullable: true
+        plannedEndDate:
+          type: string
+          nullable: true
+        actualEndDate:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - title
+        - scope
+        - status
+        - createdAt
+        - updatedAt
+
+    DevelopmentProjectInput:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - projectId
+        - title
+        - sortOrder
+        - createdAt
+        - updatedAt
+
+    DevelopmentProjectInputBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        sortOrder:
+          type: integer
+          minimum: 0
+      required:
+        - title
+
+    UpdateDevelopmentProjectInputBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        sortOrder:
+          type: integer
+          minimum: 0
+
+    DevelopmentProjectStage:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/DevelopmentProjectStageStatus"
+        responsibleEmployeeId:
+          type: integer
+          nullable: true
+        responsibleEmployeeName:
+          type: string
+          nullable: true
+        dueDate:
+          type: string
+          nullable: true
+        completedAt:
+          type: string
+          nullable: true
+        evidenceNote:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - projectId
+        - title
+        - status
+        - sortOrder
+        - createdAt
+        - updatedAt
+
+    DevelopmentProjectStageBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        responsibleEmployeeId:
+          type: integer
+          nullable: true
+        status:
+          $ref: "#/components/schemas/DevelopmentProjectStageStatus"
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        evidenceNote:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        sortOrder:
+          type: integer
+          minimum: 0
+      required:
+        - title
+
+    UpdateDevelopmentProjectStageBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        responsibleEmployeeId:
+          type: integer
+          nullable: true
+        status:
+          $ref: "#/components/schemas/DevelopmentProjectStageStatus"
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        evidenceNote:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        sortOrder:
+          type: integer
+          minimum: 0
+
+    DevelopmentProjectOutput:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        outputType:
+          type: string
+        status:
+          $ref: "#/components/schemas/DevelopmentProjectOutputStatus"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - projectId
+        - title
+        - outputType
+        - status
+        - sortOrder
+        - createdAt
+        - updatedAt
+
+    DevelopmentProjectOutputBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        outputType:
+          type: string
+        status:
+          $ref: "#/components/schemas/DevelopmentProjectOutputStatus"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        sortOrder:
+          type: integer
+          minimum: 0
+      required:
+        - title
+
+    UpdateDevelopmentProjectOutputBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        outputType:
+          type: string
+        status:
+          $ref: "#/components/schemas/DevelopmentProjectOutputStatus"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        sortOrder:
+          type: integer
+          minimum: 0
+
+    DevelopmentProjectReview:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        reviewType:
+          $ref: "#/components/schemas/DevelopmentProjectReviewType"
+        title:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        outcome:
+          $ref: "#/components/schemas/DevelopmentProjectReviewOutcome"
+        responsibleEmployeeId:
+          type: integer
+          nullable: true
+        responsibleEmployeeName:
+          type: string
+          nullable: true
+        occurredAt:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - projectId
+        - reviewType
+        - title
+        - outcome
+        - createdAt
+        - updatedAt
+
+    DevelopmentProjectReviewBody:
+      type: object
+      properties:
+        reviewType:
+          $ref: "#/components/schemas/DevelopmentProjectReviewType"
+        title:
+          type: string
+          minLength: 1
+        notes:
+          type: string
+          nullable: true
+        outcome:
+          $ref: "#/components/schemas/DevelopmentProjectReviewOutcome"
+        responsibleEmployeeId:
+          type: integer
+          nullable: true
+        occurredAt:
+          type: string
+          format: date-time
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+      required:
+        - reviewType
+        - title
+
+    UpdateDevelopmentProjectReviewBody:
+      type: object
+      properties:
+        reviewType:
+          $ref: "#/components/schemas/DevelopmentProjectReviewType"
+        title:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        outcome:
+          $ref: "#/components/schemas/DevelopmentProjectReviewOutcome"
+        responsibleEmployeeId:
+          type: integer
+          nullable: true
+        occurredAt:
+          type: string
+          format: date-time
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+
+    DevelopmentProjectChange:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        title:
+          type: string
+        changeDescription:
+          type: string
+        reason:
+          type: string
+        impactDescription:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/DevelopmentProjectChangeStatus"
+        decidedById:
+          type: integer
+          nullable: true
+        decidedByName:
+          type: string
+          nullable: true
+        decidedAt:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - projectId
+        - title
+        - changeDescription
+        - reason
+        - status
+        - createdAt
+        - updatedAt
+
+    DevelopmentProjectChangeBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        changeDescription:
+          type: string
+          minLength: 1
+        reason:
+          type: string
+          minLength: 1
+        impactDescription:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/DevelopmentProjectChangeStatus"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+      required:
+        - title
+        - changeDescription
+        - reason
+
+    UpdateDevelopmentProjectChangeBody:
+      type: object
+      properties:
+        title:
+          type: string
+        changeDescription:
+          type: string
+        reason:
+          type: string
+        impactDescription:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/DevelopmentProjectChangeStatus"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+
+    DevelopmentProjectDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        applicabilityDecisionId:
+          type: integer
+          nullable: true
+        projectCode:
+          type: string
+          nullable: true
+        title:
+          type: string
+        scope:
+          type: string
+        objective:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/DevelopmentProjectStatus"
+        responsibleEmployeeId:
+          type: integer
+          nullable: true
+        responsibleEmployeeName:
+          type: string
+          nullable: true
+        plannedStartDate:
+          type: string
+          nullable: true
+        plannedEndDate:
+          type: string
+          nullable: true
+        actualEndDate:
+          type: string
+          nullable: true
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceSystemAttachment"
+        inputs:
+          type: array
+          items:
+            $ref: "#/components/schemas/DevelopmentProjectInput"
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/DevelopmentProjectStage"
+        outputs:
+          type: array
+          items:
+            $ref: "#/components/schemas/DevelopmentProjectOutput"
+        reviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/DevelopmentProjectReview"
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/DevelopmentProjectChange"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - title
+        - scope
+        - status
+        - inputs
+        - stages
+        - outputs
+        - reviews
+        - changes
+        - createdAt
+        - updatedAt

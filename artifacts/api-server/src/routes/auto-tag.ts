@@ -3,6 +3,7 @@ import { requireAuth, requireWriteAccess } from "../middlewares/auth";
 import { db, legislationsTable, type Legislation } from "@workspace/db";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { notifyLegislationBecameRelevant } from "../lib/legislations";
 
 const router = Router();
 
@@ -171,6 +172,9 @@ router.post("/organizations/:orgId/legislations/auto-tag/batch", requireAuth, re
       await db.update(legislationsTable)
         .set({ tags })
         .where(eq(legislationsTable.id, leg.id));
+      notifyLegislationBecameRelevant(orgId, { ...leg, tags }, leg.tags).catch((err) =>
+        console.error(`[auto-tag] notify error for legislation ${leg.id}:`, err),
+      );
       tagged++;
       res.write(`data: ${JSON.stringify({ type: "progress", index: i, total: legislations.length, tagged, errors, legislationId: leg.id, title: leg.title, tagsCount: tags.length })}\n\n`);
     } catch (err) {
@@ -206,6 +210,9 @@ router.post("/organizations/:orgId/legislations/:legId/auto-tag", requireAuth, r
     await db.update(legislationsTable)
       .set({ tags })
       .where(eq(legislationsTable.id, legId));
+    notifyLegislationBecameRelevant(orgId, { ...leg, tags }, leg.tags).catch((notifyErr) =>
+      console.error(`[auto-tag] notify error for legislation ${legId}:`, notifyErr),
+    );
 
     res.json({ legislationId: legId, tags });
   } catch (err) {
