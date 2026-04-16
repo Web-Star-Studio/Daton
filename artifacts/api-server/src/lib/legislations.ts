@@ -13,6 +13,10 @@ function uniqueNumbers(arr: number[]): number[] {
   return [...new Set(arr)];
 }
 
+function normalizeTags(tags: string[] | null | undefined): string[] {
+  return (tags ?? []).map((tag) => tag.toLowerCase());
+}
+
 async function getLegislationRecipientIds(organizationId: number): Promise<number[]> {
   const admins = await db
     .select({ id: usersTable.id })
@@ -41,14 +45,11 @@ async function getLegislationRecipientIds(organizationId: number): Promise<numbe
   ]);
 }
 
-export async function notifyLegislationAdded(
+async function hasMatchingUnits(
   organizationId: number,
-  leg: Pick<Legislation, "id" | "title" | "tags">,
-): Promise<void> {
-  const tags = (leg.tags as string[] | null) ?? [];
-  if (tags.length === 0) return;
-
-  const normalizedTags = tags.map((t) => t.toLowerCase());
+  tags: string[],
+): Promise<boolean> {
+  if (tags.length === 0) return false;
 
   const matching = await db
     .select({ id: unitComplianceTagsTable.unitId })
@@ -57,12 +58,24 @@ export async function notifyLegislationAdded(
     .where(
       and(
         eq(unitsTable.organizationId, organizationId),
-        inArray(unitComplianceTagsTable.tag, normalizedTags),
+        inArray(unitComplianceTagsTable.tag, tags),
       ),
     )
     .limit(1);
 
-  if (matching.length === 0) return;
+  return matching.length > 0;
+}
+
+async function createNotifications(
+  organizationId: number,
+  leg: Pick<Legislation, "id" | "title" | "tags">,
+  payload: { type: string; title: string; description: string },
+): Promise<void> {
+  const normalizedTags = normalizeTags(leg.tags as string[] | null);
+  if (normalizedTags.length === 0) return;
+
+  const isRelevant = await hasMatchingUnits(organizationId, normalizedTags);
+  if (!isRelevant) return;
 
   const userIds = await getLegislationRecipientIds(organizationId);
   if (userIds.length === 0) return;
@@ -71,11 +84,54 @@ export async function notifyLegislationAdded(
     userIds.map((userId) => ({
       organizationId,
       userId,
-      type: "legislation_new",
-      title: "Nova legislação relevante",
-      description: `"${leg.title}" foi adicionada e pode ser aplicável às unidades da sua organização com base no questionário de compliance.`,
+      type: payload.type,
+      title: payload.title,
+      description: payload.description,
       relatedEntityType: "legislation",
       relatedEntityId: leg.id,
     })),
   );
+}
+
+export async function notifyLegislationAdded(
+  organizationId: number,
+  leg: Pick<Legislation, "id" | "title" | "tags">,
+): Promise<void> {
+  await createNotifications(organizationId, leg, {
+    type: "legislation_new",
+    title: "Nova legislação relevante",
+    description: `"${leg.title}" foi adicionada e pode ser aplicável às unidades da sua organização com base no questionário de compliance.`,
+  });
+}
+
+export async function notifyLegislationUpdated(
+  organizationId: number,
+  leg: Pick<Legislation, "id" | "title" | "tags">,
+): Promise<void> {
+  await createNotifications(organizationId, leg, {
+    type: "legislation_updated",
+    title: "Legislação relevante atualizada",
+    description: `"${leg.title}" foi atualizada e pode impactar as unidades da sua organização com base no questionário de compliance.`,
+  });
+}
+
+export async function notifyLegislationBecameRelevant(
+  organizationId: number,
+  leg: Pick<Legislation, "id" | "title" | "tags">,
+  previousTags: string[] | null | undefined,
+): Promise<void> {
+  const previousNormalizedTags = normalizeTags(previousTags);
+
+  if (previousNormalizedTags.length > 0) {
+    const wasRelevant = await hasMatchingUnits(organizationId, previousNormalizedTags);
+    if (wasRelevant) {
+      return;
+    }
+  }
+
+  await createNotifications(organizationId, leg, {
+    type: "legislation_new",
+    title: "Nova legislação relevante",
+    description: `"${leg.title}" passou a ser aplicável às unidades da sua organização com base no questionário de compliance.`,
+  });
 }

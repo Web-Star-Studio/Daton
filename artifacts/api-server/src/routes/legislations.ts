@@ -14,7 +14,10 @@ import {
   DeleteLegislationParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireModuleAccess, requireWriteAccess } from "../middlewares/auth";
-import { notifyLegislationAdded } from "../lib/legislations";
+import {
+  notifyLegislationAdded,
+  notifyLegislationUpdated,
+} from "../lib/legislations";
 
 const router: IRouter = Router();
 
@@ -228,9 +231,17 @@ router.post("/organizations/:orgId/legislations/import", requireAuth, requireWri
           if (item.tags) updateData.tags = item.tags;
 
           if (Object.keys(updateData).length > 0) {
-            await db.update(legislationsTable)
+            const [updatedLeg] = await db.update(legislationsTable)
               .set(updateData)
-              .where(eq(legislationsTable.id, existing.id));
+              .where(eq(legislationsTable.id, existing.id))
+              .returning();
+
+            if (updatedLeg) {
+              if (dupeKey) existingMap.set(dupeKey, updatedLeg);
+              notifyLegislationUpdated(params.data.orgId, updatedLeg).catch((e) =>
+                console.error("[legislations/import-update] notify error:", e),
+              );
+            }
           }
           updated++;
         } else {
@@ -342,6 +353,14 @@ router.patch("/organizations/:orgId/legislations/:legId", requireAuth, requireWr
     return;
   }
 
+  const [existing] = await db.select().from(legislationsTable)
+    .where(and(eq(legislationsTable.id, params.data.legId), eq(legislationsTable.organizationId, params.data.orgId)));
+
+  if (!existing) {
+    res.status(404).json({ error: "Legislação não encontrada" });
+    return;
+  }
+
   const updateData = { ...body.data };
   const { publicationDate, ...restUpdateData } = updateData;
   const normalizedPublicationDate = normalizePublicationDate(publicationDate);
@@ -354,12 +373,6 @@ router.patch("/organizations/:orgId/legislations/:legId", requireAuth, requireWr
   };
 
   if (Object.keys(updateData).length === 0) {
-    const [existing] = await db.select().from(legislationsTable)
-      .where(and(eq(legislationsTable.id, params.data.legId), eq(legislationsTable.organizationId, params.data.orgId)));
-    if (!existing) {
-      res.status(404).json({ error: "Legislação não encontrada" });
-      return;
-    }
     res.json(formatLeg(existing));
     return;
   }
@@ -373,6 +386,10 @@ router.patch("/organizations/:orgId/legislations/:legId", requireAuth, requireWr
     res.status(404).json({ error: "Legislação não encontrada" });
     return;
   }
+
+  notifyLegislationUpdated(params.data.orgId, leg).catch((e) =>
+    console.error("[legislations/patch] notify error:", e),
+  );
 
   res.json(formatLeg(leg));
 });
