@@ -14,6 +14,7 @@ import {
   DeleteLegislationParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireModuleAccess, requireWriteAccess } from "../middlewares/auth";
+import { notifyLegislationAdded } from "../lib/legislations";
 
 const router: IRouter = Router();
 
@@ -149,6 +150,10 @@ router.post("/organizations/:orgId/legislations", requireAuth, requireWriteAcces
 
   const [leg] = await db.insert(legislationsTable).values(insertData).returning();
 
+  notifyLegislationAdded(params.data.orgId, leg).catch((e) =>
+    console.error("[legislations] notify error:", e),
+  );
+
   res.status(201).json(formatLeg(leg));
 });
 
@@ -237,18 +242,14 @@ router.post("/organizations/:orgId/legislations/import", requireAuth, requireWri
           publicationDate: pubDate,
           organizationId: params.data.orgId,
         };
-        await db.insert(legislationsTable).values(importItem);
+        const [newLeg] = await db.insert(legislationsTable).values(importItem).returning();
         created++;
 
-        if (dupeKey) {
-          const [newLeg] = await db.select().from(legislationsTable)
-            .where(and(
-              eq(legislationsTable.organizationId, params.data.orgId),
-              eq(legislationsTable.tipoNorma, tipoNorma!),
-              eq(legislationsTable.number, number!)
-            ))
-            .limit(1);
-          if (newLeg) existingMap.set(dupeKey, newLeg);
+        if (newLeg) {
+          if (dupeKey) existingMap.set(dupeKey, newLeg);
+          notifyLegislationAdded(params.data.orgId, newLeg).catch((e) =>
+            console.error("[legislations/import] notify error:", e),
+          );
         }
       }
     } catch (err: any) {
