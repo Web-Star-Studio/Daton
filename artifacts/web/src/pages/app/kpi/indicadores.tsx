@@ -11,14 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { YearPicker } from "@/components/ui/year-picker";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
 import {
   PERIODICITY_LABELS,
@@ -121,6 +113,26 @@ export default function KpiIndicadoresPage() {
     const matchesUnit = !unitFilter || (ind.unit ?? "") === unitFilter;
     return matchesSearch && matchesUnit;
   });
+
+  const groupMap = new Map<number | null, KpiIndicator[]>();
+  for (const ind of filteredIndicators) {
+    const row = yearRows.find((r) => r.indicator.id === ind.id);
+    const objId = row?.yearConfig?.objectiveId ?? null;
+    if (!groupMap.has(objId)) groupMap.set(objId, []);
+    groupMap.get(objId)!.push(ind);
+  }
+  const groupedIndicators = [...groupMap.keys()]
+    .sort((a, b) => {
+      if (a === null) return 1;
+      if (b === null) return -1;
+      const oa = objectives.find((o) => o.id === a);
+      const ob = objectives.find((o) => o.id === b);
+      return (oa?.code ?? oa?.name ?? "").localeCompare(ob?.code ?? ob?.name ?? "");
+    })
+    .map((objId) => ({
+      objective: objId != null ? (objectives.find((o) => o.id === objId) ?? null) : null,
+      indicators: groupMap.get(objId)!,
+    }));
 
   async function handleSaveIndicator() {
     if (!indicatorForm.name.trim() || !indicatorForm.measurement.trim()) {
@@ -238,96 +250,127 @@ export default function KpiIndicadoresPage() {
         </Select>
       </div>
 
-      {/* Indicators table */}
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Indicador</TableHead>
-              <TableHead>Unidade</TableHead>
-              <TableHead>Responsável</TableHead>
-              <TableHead>Un. Medida</TableHead>
-              <TableHead>Melhor</TableHead>
-              <TableHead>Periodicidade</TableHead>
-              <TableHead className="w-20" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  Carregando...
-                </TableCell>
-              </TableRow>
-            ) : filteredIndicators.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  {indicators.length === 0
-                    ? "Nenhum indicador cadastrado. Crie o primeiro clicando em \"Novo Indicador\"."
-                    : indicatorsForYear.length === 0
-                    ? `Nenhum indicador configurado para ${year}.`
-                    : "Nenhum indicador encontrado com os filtros aplicados."}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredIndicators.map((ind) => (
-                <TableRow key={ind.id}>
-                  <TableCell>
-                    <div className="font-medium text-sm">{ind.name}</div>
-                    <div className="text-xs text-muted-foreground line-clamp-1">{ind.measurement}</div>
-                  </TableCell>
-                  <TableCell className="text-sm">{ind.unit ?? "—"}</TableCell>
-                  <TableCell className="text-sm">{ind.responsible ?? "—"}</TableCell>
-                  <TableCell className="text-sm">{ind.measureUnit ?? "—"}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs">
-                      {ind.direction === "up" ? "↑ Maior" : "↓ Menor"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {PERIODICITY_LABELS[ind.periodicity as keyof typeof PERIODICITY_LABELS] ?? ind.periodicity}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1 justify-end">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => {
-                          setEditingIndicator(ind);
-                          const yearRow = yearRows.find((r) => r.indicator.id === ind.id);
-                          setIndicatorForm({
-                            name: ind.name,
-                            measurement: ind.measurement,
-                            unit: ind.unit ?? "",
-                            responsible: ind.responsible ?? "",
-                            measureUnit: ind.measureUnit ?? "",
-                            direction: ind.direction as "up" | "down",
-                            periodicity: ind.periodicity as IndicatorFormData["periodicity"],
-                            objectiveId: yearRow?.yearConfig.objectiveId != null ? String(yearRow.yearConfig.objectiveId) : "",
-                            goal: yearRow?.yearConfig.goal != null ? String(yearRow.yearConfig.goal) : "",
-                          });
-                          setIndicatorDialog(true);
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteConfirm(ind)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+      {/* Indicators grouped by objective */}
+      {isLoading ? (
+        <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
+          Carregando...
+        </div>
+      ) : filteredIndicators.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
+          {indicators.length === 0
+            ? "Nenhum indicador cadastrado. Crie o primeiro clicando em \"Novo Indicador\"."
+            : indicatorsForYear.length === 0
+            ? `Nenhum indicador configurado para ${year}.`
+            : "Nenhum indicador encontrado com os filtros aplicados."}
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {groupedIndicators.map((group) => (
+            <div key={group.objective?.id ?? "none"} className="flex gap-0">
+              {/* [ bracket */}
+              <div className="flex flex-col shrink-0 select-none mt-[2.25rem]">
+                <div className="h-3 w-3 border-l-2 border-t-2 border-primary/30 rounded-tl-[3px]" />
+                <div className="flex-1 w-0 border-l-2 border-primary/20" />
+                <div className="h-3 w-3 border-l-2 border-b-2 border-primary/30 rounded-bl-[3px]" />
+              </div>
+
+              {/* Group content */}
+              <div className="flex-1 min-w-0 pl-3">
+                {/* Objective header */}
+                <div className="flex items-center gap-2 pb-2 h-9">
+                  {group.objective ? (
+                    <>
+                      {group.objective.code && (
+                        <Badge variant="secondary" className="font-mono text-[11px] px-1.5 shrink-0">
+                          {group.objective.code}
+                        </Badge>
+                      )}
+                      <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60 leading-tight truncate">
+                        {group.objective.name}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-muted-foreground/70 italic">Sem objetivo vinculado</span>
+                  )}
+                  <span className="ml-auto text-xs text-muted-foreground/60 tabular-nums shrink-0">
+                    {group.indicators.length} indicador{group.indicators.length !== 1 ? "es" : ""}
+                  </span>
+                </div>
+
+                {/* Indicators card */}
+                <div className="rounded-lg border overflow-hidden">
+                  {/* Column labels */}
+                  <div className="grid grid-cols-[1fr_80px_120px_72px_72px_88px_68px] gap-x-3 px-4 py-2 bg-muted/30 border-b text-xs font-medium text-muted-foreground">
+                    <span>Indicador</span>
+                    <span className="text-center">Unidade</span>
+                    <span>Responsável</span>
+                    <span className="text-center">Un. Medida</span>
+                    <span className="text-center">Melhor</span>
+                    <span className="text-center">Período</span>
+                    <span />
+                  </div>
+                  {/* Rows */}
+                  {group.indicators.map((ind) => (
+                    <div
+                      key={ind.id}
+                      className="grid grid-cols-[1fr_80px_120px_72px_72px_88px_68px] gap-x-3 items-center px-4 py-3 border-b last:border-b-0 hover:bg-muted/20 transition-colors duration-150"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm leading-snug truncate">{ind.name}</div>
+                        <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{ind.measurement}</div>
+                      </div>
+                      <div className="text-sm text-muted-foreground text-center truncate">{ind.unit ?? "—"}</div>
+                      <div className="text-sm text-muted-foreground truncate">{ind.responsible ?? "—"}</div>
+                      <div className="text-sm text-muted-foreground text-center">{ind.measureUnit ?? "—"}</div>
+                      <div className="flex justify-center">
+                        <Badge variant="outline" className="text-[11px] px-1.5">
+                          {ind.direction === "up" ? "↑ Maior" : "↓ Menor"}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground text-center">
+                        {PERIODICITY_LABELS[ind.periodicity as keyof typeof PERIODICITY_LABELS] ?? ind.periodicity}
+                      </div>
+                      <div className="flex gap-0.5 justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => {
+                            setEditingIndicator(ind);
+                            const yearRow = yearRows.find((r) => r.indicator.id === ind.id);
+                            setIndicatorForm({
+                              name: ind.name,
+                              measurement: ind.measurement,
+                              unit: ind.unit ?? "",
+                              responsible: ind.responsible ?? "",
+                              measureUnit: ind.measureUnit ?? "",
+                              direction: ind.direction as "up" | "down",
+                              periodicity: ind.periodicity as IndicatorFormData["periodicity"],
+                              objectiveId: yearRow?.yearConfig.objectiveId != null ? String(yearRow.yearConfig.objectiveId) : "",
+                              goal: yearRow?.yearConfig.goal != null ? String(yearRow.yearConfig.goal) : "",
+                            });
+                            setIndicatorDialog(true);
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteConfirm(ind)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Create/Edit Indicator Dialog */}
       <Dialog
