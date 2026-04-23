@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, ilike, or, count, sql, exists, inArray } from "drizzle-orm";
+import { z } from "zod";
 import {
   db,
   departmentsTable,
@@ -83,6 +84,10 @@ import {
   ObjectNotFoundError,
   ObjectStorageService,
 } from "../lib/objectStorage";
+import {
+  lookupCpfReceitaFederal,
+  InfosimplesError,
+} from "../lib/infosimples";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -1149,6 +1154,66 @@ router.get(
         totalPages: Math.ceil(totalResult.total / pageSize),
       },
     });
+  },
+);
+
+const LookupCpfParams = z.object({
+  orgId: z.coerce.number().int().positive(),
+});
+
+const LookupCpfBody = z.object({
+  cpf: z
+    .string()
+    .transform((value) => value.replace(/\D/g, ""))
+    .pipe(z.string().length(11, "CPF deve conter 11 dígitos")),
+  birthdate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data de nascimento deve estar em ISO 8601 (YYYY-MM-DD)"),
+});
+
+router.post(
+  "/organizations/:orgId/employees/lookup-cpf",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = LookupCpfParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (params.data.orgId !== req.auth!.organizationId) {
+      res.status(403).json({ error: "Acesso negado" });
+      return;
+    }
+
+    const body = LookupCpfBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
+      return;
+    }
+
+    try {
+      const result = await lookupCpfReceitaFederal({
+        cpf: body.data.cpf,
+        birthdate: body.data.birthdate,
+      });
+      res.json(result);
+    } catch (error) {
+      if (error instanceof InfosimplesError) {
+        const status =
+          error.code === 612 || error.code === 613 || error.code === 614
+            ? 404
+            : 502;
+        res.status(status).json({
+          error: error.codeMessage || "Falha ao consultar a Receita Federal",
+          code: error.code,
+          details: error.errors,
+        });
+        return;
+      }
+      console.error("[employees:lookup-cpf]", error);
+      res.status(500).json({ error: "Erro interno ao consultar a Receita Federal" });
+    }
   },
 );
 

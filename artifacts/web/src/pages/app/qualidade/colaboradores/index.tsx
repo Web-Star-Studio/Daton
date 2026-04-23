@@ -35,6 +35,7 @@ import {
   validateProfileItemUploadSelection,
   type UploadedFileRef,
 } from "@/lib/uploads";
+import { getAuthHeaders, resolveApiUrl } from "@/lib/api";
 import {
   GraduationCap,
   Plus,
@@ -329,12 +330,72 @@ export default function ColaboradoresPage() {
     handleSubmit,
     reset,
     trigger,
+    setValue,
+    getValues,
     formState: { errors },
   } = useForm<CreateEmployeeBody>({
     defaultValues: {
       contractType: "clt",
     },
   });
+
+  const [lookupBirthdate, setLookupBirthdate] = useState("");
+  const [isLookingUpCpf, setIsLookingUpCpf] = useState(false);
+
+  async function handleLookupCpf() {
+    if (!orgId) return;
+    const rawCpf = (getValues("cpf") ?? "").toString().replace(/\D/g, "");
+    if (rawCpf.length !== 11) {
+      toast({
+        title: "CPF inválido",
+        description: "Informe o CPF completo antes de buscar.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(lookupBirthdate)) {
+      toast({
+        title: "Data de nascimento obrigatória",
+        description: "Informe a data de nascimento para consultar a Receita.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLookingUpCpf(true);
+    try {
+      const response = await fetch(
+        resolveApiUrl(`/api/organizations/${orgId}/employees/lookup-cpf`),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({ cpf: rawCpf, birthdate: lookupBirthdate }),
+        },
+      );
+      const payload = (await response.json().catch(() => null)) as
+        | { nome?: string; error?: string }
+        | null;
+      if (!response.ok || !payload?.nome) {
+        throw new Error(payload?.error || "Falha ao consultar a Receita Federal");
+      }
+      setValue("name", payload.nome, { shouldValidate: true, shouldDirty: true });
+      toast({
+        title: "Dados encontrados",
+        description: `Nome preenchido a partir da Receita Federal.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Não foi possível consultar",
+        description: error instanceof Error ? error.message : "Erro desconhecido.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLookingUpCpf(false);
+    }
+  }
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
@@ -398,6 +459,7 @@ export default function ColaboradoresPage() {
     setMaxReachedCreateStep(0);
     setProfessionalExperiences([]);
     setEducationCertifications([]);
+    setLookupBirthdate("");
   };
 
   const changeCreateStep = async (targetStep: number) => {
@@ -808,29 +870,57 @@ export default function ColaboradoresPage() {
 
           {createStep === 0 && (
             <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-              <div>
-                <Label className="text-xs font-semibold text-muted-foreground">
-                  CPF
-                </Label>
-                <Input
-                  {...register("cpf", {
-                    setValueAs: toRequiredString,
-                    onChange: (event) => {
-                      event.target.value = formatCpfInput(event.target.value);
-                    },
-                  })}
-                  className="mt-1"
-                  placeholder="000.000.000-00"
-                  inputMode="numeric"
-                  maxLength={14}
-                />
+              <div className="col-span-2 rounded-xl border border-border/60 bg-secondary/20 p-4">
+                <div className="grid grid-cols-[1fr_160px_auto] items-end gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      CPF
+                    </Label>
+                    <Input
+                      {...register("cpf", {
+                        setValueAs: toRequiredString,
+                        onChange: (event) => {
+                          event.target.value = formatCpfInput(event.target.value);
+                        },
+                      })}
+                      className="mt-1"
+                      placeholder="000.000.000-00"
+                      inputMode="numeric"
+                      maxLength={14}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      Data de nascimento
+                    </Label>
+                    <Input
+                      type="date"
+                      value={lookupBirthdate}
+                      onChange={(event) => setLookupBirthdate(event.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleLookupCpf()}
+                    disabled={isLookingUpCpf}
+                  >
+                    <Search className="mr-1.5 h-3.5 w-3.5" />
+                    {isLookingUpCpf ? "Buscando..." : "Buscar na Receita"}
+                  </Button>
+                </div>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Informe CPF e data de nascimento para autopreencher o nome via Receita Federal.
+                </p>
                 {errors.cpf && (
                   <p className="mt-1.5 text-xs text-destructive">
                     {errors.cpf.message}
                   </p>
                 )}
               </div>
-              <div>
+              <div className="col-span-2">
                 <Label className="text-xs font-semibold text-muted-foreground">
                   Nome completo *
                 </Label>
