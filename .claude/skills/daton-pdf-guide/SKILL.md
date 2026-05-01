@@ -74,42 +74,95 @@ BASE_URL=http://localhost:5173 LOGIN_EMAIL=seu@email.com LOGIN_PASSWORD=senha no
 Quando precisar retirar somente uma screenshot sem rodar o script completo:
 
 ```bash
-playwright-cli open http://localhost:5173/
+playwright-cli open --browser=chromium http://localhost:5173/auth
 playwright-cli resize 1280 900
-# injeta token via API
-playwright-cli eval "async () => { const r = await fetch('http://localhost:3001/api/auth/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'admin@example.com',password:'demo123'})}); const d = await r.json(); localStorage.setItem('daton_token', d.token); return d.token ? 'OK' : 'FAIL'; }"
+playwright-cli fill e19 "admin@example.com"
+playwright-cli fill e25 "demo123"
+playwright-cli click e30   # botão "Entrar no Daton"
 playwright-cli goto http://localhost:5173/app/<rota-do-modulo>
-# navegue até a seção desejada (click em tab, scroll, etc.)
-playwright-cli eval "() => document.querySelector('h3[...]').scrollIntoView({block:'start',behavior:'instant'})"
-playwright-cli eval "() => window.scrollBy(0, -80)"
-playwright-cli screenshot --filename=docs/pdfs/<slug>/imgs/0N-nome.png
+```
+
+**Regra de ouro para scroll antes de screenshot:**
+Sempre use `block:'start'` para posicionar o heading da seção em y≈CONTENT_TOP (67px).
+Isso garante que o elemento-alvo começa perto do topo e as coordenadas de callout
+ficam previsíveis (y_callout = heading_height + pequeno offset).
+
+```bash
+playwright-cli run-code "async page => {
+  const h = page.locator('h3').filter({ hasText: /Nome da seção/ }).first();
+  await h.evaluate(el => el.scrollIntoView({ behavior: 'instant', block: 'start' }));
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: 'docs/pdfs/<slug>/imgs/0N-nome.png' });
+}"
 playwright-cli close
 ```
 
 ### 4. Medir coordenadas para anotações
 
-Com as screenshots prontas, meça as regiões de layout. Opções:
+**Nunca estime coordenadas de callout sem medir.** O elemento visado raramente está
+onde parece — o scroll, margens e padding interno deslocam tudo.
 
-**Via Playwright** (mais preciso) — adicione ao `take-screenshots.js`:
-```js
-const box = await page.locator('[role="tablist"]').boundingBox()
-console.log('tablist:', box)  // { x, y, width, height }
+#### Técnica correta: `run-code` + atributo DOM + `eval`
+
+O `playwright-cli console` **não captura** saídas de `console.log` do `run-code`.
+A única forma confiável de ler valores medidos é gravar no DOM e recuperar com `eval`:
+
+```bash
+playwright-cli run-code "async page => {
+  # 1. Scroll o elemento alvo para o topo (block:'start')
+  const target = page.locator('h3').filter({ hasText: /Nome/ }).first();
+  await target.evaluate(el => el.scrollIntoView({ behavior: 'instant', block: 'start' }));
+  await page.waitForTimeout(400);
+
+  # 2. Medir os elementos-chave
+  const bHead    = await target.boundingBox();
+  const bPrimary = await page.locator('label').filter({ hasText: /Primeiro campo/ }).first().boundingBox().catch(() => null);
+  const bLast    = await page.locator('label').filter({ hasText: /Último campo/ }).last().boundingBox().catch(() => null);
+
+  # 3. Gravar no DOM (única forma de ler de volta)
+  await page.evaluate(d => { document.body.setAttribute('data-m', d); },
+    JSON.stringify({ head: bHead, primary: bPrimary, last: bLast }));
+}"
+# 4. Recuperar as medidas
+playwright-cli eval "document.body.getAttribute('data-m')"
 ```
 
-**Via GIMP ou outro editor de imagem** — abra a imagem e passe o cursor sobre os cantos das regiões.
+O resultado é um JSON com `{ x, y, width, height }` de cada elemento, em coordenadas
+de viewport. Use esses valores diretamente em `annotate-screenshots.py`.
 
-Regiões típicas na UI do Daton (1280×900):
-- `LEFT_END ≈ 695` — borda direita do painel de lista
-- `TAB_Y ≈ 548` — topo da barra de tabs
-- `BOTTOM ≈ 876` — base da área de conteúdo
-- `RIGHT_END ≈ 1262` — borda direita do conteúdo
+#### Traduzir medidas para callout_box
+
+```
+callout_box = (
+  x,                    # ou LIST_END + margem se dentro do painel
+  head.y + head.height + 4,  # logo abaixo do heading
+  x + width - margem,
+  last.y + last.height + 8   # abaixo do último campo
+)
+```
+
+**Atenção a seções full-width:** algumas seções da UI (ex: Validação especial, seções
+de rodapé) têm `x < LIST_END` — elas se estendem além do painel de detalhe. Nesses
+casos **não aplique `DIM_LIST`**, use `content_box` e `callout_box` com os valores
+reais medidos.
+
+Regiões constantes na UI do Daton (1280×900):
+
+| Constante | Valor | Descrição |
+|---|---|---|
+| `NAV_END` | 249 | Borda direita da sidebar de navegação |
+| `LIST_END` | 697 | Borda direita do painel de lista (modelos/ciclos) |
+| `CONTENT_TOP` | 67 | Topo da área de conteúdo (abaixo do breadcrumb) |
+| `BOTTOM` | 889 | Base da área de conteúdo |
+| `RIGHT_END` | 1269 | Borda direita do conteúdo |
+| `CARD_LIST_W` | ~218–280 | Largura do sub-painel de cards — **medir por módulo** |
 
 ### 5. Anotar screenshots
 
 Edite `docs/pdfs/<slug>/annotate-screenshots.py`:
 
-- Preencha `LEFT_END`, `TAB_Y`, `BOTTOM`, `RIGHT_END` com os valores medidos
-- Substitua `annotate("01-screenshot", ...)` pelos seus arquivos reais
+- Use as medidas do passo 4 para `callout_box` — nunca estime
+- Para `content_box`, use as constantes de layout ou as medidas reais da seção
 - Para callout em elemento específico, adicione `callout_box=(x1, y1, x2, y2)`
   - Callout usa **borda vermelha sem fill** para não cobrir texto
 
@@ -118,6 +171,20 @@ Execute:
 cd docs/pdfs/<slug>
 python annotate-screenshots.py
 ```
+
+### 5.1. Verificar anotações visualmente (obrigatório antes do PDF)
+
+**Leia cada arquivo `-annotated.png` com a ferramenta Read antes de gerar o PDF.**
+Verifique em cada imagem:
+
+- [ ] Borda laranja cobre a área de conteúdo correta (não o sidebar, não o painel errado)
+- [ ] Borda vermelha está sobre o elemento-alvo descrito no comentário do código
+- [ ] Borda vermelha **não** está em um elemento adjacente (campo acima/abaixo, seção errada)
+- [ ] Dim não obscurece conteúdo que deveria estar visível
+
+Se alguma marcação estiver errada: volte ao passo 4, remede o elemento correto
+e atualize `annotate-screenshots.py` com as novas coordenadas. Não avance para o
+build sem confirmar visualmente.
 
 ### 6. Gerar o PDF
 
