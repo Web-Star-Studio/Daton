@@ -13,6 +13,8 @@
     "create-org-admin": "tsx --env-file ../.env ./src/create-org-admin.ts",
     "migrate": "tsx --env-file ../.env ./src/migrate/index.ts",
     "backfill-trainings": "tsx --env-file ../.env ./src/migrate/backfill-trainings.ts",
+    "migrate-v1-trainings-historical": "tsx --env-file ../.env ./src/migrate/v1-trainings-historical.ts",
+    "seed-v1-orphan-employees": "tsx --env-file ../.env ./src/migrate/v1-orphan-employees.ts",
     "backfill-governance-org-scopes": "tsx --env-file ../.env ./src/migrate/backfill-governance-org-scopes.ts",
     "migrate-kpi": "tsx --env-file ../.env ./src/migrate/migrate-kpi.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"

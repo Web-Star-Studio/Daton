@@ -140,6 +140,7 @@ export const employeeTrainingsTable = pgTable("employee_trainings", {
     .$type<EmployeeRecordAttachment[]>()
     .notNull()
     .default(sql`'[]'::jsonb`),
+  legacyV1Id: text("legacy_v1_id").unique(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -168,6 +169,7 @@ export const trainingEffectivenessReviewsTable = pgTable(
       .$type<EmployeeRecordAttachment[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    legacyV1Id: text("legacy_v1_id").unique(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
