@@ -572,7 +572,7 @@ export function OrganizationUsersSettingsSection() {
                           {inv.status === "pending" && (
                             <Badge
                               variant="outline"
-                              className="border-amber-200 bg-amber-50 text-amber-600"
+                              className="border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300"
                             >
                               <Clock className="mr-1 h-3 w-3" />
                               Pendente
@@ -581,7 +581,7 @@ export function OrganizationUsersSettingsSection() {
                           {inv.status === "accepted" && (
                             <Badge
                               variant="outline"
-                              className="border-green-200 bg-green-50 text-green-600"
+                              className="border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
                             >
                               <CheckCircle2 className="mr-1 h-3 w-3" />
                               Aceito
@@ -590,7 +590,7 @@ export function OrganizationUsersSettingsSection() {
                           {inv.status === "revoked" && (
                             <Badge
                               variant="outline"
-                              className="border-red-200 bg-red-50 text-red-600"
+                              className="border-red-200 bg-red-50 text-red-600 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-300"
                             >
                               <XCircle className="mr-1 h-3 w-3" />
                               Revogado

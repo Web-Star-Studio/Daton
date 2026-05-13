@@ -126,9 +126,9 @@ const TRAINING_STATUS: Record<string, string> = {
 };
 
 const TRAINING_STATUS_COLORS: Record<string, string> = {
-  pendente: "bg-blue-50 text-blue-700 border-blue-200",
-  concluido: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  vencido: "bg-red-50 text-red-700 border-red-200",
+  pendente: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
+  concluido: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  vencido: "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
 };
 
 const EFFECTIVENESS_STATUS_LABELS: Record<string, string> = {
@@ -138,9 +138,9 @@ const EFFECTIVENESS_STATUS_LABELS: Record<string, string> = {
 };
 
 const EFFECTIVENESS_STATUS_COLORS: Record<string, string> = {
-  pending: "bg-amber-50 text-amber-700 border-amber-200",
-  effective: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  ineffective: "bg-red-50 text-red-700 border-red-200",
+  pending: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+  effective: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  ineffective: "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
 };
 
 const COMPETENCY_TYPE_LABELS: Record<string, string> = {
@@ -1864,8 +1864,8 @@ function CompetenciasTab({
                 className={cn(
                   "flex items-center justify-between px-3 py-2 rounded-lg text-[12px]",
                   item.matched
-                    ? "bg-emerald-50 border border-emerald-200/60"
-                    : "bg-red-50 border border-red-200/60",
+                    ? "bg-emerald-50 border border-emerald-200/60 dark:bg-emerald-500/10 dark:border-emerald-500/30"
+                    : "bg-red-50 border border-red-200/60 dark:bg-red-500/10 dark:border-red-500/30",
                 )}
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -1877,7 +1877,7 @@ function CompetenciasTab({
                   <span
                     className={cn(
                       "truncate",
-                      item.matched ? "text-emerald-900" : "text-red-900",
+                      item.matched ? "text-emerald-900 dark:text-emerald-200" : "text-red-900 dark:text-red-200",
                     )}
                   >
                     {item.requirement}
@@ -1886,13 +1886,13 @@ function CompetenciasTab({
                 <div className="flex items-center gap-2 shrink-0 ml-3">
                   {item.matched && item.competency && (
                     <div className="flex items-center gap-1.5">
-                      <span className="text-emerald-700">
+                      <span className="text-emerald-700 dark:text-emerald-300">
                         Nível: {item.competency.acquiredLevel}/
                         {item.competency.requiredLevel}
                       </span>
                       {(item.competency.acquiredLevel ?? 0) <
                         (item.competency.requiredLevel ?? 0) && (
-                        <span className="text-[10px] font-semibold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] font-semibold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded dark:text-amber-300 dark:bg-amber-500/20">
                           Gap
                         </span>
                       )}
@@ -2476,7 +2476,7 @@ function TreinamentosTab({
                           className={cn(
                             "text-[11px] px-1.5 py-0.5 rounded-full border font-medium",
                             TRAINING_STATUS_COLORS[t.status] ||
-                              "bg-gray-50 text-gray-500 border-gray-200",
+                              "bg-muted text-muted-foreground border-border",
                           )}
                         >
                           {TRAINING_STATUS[t.status] || t.status}
@@ -3526,7 +3526,7 @@ export default function ColaboradorDetailPage() {
             <HeaderActionButton
               variant="outline"
               size="sm"
-              className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+              className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:text-amber-300 dark:hover:bg-amber-500/10"
               onClick={handleArchive}
               label="Arquivar"
               icon={<Archive className="h-3.5 w-3.5" />}

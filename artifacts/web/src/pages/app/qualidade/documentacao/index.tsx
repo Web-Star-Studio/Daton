@@ -41,11 +41,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  in_review: "bg-amber-50 text-amber-700",
-  approved: "bg-emerald-50 text-emerald-700",
-  rejected: "bg-red-50 text-red-700",
-  distributed: "bg-blue-50 text-blue-700",
+  draft: "bg-muted text-foreground",
+  in_review: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  approved: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  rejected: "bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300",
+  distributed: "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -439,7 +439,7 @@ export default function DocumentacaoPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${STATUS_COLORS[doc.status] || "bg-gray-100 text-gray-700"}`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${STATUS_COLORS[doc.status] || "bg-muted text-foreground"}`}
                         >
                           {STATUS_LABELS[doc.status] || doc.status}
                         </span>

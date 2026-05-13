@@ -494,7 +494,10 @@ export default function OnboardingOrganizationPage() {
                                   onCheckedChange={(next) =>
                                     toggleGoal(option.value, next === true)
                                   }
-                                  className="mt-0.5 border-white/60 data-[state=checked]:border-white data-[state=checked]:bg-white data-[state=checked]:text-primary"
+                                  className={cn(
+                                    "mt-0.5",
+                                    checked && "border-white/60 data-[state=checked]:border-white data-[state=checked]:bg-white data-[state=checked]:text-primary",
+                                  )}
                                 />
                                 <span
                                   className={cn(

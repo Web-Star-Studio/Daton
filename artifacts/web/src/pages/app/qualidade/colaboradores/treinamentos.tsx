@@ -1308,7 +1308,7 @@ export default function ColaboradoresTreinamentosPage() {
                     className={cn(
                       "rounded-2xl border px-5 py-4",
                       gap.critical
-                        ? "border-red-200 bg-red-50/60"
+                        ? "border-red-200 bg-red-50/60 dark:border-red-500/30 dark:bg-red-500/10"
                         : "border-border/60 bg-card",
                     )}
                   >
@@ -1319,9 +1319,9 @@ export default function ColaboradoresTreinamentosPage() {
                             {gap.employeeName}
                           </p>
                           {gap.critical ? (
-                            <span className="rounded-full border border-red-200 bg-red-100 px-2 py-1 text-[11px] font-medium text-red-700">
+                            <Badge variant="danger" className="text-[11px]">
                               Critica
-                            </span>
+                            </Badge>
                           ) : null}
                         </div>
                         <p className="text-sm text-muted-foreground">

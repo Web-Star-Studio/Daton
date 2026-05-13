@@ -231,11 +231,11 @@ function planToForm(plan: OperationalPlanDetail): PlanFormState {
 function getPlanStatusTone(status: string) {
   switch (status) {
     case "active":
-      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30";
     case "archived":
-      return "bg-slate-100 text-slate-700 border-slate-200";
+      return "bg-muted text-muted-foreground border-border";
     default:
-      return "bg-amber-100 text-amber-800 border-amber-200";
+      return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30";
   }
 }
 
@@ -253,17 +253,17 @@ function getPlanStatusLabel(status: string) {
 function getCycleStatusTone(status: string) {
   switch (status) {
     case "completed":
-      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30";
     case "blocked":
-      return "bg-red-100 text-red-800 border-red-200";
+      return "bg-red-100 text-red-800 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30";
     case "ready":
-      return "bg-sky-100 text-sky-800 border-sky-200";
+      return "bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30";
     case "in_execution":
-      return "bg-indigo-100 text-indigo-800 border-indigo-200";
+      return "bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30";
     case "canceled":
-      return "bg-slate-100 text-slate-700 border-slate-200";
+      return "bg-muted text-muted-foreground border-border";
     default:
-      return "bg-amber-100 text-amber-800 border-amber-200";
+      return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30";
   }
 }
 
@@ -287,11 +287,11 @@ function getCycleStatusLabel(status: string) {
 function getDecisionTone(decision: string) {
   switch (decision) {
     case "approved":
-      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30";
     case "rejected":
-      return "bg-red-100 text-red-800 border-red-200";
+      return "bg-red-100 text-red-800 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30";
     default:
-      return "bg-amber-100 text-amber-800 border-amber-200";
+      return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30";
   }
 }
 
@@ -1179,7 +1179,7 @@ export default function OperationalPlanningPage() {
                                 {item.isCritical && (
                                   <Badge
                                     variant="outline"
-                                    className="bg-red-100 text-red-800 border-red-200"
+                                    className="bg-red-100 text-red-800 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30"
                                   >
                                     Crítico
                                   </Badge>
@@ -1335,7 +1335,7 @@ export default function OperationalPlanningPage() {
                             !["completed", "canceled"].includes(
                               cycle.status,
                             ) && (
-                              <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                              <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
                                 <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
                                 <span>
                                   {cycle.readinessSummary.criticalPending === 1
@@ -1388,7 +1388,7 @@ export default function OperationalPlanningPage() {
                                       {execution.isCritical && (
                                         <Badge
                                           variant="outline"
-                                          className="bg-red-100 text-red-800 border-red-200"
+                                          className="bg-red-100 text-red-800 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30"
                                         >
                                           Crítico
                                         </Badge>

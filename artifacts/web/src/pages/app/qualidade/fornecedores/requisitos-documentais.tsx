@@ -95,8 +95,8 @@ const emptyForm: RequirementFormValues = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  active: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  inactive: "bg-gray-50 text-gray-500 border-gray-200",
+  active: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  inactive: "bg-muted text-muted-foreground border-border",
 };
 
 function requirementStatusLabel(status: string) {
@@ -661,7 +661,7 @@ export default function SupplierDocumentRequirementsPage() {
                       <span
                         className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
                           STATUS_COLORS[requirement.status] ||
-                          "bg-gray-50 text-gray-500 border-gray-200"
+                          "bg-muted text-muted-foreground border-border"
                         }`}
                       >
                         {requirementStatusLabel(requirement.status)}
@@ -859,10 +859,10 @@ export default function SupplierDocumentRequirementsPage() {
                       <span
                         className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
                           row.action === "create"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
                             : row.action === "update"
-                              ? "border-sky-200 bg-sky-50 text-sky-700"
-                              : "border-red-200 bg-red-50 text-red-700"
+                              ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-300"
+                              : "border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-300"
                         }`}
                       >
                         {row.action === "create"

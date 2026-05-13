@@ -24,6 +24,8 @@ import type {
   AddMaintenanceRecordAttachmentBody,
   AddMeasurementResourceAttachmentBody,
   AddWorkEnvironmentAttachmentBody,
+  ApplicabilityDecision,
+  ApplicabilityDecisionBody,
   ApproveDocumentBody,
   Asset,
   AssetDocument,
@@ -78,6 +80,19 @@ import type {
   CreateWorkEnvironmentControlBody,
   CreateWorkEnvironmentVerificationBody,
   Department,
+  DevelopmentProjectBody,
+  DevelopmentProjectChange,
+  DevelopmentProjectChangeBody,
+  DevelopmentProjectDetail,
+  DevelopmentProjectInput,
+  DevelopmentProjectInputBody,
+  DevelopmentProjectOutput,
+  DevelopmentProjectOutputBody,
+  DevelopmentProjectReview,
+  DevelopmentProjectReviewBody,
+  DevelopmentProjectStage,
+  DevelopmentProjectStageBody,
+  DevelopmentProjectSummary,
   DocumentAttachment,
   DocumentCommunicationPlan,
   DocumentCommunicationPlanBody,
@@ -165,6 +180,7 @@ import type {
   Position,
   PositionCompetencyMatrixRevision,
   PositionCompetencyRequirement,
+  ProjectDevelopmentApplicabilityState,
   QuestionnaireTheme,
   RegisterBody,
   RejectDocumentBody,
@@ -189,12 +205,19 @@ import type {
   Unit,
   UnitLegislation,
   UnitLegislationWithLegislation,
+  UpdateApplicabilityDecisionBody,
   UpdateAssetBody,
   UpdateAssetMaintenancePlanBody,
   UpdateAwarenessBody,
   UpdateCompetencyBody,
   UpdateCorrectiveActionBody,
   UpdateDepartmentBody,
+  UpdateDevelopmentProjectBody,
+  UpdateDevelopmentProjectChangeBody,
+  UpdateDevelopmentProjectInputBody,
+  UpdateDevelopmentProjectOutputBody,
+  UpdateDevelopmentProjectReviewBody,
+  UpdateDevelopmentProjectStageBody,
   UpdateDocumentBody,
   UpdateDocumentCommunicationPlanBody,
   UpdateEmployeeBody,
@@ -21046,2952 +21069,6640 @@ export const useUpsertKpiValues = <
 /**
  * @summary List assets for an organization
  */
-export const getListAssetsUrl = (orgId: number,) => {
+export const getListAssetsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/assets`;
+};
 
-
-
-
-  return `/api/organizations/${orgId}/assets`
-}
-
-export const listAssets = async (orgId: number, options?: RequestInit): Promise<Asset[]> => {
-
-  return customFetch<Asset[]>(getListAssetsUrl(orgId),
-  {
+export const listAssets = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<Asset[]> => {
+  return customFetch<Asset[]>(getListAssetsUrl(orgId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
+export const getListAssetsQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/assets`] as const;
+};
 
-  }
-);}
-
-
-
-
-
-export const getListAssetsQueryKey = (orgId: number,) => {
-    return [
-    `/api/organizations/${orgId}/assets`
-    ] as const;
-    }
-
-
-export const getListAssetsQueryOptions = <TData = Awaited<ReturnType<typeof listAssets>>, TError = ErrorType<unknown>>(orgId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListAssetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAssets>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
 ) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getListAssetsQueryKey(orgId);
 
-  const queryKey =  queryOptions?.queryKey ?? getListAssetsQueryKey(orgId);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssets>>> = ({
+    signal,
+  }) => listAssets(orgId, { signal, ...requestOptions });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAssets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssets>>> = ({ signal }) => listAssets(orgId, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAssets>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListAssetsQueryResult = NonNullable<Awaited<ReturnType<typeof listAssets>>>
-export type ListAssetsQueryError = ErrorType<unknown>
-
+export type ListAssetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAssets>>
+>;
+export type ListAssetsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List assets for an organization
  */
 
-export function useListAssets<TData = Awaited<ReturnType<typeof listAssets>>, TError = ErrorType<unknown>>(
- orgId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListAssets<
+  TData = Awaited<ReturnType<typeof listAssets>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAssetsQueryOptions(orgId, options);
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListAssetsQueryOptions(orgId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-
-
-
-
-
 
 /**
  * @summary Create an asset
  */
-export const getCreateAssetUrl = (orgId: number,) => {
+export const getCreateAssetUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/assets`;
+};
 
-
-
-
-  return `/api/organizations/${orgId}/assets`
-}
-
-export const createAsset = async (orgId: number,
-    createAssetBody: CreateAssetBody, options?: RequestInit): Promise<Asset> => {
-
-  return customFetch<Asset>(getCreateAssetUrl(orgId),
-  {
+export const createAsset = async (
+  orgId: number,
+  createAssetBody: CreateAssetBody,
+  options?: RequestInit,
+): Promise<Asset> => {
+  return customFetch<Asset>(getCreateAssetUrl(orgId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      createAssetBody,)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAssetBody),
+  });
+};
 
+export const getCreateAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAsset>>,
+    TError,
+    { orgId: number; data: BodyType<CreateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAsset>>,
+  TError,
+  { orgId: number; data: BodyType<CreateAssetBody> },
+  TContext
+> => {
+  const mutationKey = ["createAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAsset>>,
+    { orgId: number; data: BodyType<CreateAssetBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
 
+    return createAsset(orgId, data, requestOptions);
+  };
 
-export const getCreateAssetMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAsset>>, TError,{orgId: number;data: BodyType<CreateAssetBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createAsset>>, TError,{orgId: number;data: BodyType<CreateAssetBody>}, TContext> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-const mutationKey = ['createAsset'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
+export type CreateAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAsset>>
+>;
+export type CreateAssetMutationBody = BodyType<CreateAssetBody>;
+export type CreateAssetMutationError = ErrorType<unknown>;
 
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAsset>>, {orgId: number;data: BodyType<CreateAssetBody>}> = (props) => {
-          const {orgId,data} = props ?? {};
-
-          return  createAsset(orgId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateAssetMutationResult = NonNullable<Awaited<ReturnType<typeof createAsset>>>
-    export type CreateAssetMutationBody = BodyType<CreateAssetBody>
-    export type CreateAssetMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Create an asset
  */
-export const useCreateAsset = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAsset>>, TError,{orgId: number;data: BodyType<CreateAssetBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createAsset>>,
-        TError,
-        {orgId: number;data: BodyType<CreateAssetBody>},
-        TContext
-      > => {
-      return useMutation(getCreateAssetMutationOptions(options));
-    }
+export const useCreateAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAsset>>,
+    TError,
+    { orgId: number; data: BodyType<CreateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAsset>>,
+  TError,
+  { orgId: number; data: BodyType<CreateAssetBody> },
+  TContext
+> => {
+  return useMutation(getCreateAssetMutationOptions(options));
+};
 
 /**
  * @summary Get asset details
  */
-export const getGetAssetUrl = (orgId: number,
-    assetId: number,) => {
+export const getGetAssetUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/assets/${assetId}`;
+};
 
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}`
-}
-
-export const getAsset = async (orgId: number,
-    assetId: number, options?: RequestInit): Promise<Asset> => {
-
-  return customFetch<Asset>(getGetAssetUrl(orgId,assetId),
-  {
+export const getAsset = async (
+  orgId: number,
+  assetId: number,
+  options?: RequestInit,
+): Promise<Asset> => {
+  return customFetch<Asset>(getGetAssetUrl(orgId, assetId), {
     ...options,
-    method: 'GET'
+    method: "GET",
+  });
+};
 
+export const getGetAssetQueryKey = (orgId: number, assetId: number) => {
+  return [`/api/organizations/${orgId}/assets/${assetId}`] as const;
+};
 
-  }
-);}
-
-
-
-
-
-export const getGetAssetQueryKey = (orgId: number,
-    assetId: number,) => {
-    return [
-    `/api/organizations/${orgId}/assets/${assetId}`
-    ] as const;
-    }
-
-
-export const getGetAssetQueryOptions = <TData = Awaited<ReturnType<typeof getAsset>>, TError = ErrorType<unknown>>(orgId: number,
-    assetId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAsset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetAssetQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAsset>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAsset>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
 ) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAssetQueryKey(orgId, assetId);
 
-  const queryKey =  queryOptions?.queryKey ?? getGetAssetQueryKey(orgId,assetId);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAsset>>> = ({
+    signal,
+  }) => getAsset(orgId, assetId, { signal, ...requestOptions });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && assetId),
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getAsset>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
 
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAsset>>> = ({ signal }) => getAsset(orgId,assetId, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId && assetId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAsset>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetAssetQueryResult = NonNullable<Awaited<ReturnType<typeof getAsset>>>
-export type GetAssetQueryError = ErrorType<unknown>
-
+export type GetAssetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAsset>>
+>;
+export type GetAssetQueryError = ErrorType<unknown>;
 
 /**
  * @summary Get asset details
  */
 
-export function useGetAsset<TData = Awaited<ReturnType<typeof getAsset>>, TError = ErrorType<unknown>>(
- orgId: number,
-    assetId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAsset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useGetAsset<
+  TData = Awaited<ReturnType<typeof getAsset>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAsset>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAssetQueryOptions(orgId, assetId, options);
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getGetAssetQueryOptions(orgId,assetId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-
-
-
-
-
 
 /**
  * @summary Update an asset
  */
-export const getUpdateAssetUrl = (orgId: number,
-    assetId: number,) => {
+export const getUpdateAssetUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/assets/${assetId}`;
+};
 
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}`
-}
-
-export const updateAsset = async (orgId: number,
-    assetId: number,
-    updateAssetBody: UpdateAssetBody, options?: RequestInit): Promise<Asset> => {
-
-  return customFetch<Asset>(getUpdateAssetUrl(orgId,assetId),
-  {
+export const updateAsset = async (
+  orgId: number,
+  assetId: number,
+  updateAssetBody: UpdateAssetBody,
+  options?: RequestInit,
+): Promise<Asset> => {
+  return customFetch<Asset>(getUpdateAssetUrl(orgId, assetId), {
     ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      updateAssetBody,)
-  }
-);}
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateAssetBody),
+  });
+};
 
+export const getUpdateAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAsset>>,
+    TError,
+    { orgId: number; assetId: number; data: BodyType<UpdateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAsset>>,
+  TError,
+  { orgId: number; assetId: number; data: BodyType<UpdateAssetBody> },
+  TContext
+> => {
+  const mutationKey = ["updateAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAsset>>,
+    { orgId: number; assetId: number; data: BodyType<UpdateAssetBody> }
+  > = (props) => {
+    const { orgId, assetId, data } = props ?? {};
 
+    return updateAsset(orgId, assetId, data, requestOptions);
+  };
 
-export const getUpdateAssetMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAsset>>, TError,{orgId: number;assetId: number;data: BodyType<UpdateAssetBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateAsset>>, TError,{orgId: number;assetId: number;data: BodyType<UpdateAssetBody>}, TContext> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-const mutationKey = ['updateAsset'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
+export type UpdateAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAsset>>
+>;
+export type UpdateAssetMutationBody = BodyType<UpdateAssetBody>;
+export type UpdateAssetMutationError = ErrorType<unknown>;
 
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAsset>>, {orgId: number;assetId: number;data: BodyType<UpdateAssetBody>}> = (props) => {
-          const {orgId,assetId,data} = props ?? {};
-
-          return  updateAsset(orgId,assetId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type UpdateAssetMutationResult = NonNullable<Awaited<ReturnType<typeof updateAsset>>>
-    export type UpdateAssetMutationBody = BodyType<UpdateAssetBody>
-    export type UpdateAssetMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Update an asset
  */
-export const useUpdateAsset = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAsset>>, TError,{orgId: number;assetId: number;data: BodyType<UpdateAssetBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof updateAsset>>,
-        TError,
-        {orgId: number;assetId: number;data: BodyType<UpdateAssetBody>},
-        TContext
-      > => {
-      return useMutation(getUpdateAssetMutationOptions(options));
-    }
+export const useUpdateAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAsset>>,
+    TError,
+    { orgId: number; assetId: number; data: BodyType<UpdateAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAsset>>,
+  TError,
+  { orgId: number; assetId: number; data: BodyType<UpdateAssetBody> },
+  TContext
+> => {
+  return useMutation(getUpdateAssetMutationOptions(options));
+};
 
 /**
  * @summary Delete an asset
  */
-export const getDeleteAssetUrl = (orgId: number,
-    assetId: number,) => {
+export const getDeleteAssetUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/assets/${assetId}`;
+};
 
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}`
-}
-
-export const deleteAsset = async (orgId: number,
-    assetId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteAssetUrl(orgId,assetId),
-  {
+export const deleteAsset = async (
+  orgId: number,
+  assetId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteAssetUrl(orgId, assetId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
+export const getDeleteAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAsset>>,
+    TError,
+    { orgId: number; assetId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAsset>>,
+  TError,
+  { orgId: number; assetId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
-  }
-);}
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAsset>>,
+    { orgId: number; assetId: number }
+  > = (props) => {
+    const { orgId, assetId } = props ?? {};
 
+    return deleteAsset(orgId, assetId, requestOptions);
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
+export type DeleteAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAsset>>
+>;
 
-export const getDeleteAssetMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAsset>>, TError,{orgId: number;assetId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteAsset>>, TError,{orgId: number;assetId: number}, TContext> => {
+export type DeleteAssetMutationError = ErrorType<unknown>;
 
-const mutationKey = ['deleteAsset'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAsset>>, {orgId: number;assetId: number}> = (props) => {
-          const {orgId,assetId} = props ?? {};
-
-          return  deleteAsset(orgId,assetId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteAssetMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAsset>>>
-
-    export type DeleteAssetMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Delete an asset
  */
-export const useDeleteAsset = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAsset>>, TError,{orgId: number;assetId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteAsset>>,
-        TError,
-        {orgId: number;assetId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteAssetMutationOptions(options));
-    }
+export const useDeleteAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAsset>>,
+    TError,
+    { orgId: number; assetId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAsset>>,
+  TError,
+  { orgId: number; assetId: number },
+  TContext
+> => {
+  return useMutation(getDeleteAssetMutationOptions(options));
+};
 
 /**
  * @summary List documents linked to an asset
  */
-export const getListAssetDocumentsUrl = (orgId: number,
-    assetId: number,) => {
+export const getListAssetDocumentsUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/documents`;
+};
 
+export const listAssetDocuments = async (
+  orgId: number,
+  assetId: number,
+  options?: RequestInit,
+): Promise<AssetDocument[]> => {
+  return customFetch<AssetDocument[]>(
+    getListAssetDocumentsUrl(orgId, assetId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/documents`
-}
-
-export const listAssetDocuments = async (orgId: number,
-    assetId: number, options?: RequestInit): Promise<AssetDocument[]> => {
-
-  return customFetch<AssetDocument[]>(getListAssetDocumentsUrl(orgId,assetId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListAssetDocumentsQueryKey = (orgId: number,
-    assetId: number,) => {
-    return [
-    `/api/organizations/${orgId}/assets/${assetId}/documents`
-    ] as const;
-    }
-
-
-export const getListAssetDocumentsQueryOptions = <TData = Awaited<ReturnType<typeof listAssetDocuments>>, TError = ErrorType<unknown>>(orgId: number,
-    assetId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetDocuments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListAssetDocumentsQueryKey = (
+  orgId: number,
+  assetId: number,
 ) => {
+  return [`/api/organizations/${orgId}/assets/${assetId}/documents`] as const;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const getListAssetDocumentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAssetDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssetDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListAssetDocumentsQueryKey(orgId,assetId);
+  const queryKey =
+    queryOptions?.queryKey ?? getListAssetDocumentsQueryKey(orgId, assetId);
 
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAssetDocuments>>
+  > = ({ signal }) =>
+    listAssetDocuments(orgId, assetId, { signal, ...requestOptions });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && assetId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAssetDocuments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssetDocuments>>> = ({ signal }) => listAssetDocuments(orgId,assetId, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId && assetId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAssetDocuments>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListAssetDocumentsQueryResult = NonNullable<Awaited<ReturnType<typeof listAssetDocuments>>>
-export type ListAssetDocumentsQueryError = ErrorType<unknown>
-
+export type ListAssetDocumentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAssetDocuments>>
+>;
+export type ListAssetDocumentsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List documents linked to an asset
  */
 
-export function useListAssetDocuments<TData = Awaited<ReturnType<typeof listAssetDocuments>>, TError = ErrorType<unknown>>(
- orgId: number,
-    assetId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetDocuments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListAssetDocuments<
+  TData = Awaited<ReturnType<typeof listAssetDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssetDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAssetDocumentsQueryOptions(
+    orgId,
+    assetId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListAssetDocumentsQueryOptions(orgId,assetId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-
-
-
-
-
 
 /**
  * @summary Link a document to an asset
  */
-export const getAddAssetDocumentUrl = (orgId: number,
-    assetId: number,) => {
+export const getAddAssetDocumentUrl = (orgId: number, assetId: number) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/documents`;
+};
 
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/documents`
-}
-
-export const addAssetDocument = async (orgId: number,
-    assetId: number,
-    addAssetDocumentBody: AddAssetDocumentBody, options?: RequestInit): Promise<AssetDocument> => {
-
-  return customFetch<AssetDocument>(getAddAssetDocumentUrl(orgId,assetId),
-  {
+export const addAssetDocument = async (
+  orgId: number,
+  assetId: number,
+  addAssetDocumentBody: AddAssetDocumentBody,
+  options?: RequestInit,
+): Promise<AssetDocument> => {
+  return customFetch<AssetDocument>(getAddAssetDocumentUrl(orgId, assetId), {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      addAssetDocumentBody,)
-  }
-);}
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addAssetDocumentBody),
+  });
+};
 
+export const getAddAssetDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addAssetDocument>>,
+    TError,
+    { orgId: number; assetId: number; data: BodyType<AddAssetDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addAssetDocument>>,
+  TError,
+  { orgId: number; assetId: number; data: BodyType<AddAssetDocumentBody> },
+  TContext
+> => {
+  const mutationKey = ["addAssetDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addAssetDocument>>,
+    { orgId: number; assetId: number; data: BodyType<AddAssetDocumentBody> }
+  > = (props) => {
+    const { orgId, assetId, data } = props ?? {};
 
+    return addAssetDocument(orgId, assetId, data, requestOptions);
+  };
 
-export const getAddAssetDocumentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addAssetDocument>>, TError,{orgId: number;assetId: number;data: BodyType<AddAssetDocumentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof addAssetDocument>>, TError,{orgId: number;assetId: number;data: BodyType<AddAssetDocumentBody>}, TContext> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-const mutationKey = ['addAssetDocument'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
+export type AddAssetDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addAssetDocument>>
+>;
+export type AddAssetDocumentMutationBody = BodyType<AddAssetDocumentBody>;
+export type AddAssetDocumentMutationError = ErrorType<unknown>;
 
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addAssetDocument>>, {orgId: number;assetId: number;data: BodyType<AddAssetDocumentBody>}> = (props) => {
-          const {orgId,assetId,data} = props ?? {};
-
-          return  addAssetDocument(orgId,assetId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type AddAssetDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof addAssetDocument>>>
-    export type AddAssetDocumentMutationBody = BodyType<AddAssetDocumentBody>
-    export type AddAssetDocumentMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Link a document to an asset
  */
-export const useAddAssetDocument = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addAssetDocument>>, TError,{orgId: number;assetId: number;data: BodyType<AddAssetDocumentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof addAssetDocument>>,
-        TError,
-        {orgId: number;assetId: number;data: BodyType<AddAssetDocumentBody>},
-        TContext
-      > => {
-      return useMutation(getAddAssetDocumentMutationOptions(options));
-    }
+export const useAddAssetDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addAssetDocument>>,
+    TError,
+    { orgId: number; assetId: number; data: BodyType<AddAssetDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addAssetDocument>>,
+  TError,
+  { orgId: number; assetId: number; data: BodyType<AddAssetDocumentBody> },
+  TContext
+> => {
+  return useMutation(getAddAssetDocumentMutationOptions(options));
+};
 
 /**
  * @summary Unlink a document from an asset
  */
-export const getRemoveAssetDocumentUrl = (orgId: number,
-    assetId: number,
-    documentId: number,) => {
+export const getRemoveAssetDocumentUrl = (
+  orgId: number,
+  assetId: number,
+  documentId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/documents/${documentId}`;
+};
 
+export const removeAssetDocument = async (
+  orgId: number,
+  assetId: number,
+  documentId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getRemoveAssetDocumentUrl(orgId, assetId, documentId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
+export const getRemoveAssetDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeAssetDocument>>,
+    TError,
+    { orgId: number; assetId: number; documentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof removeAssetDocument>>,
+  TError,
+  { orgId: number; assetId: number; documentId: number },
+  TContext
+> => {
+  const mutationKey = ["removeAssetDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof removeAssetDocument>>,
+    { orgId: number; assetId: number; documentId: number }
+  > = (props) => {
+    const { orgId, assetId, documentId } = props ?? {};
 
-  return `/api/organizations/${orgId}/assets/${assetId}/documents/${documentId}`
-}
+    return removeAssetDocument(orgId, assetId, documentId, requestOptions);
+  };
 
-export const removeAssetDocument = async (orgId: number,
-    assetId: number,
-    documentId: number, options?: RequestInit): Promise<void> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-  return customFetch<void>(getRemoveAssetDocumentUrl(orgId,assetId,documentId),
-  {
-    ...options,
-    method: 'DELETE'
+export type RemoveAssetDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeAssetDocument>>
+>;
 
+export type RemoveAssetDocumentMutationError = ErrorType<unknown>;
 
-  }
-);}
-
-
-
-
-export const getRemoveAssetDocumentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeAssetDocument>>, TError,{orgId: number;assetId: number;documentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof removeAssetDocument>>, TError,{orgId: number;assetId: number;documentId: number}, TContext> => {
-
-const mutationKey = ['removeAssetDocument'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeAssetDocument>>, {orgId: number;assetId: number;documentId: number}> = (props) => {
-          const {orgId,assetId,documentId} = props ?? {};
-
-          return  removeAssetDocument(orgId,assetId,documentId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type RemoveAssetDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof removeAssetDocument>>>
-
-    export type RemoveAssetDocumentMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Unlink a document from an asset
  */
-export const useRemoveAssetDocument = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeAssetDocument>>, TError,{orgId: number;assetId: number;documentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof removeAssetDocument>>,
-        TError,
-        {orgId: number;assetId: number;documentId: number},
-        TContext
-      > => {
-      return useMutation(getRemoveAssetDocumentMutationOptions(options));
-    }
+export const useRemoveAssetDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof removeAssetDocument>>,
+    TError,
+    { orgId: number; assetId: number; documentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof removeAssetDocument>>,
+  TError,
+  { orgId: number; assetId: number; documentId: number },
+  TContext
+> => {
+  return useMutation(getRemoveAssetDocumentMutationOptions(options));
+};
 
 /**
  * @summary List maintenance plans for an asset
  */
-export const getListAssetMaintenancePlansUrl = (orgId: number,
-    assetId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans`
-}
-
-export const listAssetMaintenancePlans = async (orgId: number,
-    assetId: number, options?: RequestInit): Promise<AssetMaintenancePlan[]> => {
-
-  return customFetch<AssetMaintenancePlan[]>(getListAssetMaintenancePlansUrl(orgId,assetId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListAssetMaintenancePlansQueryKey = (orgId: number,
-    assetId: number,) => {
-    return [
-    `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans`
-    ] as const;
-    }
-
-
-export const getListAssetMaintenancePlansQueryOptions = <TData = Awaited<ReturnType<typeof listAssetMaintenancePlans>>, TError = ErrorType<unknown>>(orgId: number,
-    assetId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetMaintenancePlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListAssetMaintenancePlansUrl = (
+  orgId: number,
+  assetId: number,
 ) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans`;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const listAssetMaintenancePlans = async (
+  orgId: number,
+  assetId: number,
+  options?: RequestInit,
+): Promise<AssetMaintenancePlan[]> => {
+  return customFetch<AssetMaintenancePlan[]>(
+    getListAssetMaintenancePlansUrl(orgId, assetId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
 
-  const queryKey =  queryOptions?.queryKey ?? getListAssetMaintenancePlansQueryKey(orgId,assetId);
+export const getListAssetMaintenancePlansQueryKey = (
+  orgId: number,
+  assetId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans`,
+  ] as const;
+};
 
+export const getListAssetMaintenancePlansQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAssetMaintenancePlans>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssetMaintenancePlans>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListAssetMaintenancePlansQueryKey(orgId, assetId);
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssetMaintenancePlans>>> = ({ signal }) => listAssetMaintenancePlans(orgId,assetId, { signal, ...requestOptions });
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAssetMaintenancePlans>>
+  > = ({ signal }) =>
+    listAssetMaintenancePlans(orgId, assetId, { signal, ...requestOptions });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && assetId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAssetMaintenancePlans>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId && assetId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAssetMaintenancePlans>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListAssetMaintenancePlansQueryResult = NonNullable<Awaited<ReturnType<typeof listAssetMaintenancePlans>>>
-export type ListAssetMaintenancePlansQueryError = ErrorType<unknown>
-
+export type ListAssetMaintenancePlansQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAssetMaintenancePlans>>
+>;
+export type ListAssetMaintenancePlansQueryError = ErrorType<unknown>;
 
 /**
  * @summary List maintenance plans for an asset
  */
 
-export function useListAssetMaintenancePlans<TData = Awaited<ReturnType<typeof listAssetMaintenancePlans>>, TError = ErrorType<unknown>>(
- orgId: number,
-    assetId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetMaintenancePlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListAssetMaintenancePlans<
+  TData = Awaited<ReturnType<typeof listAssetMaintenancePlans>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssetMaintenancePlans>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAssetMaintenancePlansQueryOptions(
+    orgId,
+    assetId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListAssetMaintenancePlansQueryOptions(orgId,assetId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-
-
-
-
-
 
 /**
  * @summary Create a maintenance plan for an asset
  */
-export const getCreateAssetMaintenancePlanUrl = (orgId: number,
-    assetId: number,) => {
+export const getCreateAssetMaintenancePlanUrl = (
+  orgId: number,
+  assetId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans`;
+};
 
+export const createAssetMaintenancePlan = async (
+  orgId: number,
+  assetId: number,
+  createAssetMaintenancePlanBody: CreateAssetMaintenancePlanBody,
+  options?: RequestInit,
+): Promise<AssetMaintenancePlan> => {
+  return customFetch<AssetMaintenancePlan>(
+    getCreateAssetMaintenancePlanUrl(orgId, assetId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createAssetMaintenancePlanBody),
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans`
-}
-
-export const createAssetMaintenancePlan = async (orgId: number,
-    assetId: number,
-    createAssetMaintenancePlanBody: CreateAssetMaintenancePlanBody, options?: RequestInit): Promise<AssetMaintenancePlan> => {
-
-  return customFetch<AssetMaintenancePlan>(getCreateAssetMaintenancePlanUrl(orgId,assetId),
+export const getCreateAssetMaintenancePlanMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAssetMaintenancePlan>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      data: BodyType<CreateAssetMaintenancePlanBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAssetMaintenancePlan>>,
+  TError,
   {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      createAssetMaintenancePlanBody,)
-  }
-);}
+    orgId: number;
+    assetId: number;
+    data: BodyType<CreateAssetMaintenancePlanBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createAssetMaintenancePlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAssetMaintenancePlan>>,
+    {
+      orgId: number;
+      assetId: number;
+      data: BodyType<CreateAssetMaintenancePlanBody>;
+    }
+  > = (props) => {
+    const { orgId, assetId, data } = props ?? {};
 
+    return createAssetMaintenancePlan(orgId, assetId, data, requestOptions);
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
-export const getCreateAssetMaintenancePlanMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;data: BodyType<CreateAssetMaintenancePlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;data: BodyType<CreateAssetMaintenancePlanBody>}, TContext> => {
+export type CreateAssetMaintenancePlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAssetMaintenancePlan>>
+>;
+export type CreateAssetMaintenancePlanMutationBody =
+  BodyType<CreateAssetMaintenancePlanBody>;
+export type CreateAssetMaintenancePlanMutationError = ErrorType<unknown>;
 
-const mutationKey = ['createAssetMaintenancePlan'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAssetMaintenancePlan>>, {orgId: number;assetId: number;data: BodyType<CreateAssetMaintenancePlanBody>}> = (props) => {
-          const {orgId,assetId,data} = props ?? {};
-
-          return  createAssetMaintenancePlan(orgId,assetId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateAssetMaintenancePlanMutationResult = NonNullable<Awaited<ReturnType<typeof createAssetMaintenancePlan>>>
-    export type CreateAssetMaintenancePlanMutationBody = BodyType<CreateAssetMaintenancePlanBody>
-    export type CreateAssetMaintenancePlanMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Create a maintenance plan for an asset
  */
-export const useCreateAssetMaintenancePlan = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;data: BodyType<CreateAssetMaintenancePlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createAssetMaintenancePlan>>,
-        TError,
-        {orgId: number;assetId: number;data: BodyType<CreateAssetMaintenancePlanBody>},
-        TContext
-      > => {
-      return useMutation(getCreateAssetMaintenancePlanMutationOptions(options));
-    }
+export const useCreateAssetMaintenancePlan = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAssetMaintenancePlan>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      data: BodyType<CreateAssetMaintenancePlanBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAssetMaintenancePlan>>,
+  TError,
+  {
+    orgId: number;
+    assetId: number;
+    data: BodyType<CreateAssetMaintenancePlanBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateAssetMaintenancePlanMutationOptions(options));
+};
 
 /**
  * @summary Update a maintenance plan
  */
-export const getUpdateAssetMaintenancePlanUrl = (orgId: number,
-    assetId: number,
-    planId: number,) => {
+export const getUpdateAssetMaintenancePlanUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}`;
+};
 
+export const updateAssetMaintenancePlan = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  updateAssetMaintenancePlanBody: UpdateAssetMaintenancePlanBody,
+  options?: RequestInit,
+): Promise<AssetMaintenancePlan> => {
+  return customFetch<AssetMaintenancePlan>(
+    getUpdateAssetMaintenancePlanUrl(orgId, assetId, planId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateAssetMaintenancePlanBody),
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}`
-}
-
-export const updateAssetMaintenancePlan = async (orgId: number,
-    assetId: number,
-    planId: number,
-    updateAssetMaintenancePlanBody: UpdateAssetMaintenancePlanBody, options?: RequestInit): Promise<AssetMaintenancePlan> => {
-
-  return customFetch<AssetMaintenancePlan>(getUpdateAssetMaintenancePlanUrl(orgId,assetId,planId),
+export const getUpdateAssetMaintenancePlanMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAssetMaintenancePlan>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      data: BodyType<UpdateAssetMaintenancePlanBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAssetMaintenancePlan>>,
+  TError,
   {
-    ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      updateAssetMaintenancePlanBody,)
-  }
-);}
+    orgId: number;
+    assetId: number;
+    planId: number;
+    data: BodyType<UpdateAssetMaintenancePlanBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateAssetMaintenancePlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAssetMaintenancePlan>>,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      data: BodyType<UpdateAssetMaintenancePlanBody>;
+    }
+  > = (props) => {
+    const { orgId, assetId, planId, data } = props ?? {};
 
+    return updateAssetMaintenancePlan(
+      orgId,
+      assetId,
+      planId,
+      data,
+      requestOptions,
+    );
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
-export const getUpdateAssetMaintenancePlanMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;planId: number;data: BodyType<UpdateAssetMaintenancePlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;planId: number;data: BodyType<UpdateAssetMaintenancePlanBody>}, TContext> => {
+export type UpdateAssetMaintenancePlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAssetMaintenancePlan>>
+>;
+export type UpdateAssetMaintenancePlanMutationBody =
+  BodyType<UpdateAssetMaintenancePlanBody>;
+export type UpdateAssetMaintenancePlanMutationError = ErrorType<unknown>;
 
-const mutationKey = ['updateAssetMaintenancePlan'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAssetMaintenancePlan>>, {orgId: number;assetId: number;planId: number;data: BodyType<UpdateAssetMaintenancePlanBody>}> = (props) => {
-          const {orgId,assetId,planId,data} = props ?? {};
-
-          return  updateAssetMaintenancePlan(orgId,assetId,planId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type UpdateAssetMaintenancePlanMutationResult = NonNullable<Awaited<ReturnType<typeof updateAssetMaintenancePlan>>>
-    export type UpdateAssetMaintenancePlanMutationBody = BodyType<UpdateAssetMaintenancePlanBody>
-    export type UpdateAssetMaintenancePlanMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Update a maintenance plan
  */
-export const useUpdateAssetMaintenancePlan = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;planId: number;data: BodyType<UpdateAssetMaintenancePlanBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof updateAssetMaintenancePlan>>,
-        TError,
-        {orgId: number;assetId: number;planId: number;data: BodyType<UpdateAssetMaintenancePlanBody>},
-        TContext
-      > => {
-      return useMutation(getUpdateAssetMaintenancePlanMutationOptions(options));
-    }
+export const useUpdateAssetMaintenancePlan = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAssetMaintenancePlan>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      data: BodyType<UpdateAssetMaintenancePlanBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAssetMaintenancePlan>>,
+  TError,
+  {
+    orgId: number;
+    assetId: number;
+    planId: number;
+    data: BodyType<UpdateAssetMaintenancePlanBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateAssetMaintenancePlanMutationOptions(options));
+};
 
 /**
  * @summary Delete a maintenance plan
  */
-export const getDeleteAssetMaintenancePlanUrl = (orgId: number,
-    assetId: number,
-    planId: number,) => {
+export const getDeleteAssetMaintenancePlanUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}`;
+};
 
+export const deleteAssetMaintenancePlan = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteAssetMaintenancePlanUrl(orgId, assetId, planId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
+export const getDeleteAssetMaintenancePlanMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>,
+    TError,
+    { orgId: number; assetId: number; planId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>,
+  TError,
+  { orgId: number; assetId: number; planId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAssetMaintenancePlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>,
+    { orgId: number; assetId: number; planId: number }
+  > = (props) => {
+    const { orgId, assetId, planId } = props ?? {};
 
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}`
-}
+    return deleteAssetMaintenancePlan(orgId, assetId, planId, requestOptions);
+  };
 
-export const deleteAssetMaintenancePlan = async (orgId: number,
-    assetId: number,
-    planId: number, options?: RequestInit): Promise<void> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-  return customFetch<void>(getDeleteAssetMaintenancePlanUrl(orgId,assetId,planId),
-  {
-    ...options,
-    method: 'DELETE'
+export type DeleteAssetMaintenancePlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>
+>;
 
+export type DeleteAssetMaintenancePlanMutationError = ErrorType<unknown>;
 
-  }
-);}
-
-
-
-
-export const getDeleteAssetMaintenancePlanMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;planId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;planId: number}, TContext> => {
-
-const mutationKey = ['deleteAssetMaintenancePlan'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>, {orgId: number;assetId: number;planId: number}> = (props) => {
-          const {orgId,assetId,planId} = props ?? {};
-
-          return  deleteAssetMaintenancePlan(orgId,assetId,planId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteAssetMaintenancePlanMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>>
-
-    export type DeleteAssetMaintenancePlanMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Delete a maintenance plan
  */
-export const useDeleteAssetMaintenancePlan = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>, TError,{orgId: number;assetId: number;planId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>,
-        TError,
-        {orgId: number;assetId: number;planId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteAssetMaintenancePlanMutationOptions(options));
-    }
+export const useDeleteAssetMaintenancePlan = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>,
+    TError,
+    { orgId: number; assetId: number; planId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAssetMaintenancePlan>>,
+  TError,
+  { orgId: number; assetId: number; planId: number },
+  TContext
+> => {
+  return useMutation(getDeleteAssetMaintenancePlanMutationOptions(options));
+};
 
 /**
  * @summary List execution records for a maintenance plan
  */
-export const getListAssetMaintenanceRecordsUrl = (orgId: number,
-    assetId: number,
-    planId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records`
-}
-
-export const listAssetMaintenanceRecords = async (orgId: number,
-    assetId: number,
-    planId: number, options?: RequestInit): Promise<AssetMaintenanceRecord[]> => {
-
-  return customFetch<AssetMaintenanceRecord[]>(getListAssetMaintenanceRecordsUrl(orgId,assetId,planId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListAssetMaintenanceRecordsQueryKey = (orgId: number,
-    assetId: number,
-    planId: number,) => {
-    return [
-    `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records`
-    ] as const;
-    }
-
-
-export const getListAssetMaintenanceRecordsQueryOptions = <TData = Awaited<ReturnType<typeof listAssetMaintenanceRecords>>, TError = ErrorType<unknown>>(orgId: number,
-    assetId: number,
-    planId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetMaintenanceRecords>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListAssetMaintenanceRecordsUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
 ) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records`;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const listAssetMaintenanceRecords = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<AssetMaintenanceRecord[]> => {
+  return customFetch<AssetMaintenanceRecord[]>(
+    getListAssetMaintenanceRecordsUrl(orgId, assetId, planId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
 
-  const queryKey =  queryOptions?.queryKey ?? getListAssetMaintenanceRecordsQueryKey(orgId,assetId,planId);
+export const getListAssetMaintenanceRecordsQueryKey = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records`,
+  ] as const;
+};
 
+export const getListAssetMaintenanceRecordsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAssetMaintenanceRecords>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssetMaintenanceRecords>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListAssetMaintenanceRecordsQueryKey(orgId, assetId, planId);
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssetMaintenanceRecords>>> = ({ signal }) => listAssetMaintenanceRecords(orgId,assetId,planId, { signal, ...requestOptions });
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAssetMaintenanceRecords>>
+  > = ({ signal }) =>
+    listAssetMaintenanceRecords(orgId, assetId, planId, {
+      signal,
+      ...requestOptions,
+    });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && assetId && planId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAssetMaintenanceRecords>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId && assetId && planId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAssetMaintenanceRecords>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListAssetMaintenanceRecordsQueryResult = NonNullable<Awaited<ReturnType<typeof listAssetMaintenanceRecords>>>
-export type ListAssetMaintenanceRecordsQueryError = ErrorType<unknown>
-
+export type ListAssetMaintenanceRecordsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAssetMaintenanceRecords>>
+>;
+export type ListAssetMaintenanceRecordsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List execution records for a maintenance plan
  */
 
-export function useListAssetMaintenanceRecords<TData = Awaited<ReturnType<typeof listAssetMaintenanceRecords>>, TError = ErrorType<unknown>>(
- orgId: number,
-    assetId: number,
-    planId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssetMaintenanceRecords>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListAssetMaintenanceRecords<
+  TData = Awaited<ReturnType<typeof listAssetMaintenanceRecords>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAssetMaintenanceRecords>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAssetMaintenanceRecordsQueryOptions(
+    orgId,
+    assetId,
+    planId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListAssetMaintenanceRecordsQueryOptions(orgId,assetId,planId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
-
-
-
-
-
-
 /**
  * @summary Register a maintenance execution
  */
-export const getCreateAssetMaintenanceRecordUrl = (orgId: number,
-    assetId: number,
-    planId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records`
-}
-
-export const createAssetMaintenanceRecord = async (orgId: number,
-    assetId: number,
-    planId: number,
-    createAssetMaintenanceRecordBody: CreateAssetMaintenanceRecordBody, options?: RequestInit): Promise<AssetMaintenanceRecord> => {
-
-  return customFetch<AssetMaintenanceRecord>(getCreateAssetMaintenanceRecordUrl(orgId,assetId,planId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      createAssetMaintenanceRecordBody,)
-  }
-);}
-
-
-
-
-export const getCreateAssetMaintenanceRecordMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAssetMaintenanceRecord>>, TError,{orgId: number;assetId: number;planId: number;data: BodyType<CreateAssetMaintenanceRecordBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createAssetMaintenanceRecord>>, TError,{orgId: number;assetId: number;planId: number;data: BodyType<CreateAssetMaintenanceRecordBody>}, TContext> => {
-
-const mutationKey = ['createAssetMaintenanceRecord'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAssetMaintenanceRecord>>, {orgId: number;assetId: number;planId: number;data: BodyType<CreateAssetMaintenanceRecordBody>}> = (props) => {
-          const {orgId,assetId,planId,data} = props ?? {};
-
-          return  createAssetMaintenanceRecord(orgId,assetId,planId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateAssetMaintenanceRecordMutationResult = NonNullable<Awaited<ReturnType<typeof createAssetMaintenanceRecord>>>
-    export type CreateAssetMaintenanceRecordMutationBody = BodyType<CreateAssetMaintenanceRecordBody>
-    export type CreateAssetMaintenanceRecordMutationError = ErrorType<unknown>
-
-    /**
- * @summary Register a maintenance execution
- */
-export const useCreateAssetMaintenanceRecord = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAssetMaintenanceRecord>>, TError,{orgId: number;assetId: number;planId: number;data: BodyType<CreateAssetMaintenanceRecordBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createAssetMaintenanceRecord>>,
-        TError,
-        {orgId: number;assetId: number;planId: number;data: BodyType<CreateAssetMaintenanceRecordBody>},
-        TContext
-      > => {
-      return useMutation(getCreateAssetMaintenanceRecordMutationOptions(options));
-    }
-
-/**
- * @summary Delete a maintenance record
- */
-export const getDeleteAssetMaintenanceRecordUrl = (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}`
-}
-
-export const deleteAssetMaintenanceRecord = async (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteAssetMaintenanceRecordUrl(orgId,assetId,planId,recordId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
-
-
-
-
-export const getDeleteAssetMaintenanceRecordMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>, TError,{orgId: number;assetId: number;planId: number;recordId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>, TError,{orgId: number;assetId: number;planId: number;recordId: number}, TContext> => {
-
-const mutationKey = ['deleteAssetMaintenanceRecord'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>, {orgId: number;assetId: number;planId: number;recordId: number}> = (props) => {
-          const {orgId,assetId,planId,recordId} = props ?? {};
-
-          return  deleteAssetMaintenanceRecord(orgId,assetId,planId,recordId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteAssetMaintenanceRecordMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>>
-
-    export type DeleteAssetMaintenanceRecordMutationError = ErrorType<unknown>
-
-    /**
- * @summary Delete a maintenance record
- */
-export const useDeleteAssetMaintenanceRecord = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>, TError,{orgId: number;assetId: number;planId: number;recordId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>,
-        TError,
-        {orgId: number;assetId: number;planId: number;recordId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteAssetMaintenanceRecordMutationOptions(options));
-    }
-
-/**
- * @summary List attachments for a maintenance record
- */
-export const getListMaintenanceRecordAttachmentsUrl = (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments`
-}
-
-export const listMaintenanceRecordAttachments = async (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number, options?: RequestInit): Promise<MaintenanceRecordAttachment[]> => {
-
-  return customFetch<MaintenanceRecordAttachment[]>(getListMaintenanceRecordAttachmentsUrl(orgId,assetId,planId,recordId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListMaintenanceRecordAttachmentsQueryKey = (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number,) => {
-    return [
-    `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments`
-    ] as const;
-    }
-
-
-export const getListMaintenanceRecordAttachmentsQueryOptions = <TData = Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>, TError = ErrorType<unknown>>(orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getCreateAssetMaintenanceRecordUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
 ) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records`;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const createAssetMaintenanceRecord = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  createAssetMaintenanceRecordBody: CreateAssetMaintenanceRecordBody,
+  options?: RequestInit,
+): Promise<AssetMaintenanceRecord> => {
+  return customFetch<AssetMaintenanceRecord>(
+    getCreateAssetMaintenanceRecordUrl(orgId, assetId, planId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createAssetMaintenanceRecordBody),
+    },
+  );
+};
 
-  const queryKey =  queryOptions?.queryKey ?? getListMaintenanceRecordAttachmentsQueryKey(orgId,assetId,planId,recordId);
+export const getCreateAssetMaintenanceRecordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAssetMaintenanceRecord>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      data: BodyType<CreateAssetMaintenanceRecordBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAssetMaintenanceRecord>>,
+  TError,
+  {
+    orgId: number;
+    assetId: number;
+    planId: number;
+    data: BodyType<CreateAssetMaintenanceRecordBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createAssetMaintenanceRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAssetMaintenanceRecord>>,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      data: BodyType<CreateAssetMaintenanceRecordBody>;
+    }
+  > = (props) => {
+    const { orgId, assetId, planId, data } = props ?? {};
 
+    return createAssetMaintenanceRecord(
+      orgId,
+      assetId,
+      planId,
+      data,
+      requestOptions,
+    );
+  };
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>> = ({ signal }) => listMaintenanceRecordAttachments(orgId,assetId,planId,recordId, { signal, ...requestOptions });
+  return { mutationFn, ...mutationOptions };
+};
 
+export type CreateAssetMaintenanceRecordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAssetMaintenanceRecord>>
+>;
+export type CreateAssetMaintenanceRecordMutationBody =
+  BodyType<CreateAssetMaintenanceRecordBody>;
+export type CreateAssetMaintenanceRecordMutationError = ErrorType<unknown>;
 
+/**
+ * @summary Register a maintenance execution
+ */
+export const useCreateAssetMaintenanceRecord = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAssetMaintenanceRecord>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      data: BodyType<CreateAssetMaintenanceRecordBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAssetMaintenanceRecord>>,
+  TError,
+  {
+    orgId: number;
+    assetId: number;
+    planId: number;
+    data: BodyType<CreateAssetMaintenanceRecordBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateAssetMaintenanceRecordMutationOptions(options));
+};
 
+/**
+ * @summary Delete a maintenance record
+ */
+export const getDeleteAssetMaintenanceRecordUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}`;
+};
 
+export const deleteAssetMaintenanceRecord = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteAssetMaintenanceRecordUrl(orgId, assetId, planId, recordId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
-   return  { queryKey, queryFn, enabled: !!(orgId && assetId && planId && recordId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>, TError, TData> & { queryKey: QueryKey }
-}
+export const getDeleteAssetMaintenanceRecordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>,
+    TError,
+    { orgId: number; assetId: number; planId: number; recordId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>,
+  TError,
+  { orgId: number; assetId: number; planId: number; recordId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAssetMaintenanceRecord"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
-export type ListMaintenanceRecordAttachmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>>
-export type ListMaintenanceRecordAttachmentsQueryError = ErrorType<unknown>
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>,
+    { orgId: number; assetId: number; planId: number; recordId: number }
+  > = (props) => {
+    const { orgId, assetId, planId, recordId } = props ?? {};
 
+    return deleteAssetMaintenanceRecord(
+      orgId,
+      assetId,
+      planId,
+      recordId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAssetMaintenanceRecordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>
+>;
+
+export type DeleteAssetMaintenanceRecordMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a maintenance record
+ */
+export const useDeleteAssetMaintenanceRecord = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>,
+    TError,
+    { orgId: number; assetId: number; planId: number; recordId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAssetMaintenanceRecord>>,
+  TError,
+  { orgId: number; assetId: number; planId: number; recordId: number },
+  TContext
+> => {
+  return useMutation(getDeleteAssetMaintenanceRecordMutationOptions(options));
+};
+
+/**
+ * @summary List attachments for a maintenance record
+ */
+export const getListMaintenanceRecordAttachmentsUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments`;
+};
+
+export const listMaintenanceRecordAttachments = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+  options?: RequestInit,
+): Promise<MaintenanceRecordAttachment[]> => {
+  return customFetch<MaintenanceRecordAttachment[]>(
+    getListMaintenanceRecordAttachmentsUrl(orgId, assetId, planId, recordId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListMaintenanceRecordAttachmentsQueryKey = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments`,
+  ] as const;
+};
+
+export const getListMaintenanceRecordAttachmentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListMaintenanceRecordAttachmentsQueryKey(
+      orgId,
+      assetId,
+      planId,
+      recordId,
+    );
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>
+  > = ({ signal }) =>
+    listMaintenanceRecordAttachments(orgId, assetId, planId, recordId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && assetId && planId && recordId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMaintenanceRecordAttachmentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>
+>;
+export type ListMaintenanceRecordAttachmentsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List attachments for a maintenance record
  */
 
-export function useListMaintenanceRecordAttachments<TData = Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>, TError = ErrorType<unknown>>(
- orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListMaintenanceRecordAttachments<
+  TData = Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMaintenanceRecordAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMaintenanceRecordAttachmentsQueryOptions(
+    orgId,
+    assetId,
+    planId,
+    recordId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListMaintenanceRecordAttachmentsQueryOptions(orgId,assetId,planId,recordId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
+/**
+ * @summary Add an attachment to a maintenance record
+ */
+export const getAddMaintenanceRecordAttachmentUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments`;
+};
 
+export const addMaintenanceRecordAttachment = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+  addMaintenanceRecordAttachmentBody: AddMaintenanceRecordAttachmentBody,
+  options?: RequestInit,
+): Promise<MaintenanceRecordAttachment> => {
+  return customFetch<MaintenanceRecordAttachment>(
+    getAddMaintenanceRecordAttachmentUrl(orgId, assetId, planId, recordId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(addMaintenanceRecordAttachmentBody),
+    },
+  );
+};
 
+export const getAddMaintenanceRecordAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      recordId: number;
+      data: BodyType<AddMaintenanceRecordAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>,
+  TError,
+  {
+    orgId: number;
+    assetId: number;
+    planId: number;
+    recordId: number;
+    data: BodyType<AddMaintenanceRecordAttachmentBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["addMaintenanceRecordAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      recordId: number;
+      data: BodyType<AddMaintenanceRecordAttachmentBody>;
+    }
+  > = (props) => {
+    const { orgId, assetId, planId, recordId, data } = props ?? {};
 
+    return addMaintenanceRecordAttachment(
+      orgId,
+      assetId,
+      planId,
+      recordId,
+      data,
+      requestOptions,
+    );
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddMaintenanceRecordAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>
+>;
+export type AddMaintenanceRecordAttachmentMutationBody =
+  BodyType<AddMaintenanceRecordAttachmentBody>;
+export type AddMaintenanceRecordAttachmentMutationError = ErrorType<unknown>;
 
 /**
  * @summary Add an attachment to a maintenance record
  */
-export const getAddMaintenanceRecordAttachmentUrl = (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments`
-}
-
-export const addMaintenanceRecordAttachment = async (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number,
-    addMaintenanceRecordAttachmentBody: AddMaintenanceRecordAttachmentBody, options?: RequestInit): Promise<MaintenanceRecordAttachment> => {
-
-  return customFetch<MaintenanceRecordAttachment>(getAddMaintenanceRecordAttachmentUrl(orgId,assetId,planId,recordId),
+export const useAddMaintenanceRecordAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      recordId: number;
+      data: BodyType<AddMaintenanceRecordAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>,
+  TError,
   {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      addMaintenanceRecordAttachmentBody,)
-  }
-);}
-
-
-
-
-export const getAddMaintenanceRecordAttachmentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>, TError,{orgId: number;assetId: number;planId: number;recordId: number;data: BodyType<AddMaintenanceRecordAttachmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>, TError,{orgId: number;assetId: number;planId: number;recordId: number;data: BodyType<AddMaintenanceRecordAttachmentBody>}, TContext> => {
-
-const mutationKey = ['addMaintenanceRecordAttachment'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>, {orgId: number;assetId: number;planId: number;recordId: number;data: BodyType<AddMaintenanceRecordAttachmentBody>}> = (props) => {
-          const {orgId,assetId,planId,recordId,data} = props ?? {};
-
-          return  addMaintenanceRecordAttachment(orgId,assetId,planId,recordId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type AddMaintenanceRecordAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>>
-    export type AddMaintenanceRecordAttachmentMutationBody = BodyType<AddMaintenanceRecordAttachmentBody>
-    export type AddMaintenanceRecordAttachmentMutationError = ErrorType<unknown>
-
-    /**
- * @summary Add an attachment to a maintenance record
- */
-export const useAddMaintenanceRecordAttachment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>, TError,{orgId: number;assetId: number;planId: number;recordId: number;data: BodyType<AddMaintenanceRecordAttachmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof addMaintenanceRecordAttachment>>,
-        TError,
-        {orgId: number;assetId: number;planId: number;recordId: number;data: BodyType<AddMaintenanceRecordAttachmentBody>},
-        TContext
-      > => {
-      return useMutation(getAddMaintenanceRecordAttachmentMutationOptions(options));
-    }
+    orgId: number;
+    assetId: number;
+    planId: number;
+    recordId: number;
+    data: BodyType<AddMaintenanceRecordAttachmentBody>;
+  },
+  TContext
+> => {
+  return useMutation(getAddMaintenanceRecordAttachmentMutationOptions(options));
+};
 
 /**
  * @summary Delete an attachment from a maintenance record
  */
-export const getDeleteMaintenanceRecordAttachmentUrl = (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number,
-    attachmentId: number,) => {
+export const getDeleteMaintenanceRecordAttachmentUrl = (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+  attachmentId: number,
+) => {
+  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments/${attachmentId}`;
+};
 
+export const deleteMaintenanceRecordAttachment = async (
+  orgId: number,
+  assetId: number,
+  planId: number,
+  recordId: number,
+  attachmentId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteMaintenanceRecordAttachmentUrl(
+      orgId,
+      assetId,
+      planId,
+      recordId,
+      attachmentId,
+    ),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/assets/${assetId}/maintenance-plans/${planId}/records/${recordId}/attachments/${attachmentId}`
-}
-
-export const deleteMaintenanceRecordAttachment = async (orgId: number,
-    assetId: number,
-    planId: number,
-    recordId: number,
-    attachmentId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteMaintenanceRecordAttachmentUrl(orgId,assetId,planId,recordId,attachmentId),
+export const getDeleteMaintenanceRecordAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      recordId: number;
+      attachmentId: number;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>,
+  TError,
   {
-    ...options,
-    method: 'DELETE'
+    orgId: number;
+    assetId: number;
+    planId: number;
+    recordId: number;
+    attachmentId: number;
+  },
+  TContext
+> => {
+  const mutationKey = ["deleteMaintenanceRecordAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      recordId: number;
+      attachmentId: number;
+    }
+  > = (props) => {
+    const { orgId, assetId, planId, recordId, attachmentId } = props ?? {};
 
-  }
-);}
+    return deleteMaintenanceRecordAttachment(
+      orgId,
+      assetId,
+      planId,
+      recordId,
+      attachmentId,
+      requestOptions,
+    );
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
+export type DeleteMaintenanceRecordAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>
+>;
 
+export type DeleteMaintenanceRecordAttachmentMutationError = ErrorType<unknown>;
 
-export const getDeleteMaintenanceRecordAttachmentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>, TError,{orgId: number;assetId: number;planId: number;recordId: number;attachmentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>, TError,{orgId: number;assetId: number;planId: number;recordId: number;attachmentId: number}, TContext> => {
-
-const mutationKey = ['deleteMaintenanceRecordAttachment'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>, {orgId: number;assetId: number;planId: number;recordId: number;attachmentId: number}> = (props) => {
-          const {orgId,assetId,planId,recordId,attachmentId} = props ?? {};
-
-          return  deleteMaintenanceRecordAttachment(orgId,assetId,planId,recordId,attachmentId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteMaintenanceRecordAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>>
-
-    export type DeleteMaintenanceRecordAttachmentMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Delete an attachment from a maintenance record
  */
-export const useDeleteMaintenanceRecordAttachment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>, TError,{orgId: number;assetId: number;planId: number;recordId: number;attachmentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>,
-        TError,
-        {orgId: number;assetId: number;planId: number;recordId: number;attachmentId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteMaintenanceRecordAttachmentMutationOptions(options));
-    }
+export const useDeleteMaintenanceRecordAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>,
+    TError,
+    {
+      orgId: number;
+      assetId: number;
+      planId: number;
+      recordId: number;
+      attachmentId: number;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMaintenanceRecordAttachment>>,
+  TError,
+  {
+    orgId: number;
+    assetId: number;
+    planId: number;
+    recordId: number;
+    attachmentId: number;
+  },
+  TContext
+> => {
+  return useMutation(
+    getDeleteMaintenanceRecordAttachmentMutationOptions(options),
+  );
+};
 
 /**
  * @summary List work environment controls
  */
-export const getListWorkEnvironmentControlsUrl = (orgId: number,
-    params?: ListWorkEnvironmentControlsParams,) => {
+export const getListWorkEnvironmentControlsUrl = (
+  orgId: number,
+  params?: ListWorkEnvironmentControlsParams,
+) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
-
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : value.toString())
+      normalizedParams.append(key, value === null ? "null" : value.toString());
     }
   });
 
   const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/organizations/${orgId}/work-environment/controls?${stringifiedParams}` : `/api/organizations/${orgId}/work-environment/controls`
-}
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/work-environment/controls?${stringifiedParams}`
+    : `/api/organizations/${orgId}/work-environment/controls`;
+};
 
-export const listWorkEnvironmentControls = async (orgId: number,
-    params?: ListWorkEnvironmentControlsParams, options?: RequestInit): Promise<WorkEnvironmentControl[]> => {
+export const listWorkEnvironmentControls = async (
+  orgId: number,
+  params?: ListWorkEnvironmentControlsParams,
+  options?: RequestInit,
+): Promise<WorkEnvironmentControl[]> => {
+  return customFetch<WorkEnvironmentControl[]>(
+    getListWorkEnvironmentControlsUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
 
-  return customFetch<WorkEnvironmentControl[]>(getListWorkEnvironmentControlsUrl(orgId,params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListWorkEnvironmentControlsQueryKey = (orgId: number,
-    params?: ListWorkEnvironmentControlsParams,) => {
-    return [
-    `/api/organizations/${orgId}/work-environment/controls`, ...(params ? [params] : [])
-    ] as const;
-    }
-
-
-export const getListWorkEnvironmentControlsQueryOptions = <TData = Awaited<ReturnType<typeof listWorkEnvironmentControls>>, TError = ErrorType<unknown>>(orgId: number,
-    params?: ListWorkEnvironmentControlsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentControls>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListWorkEnvironmentControlsQueryKey = (
+  orgId: number,
+  params?: ListWorkEnvironmentControlsParams,
 ) => {
+  return [
+    `/api/organizations/${orgId}/work-environment/controls`,
+    ...(params ? [params] : []),
+  ] as const;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const getListWorkEnvironmentControlsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listWorkEnvironmentControls>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListWorkEnvironmentControlsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWorkEnvironmentControls>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListWorkEnvironmentControlsQueryKey(orgId,params);
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListWorkEnvironmentControlsQueryKey(orgId, params);
 
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listWorkEnvironmentControls>>
+  > = ({ signal }) =>
+    listWorkEnvironmentControls(orgId, params, { signal, ...requestOptions });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listWorkEnvironmentControls>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWorkEnvironmentControls>>> = ({ signal }) => listWorkEnvironmentControls(orgId,params, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentControls>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListWorkEnvironmentControlsQueryResult = NonNullable<Awaited<ReturnType<typeof listWorkEnvironmentControls>>>
-export type ListWorkEnvironmentControlsQueryError = ErrorType<unknown>
-
+export type ListWorkEnvironmentControlsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listWorkEnvironmentControls>>
+>;
+export type ListWorkEnvironmentControlsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List work environment controls
  */
 
-export function useListWorkEnvironmentControls<TData = Awaited<ReturnType<typeof listWorkEnvironmentControls>>, TError = ErrorType<unknown>>(
- orgId: number,
-    params?: ListWorkEnvironmentControlsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentControls>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListWorkEnvironmentControls<
+  TData = Awaited<ReturnType<typeof listWorkEnvironmentControls>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListWorkEnvironmentControlsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWorkEnvironmentControls>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListWorkEnvironmentControlsQueryOptions(
+    orgId,
+    params,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListWorkEnvironmentControlsQueryOptions(orgId,params,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-
-
-
-
-
 
 /**
  * @summary Create a work environment control
  */
-export const getCreateWorkEnvironmentControlUrl = (orgId: number,) => {
+export const getCreateWorkEnvironmentControlUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/work-environment/controls`;
+};
 
+export const createWorkEnvironmentControl = async (
+  orgId: number,
+  createWorkEnvironmentControlBody: CreateWorkEnvironmentControlBody,
+  options?: RequestInit,
+): Promise<WorkEnvironmentControl> => {
+  return customFetch<WorkEnvironmentControl>(
+    getCreateWorkEnvironmentControlUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createWorkEnvironmentControlBody),
+    },
+  );
+};
 
+export const getCreateWorkEnvironmentControlMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createWorkEnvironmentControl>>,
+    TError,
+    { orgId: number; data: BodyType<CreateWorkEnvironmentControlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createWorkEnvironmentControl>>,
+  TError,
+  { orgId: number; data: BodyType<CreateWorkEnvironmentControlBody> },
+  TContext
+> => {
+  const mutationKey = ["createWorkEnvironmentControl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createWorkEnvironmentControl>>,
+    { orgId: number; data: BodyType<CreateWorkEnvironmentControlBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
 
-  return `/api/organizations/${orgId}/work-environment/controls`
-}
+    return createWorkEnvironmentControl(orgId, data, requestOptions);
+  };
 
-export const createWorkEnvironmentControl = async (orgId: number,
-    createWorkEnvironmentControlBody: CreateWorkEnvironmentControlBody, options?: RequestInit): Promise<WorkEnvironmentControl> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-  return customFetch<WorkEnvironmentControl>(getCreateWorkEnvironmentControlUrl(orgId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      createWorkEnvironmentControlBody,)
-  }
-);}
+export type CreateWorkEnvironmentControlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createWorkEnvironmentControl>>
+>;
+export type CreateWorkEnvironmentControlMutationBody =
+  BodyType<CreateWorkEnvironmentControlBody>;
+export type CreateWorkEnvironmentControlMutationError = ErrorType<unknown>;
 
-
-
-
-export const getCreateWorkEnvironmentControlMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkEnvironmentControl>>, TError,{orgId: number;data: BodyType<CreateWorkEnvironmentControlBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createWorkEnvironmentControl>>, TError,{orgId: number;data: BodyType<CreateWorkEnvironmentControlBody>}, TContext> => {
-
-const mutationKey = ['createWorkEnvironmentControl'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createWorkEnvironmentControl>>, {orgId: number;data: BodyType<CreateWorkEnvironmentControlBody>}> = (props) => {
-          const {orgId,data} = props ?? {};
-
-          return  createWorkEnvironmentControl(orgId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateWorkEnvironmentControlMutationResult = NonNullable<Awaited<ReturnType<typeof createWorkEnvironmentControl>>>
-    export type CreateWorkEnvironmentControlMutationBody = BodyType<CreateWorkEnvironmentControlBody>
-    export type CreateWorkEnvironmentControlMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Create a work environment control
  */
-export const useCreateWorkEnvironmentControl = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkEnvironmentControl>>, TError,{orgId: number;data: BodyType<CreateWorkEnvironmentControlBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createWorkEnvironmentControl>>,
-        TError,
-        {orgId: number;data: BodyType<CreateWorkEnvironmentControlBody>},
-        TContext
-      > => {
-      return useMutation(getCreateWorkEnvironmentControlMutationOptions(options));
-    }
+export const useCreateWorkEnvironmentControl = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createWorkEnvironmentControl>>,
+    TError,
+    { orgId: number; data: BodyType<CreateWorkEnvironmentControlBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createWorkEnvironmentControl>>,
+  TError,
+  { orgId: number; data: BodyType<CreateWorkEnvironmentControlBody> },
+  TContext
+> => {
+  return useMutation(getCreateWorkEnvironmentControlMutationOptions(options));
+};
 
 /**
  * @summary Update a work environment control
  */
-export const getUpdateWorkEnvironmentControlUrl = (orgId: number,
-    controlId: number,) => {
+export const getUpdateWorkEnvironmentControlUrl = (
+  orgId: number,
+  controlId: number,
+) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}`;
+};
 
+export const updateWorkEnvironmentControl = async (
+  orgId: number,
+  controlId: number,
+  updateWorkEnvironmentControlBody: UpdateWorkEnvironmentControlBody,
+  options?: RequestInit,
+): Promise<WorkEnvironmentControl> => {
+  return customFetch<WorkEnvironmentControl>(
+    getUpdateWorkEnvironmentControlUrl(orgId, controlId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateWorkEnvironmentControlBody),
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}`
-}
-
-export const updateWorkEnvironmentControl = async (orgId: number,
-    controlId: number,
-    updateWorkEnvironmentControlBody: UpdateWorkEnvironmentControlBody, options?: RequestInit): Promise<WorkEnvironmentControl> => {
-
-  return customFetch<WorkEnvironmentControl>(getUpdateWorkEnvironmentControlUrl(orgId,controlId),
+export const getUpdateWorkEnvironmentControlMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateWorkEnvironmentControl>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      data: BodyType<UpdateWorkEnvironmentControlBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateWorkEnvironmentControl>>,
+  TError,
   {
-    ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      updateWorkEnvironmentControlBody,)
-  }
-);}
+    orgId: number;
+    controlId: number;
+    data: BodyType<UpdateWorkEnvironmentControlBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateWorkEnvironmentControl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateWorkEnvironmentControl>>,
+    {
+      orgId: number;
+      controlId: number;
+      data: BodyType<UpdateWorkEnvironmentControlBody>;
+    }
+  > = (props) => {
+    const { orgId, controlId, data } = props ?? {};
 
+    return updateWorkEnvironmentControl(orgId, controlId, data, requestOptions);
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
-export const getUpdateWorkEnvironmentControlMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWorkEnvironmentControl>>, TError,{orgId: number;controlId: number;data: BodyType<UpdateWorkEnvironmentControlBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateWorkEnvironmentControl>>, TError,{orgId: number;controlId: number;data: BodyType<UpdateWorkEnvironmentControlBody>}, TContext> => {
+export type UpdateWorkEnvironmentControlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateWorkEnvironmentControl>>
+>;
+export type UpdateWorkEnvironmentControlMutationBody =
+  BodyType<UpdateWorkEnvironmentControlBody>;
+export type UpdateWorkEnvironmentControlMutationError = ErrorType<unknown>;
 
-const mutationKey = ['updateWorkEnvironmentControl'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWorkEnvironmentControl>>, {orgId: number;controlId: number;data: BodyType<UpdateWorkEnvironmentControlBody>}> = (props) => {
-          const {orgId,controlId,data} = props ?? {};
-
-          return  updateWorkEnvironmentControl(orgId,controlId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type UpdateWorkEnvironmentControlMutationResult = NonNullable<Awaited<ReturnType<typeof updateWorkEnvironmentControl>>>
-    export type UpdateWorkEnvironmentControlMutationBody = BodyType<UpdateWorkEnvironmentControlBody>
-    export type UpdateWorkEnvironmentControlMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Update a work environment control
  */
-export const useUpdateWorkEnvironmentControl = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWorkEnvironmentControl>>, TError,{orgId: number;controlId: number;data: BodyType<UpdateWorkEnvironmentControlBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof updateWorkEnvironmentControl>>,
-        TError,
-        {orgId: number;controlId: number;data: BodyType<UpdateWorkEnvironmentControlBody>},
-        TContext
-      > => {
-      return useMutation(getUpdateWorkEnvironmentControlMutationOptions(options));
-    }
+export const useUpdateWorkEnvironmentControl = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateWorkEnvironmentControl>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      data: BodyType<UpdateWorkEnvironmentControlBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateWorkEnvironmentControl>>,
+  TError,
+  {
+    orgId: number;
+    controlId: number;
+    data: BodyType<UpdateWorkEnvironmentControlBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateWorkEnvironmentControlMutationOptions(options));
+};
 
 /**
  * @summary Delete a work environment control
  */
-export const getDeleteWorkEnvironmentControlUrl = (orgId: number,
-    controlId: number,) => {
+export const getDeleteWorkEnvironmentControlUrl = (
+  orgId: number,
+  controlId: number,
+) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}`;
+};
 
+export const deleteWorkEnvironmentControl = async (
+  orgId: number,
+  controlId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteWorkEnvironmentControlUrl(orgId, controlId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
+export const getDeleteWorkEnvironmentControlMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>,
+    TError,
+    { orgId: number; controlId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>,
+  TError,
+  { orgId: number; controlId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteWorkEnvironmentControl"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>,
+    { orgId: number; controlId: number }
+  > = (props) => {
+    const { orgId, controlId } = props ?? {};
 
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}`
-}
+    return deleteWorkEnvironmentControl(orgId, controlId, requestOptions);
+  };
 
-export const deleteWorkEnvironmentControl = async (orgId: number,
-    controlId: number, options?: RequestInit): Promise<void> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-  return customFetch<void>(getDeleteWorkEnvironmentControlUrl(orgId,controlId),
-  {
-    ...options,
-    method: 'DELETE'
+export type DeleteWorkEnvironmentControlMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>
+>;
 
+export type DeleteWorkEnvironmentControlMutationError = ErrorType<unknown>;
 
-  }
-);}
-
-
-
-
-export const getDeleteWorkEnvironmentControlMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>, TError,{orgId: number;controlId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>, TError,{orgId: number;controlId: number}, TContext> => {
-
-const mutationKey = ['deleteWorkEnvironmentControl'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>, {orgId: number;controlId: number}> = (props) => {
-          const {orgId,controlId} = props ?? {};
-
-          return  deleteWorkEnvironmentControl(orgId,controlId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteWorkEnvironmentControlMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>>
-
-    export type DeleteWorkEnvironmentControlMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Delete a work environment control
  */
-export const useDeleteWorkEnvironmentControl = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>, TError,{orgId: number;controlId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>,
-        TError,
-        {orgId: number;controlId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteWorkEnvironmentControlMutationOptions(options));
-    }
+export const useDeleteWorkEnvironmentControl = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>,
+    TError,
+    { orgId: number; controlId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentControl>>,
+  TError,
+  { orgId: number; controlId: number },
+  TContext
+> => {
+  return useMutation(getDeleteWorkEnvironmentControlMutationOptions(options));
+};
 
 /**
  * @summary List verifications for a control
  */
-export const getListWorkEnvironmentVerificationsUrl = (orgId: number,
-    controlId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications`
-}
-
-export const listWorkEnvironmentVerifications = async (orgId: number,
-    controlId: number, options?: RequestInit): Promise<WorkEnvironmentVerification[]> => {
-
-  return customFetch<WorkEnvironmentVerification[]>(getListWorkEnvironmentVerificationsUrl(orgId,controlId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListWorkEnvironmentVerificationsQueryKey = (orgId: number,
-    controlId: number,) => {
-    return [
-    `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications`
-    ] as const;
-    }
-
-
-export const getListWorkEnvironmentVerificationsQueryOptions = <TData = Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>, TError = ErrorType<unknown>>(orgId: number,
-    controlId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListWorkEnvironmentVerificationsUrl = (
+  orgId: number,
+  controlId: number,
 ) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications`;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const listWorkEnvironmentVerifications = async (
+  orgId: number,
+  controlId: number,
+  options?: RequestInit,
+): Promise<WorkEnvironmentVerification[]> => {
+  return customFetch<WorkEnvironmentVerification[]>(
+    getListWorkEnvironmentVerificationsUrl(orgId, controlId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
 
-  const queryKey =  queryOptions?.queryKey ?? getListWorkEnvironmentVerificationsQueryKey(orgId,controlId);
+export const getListWorkEnvironmentVerificationsQueryKey = (
+  orgId: number,
+  controlId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications`,
+  ] as const;
+};
 
+export const getListWorkEnvironmentVerificationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  controlId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListWorkEnvironmentVerificationsQueryKey(orgId, controlId);
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>> = ({ signal }) => listWorkEnvironmentVerifications(orgId,controlId, { signal, ...requestOptions });
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>
+  > = ({ signal }) =>
+    listWorkEnvironmentVerifications(orgId, controlId, {
+      signal,
+      ...requestOptions,
+    });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && controlId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId && controlId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListWorkEnvironmentVerificationsQueryResult = NonNullable<Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>>
-export type ListWorkEnvironmentVerificationsQueryError = ErrorType<unknown>
-
+export type ListWorkEnvironmentVerificationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>
+>;
+export type ListWorkEnvironmentVerificationsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List verifications for a control
  */
 
-export function useListWorkEnvironmentVerifications<TData = Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>, TError = ErrorType<unknown>>(
- orgId: number,
-    controlId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListWorkEnvironmentVerifications<
+  TData = Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  controlId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWorkEnvironmentVerifications>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListWorkEnvironmentVerificationsQueryOptions(
+    orgId,
+    controlId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListWorkEnvironmentVerificationsQueryOptions(orgId,controlId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
-
-
-
-
-
-
 /**
  * @summary Register a verification
  */
-export const getCreateWorkEnvironmentVerificationUrl = (orgId: number,
-    controlId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications`
-}
-
-export const createWorkEnvironmentVerification = async (orgId: number,
-    controlId: number,
-    createWorkEnvironmentVerificationBody: CreateWorkEnvironmentVerificationBody, options?: RequestInit): Promise<WorkEnvironmentVerification> => {
-
-  return customFetch<WorkEnvironmentVerification>(getCreateWorkEnvironmentVerificationUrl(orgId,controlId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      createWorkEnvironmentVerificationBody,)
-  }
-);}
-
-
-
-
-export const getCreateWorkEnvironmentVerificationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkEnvironmentVerification>>, TError,{orgId: number;controlId: number;data: BodyType<CreateWorkEnvironmentVerificationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createWorkEnvironmentVerification>>, TError,{orgId: number;controlId: number;data: BodyType<CreateWorkEnvironmentVerificationBody>}, TContext> => {
-
-const mutationKey = ['createWorkEnvironmentVerification'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createWorkEnvironmentVerification>>, {orgId: number;controlId: number;data: BodyType<CreateWorkEnvironmentVerificationBody>}> = (props) => {
-          const {orgId,controlId,data} = props ?? {};
-
-          return  createWorkEnvironmentVerification(orgId,controlId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateWorkEnvironmentVerificationMutationResult = NonNullable<Awaited<ReturnType<typeof createWorkEnvironmentVerification>>>
-    export type CreateWorkEnvironmentVerificationMutationBody = BodyType<CreateWorkEnvironmentVerificationBody>
-    export type CreateWorkEnvironmentVerificationMutationError = ErrorType<unknown>
-
-    /**
- * @summary Register a verification
- */
-export const useCreateWorkEnvironmentVerification = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkEnvironmentVerification>>, TError,{orgId: number;controlId: number;data: BodyType<CreateWorkEnvironmentVerificationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createWorkEnvironmentVerification>>,
-        TError,
-        {orgId: number;controlId: number;data: BodyType<CreateWorkEnvironmentVerificationBody>},
-        TContext
-      > => {
-      return useMutation(getCreateWorkEnvironmentVerificationMutationOptions(options));
-    }
-
-/**
- * @summary Delete a verification
- */
-export const getDeleteWorkEnvironmentVerificationUrl = (orgId: number,
-    controlId: number,
-    verificationId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}`
-}
-
-export const deleteWorkEnvironmentVerification = async (orgId: number,
-    controlId: number,
-    verificationId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteWorkEnvironmentVerificationUrl(orgId,controlId,verificationId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
-
-
-
-
-export const getDeleteWorkEnvironmentVerificationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>, TError,{orgId: number;controlId: number;verificationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>, TError,{orgId: number;controlId: number;verificationId: number}, TContext> => {
-
-const mutationKey = ['deleteWorkEnvironmentVerification'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>, {orgId: number;controlId: number;verificationId: number}> = (props) => {
-          const {orgId,controlId,verificationId} = props ?? {};
-
-          return  deleteWorkEnvironmentVerification(orgId,controlId,verificationId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteWorkEnvironmentVerificationMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>>
-
-    export type DeleteWorkEnvironmentVerificationMutationError = ErrorType<unknown>
-
-    /**
- * @summary Delete a verification
- */
-export const useDeleteWorkEnvironmentVerification = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>, TError,{orgId: number;controlId: number;verificationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>,
-        TError,
-        {orgId: number;controlId: number;verificationId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteWorkEnvironmentVerificationMutationOptions(options));
-    }
-
-/**
- * @summary List attachments for a verification
- */
-export const getListWorkEnvironmentAttachmentsUrl = (orgId: number,
-    controlId: number,
-    verificationId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments`
-}
-
-export const listWorkEnvironmentAttachments = async (orgId: number,
-    controlId: number,
-    verificationId: number, options?: RequestInit): Promise<WorkEnvironmentAttachment[]> => {
-
-  return customFetch<WorkEnvironmentAttachment[]>(getListWorkEnvironmentAttachmentsUrl(orgId,controlId,verificationId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListWorkEnvironmentAttachmentsQueryKey = (orgId: number,
-    controlId: number,
-    verificationId: number,) => {
-    return [
-    `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments`
-    ] as const;
-    }
-
-
-export const getListWorkEnvironmentAttachmentsQueryOptions = <TData = Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>, TError = ErrorType<unknown>>(orgId: number,
-    controlId: number,
-    verificationId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getCreateWorkEnvironmentVerificationUrl = (
+  orgId: number,
+  controlId: number,
 ) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications`;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const createWorkEnvironmentVerification = async (
+  orgId: number,
+  controlId: number,
+  createWorkEnvironmentVerificationBody: CreateWorkEnvironmentVerificationBody,
+  options?: RequestInit,
+): Promise<WorkEnvironmentVerification> => {
+  return customFetch<WorkEnvironmentVerification>(
+    getCreateWorkEnvironmentVerificationUrl(orgId, controlId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createWorkEnvironmentVerificationBody),
+    },
+  );
+};
 
-  const queryKey =  queryOptions?.queryKey ?? getListWorkEnvironmentAttachmentsQueryKey(orgId,controlId,verificationId);
+export const getCreateWorkEnvironmentVerificationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createWorkEnvironmentVerification>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      data: BodyType<CreateWorkEnvironmentVerificationBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createWorkEnvironmentVerification>>,
+  TError,
+  {
+    orgId: number;
+    controlId: number;
+    data: BodyType<CreateWorkEnvironmentVerificationBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createWorkEnvironmentVerification"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createWorkEnvironmentVerification>>,
+    {
+      orgId: number;
+      controlId: number;
+      data: BodyType<CreateWorkEnvironmentVerificationBody>;
+    }
+  > = (props) => {
+    const { orgId, controlId, data } = props ?? {};
 
+    return createWorkEnvironmentVerification(
+      orgId,
+      controlId,
+      data,
+      requestOptions,
+    );
+  };
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>> = ({ signal }) => listWorkEnvironmentAttachments(orgId,controlId,verificationId, { signal, ...requestOptions });
+  return { mutationFn, ...mutationOptions };
+};
 
+export type CreateWorkEnvironmentVerificationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createWorkEnvironmentVerification>>
+>;
+export type CreateWorkEnvironmentVerificationMutationBody =
+  BodyType<CreateWorkEnvironmentVerificationBody>;
+export type CreateWorkEnvironmentVerificationMutationError = ErrorType<unknown>;
 
+/**
+ * @summary Register a verification
+ */
+export const useCreateWorkEnvironmentVerification = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createWorkEnvironmentVerification>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      data: BodyType<CreateWorkEnvironmentVerificationBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createWorkEnvironmentVerification>>,
+  TError,
+  {
+    orgId: number;
+    controlId: number;
+    data: BodyType<CreateWorkEnvironmentVerificationBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateWorkEnvironmentVerificationMutationOptions(options),
+  );
+};
 
+/**
+ * @summary Delete a verification
+ */
+export const getDeleteWorkEnvironmentVerificationUrl = (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}`;
+};
 
+export const deleteWorkEnvironmentVerification = async (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteWorkEnvironmentVerificationUrl(orgId, controlId, verificationId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
-   return  { queryKey, queryFn, enabled: !!(orgId && controlId && verificationId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>, TError, TData> & { queryKey: QueryKey }
-}
+export const getDeleteWorkEnvironmentVerificationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>,
+    TError,
+    { orgId: number; controlId: number; verificationId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>,
+  TError,
+  { orgId: number; controlId: number; verificationId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteWorkEnvironmentVerification"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
-export type ListWorkEnvironmentAttachmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>>
-export type ListWorkEnvironmentAttachmentsQueryError = ErrorType<unknown>
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>,
+    { orgId: number; controlId: number; verificationId: number }
+  > = (props) => {
+    const { orgId, controlId, verificationId } = props ?? {};
 
+    return deleteWorkEnvironmentVerification(
+      orgId,
+      controlId,
+      verificationId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteWorkEnvironmentVerificationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>
+>;
+
+export type DeleteWorkEnvironmentVerificationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a verification
+ */
+export const useDeleteWorkEnvironmentVerification = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>,
+    TError,
+    { orgId: number; controlId: number; verificationId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentVerification>>,
+  TError,
+  { orgId: number; controlId: number; verificationId: number },
+  TContext
+> => {
+  return useMutation(
+    getDeleteWorkEnvironmentVerificationMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List attachments for a verification
+ */
+export const getListWorkEnvironmentAttachmentsUrl = (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments`;
+};
+
+export const listWorkEnvironmentAttachments = async (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+  options?: RequestInit,
+): Promise<WorkEnvironmentAttachment[]> => {
+  return customFetch<WorkEnvironmentAttachment[]>(
+    getListWorkEnvironmentAttachmentsUrl(orgId, controlId, verificationId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListWorkEnvironmentAttachmentsQueryKey = (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments`,
+  ] as const;
+};
+
+export const getListWorkEnvironmentAttachmentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListWorkEnvironmentAttachmentsQueryKey(orgId, controlId, verificationId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>
+  > = ({ signal }) =>
+    listWorkEnvironmentAttachments(orgId, controlId, verificationId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && controlId && verificationId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListWorkEnvironmentAttachmentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>
+>;
+export type ListWorkEnvironmentAttachmentsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List attachments for a verification
  */
 
-export function useListWorkEnvironmentAttachments<TData = Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>, TError = ErrorType<unknown>>(
- orgId: number,
-    controlId: number,
-    verificationId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListWorkEnvironmentAttachments<
+  TData = Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listWorkEnvironmentAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListWorkEnvironmentAttachmentsQueryOptions(
+    orgId,
+    controlId,
+    verificationId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListWorkEnvironmentAttachmentsQueryOptions(orgId,controlId,verificationId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
+/**
+ * @summary Add attachment to a verification
+ */
+export const getAddWorkEnvironmentAttachmentUrl = (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments`;
+};
 
+export const addWorkEnvironmentAttachment = async (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+  addWorkEnvironmentAttachmentBody: AddWorkEnvironmentAttachmentBody,
+  options?: RequestInit,
+): Promise<WorkEnvironmentAttachment> => {
+  return customFetch<WorkEnvironmentAttachment>(
+    getAddWorkEnvironmentAttachmentUrl(orgId, controlId, verificationId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(addWorkEnvironmentAttachmentBody),
+    },
+  );
+};
 
+export const getAddWorkEnvironmentAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      verificationId: number;
+      data: BodyType<AddWorkEnvironmentAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>,
+  TError,
+  {
+    orgId: number;
+    controlId: number;
+    verificationId: number;
+    data: BodyType<AddWorkEnvironmentAttachmentBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["addWorkEnvironmentAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>,
+    {
+      orgId: number;
+      controlId: number;
+      verificationId: number;
+      data: BodyType<AddWorkEnvironmentAttachmentBody>;
+    }
+  > = (props) => {
+    const { orgId, controlId, verificationId, data } = props ?? {};
 
+    return addWorkEnvironmentAttachment(
+      orgId,
+      controlId,
+      verificationId,
+      data,
+      requestOptions,
+    );
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddWorkEnvironmentAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>
+>;
+export type AddWorkEnvironmentAttachmentMutationBody =
+  BodyType<AddWorkEnvironmentAttachmentBody>;
+export type AddWorkEnvironmentAttachmentMutationError = ErrorType<unknown>;
 
 /**
  * @summary Add attachment to a verification
  */
-export const getAddWorkEnvironmentAttachmentUrl = (orgId: number,
-    controlId: number,
-    verificationId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments`
-}
-
-export const addWorkEnvironmentAttachment = async (orgId: number,
-    controlId: number,
-    verificationId: number,
-    addWorkEnvironmentAttachmentBody: AddWorkEnvironmentAttachmentBody, options?: RequestInit): Promise<WorkEnvironmentAttachment> => {
-
-  return customFetch<WorkEnvironmentAttachment>(getAddWorkEnvironmentAttachmentUrl(orgId,controlId,verificationId),
+export const useAddWorkEnvironmentAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      verificationId: number;
+      data: BodyType<AddWorkEnvironmentAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>,
+  TError,
   {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      addWorkEnvironmentAttachmentBody,)
-  }
-);}
-
-
-
-
-export const getAddWorkEnvironmentAttachmentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>, TError,{orgId: number;controlId: number;verificationId: number;data: BodyType<AddWorkEnvironmentAttachmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>, TError,{orgId: number;controlId: number;verificationId: number;data: BodyType<AddWorkEnvironmentAttachmentBody>}, TContext> => {
-
-const mutationKey = ['addWorkEnvironmentAttachment'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>, {orgId: number;controlId: number;verificationId: number;data: BodyType<AddWorkEnvironmentAttachmentBody>}> = (props) => {
-          const {orgId,controlId,verificationId,data} = props ?? {};
-
-          return  addWorkEnvironmentAttachment(orgId,controlId,verificationId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type AddWorkEnvironmentAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>>
-    export type AddWorkEnvironmentAttachmentMutationBody = BodyType<AddWorkEnvironmentAttachmentBody>
-    export type AddWorkEnvironmentAttachmentMutationError = ErrorType<unknown>
-
-    /**
- * @summary Add attachment to a verification
- */
-export const useAddWorkEnvironmentAttachment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>, TError,{orgId: number;controlId: number;verificationId: number;data: BodyType<AddWorkEnvironmentAttachmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof addWorkEnvironmentAttachment>>,
-        TError,
-        {orgId: number;controlId: number;verificationId: number;data: BodyType<AddWorkEnvironmentAttachmentBody>},
-        TContext
-      > => {
-      return useMutation(getAddWorkEnvironmentAttachmentMutationOptions(options));
-    }
+    orgId: number;
+    controlId: number;
+    verificationId: number;
+    data: BodyType<AddWorkEnvironmentAttachmentBody>;
+  },
+  TContext
+> => {
+  return useMutation(getAddWorkEnvironmentAttachmentMutationOptions(options));
+};
 
 /**
  * @summary Delete an attachment
  */
-export const getDeleteWorkEnvironmentAttachmentUrl = (orgId: number,
-    controlId: number,
-    verificationId: number,
-    attachmentId: number,) => {
+export const getDeleteWorkEnvironmentAttachmentUrl = (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+  attachmentId: number,
+) => {
+  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments/${attachmentId}`;
+};
 
+export const deleteWorkEnvironmentAttachment = async (
+  orgId: number,
+  controlId: number,
+  verificationId: number,
+  attachmentId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteWorkEnvironmentAttachmentUrl(
+      orgId,
+      controlId,
+      verificationId,
+      attachmentId,
+    ),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/work-environment/controls/${controlId}/verifications/${verificationId}/attachments/${attachmentId}`
-}
-
-export const deleteWorkEnvironmentAttachment = async (orgId: number,
-    controlId: number,
-    verificationId: number,
-    attachmentId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteWorkEnvironmentAttachmentUrl(orgId,controlId,verificationId,attachmentId),
+export const getDeleteWorkEnvironmentAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      verificationId: number;
+      attachmentId: number;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>,
+  TError,
   {
-    ...options,
-    method: 'DELETE'
+    orgId: number;
+    controlId: number;
+    verificationId: number;
+    attachmentId: number;
+  },
+  TContext
+> => {
+  const mutationKey = ["deleteWorkEnvironmentAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>,
+    {
+      orgId: number;
+      controlId: number;
+      verificationId: number;
+      attachmentId: number;
+    }
+  > = (props) => {
+    const { orgId, controlId, verificationId, attachmentId } = props ?? {};
 
-  }
-);}
+    return deleteWorkEnvironmentAttachment(
+      orgId,
+      controlId,
+      verificationId,
+      attachmentId,
+      requestOptions,
+    );
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
+export type DeleteWorkEnvironmentAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>
+>;
 
+export type DeleteWorkEnvironmentAttachmentMutationError = ErrorType<unknown>;
 
-export const getDeleteWorkEnvironmentAttachmentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>, TError,{orgId: number;controlId: number;verificationId: number;attachmentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>, TError,{orgId: number;controlId: number;verificationId: number;attachmentId: number}, TContext> => {
-
-const mutationKey = ['deleteWorkEnvironmentAttachment'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>, {orgId: number;controlId: number;verificationId: number;attachmentId: number}> = (props) => {
-          const {orgId,controlId,verificationId,attachmentId} = props ?? {};
-
-          return  deleteWorkEnvironmentAttachment(orgId,controlId,verificationId,attachmentId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteWorkEnvironmentAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>>
-
-    export type DeleteWorkEnvironmentAttachmentMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Delete an attachment
  */
-export const useDeleteWorkEnvironmentAttachment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>, TError,{orgId: number;controlId: number;verificationId: number;attachmentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>,
-        TError,
-        {orgId: number;controlId: number;verificationId: number;attachmentId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteWorkEnvironmentAttachmentMutationOptions(options));
-    }
+export const useDeleteWorkEnvironmentAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>,
+    TError,
+    {
+      orgId: number;
+      controlId: number;
+      verificationId: number;
+      attachmentId: number;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteWorkEnvironmentAttachment>>,
+  TError,
+  {
+    orgId: number;
+    controlId: number;
+    verificationId: number;
+    attachmentId: number;
+  },
+  TContext
+> => {
+  return useMutation(
+    getDeleteWorkEnvironmentAttachmentMutationOptions(options),
+  );
+};
 
 /**
  * @summary List measurement resources
  */
-export const getListMeasurementResourcesUrl = (orgId: number,
-    params?: ListMeasurementResourcesParams,) => {
+export const getListMeasurementResourcesUrl = (
+  orgId: number,
+  params?: ListMeasurementResourcesParams,
+) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
-
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : value.toString())
+      normalizedParams.append(key, value === null ? "null" : value.toString());
     }
   });
 
   const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/organizations/${orgId}/measurement-resources?${stringifiedParams}` : `/api/organizations/${orgId}/measurement-resources`
-}
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/measurement-resources?${stringifiedParams}`
+    : `/api/organizations/${orgId}/measurement-resources`;
+};
 
-export const listMeasurementResources = async (orgId: number,
-    params?: ListMeasurementResourcesParams, options?: RequestInit): Promise<MeasurementResource[]> => {
+export const listMeasurementResources = async (
+  orgId: number,
+  params?: ListMeasurementResourcesParams,
+  options?: RequestInit,
+): Promise<MeasurementResource[]> => {
+  return customFetch<MeasurementResource[]>(
+    getListMeasurementResourcesUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
 
-  return customFetch<MeasurementResource[]>(getListMeasurementResourcesUrl(orgId,params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListMeasurementResourcesQueryKey = (orgId: number,
-    params?: ListMeasurementResourcesParams,) => {
-    return [
-    `/api/organizations/${orgId}/measurement-resources`, ...(params ? [params] : [])
-    ] as const;
-    }
-
-
-export const getListMeasurementResourcesQueryOptions = <TData = Awaited<ReturnType<typeof listMeasurementResources>>, TError = ErrorType<unknown>>(orgId: number,
-    params?: ListMeasurementResourcesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResources>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListMeasurementResourcesQueryKey = (
+  orgId: number,
+  params?: ListMeasurementResourcesParams,
 ) => {
+  return [
+    `/api/organizations/${orgId}/measurement-resources`,
+    ...(params ? [params] : []),
+  ] as const;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const getListMeasurementResourcesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMeasurementResources>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListMeasurementResourcesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMeasurementResources>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListMeasurementResourcesQueryKey(orgId,params);
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListMeasurementResourcesQueryKey(orgId, params);
 
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMeasurementResources>>
+  > = ({ signal }) =>
+    listMeasurementResources(orgId, params, { signal, ...requestOptions });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMeasurementResources>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMeasurementResources>>> = ({ signal }) => listMeasurementResources(orgId,params, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResources>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListMeasurementResourcesQueryResult = NonNullable<Awaited<ReturnType<typeof listMeasurementResources>>>
-export type ListMeasurementResourcesQueryError = ErrorType<unknown>
-
+export type ListMeasurementResourcesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMeasurementResources>>
+>;
+export type ListMeasurementResourcesQueryError = ErrorType<unknown>;
 
 /**
  * @summary List measurement resources
  */
 
-export function useListMeasurementResources<TData = Awaited<ReturnType<typeof listMeasurementResources>>, TError = ErrorType<unknown>>(
- orgId: number,
-    params?: ListMeasurementResourcesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResources>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListMeasurementResources<
+  TData = Awaited<ReturnType<typeof listMeasurementResources>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListMeasurementResourcesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMeasurementResources>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMeasurementResourcesQueryOptions(
+    orgId,
+    params,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListMeasurementResourcesQueryOptions(orgId,params,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
-
-
-
-
-
 
 /**
  * @summary Create a measurement resource
  */
-export const getCreateMeasurementResourceUrl = (orgId: number,) => {
+export const getCreateMeasurementResourceUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/measurement-resources`;
+};
 
+export const createMeasurementResource = async (
+  orgId: number,
+  createMeasurementResourceBody: CreateMeasurementResourceBody,
+  options?: RequestInit,
+): Promise<MeasurementResource> => {
+  return customFetch<MeasurementResource>(
+    getCreateMeasurementResourceUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createMeasurementResourceBody),
+    },
+  );
+};
 
+export const getCreateMeasurementResourceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMeasurementResource>>,
+    TError,
+    { orgId: number; data: BodyType<CreateMeasurementResourceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createMeasurementResource>>,
+  TError,
+  { orgId: number; data: BodyType<CreateMeasurementResourceBody> },
+  TContext
+> => {
+  const mutationKey = ["createMeasurementResource"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createMeasurementResource>>,
+    { orgId: number; data: BodyType<CreateMeasurementResourceBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
 
-  return `/api/organizations/${orgId}/measurement-resources`
-}
+    return createMeasurementResource(orgId, data, requestOptions);
+  };
 
-export const createMeasurementResource = async (orgId: number,
-    createMeasurementResourceBody: CreateMeasurementResourceBody, options?: RequestInit): Promise<MeasurementResource> => {
+  return { mutationFn, ...mutationOptions };
+};
 
-  return customFetch<MeasurementResource>(getCreateMeasurementResourceUrl(orgId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      createMeasurementResourceBody,)
-  }
-);}
+export type CreateMeasurementResourceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createMeasurementResource>>
+>;
+export type CreateMeasurementResourceMutationBody =
+  BodyType<CreateMeasurementResourceBody>;
+export type CreateMeasurementResourceMutationError = ErrorType<unknown>;
 
-
-
-
-export const getCreateMeasurementResourceMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMeasurementResource>>, TError,{orgId: number;data: BodyType<CreateMeasurementResourceBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createMeasurementResource>>, TError,{orgId: number;data: BodyType<CreateMeasurementResourceBody>}, TContext> => {
-
-const mutationKey = ['createMeasurementResource'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createMeasurementResource>>, {orgId: number;data: BodyType<CreateMeasurementResourceBody>}> = (props) => {
-          const {orgId,data} = props ?? {};
-
-          return  createMeasurementResource(orgId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateMeasurementResourceMutationResult = NonNullable<Awaited<ReturnType<typeof createMeasurementResource>>>
-    export type CreateMeasurementResourceMutationBody = BodyType<CreateMeasurementResourceBody>
-    export type CreateMeasurementResourceMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Create a measurement resource
  */
-export const useCreateMeasurementResource = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMeasurementResource>>, TError,{orgId: number;data: BodyType<CreateMeasurementResourceBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createMeasurementResource>>,
-        TError,
-        {orgId: number;data: BodyType<CreateMeasurementResourceBody>},
-        TContext
-      > => {
-      return useMutation(getCreateMeasurementResourceMutationOptions(options));
-    }
+export const useCreateMeasurementResource = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMeasurementResource>>,
+    TError,
+    { orgId: number; data: BodyType<CreateMeasurementResourceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createMeasurementResource>>,
+  TError,
+  { orgId: number; data: BodyType<CreateMeasurementResourceBody> },
+  TContext
+> => {
+  return useMutation(getCreateMeasurementResourceMutationOptions(options));
+};
 
 /**
  * @summary Update a measurement resource
  */
-export const getUpdateMeasurementResourceUrl = (orgId: number,
-    resourceId: number,) => {
+export const getUpdateMeasurementResourceUrl = (
+  orgId: number,
+  resourceId: number,
+) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}`;
+};
 
+export const updateMeasurementResource = async (
+  orgId: number,
+  resourceId: number,
+  updateMeasurementResourceBody: UpdateMeasurementResourceBody,
+  options?: RequestInit,
+): Promise<MeasurementResource> => {
+  return customFetch<MeasurementResource>(
+    getUpdateMeasurementResourceUrl(orgId, resourceId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateMeasurementResourceBody),
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}`
-}
-
-export const updateMeasurementResource = async (orgId: number,
-    resourceId: number,
-    updateMeasurementResourceBody: UpdateMeasurementResourceBody, options?: RequestInit): Promise<MeasurementResource> => {
-
-  return customFetch<MeasurementResource>(getUpdateMeasurementResourceUrl(orgId,resourceId),
+export const getUpdateMeasurementResourceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMeasurementResource>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      data: BodyType<UpdateMeasurementResourceBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMeasurementResource>>,
+  TError,
   {
-    ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      updateMeasurementResourceBody,)
-  }
-);}
+    orgId: number;
+    resourceId: number;
+    data: BodyType<UpdateMeasurementResourceBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateMeasurementResource"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMeasurementResource>>,
+    {
+      orgId: number;
+      resourceId: number;
+      data: BodyType<UpdateMeasurementResourceBody>;
+    }
+  > = (props) => {
+    const { orgId, resourceId, data } = props ?? {};
 
+    return updateMeasurementResource(orgId, resourceId, data, requestOptions);
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
-export const getUpdateMeasurementResourceMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMeasurementResource>>, TError,{orgId: number;resourceId: number;data: BodyType<UpdateMeasurementResourceBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateMeasurementResource>>, TError,{orgId: number;resourceId: number;data: BodyType<UpdateMeasurementResourceBody>}, TContext> => {
+export type UpdateMeasurementResourceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMeasurementResource>>
+>;
+export type UpdateMeasurementResourceMutationBody =
+  BodyType<UpdateMeasurementResourceBody>;
+export type UpdateMeasurementResourceMutationError = ErrorType<unknown>;
 
-const mutationKey = ['updateMeasurementResource'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMeasurementResource>>, {orgId: number;resourceId: number;data: BodyType<UpdateMeasurementResourceBody>}> = (props) => {
-          const {orgId,resourceId,data} = props ?? {};
-
-          return  updateMeasurementResource(orgId,resourceId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type UpdateMeasurementResourceMutationResult = NonNullable<Awaited<ReturnType<typeof updateMeasurementResource>>>
-    export type UpdateMeasurementResourceMutationBody = BodyType<UpdateMeasurementResourceBody>
-    export type UpdateMeasurementResourceMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Update a measurement resource
  */
-export const useUpdateMeasurementResource = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMeasurementResource>>, TError,{orgId: number;resourceId: number;data: BodyType<UpdateMeasurementResourceBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof updateMeasurementResource>>,
-        TError,
-        {orgId: number;resourceId: number;data: BodyType<UpdateMeasurementResourceBody>},
-        TContext
-      > => {
-      return useMutation(getUpdateMeasurementResourceMutationOptions(options));
-    }
+export const useUpdateMeasurementResource = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMeasurementResource>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      data: BodyType<UpdateMeasurementResourceBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMeasurementResource>>,
+  TError,
+  {
+    orgId: number;
+    resourceId: number;
+    data: BodyType<UpdateMeasurementResourceBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateMeasurementResourceMutationOptions(options));
+};
 
 /**
  * @summary Delete a measurement resource
  */
-export const getDeleteMeasurementResourceUrl = (orgId: number,
-    resourceId: number,) => {
+export const getDeleteMeasurementResourceUrl = (
+  orgId: number,
+  resourceId: number,
+) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}`;
+};
 
-
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}`
-}
-
-export const deleteMeasurementResource = async (orgId: number,
-    resourceId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteMeasurementResourceUrl(orgId,resourceId),
-  {
+export const deleteMeasurementResource = async (
+  orgId: number,
+  resourceId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteMeasurementResourceUrl(orgId, resourceId), {
     ...options,
-    method: 'DELETE'
+    method: "DELETE",
+  });
+};
 
+export const getDeleteMeasurementResourceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMeasurementResource>>,
+    TError,
+    { orgId: number; resourceId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMeasurementResource>>,
+  TError,
+  { orgId: number; resourceId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteMeasurementResource"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
-  }
-);}
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMeasurementResource>>,
+    { orgId: number; resourceId: number }
+  > = (props) => {
+    const { orgId, resourceId } = props ?? {};
 
+    return deleteMeasurementResource(orgId, resourceId, requestOptions);
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
+export type DeleteMeasurementResourceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMeasurementResource>>
+>;
 
-export const getDeleteMeasurementResourceMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResource>>, TError,{orgId: number;resourceId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResource>>, TError,{orgId: number;resourceId: number}, TContext> => {
+export type DeleteMeasurementResourceMutationError = ErrorType<unknown>;
 
-const mutationKey = ['deleteMeasurementResource'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMeasurementResource>>, {orgId: number;resourceId: number}> = (props) => {
-          const {orgId,resourceId} = props ?? {};
-
-          return  deleteMeasurementResource(orgId,resourceId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteMeasurementResourceMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMeasurementResource>>>
-
-    export type DeleteMeasurementResourceMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Delete a measurement resource
  */
-export const useDeleteMeasurementResource = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResource>>, TError,{orgId: number;resourceId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteMeasurementResource>>,
-        TError,
-        {orgId: number;resourceId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteMeasurementResourceMutationOptions(options));
-    }
+export const useDeleteMeasurementResource = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMeasurementResource>>,
+    TError,
+    { orgId: number; resourceId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMeasurementResource>>,
+  TError,
+  { orgId: number; resourceId: number },
+  TContext
+> => {
+  return useMutation(getDeleteMeasurementResourceMutationOptions(options));
+};
 
 /**
  * @summary List calibrations for a resource
  */
-export const getListMeasurementResourceCalibrationsUrl = (orgId: number,
-    resourceId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations`
-}
-
-export const listMeasurementResourceCalibrations = async (orgId: number,
-    resourceId: number, options?: RequestInit): Promise<MeasurementResourceCalibration[]> => {
-
-  return customFetch<MeasurementResourceCalibration[]>(getListMeasurementResourceCalibrationsUrl(orgId,resourceId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListMeasurementResourceCalibrationsQueryKey = (orgId: number,
-    resourceId: number,) => {
-    return [
-    `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations`
-    ] as const;
-    }
-
-
-export const getListMeasurementResourceCalibrationsQueryOptions = <TData = Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>, TError = ErrorType<unknown>>(orgId: number,
-    resourceId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListMeasurementResourceCalibrationsUrl = (
+  orgId: number,
+  resourceId: number,
 ) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations`;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const listMeasurementResourceCalibrations = async (
+  orgId: number,
+  resourceId: number,
+  options?: RequestInit,
+): Promise<MeasurementResourceCalibration[]> => {
+  return customFetch<MeasurementResourceCalibration[]>(
+    getListMeasurementResourceCalibrationsUrl(orgId, resourceId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
 
-  const queryKey =  queryOptions?.queryKey ?? getListMeasurementResourceCalibrationsQueryKey(orgId,resourceId);
+export const getListMeasurementResourceCalibrationsQueryKey = (
+  orgId: number,
+  resourceId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations`,
+  ] as const;
+};
 
+export const getListMeasurementResourceCalibrationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  resourceId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
 
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListMeasurementResourceCalibrationsQueryKey(orgId, resourceId);
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>> = ({ signal }) => listMeasurementResourceCalibrations(orgId,resourceId, { signal, ...requestOptions });
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>
+  > = ({ signal }) =>
+    listMeasurementResourceCalibrations(orgId, resourceId, {
+      signal,
+      ...requestOptions,
+    });
 
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && resourceId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-
-
-
-   return  { queryKey, queryFn, enabled: !!(orgId && resourceId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListMeasurementResourceCalibrationsQueryResult = NonNullable<Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>>
-export type ListMeasurementResourceCalibrationsQueryError = ErrorType<unknown>
-
+export type ListMeasurementResourceCalibrationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>
+>;
+export type ListMeasurementResourceCalibrationsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List calibrations for a resource
  */
 
-export function useListMeasurementResourceCalibrations<TData = Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>, TError = ErrorType<unknown>>(
- orgId: number,
-    resourceId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListMeasurementResourceCalibrations<
+  TData = Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  resourceId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMeasurementResourceCalibrations>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMeasurementResourceCalibrationsQueryOptions(
+    orgId,
+    resourceId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListMeasurementResourceCalibrationsQueryOptions(orgId,resourceId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
-
-
-
-
-
-
 /**
  * @summary Record a calibration
  */
-export const getCreateMeasurementResourceCalibrationUrl = (orgId: number,
-    resourceId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations`
-}
-
-export const createMeasurementResourceCalibration = async (orgId: number,
-    resourceId: number,
-    createMeasurementResourceCalibrationBody: CreateMeasurementResourceCalibrationBody, options?: RequestInit): Promise<MeasurementResourceCalibration> => {
-
-  return customFetch<MeasurementResourceCalibration>(getCreateMeasurementResourceCalibrationUrl(orgId,resourceId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      createMeasurementResourceCalibrationBody,)
-  }
-);}
-
-
-
-
-export const getCreateMeasurementResourceCalibrationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMeasurementResourceCalibration>>, TError,{orgId: number;resourceId: number;data: BodyType<CreateMeasurementResourceCalibrationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createMeasurementResourceCalibration>>, TError,{orgId: number;resourceId: number;data: BodyType<CreateMeasurementResourceCalibrationBody>}, TContext> => {
-
-const mutationKey = ['createMeasurementResourceCalibration'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createMeasurementResourceCalibration>>, {orgId: number;resourceId: number;data: BodyType<CreateMeasurementResourceCalibrationBody>}> = (props) => {
-          const {orgId,resourceId,data} = props ?? {};
-
-          return  createMeasurementResourceCalibration(orgId,resourceId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateMeasurementResourceCalibrationMutationResult = NonNullable<Awaited<ReturnType<typeof createMeasurementResourceCalibration>>>
-    export type CreateMeasurementResourceCalibrationMutationBody = BodyType<CreateMeasurementResourceCalibrationBody>
-    export type CreateMeasurementResourceCalibrationMutationError = ErrorType<unknown>
-
-    /**
- * @summary Record a calibration
- */
-export const useCreateMeasurementResourceCalibration = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMeasurementResourceCalibration>>, TError,{orgId: number;resourceId: number;data: BodyType<CreateMeasurementResourceCalibrationBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createMeasurementResourceCalibration>>,
-        TError,
-        {orgId: number;resourceId: number;data: BodyType<CreateMeasurementResourceCalibrationBody>},
-        TContext
-      > => {
-      return useMutation(getCreateMeasurementResourceCalibrationMutationOptions(options));
-    }
-
-/**
- * @summary Delete a calibration record
- */
-export const getDeleteMeasurementResourceCalibrationUrl = (orgId: number,
-    resourceId: number,
-    calibrationId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}`
-}
-
-export const deleteMeasurementResourceCalibration = async (orgId: number,
-    resourceId: number,
-    calibrationId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteMeasurementResourceCalibrationUrl(orgId,resourceId,calibrationId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
-
-
-
-
-export const getDeleteMeasurementResourceCalibrationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>, TError,{orgId: number;resourceId: number;calibrationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>, TError,{orgId: number;resourceId: number;calibrationId: number}, TContext> => {
-
-const mutationKey = ['deleteMeasurementResourceCalibration'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>, {orgId: number;resourceId: number;calibrationId: number}> = (props) => {
-          const {orgId,resourceId,calibrationId} = props ?? {};
-
-          return  deleteMeasurementResourceCalibration(orgId,resourceId,calibrationId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteMeasurementResourceCalibrationMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>>
-
-    export type DeleteMeasurementResourceCalibrationMutationError = ErrorType<unknown>
-
-    /**
- * @summary Delete a calibration record
- */
-export const useDeleteMeasurementResourceCalibration = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>, TError,{orgId: number;resourceId: number;calibrationId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>,
-        TError,
-        {orgId: number;resourceId: number;calibrationId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteMeasurementResourceCalibrationMutationOptions(options));
-    }
-
-/**
- * @summary List attachments for a calibration
- */
-export const getListMeasurementResourceAttachmentsUrl = (orgId: number,
-    resourceId: number,
-    calibrationId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments`
-}
-
-export const listMeasurementResourceAttachments = async (orgId: number,
-    resourceId: number,
-    calibrationId: number, options?: RequestInit): Promise<MeasurementResourceAttachment[]> => {
-
-  return customFetch<MeasurementResourceAttachment[]>(getListMeasurementResourceAttachmentsUrl(orgId,resourceId,calibrationId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListMeasurementResourceAttachmentsQueryKey = (orgId: number,
-    resourceId: number,
-    calibrationId: number,) => {
-    return [
-    `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments`
-    ] as const;
-    }
-
-
-export const getListMeasurementResourceAttachmentsQueryOptions = <TData = Awaited<ReturnType<typeof listMeasurementResourceAttachments>>, TError = ErrorType<unknown>>(orgId: number,
-    resourceId: number,
-    calibrationId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResourceAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getCreateMeasurementResourceCalibrationUrl = (
+  orgId: number,
+  resourceId: number,
 ) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations`;
+};
 
-const {query: queryOptions, request: requestOptions} = options ?? {};
+export const createMeasurementResourceCalibration = async (
+  orgId: number,
+  resourceId: number,
+  createMeasurementResourceCalibrationBody: CreateMeasurementResourceCalibrationBody,
+  options?: RequestInit,
+): Promise<MeasurementResourceCalibration> => {
+  return customFetch<MeasurementResourceCalibration>(
+    getCreateMeasurementResourceCalibrationUrl(orgId, resourceId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createMeasurementResourceCalibrationBody),
+    },
+  );
+};
 
-  const queryKey =  queryOptions?.queryKey ?? getListMeasurementResourceAttachmentsQueryKey(orgId,resourceId,calibrationId);
+export const getCreateMeasurementResourceCalibrationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMeasurementResourceCalibration>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      data: BodyType<CreateMeasurementResourceCalibrationBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createMeasurementResourceCalibration>>,
+  TError,
+  {
+    orgId: number;
+    resourceId: number;
+    data: BodyType<CreateMeasurementResourceCalibrationBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createMeasurementResourceCalibration"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createMeasurementResourceCalibration>>,
+    {
+      orgId: number;
+      resourceId: number;
+      data: BodyType<CreateMeasurementResourceCalibrationBody>;
+    }
+  > = (props) => {
+    const { orgId, resourceId, data } = props ?? {};
 
+    return createMeasurementResourceCalibration(
+      orgId,
+      resourceId,
+      data,
+      requestOptions,
+    );
+  };
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMeasurementResourceAttachments>>> = ({ signal }) => listMeasurementResourceAttachments(orgId,resourceId,calibrationId, { signal, ...requestOptions });
+  return { mutationFn, ...mutationOptions };
+};
 
+export type CreateMeasurementResourceCalibrationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createMeasurementResourceCalibration>>
+>;
+export type CreateMeasurementResourceCalibrationMutationBody =
+  BodyType<CreateMeasurementResourceCalibrationBody>;
+export type CreateMeasurementResourceCalibrationMutationError =
+  ErrorType<unknown>;
 
+/**
+ * @summary Record a calibration
+ */
+export const useCreateMeasurementResourceCalibration = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMeasurementResourceCalibration>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      data: BodyType<CreateMeasurementResourceCalibrationBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createMeasurementResourceCalibration>>,
+  TError,
+  {
+    orgId: number;
+    resourceId: number;
+    data: BodyType<CreateMeasurementResourceCalibrationBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateMeasurementResourceCalibrationMutationOptions(options),
+  );
+};
 
+/**
+ * @summary Delete a calibration record
+ */
+export const getDeleteMeasurementResourceCalibrationUrl = (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}`;
+};
 
+export const deleteMeasurementResourceCalibration = async (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteMeasurementResourceCalibrationUrl(
+      orgId,
+      resourceId,
+      calibrationId,
+    ),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
-   return  { queryKey, queryFn, enabled: !!(orgId && resourceId && calibrationId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResourceAttachments>>, TError, TData> & { queryKey: QueryKey }
-}
+export const getDeleteMeasurementResourceCalibrationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>,
+    TError,
+    { orgId: number; resourceId: number; calibrationId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>,
+  TError,
+  { orgId: number; resourceId: number; calibrationId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteMeasurementResourceCalibration"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
-export type ListMeasurementResourceAttachmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listMeasurementResourceAttachments>>>
-export type ListMeasurementResourceAttachmentsQueryError = ErrorType<unknown>
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>,
+    { orgId: number; resourceId: number; calibrationId: number }
+  > = (props) => {
+    const { orgId, resourceId, calibrationId } = props ?? {};
 
+    return deleteMeasurementResourceCalibration(
+      orgId,
+      resourceId,
+      calibrationId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMeasurementResourceCalibrationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>
+>;
+
+export type DeleteMeasurementResourceCalibrationMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Delete a calibration record
+ */
+export const useDeleteMeasurementResourceCalibration = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>,
+    TError,
+    { orgId: number; resourceId: number; calibrationId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMeasurementResourceCalibration>>,
+  TError,
+  { orgId: number; resourceId: number; calibrationId: number },
+  TContext
+> => {
+  return useMutation(
+    getDeleteMeasurementResourceCalibrationMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List attachments for a calibration
+ */
+export const getListMeasurementResourceAttachmentsUrl = (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments`;
+};
+
+export const listMeasurementResourceAttachments = async (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+  options?: RequestInit,
+): Promise<MeasurementResourceAttachment[]> => {
+  return customFetch<MeasurementResourceAttachment[]>(
+    getListMeasurementResourceAttachmentsUrl(orgId, resourceId, calibrationId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListMeasurementResourceAttachmentsQueryKey = (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments`,
+  ] as const;
+};
+
+export const getListMeasurementResourceAttachmentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMeasurementResourceAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMeasurementResourceAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListMeasurementResourceAttachmentsQueryKey(
+      orgId,
+      resourceId,
+      calibrationId,
+    );
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMeasurementResourceAttachments>>
+  > = ({ signal }) =>
+    listMeasurementResourceAttachments(orgId, resourceId, calibrationId, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && resourceId && calibrationId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMeasurementResourceAttachments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMeasurementResourceAttachmentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMeasurementResourceAttachments>>
+>;
+export type ListMeasurementResourceAttachmentsQueryError = ErrorType<unknown>;
 
 /**
  * @summary List attachments for a calibration
  */
 
-export function useListMeasurementResourceAttachments<TData = Awaited<ReturnType<typeof listMeasurementResourceAttachments>>, TError = ErrorType<unknown>>(
- orgId: number,
-    resourceId: number,
-    calibrationId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMeasurementResourceAttachments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useListMeasurementResourceAttachments<
+  TData = Awaited<ReturnType<typeof listMeasurementResourceAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMeasurementResourceAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMeasurementResourceAttachmentsQueryOptions(
+    orgId,
+    resourceId,
+    calibrationId,
+    options,
+  );
 
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListMeasurementResourceAttachmentsQueryOptions(orgId,resourceId,calibrationId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
+/**
+ * @summary Add attachment to a calibration
+ */
+export const getAddMeasurementResourceAttachmentUrl = (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments`;
+};
 
+export const addMeasurementResourceAttachment = async (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+  addMeasurementResourceAttachmentBody: AddMeasurementResourceAttachmentBody,
+  options?: RequestInit,
+): Promise<MeasurementResourceAttachment> => {
+  return customFetch<MeasurementResourceAttachment>(
+    getAddMeasurementResourceAttachmentUrl(orgId, resourceId, calibrationId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(addMeasurementResourceAttachmentBody),
+    },
+  );
+};
 
+export const getAddMeasurementResourceAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addMeasurementResourceAttachment>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      calibrationId: number;
+      data: BodyType<AddMeasurementResourceAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addMeasurementResourceAttachment>>,
+  TError,
+  {
+    orgId: number;
+    resourceId: number;
+    calibrationId: number;
+    data: BodyType<AddMeasurementResourceAttachmentBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["addMeasurementResourceAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addMeasurementResourceAttachment>>,
+    {
+      orgId: number;
+      resourceId: number;
+      calibrationId: number;
+      data: BodyType<AddMeasurementResourceAttachmentBody>;
+    }
+  > = (props) => {
+    const { orgId, resourceId, calibrationId, data } = props ?? {};
 
+    return addMeasurementResourceAttachment(
+      orgId,
+      resourceId,
+      calibrationId,
+      data,
+      requestOptions,
+    );
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddMeasurementResourceAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addMeasurementResourceAttachment>>
+>;
+export type AddMeasurementResourceAttachmentMutationBody =
+  BodyType<AddMeasurementResourceAttachmentBody>;
+export type AddMeasurementResourceAttachmentMutationError = ErrorType<unknown>;
 
 /**
  * @summary Add attachment to a calibration
  */
-export const getAddMeasurementResourceAttachmentUrl = (orgId: number,
-    resourceId: number,
-    calibrationId: number,) => {
-
-
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments`
-}
-
-export const addMeasurementResourceAttachment = async (orgId: number,
-    resourceId: number,
-    calibrationId: number,
-    addMeasurementResourceAttachmentBody: AddMeasurementResourceAttachmentBody, options?: RequestInit): Promise<MeasurementResourceAttachment> => {
-
-  return customFetch<MeasurementResourceAttachment>(getAddMeasurementResourceAttachmentUrl(orgId,resourceId,calibrationId),
+export const useAddMeasurementResourceAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addMeasurementResourceAttachment>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      calibrationId: number;
+      data: BodyType<AddMeasurementResourceAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addMeasurementResourceAttachment>>,
+  TError,
   {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      addMeasurementResourceAttachmentBody,)
-  }
-);}
-
-
-
-
-export const getAddMeasurementResourceAttachmentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addMeasurementResourceAttachment>>, TError,{orgId: number;resourceId: number;calibrationId: number;data: BodyType<AddMeasurementResourceAttachmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof addMeasurementResourceAttachment>>, TError,{orgId: number;resourceId: number;calibrationId: number;data: BodyType<AddMeasurementResourceAttachmentBody>}, TContext> => {
-
-const mutationKey = ['addMeasurementResourceAttachment'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addMeasurementResourceAttachment>>, {orgId: number;resourceId: number;calibrationId: number;data: BodyType<AddMeasurementResourceAttachmentBody>}> = (props) => {
-          const {orgId,resourceId,calibrationId,data} = props ?? {};
-
-          return  addMeasurementResourceAttachment(orgId,resourceId,calibrationId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type AddMeasurementResourceAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof addMeasurementResourceAttachment>>>
-    export type AddMeasurementResourceAttachmentMutationBody = BodyType<AddMeasurementResourceAttachmentBody>
-    export type AddMeasurementResourceAttachmentMutationError = ErrorType<unknown>
-
-    /**
- * @summary Add attachment to a calibration
- */
-export const useAddMeasurementResourceAttachment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addMeasurementResourceAttachment>>, TError,{orgId: number;resourceId: number;calibrationId: number;data: BodyType<AddMeasurementResourceAttachmentBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof addMeasurementResourceAttachment>>,
-        TError,
-        {orgId: number;resourceId: number;calibrationId: number;data: BodyType<AddMeasurementResourceAttachmentBody>},
-        TContext
-      > => {
-      return useMutation(getAddMeasurementResourceAttachmentMutationOptions(options));
-    }
+    orgId: number;
+    resourceId: number;
+    calibrationId: number;
+    data: BodyType<AddMeasurementResourceAttachmentBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getAddMeasurementResourceAttachmentMutationOptions(options),
+  );
+};
 
 /**
  * @summary Delete an attachment
  */
-export const getDeleteMeasurementResourceAttachmentUrl = (orgId: number,
-    resourceId: number,
-    calibrationId: number,
-    attachmentId: number,) => {
+export const getDeleteMeasurementResourceAttachmentUrl = (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+  attachmentId: number,
+) => {
+  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments/${attachmentId}`;
+};
 
+export const deleteMeasurementResourceAttachment = async (
+  orgId: number,
+  resourceId: number,
+  calibrationId: number,
+  attachmentId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteMeasurementResourceAttachmentUrl(
+      orgId,
+      resourceId,
+      calibrationId,
+      attachmentId,
+    ),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
 
-
-
-  return `/api/organizations/${orgId}/measurement-resources/${resourceId}/calibrations/${calibrationId}/attachments/${attachmentId}`
-}
-
-export const deleteMeasurementResourceAttachment = async (orgId: number,
-    resourceId: number,
-    calibrationId: number,
-    attachmentId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getDeleteMeasurementResourceAttachmentUrl(orgId,resourceId,calibrationId,attachmentId),
+export const getDeleteMeasurementResourceAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      calibrationId: number;
+      attachmentId: number;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>,
+  TError,
   {
-    ...options,
-    method: 'DELETE'
+    orgId: number;
+    resourceId: number;
+    calibrationId: number;
+    attachmentId: number;
+  },
+  TContext
+> => {
+  const mutationKey = ["deleteMeasurementResourceAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
 
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>,
+    {
+      orgId: number;
+      resourceId: number;
+      calibrationId: number;
+      attachmentId: number;
+    }
+  > = (props) => {
+    const { orgId, resourceId, calibrationId, attachmentId } = props ?? {};
 
-  }
-);}
+    return deleteMeasurementResourceAttachment(
+      orgId,
+      resourceId,
+      calibrationId,
+      attachmentId,
+      requestOptions,
+    );
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
+export type DeleteMeasurementResourceAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>
+>;
 
+export type DeleteMeasurementResourceAttachmentMutationError =
+  ErrorType<unknown>;
 
-export const getDeleteMeasurementResourceAttachmentMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>, TError,{orgId: number;resourceId: number;calibrationId: number;attachmentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>, TError,{orgId: number;resourceId: number;calibrationId: number;attachmentId: number}, TContext> => {
-
-const mutationKey = ['deleteMeasurementResourceAttachment'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>, {orgId: number;resourceId: number;calibrationId: number;attachmentId: number}> = (props) => {
-          const {orgId,resourceId,calibrationId,attachmentId} = props ?? {};
-
-          return  deleteMeasurementResourceAttachment(orgId,resourceId,calibrationId,attachmentId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteMeasurementResourceAttachmentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>>
-
-    export type DeleteMeasurementResourceAttachmentMutationError = ErrorType<unknown>
-
-    /**
+/**
  * @summary Delete an attachment
  */
-export const useDeleteMeasurementResourceAttachment = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>, TError,{orgId: number;resourceId: number;calibrationId: number;attachmentId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>,
-        TError,
-        {orgId: number;resourceId: number;calibrationId: number;attachmentId: number},
-        TContext
-      > => {
-      return useMutation(getDeleteMeasurementResourceAttachmentMutationOptions(options));
-    }
+export const useDeleteMeasurementResourceAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>,
+    TError,
+    {
+      orgId: number;
+      resourceId: number;
+      calibrationId: number;
+      attachmentId: number;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMeasurementResourceAttachment>>,
+  TError,
+  {
+    orgId: number;
+    resourceId: number;
+    calibrationId: number;
+    attachmentId: number;
+  },
+  TContext
+> => {
+  return useMutation(
+    getDeleteMeasurementResourceAttachmentMutationOptions(options),
+  );
+};
 
+/**
+ * @summary Get applicability state and decision history for req. 8.3 (ISO 9001:2015 §8.3)
+ */
+export const getGetProjectDevelopmentApplicabilityUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/governance/project-development/applicability`;
+};
+
+export const getProjectDevelopmentApplicability = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<ProjectDevelopmentApplicabilityState> => {
+  return customFetch<ProjectDevelopmentApplicabilityState>(
+    getGetProjectDevelopmentApplicabilityUrl(orgId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetProjectDevelopmentApplicabilityQueryKey = (
+  orgId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/project-development/applicability`,
+  ] as const;
+};
+
+export const getGetProjectDevelopmentApplicabilityQueryOptions = <
+  TData = Awaited<ReturnType<typeof getProjectDevelopmentApplicability>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getProjectDevelopmentApplicability>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetProjectDevelopmentApplicabilityQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getProjectDevelopmentApplicability>>
+  > = ({ signal }) =>
+    getProjectDevelopmentApplicability(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getProjectDevelopmentApplicability>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetProjectDevelopmentApplicabilityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getProjectDevelopmentApplicability>>
+>;
+export type GetProjectDevelopmentApplicabilityQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get applicability state and decision history for req. 8.3 (ISO 9001:2015 §8.3)
+ */
+
+export function useGetProjectDevelopmentApplicability<
+  TData = Awaited<ReturnType<typeof getProjectDevelopmentApplicability>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getProjectDevelopmentApplicability>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetProjectDevelopmentApplicabilityQueryOptions(
+    orgId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Register an applicability decision for req. 8.3
+ */
+export const getCreateApplicabilityDecisionUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/governance/project-development/applicability`;
+};
+
+export const createApplicabilityDecision = async (
+  orgId: number,
+  applicabilityDecisionBody: ApplicabilityDecisionBody,
+  options?: RequestInit,
+): Promise<ApplicabilityDecision> => {
+  return customFetch<ApplicabilityDecision>(
+    getCreateApplicabilityDecisionUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(applicabilityDecisionBody),
+    },
+  );
+};
+
+export const getCreateApplicabilityDecisionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createApplicabilityDecision>>,
+    TError,
+    { orgId: number; data: BodyType<ApplicabilityDecisionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createApplicabilityDecision>>,
+  TError,
+  { orgId: number; data: BodyType<ApplicabilityDecisionBody> },
+  TContext
+> => {
+  const mutationKey = ["createApplicabilityDecision"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createApplicabilityDecision>>,
+    { orgId: number; data: BodyType<ApplicabilityDecisionBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createApplicabilityDecision(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateApplicabilityDecisionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createApplicabilityDecision>>
+>;
+export type CreateApplicabilityDecisionMutationBody =
+  BodyType<ApplicabilityDecisionBody>;
+export type CreateApplicabilityDecisionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register an applicability decision for req. 8.3
+ */
+export const useCreateApplicabilityDecision = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createApplicabilityDecision>>,
+    TError,
+    { orgId: number; data: BodyType<ApplicabilityDecisionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createApplicabilityDecision>>,
+  TError,
+  { orgId: number; data: BodyType<ApplicabilityDecisionBody> },
+  TContext
+> => {
+  return useMutation(getCreateApplicabilityDecisionMutationOptions(options));
+};
+
+/**
+ * @summary Update a pending applicability decision
+ */
+export const getUpdateApplicabilityDecisionUrl = (
+  orgId: number,
+  decisionId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/project-development/applicability/${decisionId}`;
+};
+
+export const updateApplicabilityDecision = async (
+  orgId: number,
+  decisionId: number,
+  updateApplicabilityDecisionBody: UpdateApplicabilityDecisionBody,
+  options?: RequestInit,
+): Promise<ApplicabilityDecision> => {
+  return customFetch<ApplicabilityDecision>(
+    getUpdateApplicabilityDecisionUrl(orgId, decisionId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateApplicabilityDecisionBody),
+    },
+  );
+};
+
+export const getUpdateApplicabilityDecisionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateApplicabilityDecision>>,
+    TError,
+    {
+      orgId: number;
+      decisionId: number;
+      data: BodyType<UpdateApplicabilityDecisionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateApplicabilityDecision>>,
+  TError,
+  {
+    orgId: number;
+    decisionId: number;
+    data: BodyType<UpdateApplicabilityDecisionBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateApplicabilityDecision"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateApplicabilityDecision>>,
+    {
+      orgId: number;
+      decisionId: number;
+      data: BodyType<UpdateApplicabilityDecisionBody>;
+    }
+  > = (props) => {
+    const { orgId, decisionId, data } = props ?? {};
+
+    return updateApplicabilityDecision(orgId, decisionId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateApplicabilityDecisionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateApplicabilityDecision>>
+>;
+export type UpdateApplicabilityDecisionMutationBody =
+  BodyType<UpdateApplicabilityDecisionBody>;
+export type UpdateApplicabilityDecisionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a pending applicability decision
+ */
+export const useUpdateApplicabilityDecision = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateApplicabilityDecision>>,
+    TError,
+    {
+      orgId: number;
+      decisionId: number;
+      data: BodyType<UpdateApplicabilityDecisionBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateApplicabilityDecision>>,
+  TError,
+  {
+    orgId: number;
+    decisionId: number;
+    data: BodyType<UpdateApplicabilityDecisionBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateApplicabilityDecisionMutationOptions(options));
+};
+
+/**
+ * @summary Approve an applicability decision (org_admin only)
+ */
+export const getApproveApplicabilityDecisionUrl = (
+  orgId: number,
+  decisionId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/project-development/applicability/${decisionId}/approve`;
+};
+
+export const approveApplicabilityDecision = async (
+  orgId: number,
+  decisionId: number,
+  options?: RequestInit,
+): Promise<ApplicabilityDecision> => {
+  return customFetch<ApplicabilityDecision>(
+    getApproveApplicabilityDecisionUrl(orgId, decisionId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getApproveApplicabilityDecisionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveApplicabilityDecision>>,
+    TError,
+    { orgId: number; decisionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof approveApplicabilityDecision>>,
+  TError,
+  { orgId: number; decisionId: number },
+  TContext
+> => {
+  const mutationKey = ["approveApplicabilityDecision"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof approveApplicabilityDecision>>,
+    { orgId: number; decisionId: number }
+  > = (props) => {
+    const { orgId, decisionId } = props ?? {};
+
+    return approveApplicabilityDecision(orgId, decisionId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApproveApplicabilityDecisionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof approveApplicabilityDecision>>
+>;
+
+export type ApproveApplicabilityDecisionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Approve an applicability decision (org_admin only)
+ */
+export const useApproveApplicabilityDecision = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof approveApplicabilityDecision>>,
+    TError,
+    { orgId: number; decisionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof approveApplicabilityDecision>>,
+  TError,
+  { orgId: number; decisionId: number },
+  TContext
+> => {
+  return useMutation(getApproveApplicabilityDecisionMutationOptions(options));
+};
+
+/**
+ * @summary List development projects for the organization
+ */
+export const getListDevelopmentProjectsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects`;
+};
+
+export const listDevelopmentProjects = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<DevelopmentProjectSummary[]> => {
+  return customFetch<DevelopmentProjectSummary[]>(
+    getListDevelopmentProjectsUrl(orgId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListDevelopmentProjectsQueryKey = (orgId: number) => {
+  return [
+    `/api/organizations/${orgId}/governance/project-development/projects`,
+  ] as const;
+};
+
+export const getListDevelopmentProjectsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDevelopmentProjects>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDevelopmentProjects>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListDevelopmentProjectsQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listDevelopmentProjects>>
+  > = ({ signal }) =>
+    listDevelopmentProjects(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDevelopmentProjects>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDevelopmentProjectsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDevelopmentProjects>>
+>;
+export type ListDevelopmentProjectsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List development projects for the organization
+ */
+
+export function useListDevelopmentProjects<
+  TData = Awaited<ReturnType<typeof listDevelopmentProjects>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDevelopmentProjects>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDevelopmentProjectsQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a development project (requires approved applicable decision)
+ */
+export const getCreateDevelopmentProjectUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects`;
+};
+
+export const createDevelopmentProject = async (
+  orgId: number,
+  developmentProjectBody: DevelopmentProjectBody,
+  options?: RequestInit,
+): Promise<DevelopmentProjectDetail> => {
+  return customFetch<DevelopmentProjectDetail>(
+    getCreateDevelopmentProjectUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(developmentProjectBody),
+    },
+  );
+};
+
+export const getCreateDevelopmentProjectMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDevelopmentProject>>,
+    TError,
+    { orgId: number; data: BodyType<DevelopmentProjectBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createDevelopmentProject>>,
+  TError,
+  { orgId: number; data: BodyType<DevelopmentProjectBody> },
+  TContext
+> => {
+  const mutationKey = ["createDevelopmentProject"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createDevelopmentProject>>,
+    { orgId: number; data: BodyType<DevelopmentProjectBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createDevelopmentProject(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateDevelopmentProjectMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createDevelopmentProject>>
+>;
+export type CreateDevelopmentProjectMutationBody =
+  BodyType<DevelopmentProjectBody>;
+export type CreateDevelopmentProjectMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a development project (requires approved applicable decision)
+ */
+export const useCreateDevelopmentProject = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDevelopmentProject>>,
+    TError,
+    { orgId: number; data: BodyType<DevelopmentProjectBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createDevelopmentProject>>,
+  TError,
+  { orgId: number; data: BodyType<DevelopmentProjectBody> },
+  TContext
+> => {
+  return useMutation(getCreateDevelopmentProjectMutationOptions(options));
+};
+
+/**
+ * @summary Get development project with all sub-resources
+ */
+export const getGetDevelopmentProjectUrl = (
+  orgId: number,
+  projectId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}`;
+};
+
+export const getDevelopmentProject = async (
+  orgId: number,
+  projectId: number,
+  options?: RequestInit,
+): Promise<DevelopmentProjectDetail> => {
+  return customFetch<DevelopmentProjectDetail>(
+    getGetDevelopmentProjectUrl(orgId, projectId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetDevelopmentProjectQueryKey = (
+  orgId: number,
+  projectId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/governance/project-development/projects/${projectId}`,
+  ] as const;
+};
+
+export const getGetDevelopmentProjectQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDevelopmentProject>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDevelopmentProject>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetDevelopmentProjectQueryKey(orgId, projectId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getDevelopmentProject>>
+  > = ({ signal }) =>
+    getDevelopmentProject(orgId, projectId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && projectId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDevelopmentProject>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDevelopmentProjectQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDevelopmentProject>>
+>;
+export type GetDevelopmentProjectQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get development project with all sub-resources
+ */
+
+export function useGetDevelopmentProject<
+  TData = Awaited<ReturnType<typeof getDevelopmentProject>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  projectId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDevelopmentProject>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDevelopmentProjectQueryOptions(
+    orgId,
+    projectId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a development project
+ */
+export const getUpdateDevelopmentProjectUrl = (
+  orgId: number,
+  projectId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}`;
+};
+
+export const updateDevelopmentProject = async (
+  orgId: number,
+  projectId: number,
+  updateDevelopmentProjectBody: UpdateDevelopmentProjectBody,
+  options?: RequestInit,
+): Promise<DevelopmentProjectDetail> => {
+  return customFetch<DevelopmentProjectDetail>(
+    getUpdateDevelopmentProjectUrl(orgId, projectId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateDevelopmentProjectBody),
+    },
+  );
+};
+
+export const getUpdateDevelopmentProjectMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDevelopmentProject>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<UpdateDevelopmentProjectBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateDevelopmentProject>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    data: BodyType<UpdateDevelopmentProjectBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateDevelopmentProject"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateDevelopmentProject>>,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<UpdateDevelopmentProjectBody>;
+    }
+  > = (props) => {
+    const { orgId, projectId, data } = props ?? {};
+
+    return updateDevelopmentProject(orgId, projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateDevelopmentProjectMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateDevelopmentProject>>
+>;
+export type UpdateDevelopmentProjectMutationBody =
+  BodyType<UpdateDevelopmentProjectBody>;
+export type UpdateDevelopmentProjectMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a development project
+ */
+export const useUpdateDevelopmentProject = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDevelopmentProject>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<UpdateDevelopmentProjectBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateDevelopmentProject>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    data: BodyType<UpdateDevelopmentProjectBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateDevelopmentProjectMutationOptions(options));
+};
+
+/**
+ * @summary Add an input to a development project
+ */
+export const getCreateProjectInputUrl = (orgId: number, projectId: number) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}/inputs`;
+};
+
+export const createProjectInput = async (
+  orgId: number,
+  projectId: number,
+  developmentProjectInputBody: DevelopmentProjectInputBody,
+  options?: RequestInit,
+): Promise<DevelopmentProjectInput> => {
+  return customFetch<DevelopmentProjectInput>(
+    getCreateProjectInputUrl(orgId, projectId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(developmentProjectInputBody),
+    },
+  );
+};
+
+export const getCreateProjectInputMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProjectInput>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<DevelopmentProjectInputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createProjectInput>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    data: BodyType<DevelopmentProjectInputBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createProjectInput"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createProjectInput>>,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<DevelopmentProjectInputBody>;
+    }
+  > = (props) => {
+    const { orgId, projectId, data } = props ?? {};
+
+    return createProjectInput(orgId, projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateProjectInputMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createProjectInput>>
+>;
+export type CreateProjectInputMutationBody =
+  BodyType<DevelopmentProjectInputBody>;
+export type CreateProjectInputMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add an input to a development project
+ */
+export const useCreateProjectInput = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProjectInput>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<DevelopmentProjectInputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createProjectInput>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    data: BodyType<DevelopmentProjectInputBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateProjectInputMutationOptions(options));
+};
+
+/**
+ * @summary Update a project input
+ */
+export const getUpdateProjectInputUrl = (
+  orgId: number,
+  projectId: number,
+  inputId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}/inputs/${inputId}`;
+};
+
+export const updateProjectInput = async (
+  orgId: number,
+  projectId: number,
+  inputId: number,
+  updateDevelopmentProjectInputBody: UpdateDevelopmentProjectInputBody,
+  options?: RequestInit,
+): Promise<DevelopmentProjectInput> => {
+  return customFetch<DevelopmentProjectInput>(
+    getUpdateProjectInputUrl(orgId, projectId, inputId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateDevelopmentProjectInputBody),
+    },
+  );
+};
+
+export const getUpdateProjectInputMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateProjectInput>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      inputId: number;
+      data: BodyType<UpdateDevelopmentProjectInputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateProjectInput>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    inputId: number;
+    data: BodyType<UpdateDevelopmentProjectInputBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateProjectInput"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateProjectInput>>,
+    {
+      orgId: number;
+      projectId: number;
+      inputId: number;
+      data: BodyType<UpdateDevelopmentProjectInputBody>;
+    }
+  > = (props) => {
+    const { orgId, projectId, inputId, data } = props ?? {};
+
+    return updateProjectInput(orgId, projectId, inputId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateProjectInputMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateProjectInput>>
+>;
+export type UpdateProjectInputMutationBody =
+  BodyType<UpdateDevelopmentProjectInputBody>;
+export type UpdateProjectInputMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a project input
+ */
+export const useUpdateProjectInput = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateProjectInput>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      inputId: number;
+      data: BodyType<UpdateDevelopmentProjectInputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateProjectInput>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    inputId: number;
+    data: BodyType<UpdateDevelopmentProjectInputBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateProjectInputMutationOptions(options));
+};
+
+/**
+ * @summary Delete a project input
+ */
+export const getDeleteProjectInputUrl = (
+  orgId: number,
+  projectId: number,
+  inputId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}/inputs/${inputId}`;
+};
+
+export const deleteProjectInput = async (
+  orgId: number,
+  projectId: number,
+  inputId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteProjectInputUrl(orgId, projectId, inputId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteProjectInputMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteProjectInput>>,
+    TError,
+    { orgId: number; projectId: number; inputId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteProjectInput>>,
+  TError,
+  { orgId: number; projectId: number; inputId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteProjectInput"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteProjectInput>>,
+    { orgId: number; projectId: number; inputId: number }
+  > = (props) => {
+    const { orgId, projectId, inputId } = props ?? {};
+
+    return deleteProjectInput(orgId, projectId, inputId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteProjectInputMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteProjectInput>>
+>;
+
+export type DeleteProjectInputMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a project input
+ */
+export const useDeleteProjectInput = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteProjectInput>>,
+    TError,
+    { orgId: number; projectId: number; inputId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteProjectInput>>,
+  TError,
+  { orgId: number; projectId: number; inputId: number },
+  TContext
+> => {
+  return useMutation(getDeleteProjectInputMutationOptions(options));
+};
+
+/**
+ * @summary Add a stage to a development project
+ */
+export const getCreateProjectStageUrl = (orgId: number, projectId: number) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}/stages`;
+};
+
+export const createProjectStage = async (
+  orgId: number,
+  projectId: number,
+  developmentProjectStageBody: DevelopmentProjectStageBody,
+  options?: RequestInit,
+): Promise<DevelopmentProjectStage> => {
+  return customFetch<DevelopmentProjectStage>(
+    getCreateProjectStageUrl(orgId, projectId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(developmentProjectStageBody),
+    },
+  );
+};
+
+export const getCreateProjectStageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProjectStage>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<DevelopmentProjectStageBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createProjectStage>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    data: BodyType<DevelopmentProjectStageBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createProjectStage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createProjectStage>>,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<DevelopmentProjectStageBody>;
+    }
+  > = (props) => {
+    const { orgId, projectId, data } = props ?? {};
+
+    return createProjectStage(orgId, projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateProjectStageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createProjectStage>>
+>;
+export type CreateProjectStageMutationBody =
+  BodyType<DevelopmentProjectStageBody>;
+export type CreateProjectStageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a stage to a development project
+ */
+export const useCreateProjectStage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProjectStage>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<DevelopmentProjectStageBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createProjectStage>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    data: BodyType<DevelopmentProjectStageBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateProjectStageMutationOptions(options));
+};
+
+/**
+ * @summary Update a project stage
+ */
+export const getUpdateProjectStageUrl = (
+  orgId: number,
+  projectId: number,
+  stageId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}/stages/${stageId}`;
+};
+
+export const updateProjectStage = async (
+  orgId: number,
+  projectId: number,
+  stageId: number,
+  updateDevelopmentProjectStageBody: UpdateDevelopmentProjectStageBody,
+  options?: RequestInit,
+): Promise<DevelopmentProjectStage> => {
+  return customFetch<DevelopmentProjectStage>(
+    getUpdateProjectStageUrl(orgId, projectId, stageId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateDevelopmentProjectStageBody),
+    },
+  );
+};
+
+export const getUpdateProjectStageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateProjectStage>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      stageId: number;
+      data: BodyType<UpdateDevelopmentProjectStageBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateProjectStage>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    stageId: number;
+    data: BodyType<UpdateDevelopmentProjectStageBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateProjectStage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateProjectStage>>,
+    {
+      orgId: number;
+      projectId: number;
+      stageId: number;
+      data: BodyType<UpdateDevelopmentProjectStageBody>;
+    }
+  > = (props) => {
+    const { orgId, projectId, stageId, data } = props ?? {};
+
+    return updateProjectStage(orgId, projectId, stageId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateProjectStageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateProjectStage>>
+>;
+export type UpdateProjectStageMutationBody =
+  BodyType<UpdateDevelopmentProjectStageBody>;
+export type UpdateProjectStageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a project stage
+ */
+export const useUpdateProjectStage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateProjectStage>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      stageId: number;
+      data: BodyType<UpdateDevelopmentProjectStageBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateProjectStage>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    stageId: number;
+    data: BodyType<UpdateDevelopmentProjectStageBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateProjectStageMutationOptions(options));
+};
+
+/**
+ * @summary Delete a project stage
+ */
+export const getDeleteProjectStageUrl = (
+  orgId: number,
+  projectId: number,
+  stageId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}/stages/${stageId}`;
+};
+
+export const deleteProjectStage = async (
+  orgId: number,
+  projectId: number,
+  stageId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteProjectStageUrl(orgId, projectId, stageId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteProjectStageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteProjectStage>>,
+    TError,
+    { orgId: number; projectId: number; stageId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteProjectStage>>,
+  TError,
+  { orgId: number; projectId: number; stageId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteProjectStage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteProjectStage>>,
+    { orgId: number; projectId: number; stageId: number }
+  > = (props) => {
+    const { orgId, projectId, stageId } = props ?? {};
+
+    return deleteProjectStage(orgId, projectId, stageId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteProjectStageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteProjectStage>>
+>;
+
+export type DeleteProjectStageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a project stage
+ */
+export const useDeleteProjectStage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteProjectStage>>,
+    TError,
+    { orgId: number; projectId: number; stageId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteProjectStage>>,
+  TError,
+  { orgId: number; projectId: number; stageId: number },
+  TContext
+> => {
+  return useMutation(getDeleteProjectStageMutationOptions(options));
+};
+
+/**
+ * @summary Add an output to a development project
+ */
+export const getCreateProjectOutputUrl = (orgId: number, projectId: number) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}/outputs`;
+};
+
+export const createProjectOutput = async (
+  orgId: number,
+  projectId: number,
+  developmentProjectOutputBody: DevelopmentProjectOutputBody,
+  options?: RequestInit,
+): Promise<DevelopmentProjectOutput> => {
+  return customFetch<DevelopmentProjectOutput>(
+    getCreateProjectOutputUrl(orgId, projectId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(developmentProjectOutputBody),
+    },
+  );
+};
+
+export const getCreateProjectOutputMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProjectOutput>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<DevelopmentProjectOutputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createProjectOutput>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    data: BodyType<DevelopmentProjectOutputBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createProjectOutput"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createProjectOutput>>,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<DevelopmentProjectOutputBody>;
+    }
+  > = (props) => {
+    const { orgId, projectId, data } = props ?? {};
+
+    return createProjectOutput(orgId, projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateProjectOutputMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createProjectOutput>>
+>;
+export type CreateProjectOutputMutationBody =
+  BodyType<DevelopmentProjectOutputBody>;
+export type CreateProjectOutputMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add an output to a development project
+ */
+export const useCreateProjectOutput = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProjectOutput>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<DevelopmentProjectOutputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createProjectOutput>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    data: BodyType<DevelopmentProjectOutputBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateProjectOutputMutationOptions(options));
+};
+
+/**
+ * @summary Update a project output
+ */
+export const getUpdateProjectOutputUrl = (
+  orgId: number,
+  projectId: number,
+  outputId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}/outputs/${outputId}`;
+};
+
+export const updateProjectOutput = async (
+  orgId: number,
+  projectId: number,
+  outputId: number,
+  updateDevelopmentProjectOutputBody: UpdateDevelopmentProjectOutputBody,
+  options?: RequestInit,
+): Promise<DevelopmentProjectOutput> => {
+  return customFetch<DevelopmentProjectOutput>(
+    getUpdateProjectOutputUrl(orgId, projectId, outputId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateDevelopmentProjectOutputBody),
+    },
+  );
+};
+
+export const getUpdateProjectOutputMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateProjectOutput>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      outputId: number;
+      data: BodyType<UpdateDevelopmentProjectOutputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateProjectOutput>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    outputId: number;
+    data: BodyType<UpdateDevelopmentProjectOutputBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateProjectOutput"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateProjectOutput>>,
+    {
+      orgId: number;
+      projectId: number;
+      outputId: number;
+      data: BodyType<UpdateDevelopmentProjectOutputBody>;
+    }
+  > = (props) => {
+    const { orgId, projectId, outputId, data } = props ?? {};
+
+    return updateProjectOutput(
+      orgId,
+      projectId,
+      outputId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateProjectOutputMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateProjectOutput>>
+>;
+export type UpdateProjectOutputMutationBody =
+  BodyType<UpdateDevelopmentProjectOutputBody>;
+export type UpdateProjectOutputMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a project output
+ */
+export const useUpdateProjectOutput = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateProjectOutput>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      outputId: number;
+      data: BodyType<UpdateDevelopmentProjectOutputBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateProjectOutput>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    outputId: number;
+    data: BodyType<UpdateDevelopmentProjectOutputBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateProjectOutputMutationOptions(options));
+};
+
+/**
+ * @summary Delete a project output
+ */
+export const getDeleteProjectOutputUrl = (
+  orgId: number,
+  projectId: number,
+  outputId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}/outputs/${outputId}`;
+};
+
+export const deleteProjectOutput = async (
+  orgId: number,
+  projectId: number,
+  outputId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteProjectOutputUrl(orgId, projectId, outputId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteProjectOutputMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteProjectOutput>>,
+    TError,
+    { orgId: number; projectId: number; outputId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteProjectOutput>>,
+  TError,
+  { orgId: number; projectId: number; outputId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteProjectOutput"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteProjectOutput>>,
+    { orgId: number; projectId: number; outputId: number }
+  > = (props) => {
+    const { orgId, projectId, outputId } = props ?? {};
+
+    return deleteProjectOutput(orgId, projectId, outputId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteProjectOutputMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteProjectOutput>>
+>;
+
+export type DeleteProjectOutputMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a project output
+ */
+export const useDeleteProjectOutput = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteProjectOutput>>,
+    TError,
+    { orgId: number; projectId: number; outputId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteProjectOutput>>,
+  TError,
+  { orgId: number; projectId: number; outputId: number },
+  TContext
+> => {
+  return useMutation(getDeleteProjectOutputMutationOptions(options));
+};
+
+/**
+ * @summary Add a review, verification or validation to a development project
+ */
+export const getCreateProjectReviewUrl = (orgId: number, projectId: number) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}/reviews`;
+};
+
+export const createProjectReview = async (
+  orgId: number,
+  projectId: number,
+  developmentProjectReviewBody: DevelopmentProjectReviewBody,
+  options?: RequestInit,
+): Promise<DevelopmentProjectReview> => {
+  return customFetch<DevelopmentProjectReview>(
+    getCreateProjectReviewUrl(orgId, projectId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(developmentProjectReviewBody),
+    },
+  );
+};
+
+export const getCreateProjectReviewMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProjectReview>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<DevelopmentProjectReviewBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createProjectReview>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    data: BodyType<DevelopmentProjectReviewBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createProjectReview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createProjectReview>>,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<DevelopmentProjectReviewBody>;
+    }
+  > = (props) => {
+    const { orgId, projectId, data } = props ?? {};
+
+    return createProjectReview(orgId, projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateProjectReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createProjectReview>>
+>;
+export type CreateProjectReviewMutationBody =
+  BodyType<DevelopmentProjectReviewBody>;
+export type CreateProjectReviewMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a review, verification or validation to a development project
+ */
+export const useCreateProjectReview = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProjectReview>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<DevelopmentProjectReviewBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createProjectReview>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    data: BodyType<DevelopmentProjectReviewBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateProjectReviewMutationOptions(options));
+};
+
+/**
+ * @summary Update a project review
+ */
+export const getUpdateProjectReviewUrl = (
+  orgId: number,
+  projectId: number,
+  reviewId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}/reviews/${reviewId}`;
+};
+
+export const updateProjectReview = async (
+  orgId: number,
+  projectId: number,
+  reviewId: number,
+  updateDevelopmentProjectReviewBody: UpdateDevelopmentProjectReviewBody,
+  options?: RequestInit,
+): Promise<DevelopmentProjectReview> => {
+  return customFetch<DevelopmentProjectReview>(
+    getUpdateProjectReviewUrl(orgId, projectId, reviewId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateDevelopmentProjectReviewBody),
+    },
+  );
+};
+
+export const getUpdateProjectReviewMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateProjectReview>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      reviewId: number;
+      data: BodyType<UpdateDevelopmentProjectReviewBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateProjectReview>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    reviewId: number;
+    data: BodyType<UpdateDevelopmentProjectReviewBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateProjectReview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateProjectReview>>,
+    {
+      orgId: number;
+      projectId: number;
+      reviewId: number;
+      data: BodyType<UpdateDevelopmentProjectReviewBody>;
+    }
+  > = (props) => {
+    const { orgId, projectId, reviewId, data } = props ?? {};
+
+    return updateProjectReview(
+      orgId,
+      projectId,
+      reviewId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateProjectReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateProjectReview>>
+>;
+export type UpdateProjectReviewMutationBody =
+  BodyType<UpdateDevelopmentProjectReviewBody>;
+export type UpdateProjectReviewMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a project review
+ */
+export const useUpdateProjectReview = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateProjectReview>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      reviewId: number;
+      data: BodyType<UpdateDevelopmentProjectReviewBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateProjectReview>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    reviewId: number;
+    data: BodyType<UpdateDevelopmentProjectReviewBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateProjectReviewMutationOptions(options));
+};
+
+/**
+ * @summary Delete a project review
+ */
+export const getDeleteProjectReviewUrl = (
+  orgId: number,
+  projectId: number,
+  reviewId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}/reviews/${reviewId}`;
+};
+
+export const deleteProjectReview = async (
+  orgId: number,
+  projectId: number,
+  reviewId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteProjectReviewUrl(orgId, projectId, reviewId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteProjectReviewMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteProjectReview>>,
+    TError,
+    { orgId: number; projectId: number; reviewId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteProjectReview>>,
+  TError,
+  { orgId: number; projectId: number; reviewId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteProjectReview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteProjectReview>>,
+    { orgId: number; projectId: number; reviewId: number }
+  > = (props) => {
+    const { orgId, projectId, reviewId } = props ?? {};
+
+    return deleteProjectReview(orgId, projectId, reviewId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteProjectReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteProjectReview>>
+>;
+
+export type DeleteProjectReviewMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a project review
+ */
+export const useDeleteProjectReview = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteProjectReview>>,
+    TError,
+    { orgId: number; projectId: number; reviewId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteProjectReview>>,
+  TError,
+  { orgId: number; projectId: number; reviewId: number },
+  TContext
+> => {
+  return useMutation(getDeleteProjectReviewMutationOptions(options));
+};
+
+/**
+ * @summary Register a design change for a development project
+ */
+export const getCreateProjectChangeUrl = (orgId: number, projectId: number) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}/changes`;
+};
+
+export const createProjectChange = async (
+  orgId: number,
+  projectId: number,
+  developmentProjectChangeBody: DevelopmentProjectChangeBody,
+  options?: RequestInit,
+): Promise<DevelopmentProjectChange> => {
+  return customFetch<DevelopmentProjectChange>(
+    getCreateProjectChangeUrl(orgId, projectId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(developmentProjectChangeBody),
+    },
+  );
+};
+
+export const getCreateProjectChangeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProjectChange>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<DevelopmentProjectChangeBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createProjectChange>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    data: BodyType<DevelopmentProjectChangeBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createProjectChange"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createProjectChange>>,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<DevelopmentProjectChangeBody>;
+    }
+  > = (props) => {
+    const { orgId, projectId, data } = props ?? {};
+
+    return createProjectChange(orgId, projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateProjectChangeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createProjectChange>>
+>;
+export type CreateProjectChangeMutationBody =
+  BodyType<DevelopmentProjectChangeBody>;
+export type CreateProjectChangeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register a design change for a development project
+ */
+export const useCreateProjectChange = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createProjectChange>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      data: BodyType<DevelopmentProjectChangeBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createProjectChange>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    data: BodyType<DevelopmentProjectChangeBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateProjectChangeMutationOptions(options));
+};
+
+/**
+ * @summary Update a project change record
+ */
+export const getUpdateProjectChangeUrl = (
+  orgId: number,
+  projectId: number,
+  changeId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}/changes/${changeId}`;
+};
+
+export const updateProjectChange = async (
+  orgId: number,
+  projectId: number,
+  changeId: number,
+  updateDevelopmentProjectChangeBody: UpdateDevelopmentProjectChangeBody,
+  options?: RequestInit,
+): Promise<DevelopmentProjectChange> => {
+  return customFetch<DevelopmentProjectChange>(
+    getUpdateProjectChangeUrl(orgId, projectId, changeId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateDevelopmentProjectChangeBody),
+    },
+  );
+};
+
+export const getUpdateProjectChangeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateProjectChange>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      changeId: number;
+      data: BodyType<UpdateDevelopmentProjectChangeBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateProjectChange>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    changeId: number;
+    data: BodyType<UpdateDevelopmentProjectChangeBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateProjectChange"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateProjectChange>>,
+    {
+      orgId: number;
+      projectId: number;
+      changeId: number;
+      data: BodyType<UpdateDevelopmentProjectChangeBody>;
+    }
+  > = (props) => {
+    const { orgId, projectId, changeId, data } = props ?? {};
+
+    return updateProjectChange(
+      orgId,
+      projectId,
+      changeId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateProjectChangeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateProjectChange>>
+>;
+export type UpdateProjectChangeMutationBody =
+  BodyType<UpdateDevelopmentProjectChangeBody>;
+export type UpdateProjectChangeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a project change record
+ */
+export const useUpdateProjectChange = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateProjectChange>>,
+    TError,
+    {
+      orgId: number;
+      projectId: number;
+      changeId: number;
+      data: BodyType<UpdateDevelopmentProjectChangeBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateProjectChange>>,
+  TError,
+  {
+    orgId: number;
+    projectId: number;
+    changeId: number;
+    data: BodyType<UpdateDevelopmentProjectChangeBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateProjectChangeMutationOptions(options));
+};
+
+/**
+ * @summary Delete a project change record
+ */
+export const getDeleteProjectChangeUrl = (
+  orgId: number,
+  projectId: number,
+  changeId: number,
+) => {
+  return `/api/organizations/${orgId}/governance/project-development/projects/${projectId}/changes/${changeId}`;
+};
+
+export const deleteProjectChange = async (
+  orgId: number,
+  projectId: number,
+  changeId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteProjectChangeUrl(orgId, projectId, changeId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteProjectChangeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteProjectChange>>,
+    TError,
+    { orgId: number; projectId: number; changeId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteProjectChange>>,
+  TError,
+  { orgId: number; projectId: number; changeId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteProjectChange"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteProjectChange>>,
+    { orgId: number; projectId: number; changeId: number }
+  > = (props) => {
+    const { orgId, projectId, changeId } = props ?? {};
+
+    return deleteProjectChange(orgId, projectId, changeId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteProjectChangeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteProjectChange>>
+>;
+
+export type DeleteProjectChangeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a project change record
+ */
+export const useDeleteProjectChange = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteProjectChange>>,
+    TError,
+    { orgId: number; projectId: number; changeId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteProjectChange>>,
+  TError,
+  { orgId: number; projectId: number; changeId: number },
+  TContext
+> => {
+  return useMutation(getDeleteProjectChangeMutationOptions(options));
+};

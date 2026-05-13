@@ -29,6 +29,7 @@ import {
   UpsertKpiYearConfigParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../../middlewares/auth";
+import { validateFormula } from "../../lib/formula-evaluator";
 
 const router: IRouter = Router();
 
@@ -40,6 +41,8 @@ function serializeIndicator(r: typeof kpiIndicatorsTable.$inferSelect) {
     organizationId: r.organizationId,
     name: r.name,
     measurement: r.measurement,
+    formulaVariables: r.formulaVariables,
+    formulaExpression: r.formulaExpression,
     unit: r.unit ?? null,
     responsible: r.responsible ?? null,
     measureUnit: r.measureUnit ?? null,
@@ -202,10 +205,15 @@ router.post("/organizations/:orgId/kpi/indicators", requireAuth, requireWriteAcc
   const body = CreateKpiIndicatorBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
+  const formulaCheck = validateFormula(body.data.formulaExpression, body.data.formulaVariables);
+  if (!formulaCheck.ok) { res.status(400).json({ error: `Fórmula inválida: ${formulaCheck.error}` }); return; }
+
   const [row] = await db.insert(kpiIndicatorsTable).values({
     organizationId: params.data.orgId,
     name: body.data.name,
     measurement: body.data.measurement,
+    formulaVariables: body.data.formulaVariables,
+    formulaExpression: body.data.formulaExpression,
     unit: body.data.unit ?? null,
     responsible: body.data.responsible ?? null,
     measureUnit: body.data.measureUnit ?? null,
@@ -244,6 +252,15 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
   if (body.data.measureUnit !== undefined) updateData.measureUnit = body.data.measureUnit;
   if (body.data.direction !== undefined) updateData.direction = body.data.direction;
   if (body.data.periodicity !== undefined) updateData.periodicity = body.data.periodicity;
+
+  if (body.data.formulaExpression !== undefined || body.data.formulaVariables !== undefined) {
+    const expr = body.data.formulaExpression ?? "";
+    const vars = body.data.formulaVariables ?? [];
+    const formulaCheck = validateFormula(expr, vars);
+    if (!formulaCheck.ok) { res.status(400).json({ error: `Fórmula inválida: ${formulaCheck.error}` }); return; }
+    if (body.data.formulaExpression !== undefined) updateData.formulaExpression = body.data.formulaExpression;
+    if (body.data.formulaVariables !== undefined) updateData.formulaVariables = body.data.formulaVariables;
+  }
 
   const [row] = await db.update(kpiIndicatorsTable)
     .set(Object.keys(updateData).length > 0 ? updateData : { updatedAt: new Date() })
@@ -311,15 +328,16 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
         .where(inArray(kpiMonthlyValuesTable.yearConfigId, yearConfigIds))
     : [];
 
-  const valuesByYearConfigId = new Map<number, Map<number, number | null>>();
+  type MonthCell = { value: number | null; inputs: Record<string, number | null> };
+  const valuesByYearConfigId = new Map<number, Map<number, MonthCell>>();
   for (const mv of monthlyValues) {
     if (!valuesByYearConfigId.has(mv.yearConfigId)) {
       valuesByYearConfigId.set(mv.yearConfigId, new Map());
     }
-    valuesByYearConfigId.get(mv.yearConfigId)!.set(
-      mv.month,
-      mv.value !== null && mv.value !== undefined ? parseFloat(mv.value) : null,
-    );
+    valuesByYearConfigId.get(mv.yearConfigId)!.set(mv.month, {
+      value: mv.value !== null && mv.value !== undefined ? parseFloat(mv.value) : null,
+      inputs: mv.inputs ?? {},
+    });
   }
 
   // Fetch objectives for lookup
@@ -334,20 +352,21 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
     .filter((ind) => yearConfigByIndicatorId.has(ind.id))
     .map((ind) => {
       const yc = yearConfigByIndicatorId.get(ind.id)!;
-      const monthMap = valuesByYearConfigId.get(yc.id) ?? new Map();
-      const monthlyArr: (number | null)[] = Array.from({ length: 12 }, (_, i) => monthMap.get(i + 1) ?? null);
+      const monthMap = valuesByYearConfigId.get(yc.id) ?? new Map<number, MonthCell>();
+      const monthlyCells: MonthCell[] = Array.from({ length: 12 }, (_, i) => monthMap.get(i + 1) ?? { value: null, inputs: {} });
+      const monthlyValuesOnly = monthlyCells.map((c) => c.value);
 
-      const filledValues = monthlyArr.filter((v) => v !== null) as number[];
+      const filledValues = monthlyValuesOnly.filter((v) => v !== null) as number[];
       const average = filledValues.length > 0 ? filledValues.reduce((a, b) => a + b, 0) / filledValues.length : null;
       const accumulated = filledValues.length > 0 ? filledValues.reduce((a, b) => a + b, 0) : null;
-      const feedStatus = computeFeedStatus(monthlyArr, ind.periodicity);
+      const feedStatus = computeFeedStatus(monthlyValuesOnly, ind.periodicity);
       const objective = yc.objectiveId ? objectiveById.get(yc.objectiveId) ?? null : null;
 
       return {
         indicator: serializeIndicator(ind),
         yearConfig: serializeYearConfig(yc),
         objective: objective ? serializeObjective(objective) : null,
-        monthlyValues: monthlyArr.map((v, i) => ({ month: i + 1, value: v })),
+        monthlyValues: monthlyCells.map((c, i) => ({ month: i + 1, value: c.value, inputs: c.inputs })),
         average,
         accumulated,
         feedStatus,
@@ -423,7 +442,11 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/values
   if (body.data.values.length === 0) {
     const existing = await db.select().from(kpiMonthlyValuesTable)
       .where(eq(kpiMonthlyValuesTable.yearConfigId, yearConfig.id));
-    res.json(existing.map((v) => ({ month: v.month, value: v.value !== null ? parseFloat(v.value) : null })));
+    res.json(existing.map((v) => ({
+      month: v.month,
+      value: v.value !== null ? parseFloat(v.value) : null,
+      inputs: v.inputs ?? {},
+    })));
     return;
   }
 
@@ -432,6 +455,7 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/values
     yearConfigId: yearConfig.id,
     month: v.month,
     value: v.value !== null && v.value !== undefined ? String(v.value) : null,
+    inputs: v.inputs ?? {},
   }));
 
   await db.insert(kpiMonthlyValuesTable).values(upsertValues)
@@ -439,6 +463,7 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/values
       target: [kpiMonthlyValuesTable.yearConfigId, kpiMonthlyValuesTable.month],
       set: {
         value: sql`excluded.value`,
+        inputs: sql`excluded.inputs`,
         updatedAt: new Date(),
       },
     });
@@ -447,7 +472,11 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/values
     .where(eq(kpiMonthlyValuesTable.yearConfigId, yearConfig.id))
     .orderBy(kpiMonthlyValuesTable.month);
 
-  res.json(updated.map((v) => ({ month: v.month, value: v.value !== null ? parseFloat(v.value) : null })));
+  res.json(updated.map((v) => ({
+    month: v.month,
+    value: v.value !== null ? parseFloat(v.value) : null,
+    inputs: v.inputs ?? {},
+  })));
 });
 
 export default router;

@@ -123,13 +123,13 @@ function statusLabel(status: string) {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  pending_qualification: "bg-amber-50 text-amber-700 border-amber-200",
-  restricted: "bg-amber-50 text-amber-700 border-amber-200",
-  blocked: "bg-red-50 text-red-700 border-red-200",
-  draft: "bg-gray-100 text-gray-700 border-gray-200",
-  inactive: "bg-gray-100 text-gray-500 border-gray-200",
-  expired: "bg-gray-100 text-gray-500 border-gray-200",
+  approved: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  pending_qualification: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+  restricted: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+  blocked: "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
+  draft: "bg-muted text-foreground border-border",
+  inactive: "bg-muted text-muted-foreground border-border",
+  expired: "bg-muted text-muted-foreground border-border",
 };
 
 export default function SuppliersPage() {
@@ -646,7 +646,7 @@ export default function SuppliersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[supplier.status] || "bg-gray-100 text-gray-500 border-gray-200"}`}
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[supplier.status] || "bg-muted text-muted-foreground border-border"}`}
                       >
                         {statusLabel(supplier.status)}
                       </span>

@@ -68,9 +68,12 @@ export function getTrafficLight(
 }
 
 export function trafficLightColor(status: TrafficLight | null): string {
-  if (status === "green") return "bg-green-100 text-green-800";
-  if (status === "yellow") return "bg-yellow-100 text-yellow-800";
-  if (status === "red") return "bg-red-100 text-red-800";
+  if (status === "green")
+    return "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300";
+  if (status === "yellow")
+    return "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300";
+  if (status === "red")
+    return "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300";
   return "";
 }
 
@@ -114,9 +117,11 @@ export function racLabel(status: RacStatus): string {
 }
 
 export function racColor(status: RacStatus): string {
-  if (status === "no_action") return "bg-green-100 text-green-800";
-  if (status === "needs_action") return "bg-red-100 text-red-800";
-  return "bg-gray-100 text-gray-600";
+  if (status === "no_action")
+    return "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300";
+  if (status === "needs_action")
+    return "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300";
+  return "bg-muted text-muted-foreground";
 }
 
 // ─── Computed aggregates ───────────────────────────────────────────────────

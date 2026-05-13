@@ -74,9 +74,9 @@ const CRITICALITY_LABELS: Record<string, string> = {
 };
 
 const CRITICALITY_COLORS: Record<string, string> = {
-  alta: "bg-red-100 text-red-700 border-red-200",
-  media: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  baixa: "bg-green-100 text-green-700 border-green-200",
+  alta: "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
+  media: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+  baixa: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -86,9 +86,9 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  ativo: "bg-green-100 text-green-700 border-green-200",
-  inativo: "bg-gray-100 text-gray-600 border-gray-200",
-  em_manutencao: "bg-orange-100 text-orange-700 border-orange-200",
+  ativo: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  inativo: "bg-muted text-muted-foreground border-border",
+  em_manutencao: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
 };
 
 const DOC_TYPE_LABELS: Record<string, string> = {
@@ -267,9 +267,9 @@ const PLAN_TYPE_LABELS: Record<string, string> = {
 };
 
 const PLAN_TYPE_COLORS: Record<string, string> = {
-  preventiva: "bg-blue-100 text-blue-700 border-blue-200",
-  corretiva: "bg-orange-100 text-orange-700 border-orange-200",
-  inspecao: "bg-purple-100 text-purple-700 border-purple-200",
+  preventiva: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
+  corretiva: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
+  inspecao: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/30",
 };
 
 const PERIODICITY_LABELS: Record<string, string> = {
@@ -288,9 +288,9 @@ const RECORD_STATUS_LABELS: Record<string, string> = {
 };
 
 const RECORD_STATUS_COLORS: Record<string, string> = {
-  concluida: "bg-green-100 text-green-700 border-green-200",
-  parcial: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  cancelada: "bg-gray-100 text-gray-600 border-gray-200",
+  concluida: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  parcial: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+  cancelada: "bg-muted text-muted-foreground border-border",
 };
 
 function MaintenanceStatusCell({ asset }: { asset: Asset }) {
@@ -312,37 +312,37 @@ function MaintenanceStatusCell({ asset }: { asset: Asset }) {
 
   if (overdueCount > 0) {
     return (
-      <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">
+      <Badge variant="danger" className="text-xs">
         {overdueCount > 1 ? `${overdueCount} vencidos` : "Vencido"} · há {Math.abs(diffDays)}d
       </Badge>
     );
   }
 
   if (diffDays === 0) {
-    return <Badge variant="outline" className="text-xs bg-orange-100 text-orange-700 border-orange-200">Vence hoje</Badge>;
+    return <Badge variant="orange" className="text-xs">Vence hoje</Badge>;
   }
 
   if (diffDays <= 7) {
     return (
-      <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200">
+      <Badge variant="warning" className="text-xs">
         Vence em {diffDays}d · {dateLabel}
       </Badge>
     );
   }
 
   if (hasPartialExecution) {
-    return <Badge variant="outline" className="text-xs bg-orange-100 text-orange-700 border-orange-200">Parcial · {due.toLocaleDateString("pt-BR")}</Badge>;
+    return <Badge variant="orange" className="text-xs">Parcial · {due.toLocaleDateString("pt-BR")}</Badge>;
   }
 
   if (pendingPlanCount > 0) {
     return (
-      <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-200">
+      <Badge variant="neutral" className="text-xs">
         {pendingPlanCount > 1 ? `${pendingPlanCount} aguardando` : `Aguardando · ${dateLabel}`}
       </Badge>
     );
   }
 
-  return <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">Em dia · {due.toLocaleDateString("pt-BR")}</Badge>;
+  return <Badge variant="success" className="text-xs">Em dia · {due.toLocaleDateString("pt-BR")}</Badge>;
 }
 
 function parsePlanDate(dateStr: string | null | undefined): Date | null {
@@ -360,15 +360,15 @@ function PlanDueBadge({ nextDueAt, recordCount, lastRecordStatus, periodicity }:
   const due = parsePlanDate(nextDueAt);
 
   if (periodicity === "unica" && lastRecordStatus === "concluida") {
-    return <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-200">Concluído</Badge>;
+    return <Badge variant="success" className="text-xs">Concluído</Badge>;
   }
 
   if (recordCount === 0) {
-    if (!due) return <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-200">Sem execução</Badge>;
+    if (!due) return <Badge variant="neutral" className="text-xs">Sem execução</Badge>;
     const diff = dateDiffDays(due);
-    if (diff < 0) return <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">Vencido · há {Math.abs(diff)}d · sem execução</Badge>;
-    if (diff <= 7) return <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200">Vence em {diff}d · {due.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</Badge>;
-    return <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-200">Aguardando · {due.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</Badge>;
+    if (diff < 0) return <Badge variant="danger" className="text-xs">Vencido · há {Math.abs(diff)}d · sem execução</Badge>;
+    if (diff <= 7) return <Badge variant="warning" className="text-xs">Vence em {diff}d · {due.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</Badge>;
+    return <Badge variant="neutral" className="text-xs">Aguardando · {due.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</Badge>;
   }
 
   if (!due) return <span className="text-xs text-muted-foreground">Sem data</span>;
@@ -377,15 +377,15 @@ function PlanDueBadge({ nextDueAt, recordCount, lastRecordStatus, periodicity }:
   const dateLabel = due.toLocaleDateString("pt-BR");
 
   if (diff < 0) {
-    return <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">Vencido · há {Math.abs(diff)}d</Badge>;
+    return <Badge variant="danger" className="text-xs">Vencido · há {Math.abs(diff)}d</Badge>;
   }
   if (diff <= 7) {
-    return <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200">Vence em {diff}d · {due.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</Badge>;
+    return <Badge variant="warning" className="text-xs">Vence em {diff}d · {due.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</Badge>;
   }
   if (lastRecordStatus === "parcial") {
-    return <Badge variant="outline" className="text-xs bg-orange-100 text-orange-700 border-orange-200">Parcial · {dateLabel}</Badge>;
+    return <Badge variant="orange" className="text-xs">Parcial · {dateLabel}</Badge>;
   }
-  return <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">Em dia · {dateLabel}</Badge>;
+  return <Badge variant="success" className="text-xs">Em dia · {dateLabel}</Badge>;
 }
 
 type PlanForm = {
@@ -1184,23 +1184,23 @@ export default function AtivosPage() {
         <div className="grid grid-cols-3 gap-3">
           <button
             onClick={() => setMaintenanceFilter(maintenanceFilter === "overdue" ? null : "overdue")}
-            className={`text-left rounded-lg border p-4 transition-colors ${maintenanceFilter === "overdue" ? "border-red-300 bg-red-50" : "border-border bg-card hover:bg-muted/50"}`}
+            className={`text-left rounded-lg border p-4 transition-colors ${maintenanceFilter === "overdue" ? "border-red-300 bg-red-50 dark:border-red-500/40 dark:bg-red-500/10" : "border-border bg-card hover:bg-muted/50"}`}
           >
-            <p className={`text-2xl font-semibold ${overdueTotal > 0 ? "text-red-600" : "text-muted-foreground"}`}>{overdueTotal}</p>
+            <p className={`text-2xl font-semibold ${overdueTotal > 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>{overdueTotal}</p>
             <p className="text-xs text-muted-foreground mt-0.5">Com manutenção vencida</p>
           </button>
           <button
             onClick={() => setMaintenanceFilter(maintenanceFilter === "upcoming" ? null : "upcoming")}
-            className={`text-left rounded-lg border p-4 transition-colors ${maintenanceFilter === "upcoming" ? "border-yellow-300 bg-yellow-50" : "border-border bg-card hover:bg-muted/50"}`}
+            className={`text-left rounded-lg border p-4 transition-colors ${maintenanceFilter === "upcoming" ? "border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10" : "border-border bg-card hover:bg-muted/50"}`}
           >
-            <p className={`text-2xl font-semibold ${upcomingTotal > 0 ? "text-yellow-600" : "text-muted-foreground"}`}>{upcomingTotal}</p>
+            <p className={`text-2xl font-semibold ${upcomingTotal > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>{upcomingTotal}</p>
             <p className="text-xs text-muted-foreground mt-0.5">Vencem nos próximos 30 dias</p>
           </button>
           <button
             onClick={() => setMaintenanceFilter(maintenanceFilter === "ok" ? null : "ok")}
-            className={`text-left rounded-lg border p-4 transition-colors ${maintenanceFilter === "ok" ? "border-green-300 bg-green-50" : "border-border bg-card hover:bg-muted/50"}`}
+            className={`text-left rounded-lg border p-4 transition-colors ${maintenanceFilter === "ok" ? "border-emerald-300 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-500/10" : "border-border bg-card hover:bg-muted/50"}`}
           >
-            <p className={`text-2xl font-semibold ${okTotal > 0 ? "text-green-600" : "text-muted-foreground"}`}>{okTotal}</p>
+            <p className={`text-2xl font-semibold ${okTotal > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>{okTotal}</p>
             <p className="text-xs text-muted-foreground mt-0.5">Em dia</p>
           </button>
         </div>

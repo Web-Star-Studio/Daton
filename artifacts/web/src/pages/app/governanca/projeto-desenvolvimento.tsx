@@ -346,14 +346,14 @@ const CHANGE_STATUS_LABEL: Record<string, string> = {
 };
 
 function getDecisionTone(decision?: ApplicabilityDecision | null) {
-  if (!decision) return "bg-slate-100 text-slate-700 border-slate-200";
+  if (!decision) return "bg-muted text-muted-foreground border-border";
   if (decision.approvalStatus === "pending") {
-    return "bg-amber-100 text-amber-800 border-amber-200";
+    return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30";
   }
   if (decision.isApplicable) {
-    return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30";
   }
-  return "bg-sky-100 text-sky-800 border-sky-200";
+  return "bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30";
 }
 
 function getDecisionLabel(decision?: ApplicabilityDecision | null) {
@@ -365,41 +365,41 @@ function getDecisionLabel(decision?: ApplicabilityDecision | null) {
 function getProjectStatusTone(status: string) {
   switch (status) {
     case "completed":
-      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30";
     case "active":
-      return "bg-sky-100 text-sky-800 border-sky-200";
+      return "bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30";
     case "under_review":
-      return "bg-indigo-100 text-indigo-800 border-indigo-200";
+      return "bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30";
     case "canceled":
-      return "bg-slate-100 text-slate-700 border-slate-200";
+      return "bg-muted text-muted-foreground border-border";
     default:
-      return "bg-amber-100 text-amber-800 border-amber-200";
+      return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30";
   }
 }
 
 function getReviewTone(outcome: string) {
   switch (outcome) {
     case "approved":
-      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30";
     case "rejected":
-      return "bg-red-100 text-red-800 border-red-200";
+      return "bg-red-100 text-red-800 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30";
     case "needs_changes":
-      return "bg-orange-100 text-orange-800 border-orange-200";
+      return "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30";
     default:
-      return "bg-amber-100 text-amber-800 border-amber-200";
+      return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30";
   }
 }
 
 function getChangeTone(status: string) {
   switch (status) {
     case "implemented":
-      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30";
     case "approved":
-      return "bg-sky-100 text-sky-800 border-sky-200";
+      return "bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30";
     case "rejected":
-      return "bg-red-100 text-red-800 border-red-200";
+      return "bg-red-100 text-red-800 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30";
     default:
-      return "bg-amber-100 text-amber-800 border-amber-200";
+      return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30";
   }
 }
 
@@ -1986,9 +1986,9 @@ export default function ProjectDevelopmentPage() {
                                       className={cn(
                                         "shrink-0 text-xs",
                                         item.status === "approved" &&
-                                          "border-green-200 bg-green-50 text-green-700",
+                                          "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300",
                                         item.status === "released" &&
-                                          "border-blue-200 bg-blue-50 text-blue-700",
+                                          "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/15 dark:text-blue-300",
                                       )}
                                     >
                                       {OUTPUT_STATUS_LABEL[item.status] ?? item.status}

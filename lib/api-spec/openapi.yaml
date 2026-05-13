@@ -14039,6 +14039,19 @@ components:
           type: string
           minLength: 1
 
+    KpiFormulaVariable:
+      type: object
+      properties:
+        key:
+          type: string
+          pattern: "^[a-z][a-z0-9_]*$"
+        label:
+          type: string
+          minLength: 1
+      required:
+        - key
+        - label
+
     KpiIndicator:
       type: object
       properties:
@@ -14049,6 +14062,12 @@ components:
         name:
           type: string
         measurement:
+          type: string
+        formulaVariables:
+          type: array
+          items:
+            $ref: "#/components/schemas/KpiFormulaVariable"
+        formulaExpression:
           type: string
         unit:
           type: string
@@ -14074,6 +14093,8 @@ components:
         - organizationId
         - name
         - measurement
+        - formulaVariables
+        - formulaExpression
         - direction
         - periodicity
         - createdAt
@@ -14088,6 +14109,12 @@ components:
         measurement:
           type: string
           minLength: 1
+        formulaVariables:
+          type: array
+          items:
+            $ref: "#/components/schemas/KpiFormulaVariable"
+        formulaExpression:
+          type: string
         unit:
           type: string
         responsible:
@@ -14112,6 +14139,8 @@ components:
       required:
         - name
         - measurement
+        - formulaVariables
+        - formulaExpression
         - direction
         - periodicity
 
@@ -14124,6 +14153,12 @@ components:
         measurement:
           type: string
           minLength: 1
+        formulaVariables:
+          type: array
+          items:
+            $ref: "#/components/schemas/KpiFormulaVariable"
+        formulaExpression:
+          type: string
         unit:
           type: string
         responsible:
@@ -14192,6 +14227,11 @@ components:
         value:
           type: number
           nullable: true
+        inputs:
+          type: object
+          additionalProperties:
+            type: number
+            nullable: true
       required:
         - month
 

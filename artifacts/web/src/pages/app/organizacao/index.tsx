@@ -1257,8 +1257,8 @@ export default function OrganizacaoPage({
                             className={cn(
                               "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border",
                               unit.status === "ativa"
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : "bg-gray-50 text-gray-500 border-gray-200",
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30"
+                                : "bg-muted text-muted-foreground border-border",
                             )}
                           >
                             {unit.status === "ativa" ? "Ativa" : "Inativa"}
@@ -2122,12 +2122,12 @@ export default function OrganizacaoPage({
               </div>
               {posImportResult.errorDetails &&
                 posImportResult.errorDetails.length > 0 && (
-                  <div className="text-left bg-red-50 border border-red-200 rounded-lg p-3 text-[12px] max-h-40 overflow-y-auto space-y-1">
-                    <p className="font-semibold text-red-700 mb-1">
+                  <div className="text-left bg-red-50 border border-red-200 rounded-lg p-3 text-[12px] max-h-40 overflow-y-auto space-y-1 dark:bg-red-500/10 dark:border-red-500/30">
+                    <p className="font-semibold text-red-700 mb-1 dark:text-red-300">
                       Detalhes dos erros:
                     </p>
                     {posImportResult.errorDetails.map((ed, i) => (
-                      <p key={i} className="text-red-600">
+                      <p key={i} className="text-red-600 dark:text-red-400">
                         <strong>Linha {(ed.index ?? 0) + 1}:</strong> {ed.title}{" "}
                         — {ed.error}
                       </p>

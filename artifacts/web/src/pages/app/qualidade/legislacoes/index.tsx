@@ -945,46 +945,46 @@ export default function LegislacoesPage() {
               </div>
               <div className="grid grid-cols-2 gap-3 text-[13px]">
                 {importResult.created > 0 && (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-center">
-                    <p className="text-2xl font-bold text-emerald-700">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-center dark:bg-emerald-500/10 dark:border-emerald-500/30">
+                    <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
                       {importResult.created}
                     </p>
-                    <p className="text-emerald-600">novas</p>
+                    <p className="text-emerald-600 dark:text-emerald-400">novas</p>
                   </div>
                 )}
                 {importResult.updated > 0 && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-                    <p className="text-2xl font-bold text-blue-700">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center dark:bg-blue-500/10 dark:border-blue-500/30">
+                    <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                       {importResult.updated}
                     </p>
-                    <p className="text-blue-600">atualizadas</p>
+                    <p className="text-blue-600 dark:text-blue-400">atualizadas</p>
                   </div>
                 )}
                 {importResult.skipped > 0 && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-                    <p className="text-2xl font-bold text-gray-700">
+                  <div className="bg-muted/40 border border-border rounded-lg p-3 text-center">
+                    <p className="text-2xl font-bold text-foreground">
                       {importResult.skipped}
                     </p>
-                    <p className="text-gray-600">ignoradas</p>
+                    <p className="text-muted-foreground">ignoradas</p>
                   </div>
                 )}
                 {importResult.errors > 0 && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
-                    <p className="text-2xl font-bold text-red-700">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center dark:bg-red-500/10 dark:border-red-500/30">
+                    <p className="text-2xl font-bold text-red-700 dark:text-red-300">
                       {importResult.errors}
                     </p>
-                    <p className="text-red-600">erros</p>
+                    <p className="text-red-600 dark:text-red-400">erros</p>
                   </div>
                 )}
               </div>
               {importResult.errorDetails &&
                 importResult.errorDetails.length > 0 && (
-                  <div className="text-left bg-red-50 border border-red-200 rounded-lg p-3 text-[12px] max-h-40 overflow-y-auto space-y-1">
-                    <p className="font-semibold text-red-700 mb-1">
+                  <div className="text-left bg-red-50 border border-red-200 rounded-lg p-3 text-[12px] max-h-40 overflow-y-auto space-y-1 dark:bg-red-500/10 dark:border-red-500/30">
+                    <p className="font-semibold text-red-700 mb-1 dark:text-red-300">
                       Detalhes dos erros:
                     </p>
                     {importResult.errorDetails.map((ed, i) => (
-                      <p key={i} className="text-red-600">
+                      <p key={i} className="text-red-600 dark:text-red-400">
                         <strong>Linha {ed.index + 1}:</strong> {ed.title} —{" "}
                         {ed.error}
                       </p>

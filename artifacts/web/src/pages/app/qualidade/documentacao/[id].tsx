@@ -80,11 +80,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  in_review: "bg-amber-50 text-amber-700 border-amber-200",
-  approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
-  distributed: "bg-blue-50 text-blue-700 border-blue-200",
+  draft: "bg-muted text-foreground",
+  in_review: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+  approved: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  rejected: "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
+  distributed: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -867,7 +867,7 @@ export default function DocumentDetailPage() {
         <div className="flex items-center gap-3 mb-2">
           <h1 className="text-xl font-semibold">{doc.title}</h1>
           <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium border ${STATUS_COLORS[doc.status] || "bg-gray-100 text-gray-700"}`}
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium border ${STATUS_COLORS[doc.status] || "bg-muted text-foreground"}`}
           >
             {STATUS_LABELS[doc.status] || doc.status}
           </span>
@@ -969,7 +969,7 @@ export default function DocumentDetailPage() {
                 {doc.references.map((r: DocumentDetailReferencesItem) => (
                   <span
                     key={r.id}
-                    className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-sm cursor-pointer hover:bg-blue-100 transition-colors"
+                    className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-sm cursor-pointer hover:bg-blue-100 transition-colors dark:bg-blue-500/15 dark:text-blue-300 dark:hover:bg-blue-500/25"
                     onClick={() =>
                       navigate(`/qualidade/documentacao/${r.documentId}`)
                     }
@@ -1169,7 +1169,7 @@ export default function DocumentDetailPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-500/10"
                             onClick={async () => {
                               try {
                                 await deleteCommunicationPlanMut.mutateAsync({
@@ -1285,7 +1285,7 @@ export default function DocumentDetailPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-500/10"
                         onClick={async () => {
                           if (!orgId) return;
                           if (
@@ -1322,7 +1322,7 @@ export default function DocumentDetailPage() {
               <Button
                 size="sm"
                 variant="outline"
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-500/10"
                 onClick={async () => {
                   if (!orgId) return;
                   if (
