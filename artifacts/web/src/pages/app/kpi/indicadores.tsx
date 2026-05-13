@@ -1,5 +1,8 @@
-import { useState } from "react";
-import { BarChart2, Pencil, Plus, Target, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Command as CommandPrimitive } from "cmdk";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { BarChart2, Check, ChevronsUpDown, Pencil, Plus, Search, Target, Trash2, X } from "lucide-react";
+import { listEmployees, useListUnits } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
@@ -8,10 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { YearPicker } from "@/components/ui/year-picker";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import {
   PERIODICITY_LABELS,
   type KpiIndicator,
@@ -29,6 +34,24 @@ import {
 } from "@/lib/kpi-client";
 
 const DEFAULT_YEAR = new Date().getFullYear();
+
+const MEASURE_UNIT_OPTIONS = [
+  "%",
+  "R$",
+  "R$/mês",
+  "Unidades",
+  "Hrs",
+  "Min",
+  "Dias",
+  "Km",
+  "Km/L",
+  "kg",
+  "ton",
+  "m²",
+  "m³",
+  "L",
+  "pts",
+] as const;
 
 type IndicatorFormData = {
   name: string;
@@ -54,6 +77,143 @@ const defaultIndicatorForm = (): IndicatorFormData => ({
   goal: "",
 });
 
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebounced(value), delay);
+    return () => window.clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
+type SearchableStringSelectProps = {
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+  placeholder?: string;
+  searchPlaceholder?: string;
+  emptyMessage?: string;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  isLoading?: boolean;
+  disabled?: boolean;
+};
+
+function SearchableStringSelect({
+  value,
+  onChange,
+  options,
+  placeholder = "Selecione...",
+  searchPlaceholder = "Buscar...",
+  emptyMessage = "Nenhum resultado.",
+  searchValue,
+  onSearchChange,
+  isLoading,
+  disabled,
+}: SearchableStringSelectProps) {
+  const [open, setOpen] = useState(false);
+  const [internalSearch, setInternalSearch] = useState("");
+  const serverFiltered = onSearchChange !== undefined;
+  const currentSearch = serverFiltered ? (searchValue ?? "") : internalSearch;
+  const handleSearchChange = serverFiltered ? onSearchChange : setInternalSearch;
+  const showLegacy = value !== "" && !options.includes(value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className={cn(
+            "h-9 w-full justify-between font-normal",
+            !value && "text-muted-foreground",
+          )}
+        >
+          <span className="truncate text-left">{value || placeholder}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={4}
+        className="w-[var(--radix-popover-trigger-width)] min-w-[260px] p-0"
+      >
+        <CommandPrimitive
+          loop
+          filter={serverFiltered ? () => 1 : undefined}
+          className="overflow-hidden rounded-md bg-popover"
+        >
+          <div className="flex items-center gap-2 border-b border-border px-3">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground/60" />
+            <CommandPrimitive.Input
+              value={currentSearch}
+              onValueChange={handleSearchChange}
+              placeholder={searchPlaceholder}
+              className="h-10 w-full border-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground/70"
+            />
+          </div>
+          <CommandPrimitive.List className="max-h-64 overflow-y-auto p-1">
+            {isLoading && options.length === 0 ? (
+              <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                Carregando...
+              </div>
+            ) : null}
+            <CommandPrimitive.Empty className="px-3 py-4 text-center text-xs text-muted-foreground">
+              {emptyMessage}
+            </CommandPrimitive.Empty>
+            {value && (
+              <CommandPrimitive.Item
+                value="__clear__"
+                onSelect={() => {
+                  onChange("");
+                  setOpen(false);
+                }}
+                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground data-[selected=true]:bg-muted"
+              >
+                <X className="h-3.5 w-3.5" /> Limpar seleção
+              </CommandPrimitive.Item>
+            )}
+            {showLegacy && (
+              <CommandPrimitive.Item
+                key={`__legacy_${value}`}
+                value={value}
+                onSelect={() => {
+                  onChange(value);
+                  setOpen(false);
+                }}
+                className="flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm data-[selected=true]:bg-muted"
+              >
+                <span className="truncate">{value}</span>
+                <Check className="h-3.5 w-3.5 text-primary" />
+              </CommandPrimitive.Item>
+            )}
+            {options.map((opt) => {
+              const isSelected = opt === value;
+              return (
+                <CommandPrimitive.Item
+                  key={opt}
+                  value={opt}
+                  onSelect={() => {
+                    onChange(opt);
+                    setOpen(false);
+                  }}
+                  className="flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm data-[selected=true]:bg-muted"
+                >
+                  <span className="truncate">{opt}</span>
+                  {isSelected && <Check className="h-3.5 w-3.5 text-primary" />}
+                </CommandPrimitive.Item>
+              );
+            })}
+          </CommandPrimitive.List>
+        </CommandPrimitive>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export default function KpiIndicadoresPage() {
   const { organization } = useAuth();
   const orgId = organization!.id;
@@ -76,6 +236,39 @@ export default function KpiIndicadoresPage() {
   const { data: indicators = [], isLoading } = useKpiIndicators(orgId);
   const { data: objectives = [] } = useKpiObjectives(orgId);
   const { data: yearRows = [] } = useKpiYearData(orgId, year);
+  const { data: orgUnits = [] } = useListUnits(orgId);
+
+  const [responsibleSearch, setResponsibleSearch] = useState("");
+  const debouncedResponsibleSearch = useDebouncedValue(responsibleSearch.trim(), 250);
+  const PAGE_SIZE = 100;
+  const { data: allEmployees = [], isFetching: isFetchingEmployees } = useQuery({
+    queryKey: ["kpi-all-employees", orgId, debouncedResponsibleSearch],
+    enabled: !!orgId,
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const search = debouncedResponsibleSearch || undefined;
+      const first = await listEmployees(orgId, { page: 1, pageSize: PAGE_SIZE, search });
+      if (first.pagination.totalPages <= 1) return first.data;
+      const remainingPages = Array.from(
+        { length: first.pagination.totalPages - 1 },
+        (_, i) => i + 2,
+      );
+      const rest = await Promise.all(
+        remainingPages.map((page) =>
+          listEmployees(orgId, { page, pageSize: PAGE_SIZE, search }),
+        ),
+      );
+      return rest.reduce((acc, r) => acc.concat(r.data), first.data);
+    },
+  });
+
+  const orgUnitOptions = orgUnits
+    .map((u) => u.name)
+    .sort((a, b) => a.localeCompare(b));
+  const employeeOptions = allEmployees
+    .map((e) => e.name)
+    .sort((a, b) => a.localeCompare(b));
 
   const createIndicator = useCreateKpiIndicatorWithInvalidation(orgId);
   const updateIndicator = useUpdateKpiIndicatorWithInvalidation(orgId);
@@ -399,27 +592,48 @@ export default function KpiIndicadoresPage() {
           </div>
           <div className="space-y-1.5">
             <Label>Unidade / filial</Label>
-            <Input
+            <SearchableStringSelect
               value={indicatorForm.unit}
-              onChange={(e) => setIndicatorForm((f) => ({ ...f, unit: e.target.value }))}
-              placeholder="Ex: Porto Alegre"
+              onChange={(v) => setIndicatorForm((f) => ({ ...f, unit: v }))}
+              options={orgUnitOptions}
+              placeholder="Selecione uma unidade"
+              searchPlaceholder="Buscar unidade..."
+              emptyMessage="Nenhuma unidade encontrada"
             />
           </div>
           <div className="space-y-1.5">
             <Label>Responsável</Label>
-            <Input
+            <SearchableStringSelect
               value={indicatorForm.responsible}
-              onChange={(e) => setIndicatorForm((f) => ({ ...f, responsible: e.target.value }))}
-              placeholder="Ex: Analista SGI"
+              onChange={(v) => setIndicatorForm((f) => ({ ...f, responsible: v }))}
+              options={employeeOptions}
+              searchValue={responsibleSearch}
+              onSearchChange={setResponsibleSearch}
+              isLoading={isFetchingEmployees}
+              placeholder="Selecione um responsável"
+              searchPlaceholder="Buscar colaborador..."
+              emptyMessage={
+                debouncedResponsibleSearch
+                  ? "Nenhum colaborador encontrado"
+                  : "Comece a digitar para buscar"
+              }
             />
           </div>
           <div className="space-y-1.5">
             <Label>Unidade de medida</Label>
-            <Input
+            <Select
               value={indicatorForm.measureUnit}
               onChange={(e) => setIndicatorForm((f) => ({ ...f, measureUnit: e.target.value }))}
-              placeholder="Ex: %, R$, Km/L, Hrs"
-            />
+            >
+              <option value="">Selecione uma unidade</option>
+              {indicatorForm.measureUnit &&
+                !MEASURE_UNIT_OPTIONS.includes(indicatorForm.measureUnit as (typeof MEASURE_UNIT_OPTIONS)[number]) && (
+                  <option value={indicatorForm.measureUnit}>{indicatorForm.measureUnit}</option>
+                )}
+              {MEASURE_UNIT_OPTIONS.map((u) => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label>Melhor resultado</Label>
