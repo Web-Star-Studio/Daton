@@ -21,6 +21,7 @@ import {
   PERIODICITY_LABELS,
   type KpiIndicator,
   type KpiObjective,
+  type KpiYearRow,
   useCreateKpiIndicatorWithInvalidation,
   useCreateKpiObjectiveWithInvalidation,
   useDeleteKpiIndicatorWithInvalidation,
@@ -221,6 +222,29 @@ function SearchableStringSelect({
       </PopoverContent>
     </Popover>
   );
+}
+
+function buildEditFormFromIndicator(
+  ind: KpiIndicator,
+  yearRows: KpiYearRow[],
+): IndicatorFormData {
+  const yearRow = yearRows.find((r) => r.indicator.id === ind.id);
+  const formulaText = formulaToNaturalText(
+    ind.formulaVariables ?? [],
+    ind.formulaExpression ?? "",
+  );
+  return {
+    name: ind.name,
+    formulaText,
+    unit: ind.unit ?? "",
+    responsible: ind.responsible ?? "",
+    measureUnit: ind.measureUnit ?? "",
+    direction: ind.direction as "up" | "down",
+    periodicity: ind.periodicity as IndicatorFormData["periodicity"],
+    objectiveId:
+      yearRow?.yearConfig.objectiveId != null ? String(yearRow.yearConfig.objectiveId) : "",
+    goal: yearRow?.yearConfig.goal != null ? String(yearRow.yearConfig.goal) : "",
+  };
 }
 
 export default function KpiIndicadoresPage() {
@@ -581,22 +605,7 @@ export default function KpiIndicadoresPage() {
                           className="h-7 w-7"
                           onClick={() => {
                             setEditingIndicator(ind);
-                            const yearRow = yearRows.find((r) => r.indicator.id === ind.id);
-                            const formulaText = formulaToNaturalText(
-                              ind.formulaVariables ?? [],
-                              ind.formulaExpression ?? "",
-                            );
-                            setIndicatorForm({
-                              name: ind.name,
-                              formulaText,
-                              unit: ind.unit ?? "",
-                              responsible: ind.responsible ?? "",
-                              measureUnit: ind.measureUnit ?? "",
-                              direction: ind.direction as "up" | "down",
-                              periodicity: ind.periodicity as IndicatorFormData["periodicity"],
-                              objectiveId: yearRow?.yearConfig.objectiveId != null ? String(yearRow.yearConfig.objectiveId) : "",
-                              goal: yearRow?.yearConfig.goal != null ? String(yearRow.yearConfig.goal) : "",
-                            });
+                            setIndicatorForm(buildEditFormFromIndicator(ind, yearRows));
                             setIndicatorDialog(true);
                           }}
                         >

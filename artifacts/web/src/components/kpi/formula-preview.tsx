@@ -10,6 +10,12 @@ interface FormulaPreviewProps {
   variables: FormulaVariable[];
   /** Sizing variant for the chips/text. */
   size?: "sm" | "md";
+  /**
+   * Optional map of variable key → current value. When provided, variable
+   * chips render the substituted value (numeric, emerald chip) instead of
+   * the label (blue chip). Variables without a value keep the label chip.
+   */
+  inputs?: Record<string, number | null>;
   className?: string;
 }
 
@@ -25,6 +31,7 @@ export function FormulaPreview({
   expression,
   variables,
   size = "md",
+  inputs,
   className,
 }: FormulaPreviewProps) {
   const ast = parseFormulaAst(expression, variables);
@@ -32,7 +39,7 @@ export function FormulaPreview({
 
   return (
     <div className={cn("flex items-center justify-center", className)}>
-      <FormulaNode node={ast} size={size} parentOp={null} side="root" />
+      <FormulaNode node={ast} size={size} parentOp={null} side="root" inputs={inputs} />
     </div>
   );
 }
@@ -44,6 +51,7 @@ interface NodeProps {
   size: "sm" | "md";
   parentOp: InlineOp | "/" | null;
   side: "left" | "right" | "root" | "num" | "den";
+  inputs?: Record<string, number | null>;
 }
 
 function precedence(op: "+" | "-" | "*" | "/"): number {
@@ -82,22 +90,22 @@ function needsParens(node: FormulaAst, props: NodeProps): boolean {
   return false;
 }
 
-function FormulaNode({ node, size, parentOp, side }: NodeProps) {
+function FormulaNode({ node, size, parentOp, side, inputs }: NodeProps) {
   const wrap = needsParens(node, { node, size, parentOp, side });
 
   if (node.type === "num") {
     return <NumLiteral value={node.value} size={size} />;
   }
   if (node.type === "var") {
-    return <VarChip label={node.label} size={size} />;
+    return <VarChip label={node.label} value={inputs?.[node.key]} size={size} />;
   }
 
   // op
   if (node.op === "/") {
     return (
       <Fraction
-        numerator={<FormulaNode node={node.left} size={size} parentOp="/" side="num" />}
-        denominator={<FormulaNode node={node.right} size={size} parentOp="/" side="den" />}
+        numerator={<FormulaNode node={node.left} size={size} parentOp="/" side="num" inputs={inputs} />}
+        denominator={<FormulaNode node={node.right} size={size} parentOp="/" side="den" inputs={inputs} />}
       />
     );
   }
@@ -105,9 +113,9 @@ function FormulaNode({ node, size, parentOp, side }: NodeProps) {
   const symbol = node.op === "*" ? "×" : node.op === "-" ? "−" : "+";
   const content = (
     <span className={cn("inline-flex items-center", size === "sm" ? "gap-1.5" : "gap-2")}>
-      <FormulaNode node={node.left} size={size} parentOp={node.op} side="left" />
+      <FormulaNode node={node.left} size={size} parentOp={node.op} side="left" inputs={inputs} />
       <span className={cn("text-muted-foreground", size === "sm" ? "text-sm" : "text-base")}>{symbol}</span>
-      <FormulaNode node={node.right} size={size} parentOp={node.op} side="right" />
+      <FormulaNode node={node.right} size={size} parentOp={node.op} side="right" inputs={inputs} />
     </span>
   );
 
@@ -133,9 +141,32 @@ function Fraction({ numerator, denominator }: { numerator: React.ReactNode; deno
   );
 }
 
-function VarChip({ label, size }: { label: string; size: "sm" | "md" }) {
+function VarChip({
+  label,
+  value,
+  size,
+}: {
+  label: string;
+  value?: number | null;
+  size: "sm" | "md";
+}) {
+  const hasValue = value != null && Number.isFinite(value);
+  if (hasValue) {
+    return (
+      <span
+        title={label}
+        className={cn(
+          "inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 font-mono font-semibold text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300",
+          size === "sm" ? "px-2 py-0.5 text-xs" : "px-2.5 py-0.5 text-sm",
+        )}
+      >
+        {value.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}
+      </span>
+    );
+  }
   return (
     <span
+      title={label}
       className={cn(
         "inline-flex items-center rounded-full border border-primary/30 bg-primary/10 font-medium text-primary",
         size === "sm" ? "px-2 py-0.5 text-xs" : "px-2.5 py-0.5 text-sm",

@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { useLocation } from "wouter";
 import { AlertTriangle, ClipboardPaste, Settings2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
@@ -10,10 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { YearPicker } from "@/components/ui/year-picker";
+import { FormulaBuilder } from "@/components/kpi/formula-builder";
 import { FormulaCellEditor } from "@/components/kpi/formula-cell-editor";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-import { hasValidFormula } from "@/lib/formula-evaluator";
+import {
+  buildMeasurementLabel,
+  formulaToNaturalText,
+  hasValidFormula,
+  parseNaturalFormula,
+  validateFormula,
+} from "@/lib/formula-evaluator";
 import {
   MONTH_LABELS,
   PERIODICITY_LABELS,
@@ -25,6 +31,7 @@ import {
   type KpiYearRow,
   useKpiObjectives,
   useKpiYearData,
+  useUpdateKpiIndicatorWithInvalidation,
   useUpsertKpiValuesWithInvalidation,
   useUpsertKpiYearConfigWithInvalidation,
 } from "@/lib/kpi-client";
@@ -40,7 +47,6 @@ type ConfigFormData = {
 export default function KpiAlimentacaoPage() {
   const { organization } = useAuth();
   const orgId = organization!.id;
-  const [, navigate] = useLocation();
 
   usePageTitle("Lançamento de Dados");
   usePageSubtitle("Insira os valores mensais dos indicadores");
@@ -55,9 +61,55 @@ export default function KpiAlimentacaoPage() {
   const { data: objectives = [] } = useKpiObjectives(orgId);
   const upsertConfig = useUpsertKpiYearConfigWithInvalidation(orgId, year);
   const upsertValues = useUpsertKpiValuesWithInvalidation(orgId, year);
+  const updateIndicator = useUpdateKpiIndicatorWithInvalidation(orgId);
 
   const [pasteDialog, setPasteDialog] = useState<KpiYearRow | null>(null);
   const [pasteInput, setPasteInput] = useState("");
+
+  const [formulaDialog, setFormulaDialog] = useState<KpiYearRow | null>(null);
+  const [formulaDraft, setFormulaDraft] = useState("");
+
+  function openFormulaDialog(row: KpiYearRow) {
+    const initial = formulaToNaturalText(
+      row.indicator.formulaVariables ?? [],
+      row.indicator.formulaExpression ?? "",
+    );
+    setFormulaDraft(initial);
+    setFormulaDialog(row);
+  }
+
+  async function handleSaveFormula() {
+    if (!formulaDialog) return;
+    const parsed = parseNaturalFormula(formulaDraft);
+    const check = validateFormula(parsed.expression, parsed.variables);
+    if (!check.ok) {
+      toast({ title: `Fórmula inválida: ${check.error}`, variant: "destructive" });
+      return;
+    }
+    const measurement = buildMeasurementLabel(parsed.variables, parsed.expression);
+    try {
+      await updateIndicator.mutateAsync({
+        orgId,
+        indicatorId: formulaDialog.indicator.id,
+        data: {
+          name: formulaDialog.indicator.name,
+          measurement,
+          formulaVariables: parsed.variables,
+          formulaExpression: parsed.expression,
+          direction: formulaDialog.indicator.direction,
+          periodicity: formulaDialog.indicator.periodicity,
+        },
+      });
+      toast({ title: "Fórmula atualizada" });
+      setFormulaDialog(null);
+    } catch (err) {
+      toast({
+        title: "Falha ao salvar fórmula",
+        description: err instanceof Error ? err.message : undefined,
+        variant: "destructive",
+      });
+    }
+  }
 
   const parsedPasteValues = useMemo((): (number | null)[] => {
     if (!pasteInput.trim()) return Array(12).fill(null);
@@ -243,17 +295,27 @@ export default function KpiAlimentacaoPage() {
                         <button
                           type="button"
                           className="line-clamp-2 leading-tight text-left hover:text-primary hover:underline underline-offset-2 cursor-pointer flex-1"
-                          title={validFormula ? "Colar valores do Excel" : "Indicador sem fórmula válida — não é possível colar valores"}
-                          onClick={() => { if (validFormula) { setPasteDialog(row); setPasteInput(""); } else { navigate("/kpi/indicadores"); } }}
+                          title="Ver e editar a fórmula deste indicador"
+                          onClick={() => openFormulaDialog(row)}
                         >
                           {row.indicator.name}
                         </button>
+                        {validFormula && (
+                          <button
+                            type="button"
+                            className="shrink-0 text-muted-foreground hover:text-foreground"
+                            title="Colar valores do Excel (12 meses de uma vez)"
+                            onClick={() => { setPasteDialog(row); setPasteInput(""); }}
+                          >
+                            <ClipboardPaste className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         {!validFormula && (
                           <button
                             type="button"
                             className="shrink-0 text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300"
                             title="Fórmula inválida ou ausente — clique para configurar"
-                            onClick={() => navigate("/kpi/indicadores")}
+                            onClick={() => openFormulaDialog(row)}
                           >
                             <AlertTriangle className="h-3.5 w-3.5" />
                           </button>
@@ -311,7 +373,7 @@ export default function KpiAlimentacaoPage() {
                             <button
                               type="button"
                               className="w-full text-[10px] text-amber-600 dark:text-amber-400 italic underline-offset-2 hover:underline hover:text-amber-700 dark:hover:text-amber-300 cursor-pointer"
-                              onClick={() => navigate("/kpi/indicadores")}
+                              onClick={() => openFormulaDialog(row)}
                               title="Configure uma fórmula válida para lançar valores"
                             >
                               {row.indicator.formulaVariables && row.indicator.formulaVariables.length > 0
@@ -360,6 +422,33 @@ export default function KpiAlimentacaoPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Formula editor dialog */}
+      {formulaDialog && (
+        <Dialog
+          open
+          onOpenChange={() => setFormulaDialog(null)}
+          title="Editar fórmula"
+          description={formulaDialog.indicator.name}
+          size="lg"
+        >
+          <div className="space-y-3 py-1">
+            <FormulaBuilder value={formulaDraft} onChange={setFormulaDraft} />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setFormulaDialog(null)}
+              disabled={updateIndicator.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveFormula} disabled={updateIndicator.isPending}>
+              {updateIndicator.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </Dialog>
+      )}
 
       {/* Paste from Excel dialog */}
       {pasteDialog && (

@@ -98,11 +98,15 @@ export function FormulaCellEditor({
         <button
           type="button"
           className={cn(
-            "w-full h-full text-right cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "block w-full min-h-[1.5rem] text-right cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring hover:bg-foreground/5 rounded-sm px-1",
             triggerClassName,
           )}
         >
-          {children ?? <span>{value != null ? formatNumber(value) : ""}</span>}
+          {children ?? (
+            <span className={value != null ? "" : "text-muted-foreground/40"}>
+              {value != null ? formatNumber(value) : "·"}
+            </span>
+          )}
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -125,6 +129,7 @@ export function FormulaCellEditor({
                 expression={expression}
                 variables={variables}
                 size="sm"
+                inputs={parsedInputs}
               />
             </div>
           )}
