@@ -200,15 +200,15 @@ function statusLabel(status: string) {
 
 function statusBadgeClass(status: string) {
   const classes: Record<string, string> = {
-    draft: "border-slate-200 bg-slate-100 text-slate-700",
-    pending_qualification: "border-amber-200 bg-amber-50 text-amber-700",
-    approved: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    restricted: "border-orange-200 bg-orange-50 text-orange-700",
-    blocked: "border-red-200 bg-red-50 text-red-700",
-    expired: "border-rose-200 bg-rose-50 text-rose-700",
-    inactive: "border-zinc-200 bg-zinc-100 text-zinc-700",
+    draft: "border-border bg-muted text-foreground",
+    pending_qualification: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300",
+    approved: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300",
+    restricted: "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/30 dark:bg-orange-500/15 dark:text-orange-300",
+    blocked: "border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-300",
+    expired: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/15 dark:text-rose-300",
+    inactive: "border-border bg-muted text-muted-foreground",
   };
-  return classes[status] || "border-slate-200 bg-slate-100 text-slate-700";
+  return classes[status] || "border-border bg-muted text-foreground";
 }
 
 function personTypeLabel(personType: SupplierDetail["personType"]) {

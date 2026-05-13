@@ -1,4 +1,5 @@
-import { integer, numeric, pgTable, serial, text, timestamp, unique, varchar } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { integer, jsonb, numeric, pgTable, serial, text, timestamp, unique, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
@@ -12,6 +13,9 @@ export type KpiPeriodicity =
   | "monthly_15d"
   | "monthly_45d";
 export type KpiFeedStatus = "fed" | "overdue";
+
+export type KpiFormulaVariable = { key: string; label: string };
+export type KpiMonthlyValueInputs = Record<string, number | null>;
 
 export const kpiObjectivesTable = pgTable("kpi_objectives", {
   id: serial("id").primaryKey(),
@@ -27,6 +31,11 @@ export const kpiIndicatorsTable = pgTable("kpi_indicators", {
   organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
   name: text("name").notNull(),
   measurement: text("measurement").notNull(),
+  formulaVariables: jsonb("formula_variables")
+    .$type<KpiFormulaVariable[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  formulaExpression: text("formula_expression").notNull().default(""),
   unit: varchar("unit", { length: 200 }),
   responsible: varchar("responsible", { length: 200 }),
   measureUnit: varchar("measure_unit", { length: 50 }),
@@ -56,6 +65,10 @@ export const kpiMonthlyValuesTable = pgTable("kpi_monthly_values", {
   yearConfigId: integer("year_config_id").notNull().references(() => kpiYearConfigsTable.id, { onDelete: "cascade" }),
   month: integer("month").notNull(),
   value: numeric("value", { precision: 15, scale: 4 }),
+  inputs: jsonb("inputs")
+    .$type<KpiMonthlyValueInputs>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

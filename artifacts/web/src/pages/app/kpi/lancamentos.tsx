@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { ClipboardPaste, Settings2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertTriangle, ClipboardPaste, Settings2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Badge } from "@/components/ui/badge";
@@ -9,8 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { YearPicker } from "@/components/ui/year-picker";
+import { FormulaBuilder } from "@/components/kpi/formula-builder";
+import { FormulaCellEditor } from "@/components/kpi/formula-cell-editor";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import {
+  buildMeasurementLabel,
+  formulaToNaturalText,
+  hasValidFormula,
+  parseNaturalFormula,
+  validateFormula,
+} from "@/lib/formula-evaluator";
 import {
   MONTH_LABELS,
   PERIODICITY_LABELS,
@@ -22,6 +31,7 @@ import {
   type KpiYearRow,
   useKpiObjectives,
   useKpiYearData,
+  useUpdateKpiIndicatorWithInvalidation,
   useUpsertKpiValuesWithInvalidation,
   useUpsertKpiYearConfigWithInvalidation,
 } from "@/lib/kpi-client";
@@ -43,6 +53,7 @@ export default function KpiAlimentacaoPage() {
 
   const [year, setYear] = useState(CURRENT_YEAR);
   const [unitFilter, setUnitFilter] = useState("");
+  const [objectiveFilter, setObjectiveFilter] = useState("");
   const [configDialog, setConfigDialog] = useState<KpiYearRow | null>(null);
   const [configForm, setConfigForm] = useState<ConfigFormData>({ objectiveId: "", seq: "", goal: "" });
 
@@ -50,13 +61,55 @@ export default function KpiAlimentacaoPage() {
   const { data: objectives = [] } = useKpiObjectives(orgId);
   const upsertConfig = useUpsertKpiYearConfigWithInvalidation(orgId, year);
   const upsertValues = useUpsertKpiValuesWithInvalidation(orgId, year);
-
-  const [editingCell, setEditingCell] = useState<{ rowId: number; month: number } | null>(null);
-  const [cellValue, setCellValue] = useState("");
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const updateIndicator = useUpdateKpiIndicatorWithInvalidation(orgId);
 
   const [pasteDialog, setPasteDialog] = useState<KpiYearRow | null>(null);
   const [pasteInput, setPasteInput] = useState("");
+
+  const [formulaDialog, setFormulaDialog] = useState<KpiYearRow | null>(null);
+  const [formulaDraft, setFormulaDraft] = useState("");
+
+  function openFormulaDialog(row: KpiYearRow) {
+    const initial = formulaToNaturalText(
+      row.indicator.formulaVariables ?? [],
+      row.indicator.formulaExpression ?? "",
+    );
+    setFormulaDraft(initial);
+    setFormulaDialog(row);
+  }
+
+  async function handleSaveFormula() {
+    if (!formulaDialog) return;
+    const parsed = parseNaturalFormula(formulaDraft);
+    const check = validateFormula(parsed.expression, parsed.variables);
+    if (!check.ok) {
+      toast({ title: `Fórmula inválida: ${check.error}`, variant: "destructive" });
+      return;
+    }
+    const measurement = buildMeasurementLabel(parsed.variables, parsed.expression);
+    try {
+      await updateIndicator.mutateAsync({
+        orgId,
+        indicatorId: formulaDialog.indicator.id,
+        data: {
+          name: formulaDialog.indicator.name,
+          measurement,
+          formulaVariables: parsed.variables,
+          formulaExpression: parsed.expression,
+          direction: formulaDialog.indicator.direction,
+          periodicity: formulaDialog.indicator.periodicity,
+        },
+      });
+      toast({ title: "Fórmula atualizada" });
+      setFormulaDialog(null);
+    } catch (err) {
+      toast({
+        title: "Falha ao salvar fórmula",
+        description: err instanceof Error ? err.message : undefined,
+        variant: "destructive",
+      });
+    }
+  }
 
   const parsedPasteValues = useMemo((): (number | null)[] => {
     if (!pasteInput.trim()) return Array(12).fill(null);
@@ -72,9 +125,14 @@ export default function KpiAlimentacaoPage() {
     allYearRows.map((r) => r.indicator.unit).filter(Boolean) as string[]
   )].sort();
 
-  const yearRows = unitFilter
-    ? allYearRows.filter((r) => r.indicator.unit === unitFilter)
-    : allYearRows;
+  const hasUnlinkedRows = allYearRows.some((r) => !r.objective);
+
+  const yearRows = allYearRows.filter((r) => {
+    if (unitFilter && r.indicator.unit !== unitFilter) return false;
+    if (objectiveFilter === "none") return !r.objective;
+    if (objectiveFilter && String(r.objective?.id ?? "") !== objectiveFilter) return false;
+    return true;
+  });
 
   function formatNumber(v: number | null | undefined): string {
     if (v === null || v === undefined) return "—";
@@ -110,29 +168,28 @@ export default function KpiAlimentacaoPage() {
     }
   }
 
-  const commitCellValue = useCallback(
-    async (indicatorId: number, month: number, rawValue: string) => {
-      const numValue = rawValue.trim() === "" ? null : parseFloat(rawValue.replace(",", "."));
-      if (rawValue.trim() !== "" && (numValue === null || isNaN(numValue))) return;
-
-      try {
-        await upsertValues.mutateAsync({
-          orgId,
-          indicatorId,
-          year,
-          data: { values: [{ month, value: numValue }] },
-        });
-      } catch {
-        toast({ title: "Erro ao salvar valor", variant: "destructive" });
-      }
-    },
-    [orgId, year, upsertValues],
-  );
+  async function saveCell(
+    indicatorId: number,
+    month: number,
+    value: number | null,
+    inputs: Record<string, number | null>,
+  ) {
+    try {
+      await upsertValues.mutateAsync({
+        orgId,
+        indicatorId,
+        year,
+        data: { values: [{ month, value, inputs }] },
+      });
+    } catch {
+      toast({ title: "Erro ao salvar valor", variant: "destructive" });
+    }
+  }
 
   async function handleSavePaste() {
     if (!pasteDialog) return;
     const values = parsedPasteValues
-      .map((value, i) => ({ month: i + 1, value }))
+      .map((value, i) => ({ month: i + 1, value, inputs: {} as Record<string, number | null> }))
       .filter((v) => v.value !== null);
     if (values.length === 0) {
       toast({ title: "Nenhum valor válido para salvar", variant: "destructive" });
@@ -143,7 +200,7 @@ export default function KpiAlimentacaoPage() {
         orgId,
         indicatorId: pasteDialog.indicator.id,
         year,
-        data: { values: values as { month: number; value: number }[] },
+        data: { values },
       });
       toast({ title: `${values.length} valor${values.length !== 1 ? "es" : ""} salvos` });
       setPasteDialog(null);
@@ -151,14 +208,6 @@ export default function KpiAlimentacaoPage() {
     } catch {
       toast({ title: "Erro ao salvar valores", variant: "destructive" });
     }
-  }
-
-  function handleCellBlur(row: KpiYearRow, month: number) {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      commitCellValue(row.indicator.id, month, cellValue);
-      setEditingCell(null);
-    }, 100);
   }
 
   return (
@@ -174,30 +223,40 @@ export default function KpiAlimentacaoPage() {
           ))}
         </Select>
 
+        <Select value={objectiveFilter} onChange={(e) => setObjectiveFilter(e.target.value)} className="w-64">
+          <option value="">Todos os objetivos</option>
+          {objectives.map((o) => (
+            <option key={o.id} value={String(o.id)}>
+              {o.code ? `${o.code} · ${o.name}` : o.name}
+            </option>
+          ))}
+          {hasUnlinkedRows && <option value="none">Sem objetivo vinculado</option>}
+        </Select>
+
         <span className="text-sm text-muted-foreground">
           {yearRows.length} indicador{yearRows.length !== 1 ? "es" : ""}
         </span>
       </div>
 
       {/* Spreadsheet table */}
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="overflow-auto rounded-lg border max-h-[calc(100vh-14rem)]">
         <table className="w-full text-xs border-collapse">
           <thead>
-            <tr className="bg-muted/60">
-              <th className="border px-2 py-2 text-left font-medium sticky left-0 bg-muted/60 min-w-[200px]">Indicador</th>
-              <th className="border px-2 py-2 text-left font-medium min-w-[120px]">Objetivo</th>
-              <th className="border px-2 py-2 text-left font-medium min-w-[80px]">Unidade</th>
-              <th className="border px-2 py-2 text-right font-medium min-w-[70px]">Meta</th>
+            <tr>
+              <th className="border px-2 py-2 text-left font-medium sticky top-0 left-0 z-30 bg-muted min-w-[200px]">Indicador</th>
+              <th className="border px-2 py-2 text-left font-medium sticky top-0 z-20 bg-muted min-w-[120px]">Objetivo</th>
+              <th className="border px-2 py-2 text-left font-medium sticky top-0 z-20 bg-muted min-w-[80px]">Unidade</th>
+              <th className="border px-2 py-2 text-right font-medium sticky top-0 z-20 bg-muted min-w-[70px]">Meta</th>
               {MONTH_LABELS.map((m) => (
-                <th key={m} className="border px-2 py-2 text-right font-medium min-w-[55px]">{m}</th>
+                <th key={m} className="border px-2 py-2 text-right font-medium sticky top-0 z-20 bg-muted min-w-[55px]">{m}</th>
               ))}
-              <th className="border px-2 py-2 text-right font-medium min-w-[60px]">Média</th>
-              <th className="border px-2 py-2 text-right font-medium min-w-[70px]">Acumulado</th>
-              <th className="border px-2 py-2 text-right font-medium min-w-[60px]">Progress.</th>
-              <th className="border px-2 py-2 text-center font-medium min-w-[70px]">RAC 1°S</th>
-              <th className="border px-2 py-2 text-center font-medium min-w-[70px]">RAC 2°S</th>
-              <th className="border px-2 py-2 text-center font-medium min-w-[70px]">Status</th>
-              <th className="border px-2 py-2 text-center font-medium min-w-[40px]" />
+              <th className="border px-2 py-2 text-right font-medium sticky top-0 z-20 bg-muted min-w-[60px]">Média</th>
+              <th className="border px-2 py-2 text-right font-medium sticky top-0 z-20 bg-muted min-w-[70px]">Acumulado</th>
+              <th className="border px-2 py-2 text-right font-medium sticky top-0 z-20 bg-muted min-w-[60px]">Progress.</th>
+              <th className="border px-2 py-2 text-center font-medium sticky top-0 z-20 bg-muted min-w-[70px]">RAC 1°S</th>
+              <th className="border px-2 py-2 text-center font-medium sticky top-0 z-20 bg-muted min-w-[70px]">RAC 2°S</th>
+              <th className="border px-2 py-2 text-center font-medium sticky top-0 z-20 bg-muted min-w-[70px]">Status</th>
+              <th className="border px-2 py-2 text-center font-medium sticky top-0 z-20 bg-muted min-w-[40px]" />
             </tr>
           </thead>
           <tbody>
@@ -224,17 +283,44 @@ export default function KpiAlimentacaoPage() {
                   direction,
                 );
 
+                const validFormula = hasValidFormula(
+                  row.indicator.formulaVariables,
+                  row.indicator.formulaExpression,
+                );
+
                 return (
                   <tr key={row.yearConfig.id} className="hover:bg-muted/20">
-                    <td className="border px-2 py-1.5 sticky left-0 bg-white font-medium">
-                      <button
-                        type="button"
-                        className="line-clamp-2 leading-tight text-left hover:text-primary hover:underline underline-offset-2 cursor-pointer w-full"
-                        title="Colar valores do Excel"
-                        onClick={() => { setPasteDialog(row); setPasteInput(""); }}
-                      >
-                        {row.indicator.name}
-                      </button>
+                    <td className="border px-2 py-1.5 sticky left-0 z-10 bg-card font-medium">
+                      <div className="flex items-start gap-1.5">
+                        <button
+                          type="button"
+                          className="line-clamp-2 leading-tight text-left hover:text-primary hover:underline underline-offset-2 cursor-pointer flex-1"
+                          title="Ver e editar a fórmula deste indicador"
+                          onClick={() => openFormulaDialog(row)}
+                        >
+                          {row.indicator.name}
+                        </button>
+                        {validFormula && (
+                          <button
+                            type="button"
+                            className="shrink-0 text-muted-foreground hover:text-foreground"
+                            title="Colar valores do Excel (12 meses de uma vez)"
+                            onClick={() => { setPasteDialog(row); setPasteInput(""); }}
+                          >
+                            <ClipboardPaste className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {!validFormula && (
+                          <button
+                            type="button"
+                            className="shrink-0 text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300"
+                            title="Fórmula inválida ou ausente — clique para configurar"
+                            onClick={() => openFormulaDialog(row)}
+                          >
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                       <div className="text-muted-foreground text-[10px] mt-0.5">
                         {PERIODICITY_LABELS[row.indicator.periodicity as keyof typeof PERIODICITY_LABELS] ?? row.indicator.periodicity}
                         {" · "}
@@ -259,40 +345,41 @@ export default function KpiAlimentacaoPage() {
                     {MONTH_LABELS.map((_, idx) => {
                       const month = idx + 1;
                       const val = monthValues[idx];
+                      const monthCell = row.monthlyValues[idx];
                       const status = getTrafficLight(val, row.yearConfig.goal, direction);
-                      const isEditing = editingCell?.rowId === row.yearConfig.id && editingCell.month === month;
 
                       return (
                         <td
                           key={month}
                           className={cn(
-                            "border px-1 py-0.5 text-right cursor-pointer",
-                            !isEditing && status && trafficLightColor(status),
+                            "border px-1 py-0.5 text-right",
+                            status && trafficLightColor(status),
                           )}
-                          onClick={() => {
-                            setEditingCell({ rowId: row.yearConfig.id, month });
-                            setCellValue(val != null ? String(val) : "");
-                          }}
                         >
-                          {isEditing ? (
-                            <input
-                              autoFocus
-                              type="text"
-                              value={cellValue}
-                              onChange={(e) => setCellValue(e.target.value)}
-                              onBlur={() => handleCellBlur(row, month)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === "Tab") {
-                                  e.preventDefault();
-                                  handleCellBlur(row, month);
-                                }
-                                if (e.key === "Escape") setEditingCell(null);
-                              }}
-                              className="w-full text-right bg-transparent outline-none border-b border-primary text-xs"
-                              style={{ minWidth: 40 }}
+                          {validFormula ? (
+                            <FormulaCellEditor
+                              indicatorName={row.indicator.name}
+                              variables={row.indicator.formulaVariables}
+                              expression={row.indicator.formulaExpression}
+                              measurement={row.indicator.measurement}
+                              value={val}
+                              inputs={monthCell?.inputs ?? {}}
+                              formatNumber={formatNumber}
+                              onSave={({ value, inputs }) =>
+                                saveCell(row.indicator.id, month, value, inputs)
+                              }
                             />
                           ) : (
-                            <span>{val != null ? formatNumber(val) : ""}</span>
+                            <button
+                              type="button"
+                              className="w-full text-[10px] text-amber-600 dark:text-amber-400 italic underline-offset-2 hover:underline hover:text-amber-700 dark:hover:text-amber-300 cursor-pointer"
+                              onClick={() => openFormulaDialog(row)}
+                              title="Configure uma fórmula válida para lançar valores"
+                            >
+                              {row.indicator.formulaVariables && row.indicator.formulaVariables.length > 0
+                                ? "fórmula inválida"
+                                : "sem fórmula"}
+                            </button>
                           )}
                         </td>
                       );
@@ -311,8 +398,8 @@ export default function KpiAlimentacaoPage() {
                     </td>
                     <td className="border px-1 py-1.5 text-center">
                       <Badge
-                        variant="outline"
-                        className={cn("text-[10px] px-1", row.feedStatus === "fed" ? "border-green-500 text-green-700" : "border-orange-500 text-orange-700")}
+                        variant={row.feedStatus === "fed" ? "success" : "warning"}
+                        className="text-[10px] px-1"
                       >
                         {row.feedStatus === "fed" ? "OK" : "Vencido"}
                       </Badge>
@@ -335,6 +422,33 @@ export default function KpiAlimentacaoPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Formula editor dialog */}
+      {formulaDialog && (
+        <Dialog
+          open
+          onOpenChange={() => setFormulaDialog(null)}
+          title="Editar fórmula"
+          description={formulaDialog.indicator.name}
+          size="lg"
+        >
+          <div className="space-y-3 py-1">
+            <FormulaBuilder value={formulaDraft} onChange={setFormulaDraft} />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setFormulaDialog(null)}
+              disabled={updateIndicator.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveFormula} disabled={updateIndicator.isPending}>
+              {updateIndicator.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </Dialog>
+      )}
 
       {/* Paste from Excel dialog */}
       {pasteDialog && (

@@ -138,7 +138,7 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
                   className={`px-6 py-4 border-b border-border/40 hover:bg-muted/50 transition-colors cursor-pointer ${
-                    !notification.read ? "bg-blue-50/30" : ""
+                    !notification.read ? "bg-blue-50/30 dark:bg-blue-500/10" : ""
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3 mb-1.5">
@@ -176,7 +176,7 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
             <button
               onClick={handleClearAll}
               disabled={clearAllMut.isPending}
-              className="px-3 py-1 rounded-lg text-red-500 text-[12px] font-medium hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-50"
+              className="px-3 py-1 rounded-lg text-red-500 text-[12px] font-medium hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer disabled:opacity-50 dark:hover:bg-red-500/10 dark:hover:text-red-400"
             >
               {clearAllMut.isPending ? "Limpando..." : "Limpar tudo"}
             </button>

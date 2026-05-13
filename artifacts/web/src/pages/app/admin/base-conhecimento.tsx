@@ -87,9 +87,9 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-50 text-gray-600 border-gray-200",
-  published: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  archived: "bg-amber-50 text-amber-700 border-amber-200",
+  draft: "bg-muted text-muted-foreground border-border",
+  published: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  archived: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
 };
 
 const INDEX_STATUS_LABELS: Record<string, string> = {
@@ -452,7 +452,7 @@ export default function ProductKnowledgeAdminPage() {
             </div>
 
             {detail.lastIndexError && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
                 {detail.lastIndexError}
               </div>
             )}

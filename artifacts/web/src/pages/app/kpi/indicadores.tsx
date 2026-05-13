@@ -13,14 +13,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { YearPicker } from "@/components/ui/year-picker";
+import { FormulaBuilder } from "@/components/kpi/formula-builder";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   PERIODICITY_LABELS,
   type KpiIndicator,
   type KpiObjective,
+  type KpiYearRow,
   useCreateKpiIndicatorWithInvalidation,
   useCreateKpiObjectiveWithInvalidation,
   useDeleteKpiIndicatorWithInvalidation,
@@ -32,6 +33,14 @@ import {
   useUpdateKpiObjectiveWithInvalidation,
   useUpsertKpiYearConfigWithInvalidation,
 } from "@/lib/kpi-client";
+import { AlertTriangle } from "lucide-react";
+import {
+  buildMeasurementLabel,
+  formulaToNaturalText,
+  hasValidFormula,
+  parseNaturalFormula,
+  validateFormula,
+} from "@/lib/formula-evaluator";
 
 const DEFAULT_YEAR = new Date().getFullYear();
 
@@ -55,7 +64,8 @@ const MEASURE_UNIT_OPTIONS = [
 
 type IndicatorFormData = {
   name: string;
-  measurement: string;
+  /** Natural-language formula text — parsed into variables + expression on save. */
+  formulaText: string;
   unit: string;
   responsible: string;
   measureUnit: string;
@@ -67,7 +77,7 @@ type IndicatorFormData = {
 
 const defaultIndicatorForm = (): IndicatorFormData => ({
   name: "",
-  measurement: "",
+  formulaText: "",
   unit: "",
   responsible: "",
   measureUnit: "",
@@ -214,6 +224,29 @@ function SearchableStringSelect({
   );
 }
 
+function buildEditFormFromIndicator(
+  ind: KpiIndicator,
+  yearRows: KpiYearRow[],
+): IndicatorFormData {
+  const yearRow = yearRows.find((r) => r.indicator.id === ind.id);
+  const formulaText = formulaToNaturalText(
+    ind.formulaVariables ?? [],
+    ind.formulaExpression ?? "",
+  );
+  return {
+    name: ind.name,
+    formulaText,
+    unit: ind.unit ?? "",
+    responsible: ind.responsible ?? "",
+    measureUnit: ind.measureUnit ?? "",
+    direction: ind.direction as "up" | "down",
+    periodicity: ind.periodicity as IndicatorFormData["periodicity"],
+    objectiveId:
+      yearRow?.yearConfig.objectiveId != null ? String(yearRow.yearConfig.objectiveId) : "",
+    goal: yearRow?.yearConfig.goal != null ? String(yearRow.yearConfig.goal) : "",
+  };
+}
+
 export default function KpiIndicadoresPage() {
   const { organization } = useAuth();
   const orgId = organization!.id;
@@ -229,6 +262,7 @@ export default function KpiIndicadoresPage() {
   const [year, setYear] = useState(DEFAULT_YEAR);
   const [searchQuery, setSearchQuery] = useState("");
   const [unitFilter, setUnitFilter] = useState("");
+  const [objectiveFilter, setObjectiveFilter] = useState("");
 
   const [objectiveForm, setObjectiveForm] = useState({ code: "", name: "" });
   const [editingObjective, setEditingObjective] = useState<KpiObjective | null>(null);
@@ -301,10 +335,20 @@ export default function KpiIndicadoresPage() {
 
   const uniqueUnits = [...new Set(indicatorsForYear.map((i) => i.unit).filter(Boolean) as string[])].sort();
 
+  const hasUnlinkedIndicators = indicatorsForYear.some((ind) => {
+    const row = yearRows.find((r) => r.indicator.id === ind.id);
+    return !row?.yearConfig?.objectiveId;
+  });
+
   const filteredIndicators = indicatorsForYear.filter((ind) => {
     const matchesSearch = ind.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesUnit = !unitFilter || (ind.unit ?? "") === unitFilter;
-    return matchesSearch && matchesUnit;
+    const row = yearRows.find((r) => r.indicator.id === ind.id);
+    const objId = row?.yearConfig?.objectiveId ?? null;
+    const matchesObjective =
+      !objectiveFilter ||
+      (objectiveFilter === "none" ? objId === null : String(objId ?? "") === objectiveFilter);
+    return matchesSearch && matchesUnit && matchesObjective;
   });
 
   const groupMap = new Map<number | null, KpiIndicator[]>();
@@ -328,15 +372,24 @@ export default function KpiIndicadoresPage() {
     }));
 
   async function handleSaveIndicator() {
-    if (!indicatorForm.name.trim() || !indicatorForm.measurement.trim()) {
-      toast({ title: "Preencha nome e medição", variant: "destructive" });
+    if (!indicatorForm.name.trim()) {
+      toast({ title: "Preencha o nome do indicador", variant: "destructive" });
       return;
     }
+    const parsed = parseNaturalFormula(indicatorForm.formulaText);
+    const formulaCheck = validateFormula(parsed.expression, parsed.variables);
+    if (!formulaCheck.ok) {
+      toast({ title: `Fórmula inválida: ${formulaCheck.error}`, variant: "destructive" });
+      return;
+    }
+    const measurement = buildMeasurementLabel(parsed.variables, parsed.expression);
     try {
       if (editingIndicator) {
         await updateIndicator.mutateAsync({ orgId, indicatorId: editingIndicator.id, data: {
           name: indicatorForm.name,
-          measurement: indicatorForm.measurement,
+          measurement,
+          formulaVariables: parsed.variables,
+          formulaExpression: parsed.expression,
           unit: indicatorForm.unit || undefined,
           responsible: indicatorForm.responsible || undefined,
           measureUnit: indicatorForm.measureUnit || undefined,
@@ -358,7 +411,9 @@ export default function KpiIndicadoresPage() {
           orgId,
           data: {
             name: indicatorForm.name,
-            measurement: indicatorForm.measurement,
+            measurement,
+            formulaVariables: parsed.variables,
+            formulaExpression: parsed.expression,
             unit: indicatorForm.unit || undefined,
             responsible: indicatorForm.responsible || undefined,
             measureUnit: indicatorForm.measureUnit || undefined,
@@ -441,6 +496,15 @@ export default function KpiIndicadoresPage() {
             <option key={u} value={u}>{u}</option>
           ))}
         </Select>
+        <Select value={objectiveFilter} onChange={(e) => setObjectiveFilter(e.target.value)} className="w-64">
+          <option value="">Todos os objetivos</option>
+          {objectives.map((o) => (
+            <option key={o.id} value={String(o.id)}>
+              {o.code ? `${o.code} · ${o.name}` : o.name}
+            </option>
+          ))}
+          {hasUnlinkedIndicators && <option value="none">Sem objetivo vinculado</option>}
+        </Select>
       </div>
 
       {/* Indicators grouped by objective */}
@@ -509,8 +573,19 @@ export default function KpiIndicadoresPage() {
                       className="grid grid-cols-[1fr_80px_120px_72px_72px_88px_68px] gap-x-3 items-center px-4 py-3 border-b last:border-b-0 hover:bg-muted/20 transition-colors duration-150"
                     >
                       <div className="min-w-0">
-                        <div className="font-medium text-sm leading-snug truncate">{ind.name}</div>
-                        <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{ind.measurement}</div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-sm leading-snug truncate">{ind.name}</span>
+                          {!hasValidFormula(ind.formulaVariables, ind.formulaExpression) && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 shrink-0 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300"
+                              title="Sem fórmula válida — não pode lançar valores"
+                            >
+                              <AlertTriangle className="h-2.5 w-2.5" />
+                              fórmula inválida
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{ind.measurement || <span className="italic">sem medição</span>}</div>
                       </div>
                       <div className="text-sm text-muted-foreground text-center truncate">{ind.unit ?? "—"}</div>
                       <div className="text-sm text-muted-foreground truncate">{ind.responsible ?? "—"}</div>
@@ -530,18 +605,7 @@ export default function KpiIndicadoresPage() {
                           className="h-7 w-7"
                           onClick={() => {
                             setEditingIndicator(ind);
-                            const yearRow = yearRows.find((r) => r.indicator.id === ind.id);
-                            setIndicatorForm({
-                              name: ind.name,
-                              measurement: ind.measurement,
-                              unit: ind.unit ?? "",
-                              responsible: ind.responsible ?? "",
-                              measureUnit: ind.measureUnit ?? "",
-                              direction: ind.direction as "up" | "down",
-                              periodicity: ind.periodicity as IndicatorFormData["periodicity"],
-                              objectiveId: yearRow?.yearConfig.objectiveId != null ? String(yearRow.yearConfig.objectiveId) : "",
-                              goal: yearRow?.yearConfig.goal != null ? String(yearRow.yearConfig.goal) : "",
-                            });
+                            setIndicatorForm(buildEditFormFromIndicator(ind, yearRows));
                             setIndicatorDialog(true);
                           }}
                         >
@@ -582,12 +646,10 @@ export default function KpiIndicadoresPage() {
             />
           </div>
           <div className="col-span-2 space-y-1.5">
-            <Label>Fórmula / medição *</Label>
-            <Textarea
-              value={indicatorForm.measurement}
-              onChange={(e) => setIndicatorForm((f) => ({ ...f, measurement: e.target.value }))}
-              placeholder="Ex: Total de atrasos / Total de CT-e emitidos * 100"
-              rows={2}
+            <Label>Fórmula *</Label>
+            <FormulaBuilder
+              value={indicatorForm.formulaText}
+              onChange={(next) => setIndicatorForm((f) => ({ ...f, formulaText: next }))}
             />
           </div>
           <div className="space-y-1.5">
@@ -776,7 +838,7 @@ export default function KpiIndicadoresPage() {
                     )}
                     <span className="text-sm truncate">{obj.name}</span>
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+                  <div className="flex gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                     <Button
                       variant="ghost"
                       size="icon"

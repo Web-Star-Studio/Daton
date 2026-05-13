@@ -319,13 +319,13 @@ function blankRiskEffectivenessReview(): GovernanceRiskOpportunityEffectivenessR
 function getRiskPriorityTone(priority?: string | null) {
   switch (priority) {
     case "critical":
-      return "bg-red-100 text-red-800 border-red-200";
+      return "bg-red-100 text-red-800 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30";
     case "high":
-      return "bg-orange-100 text-orange-800 border-orange-200";
+      return "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30";
     case "medium":
-      return "bg-amber-100 text-amber-800 border-amber-200";
+      return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30";
     case "low":
-      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30";
     default:
       return "bg-secondary/40 text-foreground border-border";
   }
@@ -519,11 +519,11 @@ function getReviewerStatusLabel(status: GovernanceReviewer["status"]) {
 function getReviewerStatusTone(status: GovernanceReviewer["status"]) {
   switch (status) {
     case "approved":
-      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      return "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30";
     case "rejected":
-      return "bg-red-100 text-red-800 border-red-200";
+      return "bg-red-100 text-red-800 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30";
     default:
-      return "bg-amber-100 text-amber-800 border-amber-200";
+      return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30";
   }
 }
 
@@ -3086,8 +3086,8 @@ export default function GovernanceDetailPage() {
                   </p>
                 </div>
               </div>
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <ul className="list-disc pl-5 text-sm text-amber-900 space-y-1">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+                <ul className="list-disc pl-5 text-sm text-amber-900 space-y-1 dark:text-amber-200">
                   {(importPreview.anomalies.length > 0
                     ? importPreview.anomalies
                     : ["Nenhuma anomalia detectada na leitura inicial."]

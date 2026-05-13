@@ -215,7 +215,7 @@ export function DocumentNormativeRequirementsField({
               <button
                 key={suggestion}
                 type="button"
-                className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+                className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25"
                 onClick={() => handleAddRequirement(suggestion)}
                 disabled={disabled}
               >

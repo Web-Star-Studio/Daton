@@ -59,9 +59,9 @@ const RESOURCE_TYPE_LABELS: Record<string, string> = {
 };
 
 const RESOURCE_TYPE_COLORS: Record<string, string> = {
-  instrumento: "bg-blue-100 text-blue-700 border-blue-200",
-  equipamento: "bg-purple-100 text-purple-700 border-purple-200",
-  padrao: "bg-teal-100 text-teal-700 border-teal-200",
+  instrumento: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
+  equipamento: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/30",
+  padrao: "bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
 };
 
 const RESULT_LABELS: Record<string, string> = {
@@ -78,19 +78,19 @@ function isExpired(validUntil: string | null | undefined): boolean {
 
 function ResourceStatusBadge({ resource }: { resource: MeasurementResource }) {
   if (resource.calibrationCount === 0) {
-    return <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-200">Sem calibração</Badge>;
+    return <Badge variant="neutral" className="text-xs">Sem calibração</Badge>;
   }
   if (resource.lastCalibrationResult === "nao-apto") {
-    return <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">Não Apto</Badge>;
+    return <Badge variant="danger" className="text-xs">Não Apto</Badge>;
   }
   if (isExpired(resource.validUntil)) {
     return (
-      <Badge variant="outline" className="text-xs bg-orange-100 text-orange-700 border-orange-200">
+      <Badge variant="orange" className="text-xs">
         Vencido
       </Badge>
     );
   }
-  return <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-200">Apto</Badge>;
+  return <Badge variant="success" className="text-xs">Apto</Badge>;
 }
 
 function ValidityBadge({ validUntil }: { validUntil: string | null | undefined }) {
@@ -263,8 +263,8 @@ function CalibrationsPanel({
                 {expanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
                 <span className="text-xs font-medium">{new Date(c.calibratedAt + "T00:00:00").toLocaleDateString("pt-BR")}</span>
                 <Badge
-                  variant="outline"
-                  className={`text-[10px] ${c.result === "apto" ? "bg-green-100 text-green-700 border-green-200" : "bg-red-100 text-red-700 border-red-200"}`}
+                  variant={c.result === "apto" ? "success" : "danger"}
+                  className="text-[10px]"
                 >
                   {RESULT_LABELS[c.result]}
                 </Badge>
@@ -623,13 +623,13 @@ export default function MedicaoPage() {
       {(expiredCount > 0 || noCalibCount > 0) && (
         <div className="flex flex-wrap gap-2">
           {expiredCount > 0 && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-300">
               <AlertTriangle className="h-4 w-4" />
               {expiredCount} instrumento{expiredCount > 1 ? "s" : ""} vencido{expiredCount > 1 ? "s" : ""} ou não apto{expiredCount > 1 ? "s" : ""}
             </div>
           )}
           {noCalibCount > 0 && (
-            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600">
+            <div className="flex items-center gap-2 bg-muted/40 border border-border rounded-lg px-3 py-2 text-xs text-muted-foreground">
               <AlertTriangle className="h-4 w-4" />
               {noCalibCount} instrumento{noCalibCount > 1 ? "s" : ""} sem calibração registrada
             </div>

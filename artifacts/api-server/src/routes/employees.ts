@@ -703,6 +703,7 @@ async function loadTrainingReviewRows(
       resultLevel: trainingEffectivenessReviewsTable.resultLevel,
       comments: trainingEffectivenessReviewsTable.comments,
       attachments: trainingEffectivenessReviewsTable.attachments,
+      legacyV1Id: trainingEffectivenessReviewsTable.legacyV1Id,
       createdAt: trainingEffectivenessReviewsTable.createdAt,
       evaluatorName: usersTable.name,
     })
@@ -1400,6 +1401,7 @@ router.get(
         expirationDate: employeeTrainingsTable.expirationDate,
         status: employeeTrainingsTable.status,
         attachments: employeeTrainingsTable.attachments,
+        legacyV1Id: employeeTrainingsTable.legacyV1Id,
         createdAt: employeeTrainingsTable.createdAt,
         updatedAt: employeeTrainingsTable.updatedAt,
         employeeName: employeesTable.name,

@@ -60,9 +60,9 @@ const FACTOR_TYPE_LABELS: Record<string, string> = {
 };
 
 const FACTOR_TYPE_COLORS: Record<string, string> = {
-  fisico: "bg-blue-100 text-blue-700 border-blue-200",
-  social: "bg-purple-100 text-purple-700 border-purple-200",
-  psicologico: "bg-pink-100 text-pink-700 border-pink-200",
+  fisico: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
+  social: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/30",
+  psicologico: "bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
 };
 
 const RESULT_LABELS: Record<string, string> = {
@@ -72,9 +72,9 @@ const RESULT_LABELS: Record<string, string> = {
 };
 
 const RESULT_COLORS: Record<string, string> = {
-  adequado: "bg-green-100 text-green-700 border-green-200",
-  parcial: "bg-yellow-100 text-yellow-700 border-yellow-200",
-  inadequado: "bg-red-100 text-red-700 border-red-200",
+  adequado: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  parcial: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+  inadequado: "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
 };
 
 const FREQUENCY_LABELS: Record<string, string> = {
@@ -95,8 +95,8 @@ const FREQUENCY_DAYS: Record<string, number> = {
 
 const STATUS_LABELS: Record<string, string> = { ativo: "Ativo", inativo: "Inativo" };
 const STATUS_COLORS: Record<string, string> = {
-  ativo: "bg-green-100 text-green-700 border-green-200",
-  inativo: "bg-gray-100 text-gray-600 border-gray-200",
+  ativo: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  inativo: "bg-muted text-muted-foreground border-border",
 };
 
 // --- Helpers ---
@@ -154,13 +154,13 @@ function ControlStatusBadge({ ctrl }: { ctrl: WorkEnvironmentControl }) {
   if (alert === "desvio") {
     const hasAction = !!ctrl.lastActionTaken;
     return (
-      <Badge variant="outline" className={`text-xs ${hasAction ? "bg-yellow-100 text-yellow-700 border-yellow-200" : "bg-red-100 text-red-700 border-red-200"}`}>
+      <Badge variant={hasAction ? "warning" : "danger"} className="text-xs">
         {hasAction ? "Desvio c/ ação" : "Desvio sem ação"}
       </Badge>
     );
   }
   if (alert === "sem-verificacao") {
-    return <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-200">Sem verificação</Badge>;
+    return <Badge variant="neutral" className="text-xs">Sem verificação</Badge>;
   }
   if (ctrl.lastResult) {
     return <Badge variant="outline" className={`text-xs ${RESULT_COLORS[ctrl.lastResult]}`}>{RESULT_LABELS[ctrl.lastResult]}</Badge>;
@@ -348,7 +348,7 @@ function VerificationsPanel({
                   </span>
                   {v.verifiedByName && <span className="text-xs text-muted-foreground">· {v.verifiedByName}</span>}
                   {alert && (
-                    <Badge variant="outline" className="text-[10px] bg-red-100 text-red-700 border-red-200 ml-auto shrink-0">
+                    <Badge variant="danger" className="text-[10px] ml-auto shrink-0">
                       <AlertTriangle className="h-2.5 w-2.5 mr-1" />
                       Sem ação
                     </Badge>
@@ -686,19 +686,19 @@ export default function AmbientePage() {
       {(vencidaCount > 0 || desvioSemAcaoCount > 0 || semVerificacaoCount > 0) && (
         <div className="flex flex-wrap gap-2">
           {vencidaCount > 0 && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-300">
               <AlertTriangle className="h-4 w-4" />
               {vencidaCount} verificaç{vencidaCount > 1 ? "ões vencidas" : "ão vencida"}
             </div>
           )}
           {desvioSemAcaoCount > 0 && (
-            <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-xs text-orange-700">
+            <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-xs text-orange-700 dark:bg-orange-500/10 dark:border-orange-500/30 dark:text-orange-300">
               <AlertTriangle className="h-4 w-4" />
               {desvioSemAcaoCount} desvio{desvioSemAcaoCount > 1 ? "s" : ""} sem ação tomada
             </div>
           )}
           {semVerificacaoCount > 0 && (
-            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600">
+            <div className="flex items-center gap-2 bg-muted/40 border border-border rounded-lg px-3 py-2 text-xs text-muted-foreground">
               <AlertTriangle className="h-4 w-4" />
               {semVerificacaoCount} controle{semVerificacaoCount > 1 ? "s" : ""} sem verificação registrada
             </div>

@@ -379,12 +379,12 @@ export default function GovernancePage() {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <p className="text-sm font-medium text-amber-950">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+                <p className="text-sm font-medium text-amber-950 dark:text-amber-200">
                   Alertas de consistência
                 </p>
                 {importPreview.anomalies.length === 0 ? (
-                  <p className="mt-2 text-sm text-amber-900">
+                  <p className="mt-2 text-sm text-amber-900 dark:text-amber-200">
                     Nenhuma anomalia identificada na leitura inicial.
                   </p>
                 ) : (
