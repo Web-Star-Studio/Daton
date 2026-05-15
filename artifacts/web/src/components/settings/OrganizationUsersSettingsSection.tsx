@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Command as CommandPrimitive } from "cmdk";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useHeaderActions } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
@@ -8,14 +9,18 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { OrganizationContactsCatalogSection } from "@/components/settings/OrganizationContactsCatalogSection";
 import { OrganizationContactGroupsSection } from "@/components/settings/OrganizationContactGroupsSection";
 import {
+  Check,
+  ChevronsUpDown,
   Plus,
   Trash2,
   Mail,
+  Search,
   X,
   Clock,
   CheckCircle2,
@@ -25,8 +30,10 @@ import {
   Eye,
   Settings2,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import {
+  listEmployees,
   useListInvitations,
   useCreateInvitation,
   useRevokeInvitation,
@@ -105,6 +112,117 @@ const emptyInviteForm: InviteFormData = {
   role: "analyst",
   modules: [],
 };
+
+type EmployeeOption = { id: number; name: string; email: string | null };
+
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebounced(value), delay);
+    return () => window.clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
+type EmployeePickerProps = {
+  orgId: number;
+  value: string;
+  onChange: (value: string) => void;
+  onPick: (employee: EmployeeOption) => void;
+  placeholder?: string;
+};
+
+function EmployeePicker({ orgId, value, onChange, onPick, placeholder }: EmployeePickerProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search.trim(), 250);
+
+  const PAGE_SIZE = 50;
+  const { data: employees = [], isFetching } = useQuery({
+    queryKey: ["user-create-employees", orgId, debouncedSearch],
+    enabled: !!orgId && open,
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const result = await listEmployees(orgId, {
+        page: 1,
+        pageSize: PAGE_SIZE,
+        search: debouncedSearch || undefined,
+      });
+      return result.data as EmployeeOption[];
+    },
+  });
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn(
+            "h-9 w-full justify-between font-normal",
+            !value && "text-muted-foreground",
+          )}
+        >
+          <span className="truncate text-left">{value || placeholder || "Selecione um colaborador"}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={4}
+        className="w-[var(--radix-popover-trigger-width)] min-w-[280px] p-0"
+      >
+        <CommandPrimitive loop filter={() => 1} className="overflow-hidden rounded-md bg-popover">
+          <div className="flex items-center gap-2 border-b border-border px-3">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground/60" />
+            <CommandPrimitive.Input
+              value={search}
+              onValueChange={setSearch}
+              placeholder="Buscar colaborador por nome..."
+              className="h-10 w-full border-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground/70"
+            />
+          </div>
+          <CommandPrimitive.List className="max-h-64 overflow-y-auto p-1">
+            {isFetching && employees.length === 0 ? (
+              <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                Carregando...
+              </div>
+            ) : null}
+            <CommandPrimitive.Empty className="px-3 py-4 text-center text-xs text-muted-foreground">
+              {debouncedSearch ? "Nenhum colaborador encontrado" : "Comece a digitar para buscar"}
+            </CommandPrimitive.Empty>
+            {employees.map((emp) => {
+              const isSelected = emp.name === value;
+              return (
+                <CommandPrimitive.Item
+                  key={emp.id}
+                  value={String(emp.id)}
+                  onSelect={() => {
+                    onChange(emp.name);
+                    onPick(emp);
+                    setOpen(false);
+                  }}
+                  className="flex cursor-pointer items-start justify-between gap-2 rounded-md px-2 py-1.5 text-sm data-[selected=true]:bg-muted"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate">{emp.name}</div>
+                    {emp.email && (
+                      <div className="truncate text-xs text-muted-foreground">{emp.email}</div>
+                    )}
+                  </div>
+                  {isSelected && <Check className="mt-1 h-3.5 w-3.5 shrink-0 text-primary" />}
+                </CommandPrimitive.Item>
+              );
+            })}
+          </CommandPrimitive.List>
+        </CommandPrimitive>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function OrganizationUsersSettingsSection() {
   const queryClient = useQueryClient();
@@ -855,12 +973,30 @@ export function OrganizationUsersSettingsSection() {
             <div className="grid grid-cols-2 gap-x-8 gap-y-5">
               <div>
                 <Label>Nome</Label>
-                <Input
+                <input
+                  type="hidden"
                   {...createUserForm.register("name", {
                     required: "Nome é obrigatório",
                   })}
-                  placeholder="Nome completo"
                 />
+                {orgId ? (
+                  <EmployeePicker
+                    orgId={orgId}
+                    value={createUserForm.watch("name") ?? ""}
+                    onChange={(v) =>
+                      createUserForm.setValue("name", v, { shouldValidate: true })
+                    }
+                    onPick={(emp) => {
+                      const currentEmail = createUserForm.getValues("email").trim();
+                      if (emp.email && !currentEmail) {
+                        createUserForm.setValue("email", emp.email, {
+                          shouldValidate: true,
+                        });
+                      }
+                    }}
+                    placeholder="Buscar colaborador..."
+                  />
+                ) : null}
                 {createUserForm.formState.errors.name && (
                   <p className="mt-1.5 text-xs text-destructive">
                     {createUserForm.formState.errors.name.message}
