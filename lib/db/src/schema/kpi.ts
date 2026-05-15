@@ -3,6 +3,7 @@ import { integer, jsonb, numeric, pgTable, serial, text, timestamp, unique, varc
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
+import { usersTable } from "./users";
 
 export type KpiDirection = "up" | "down";
 export type KpiPeriodicity =
@@ -38,6 +39,7 @@ export const kpiIndicatorsTable = pgTable("kpi_indicators", {
   formulaExpression: text("formula_expression").notNull().default(""),
   unit: varchar("unit", { length: 200 }),
   responsible: varchar("responsible", { length: 200 }),
+  responsibleUserId: integer("responsible_user_id").references(() => usersTable.id, { onDelete: "set null" }),
   measureUnit: varchar("measure_unit", { length: 50 }),
   direction: varchar("direction", { length: 4 }).notNull(),
   periodicity: varchar("periodicity", { length: 50 }).notNull(),

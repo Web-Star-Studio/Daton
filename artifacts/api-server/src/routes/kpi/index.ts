@@ -6,6 +6,7 @@ import {
   kpiMonthlyValuesTable,
   kpiObjectivesTable,
   kpiYearConfigsTable,
+  usersTable,
 } from "@workspace/db";
 import {
   CreateKpiIndicatorBody,
@@ -35,7 +36,10 @@ const router: IRouter = Router();
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-function serializeIndicator(r: typeof kpiIndicatorsTable.$inferSelect) {
+function serializeIndicator(
+  r: typeof kpiIndicatorsTable.$inferSelect,
+  responsibleUserName: string | null = null,
+) {
   return {
     id: r.id,
     organizationId: r.organizationId,
@@ -45,6 +49,8 @@ function serializeIndicator(r: typeof kpiIndicatorsTable.$inferSelect) {
     formulaExpression: r.formulaExpression,
     unit: r.unit ?? null,
     responsible: r.responsible ?? null,
+    responsibleUserId: r.responsibleUserId ?? null,
+    responsibleUserName,
     measureUnit: r.measureUnit ?? null,
     direction: r.direction,
     periodicity: r.periodicity,
@@ -190,11 +196,17 @@ router.get("/organizations/:orgId/kpi/indicators", requireAuth, async (req, res)
     conditions.push(ilike(kpiIndicatorsTable.unit, `%${query.data.unit}%`));
   }
 
-  const rows = await db.select().from(kpiIndicatorsTable)
+  const rows = await db
+    .select({
+      indicator: kpiIndicatorsTable,
+      responsibleUserName: usersTable.name,
+    })
+    .from(kpiIndicatorsTable)
+    .leftJoin(usersTable, eq(usersTable.id, kpiIndicatorsTable.responsibleUserId))
     .where(and(...conditions))
     .orderBy(kpiIndicatorsTable.name);
 
-  res.json(rows.map(serializeIndicator));
+  res.json(rows.map((r) => serializeIndicator(r.indicator, r.responsibleUserName ?? null)));
 });
 
 router.post("/organizations/:orgId/kpi/indicators", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
@@ -208,6 +220,20 @@ router.post("/organizations/:orgId/kpi/indicators", requireAuth, requireWriteAcc
   const formulaCheck = validateFormula(body.data.formulaExpression, body.data.formulaVariables);
   if (!formulaCheck.ok) { res.status(400).json({ error: `Fórmula inválida: ${formulaCheck.error}` }); return; }
 
+  let responsibleUserId: number | null = body.data.responsibleUserId ?? null;
+  let responsibleText: string | null = body.data.responsible ?? null;
+  if (responsibleUserId !== null) {
+    const [user] = await db
+      .select({ id: usersTable.id, name: usersTable.name })
+      .from(usersTable)
+      .where(and(eq(usersTable.id, responsibleUserId), eq(usersTable.organizationId, params.data.orgId)));
+    if (!user) {
+      res.status(400).json({ error: "responsibleUserId não corresponde a um usuário desta organização" });
+      return;
+    }
+    responsibleText = user.name;
+  }
+
   const [row] = await db.insert(kpiIndicatorsTable).values({
     organizationId: params.data.orgId,
     name: body.data.name,
@@ -215,7 +241,8 @@ router.post("/organizations/:orgId/kpi/indicators", requireAuth, requireWriteAcc
     formulaVariables: body.data.formulaVariables,
     formulaExpression: body.data.formulaExpression,
     unit: body.data.unit ?? null,
-    responsible: body.data.responsible ?? null,
+    responsible: responsibleText,
+    responsibleUserId,
     measureUnit: body.data.measureUnit ?? null,
     direction: body.data.direction,
     periodicity: body.data.periodicity,
@@ -233,7 +260,7 @@ router.post("/organizations/:orgId/kpi/indicators", requireAuth, requireWriteAcc
     goal: goalStr,
   }).onConflictDoNothing();
 
-  res.status(201).json(serializeIndicator(row));
+  res.status(201).json(serializeIndicator(row, responsibleText));
 });
 
 router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
@@ -248,7 +275,26 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
   if (body.data.name !== undefined) updateData.name = body.data.name;
   if (body.data.measurement !== undefined) updateData.measurement = body.data.measurement;
   if (body.data.unit !== undefined) updateData.unit = body.data.unit;
-  if (body.data.responsible !== undefined) updateData.responsible = body.data.responsible;
+  if (body.data.responsibleUserId !== undefined) {
+    const newUserId = body.data.responsibleUserId;
+    if (newUserId === null) {
+      updateData.responsibleUserId = null;
+      updateData.responsible = null;
+    } else {
+      const [user] = await db
+        .select({ id: usersTable.id, name: usersTable.name })
+        .from(usersTable)
+        .where(and(eq(usersTable.id, newUserId), eq(usersTable.organizationId, params.data.orgId)));
+      if (!user) {
+        res.status(400).json({ error: "responsibleUserId não corresponde a um usuário desta organização" });
+        return;
+      }
+      updateData.responsibleUserId = user.id;
+      updateData.responsible = user.name;
+    }
+  } else if (body.data.responsible !== undefined) {
+    updateData.responsible = body.data.responsible;
+  }
   if (body.data.measureUnit !== undefined) updateData.measureUnit = body.data.measureUnit;
   if (body.data.direction !== undefined) updateData.direction = body.data.direction;
   if (body.data.periodicity !== undefined) updateData.periodicity = body.data.periodicity;
@@ -268,7 +314,16 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
     .returning();
 
   if (!row) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
-  res.json(serializeIndicator(row));
+
+  let respUserName: string | null = null;
+  if (row.responsibleUserId !== null) {
+    const [u] = await db
+      .select({ name: usersTable.name })
+      .from(usersTable)
+      .where(eq(usersTable.id, row.responsibleUserId));
+    respUserName = u?.name ?? null;
+  }
+  res.json(serializeIndicator(row, respUserName));
 });
 
 router.delete("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
@@ -310,6 +365,16 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
   }
 
   const indicatorIds = indicators.map((i) => i.id);
+
+  // Batch-fetch responsible user names for indicators that have responsibleUserId
+  const respUserIds = [...new Set(indicators.map((i) => i.responsibleUserId).filter((v): v is number => v !== null))];
+  const respUsers = respUserIds.length > 0
+    ? await db
+        .select({ id: usersTable.id, name: usersTable.name })
+        .from(usersTable)
+        .where(inArray(usersTable.id, respUserIds))
+    : [];
+  const respUserNameById = new Map(respUsers.map((u) => [u.id, u.name]));
 
   // Fetch year configs for this year
   const yearConfigs = await db.select().from(kpiYearConfigsTable)
@@ -362,8 +427,11 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
       const feedStatus = computeFeedStatus(monthlyValuesOnly, ind.periodicity);
       const objective = yc.objectiveId ? objectiveById.get(yc.objectiveId) ?? null : null;
 
+      const responsibleUserName = ind.responsibleUserId !== null
+        ? respUserNameById.get(ind.responsibleUserId) ?? null
+        : null;
       return {
-        indicator: serializeIndicator(ind),
+        indicator: serializeIndicator(ind, responsibleUserName),
         yearConfig: serializeYearConfig(yc),
         objective: objective ? serializeObjective(objective) : null,
         monthlyValues: monthlyCells.map((c, i) => ({ month: i + 1, value: c.value, inputs: c.inputs })),

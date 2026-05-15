@@ -18,6 +18,7 @@ export interface CreateKpiIndicatorBody {
   formulaExpression: string;
   unit?: string;
   responsible?: string;
+  responsibleUserId?: number | null;
   measureUnit?: string;
   direction: CreateKpiIndicatorBodyDirection;
   periodicity: CreateKpiIndicatorBodyPeriodicity;

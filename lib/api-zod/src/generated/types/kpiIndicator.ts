@@ -17,7 +17,11 @@ export interface KpiIndicator {
   formulaVariables: KpiFormulaVariable[];
   formulaExpression: string;
   unit?: string | null;
+  /** Deprecated — kept for backward compatibility. Use responsibleUserId. */
   responsible?: string | null;
+  responsibleUserId?: number | null;
+  /** Joined from users.name for display. Read-only. */
+  responsibleUserName?: string | null;
   measureUnit?: string | null;
   direction: KpiIndicatorDirection;
   periodicity: KpiIndicatorPeriodicity;

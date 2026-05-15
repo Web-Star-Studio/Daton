@@ -70,7 +70,8 @@ type IndicatorFormData = {
   /** Natural-language formula text — parsed into variables + expression on save. */
   formulaText: string;
   unit: string;
-  responsible: string;
+  responsibleUserName: string;
+  responsibleUserId: number | null;
   measureUnit: string;
   direction: "up" | "down";
   periodicity: "monthly" | "quarterly" | "semiannual" | "annual" | "monthly_15d" | "monthly_45d";
@@ -82,7 +83,8 @@ const defaultIndicatorForm = (): IndicatorFormData => ({
   name: "",
   formulaText: "",
   unit: "",
-  responsible: "",
+  responsibleUserName: "",
+  responsibleUserId: null,
   measureUnit: "",
   direction: "up",
   periodicity: "monthly",
@@ -231,7 +233,8 @@ function buildEditFormFromIndicator(
     name: ind.name,
     formulaText,
     unit: ind.unit ?? "",
-    responsible: ind.responsible ?? "",
+    responsibleUserName: ind.responsibleUserName ?? ind.responsible ?? "",
+    responsibleUserId: ind.responsibleUserId ?? null,
     measureUnit: ind.measureUnit ?? "",
     direction: ind.direction as "up" | "down",
     periodicity: ind.periodicity as IndicatorFormData["periodicity"],
@@ -316,15 +319,22 @@ export default function KpiIndicadoresPage() {
   const indicatorsForYear = indicators.filter((i) => yearIndicatorIds.has(i.id));
 
   const uniqueUnits = [...new Set(indicatorsForYear.map((i) => i.unit).filter(Boolean) as string[])].sort();
-  const uniqueResponsibles = [...new Set(
-    indicatorsForYear.map((i) => i.responsible).filter(Boolean) as string[]
-  )].sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+  const uniqueResponsibles = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const ind of indicatorsForYear) {
+      if (ind.responsibleUserId && ind.responsibleUserName) {
+        map.set(ind.responsibleUserId, ind.responsibleUserName);
+      }
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+  }, [indicatorsForYear]);
 
   const hasUnlinkedIndicators = indicatorsForYear.some((ind) => {
     const row = yearRows.find((r) => r.indicator.id === ind.id);
     return !row?.yearConfig?.objectiveId;
   });
-  const hasUnassignedResponsible = indicatorsForYear.some((ind) => !ind.responsible);
+  const hasUnassignedResponsible = indicatorsForYear.some((ind) => !ind.responsibleUserId);
 
   const filteredIndicators = indicatorsForYear.filter((ind) => {
     const matchesSearch = ind.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -337,8 +347,8 @@ export default function KpiIndicadoresPage() {
     const matchesResponsible =
       !responsibleFilter ||
       (responsibleFilter === "none"
-        ? !ind.responsible
-        : ind.responsible === responsibleFilter);
+        ? !ind.responsibleUserId
+        : String(ind.responsibleUserId ?? "") === responsibleFilter);
     return matchesSearch && matchesUnit && matchesObjective && matchesResponsible;
   });
 
@@ -382,7 +392,7 @@ export default function KpiIndicadoresPage() {
           formulaVariables: parsed.variables,
           formulaExpression: parsed.expression,
           unit: indicatorForm.unit || undefined,
-          responsible: indicatorForm.responsible || undefined,
+          responsibleUserId: indicatorForm.responsibleUserId,
           measureUnit: indicatorForm.measureUnit || undefined,
           direction: indicatorForm.direction,
           periodicity: indicatorForm.periodicity,
@@ -406,7 +416,7 @@ export default function KpiIndicadoresPage() {
             formulaVariables: parsed.variables,
             formulaExpression: parsed.expression,
             unit: indicatorForm.unit || undefined,
-            responsible: indicatorForm.responsible || undefined,
+            responsibleUserId: indicatorForm.responsibleUserId ?? undefined,
             measureUnit: indicatorForm.measureUnit || undefined,
             direction: indicatorForm.direction,
             periodicity: indicatorForm.periodicity,
@@ -498,8 +508,8 @@ export default function KpiIndicadoresPage() {
         </Select>
         <Select value={responsibleFilter} onChange={(e) => setResponsibleFilter(e.target.value)} className="w-56">
           <option value="">Todos os responsáveis</option>
-          {uniqueResponsibles.map((r) => (
-            <option key={r} value={r}>{r}</option>
+          {uniqueResponsibles.map(([id, name]) => (
+            <option key={id} value={String(id)}>{name}</option>
           ))}
           {hasUnassignedResponsible && <option value="none">Sem responsável</option>}
         </Select>
@@ -586,7 +596,7 @@ export default function KpiIndicadoresPage() {
                         <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{ind.measurement || <span className="italic">sem medição</span>}</div>
                       </div>
                       <div className="text-sm text-muted-foreground text-center truncate">{ind.unit ?? "—"}</div>
-                      <div className="text-sm text-muted-foreground truncate">{ind.responsible ?? "—"}</div>
+                      <div className="text-sm text-muted-foreground truncate">{ind.responsibleUserName ?? "—"}</div>
                       <div className="text-sm text-muted-foreground text-center">{ind.measureUnit ?? "—"}</div>
                       <div className="flex justify-center">
                         <Badge variant="outline" className="text-[11px] px-1.5">
@@ -664,8 +674,15 @@ export default function KpiIndicadoresPage() {
           <div className="space-y-1.5">
             <Label>Responsável</Label>
             <SearchableStringSelect
-              value={indicatorForm.responsible}
-              onChange={(v) => setIndicatorForm((f) => ({ ...f, responsible: v }))}
+              value={indicatorForm.responsibleUserName}
+              onChange={(v) => {
+                const user = (orgUsersData?.users ?? []).find((u) => u.name === v);
+                setIndicatorForm((f) => ({
+                  ...f,
+                  responsibleUserName: v,
+                  responsibleUserId: user?.id ?? null,
+                }));
+              }}
               options={responsibleOptions}
               isLoading={orgUsersLoading}
               placeholder="Selecione um responsável"

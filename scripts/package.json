@@ -19,6 +19,9 @@
     "migrate-kpi": "tsx --env-file ../.env ./src/migrate/migrate-kpi.ts",
     "migrate-kpi-formulas": "tsx --env-file ../.env ./src/migrate/migrate-kpi-formulas.ts",
     "cleanup-kpi-responsible": "tsx --env-file ../.env ./src/migrate/cleanup-kpi-responsible.ts",
+    "inspect-kpi-responsible": "tsx --env-file ../.env ./src/migrate/inspect-kpi-responsible.ts",
+    "add-kpi-responsible-user-id": "tsx --env-file ../.env ./src/migrate/add-kpi-responsible-user-id.ts",
+    "backfill-kpi-responsible-user-id": "tsx --env-file ../.env ./src/migrate/backfill-kpi-responsible-user-id.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
