@@ -130,15 +130,17 @@ type EmployeePickerProps = {
   onChange: (value: string) => void;
   onPick: (employee: EmployeeOption) => void;
   placeholder?: string;
+  /** Emails (lowercase) that should be hidden from the picker — e.g. existing users or pending invitations. */
+  excludeEmails?: Set<string>;
 };
 
-function EmployeePicker({ orgId, value, onChange, onPick, placeholder }: EmployeePickerProps) {
+function EmployeePicker({ orgId, value, onChange, onPick, placeholder, excludeEmails }: EmployeePickerProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search.trim(), 250);
 
   const PAGE_SIZE = 100;
-  const { data: employees = [], isFetching } = useQuery({
+  const { data: rawEmployees = [], isFetching } = useQuery({
     queryKey: ["user-create-employees", orgId, debouncedSearch],
     enabled: !!orgId && open,
     placeholderData: keepPreviousData,
@@ -159,6 +161,14 @@ function EmployeePicker({ orgId, value, onChange, onPick, placeholder }: Employe
       return rest.reduce((acc, r) => acc.concat(r.data as EmployeeOption[]), first.data as EmployeeOption[]);
     },
   });
+
+  const employees = useMemo(() => {
+    if (!excludeEmails || excludeEmails.size === 0) return rawEmployees;
+    return rawEmployees.filter(
+      (emp) => !emp.email || !excludeEmails.has(emp.email.trim().toLowerCase()),
+    );
+  }, [rawEmployees, excludeEmails]);
+  const hiddenCount = rawEmployees.length - employees.length;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -224,6 +234,11 @@ function EmployeePicker({ orgId, value, onChange, onPick, placeholder }: Employe
                 </CommandPrimitive.Item>
               );
             })}
+            {hiddenCount > 0 && (
+              <div className="border-t border-border/60 px-3 py-2 text-center text-[11px] text-muted-foreground">
+                {hiddenCount} colaborador{hiddenCount !== 1 ? "es" : ""} oculto{hiddenCount !== 1 ? "s" : ""} (já possui{hiddenCount !== 1 ? "em" : ""} conta ou convite)
+              </div>
+            )}
           </CommandPrimitive.List>
         </CommandPrimitive>
       </PopoverContent>
@@ -283,6 +298,19 @@ export function OrganizationUsersSettingsSection() {
   const [editModules, setEditModules] = useState<AppModule[]>([]);
   const createUserRole = createUserForm.watch("role");
   const createUserModules = createUserForm.watch("modules") || [];
+
+  const excludedEmployeeEmails = useMemo(() => {
+    const set = new Set<string>();
+    for (const u of orgUsersData?.users ?? []) {
+      if (u.email) set.add(u.email.trim().toLowerCase());
+    }
+    for (const inv of invitationsData?.invitations ?? []) {
+      if (inv.status === "pending" && inv.email) {
+        set.add(inv.email.trim().toLowerCase());
+      }
+    }
+    return set;
+  }, [orgUsersData?.users, invitationsData?.invitations]);
 
   useEffect(() => {
     if (createUserRole === "org_admin") {
@@ -1002,6 +1030,7 @@ export function OrganizationUsersSettingsSection() {
                       }
                     }}
                     placeholder="Buscar colaborador..."
+                    excludeEmails={excludedEmployeeEmails}
                   />
                 ) : null}
                 {createUserForm.formState.errors.name && (
