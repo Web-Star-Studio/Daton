@@ -18,6 +18,7 @@
     "backfill-governance-org-scopes": "tsx --env-file ../.env ./src/migrate/backfill-governance-org-scopes.ts",
     "migrate-kpi": "tsx --env-file ../.env ./src/migrate/migrate-kpi.ts",
     "migrate-kpi-formulas": "tsx --env-file ../.env ./src/migrate/migrate-kpi-formulas.ts",
+    "cleanup-kpi-responsible": "tsx --env-file ../.env ./src/migrate/cleanup-kpi-responsible.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
