@@ -137,19 +137,26 @@ function EmployeePicker({ orgId, value, onChange, onPick, placeholder }: Employe
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search.trim(), 250);
 
-  const PAGE_SIZE = 50;
+  const PAGE_SIZE = 100;
   const { data: employees = [], isFetching } = useQuery({
     queryKey: ["user-create-employees", orgId, debouncedSearch],
     enabled: !!orgId && open,
     placeholderData: keepPreviousData,
     staleTime: 60_000,
     queryFn: async () => {
-      const result = await listEmployees(orgId, {
-        page: 1,
-        pageSize: PAGE_SIZE,
-        search: debouncedSearch || undefined,
-      });
-      return result.data as EmployeeOption[];
+      const search = debouncedSearch || undefined;
+      const first = await listEmployees(orgId, { page: 1, pageSize: PAGE_SIZE, search });
+      if (first.pagination.totalPages <= 1) return first.data as EmployeeOption[];
+      const remainingPages = Array.from(
+        { length: first.pagination.totalPages - 1 },
+        (_, i) => i + 2,
+      );
+      const rest = await Promise.all(
+        remainingPages.map((page) =>
+          listEmployees(orgId, { page, pageSize: PAGE_SIZE, search }),
+        ),
+      );
+      return rest.reduce((acc, r) => acc.concat(r.data as EmployeeOption[]), first.data as EmployeeOption[]);
     },
   });
 
