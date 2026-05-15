@@ -14077,6 +14077,14 @@ components:
         responsible:
           type: string
           nullable: true
+          description: Deprecated — kept for backward compatibility. Use responsibleUserId.
+        responsibleUserId:
+          type: integer
+          nullable: true
+        responsibleUserName:
+          type: string
+          nullable: true
+          description: Joined from users.name for display. Read-only.
         measureUnit:
           type: string
           nullable: true
@@ -14121,6 +14129,9 @@ components:
           type: string
         responsible:
           type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
         measureUnit:
           type: string
         direction:
@@ -14165,6 +14176,9 @@ components:
           type: string
         responsible:
           type: string
+        responsibleUserId:
+          type: integer
+          nullable: true
         measureUnit:
           type: string
         direction:

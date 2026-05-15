@@ -126,19 +126,25 @@ export default function KpiAlimentacaoPage() {
     allYearRows.map((r) => r.indicator.unit).filter(Boolean) as string[]
   )].sort();
 
-  const uniqueResponsibles = [...new Set(
-    allYearRows.map((r) => r.indicator.responsible).filter(Boolean) as string[]
-  )].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const uniqueResponsibles = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const r of allYearRows) {
+      if (r.indicator.responsibleUserId && r.indicator.responsibleUserName) {
+        map.set(r.indicator.responsibleUserId, r.indicator.responsibleUserName);
+      }
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+  }, [allYearRows]);
 
   const hasUnlinkedRows = allYearRows.some((r) => !r.objective);
-  const hasUnassignedRows = allYearRows.some((r) => !r.indicator.responsible);
+  const hasUnassignedRows = allYearRows.some((r) => !r.indicator.responsibleUserId);
 
   const yearRows = allYearRows.filter((r) => {
     if (unitFilter && r.indicator.unit !== unitFilter) return false;
     if (objectiveFilter === "none") return !r.objective;
     if (objectiveFilter && String(r.objective?.id ?? "") !== objectiveFilter) return false;
-    if (responsibleFilter === "none") return !r.indicator.responsible;
-    if (responsibleFilter && r.indicator.responsible !== responsibleFilter) return false;
+    if (responsibleFilter === "none") return !r.indicator.responsibleUserId;
+    if (responsibleFilter && String(r.indicator.responsibleUserId ?? "") !== responsibleFilter) return false;
     return true;
   });
 
@@ -243,8 +249,8 @@ export default function KpiAlimentacaoPage() {
 
         <Select value={responsibleFilter} onChange={(e) => setResponsibleFilter(e.target.value)} className="w-56">
           <option value="">Todos os responsáveis</option>
-          {uniqueResponsibles.map((r) => (
-            <option key={r} value={r}>{r}</option>
+          {uniqueResponsibles.map(([id, name]) => (
+            <option key={id} value={String(id)}>{name}</option>
           ))}
           {hasUnassignedRows && <option value="none">Sem responsável</option>}
         </Select>

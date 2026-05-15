@@ -18,6 +18,7 @@ export interface UpdateKpiIndicatorBody {
   formulaExpression?: string;
   unit?: string;
   responsible?: string;
+  responsibleUserId?: number | null;
   measureUnit?: string;
   direction?: UpdateKpiIndicatorBodyDirection;
   periodicity?: UpdateKpiIndicatorBodyPeriodicity;

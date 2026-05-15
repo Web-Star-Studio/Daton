@@ -13233,7 +13233,17 @@ export const ListKpiIndicatorsResponseItem = zod.object({
   ),
   formulaExpression: zod.string(),
   unit: zod.string().nullish(),
-  responsible: zod.string().nullish(),
+  responsible: zod
+    .string()
+    .nullish()
+    .describe(
+      "Deprecated — kept for backward compatibility. Use responsibleUserId.",
+    ),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod
+    .string()
+    .nullish()
+    .describe("Joined from users.name for display. Read-only."),
   measureUnit: zod.string().nullish(),
   direction: zod.enum(["up", "down"]),
   periodicity: zod.enum([
@@ -13276,6 +13286,7 @@ export const CreateKpiIndicatorBody = zod.object({
   formulaExpression: zod.string(),
   unit: zod.string().optional(),
   responsible: zod.string().optional(),
+  responsibleUserId: zod.number().nullish(),
   measureUnit: zod.string().optional(),
   direction: zod.enum(["up", "down"]),
   periodicity: zod.enum([
@@ -13319,6 +13330,7 @@ export const UpdateKpiIndicatorBody = zod.object({
   formulaExpression: zod.string().optional(),
   unit: zod.string().optional(),
   responsible: zod.string().optional(),
+  responsibleUserId: zod.number().nullish(),
   measureUnit: zod.string().optional(),
   direction: zod.enum(["up", "down"]).optional(),
   periodicity: zod
@@ -13351,7 +13363,17 @@ export const UpdateKpiIndicatorResponse = zod.object({
   ),
   formulaExpression: zod.string(),
   unit: zod.string().nullish(),
-  responsible: zod.string().nullish(),
+  responsible: zod
+    .string()
+    .nullish()
+    .describe(
+      "Deprecated — kept for backward compatibility. Use responsibleUserId.",
+    ),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod
+    .string()
+    .nullish()
+    .describe("Joined from users.name for display. Read-only."),
   measureUnit: zod.string().nullish(),
   direction: zod.enum(["up", "down"]),
   periodicity: zod.enum([
@@ -13407,7 +13429,17 @@ export const ListKpiYearDataResponseItem = zod.object({
     ),
     formulaExpression: zod.string(),
     unit: zod.string().nullish(),
-    responsible: zod.string().nullish(),
+    responsible: zod
+      .string()
+      .nullish()
+      .describe(
+        "Deprecated — kept for backward compatibility. Use responsibleUserId.",
+      ),
+    responsibleUserId: zod.number().nullish(),
+    responsibleUserName: zod
+      .string()
+      .nullish()
+      .describe("Joined from users.name for display. Read-only."),
     measureUnit: zod.string().nullish(),
     direction: zod.enum(["up", "down"]),
     periodicity: zod.enum([
