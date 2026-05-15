@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { Command as CommandPrimitive } from "cmdk";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { BarChart2, Check, ChevronsUpDown, Pencil, Plus, Search, Target, Trash2, X } from "lucide-react";
-import { listEmployees, useListUnits } from "@workspace/api-client-react";
+import {
+  getListOrgUsersQueryKey,
+  useListOrgUsers,
+  useListUnits,
+} from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
@@ -86,15 +89,6 @@ const defaultIndicatorForm = (): IndicatorFormData => ({
   objectiveId: "",
   goal: "",
 });
-
-function useDebouncedValue<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const id = window.setTimeout(() => setDebounced(value), delay);
-    return () => window.clearTimeout(id);
-  }, [value, delay]);
-  return debounced;
-}
 
 type SearchableStringSelectProps = {
   value: string;
@@ -273,37 +267,24 @@ export default function KpiIndicadoresPage() {
   const { data: yearRows = [] } = useKpiYearData(orgId, year);
   const { data: orgUnits = [] } = useListUnits(orgId);
 
-  const [responsibleSearch, setResponsibleSearch] = useState("");
-  const debouncedResponsibleSearch = useDebouncedValue(responsibleSearch.trim(), 250);
-  const PAGE_SIZE = 100;
-  const { data: allEmployees = [], isFetching: isFetchingEmployees } = useQuery({
-    queryKey: ["kpi-all-employees", orgId, debouncedResponsibleSearch],
-    enabled: !!orgId,
-    placeholderData: keepPreviousData,
-    staleTime: 60_000,
-    queryFn: async () => {
-      const search = debouncedResponsibleSearch || undefined;
-      const first = await listEmployees(orgId, { page: 1, pageSize: PAGE_SIZE, search });
-      if (first.pagination.totalPages <= 1) return first.data;
-      const remainingPages = Array.from(
-        { length: first.pagination.totalPages - 1 },
-        (_, i) => i + 2,
-      );
-      const rest = await Promise.all(
-        remainingPages.map((page) =>
-          listEmployees(orgId, { page, pageSize: PAGE_SIZE, search }),
-        ),
-      );
-      return rest.reduce((acc, r) => acc.concat(r.data), first.data);
+  const { data: orgUsersData, isLoading: orgUsersLoading } = useListOrgUsers(orgId, {
+    query: {
+      queryKey: getListOrgUsersQueryKey(orgId),
+      enabled: !!orgId,
+      staleTime: 60_000,
     },
   });
 
   const orgUnitOptions = orgUnits
     .map((u) => u.name)
     .sort((a, b) => a.localeCompare(b));
-  const employeeOptions = allEmployees
-    .map((e) => e.name)
-    .sort((a, b) => a.localeCompare(b));
+  const responsibleOptions = useMemo(
+    () =>
+      (orgUsersData?.users ?? [])
+        .map((u) => u.name)
+        .sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [orgUsersData?.users],
+  );
 
   const createIndicator = useCreateKpiIndicatorWithInvalidation(orgId);
   const updateIndicator = useUpdateKpiIndicatorWithInvalidation(orgId);
@@ -685,18 +666,19 @@ export default function KpiIndicadoresPage() {
             <SearchableStringSelect
               value={indicatorForm.responsible}
               onChange={(v) => setIndicatorForm((f) => ({ ...f, responsible: v }))}
-              options={employeeOptions}
-              searchValue={responsibleSearch}
-              onSearchChange={setResponsibleSearch}
-              isLoading={isFetchingEmployees}
+              options={responsibleOptions}
+              isLoading={orgUsersLoading}
               placeholder="Selecione um responsável"
-              searchPlaceholder="Buscar colaborador..."
+              searchPlaceholder="Buscar usuário..."
               emptyMessage={
-                debouncedResponsibleSearch
-                  ? "Nenhum colaborador encontrado"
-                  : "Comece a digitar para buscar"
+                responsibleOptions.length === 0
+                  ? "Nenhum usuário com conta. Cadastre em Configurações → Usuários."
+                  : "Nenhum usuário encontrado"
               }
             />
+            <p className="text-[11px] text-muted-foreground">
+              Apenas usuários com conta na plataforma podem ser responsáveis.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Unidade de medida</Label>
