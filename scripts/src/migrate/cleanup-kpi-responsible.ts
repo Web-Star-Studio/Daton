@@ -32,6 +32,32 @@ function normalize(s: string): string {
   return s.normalize("NFD").replace(DIACRITICS, "").trim().toLowerCase();
 }
 
+const STOPWORDS = new Set(["da", "de", "do", "dos", "das", "e", "di", "du"]);
+
+function tokenize(s: string): Set<string> {
+  return new Set(
+    normalize(s)
+      .split(/\s+/)
+      .filter((t) => t.length >= 2 && !STOPWORDS.has(t)),
+  );
+}
+
+/**
+ * Match difuso baseado em tokens.
+ * - Set exatamente igual → match (cobre o caso de usuário "jp" / responsible "JP")
+ * - 2+ tokens em comum → match (cobre "JOCILENE PEREIRA" vs "JOCILENE DA SILVA PEREIRA")
+ */
+function isFuzzyMatch(respTokens: Set<string>, userTokens: Set<string>): boolean {
+  if (respTokens.size === 0 || userTokens.size === 0) return false;
+  let shared = 0;
+  for (const t of respTokens) {
+    if (userTokens.has(t)) shared++;
+  }
+  if (shared === respTokens.size && shared === userTokens.size) return true;
+  if (shared >= 2) return true;
+  return false;
+}
+
 async function main() {
   console.log(`Org ID: ${ORG_ID}`);
   console.log(`Mode:   ${apply ? "APPLY (vai atualizar o banco)" : "DRY-RUN (apenas relatório)"}`);
@@ -42,7 +68,7 @@ async function main() {
     .from(usersTable)
     .where(eq(usersTable.organizationId, ORG_ID));
 
-  const validNames = new Set(users.map((u) => normalize(u.name)));
+  const userTokensList = users.map((u) => tokenize(u.name));
   console.log(`Usuários cadastrados: ${users.length}`);
 
   const indicators = await db
@@ -65,7 +91,8 @@ async function main() {
   const invalid = indicators.filter((ind) => {
     const r = (ind.responsible ?? "").trim();
     if (!r) return true;
-    return !validNames.has(normalize(r));
+    const respTokens = tokenize(r);
+    return !userTokensList.some((userTokens) => isFuzzyMatch(respTokens, userTokens));
   });
 
   if (invalid.length === 0) {
