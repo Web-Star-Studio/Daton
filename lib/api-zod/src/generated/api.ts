@@ -154,6 +154,8 @@ export const GetMeResponse = zod.object({
       "governance",
       "suppliers",
       "environmental",
+      "kpi",
+      "assets",
     ]),
   ),
 });
@@ -262,6 +264,8 @@ export const UpdateMeResponse = zod.object({
       "governance",
       "suppliers",
       "environmental",
+      "kpi",
+      "assets",
     ]),
   ),
 });
@@ -5761,6 +5765,8 @@ export const ListOrgUsersResponse = zod.object({
           "governance",
           "suppliers",
           "environmental",
+          "kpi",
+          "assets",
         ]),
       ),
     }),
@@ -5792,6 +5798,8 @@ export const CreateOrgUserBody = zod.object({
       "governance",
       "suppliers",
       "environmental",
+      "kpi",
+      "assets",
     ]),
   ),
 });
@@ -5859,6 +5867,8 @@ export const UpdateUserModulesBody = zod.object({
       "governance",
       "suppliers",
       "environmental",
+      "kpi",
+      "assets",
     ]),
   ),
 });
@@ -5877,6 +5887,8 @@ export const UpdateUserModulesResponse = zod.object({
         "governance",
         "suppliers",
         "environmental",
+        "kpi",
+        "assets",
       ]),
     )
     .optional(),
@@ -5900,6 +5912,8 @@ export const CreateInvitationBody = zod.object({
         "governance",
         "suppliers",
         "environmental",
+        "kpi",
+        "assets",
       ]),
     )
     .optional(),
@@ -5928,6 +5942,8 @@ export const ListInvitationsResponse = zod.object({
           "governance",
           "suppliers",
           "environmental",
+          "kpi",
+          "assets",
         ]),
       ),
       expiresAt: zod.string(),
