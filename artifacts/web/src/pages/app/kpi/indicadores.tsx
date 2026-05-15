@@ -263,6 +263,7 @@ export default function KpiIndicadoresPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [unitFilter, setUnitFilter] = useState("");
   const [objectiveFilter, setObjectiveFilter] = useState("");
+  const [responsibleFilter, setResponsibleFilter] = useState("");
 
   const [objectiveForm, setObjectiveForm] = useState({ code: "", name: "" });
   const [editingObjective, setEditingObjective] = useState<KpiObjective | null>(null);
@@ -334,11 +335,15 @@ export default function KpiIndicadoresPage() {
   const indicatorsForYear = indicators.filter((i) => yearIndicatorIds.has(i.id));
 
   const uniqueUnits = [...new Set(indicatorsForYear.map((i) => i.unit).filter(Boolean) as string[])].sort();
+  const uniqueResponsibles = [...new Set(
+    indicatorsForYear.map((i) => i.responsible).filter(Boolean) as string[]
+  )].sort((a, b) => a.localeCompare(b, "pt-BR"));
 
   const hasUnlinkedIndicators = indicatorsForYear.some((ind) => {
     const row = yearRows.find((r) => r.indicator.id === ind.id);
     return !row?.yearConfig?.objectiveId;
   });
+  const hasUnassignedResponsible = indicatorsForYear.some((ind) => !ind.responsible);
 
   const filteredIndicators = indicatorsForYear.filter((ind) => {
     const matchesSearch = ind.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -348,7 +353,12 @@ export default function KpiIndicadoresPage() {
     const matchesObjective =
       !objectiveFilter ||
       (objectiveFilter === "none" ? objId === null : String(objId ?? "") === objectiveFilter);
-    return matchesSearch && matchesUnit && matchesObjective;
+    const matchesResponsible =
+      !responsibleFilter ||
+      (responsibleFilter === "none"
+        ? !ind.responsible
+        : ind.responsible === responsibleFilter);
+    return matchesSearch && matchesUnit && matchesObjective && matchesResponsible;
   });
 
   const groupMap = new Map<number | null, KpiIndicator[]>();
@@ -505,6 +515,13 @@ export default function KpiIndicadoresPage() {
           ))}
           {hasUnlinkedIndicators && <option value="none">Sem objetivo vinculado</option>}
         </Select>
+        <Select value={responsibleFilter} onChange={(e) => setResponsibleFilter(e.target.value)} className="w-56">
+          <option value="">Todos os responsáveis</option>
+          {uniqueResponsibles.map((r) => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+          {hasUnassignedResponsible && <option value="none">Sem responsável</option>}
+        </Select>
       </div>
 
       {/* Indicators grouped by objective */}
@@ -557,7 +574,7 @@ export default function KpiIndicadoresPage() {
                 {/* Indicators card */}
                 <div className="rounded-lg border overflow-hidden">
                   {/* Column labels */}
-                  <div className="grid grid-cols-[1fr_80px_120px_72px_72px_88px_68px] gap-x-3 px-4 py-2 bg-muted/30 border-b text-xs font-medium text-muted-foreground">
+                  <div className="grid grid-cols-[minmax(0,1fr)_88px_140px_110px_92px_96px_68px] gap-x-3 px-4 py-2 bg-muted/30 border-b text-xs font-medium text-muted-foreground">
                     <span>Indicador</span>
                     <span className="text-center">Unidade</span>
                     <span>Responsável</span>
@@ -570,7 +587,7 @@ export default function KpiIndicadoresPage() {
                   {group.indicators.map((ind) => (
                     <div
                       key={ind.id}
-                      className="grid grid-cols-[1fr_80px_120px_72px_72px_88px_68px] gap-x-3 items-center px-4 py-3 border-b last:border-b-0 hover:bg-muted/20 transition-colors duration-150"
+                      className="grid grid-cols-[minmax(0,1fr)_88px_140px_110px_92px_96px_68px] gap-x-3 items-center px-4 py-3 border-b last:border-b-0 hover:bg-muted/20 transition-colors duration-150"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
