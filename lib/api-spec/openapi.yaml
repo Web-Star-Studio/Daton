@@ -10224,6 +10224,8 @@ components:
           governance,
           suppliers,
           environmental,
+          kpi,
+          assets,
         ]
 
     OrgUser:

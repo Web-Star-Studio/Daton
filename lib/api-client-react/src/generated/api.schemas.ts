@@ -203,6 +203,8 @@ export const AppModule = {
   governance: "governance",
   suppliers: "suppliers",
   environmental: "environmental",
+  kpi: "kpi",
+  assets: "assets",
 } as const;
 
 export interface MeResponse {
