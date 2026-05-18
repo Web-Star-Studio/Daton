@@ -54,7 +54,8 @@ export default function ActionPlanDetailPage() {
   const [, params] = useRoute<{ id: string }>("/planos-acao/:id");
   const [, paramsApp] = useRoute<{ id: string }>("/app/planos-acao/:id");
   const idStr = params?.id ?? paramsApp?.id;
-  const planId = idStr ? Number(idStr) : null;
+  const parsedPlanId = idStr ? Number(idStr) : NaN;
+  const planId = Number.isInteger(parsedPlanId) && parsedPlanId > 0 ? parsedPlanId : null;
 
   const { organization } = useAuth();
   const orgId = organization!.id;
@@ -234,10 +235,28 @@ export default function ActionPlanDetailPage() {
     }
   }
 
-  if (isLoading || !plan) {
+  if (planId === null) {
+    return (
+      <div className="p-6">
+        <p className="text-sm text-muted-foreground">URL inválida.</p>
+      </div>
+    );
+  }
+  if (isLoading) {
     return (
       <div className="p-6">
         <p className="text-sm text-muted-foreground">Carregando...</p>
+      </div>
+    );
+  }
+  if (!plan) {
+    return (
+      <div className="p-6 space-y-2">
+        <p className="text-sm text-muted-foreground">Plano não encontrado.</p>
+        <Button variant="outline" size="sm" onClick={() => setLocation("/planos-acao")}>
+          <ArrowLeft className="h-4 w-4 mr-1.5" />
+          Voltar para a lista
+        </Button>
       </div>
     );
   }

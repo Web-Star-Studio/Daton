@@ -14473,8 +14473,28 @@ components:
           type: number
           nullable: true
 
+    KpiMonthlyValueInput:
+      type: object
+      description: Write payload for a single monthly cell (used in upsert bodies)
+      properties:
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+        value:
+          type: number
+          nullable: true
+        inputs:
+          type: object
+          additionalProperties:
+            type: number
+            nullable: true
+      required:
+        - month
+
     KpiMonthlyValue:
       type: object
+      description: Read shape of a monthly cell — includes server-resolved metadata
       properties:
         month:
           type: integer
@@ -14500,6 +14520,9 @@ components:
           minimum: 0
       required:
         - month
+        - monthlyValueId
+        - justification
+        - actionPlansCount
 
     UpsertKpiValuesBody:
       type: object
@@ -14507,7 +14530,7 @@ components:
         values:
           type: array
           items:
-            $ref: "#/components/schemas/KpiMonthlyValue"
+            $ref: "#/components/schemas/KpiMonthlyValueInput"
       required:
         - values
 
@@ -14534,7 +14557,7 @@ components:
 
     ActionPlanSourceRef:
       type: object
-      description: Polymorphic reference to the entity that originated the action plan
+      description: Polymorphic reference to the entity that originated the action plan. For kpi, kpiMonthlyValueId is mandatory; the triplet (indicatorId/year/month) is optional context.
       properties:
         kpiMonthlyValueId:
           type: integer
@@ -14546,6 +14569,8 @@ components:
           type: integer
           minimum: 1
           maximum: 12
+      required:
+        - kpiMonthlyValueId
 
     ActionPlanSourceContext:
       type: object
@@ -14789,12 +14814,21 @@ components:
       properties:
         fileName:
           type: string
+          minLength: 1
+          maxLength: 512
         fileSize:
           type: integer
+          minimum: 1
+          maximum: 20971520
+          description: Bytes; max 20MB (matches the direct-upload limit at /storage/uploads/direct)
         contentType:
           type: string
+          minLength: 1
+          maxLength: 255
         objectPath:
           type: string
+          minLength: 1
+          description: Object path returned by /storage/uploads/direct (e.g. /objects/<id>)
       required:
         - fileName
         - fileSize

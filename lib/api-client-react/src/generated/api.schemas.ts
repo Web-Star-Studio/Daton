@@ -3388,8 +3388,26 @@ export interface UpsertKpiYearConfigBody {
   goal?: number | null;
 }
 
+export type KpiMonthlyValueInputInputs = { [key: string]: number | null };
+
+/**
+ * Write payload for a single monthly cell (used in upsert bodies)
+ */
+export interface KpiMonthlyValueInput {
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  month: number;
+  value?: number | null;
+  inputs?: KpiMonthlyValueInputInputs;
+}
+
 export type KpiMonthlyValueInputs = { [key: string]: number | null };
 
+/**
+ * Read shape of a monthly cell — includes server-resolved metadata
+ */
 export interface KpiMonthlyValue {
   /**
    * @minimum 1
@@ -3399,14 +3417,14 @@ export interface KpiMonthlyValue {
   value?: number | null;
   inputs?: KpiMonthlyValueInputs;
   /** Database id of the kpi_monthly_values row; null when the cell has never been written */
-  monthlyValueId?: number | null;
-  justification?: string | null;
+  monthlyValueId: number | null;
+  justification: string | null;
   /** @minimum 0 */
-  actionPlansCount?: number;
+  actionPlansCount: number;
 }
 
 export interface UpsertKpiValuesBody {
-  values: KpiMonthlyValue[];
+  values: KpiMonthlyValueInput[];
 }
 
 export interface UpsertKpiMonthJustificationBody {
@@ -3440,10 +3458,10 @@ export const ActionPlanSourceModule = {
 } as const;
 
 /**
- * Polymorphic reference to the entity that originated the action plan
+ * Polymorphic reference to the entity that originated the action plan. For kpi, kpiMonthlyValueId is mandatory; the triplet (indicatorId/year/month) is optional context.
  */
 export interface ActionPlanSourceRef {
-  kpiMonthlyValueId?: number;
+  kpiMonthlyValueId: number;
   kpiIndicatorId?: number;
   kpiYear?: number;
   /**
@@ -3572,9 +3590,26 @@ export interface UpdateActionPlanBody {
 }
 
 export interface AddActionPlanEvidenceBody {
+  /**
+   * @minLength 1
+   * @maxLength 512
+   */
   fileName: string;
+  /**
+   * Bytes; max 20MB (matches the direct-upload limit at /storage/uploads/direct)
+   * @minimum 1
+   * @maximum 20971520
+   */
   fileSize: number;
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
   contentType: string;
+  /**
+   * Object path returned by /storage/uploads/direct (e.g. /objects/<id>)
+   * @minLength 1
+   */
   objectPath: string;
 }
 

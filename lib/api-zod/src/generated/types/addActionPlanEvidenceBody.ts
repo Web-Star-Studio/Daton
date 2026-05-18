@@ -7,8 +7,25 @@
  */
 
 export interface AddActionPlanEvidenceBody {
+  /**
+   * @minLength 1
+   * @maxLength 512
+   */
   fileName: string;
+  /**
+   * Bytes; max 20MB (matches the direct-upload limit at /storage/uploads/direct)
+   * @minimum 1
+   * @maximum 20971520
+   */
   fileSize: number;
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
   contentType: string;
+  /**
+   * Object path returned by /storage/uploads/direct (e.g. /objects/<id>)
+   * @minLength 1
+   */
   objectPath: string;
 }

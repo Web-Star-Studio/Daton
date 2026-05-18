@@ -375,10 +375,10 @@ function PlanCard({
           </div>
         </div>
         <div className="flex gap-1 shrink-0">
-          <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar" onClick={onEdit}>
+          <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar" aria-label="Editar plano de ação" onClick={onEdit}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title="Excluir" onClick={onDelete}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title="Excluir" aria-label="Excluir plano de ação" onClick={onDelete}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>

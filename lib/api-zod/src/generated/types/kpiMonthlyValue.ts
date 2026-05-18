@@ -7,6 +7,9 @@
  */
 import type { KpiMonthlyValueInputs } from "./kpiMonthlyValueInputs";
 
+/**
+ * Read shape of a monthly cell — includes server-resolved metadata
+ */
 export interface KpiMonthlyValue {
   /**
    * @minimum 1
@@ -16,8 +19,8 @@ export interface KpiMonthlyValue {
   value?: number | null;
   inputs?: KpiMonthlyValueInputs;
   /** Database id of the kpi_monthly_values row; null when the cell has never been written */
-  monthlyValueId?: number | null;
-  justification?: string | null;
+  monthlyValueId: number | null;
+  justification: string | null;
   /** @minimum 0 */
-  actionPlansCount?: number;
+  actionPlansCount: number;
 }

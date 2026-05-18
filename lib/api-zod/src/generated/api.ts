@@ -13477,25 +13477,28 @@ export const ListKpiYearDataResponseItem = zod.object({
     })
     .nullish(),
   monthlyValues: zod.array(
-    zod.object({
-      month: zod
-        .number()
-        .min(1)
-        .max(listKpiYearDataResponseMonthlyValuesItemMonthMax),
-      value: zod.number().nullish(),
-      inputs: zod.record(zod.string(), zod.number().nullable()).optional(),
-      monthlyValueId: zod
-        .number()
-        .nullish()
-        .describe(
-          "Database id of the kpi_monthly_values row; null when the cell has never been written",
-        ),
-      justification: zod.string().nullish(),
-      actionPlansCount: zod
-        .number()
-        .min(listKpiYearDataResponseMonthlyValuesItemActionPlansCountMin)
-        .optional(),
-    }),
+    zod
+      .object({
+        month: zod
+          .number()
+          .min(1)
+          .max(listKpiYearDataResponseMonthlyValuesItemMonthMax),
+        value: zod.number().nullish(),
+        inputs: zod.record(zod.string(), zod.number().nullable()).optional(),
+        monthlyValueId: zod
+          .number()
+          .nullable()
+          .describe(
+            "Database id of the kpi_monthly_values row; null when the cell has never been written",
+          ),
+        justification: zod.string().nullable(),
+        actionPlansCount: zod
+          .number()
+          .min(listKpiYearDataResponseMonthlyValuesItemActionPlansCountMin),
+      })
+      .describe(
+        "Read shape of a monthly cell — includes server-resolved metadata",
+      ),
   ),
   average: zod.number().nullish(),
   accumulated: zod.number().nullish(),
@@ -13541,26 +13544,17 @@ export const UpsertKpiValuesParams = zod.object({
 
 export const upsertKpiValuesBodyValuesItemMonthMax = 12;
 
-export const upsertKpiValuesBodyValuesItemActionPlansCountMin = 0;
-
 export const UpsertKpiValuesBody = zod.object({
   values: zod.array(
-    zod.object({
-      month: zod.number().min(1).max(upsertKpiValuesBodyValuesItemMonthMax),
-      value: zod.number().nullish(),
-      inputs: zod.record(zod.string(), zod.number().nullable()).optional(),
-      monthlyValueId: zod
-        .number()
-        .nullish()
-        .describe(
-          "Database id of the kpi_monthly_values row; null when the cell has never been written",
-        ),
-      justification: zod.string().nullish(),
-      actionPlansCount: zod
-        .number()
-        .min(upsertKpiValuesBodyValuesItemActionPlansCountMin)
-        .optional(),
-    }),
+    zod
+      .object({
+        month: zod.number().min(1).max(upsertKpiValuesBodyValuesItemMonthMax),
+        value: zod.number().nullish(),
+        inputs: zod.record(zod.string(), zod.number().nullable()).optional(),
+      })
+      .describe(
+        "Write payload for a single monthly cell (used in upsert bodies)",
+      ),
   ),
 });
 
@@ -13568,22 +13562,23 @@ export const upsertKpiValuesResponseMonthMax = 12;
 
 export const upsertKpiValuesResponseActionPlansCountMin = 0;
 
-export const UpsertKpiValuesResponseItem = zod.object({
-  month: zod.number().min(1).max(upsertKpiValuesResponseMonthMax),
-  value: zod.number().nullish(),
-  inputs: zod.record(zod.string(), zod.number().nullable()).optional(),
-  monthlyValueId: zod
-    .number()
-    .nullish()
-    .describe(
-      "Database id of the kpi_monthly_values row; null when the cell has never been written",
-    ),
-  justification: zod.string().nullish(),
-  actionPlansCount: zod
-    .number()
-    .min(upsertKpiValuesResponseActionPlansCountMin)
-    .optional(),
-});
+export const UpsertKpiValuesResponseItem = zod
+  .object({
+    month: zod.number().min(1).max(upsertKpiValuesResponseMonthMax),
+    value: zod.number().nullish(),
+    inputs: zod.record(zod.string(), zod.number().nullable()).optional(),
+    monthlyValueId: zod
+      .number()
+      .nullable()
+      .describe(
+        "Database id of the kpi_monthly_values row; null when the cell has never been written",
+      ),
+    justification: zod.string().nullable(),
+    actionPlansCount: zod
+      .number()
+      .min(upsertKpiValuesResponseActionPlansCountMin),
+  })
+  .describe("Read shape of a monthly cell — includes server-resolved metadata");
 export const UpsertKpiValuesResponse = zod.array(UpsertKpiValuesResponseItem);
 
 /**
@@ -15809,7 +15804,7 @@ export const CreateActionPlanBody = zod.object({
   sourceModule: zod.enum(["kpi"]),
   sourceRef: zod
     .object({
-      kpiMonthlyValueId: zod.number().optional(),
+      kpiMonthlyValueId: zod.number(),
       kpiIndicatorId: zod.number().optional(),
       kpiYear: zod.number().optional(),
       kpiMonth: zod
@@ -15819,7 +15814,7 @@ export const CreateActionPlanBody = zod.object({
         .optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan",
+      "Polymorphic reference to the entity that originated the action plan. For kpi, kpiMonthlyValueId is mandatory; the triplet (indicatorId\/year\/month) is optional context.",
     ),
   title: zod.string().min(1),
   description: zod.string().nullish(),
@@ -15848,7 +15843,7 @@ export const GetActionPlanResponse = zod.object({
   sourceModule: zod.enum(["kpi"]),
   sourceRef: zod
     .object({
-      kpiMonthlyValueId: zod.number().optional(),
+      kpiMonthlyValueId: zod.number(),
       kpiIndicatorId: zod.number().optional(),
       kpiYear: zod.number().optional(),
       kpiMonth: zod
@@ -15858,7 +15853,7 @@ export const GetActionPlanResponse = zod.object({
         .optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan",
+      "Polymorphic reference to the entity that originated the action plan. For kpi, kpiMonthlyValueId is mandatory; the triplet (indicatorId\/year\/month) is optional context.",
     ),
   sourceContext: zod
     .object({
@@ -15942,7 +15937,7 @@ export const UpdateActionPlanResponse = zod.object({
   sourceModule: zod.enum(["kpi"]),
   sourceRef: zod
     .object({
-      kpiMonthlyValueId: zod.number().optional(),
+      kpiMonthlyValueId: zod.number(),
       kpiIndicatorId: zod.number().optional(),
       kpiYear: zod.number().optional(),
       kpiMonth: zod
@@ -15952,7 +15947,7 @@ export const UpdateActionPlanResponse = zod.object({
         .optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan",
+      "Polymorphic reference to the entity that originated the action plan. For kpi, kpiMonthlyValueId is mandatory; the triplet (indicatorId\/year\/month) is optional context.",
     ),
   sourceContext: zod
     .object({
@@ -16023,11 +16018,28 @@ export const AddActionPlanEvidenceParams = zod.object({
   planId: zod.coerce.number(),
 });
 
+export const addActionPlanEvidenceBodyFileNameMax = 512;
+
+export const addActionPlanEvidenceBodyFileSizeMax = 20971520;
+
+export const addActionPlanEvidenceBodyContentTypeMax = 255;
+
 export const AddActionPlanEvidenceBody = zod.object({
-  fileName: zod.string(),
-  fileSize: zod.number(),
-  contentType: zod.string(),
-  objectPath: zod.string(),
+  fileName: zod.string().min(1).max(addActionPlanEvidenceBodyFileNameMax),
+  fileSize: zod
+    .number()
+    .min(1)
+    .max(addActionPlanEvidenceBodyFileSizeMax)
+    .describe(
+      "Bytes; max 20MB (matches the direct-upload limit at \/storage\/uploads\/direct)",
+    ),
+  contentType: zod.string().min(1).max(addActionPlanEvidenceBodyContentTypeMax),
+  objectPath: zod
+    .string()
+    .min(1)
+    .describe(
+      "Object path returned by \/storage\/uploads\/direct (e.g. \/objects\/<id>)",
+    ),
 });
 
 /**

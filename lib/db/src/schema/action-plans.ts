@@ -1,4 +1,4 @@
-import { index, integer, jsonb, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgEnum, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
@@ -9,23 +9,38 @@ export type ActionPlanPriority = "low" | "medium" | "high";
 export type ActionPlanSourceModule = "kpi";
 
 export type ActionPlanSourceRef = {
-  kpiMonthlyValueId?: number;
+  kpiMonthlyValueId: number;
   kpiIndicatorId?: number;
   kpiYear?: number;
   kpiMonth?: number;
 };
+
+export const actionPlanStatusEnum = pgEnum("action_plan_status", [
+  "open",
+  "in_progress",
+  "completed",
+  "cancelled",
+]);
+export const actionPlanPriorityEnum = pgEnum("action_plan_priority", [
+  "low",
+  "medium",
+  "high",
+]);
+export const actionPlanSourceModuleEnum = pgEnum("action_plan_source_module", [
+  "kpi",
+]);
 
 export const actionPlansTable = pgTable(
   "action_plans",
   {
     id: serial("id").primaryKey(),
     organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
-    sourceModule: varchar("source_module", { length: 32 }).notNull(),
+    sourceModule: actionPlanSourceModuleEnum("source_module").notNull(),
     sourceRef: jsonb("source_ref").$type<ActionPlanSourceRef>().notNull(),
     title: text("title").notNull(),
     description: text("description"),
-    status: varchar("status", { length: 20 }).notNull().default("open"),
-    priority: varchar("priority", { length: 10 }).notNull().default("medium"),
+    status: actionPlanStatusEnum("status").notNull().default("open"),
+    priority: actionPlanPriorityEnum("priority").notNull().default("medium"),
     responsibleUserId: integer("responsible_user_id").references(() => usersTable.id, { onDelete: "set null" }),
     dueDate: timestamp("due_date", { withTimezone: true }),
     correctiveActionDescription: text("corrective_action_description"),
@@ -43,6 +58,7 @@ export const actionPlansTable = pgTable(
 
 export const actionPlanEvidencesTable = pgTable("action_plan_evidences", {
   id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
   actionPlanId: integer("action_plan_id").notNull().references(() => actionPlansTable.id, { onDelete: "cascade" }),
   fileName: text("file_name").notNull(),
   fileSize: integer("file_size").notNull(),
@@ -50,6 +66,8 @@ export const actionPlanEvidencesTable = pgTable("action_plan_evidences", {
   objectPath: text("object_path").notNull(),
   uploadedByUserId: integer("uploaded_by_user_id").references(() => usersTable.id, { onDelete: "set null" }),
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
 export const insertActionPlanSchema = createInsertSchema(actionPlansTable).omit({

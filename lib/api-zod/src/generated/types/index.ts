@@ -206,6 +206,8 @@ export * from "./kpiIndicator";
 export * from "./kpiIndicatorDirection";
 export * from "./kpiIndicatorPeriodicity";
 export * from "./kpiMonthlyValue";
+export * from "./kpiMonthlyValueInput";
+export * from "./kpiMonthlyValueInputInputs";
 export * from "./kpiMonthlyValueInputs";
 export * from "./kpiObjective";
 export * from "./kpiYearConfig";

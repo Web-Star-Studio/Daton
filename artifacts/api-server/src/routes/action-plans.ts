@@ -471,6 +471,7 @@ router.post("/organizations/:orgId/action-plans/:planId/evidences", requireAuth,
   if (!plan) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
 
   const [row] = await db.insert(actionPlanEvidencesTable).values({
+    organizationId: params.data.orgId,
     actionPlanId: params.data.planId,
     fileName: body.data.fileName,
     fileSize: body.data.fileSize,
