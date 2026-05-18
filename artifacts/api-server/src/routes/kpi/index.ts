@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { and, eq, ilike, inArray, sql } from "drizzle-orm";
 import {
+  actionPlansTable,
   db,
   kpiIndicatorsTable,
   kpiMonthlyValuesTable,
@@ -24,6 +25,8 @@ import {
   UpdateKpiIndicatorParams,
   UpdateKpiObjectiveBody,
   UpdateKpiObjectiveParams,
+  UpsertKpiMonthJustificationBody,
+  UpsertKpiMonthJustificationParams,
   UpsertKpiValuesBody,
   UpsertKpiValuesParams,
   UpsertKpiYearConfigBody,
@@ -393,16 +396,43 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
         .where(inArray(kpiMonthlyValuesTable.yearConfigId, yearConfigIds))
     : [];
 
-  type MonthCell = { value: number | null; inputs: Record<string, number | null> };
+  type MonthCell = {
+    monthlyValueId: number;
+    value: number | null;
+    inputs: Record<string, number | null>;
+    justification: string | null;
+  };
   const valuesByYearConfigId = new Map<number, Map<number, MonthCell>>();
   for (const mv of monthlyValues) {
     if (!valuesByYearConfigId.has(mv.yearConfigId)) {
       valuesByYearConfigId.set(mv.yearConfigId, new Map());
     }
     valuesByYearConfigId.get(mv.yearConfigId)!.set(mv.month, {
+      monthlyValueId: mv.id,
       value: mv.value !== null && mv.value !== undefined ? parseFloat(mv.value) : null,
       inputs: mv.inputs ?? {},
+      justification: mv.justification ?? null,
     });
+  }
+
+  // Batch count action plans grouped by kpiMonthlyValueId
+  const monthlyValueIds = monthlyValues.map((mv) => mv.id);
+  const actionPlanCountsByMvId = new Map<number, number>();
+  if (monthlyValueIds.length > 0) {
+    const counts = await db.execute<{ mv_id: number; cnt: number }>(sql`
+      SELECT (${actionPlansTable.sourceRef}->>'kpiMonthlyValueId')::int AS mv_id,
+             COUNT(*)::int AS cnt
+      FROM ${actionPlansTable}
+      WHERE ${actionPlansTable.organizationId} = ${params.data.orgId}
+        AND ${actionPlansTable.sourceModule} = 'kpi'
+        AND (${actionPlansTable.sourceRef}->>'kpiMonthlyValueId')::int = ANY(${monthlyValueIds})
+      GROUP BY mv_id
+    `);
+    for (const row of counts.rows) {
+      if (row.mv_id !== null && row.mv_id !== undefined) {
+        actionPlanCountsByMvId.set(Number(row.mv_id), Number(row.cnt));
+      }
+    }
   }
 
   // Fetch objectives for lookup
@@ -418,7 +448,9 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
     .map((ind) => {
       const yc = yearConfigByIndicatorId.get(ind.id)!;
       const monthMap = valuesByYearConfigId.get(yc.id) ?? new Map<number, MonthCell>();
-      const monthlyCells: MonthCell[] = Array.from({ length: 12 }, (_, i) => monthMap.get(i + 1) ?? { value: null, inputs: {} });
+      const monthlyCells: MonthCell[] = Array.from({ length: 12 }, (_, i) =>
+        monthMap.get(i + 1) ?? { monthlyValueId: 0, value: null, inputs: {}, justification: null },
+      );
       const monthlyValuesOnly = monthlyCells.map((c) => c.value);
 
       const filledValues = monthlyValuesOnly.filter((v) => v !== null) as number[];
@@ -434,7 +466,14 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
         indicator: serializeIndicator(ind, responsibleUserName),
         yearConfig: serializeYearConfig(yc),
         objective: objective ? serializeObjective(objective) : null,
-        monthlyValues: monthlyCells.map((c, i) => ({ month: i + 1, value: c.value, inputs: c.inputs })),
+        monthlyValues: monthlyCells.map((c, i) => ({
+          month: i + 1,
+          value: c.value,
+          inputs: c.inputs,
+          monthlyValueId: c.monthlyValueId > 0 ? c.monthlyValueId : null,
+          justification: c.justification,
+          actionPlansCount: c.monthlyValueId > 0 ? (actionPlanCountsByMvId.get(c.monthlyValueId) ?? 0) : 0,
+        })),
         average,
         accumulated,
         feedStatus,
@@ -514,6 +553,9 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/values
       month: v.month,
       value: v.value !== null ? parseFloat(v.value) : null,
       inputs: v.inputs ?? {},
+      monthlyValueId: v.id,
+      justification: v.justification ?? null,
+      actionPlansCount: 0,
     })));
     return;
   }
@@ -544,7 +586,57 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/values
     month: v.month,
     value: v.value !== null ? parseFloat(v.value) : null,
     inputs: v.inputs ?? {},
+    monthlyValueId: v.id,
+    justification: v.justification ?? null,
+    actionPlansCount: 0,
   })));
 });
+
+// ─── Monthly Justification ─────────────────────────────────────────────────
+
+router.put(
+  "/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/months/:month/justification",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = UpsertKpiMonthJustificationParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+    if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const body = UpsertKpiMonthJustificationBody.safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+    const [yearConfig] = await db.select().from(kpiYearConfigsTable)
+      .where(and(
+        eq(kpiYearConfigsTable.indicatorId, params.data.indicatorId),
+        eq(kpiYearConfigsTable.year, params.data.year),
+        eq(kpiYearConfigsTable.organizationId, params.data.orgId),
+      ));
+
+    if (!yearConfig) {
+      res.status(404).json({ error: "Configuração de ano não encontrada. Configure a meta antes de adicionar justificativa." });
+      return;
+    }
+
+    const justification = body.data.justification ?? null;
+
+    const [row] = await db.insert(kpiMonthlyValuesTable).values({
+      organizationId: params.data.orgId,
+      yearConfigId: yearConfig.id,
+      month: params.data.month,
+      value: null,
+      inputs: {},
+      justification,
+    }).onConflictDoUpdate({
+      target: [kpiMonthlyValuesTable.yearConfigId, kpiMonthlyValuesTable.month],
+      set: {
+        justification,
+        updatedAt: new Date(),
+      },
+    }).returning();
+
+    res.json({ justification: row.justification ?? null });
+  },
+);
 
 export default router;

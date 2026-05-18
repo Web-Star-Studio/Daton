@@ -24,6 +24,7 @@ import organizationContactsRouter from "./organization-contacts";
 import productKnowledgeRouter from "./product-knowledge";
 import suppliersRouter from "./suppliers";
 import kpiRouter from "./kpi/index";
+import actionPlansRouter from "./action-plans";
 import assetsRouter from "./assets";
 import assetMaintenanceRouter from "./asset-maintenance";
 import workEnvironmentRouter from "./work-environment";
@@ -143,6 +144,7 @@ router.use(
   requireModuleAccessForPaths("kpi", [/^\/organizations\/[^/]+\/kpi(?:\/|$)/]),
   kpiRouter,
 );
+router.use(requireAuth, requireCompletedOnboarding, actionPlansRouter);
 router.use(
   requireAuth,
   requireCompletedOnboarding,

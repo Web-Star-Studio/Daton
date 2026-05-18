@@ -13413,6 +13413,8 @@ export const listKpiYearDataResponseIndicatorFormulaVariablesItemKeyRegExp =
 
 export const listKpiYearDataResponseMonthlyValuesItemMonthMax = 12;
 
+export const listKpiYearDataResponseMonthlyValuesItemActionPlansCountMin = 0;
+
 export const ListKpiYearDataResponseItem = zod.object({
   indicator: zod.object({
     id: zod.number(),
@@ -13482,6 +13484,17 @@ export const ListKpiYearDataResponseItem = zod.object({
         .max(listKpiYearDataResponseMonthlyValuesItemMonthMax),
       value: zod.number().nullish(),
       inputs: zod.record(zod.string(), zod.number().nullable()).optional(),
+      monthlyValueId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Database id of the kpi_monthly_values row; null when the cell has never been written",
+        ),
+      justification: zod.string().nullish(),
+      actionPlansCount: zod
+        .number()
+        .min(listKpiYearDataResponseMonthlyValuesItemActionPlansCountMin)
+        .optional(),
     }),
   ),
   average: zod.number().nullish(),
@@ -13528,22 +13541,48 @@ export const UpsertKpiValuesParams = zod.object({
 
 export const upsertKpiValuesBodyValuesItemMonthMax = 12;
 
+export const upsertKpiValuesBodyValuesItemActionPlansCountMin = 0;
+
 export const UpsertKpiValuesBody = zod.object({
   values: zod.array(
     zod.object({
       month: zod.number().min(1).max(upsertKpiValuesBodyValuesItemMonthMax),
       value: zod.number().nullish(),
       inputs: zod.record(zod.string(), zod.number().nullable()).optional(),
+      monthlyValueId: zod
+        .number()
+        .nullish()
+        .describe(
+          "Database id of the kpi_monthly_values row; null when the cell has never been written",
+        ),
+      justification: zod.string().nullish(),
+      actionPlansCount: zod
+        .number()
+        .min(upsertKpiValuesBodyValuesItemActionPlansCountMin)
+        .optional(),
     }),
   ),
 });
 
 export const upsertKpiValuesResponseMonthMax = 12;
 
+export const upsertKpiValuesResponseActionPlansCountMin = 0;
+
 export const UpsertKpiValuesResponseItem = zod.object({
   month: zod.number().min(1).max(upsertKpiValuesResponseMonthMax),
   value: zod.number().nullish(),
   inputs: zod.record(zod.string(), zod.number().nullable()).optional(),
+  monthlyValueId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Database id of the kpi_monthly_values row; null when the cell has never been written",
+    ),
+  justification: zod.string().nullish(),
+  actionPlansCount: zod
+    .number()
+    .min(upsertKpiValuesResponseActionPlansCountMin)
+    .optional(),
 });
 export const UpsertKpiValuesResponse = zod.array(UpsertKpiValuesResponseItem);
 
@@ -15672,4 +15711,330 @@ export const DeleteProjectChangeParams = zod.object({
   orgId: zod.coerce.number(),
   projectId: zod.coerce.number(),
   changeId: zod.coerce.number(),
+});
+
+/**
+ * @summary Set or clear the justification for a specific monthly cell
+ */
+export const upsertKpiMonthJustificationPathMonthMax = 12;
+
+export const UpsertKpiMonthJustificationParams = zod.object({
+  orgId: zod.coerce.number(),
+  indicatorId: zod.coerce.number(),
+  year: zod.coerce.number(),
+  month: zod.coerce
+    .number()
+    .min(1)
+    .max(upsertKpiMonthJustificationPathMonthMax),
+});
+
+export const UpsertKpiMonthJustificationBody = zod.object({
+  justification: zod.string().nullable(),
+});
+
+export const UpsertKpiMonthJustificationResponse = zod.object({
+  justification: zod.string().nullable(),
+});
+
+/**
+ * @summary List action plans in the organization with filters
+ */
+export const ListActionPlansParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListActionPlansQueryParams = zod.object({
+  status: zod
+    .enum(["open", "in_progress", "completed", "cancelled"])
+    .optional(),
+  priority: zod.enum(["low", "medium", "high"]).optional(),
+  sourceModule: zod.enum(["kpi"]).optional(),
+  responsibleUserId: zod.coerce.number().optional(),
+  sourceKpiMonthlyValueId: zod.coerce
+    .number()
+    .optional()
+    .describe("When sourceModule=kpi, filter by linked monthly value id"),
+});
+
+export const listActionPlansResponseEvidencesCountMin = 0;
+
+export const ListActionPlansResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  sourceModule: zod.enum(["kpi"]),
+  sourceContext: zod
+    .object({
+      label: zod
+        .string()
+        .describe(
+          'Human-readable origin label, e.g. \"KPI · Indicador X · Mai\/2026\"',
+        ),
+      kpi: zod
+        .object({
+          indicatorId: zod.number(),
+          indicatorName: zod.string(),
+          year: zod.number(),
+          month: zod.number(),
+          value: zod.number().nullable(),
+          goal: zod.number().nullable(),
+          direction: zod.enum(["up", "down"]),
+        })
+        .nullish(),
+    })
+    .describe(
+      "Server-resolved context about the source, used for display in lists\/details",
+    ),
+  title: zod.string(),
+  status: zod.enum(["open", "in_progress", "completed", "cancelled"]),
+  priority: zod.enum(["low", "medium", "high"]),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  dueDate: zod.string().datetime({}).nullish(),
+  evidencesCount: zod.number().min(listActionPlansResponseEvidencesCountMin),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+export const ListActionPlansResponse = zod.array(ListActionPlansResponseItem);
+
+/**
+ * @summary Create a new action plan
+ */
+export const CreateActionPlanParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const createActionPlanBodySourceRefKpiMonthMax = 12;
+
+export const CreateActionPlanBody = zod.object({
+  sourceModule: zod.enum(["kpi"]),
+  sourceRef: zod
+    .object({
+      kpiMonthlyValueId: zod.number().optional(),
+      kpiIndicatorId: zod.number().optional(),
+      kpiYear: zod.number().optional(),
+      kpiMonth: zod
+        .number()
+        .min(1)
+        .max(createActionPlanBodySourceRefKpiMonthMax)
+        .optional(),
+    })
+    .describe(
+      "Polymorphic reference to the entity that originated the action plan",
+    ),
+  title: zod.string().min(1),
+  description: zod.string().nullish(),
+  status: zod
+    .enum(["open", "in_progress", "completed", "cancelled"])
+    .optional(),
+  priority: zod.enum(["low", "medium", "high"]).optional(),
+  responsibleUserId: zod.number().nullish(),
+  dueDate: zod.string().datetime({}).nullish(),
+  correctiveActionDescription: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a single action plan with evidences and expanded source
+ */
+export const GetActionPlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const getActionPlanResponseSourceRefKpiMonthMax = 12;
+
+export const GetActionPlanResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  sourceModule: zod.enum(["kpi"]),
+  sourceRef: zod
+    .object({
+      kpiMonthlyValueId: zod.number().optional(),
+      kpiIndicatorId: zod.number().optional(),
+      kpiYear: zod.number().optional(),
+      kpiMonth: zod
+        .number()
+        .min(1)
+        .max(getActionPlanResponseSourceRefKpiMonthMax)
+        .optional(),
+    })
+    .describe(
+      "Polymorphic reference to the entity that originated the action plan",
+    ),
+  sourceContext: zod
+    .object({
+      label: zod
+        .string()
+        .describe(
+          'Human-readable origin label, e.g. \"KPI · Indicador X · Mai\/2026\"',
+        ),
+      kpi: zod
+        .object({
+          indicatorId: zod.number(),
+          indicatorName: zod.string(),
+          year: zod.number(),
+          month: zod.number(),
+          value: zod.number().nullable(),
+          goal: zod.number().nullable(),
+          direction: zod.enum(["up", "down"]),
+        })
+        .nullish(),
+    })
+    .describe(
+      "Server-resolved context about the source, used for display in lists\/details",
+    ),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  status: zod.enum(["open", "in_progress", "completed", "cancelled"]),
+  priority: zod.enum(["low", "medium", "high"]),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  dueDate: zod.string().datetime({}).nullish(),
+  correctiveActionDescription: zod.string().nullish(),
+  correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
+  createdByUserId: zod.number().nullish(),
+  createdByUserName: zod.string().nullish(),
+  closedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+  evidences: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        actionPlanId: zod.number(),
+        fileName: zod.string(),
+        fileSize: zod.number(),
+        contentType: zod.string(),
+        objectPath: zod.string(),
+        uploadedByUserId: zod.number().nullish(),
+        uploadedByUserName: zod.string().nullish(),
+        uploadedAt: zod.string().datetime({}),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Update an action plan
+ */
+export const UpdateActionPlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const UpdateActionPlanBody = zod.object({
+  title: zod.string().min(1).optional(),
+  description: zod.string().nullish(),
+  status: zod
+    .enum(["open", "in_progress", "completed", "cancelled"])
+    .optional(),
+  priority: zod.enum(["low", "medium", "high"]).optional(),
+  responsibleUserId: zod.number().nullish(),
+  dueDate: zod.string().datetime({}).nullish(),
+  correctiveActionDescription: zod.string().nullish(),
+  correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
+});
+
+export const updateActionPlanResponseSourceRefKpiMonthMax = 12;
+
+export const UpdateActionPlanResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  sourceModule: zod.enum(["kpi"]),
+  sourceRef: zod
+    .object({
+      kpiMonthlyValueId: zod.number().optional(),
+      kpiIndicatorId: zod.number().optional(),
+      kpiYear: zod.number().optional(),
+      kpiMonth: zod
+        .number()
+        .min(1)
+        .max(updateActionPlanResponseSourceRefKpiMonthMax)
+        .optional(),
+    })
+    .describe(
+      "Polymorphic reference to the entity that originated the action plan",
+    ),
+  sourceContext: zod
+    .object({
+      label: zod
+        .string()
+        .describe(
+          'Human-readable origin label, e.g. \"KPI · Indicador X · Mai\/2026\"',
+        ),
+      kpi: zod
+        .object({
+          indicatorId: zod.number(),
+          indicatorName: zod.string(),
+          year: zod.number(),
+          month: zod.number(),
+          value: zod.number().nullable(),
+          goal: zod.number().nullable(),
+          direction: zod.enum(["up", "down"]),
+        })
+        .nullish(),
+    })
+    .describe(
+      "Server-resolved context about the source, used for display in lists\/details",
+    ),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  status: zod.enum(["open", "in_progress", "completed", "cancelled"]),
+  priority: zod.enum(["low", "medium", "high"]),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  dueDate: zod.string().datetime({}).nullish(),
+  correctiveActionDescription: zod.string().nullish(),
+  correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
+  createdByUserId: zod.number().nullish(),
+  createdByUserName: zod.string().nullish(),
+  closedAt: zod.string().datetime({}).nullish(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+  evidences: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        actionPlanId: zod.number(),
+        fileName: zod.string(),
+        fileSize: zod.number(),
+        contentType: zod.string(),
+        objectPath: zod.string(),
+        uploadedByUserId: zod.number().nullish(),
+        uploadedByUserName: zod.string().nullish(),
+        uploadedAt: zod.string().datetime({}),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Delete an action plan and all its evidences
+ */
+export const DeleteActionPlanParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+/**
+ * @summary Register an uploaded file as evidence for an action plan
+ */
+export const AddActionPlanEvidenceParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const AddActionPlanEvidenceBody = zod.object({
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Remove a single evidence from an action plan
+ */
+export const DeleteActionPlanEvidenceParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+  evidenceId: zod.coerce.number(),
 });

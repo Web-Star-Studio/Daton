@@ -15,4 +15,9 @@ export interface KpiMonthlyValue {
   month: number;
   value?: number | null;
   inputs?: KpiMonthlyValueInputs;
+  /** Database id of the kpi_monthly_values row; null when the cell has never been written */
+  monthlyValueId?: number | null;
+  justification?: string | null;
+  /** @minimum 0 */
+  actionPlansCount?: number;
 }

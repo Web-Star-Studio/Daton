@@ -71,6 +71,7 @@ export const kpiMonthlyValuesTable = pgTable("kpi_monthly_values", {
     .$type<KpiMonthlyValueInputs>()
     .notNull()
     .default(sql`'{}'::jsonb`),
+  justification: text("justification"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
