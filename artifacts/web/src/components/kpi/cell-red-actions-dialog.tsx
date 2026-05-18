@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardList, MessageSquareWarning, Pencil, Plus, Trash2 } from "lucide-react";
+import { useLocation } from "wouter";
+import { ClipboardList, ExternalLink, MessageSquareWarning, Plus, Trash2 } from "lucide-react";
 import {
   getListOrgUsersQueryKey,
   useListOrgUsers,
@@ -23,7 +24,6 @@ import {
   useActionPlansForKpiCell,
   useCreateActionPlanWithInvalidation,
   useDeleteActionPlanWithInvalidation,
-  useUpdateActionPlanWithInvalidation,
   useUpsertKpiMonthJustificationWithInvalidation,
   type ActionPlanPriority,
   type ActionPlanStatus,
@@ -52,7 +52,6 @@ interface CellRedActionsDialogProps {
 }
 
 type PlanFormState = {
-  id: number | null;
   title: string;
   description: string;
   status: ActionPlanStatus;
@@ -60,12 +59,10 @@ type PlanFormState = {
   responsibleUserId: string;
   dueDate: string;
   correctiveActionDescription: string;
-  correctiveActionCompletedAt: string;
 };
 
 function emptyForm(): PlanFormState {
   return {
-    id: null,
     title: "",
     description: "",
     status: "open",
@@ -73,25 +70,6 @@ function emptyForm(): PlanFormState {
     responsibleUserId: "",
     dueDate: "",
     correctiveActionDescription: "",
-    correctiveActionCompletedAt: "",
-  };
-}
-
-function formFromPlan(plan: ActionPlanListItem & {
-  description?: string | null;
-  correctiveActionDescription?: string | null;
-  correctiveActionCompletedAt?: string | null;
-}): PlanFormState {
-  return {
-    id: plan.id,
-    title: plan.title,
-    description: plan.description ?? "",
-    status: plan.status,
-    priority: plan.priority,
-    responsibleUserId: plan.responsibleUserId != null ? String(plan.responsibleUserId) : "",
-    dueDate: plan.dueDate ? plan.dueDate.slice(0, 10) : "",
-    correctiveActionDescription: plan.correctiveActionDescription ?? "",
-    correctiveActionCompletedAt: plan.correctiveActionCompletedAt ? plan.correctiveActionCompletedAt.slice(0, 10) : "",
   };
 }
 
@@ -102,12 +80,13 @@ function formatNumber(v: number | null): string {
 
 export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogProps) {
   const { orgId, indicatorId, indicatorName, year, month, monthlyValueId, value, goal, currentJustification } = context;
+  const [, setLocation] = useLocation();
 
   const [tab, setTab] = useState<"justification" | "plans">(
     currentJustification ? "justification" : "plans",
   );
   const [justificationDraft, setJustificationDraft] = useState(currentJustification ?? "");
-  const [mode, setMode] = useState<"list" | "form">("list");
+  const [mode, setMode] = useState<"list" | "create">("list");
   const [form, setForm] = useState<PlanFormState>(emptyForm);
 
   useEffect(() => {
@@ -122,7 +101,6 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
 
   const saveJustification = useUpsertKpiMonthJustificationWithInvalidation(orgId, year);
   const createPlan = useCreateActionPlanWithInvalidation(orgId, year);
-  const updatePlan = useUpdateActionPlanWithInvalidation(orgId, year);
   const deletePlan = useDeleteActionPlanWithInvalidation(orgId, year);
 
   const subtitle = useMemo(() => {
@@ -153,7 +131,7 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
     }
   }
 
-  async function handleSavePlan() {
+  async function handleCreatePlan() {
     if (!form.title.trim()) {
       toast({ title: "Informe o título do plano", variant: "destructive" });
       return;
@@ -164,48 +142,27 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
     }
     const responsibleUserId = form.responsibleUserId ? Number(form.responsibleUserId) : null;
     const dueDate = form.dueDate ? new Date(`${form.dueDate}T00:00:00.000Z`).toISOString() : null;
-    const correctiveActionCompletedAt = form.correctiveActionCompletedAt
-      ? new Date(`${form.correctiveActionCompletedAt}T00:00:00.000Z`).toISOString()
-      : null;
     try {
-      if (form.id === null) {
-        await createPlan.mutateAsync({
-          orgId,
-          data: {
-            sourceModule: "kpi",
-            sourceRef: {
-              kpiMonthlyValueId: monthlyValueId,
-              kpiIndicatorId: indicatorId,
-              kpiYear: year,
-              kpiMonth: month,
-            },
-            title: form.title.trim(),
-            description: form.description.trim() || null,
-            status: form.status,
-            priority: form.priority,
-            responsibleUserId,
-            dueDate,
-            correctiveActionDescription: form.correctiveActionDescription.trim() || null,
+      await createPlan.mutateAsync({
+        orgId,
+        data: {
+          sourceModule: "kpi",
+          sourceRef: {
+            kpiMonthlyValueId: monthlyValueId,
+            kpiIndicatorId: indicatorId,
+            kpiYear: year,
+            kpiMonth: month,
           },
-        });
-        toast({ title: "Plano de ação criado" });
-      } else {
-        await updatePlan.mutateAsync({
-          orgId,
-          planId: form.id,
-          data: {
-            title: form.title.trim(),
-            description: form.description.trim() || null,
-            status: form.status,
-            priority: form.priority,
-            responsibleUserId,
-            dueDate,
-            correctiveActionDescription: form.correctiveActionDescription.trim() || null,
-            correctiveActionCompletedAt,
-          },
-        });
-        toast({ title: "Plano de ação atualizado" });
-      }
+          title: form.title.trim(),
+          description: form.description.trim() || null,
+          status: form.status,
+          priority: form.priority,
+          responsibleUserId,
+          dueDate,
+          correctiveActionDescription: form.correctiveActionDescription.trim() || null,
+        },
+      });
+      toast({ title: "Plano de ação criado" });
       setMode("list");
       setForm(emptyForm());
     } catch (err) {
@@ -231,7 +188,7 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
     }
   }
 
-  const planSaving = createPlan.isPending || updatePlan.isPending;
+  const planSaving = createPlan.isPending;
 
   return (
     <Dialog
@@ -292,9 +249,9 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
                     <PlanCard
                       key={plan.id}
                       plan={plan}
-                      onEdit={() => {
-                        setForm(formFromPlan(plan));
-                        setMode("form");
+                      onOpen={() => {
+                        onClose();
+                        setLocation(`/planos-acao/${plan.id}`);
                       }}
                       onDelete={() => handleDeletePlan(plan.id)}
                     />
@@ -306,7 +263,7 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
                 <Button
                   onClick={() => {
                     setForm(emptyForm());
-                    setMode("form");
+                    setMode("create");
                   }}
                   disabled={monthlyValueId === null}
                 >
@@ -317,7 +274,7 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
             </>
           )}
 
-          {mode === "form" && (
+          {mode === "create" && (
             <PlanForm
               form={form}
               setForm={setForm}
@@ -326,7 +283,7 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
                 setMode("list");
                 setForm(emptyForm());
               }}
-              onSave={handleSavePlan}
+              onSave={handleCreatePlan}
               saving={planSaving}
             />
           )}
@@ -340,17 +297,22 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
 
 function PlanCard({
   plan,
-  onEdit,
+  onOpen,
   onDelete,
 }: {
   plan: ActionPlanListItem;
-  onEdit: () => void;
+  onOpen: () => void;
   onDelete: () => void;
 }) {
   return (
     <div className="rounded-md border border-border bg-card px-3 py-2.5 space-y-1.5">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={onOpen}
+          className="min-w-0 flex-1 text-left hover:opacity-90"
+          title="Abrir plano em detalhe"
+        >
           <p className="text-sm font-medium leading-tight">{plan.title}</p>
           <div className="flex flex-wrap items-center gap-1.5 mt-1">
             <Badge variant="secondary" className={cn("text-[10px] px-1.5", actionPlanStatusColor(plan.status))}>
@@ -373,10 +335,10 @@ function PlanCard({
               </span>
             )}
           </div>
-        </div>
+        </button>
         <div className="flex gap-1 shrink-0">
-          <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar" aria-label="Editar plano de ação" onClick={onEdit}>
-            <Pencil className="h-3.5 w-3.5" />
+          <Button variant="ghost" size="icon" className="h-7 w-7" title="Abrir" aria-label="Abrir plano de ação" onClick={onOpen}>
+            <ExternalLink className="h-3.5 w-3.5" />
           </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title="Excluir" aria-label="Excluir plano de ação" onClick={onDelete}>
             <Trash2 className="h-3.5 w-3.5" />
@@ -402,8 +364,6 @@ function PlanForm({
   onSave: () => void;
   saving: boolean;
 }) {
-  const isEditing = form.id !== null;
-
   return (
     <div className="space-y-3 max-h-[60vh] overflow-auto pr-1">
       <div className="space-y-1.5">
@@ -487,23 +447,12 @@ function PlanForm({
         </p>
       </div>
 
-      {isEditing && (form.status === "completed" || form.correctiveActionCompletedAt) && (
-        <div className="space-y-1.5">
-          <Label>Data de conclusão da ação corretiva</Label>
-          <Input
-            type="date"
-            value={form.correctiveActionCompletedAt}
-            onChange={(e) => setForm((f) => ({ ...f, correctiveActionCompletedAt: e.target.value }))}
-          />
-        </div>
-      )}
-
       <DialogFooter>
         <Button variant="outline" onClick={onCancel} disabled={saving}>
           Voltar
         </Button>
         <Button onClick={onSave} disabled={saving}>
-          {saving ? "Salvando..." : isEditing ? "Salvar alterações" : "Criar plano"}
+          {saving ? "Salvando..." : "Criar plano"}
         </Button>
       </DialogFooter>
     </div>

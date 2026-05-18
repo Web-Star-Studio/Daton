@@ -186,6 +186,14 @@ async function resolveUserNames(userIds: (number | null | undefined)[]): Promise
   return new Map(rows.map((r) => [r.id, r.name]));
 }
 
+async function assertUserBelongsToOrg(userId: number, orgId: number): Promise<boolean> {
+  const [user] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(and(eq(usersTable.id, userId), eq(usersTable.organizationId, orgId)));
+  return Boolean(user);
+}
+
 // ─── List ──────────────────────────────────────────────────────────────────
 
 router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): Promise<void> => {
@@ -327,6 +335,15 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
     }
   }
 
+  // Validate responsibleUserId belongs to the org (prevents cross-tenant assignment + FK errors)
+  if (body.data.responsibleUserId !== null && body.data.responsibleUserId !== undefined) {
+    const ok = await assertUserBelongsToOrg(body.data.responsibleUserId, params.data.orgId);
+    if (!ok) {
+      res.status(400).json({ error: "responsibleUserId não corresponde a um usuário desta organização" });
+      return;
+    }
+  }
+
   const [row] = await db.insert(actionPlansTable).values({
     organizationId: params.data.orgId,
     sourceModule: body.data.sourceModule,
@@ -386,7 +403,16 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
     }
   }
   if (body.data.priority !== undefined) update.priority = body.data.priority;
-  if (body.data.responsibleUserId !== undefined) update.responsibleUserId = body.data.responsibleUserId;
+  if (body.data.responsibleUserId !== undefined) {
+    if (body.data.responsibleUserId !== null) {
+      const ok = await assertUserBelongsToOrg(body.data.responsibleUserId, params.data.orgId);
+      if (!ok) {
+        res.status(400).json({ error: "responsibleUserId não corresponde a um usuário desta organização" });
+        return;
+      }
+    }
+    update.responsibleUserId = body.data.responsibleUserId;
+  }
   if (body.data.dueDate !== undefined) {
     update.dueDate = body.data.dueDate ? new Date(body.data.dueDate) : null;
   }
