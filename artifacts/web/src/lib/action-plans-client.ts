@@ -65,6 +65,36 @@ export function actionPlanPriorityColor(priority: ActionPlanPriority): string {
   return "bg-slate-100 text-slate-800 dark:bg-slate-500/15 dark:text-slate-300";
 }
 
+// ─── Date helpers (calendar dates, TZ-safe) ────────────────────────────────
+// dueDate and correctiveActionCompletedAt are calendar dates, not instants.
+// We anchor them at noon UTC so the YYYY-MM-DD survives round-trip in any
+// timezone from UTC-11 to UTC+12 (covers all common business timezones).
+
+/** YYYY-MM-DD (from <input type="date">) → ISO at noon UTC for storage. */
+export function calendarDateToStorageIso(localDate: string): string {
+  return `${localDate}T12:00:00.000Z`;
+}
+
+/** ISO timestamp → YYYY-MM-DD for <input type="date"> values. */
+export function storageIsoToCalendarDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  return iso.slice(0, 10);
+}
+
+/** YYYY-MM-DD of today in the user's local timezone. */
+export function todayCalendarDate(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** ISO timestamp of a calendar date → display string "dd/mm/yyyy" using the
+ * stored YYYY-MM-DD prefix directly (no Date parse, no TZ shift). */
+export function formatCalendarDateBR(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${y}`;
+}
+
 // ─── Queries ───────────────────────────────────────────────────────────────
 
 export function useActionPlans(orgId: number, params?: ListActionPlansParams) {

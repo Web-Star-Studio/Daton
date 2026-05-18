@@ -12,6 +12,7 @@ import {
   ACTION_PLAN_STATUS_LABELS,
   actionPlanPriorityColor,
   actionPlanStatusColor,
+  formatCalendarDateBR,
   useActionPlans,
   type ActionPlanPriority,
   type ActionPlanStatus,
@@ -142,7 +143,7 @@ export default function ActionPlansListPage() {
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
                       {plan.responsibleUserName && <span>👤 {plan.responsibleUserName}</span>}
                       {plan.dueDate && (
-                        <span>📅 até {new Date(plan.dueDate).toLocaleDateString("pt-BR")}</span>
+                        <span>📅 até {formatCalendarDateBR(plan.dueDate)}</span>
                       )}
                       {plan.evidencesCount > 0 && (
                         <span>📎 {plan.evidencesCount} evidência{plan.evidencesCount !== 1 ? "s" : ""}</span>

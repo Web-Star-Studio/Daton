@@ -33,6 +33,9 @@ import {
   ACTION_PLAN_STATUS_LABELS,
   actionPlanPriorityColor,
   actionPlanStatusColor,
+  calendarDateToStorageIso,
+  storageIsoToCalendarDate,
+  todayCalendarDate,
   useActionPlan,
   useAddActionPlanEvidenceWithInvalidation,
   useDeleteActionPlanEvidenceWithInvalidation,
@@ -97,9 +100,9 @@ export default function ActionPlanDetailPage() {
       status: plan.status,
       priority: plan.priority,
       responsibleUserId: plan.responsibleUserId != null ? String(plan.responsibleUserId) : "",
-      dueDate: plan.dueDate ? plan.dueDate.slice(0, 10) : "",
+      dueDate: storageIsoToCalendarDate(plan.dueDate),
       correctiveActionDescription: plan.correctiveActionDescription ?? "",
-      correctiveActionCompletedAt: plan.correctiveActionCompletedAt ? plan.correctiveActionCompletedAt.slice(0, 10) : "",
+      correctiveActionCompletedAt: storageIsoToCalendarDate(plan.correctiveActionCompletedAt),
     });
     setDirty(false);
   }, [plan]);
@@ -133,10 +136,10 @@ export default function ActionPlanDetailPage() {
           status: form.status,
           priority: form.priority,
           responsibleUserId: form.responsibleUserId ? Number(form.responsibleUserId) : null,
-          dueDate: form.dueDate ? new Date(`${form.dueDate}T00:00:00.000Z`).toISOString() : null,
+          dueDate: form.dueDate ? calendarDateToStorageIso(form.dueDate) : null,
           correctiveActionDescription: form.correctiveActionDescription.trim() || null,
           correctiveActionCompletedAt: form.correctiveActionCompletedAt
-            ? new Date(`${form.correctiveActionCompletedAt}T00:00:00.000Z`).toISOString()
+            ? calendarDateToStorageIso(form.correctiveActionCompletedAt)
             : null,
         },
       });
@@ -153,14 +156,13 @@ export default function ActionPlanDetailPage() {
 
   async function handleConcludeCorrectiveAction() {
     if (!planId) return;
-    const today = new Date().toISOString().slice(0, 10);
     try {
       await updatePlan.mutateAsync({
         orgId,
         planId,
         data: {
           status: "completed",
-          correctiveActionCompletedAt: new Date(`${today}T00:00:00.000Z`).toISOString(),
+          correctiveActionCompletedAt: calendarDateToStorageIso(todayCalendarDate()),
         },
       });
       toast({ title: "Ação corretiva concluída" });

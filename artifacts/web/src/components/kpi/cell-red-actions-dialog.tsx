@@ -21,6 +21,8 @@ import {
   ACTION_PLAN_STATUS_LABELS,
   actionPlanPriorityColor,
   actionPlanStatusColor,
+  calendarDateToStorageIso,
+  formatCalendarDateBR,
   useActionPlansForKpiCell,
   useCreateActionPlanWithInvalidation,
   useDeleteActionPlanWithInvalidation,
@@ -141,7 +143,7 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
       return;
     }
     const responsibleUserId = form.responsibleUserId ? Number(form.responsibleUserId) : null;
-    const dueDate = form.dueDate ? new Date(`${form.dueDate}T00:00:00.000Z`).toISOString() : null;
+    const dueDate = form.dueDate ? calendarDateToStorageIso(form.dueDate) : null;
     try {
       await createPlan.mutateAsync({
         orgId,
@@ -326,7 +328,7 @@ function PlanCard({
             )}
             {plan.dueDate && (
               <span className="text-[11px] text-muted-foreground">
-                até {new Date(plan.dueDate).toLocaleDateString("pt-BR")}
+                até {formatCalendarDateBR(plan.dueDate)}
               </span>
             )}
             {plan.evidencesCount > 0 && (
