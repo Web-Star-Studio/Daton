@@ -4,13 +4,8 @@ import {
   actionPlanEvidencesTable,
   actionPlansTable,
   db,
-  kpiIndicatorsTable,
   kpiMonthlyValuesTable,
-  kpiYearConfigsTable,
   usersTable,
-  type ActionPlan as DbActionPlan,
-  type ActionPlanEvidence as DbActionPlanEvidence,
-  type ActionPlanSourceRef,
 } from "@workspace/db";
 import {
   AddActionPlanEvidenceBody,
@@ -26,173 +21,15 @@ import {
   UpdateActionPlanParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../middlewares/auth";
+import { resolveSourceContexts } from "../services/action-plans/source-context";
+import {
+  assertUserBelongsToOrg,
+  resolveUserNames,
+  serializeEvidence,
+  serializePlan,
+} from "../services/action-plans/serializers";
 
 const router: IRouter = Router();
-
-const MONTH_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-
-type KpiSourceContext = {
-  indicatorId: number;
-  indicatorName: string;
-  year: number;
-  month: number;
-  value: number | null;
-  goal: number | null;
-  direction: "up" | "down";
-};
-
-type SourceContext = {
-  label: string;
-  kpi: KpiSourceContext | null;
-};
-
-async function resolveSourceContexts(
-  orgId: number,
-  refs: { id: number; sourceModule: string; sourceRef: ActionPlanSourceRef }[],
-): Promise<Map<number, SourceContext>> {
-  const out = new Map<number, SourceContext>();
-  if (refs.length === 0) return out;
-
-  const kpiMvIds = refs
-    .filter((r) => r.sourceModule === "kpi" && typeof r.sourceRef.kpiMonthlyValueId === "number")
-    .map((r) => r.sourceRef.kpiMonthlyValueId as number);
-
-  type KpiRow = {
-    mvId: number;
-    month: number;
-    value: string | null;
-    indicatorId: number;
-    indicatorName: string;
-    direction: string;
-    year: number;
-    goal: string | null;
-  };
-  let kpiMap = new Map<number, KpiRow>();
-  if (kpiMvIds.length > 0) {
-    const rows = await db
-      .select({
-        mvId: kpiMonthlyValuesTable.id,
-        month: kpiMonthlyValuesTable.month,
-        value: kpiMonthlyValuesTable.value,
-        indicatorId: kpiIndicatorsTable.id,
-        indicatorName: kpiIndicatorsTable.name,
-        direction: kpiIndicatorsTable.direction,
-        year: kpiYearConfigsTable.year,
-        goal: kpiYearConfigsTable.goal,
-      })
-      .from(kpiMonthlyValuesTable)
-      .innerJoin(kpiYearConfigsTable, eq(kpiYearConfigsTable.id, kpiMonthlyValuesTable.yearConfigId))
-      .innerJoin(kpiIndicatorsTable, eq(kpiIndicatorsTable.id, kpiYearConfigsTable.indicatorId))
-      .where(and(
-        eq(kpiMonthlyValuesTable.organizationId, orgId),
-        inArray(kpiMonthlyValuesTable.id, kpiMvIds),
-      ));
-    kpiMap = new Map(rows.map((r) => [r.mvId, r]));
-  }
-
-  for (const r of refs) {
-    if (r.sourceModule === "kpi" && typeof r.sourceRef.kpiMonthlyValueId === "number") {
-      const k = kpiMap.get(r.sourceRef.kpiMonthlyValueId);
-      if (k) {
-        const value = k.value !== null ? parseFloat(k.value) : null;
-        const goal = k.goal !== null ? parseFloat(k.goal) : null;
-        const monthLabel = MONTH_PT[k.month - 1] ?? String(k.month);
-        const valuePart = value !== null && goal !== null
-          ? ` · ${formatNumber(value)} / meta ${formatNumber(goal)}`
-          : "";
-        out.set(r.id, {
-          label: `KPI · ${k.indicatorName} · ${monthLabel}/${k.year}${valuePart}`,
-          kpi: {
-            indicatorId: k.indicatorId,
-            indicatorName: k.indicatorName,
-            year: k.year,
-            month: k.month,
-            value,
-            goal,
-            direction: (k.direction as "up" | "down"),
-          },
-        });
-      } else {
-        out.set(r.id, { label: "KPI · origem removida", kpi: null });
-      }
-    } else {
-      out.set(r.id, { label: r.sourceModule, kpi: null });
-    }
-  }
-  return out;
-}
-
-function formatNumber(v: number): string {
-  return v % 1 === 0 ? v.toFixed(0) : v.toFixed(2);
-}
-
-function serializeEvidence(
-  e: DbActionPlanEvidence,
-  uploadedByUserName: string | null = null,
-) {
-  return {
-    id: e.id,
-    actionPlanId: e.actionPlanId,
-    fileName: e.fileName,
-    fileSize: e.fileSize,
-    contentType: e.contentType,
-    objectPath: e.objectPath,
-    uploadedByUserId: e.uploadedByUserId ?? null,
-    uploadedByUserName,
-    uploadedAt: e.uploadedAt.toISOString(),
-  };
-}
-
-function serializePlan(
-  p: DbActionPlan,
-  sourceContext: SourceContext,
-  extras: {
-    responsibleUserName: string | null;
-    createdByUserName: string | null;
-    evidences: ReturnType<typeof serializeEvidence>[];
-  },
-) {
-  return {
-    id: p.id,
-    organizationId: p.organizationId,
-    sourceModule: p.sourceModule,
-    sourceRef: p.sourceRef,
-    sourceContext,
-    title: p.title,
-    description: p.description ?? null,
-    status: p.status,
-    priority: p.priority,
-    responsibleUserId: p.responsibleUserId ?? null,
-    responsibleUserName: extras.responsibleUserName,
-    dueDate: p.dueDate ? p.dueDate.toISOString() : null,
-    correctiveActionDescription: p.correctiveActionDescription ?? null,
-    correctiveActionCompletedAt: p.correctiveActionCompletedAt ? p.correctiveActionCompletedAt.toISOString() : null,
-    createdByUserId: p.createdByUserId ?? null,
-    createdByUserName: extras.createdByUserName,
-    closedAt: p.closedAt ? p.closedAt.toISOString() : null,
-    createdAt: p.createdAt.toISOString(),
-    updatedAt: p.updatedAt.toISOString(),
-    evidences: extras.evidences,
-  };
-}
-
-async function resolveUserNames(userIds: (number | null | undefined)[]): Promise<Map<number, string>> {
-  const ids = [...new Set(userIds.filter((v): v is number => typeof v === "number"))];
-  if (ids.length === 0) return new Map();
-  const rows = await db
-    .select({ id: usersTable.id, name: usersTable.name })
-    .from(usersTable)
-    .where(inArray(usersTable.id, ids));
-  return new Map(rows.map((r) => [r.id, r.name]));
-}
-
-async function assertUserBelongsToOrg(userId: number, orgId: number): Promise<boolean> {
-  const [user] = await db
-    .select({ id: usersTable.id })
-    .from(usersTable)
-    .where(and(eq(usersTable.id, userId), eq(usersTable.organizationId, orgId)));
-  return Boolean(user);
-}
 
 // ─── List ──────────────────────────────────────────────────────────────────
 
