@@ -425,7 +425,7 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
       FROM ${actionPlansTable}
       WHERE ${actionPlansTable.organizationId} = ${params.data.orgId}
         AND ${actionPlansTable.sourceModule} = 'kpi'
-        AND (${actionPlansTable.sourceRef}->>'kpiMonthlyValueId')::int = ANY(${monthlyValueIds})
+        AND (${actionPlansTable.sourceRef}->>'kpiMonthlyValueId')::int IN ${monthlyValueIds}
       GROUP BY mv_id
     `);
     for (const row of counts.rows) {
