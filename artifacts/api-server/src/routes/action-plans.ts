@@ -496,6 +496,13 @@ router.post("/organizations/:orgId/action-plans/:planId/evidences", requireAuth,
     ));
   if (!plan) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
 
+  // objectPath must point inside the canonical upload prefix produced by
+  // /storage/uploads/direct (see employees route for the same guard).
+  if (!body.data.objectPath.startsWith("/objects/uploads/")) {
+    res.status(400).json({ error: "objectPath inválido: deve apontar para /objects/uploads/" });
+    return;
+  }
+
   const [row] = await db.insert(actionPlanEvidencesTable).values({
     organizationId: params.data.orgId,
     actionPlanId: params.data.planId,

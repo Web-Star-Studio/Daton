@@ -12,7 +12,7 @@ import {
   User,
 } from "lucide-react";
 import { getListOrgUsersQueryKey, useListOrgUsers } from "@workspace/api-client-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,7 @@ export default function ActionPlanDetailPage() {
   const planId = Number.isInteger(parsedPlanId) && parsedPlanId > 0 ? parsedPlanId : null;
 
   const { organization } = useAuth();
+  const { canWrite } = usePermissions();
   const orgId = organization!.id;
   const [, setLocation] = useLocation();
 
@@ -272,16 +273,18 @@ export default function ActionPlanDetailPage() {
           Planos de ação
         </Button>
         <div className="flex gap-2">
-          {dirty && (
+          {canWrite && dirty && (
             <Button onClick={handleSave} disabled={updatePlan.isPending}>
               <Save className="h-4 w-4 mr-1.5" />
               {updatePlan.isPending ? "Salvando..." : "Salvar alterações"}
             </Button>
           )}
-          <Button variant="ghost" size="sm" className="text-destructive" onClick={handleDeletePlan}>
-            <Trash2 className="h-4 w-4 mr-1.5" />
-            Excluir
-          </Button>
+          {canWrite && (
+            <Button variant="ghost" size="sm" className="text-destructive" onClick={handleDeletePlan}>
+              <Trash2 className="h-4 w-4 mr-1.5" />
+              Excluir
+            </Button>
+          )}
         </div>
       </div>
 
@@ -326,6 +329,7 @@ export default function ActionPlanDetailPage() {
           <Input
             value={form.title}
             onChange={(e) => updateForm("title", e.target.value)}
+            readOnly={!canWrite}
           />
         </div>
         <div className="space-y-1.5">
@@ -335,6 +339,7 @@ export default function ActionPlanDetailPage() {
             onChange={(e) => updateForm("description", e.target.value)}
             rows={3}
             placeholder="Contexto do problema, hipóteses iniciais, escopo..."
+            readOnly={!canWrite}
           />
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -343,6 +348,7 @@ export default function ActionPlanDetailPage() {
             <Select
               value={form.status}
               onChange={(e) => updateForm("status", e.target.value as ActionPlanStatus)}
+              disabled={!canWrite}
             >
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>{ACTION_PLAN_STATUS_LABELS[s]}</option>
@@ -354,6 +360,7 @@ export default function ActionPlanDetailPage() {
             <Select
               value={form.priority}
               onChange={(e) => updateForm("priority", e.target.value as ActionPlanPriority)}
+              disabled={!canWrite}
             >
               {PRIORITY_OPTIONS.map((p) => (
                 <option key={p} value={p}>{ACTION_PLAN_PRIORITY_LABELS[p]}</option>
@@ -365,6 +372,7 @@ export default function ActionPlanDetailPage() {
             <Select
               value={form.responsibleUserId}
               onChange={(e) => updateForm("responsibleUserId", e.target.value)}
+              disabled={!canWrite}
             >
               <option value="">Não definido</option>
               {orgUsers.map((u) => (
@@ -378,6 +386,7 @@ export default function ActionPlanDetailPage() {
               type="date"
               value={form.dueDate}
               onChange={(e) => updateForm("dueDate", e.target.value)}
+              readOnly={!canWrite}
             />
           </div>
         </div>
@@ -411,7 +420,7 @@ export default function ActionPlanDetailPage() {
       <section className="rounded-lg border bg-card p-5 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold">Ação corretiva</h3>
-          {plan.status !== "completed" && plan.status !== "cancelled" && (
+          {canWrite && plan.status !== "completed" && plan.status !== "cancelled" && (
             <Button variant="outline" size="sm" onClick={handleConcludeCorrectiveAction} disabled={updatePlan.isPending}>
               <CheckCircle2 className="h-4 w-4 mr-1.5" />
               Marcar como concluída
@@ -426,6 +435,7 @@ export default function ActionPlanDetailPage() {
           onChange={(e) => updateForm("correctiveActionDescription", e.target.value)}
           rows={5}
           placeholder="Ação tomada, responsáveis pela execução, resultado esperado..."
+          readOnly={!canWrite}
         />
         {(plan.status === "completed" || form.correctiveActionCompletedAt) && (
           <div className="space-y-1.5">
@@ -435,6 +445,7 @@ export default function ActionPlanDetailPage() {
               value={form.correctiveActionCompletedAt}
               onChange={(e) => updateForm("correctiveActionCompletedAt", e.target.value)}
               className="max-w-xs"
+              readOnly={!canWrite}
             />
           </div>
         )}
@@ -444,24 +455,26 @@ export default function ActionPlanDetailPage() {
       <section className="rounded-lg border bg-card p-5 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold">Evidências</h3>
-          <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              hidden
-              onChange={(e) => void handleFiles(e.target.files)}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-            >
-              <Paperclip className="h-4 w-4 mr-1.5" />
-              {uploading ? "Enviando..." : "Anexar arquivos"}
-            </Button>
-          </div>
+          {canWrite && (
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                hidden
+                onChange={(e) => void handleFiles(e.target.files)}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                <Paperclip className="h-4 w-4 mr-1.5" />
+                {uploading ? "Enviando..." : "Anexar arquivos"}
+              </Button>
+            </div>
+          )}
         </div>
 
         {plan.evidences && plan.evidences.length > 0 ? (
@@ -488,15 +501,17 @@ export default function ActionPlanDetailPage() {
                   >
                     <Download className="h-4 w-4" />
                   </a>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive"
-                    onClick={() => handleRemoveEvidence(ev.id)}
-                    aria-label={`Remover ${ev.fileName}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {canWrite && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive"
+                      onClick={() => handleRemoveEvidence(ev.id)}
+                      aria-label={`Remover ${ev.fileName}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </li>
             ))}

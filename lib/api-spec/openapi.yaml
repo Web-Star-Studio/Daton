@@ -14828,7 +14828,8 @@ components:
         objectPath:
           type: string
           minLength: 1
-          description: Object path returned by /storage/uploads/direct (e.g. /objects/<id>)
+          pattern: "^/objects/uploads/"
+          description: Object path returned by /storage/uploads/direct; must live under the canonical upload prefix
       required:
         - fileName
         - fileSize

@@ -16024,6 +16024,10 @@ export const addActionPlanEvidenceBodyFileSizeMax = 20971520;
 
 export const addActionPlanEvidenceBodyContentTypeMax = 255;
 
+export const addActionPlanEvidenceBodyObjectPathRegExp = new RegExp(
+  "^\/objects\/uploads",
+);
+
 export const AddActionPlanEvidenceBody = zod.object({
   fileName: zod.string().min(1).max(addActionPlanEvidenceBodyFileNameMax),
   fileSize: zod
@@ -16037,8 +16041,9 @@ export const AddActionPlanEvidenceBody = zod.object({
   objectPath: zod
     .string()
     .min(1)
+    .regex(addActionPlanEvidenceBodyObjectPathRegExp)
     .describe(
-      "Object path returned by \/storage\/uploads\/direct (e.g. \/objects\/<id>)",
+      "Object path returned by \/storage\/uploads\/direct; must live under the canonical upload prefix",
     ),
 });
 

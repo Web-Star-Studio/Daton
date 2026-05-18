@@ -24,8 +24,9 @@ export interface AddActionPlanEvidenceBody {
    */
   contentType: string;
   /**
-   * Object path returned by /storage/uploads/direct (e.g. /objects/<id>)
+   * Object path returned by /storage/uploads/direct; must live under the canonical upload prefix
    * @minLength 1
+   * @pattern ^/objects/uploads/
    */
   objectPath: string;
 }
