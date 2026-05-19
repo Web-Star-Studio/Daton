@@ -5,8 +5,8 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { KpiMonthlyValue } from "./kpiMonthlyValue";
+import type { KpiMonthlyValueInput } from "./kpiMonthlyValueInput";
 
 export interface UpsertKpiValuesBody {
-  values: KpiMonthlyValue[];
+  values: KpiMonthlyValueInput[];
 }

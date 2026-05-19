@@ -48,6 +48,8 @@ tags:
     description: Supplier management and external provider control (ISO 9001:2015 §8.4 / §8.6)
   - name: kpi
     description: KPI indicators, objectives and performance data (ISO 9001:2015 §9.1)
+  - name: action-plans
+    description: Cross-module action plans (RAC) with corrective actions and evidences
   - name: assets
   - name: work-environment
     description: Critical asset registry and infrastructure management (ISO 9001:2015 §7.1.3)
@@ -7970,6 +7972,274 @@ paths:
         "204":
           description: Project change deleted
 
+  /organizations/{orgId}/kpi/indicators/{indicatorId}/years/{year}/months/{month}/justifications:
+    get:
+      operationId: listKpiMonthJustifications
+      tags: [kpi]
+      summary: List the append-only history of justifications for a monthly cell
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: indicatorId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+      responses:
+        "200":
+          description: Reverse chronological history (newest entry first)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KpiMonthlyValueJustification"
+    post:
+      operationId: addKpiMonthJustification
+      tags: [kpi]
+      summary: Append a new justification entry for a monthly cell
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: indicatorId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddKpiMonthJustificationBody"
+      responses:
+        "201":
+          description: Justification entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KpiMonthlyValueJustification"
+
+  /organizations/{orgId}/action-plans:
+    get:
+      operationId: listActionPlans
+      tags: [action-plans]
+      summary: List action plans in the organization with filters
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActionPlanStatus"
+        - name: priority
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActionPlanPriority"
+        - name: sourceModule
+          in: query
+          schema:
+            $ref: "#/components/schemas/ActionPlanSourceModule"
+        - name: responsibleUserId
+          in: query
+          schema:
+            type: integer
+        - name: sourceKpiMonthlyValueId
+          in: query
+          description: When sourceModule=kpi, filter by linked monthly value id
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Action plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActionPlanListItem"
+    post:
+      operationId: createActionPlan
+      tags: [action-plans]
+      summary: Create a new action plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActionPlanBody"
+      responses:
+        "201":
+          description: Action plan created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionPlan"
+
+  /organizations/{orgId}/action-plans/{planId}:
+    get:
+      operationId: getActionPlan
+      tags: [action-plans]
+      summary: Get a single action plan with evidences and expanded source
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Action plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionPlan"
+    patch:
+      operationId: updateActionPlan
+      tags: [action-plans]
+      summary: Update an action plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateActionPlanBody"
+      responses:
+        "200":
+          description: Action plan updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionPlan"
+    delete:
+      operationId: deleteActionPlan
+      tags: [action-plans]
+      summary: Delete an action plan and all its evidences
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /organizations/{orgId}/action-plans/{planId}/evidences:
+    post:
+      operationId: addActionPlanEvidence
+      tags: [action-plans]
+      summary: Register an uploaded file as evidence for an action plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddActionPlanEvidenceBody"
+      responses:
+        "201":
+          description: Evidence registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionPlanEvidence"
+
+  /organizations/{orgId}/action-plans/{planId}/evidences/{evidenceId}:
+    delete:
+      operationId: deleteActionPlanEvidence
+      tags: [action-plans]
+      summary: Remove a single evidence from an action plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: evidenceId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Evidence deleted
+
 components:
   schemas:
     HealthStatus:
@@ -14233,8 +14503,9 @@ components:
           type: number
           nullable: true
 
-    KpiMonthlyValue:
+    KpiMonthlyValueInput:
       type: object
+      description: Write payload for a single monthly cell (used in upsert bodies)
       properties:
         month:
           type: integer
@@ -14251,15 +14522,378 @@ components:
       required:
         - month
 
+    KpiMonthlyValue:
+      type: object
+      description: Read shape of a monthly cell — includes server-resolved metadata
+      properties:
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+        value:
+          type: number
+          nullable: true
+        inputs:
+          type: object
+          additionalProperties:
+            type: number
+            nullable: true
+        monthlyValueId:
+          type: integer
+          nullable: true
+          description: Database id of the kpi_monthly_values row; null when the cell has never been written
+        justification:
+          $ref: "#/components/schemas/KpiMonthlyValueJustification"
+          nullable: true
+          description: Latest entry from the append-only justification history; null if no entry exists
+        justificationsCount:
+          type: integer
+          minimum: 0
+          description: Total entries in the justification history for this cell
+        actionPlansCount:
+          type: integer
+          minimum: 0
+      required:
+        - month
+        - monthlyValueId
+        - justification
+        - justificationsCount
+        - actionPlansCount
+
+    KpiMonthlyValueJustification:
+      type: object
+      properties:
+        id:
+          type: integer
+        monthlyValueId:
+          type: integer
+        body:
+          type: string
+        createdByUserId:
+          type: ["integer", "null"]
+        createdByUserName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - monthlyValueId
+        - body
+        - createdAt
+
     UpsertKpiValuesBody:
       type: object
       properties:
         values:
           type: array
           items:
-            $ref: "#/components/schemas/KpiMonthlyValue"
+            $ref: "#/components/schemas/KpiMonthlyValueInput"
       required:
         - values
+
+    AddKpiMonthJustificationBody:
+      type: object
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 5000
+      required:
+        - body
+
+    ActionPlanStatus:
+      type: string
+      enum: [open, in_progress, completed, cancelled]
+
+    ActionPlanPriority:
+      type: string
+      enum: [low, medium, high]
+
+    ActionPlanSourceModule:
+      type: string
+      enum: [kpi]
+
+    ActionPlanSourceRef:
+      type: object
+      description: Polymorphic reference to the entity that originated the action plan. For kpi, kpiMonthlyValueId is mandatory; the triplet (indicatorId/year/month) is optional context.
+      properties:
+        kpiMonthlyValueId:
+          type: integer
+        kpiIndicatorId:
+          type: integer
+        kpiYear:
+          type: integer
+        kpiMonth:
+          type: integer
+          minimum: 1
+          maximum: 12
+      required:
+        - kpiMonthlyValueId
+
+    ActionPlanSourceContext:
+      type: object
+      description: Server-resolved context about the source, used for display in lists/details
+      properties:
+        label:
+          type: string
+          description: Human-readable origin label, e.g. "KPI · Indicador X · Mai/2026"
+        kpi:
+          type: object
+          nullable: true
+          properties:
+            indicatorId:
+              type: integer
+            indicatorName:
+              type: string
+            year:
+              type: integer
+            month:
+              type: integer
+            value:
+              type: number
+              nullable: true
+            goal:
+              type: number
+              nullable: true
+            direction:
+              type: string
+              enum: [up, down]
+          required:
+            - indicatorId
+            - indicatorName
+            - year
+            - month
+            - value
+            - goal
+            - direction
+      required:
+        - label
+
+    ActionPlanEvidence:
+      type: object
+      properties:
+        id:
+          type: integer
+        actionPlanId:
+          type: integer
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        contentType:
+          type: string
+        objectPath:
+          type: string
+        uploadedByUserId:
+          type: ["integer", "null"]
+        uploadedByUserName:
+          type: ["string", "null"]
+        uploadedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - actionPlanId
+        - fileName
+        - fileSize
+        - contentType
+        - objectPath
+        - uploadedAt
+
+    ActionPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        sourceModule:
+          $ref: "#/components/schemas/ActionPlanSourceModule"
+        sourceRef:
+          $ref: "#/components/schemas/ActionPlanSourceRef"
+        sourceContext:
+          $ref: "#/components/schemas/ActionPlanSourceContext"
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        status:
+          $ref: "#/components/schemas/ActionPlanStatus"
+        priority:
+          $ref: "#/components/schemas/ActionPlanPriority"
+        responsibleUserId:
+          type: ["integer", "null"]
+        responsibleUserName:
+          type: ["string", "null"]
+        dueDate:
+          type: ["string", "null"]
+          format: date-time
+        correctiveActionDescription:
+          type: ["string", "null"]
+        correctiveActionCompletedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdByUserId:
+          type: ["integer", "null"]
+        createdByUserName:
+          type: ["string", "null"]
+        closedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        evidences:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActionPlanEvidence"
+      required:
+        - id
+        - organizationId
+        - sourceModule
+        - sourceRef
+        - sourceContext
+        - title
+        - status
+        - priority
+        - createdAt
+        - updatedAt
+
+    ActionPlanListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        sourceModule:
+          $ref: "#/components/schemas/ActionPlanSourceModule"
+        sourceContext:
+          $ref: "#/components/schemas/ActionPlanSourceContext"
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/ActionPlanStatus"
+        priority:
+          $ref: "#/components/schemas/ActionPlanPriority"
+        responsibleUserId:
+          type: ["integer", "null"]
+        responsibleUserName:
+          type: ["string", "null"]
+        dueDate:
+          type: ["string", "null"]
+          format: date-time
+        evidencesCount:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - sourceModule
+        - sourceContext
+        - title
+        - status
+        - priority
+        - evidencesCount
+        - createdAt
+        - updatedAt
+
+    CreateActionPlanBody:
+      type: object
+      properties:
+        sourceModule:
+          $ref: "#/components/schemas/ActionPlanSourceModule"
+        sourceRef:
+          $ref: "#/components/schemas/ActionPlanSourceRef"
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ActionPlanStatus"
+        priority:
+          $ref: "#/components/schemas/ActionPlanPriority"
+        responsibleUserId:
+          type: integer
+          nullable: true
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+        correctiveActionDescription:
+          type: string
+          nullable: true
+      required:
+        - sourceModule
+        - sourceRef
+        - title
+
+    UpdateActionPlanBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ActionPlanStatus"
+        priority:
+          $ref: "#/components/schemas/ActionPlanPriority"
+        responsibleUserId:
+          type: integer
+          nullable: true
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+        correctiveActionDescription:
+          type: string
+          nullable: true
+        correctiveActionCompletedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AddActionPlanEvidenceBody:
+      type: object
+      properties:
+        fileName:
+          type: string
+          minLength: 1
+          maxLength: 512
+        fileSize:
+          type: integer
+          minimum: 1
+          maximum: 20971520
+          description: Bytes; max 20MB (matches the direct-upload limit at /storage/uploads/direct)
+        contentType:
+          type: string
+          minLength: 1
+          maxLength: 255
+        objectPath:
+          type: string
+          minLength: 1
+          pattern: "^/objects/uploads/"
+          description: Object path returned by /storage/uploads/direct; must live under the canonical upload prefix
+      required:
+        - fileName
+        - fileSize
+        - contentType
+        - objectPath
 
     Asset:
       type: object

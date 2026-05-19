@@ -49,6 +49,8 @@ import EnvironmentalLaiaUnitDetailPage from "@/pages/app/ambiental/laia/unidades
 import KpiIndicadoresPage from "@/pages/app/kpi/indicadores";
 import KpiLancamentosPage from "@/pages/app/kpi/lancamentos";
 import KpiDashboardPage from "@/pages/app/kpi/dashboard";
+import ActionPlansListPage from "@/pages/app/planos-acao";
+import ActionPlanDetailPage from "@/pages/app/planos-acao/[id]";
 import AtivosPage from "@/pages/app/organizacao/ativos";
 import AmbientePage from "@/pages/app/infraestrutura/ambiente";
 import MedicaoPage from "@/pages/app/infraestrutura/medicao";
@@ -234,6 +236,8 @@ function AppPages() {
       <Route path="/kpi/indicadores" component={KpiIndicadoresPage} />
       <Route path="/kpi/lancamentos" component={KpiLancamentosPage} />
       <Route path="/kpi/dashboard" component={KpiDashboardPage} />
+      <Route path="/planos-acao/:id" component={ActionPlanDetailPage} />
+      <Route path="/planos-acao" component={ActionPlansListPage} />
       <Route path="/configuracoes/perfil" component={ProfileSettingsPage} />
       <Route path="/configuracoes/sistema" component={SystemSettingsPage} />
       <Route path="/app" component={AppIndex} />
@@ -347,6 +351,8 @@ function AppPages() {
       <Route path="/app/kpi/indicadores" component={KpiIndicadoresPage} />
       <Route path="/app/kpi/lancamentos" component={KpiLancamentosPage} />
       <Route path="/app/kpi/dashboard" component={KpiDashboardPage} />
+      <Route path="/app/planos-acao/:id" component={ActionPlanDetailPage} />
+      <Route path="/app/planos-acao" component={ActionPlansListPage} />
       <Route path="/app/configuracoes/perfil" component={ProfileSettingsPage} />
       <Route path="/app/configuracoes/sistema" component={SystemSettingsPage} />
       <Route component={NotFound} />
@@ -365,6 +371,7 @@ function Router() {
     location.startsWith("/qualidade") ||
     location.startsWith("/ambiental") ||
     location.startsWith("/kpi") ||
+    location.startsWith("/planos-acao") ||
     location.startsWith("/infraestrutura") ||
     location.startsWith("/configuracoes");
   const isAppRoute = isAdminRoute || isOrgRoute;

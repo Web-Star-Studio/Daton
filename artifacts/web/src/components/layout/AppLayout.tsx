@@ -7,6 +7,7 @@ import {
   Bell,
   Building2,
   ChevronRight,
+  ClipboardList,
   Leaf,
   Landmark,
   LogOut,
@@ -346,6 +347,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         crumbs.push({ label: "Lançamento", href: "/kpi/lancamentos" });
       } else if (normalizedLocation.startsWith("/kpi/dashboard")) {
         crumbs.push({ label: "Dashboard", href: "/kpi/dashboard" });
+      }
+    } else if (normalizedLocation.startsWith("/planos-acao")) {
+      crumbs.push({ label: "Planos de Ação", href: "/planos-acao" });
+      if (pageTitle && normalizedLocation !== "/planos-acao") {
+        crumbs.push({ label: pageTitle });
       }
     } else if (normalizedLocation.startsWith("/configuracoes")) {
       crumbs.push({ label: "Configurações" });
@@ -776,6 +782,26 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </Link>
             </div>
           )}
+
+          <Link
+            href="/planos-acao"
+            className={cn(
+              "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+              isActive("/planos-acao")
+                ? "font-medium text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <div className="flex items-center">
+              <ClipboardList
+                className={cn(
+                  "h-[18px] w-[18px] shrink-0",
+                  isSidebarOpen && "mr-2.5",
+                )}
+              />
+              {isSidebarOpen && <span>Planos de Ação</span>}
+            </div>
+          </Link>
 
           {showInfraestrutura && (
             <div

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, ClipboardPaste, Settings2 } from "lucide-react";
+import { AlertTriangle, ClipboardPaste, Flag, Settings2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { YearPicker } from "@/components/ui/year-picker";
+import { CellRedActionsDialog } from "@/components/kpi/cell-red-actions-dialog";
 import { FormulaBuilder } from "@/components/kpi/formula-builder";
 import { FormulaCellEditor } from "@/components/kpi/formula-cell-editor";
 import { cn } from "@/lib/utils";
@@ -69,6 +70,16 @@ export default function KpiAlimentacaoPage() {
 
   const [formulaDialog, setFormulaDialog] = useState<KpiYearRow | null>(null);
   const [formulaDraft, setFormulaDraft] = useState("");
+
+  const [cellDialog, setCellDialog] = useState<{
+    indicatorId: number;
+    indicatorName: string;
+    year: number;
+    month: number;
+    monthlyValueId: number | null;
+    value: number | null;
+    goal: number | null;
+  } | null>(null);
 
   function openFormulaDialog(row: KpiYearRow) {
     const initial = formulaToNaturalText(
@@ -369,12 +380,21 @@ export default function KpiAlimentacaoPage() {
                       const val = monthValues[idx];
                       const monthCell = row.monthlyValues[idx];
                       const status = getTrafficLight(val, row.yearConfig.goal, direction);
+                      const monthlyValueId = monthCell?.monthlyValueId ?? null;
+                      const justification = monthCell?.justification ?? null;
+                      const plansCount = monthCell?.actionPlansCount ?? 0;
+                      const showFlag = status === "red" && monthlyValueId !== null;
+                      const flagColor = plansCount > 0
+                        ? "text-amber-700 dark:text-amber-300"
+                        : justification
+                          ? "text-blue-700 dark:text-blue-300"
+                          : "text-red-700/60 dark:text-red-300/70";
 
                       return (
                         <td
                           key={month}
                           className={cn(
-                            "border px-1 py-0.5 text-right",
+                            "border px-1 py-0.5 text-right relative",
                             status && trafficLightColor(status),
                           )}
                         >
@@ -401,6 +421,38 @@ export default function KpiAlimentacaoPage() {
                               {row.indicator.formulaVariables && row.indicator.formulaVariables.length > 0
                                 ? "fórmula inválida"
                                 : "sem fórmula"}
+                            </button>
+                          )}
+                          {showFlag && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCellDialog({
+                                  indicatorId: row.indicator.id,
+                                  indicatorName: row.indicator.name,
+                                  year,
+                                  month,
+                                  monthlyValueId,
+                                  value: val,
+                                  goal: row.yearConfig.goal ?? null,
+                                });
+                              }}
+                              title={
+                                plansCount > 0
+                                  ? `${plansCount} plano${plansCount !== 1 ? "s" : ""} de ação`
+                                  : justification
+                                    ? "Justificativa registrada — clique para ver/editar"
+                                    : "Adicionar justificativa ou plano de ação"
+                              }
+                              aria-label="Justificar ou criar plano de ação"
+                              className={cn(
+                                "absolute top-0.5 left-0.5 leading-none cursor-pointer hover:opacity-100 transition-opacity",
+                                flagColor,
+                                plansCount > 0 || justification ? "opacity-100" : "opacity-50",
+                              )}
+                            >
+                              <Flag className="h-2.5 w-2.5" fill={plansCount > 0 || justification ? "currentColor" : "none"} />
                             </button>
                           )}
                         </td>
@@ -534,6 +586,23 @@ export default function KpiAlimentacaoPage() {
             </Button>
           </DialogFooter>
         </Dialog>
+      )}
+
+      {/* Red cell actions: justification + action plans */}
+      {cellDialog && (
+        <CellRedActionsDialog
+          context={{
+            orgId,
+            indicatorId: cellDialog.indicatorId,
+            indicatorName: cellDialog.indicatorName,
+            year: cellDialog.year,
+            month: cellDialog.month,
+            monthlyValueId: cellDialog.monthlyValueId,
+            value: cellDialog.value,
+            goal: cellDialog.goal,
+          }}
+          onClose={() => setCellDialog(null)}
+        />
       )}
 
       {/* Config dialog */}

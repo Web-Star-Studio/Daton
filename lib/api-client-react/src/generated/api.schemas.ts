@@ -3388,8 +3388,37 @@ export interface UpsertKpiYearConfigBody {
   goal?: number | null;
 }
 
+export type KpiMonthlyValueInputInputs = { [key: string]: number | null };
+
+/**
+ * Write payload for a single monthly cell (used in upsert bodies)
+ */
+export interface KpiMonthlyValueInput {
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  month: number;
+  value?: number | null;
+  inputs?: KpiMonthlyValueInputInputs;
+}
+
 export type KpiMonthlyValueInputs = { [key: string]: number | null };
 
+export interface KpiMonthlyValueJustification {
+  id: number;
+  monthlyValueId: number;
+  body: string;
+  /** @nullable */
+  createdByUserId?: number | null;
+  /** @nullable */
+  createdByUserName?: string | null;
+  createdAt: string;
+}
+
+/**
+ * Read shape of a monthly cell — includes server-resolved metadata
+ */
 export interface KpiMonthlyValue {
   /**
    * @minimum 1
@@ -3398,10 +3427,212 @@ export interface KpiMonthlyValue {
   month: number;
   value?: number | null;
   inputs?: KpiMonthlyValueInputs;
+  /** Database id of the kpi_monthly_values row; null when the cell has never been written */
+  monthlyValueId: number | null;
+  /** Latest entry from the append-only justification history; null if no entry exists */
+  justification: KpiMonthlyValueJustification | null;
+  /**
+   * Total entries in the justification history for this cell
+   * @minimum 0
+   */
+  justificationsCount: number;
+  /** @minimum 0 */
+  actionPlansCount: number;
 }
 
 export interface UpsertKpiValuesBody {
-  values: KpiMonthlyValue[];
+  values: KpiMonthlyValueInput[];
+}
+
+export interface AddKpiMonthJustificationBody {
+  /**
+   * @minLength 1
+   * @maxLength 5000
+   */
+  body: string;
+}
+
+export type ActionPlanStatus =
+  (typeof ActionPlanStatus)[keyof typeof ActionPlanStatus];
+
+export const ActionPlanStatus = {
+  open: "open",
+  in_progress: "in_progress",
+  completed: "completed",
+  cancelled: "cancelled",
+} as const;
+
+export type ActionPlanPriority =
+  (typeof ActionPlanPriority)[keyof typeof ActionPlanPriority];
+
+export const ActionPlanPriority = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+} as const;
+
+export type ActionPlanSourceModule =
+  (typeof ActionPlanSourceModule)[keyof typeof ActionPlanSourceModule];
+
+export const ActionPlanSourceModule = {
+  kpi: "kpi",
+} as const;
+
+/**
+ * Polymorphic reference to the entity that originated the action plan. For kpi, kpiMonthlyValueId is mandatory; the triplet (indicatorId/year/month) is optional context.
+ */
+export interface ActionPlanSourceRef {
+  kpiMonthlyValueId: number;
+  kpiIndicatorId?: number;
+  kpiYear?: number;
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  kpiMonth?: number;
+}
+
+export type ActionPlanSourceContextKpiDirection =
+  (typeof ActionPlanSourceContextKpiDirection)[keyof typeof ActionPlanSourceContextKpiDirection];
+
+export const ActionPlanSourceContextKpiDirection = {
+  up: "up",
+  down: "down",
+} as const;
+
+export type ActionPlanSourceContextKpi = {
+  indicatorId: number;
+  indicatorName: string;
+  year: number;
+  month: number;
+  value: number | null;
+  goal: number | null;
+  direction: ActionPlanSourceContextKpiDirection;
+} | null;
+
+/**
+ * Server-resolved context about the source, used for display in lists/details
+ */
+export interface ActionPlanSourceContext {
+  /** Human-readable origin label, e.g. "KPI · Indicador X · Mai/2026" */
+  label: string;
+  kpi?: ActionPlanSourceContextKpi;
+}
+
+export interface ActionPlanEvidence {
+  id: number;
+  actionPlanId: number;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+  /** @nullable */
+  uploadedByUserId?: number | null;
+  /** @nullable */
+  uploadedByUserName?: string | null;
+  uploadedAt: string;
+}
+
+export interface ActionPlan {
+  id: number;
+  organizationId: number;
+  sourceModule: ActionPlanSourceModule;
+  sourceRef: ActionPlanSourceRef;
+  sourceContext: ActionPlanSourceContext;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  status: ActionPlanStatus;
+  priority: ActionPlanPriority;
+  /** @nullable */
+  responsibleUserId?: number | null;
+  /** @nullable */
+  responsibleUserName?: string | null;
+  /** @nullable */
+  dueDate?: string | null;
+  /** @nullable */
+  correctiveActionDescription?: string | null;
+  /** @nullable */
+  correctiveActionCompletedAt?: string | null;
+  /** @nullable */
+  createdByUserId?: number | null;
+  /** @nullable */
+  createdByUserName?: string | null;
+  /** @nullable */
+  closedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  evidences?: ActionPlanEvidence[];
+}
+
+export interface ActionPlanListItem {
+  id: number;
+  organizationId: number;
+  sourceModule: ActionPlanSourceModule;
+  sourceContext: ActionPlanSourceContext;
+  title: string;
+  status: ActionPlanStatus;
+  priority: ActionPlanPriority;
+  /** @nullable */
+  responsibleUserId?: number | null;
+  /** @nullable */
+  responsibleUserName?: string | null;
+  /** @nullable */
+  dueDate?: string | null;
+  /** @minimum 0 */
+  evidencesCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateActionPlanBody {
+  sourceModule: ActionPlanSourceModule;
+  sourceRef: ActionPlanSourceRef;
+  /** @minLength 1 */
+  title: string;
+  description?: string | null;
+  status?: ActionPlanStatus;
+  priority?: ActionPlanPriority;
+  responsibleUserId?: number | null;
+  dueDate?: string | null;
+  correctiveActionDescription?: string | null;
+}
+
+export interface UpdateActionPlanBody {
+  /** @minLength 1 */
+  title?: string;
+  description?: string | null;
+  status?: ActionPlanStatus;
+  priority?: ActionPlanPriority;
+  responsibleUserId?: number | null;
+  dueDate?: string | null;
+  correctiveActionDescription?: string | null;
+  correctiveActionCompletedAt?: string | null;
+}
+
+export interface AddActionPlanEvidenceBody {
+  /**
+   * @minLength 1
+   * @maxLength 512
+   */
+  fileName: string;
+  /**
+   * Bytes; max 20MB (matches the direct-upload limit at /storage/uploads/direct)
+   * @minimum 1
+   * @maximum 20971520
+   */
+  fileSize: number;
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  contentType: string;
+  /**
+   * Object path returned by /storage/uploads/direct; must live under the canonical upload prefix
+   * @minLength 1
+   * @pattern ^/objects/uploads/
+   */
+  objectPath: string;
 }
 
 export type AssetCriticality =
@@ -4708,4 +4939,15 @@ export type ListMeasurementResourcesParams = {
   unitId?: number;
   resourceType?: string;
   status?: string;
+};
+
+export type ListActionPlansParams = {
+  status?: ActionPlanStatus;
+  priority?: ActionPlanPriority;
+  sourceModule?: ActionPlanSourceModule;
+  responsibleUserId?: number;
+  /**
+   * When sourceModule=kpi, filter by linked monthly value id
+   */
+  sourceKpiMonthlyValueId?: number;
 };

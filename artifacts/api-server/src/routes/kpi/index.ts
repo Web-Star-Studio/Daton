@@ -1,14 +1,19 @@
 import { Router, type IRouter } from "express";
-import { and, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import {
+  actionPlansTable,
   db,
   kpiIndicatorsTable,
+  kpiMonthlyValueJustificationsTable,
   kpiMonthlyValuesTable,
   kpiObjectivesTable,
   kpiYearConfigsTable,
   usersTable,
+  type KpiMonthlyValueJustification as DbKpiMonthlyValueJustification,
 } from "@workspace/db";
 import {
+  AddKpiMonthJustificationBody,
+  AddKpiMonthJustificationParams,
   CreateKpiIndicatorBody,
   CreateKpiIndicatorParams,
   CreateKpiObjectiveBody,
@@ -17,6 +22,7 @@ import {
   DeleteKpiObjectiveParams,
   ListKpiIndicatorsParams,
   ListKpiIndicatorsQueryParams,
+  ListKpiMonthJustificationsParams,
   ListKpiObjectivesParams,
   ListKpiYearDataParams,
   ListKpiYearDataQueryParams,
@@ -393,16 +399,103 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
         .where(inArray(kpiMonthlyValuesTable.yearConfigId, yearConfigIds))
     : [];
 
-  type MonthCell = { value: number | null; inputs: Record<string, number | null> };
+  type JustificationSummary = {
+    id: number;
+    monthlyValueId: number;
+    body: string;
+    createdByUserId: number | null;
+    createdByUserName: string | null;
+    createdAt: string;
+  };
+  type MonthCell = {
+    monthlyValueId: number;
+    value: number | null;
+    inputs: Record<string, number | null>;
+    justification: JustificationSummary | null;
+    justificationsCount: number;
+  };
   const valuesByYearConfigId = new Map<number, Map<number, MonthCell>>();
   for (const mv of monthlyValues) {
     if (!valuesByYearConfigId.has(mv.yearConfigId)) {
       valuesByYearConfigId.set(mv.yearConfigId, new Map());
     }
     valuesByYearConfigId.get(mv.yearConfigId)!.set(mv.month, {
+      monthlyValueId: mv.id,
       value: mv.value !== null && mv.value !== undefined ? parseFloat(mv.value) : null,
       inputs: mv.inputs ?? {},
+      justification: null,
+      justificationsCount: 0,
     });
+  }
+
+  // Batch-fetch the latest justification per cell + total counts
+  const monthlyValueIdsForJust = monthlyValues.map((mv) => mv.id);
+  if (monthlyValueIdsForJust.length > 0) {
+    type JustRow = {
+      id: number;
+      monthly_value_id: number;
+      body: string;
+      created_by_user_id: number | null;
+      created_at: Date;
+      created_by_user_name: string | null;
+    };
+    const latestJusts = await db.execute<JustRow>(sql`
+      SELECT DISTINCT ON (j.monthly_value_id)
+        j.id, j.monthly_value_id, j.body, j.created_by_user_id, j.created_at, u.name AS created_by_user_name
+      FROM ${kpiMonthlyValueJustificationsTable} j
+      LEFT JOIN ${usersTable} u ON u.id = j.created_by_user_id
+      WHERE j.monthly_value_id IN ${monthlyValueIdsForJust}
+      ORDER BY j.monthly_value_id, j.created_at DESC
+    `);
+    const counts = await db
+      .select({
+        mvId: kpiMonthlyValueJustificationsTable.monthlyValueId,
+        cnt: sql<number>`count(*)::int`,
+      })
+      .from(kpiMonthlyValueJustificationsTable)
+      .where(inArray(kpiMonthlyValueJustificationsTable.monthlyValueId, monthlyValueIdsForJust))
+      .groupBy(kpiMonthlyValueJustificationsTable.monthlyValueId);
+    const countByMvId = new Map(counts.map((c) => [c.mvId, Number(c.cnt)]));
+    const latestByMvId = new Map<number, JustRow>(latestJusts.rows.map((r) => [Number(r.monthly_value_id), r]));
+
+    // Attach to MonthCell entries
+    for (const [, monthMap] of valuesByYearConfigId) {
+      for (const cell of monthMap.values()) {
+        const latest = latestByMvId.get(cell.monthlyValueId);
+        if (latest) {
+          cell.justification = {
+            id: Number(latest.id),
+            monthlyValueId: Number(latest.monthly_value_id),
+            body: latest.body,
+            createdByUserId: latest.created_by_user_id !== null ? Number(latest.created_by_user_id) : null,
+            createdByUserName: latest.created_by_user_name ?? null,
+            createdAt: new Date(latest.created_at).toISOString(),
+          };
+        }
+        cell.justificationsCount = countByMvId.get(cell.monthlyValueId) ?? 0;
+      }
+    }
+  }
+
+  // Batch count action plans grouped by kpiMonthlyValueId
+  const monthlyValueIds = monthlyValues.map((mv) => mv.id);
+  const actionPlanCountsByMvId = new Map<number, number>();
+  if (monthlyValueIds.length > 0) {
+    const counts = await db.execute<{ mv_id: number; cnt: number }>(sql`
+      SELECT (${actionPlansTable.sourceRef}->>'kpiMonthlyValueId')::int AS mv_id,
+             COUNT(*)::int AS cnt
+      FROM ${actionPlansTable}
+      WHERE ${actionPlansTable.organizationId} = ${params.data.orgId}
+        AND ${actionPlansTable.sourceModule} = 'kpi'
+        AND (${actionPlansTable.sourceRef}->>'kpiMonthlyValueId') ~ '^[0-9]+$'
+        AND (${actionPlansTable.sourceRef}->>'kpiMonthlyValueId')::int IN ${monthlyValueIds}
+      GROUP BY mv_id
+    `);
+    for (const row of counts.rows) {
+      if (row.mv_id !== null && row.mv_id !== undefined) {
+        actionPlanCountsByMvId.set(Number(row.mv_id), Number(row.cnt));
+      }
+    }
   }
 
   // Fetch objectives for lookup
@@ -418,7 +511,9 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
     .map((ind) => {
       const yc = yearConfigByIndicatorId.get(ind.id)!;
       const monthMap = valuesByYearConfigId.get(yc.id) ?? new Map<number, MonthCell>();
-      const monthlyCells: MonthCell[] = Array.from({ length: 12 }, (_, i) => monthMap.get(i + 1) ?? { value: null, inputs: {} });
+      const monthlyCells: MonthCell[] = Array.from({ length: 12 }, (_, i) =>
+        monthMap.get(i + 1) ?? { monthlyValueId: 0, value: null, inputs: {}, justification: null, justificationsCount: 0 },
+      );
       const monthlyValuesOnly = monthlyCells.map((c) => c.value);
 
       const filledValues = monthlyValuesOnly.filter((v) => v !== null) as number[];
@@ -434,7 +529,15 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
         indicator: serializeIndicator(ind, responsibleUserName),
         yearConfig: serializeYearConfig(yc),
         objective: objective ? serializeObjective(objective) : null,
-        monthlyValues: monthlyCells.map((c, i) => ({ month: i + 1, value: c.value, inputs: c.inputs })),
+        monthlyValues: monthlyCells.map((c, i) => ({
+          month: i + 1,
+          value: c.value,
+          inputs: c.inputs,
+          monthlyValueId: c.monthlyValueId > 0 ? c.monthlyValueId : null,
+          justification: c.justification,
+          justificationsCount: c.justificationsCount,
+          actionPlansCount: c.monthlyValueId > 0 ? (actionPlanCountsByMvId.get(c.monthlyValueId) ?? 0) : 0,
+        })),
         average,
         accumulated,
         feedStatus,
@@ -514,6 +617,10 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/values
       month: v.month,
       value: v.value !== null ? parseFloat(v.value) : null,
       inputs: v.inputs ?? {},
+      monthlyValueId: v.id,
+      justification: null,
+      justificationsCount: 0,
+      actionPlansCount: 0,
     })));
     return;
   }
@@ -544,7 +651,132 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/values
     month: v.month,
     value: v.value !== null ? parseFloat(v.value) : null,
     inputs: v.inputs ?? {},
+    monthlyValueId: v.id,
+    justification: null,
+    justificationsCount: 0,
+    actionPlansCount: 0,
   })));
 });
+
+// ─── Monthly Justifications (append-only history) ──────────────────────────
+
+function serializeJustification(
+  j: DbKpiMonthlyValueJustification,
+  createdByUserName: string | null,
+) {
+  return {
+    id: j.id,
+    monthlyValueId: j.monthlyValueId,
+    body: j.body,
+    createdByUserId: j.createdByUserId ?? null,
+    createdByUserName,
+    createdAt: j.createdAt.toISOString(),
+  };
+}
+
+async function ensureMonthlyValueRow(
+  orgId: number,
+  indicatorId: number,
+  year: number,
+  month: number,
+): Promise<{ id: number } | { error: string; status: number }> {
+  const [yearConfig] = await db.select().from(kpiYearConfigsTable)
+    .where(and(
+      eq(kpiYearConfigsTable.indicatorId, indicatorId),
+      eq(kpiYearConfigsTable.year, year),
+      eq(kpiYearConfigsTable.organizationId, orgId),
+    ));
+  if (!yearConfig) {
+    return { error: "Configuração de ano não encontrada. Configure a meta antes de adicionar justificativa.", status: 404 };
+  }
+  // Insert (or no-op via onConflictDoUpdate that touches only updatedAt) to guarantee row exists.
+  const [row] = await db.insert(kpiMonthlyValuesTable).values({
+    organizationId: orgId,
+    yearConfigId: yearConfig.id,
+    month,
+    value: null,
+    inputs: {},
+  }).onConflictDoUpdate({
+    target: [kpiMonthlyValuesTable.yearConfigId, kpiMonthlyValuesTable.month],
+    set: { updatedAt: new Date() },
+  }).returning({ id: kpiMonthlyValuesTable.id });
+  return { id: row.id };
+}
+
+router.get(
+  "/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/months/:month/justifications",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const params = ListKpiMonthJustificationsParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+    if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    // Find the kpi_monthly_values.id for this (indicator, year, month) inside the org
+    const [mv] = await db
+      .select({ id: kpiMonthlyValuesTable.id })
+      .from(kpiMonthlyValuesTable)
+      .innerJoin(kpiYearConfigsTable, eq(kpiYearConfigsTable.id, kpiMonthlyValuesTable.yearConfigId))
+      .where(and(
+        eq(kpiMonthlyValuesTable.organizationId, params.data.orgId),
+        eq(kpiYearConfigsTable.indicatorId, params.data.indicatorId),
+        eq(kpiYearConfigsTable.year, params.data.year),
+        eq(kpiMonthlyValuesTable.month, params.data.month),
+      ));
+
+    if (!mv) {
+      res.json([]);
+      return;
+    }
+
+    const rows = await db
+      .select({
+        j: kpiMonthlyValueJustificationsTable,
+        userName: usersTable.name,
+      })
+      .from(kpiMonthlyValueJustificationsTable)
+      .leftJoin(usersTable, eq(usersTable.id, kpiMonthlyValueJustificationsTable.createdByUserId))
+      .where(eq(kpiMonthlyValueJustificationsTable.monthlyValueId, mv.id))
+      .orderBy(desc(kpiMonthlyValueJustificationsTable.createdAt));
+
+    res.json(rows.map((r) => serializeJustification(r.j, r.userName ?? null)));
+  },
+);
+
+router.post(
+  "/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/months/:month/justifications",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = AddKpiMonthJustificationParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+    if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const body = AddKpiMonthJustificationBody.safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+    const mv = await ensureMonthlyValueRow(
+      params.data.orgId,
+      params.data.indicatorId,
+      params.data.year,
+      params.data.month,
+    );
+    if ("error" in mv) { res.status(mv.status).json({ error: mv.error }); return; }
+
+    const [row] = await db.insert(kpiMonthlyValueJustificationsTable).values({
+      organizationId: params.data.orgId,
+      monthlyValueId: mv.id,
+      body: body.data.body,
+      createdByUserId: req.auth!.userId,
+    }).returning();
+
+    let createdByUserName: string | null = null;
+    if (row.createdByUserId !== null) {
+      const [u] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, row.createdByUserId));
+      createdByUserName = u?.name ?? null;
+    }
+
+    res.status(201).json(serializeJustification(row, createdByUserName));
+  },
+);
 
 export default router;
