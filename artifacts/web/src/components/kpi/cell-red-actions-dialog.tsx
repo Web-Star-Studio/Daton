@@ -224,8 +224,7 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
 
         <TabsContent value="justification" className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Histórico append-only. Cada salvamento cria uma entrada nova com autor e data — entradas antigas
-            ficam preservadas para auditoria.
+            Use a justificativa quando o resultado fora do padrão tem uma explicação pontual e não exige plano de ação.
           </p>
 
           {justificationsLoading ? (
@@ -261,7 +260,7 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
           )}
 
           <div className="space-y-1.5 pt-1 border-t border-border">
-            <Label className="text-xs">Adicionar nova entrada</Label>
+            <Label className="text-xs">Nova justificativa</Label>
             <Textarea
               value={justificationDraft}
               onChange={(e) => setJustificationDraft(e.target.value)}
@@ -275,7 +274,7 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
               Fechar
             </Button>
             <Button onClick={handleAddJustification} disabled={addJustification.isPending || !justificationDraft.trim()}>
-              {addJustification.isPending ? "Salvando..." : "Adicionar entrada"}
+              {addJustification.isPending ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
         </TabsContent>
