@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableStringSelect } from "@/components/ui/searchable-string-select";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { resolveApiUrl } from "@/lib/api";
@@ -369,16 +370,22 @@ export default function ActionPlanDetailPage() {
           </div>
           <div className="space-y-1.5">
             <Label>Responsável</Label>
-            <Select
-              value={form.responsibleUserId}
-              onChange={(e) => updateForm("responsibleUserId", e.target.value)}
+            <SearchableStringSelect
+              value={orgUsers.find((u) => String(u.id) === form.responsibleUserId)?.name ?? ""}
+              onChange={(name) => {
+                const u = orgUsers.find((x) => x.name === name);
+                updateForm("responsibleUserId", u ? String(u.id) : "");
+              }}
+              options={orgUsers.map((u) => u.name)}
+              placeholder="Selecione um responsável"
+              searchPlaceholder="Buscar usuário..."
+              emptyMessage={
+                orgUsers.length === 0
+                  ? "Nenhum usuário com conta. Cadastre em Configurações → Usuários."
+                  : "Nenhum usuário encontrado"
+              }
               disabled={!canWrite}
-            >
-              <option value="">Não definido</option>
-              {orgUsers.map((u) => (
-                <option key={u.id} value={String(u.id)}>{u.name}</option>
-              ))}
-            </Select>
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Prazo</Label>
