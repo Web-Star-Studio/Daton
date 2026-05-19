@@ -79,6 +79,8 @@ export const kpiMonthlyValuesTable = pgTable("kpi_monthly_values", {
 
 // Append-only audit trail for monthly cell justifications.
 // Each save creates a new entry; latest entry by createdAt is the "current".
+// updatedAt is included to satisfy the schema convention even though entries
+// are effectively immutable (in practice it will equal createdAt).
 export const kpiMonthlyValueJustificationsTable = pgTable(
   "kpi_monthly_value_justifications",
   {
@@ -88,6 +90,7 @@ export const kpiMonthlyValueJustificationsTable = pgTable(
     body: text("body").notNull(),
     createdByUserId: integer("created_by_user_id").references(() => usersTable.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   },
   (table) => [
     index("kpi_mv_justifications_mv_idx").on(table.monthlyValueId, table.createdAt),
@@ -110,6 +113,6 @@ export const insertKpiMonthlyValueSchema = createInsertSchema(kpiMonthlyValuesTa
 export type InsertKpiMonthlyValue = z.infer<typeof insertKpiMonthlyValueSchema>;
 export type KpiMonthlyValue = typeof kpiMonthlyValuesTable.$inferSelect;
 
-export const insertKpiMonthlyValueJustificationSchema = createInsertSchema(kpiMonthlyValueJustificationsTable).omit({ id: true, createdAt: true });
+export const insertKpiMonthlyValueJustificationSchema = createInsertSchema(kpiMonthlyValueJustificationsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertKpiMonthlyValueJustification = z.infer<typeof insertKpiMonthlyValueJustificationSchema>;
 export type KpiMonthlyValueJustification = typeof kpiMonthlyValueJustificationsTable.$inferSelect;

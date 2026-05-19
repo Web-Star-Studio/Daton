@@ -8002,7 +8002,7 @@ paths:
             maximum: 12
       responses:
         "200":
-          description: Chronological history (newest first)
+          description: Reverse chronological history (newest entry first)
           content:
             application/json:
               schema:

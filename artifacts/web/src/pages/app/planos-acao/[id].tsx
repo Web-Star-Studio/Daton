@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SearchableStringSelect } from "@/components/ui/searchable-string-select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { resolveApiUrl } from "@/lib/api";
@@ -370,13 +370,10 @@ export default function ActionPlanDetailPage() {
           </div>
           <div className="space-y-1.5">
             <Label>Responsável</Label>
-            <SearchableStringSelect
-              value={orgUsers.find((u) => String(u.id) === form.responsibleUserId)?.name ?? ""}
-              onChange={(name) => {
-                const u = orgUsers.find((x) => x.name === name);
-                updateForm("responsibleUserId", u ? String(u.id) : "");
-              }}
-              options={orgUsers.map((u) => u.name)}
+            <SearchableSelect
+              value={form.responsibleUserId}
+              onChange={(v) => updateForm("responsibleUserId", v)}
+              options={orgUsers.map((u) => ({ value: String(u.id), label: u.name }))}
               placeholder="Selecione um responsável"
               searchPlaceholder="Buscar usuário..."
               emptyMessage={
