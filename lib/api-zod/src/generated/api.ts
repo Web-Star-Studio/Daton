@@ -13413,6 +13413,8 @@ export const listKpiYearDataResponseIndicatorFormulaVariablesItemKeyRegExp =
 
 export const listKpiYearDataResponseMonthlyValuesItemMonthMax = 12;
 
+export const listKpiYearDataResponseMonthlyValuesItemJustificationsCountMin = 0;
+
 export const listKpiYearDataResponseMonthlyValuesItemActionPlansCountMin = 0;
 
 export const ListKpiYearDataResponseItem = zod.object({
@@ -13491,7 +13493,23 @@ export const ListKpiYearDataResponseItem = zod.object({
           .describe(
             "Database id of the kpi_monthly_values row; null when the cell has never been written",
           ),
-        justification: zod.string().nullable(),
+        justification: zod
+          .object({
+            id: zod.number(),
+            monthlyValueId: zod.number(),
+            body: zod.string(),
+            createdByUserId: zod.number().nullish(),
+            createdByUserName: zod.string().nullish(),
+            createdAt: zod.string().datetime({}),
+          })
+          .nullable()
+          .describe(
+            "Latest entry from the append-only justification history; null if no entry exists",
+          ),
+        justificationsCount: zod
+          .number()
+          .min(listKpiYearDataResponseMonthlyValuesItemJustificationsCountMin)
+          .describe("Total entries in the justification history for this cell"),
         actionPlansCount: zod
           .number()
           .min(listKpiYearDataResponseMonthlyValuesItemActionPlansCountMin),
@@ -13560,6 +13578,8 @@ export const UpsertKpiValuesBody = zod.object({
 
 export const upsertKpiValuesResponseMonthMax = 12;
 
+export const upsertKpiValuesResponseJustificationsCountMin = 0;
+
 export const upsertKpiValuesResponseActionPlansCountMin = 0;
 
 export const UpsertKpiValuesResponseItem = zod
@@ -13573,7 +13593,23 @@ export const UpsertKpiValuesResponseItem = zod
       .describe(
         "Database id of the kpi_monthly_values row; null when the cell has never been written",
       ),
-    justification: zod.string().nullable(),
+    justification: zod
+      .object({
+        id: zod.number(),
+        monthlyValueId: zod.number(),
+        body: zod.string(),
+        createdByUserId: zod.number().nullish(),
+        createdByUserName: zod.string().nullish(),
+        createdAt: zod.string().datetime({}),
+      })
+      .nullable()
+      .describe(
+        "Latest entry from the append-only justification history; null if no entry exists",
+      ),
+    justificationsCount: zod
+      .number()
+      .min(upsertKpiValuesResponseJustificationsCountMin)
+      .describe("Total entries in the justification history for this cell"),
     actionPlansCount: zod
       .number()
       .min(upsertKpiValuesResponseActionPlansCountMin),
@@ -15709,26 +15745,45 @@ export const DeleteProjectChangeParams = zod.object({
 });
 
 /**
- * @summary Set or clear the justification for a specific monthly cell
+ * @summary List the append-only history of justifications for a monthly cell
  */
-export const upsertKpiMonthJustificationPathMonthMax = 12;
+export const listKpiMonthJustificationsPathMonthMax = 12;
 
-export const UpsertKpiMonthJustificationParams = zod.object({
+export const ListKpiMonthJustificationsParams = zod.object({
   orgId: zod.coerce.number(),
   indicatorId: zod.coerce.number(),
   year: zod.coerce.number(),
-  month: zod.coerce
-    .number()
-    .min(1)
-    .max(upsertKpiMonthJustificationPathMonthMax),
+  month: zod.coerce.number().min(1).max(listKpiMonthJustificationsPathMonthMax),
 });
 
-export const UpsertKpiMonthJustificationBody = zod.object({
-  justification: zod.string().nullable(),
+export const ListKpiMonthJustificationsResponseItem = zod.object({
+  id: zod.number(),
+  monthlyValueId: zod.number(),
+  body: zod.string(),
+  createdByUserId: zod.number().nullish(),
+  createdByUserName: zod.string().nullish(),
+  createdAt: zod.string().datetime({}),
+});
+export const ListKpiMonthJustificationsResponse = zod.array(
+  ListKpiMonthJustificationsResponseItem,
+);
+
+/**
+ * @summary Append a new justification entry for a monthly cell
+ */
+export const addKpiMonthJustificationPathMonthMax = 12;
+
+export const AddKpiMonthJustificationParams = zod.object({
+  orgId: zod.coerce.number(),
+  indicatorId: zod.coerce.number(),
+  year: zod.coerce.number(),
+  month: zod.coerce.number().min(1).max(addKpiMonthJustificationPathMonthMax),
 });
 
-export const UpsertKpiMonthJustificationResponse = zod.object({
-  justification: zod.string().nullable(),
+export const addKpiMonthJustificationBodyBodyMax = 5000;
+
+export const AddKpiMonthJustificationBody = zod.object({
+  body: zod.string().min(1).max(addKpiMonthJustificationBodyBodyMax),
 });
 
 /**

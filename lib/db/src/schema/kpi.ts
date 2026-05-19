@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { integer, jsonb, numeric, pgTable, serial, text, timestamp, unique, varchar } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, numeric, pgTable, serial, text, timestamp, unique, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
@@ -71,12 +71,28 @@ export const kpiMonthlyValuesTable = pgTable("kpi_monthly_values", {
     .$type<KpiMonthlyValueInputs>()
     .notNull()
     .default(sql`'{}'::jsonb`),
-  justification: text("justification"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   unique("kpi_monthly_value_config_month_unique").on(table.yearConfigId, table.month),
 ]);
+
+// Append-only audit trail for monthly cell justifications.
+// Each save creates a new entry; latest entry by createdAt is the "current".
+export const kpiMonthlyValueJustificationsTable = pgTable(
+  "kpi_monthly_value_justifications",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
+    monthlyValueId: integer("monthly_value_id").notNull().references(() => kpiMonthlyValuesTable.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdByUserId: integer("created_by_user_id").references(() => usersTable.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("kpi_mv_justifications_mv_idx").on(table.monthlyValueId, table.createdAt),
+  ],
+);
 
 export const insertKpiObjectiveSchema = createInsertSchema(kpiObjectivesTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertKpiObjective = z.infer<typeof insertKpiObjectiveSchema>;
@@ -93,3 +109,7 @@ export type KpiYearConfig = typeof kpiYearConfigsTable.$inferSelect;
 export const insertKpiMonthlyValueSchema = createInsertSchema(kpiMonthlyValuesTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertKpiMonthlyValue = z.infer<typeof insertKpiMonthlyValueSchema>;
 export type KpiMonthlyValue = typeof kpiMonthlyValuesTable.$inferSelect;
+
+export const insertKpiMonthlyValueJustificationSchema = createInsertSchema(kpiMonthlyValueJustificationsTable).omit({ id: true, createdAt: true });
+export type InsertKpiMonthlyValueJustification = z.infer<typeof insertKpiMonthlyValueJustificationSchema>;
+export type KpiMonthlyValueJustification = typeof kpiMonthlyValueJustificationsTable.$inferSelect;

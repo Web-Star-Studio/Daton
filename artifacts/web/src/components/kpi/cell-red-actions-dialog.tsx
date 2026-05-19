@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { ClipboardList, ExternalLink, MessageSquareWarning, Plus, Trash2 } from "lucide-react";
+import { ClipboardList, ExternalLink, MessageSquareWarning, Plus, Trash2, User } from "lucide-react";
 import {
   getListOrgUsersQueryKey,
   useListOrgUsers,
@@ -24,9 +24,10 @@ import {
   calendarDateToStorageIso,
   formatCalendarDateBR,
   useActionPlansForKpiCell,
+  useAddKpiMonthJustificationWithInvalidation,
   useCreateActionPlanWithInvalidation,
   useDeleteActionPlanWithInvalidation,
-  useUpsertKpiMonthJustificationWithInvalidation,
+  useKpiMonthJustifications,
   type ActionPlanPriority,
   type ActionPlanStatus,
 } from "@/lib/action-plans-client";
@@ -45,7 +46,6 @@ type DialogContext = {
   monthlyValueId: number | null;
   value: number | null;
   goal: number | null;
-  currentJustification: string | null;
 };
 
 interface CellRedActionsDialogProps {
@@ -81,19 +81,18 @@ function formatNumber(v: number | null): string {
 }
 
 export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogProps) {
-  const { orgId, indicatorId, indicatorName, year, month, monthlyValueId, value, goal, currentJustification } = context;
+  const { orgId, indicatorId, indicatorName, year, month, monthlyValueId, value, goal } = context;
   const [, setLocation] = useLocation();
 
+  const { data: justifications = [], isLoading: justificationsLoading } =
+    useKpiMonthJustifications(orgId, indicatorId, year, month);
+
   const [tab, setTab] = useState<"justification" | "plans">(
-    currentJustification ? "justification" : "plans",
+    justifications.length > 0 ? "justification" : "plans",
   );
-  const [justificationDraft, setJustificationDraft] = useState(currentJustification ?? "");
+  const [justificationDraft, setJustificationDraft] = useState("");
   const [mode, setMode] = useState<"list" | "create">("list");
   const [form, setForm] = useState<PlanFormState>(emptyForm);
-
-  useEffect(() => {
-    setJustificationDraft(currentJustification ?? "");
-  }, [currentJustification]);
 
   const { data: plans = [], isLoading: plansLoading } = useActionPlansForKpiCell(orgId, monthlyValueId);
   const { data: orgUsersData } = useListOrgUsers(orgId, {
@@ -101,7 +100,7 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
   });
   const orgUsers = orgUsersData?.users ?? [];
 
-  const saveJustification = useUpsertKpiMonthJustificationWithInvalidation(orgId, year);
+  const addJustification = useAddKpiMonthJustificationWithInvalidation(orgId, year);
   const createPlan = useCreateActionPlanWithInvalidation(orgId, year);
   const deletePlan = useDeleteActionPlanWithInvalidation(orgId, year);
 
@@ -113,17 +112,22 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
     return `${monthLabel}/${year}${valuePart}`;
   }, [month, year, value, goal]);
 
-  async function handleSaveJustification() {
+  async function handleAddJustification() {
+    const body = justificationDraft.trim();
+    if (!body) {
+      toast({ title: "Escreva uma justificativa antes de salvar", variant: "destructive" });
+      return;
+    }
     try {
-      await saveJustification.mutateAsync({
+      await addJustification.mutateAsync({
         orgId,
         indicatorId,
         year,
         month,
-        data: { justification: justificationDraft.trim() ? justificationDraft.trim() : null },
+        data: { body },
       });
-      toast({ title: "Justificativa salva" });
-      onClose();
+      toast({ title: "Justificativa adicionada ao histórico" });
+      setJustificationDraft("");
     } catch (err) {
       toast({
         title: "Erro ao salvar justificativa",
@@ -205,6 +209,9 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
           <TabsTrigger value="justification" className="gap-1.5">
             <MessageSquareWarning className="h-3.5 w-3.5" />
             Justificativa
+            {justifications.length > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{justifications.length}</Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="plans" className="gap-1.5">
             <ClipboardList className="h-3.5 w-3.5" />
@@ -217,21 +224,58 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
 
         <TabsContent value="justification" className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Use a justificativa quando o resultado fora do padrão tem uma explicação pontual e não exige plano de ação.
+            Histórico append-only. Cada salvamento cria uma entrada nova com autor e data — entradas antigas
+            ficam preservadas para auditoria.
           </p>
-          <Textarea
-            value={justificationDraft}
-            onChange={(e) => setJustificationDraft(e.target.value)}
-            placeholder="Ex.: parada técnica programada no mês reduziu a produção..."
-            rows={6}
-            autoFocus
-          />
+
+          {justificationsLoading ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Carregando histórico...</p>
+          ) : justifications.length > 0 ? (
+            <div className="space-y-2 max-h-56 overflow-auto pr-1">
+              {justifications.map((entry, idx) => (
+                <article
+                  key={entry.id}
+                  className={cn(
+                    "rounded-md border bg-card px-3 py-2 space-y-1",
+                    idx === 0 ? "border-blue-300/60 dark:border-blue-500/40" : "border-border",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <User className="h-3 w-3" />
+                      {entry.createdByUserName ?? "Usuário removido"}
+                    </span>
+                    <span>{new Date(entry.createdAt).toLocaleString("pt-BR")}</span>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap break-words">{entry.body}</p>
+                  {idx === 0 && (
+                    <span className="inline-block text-[10px] uppercase tracking-wide text-blue-700 dark:text-blue-300">
+                      mais recente
+                    </span>
+                  )}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4 text-center">Sem justificativas registradas ainda.</p>
+          )}
+
+          <div className="space-y-1.5 pt-1 border-t border-border">
+            <Label className="text-xs">Adicionar nova entrada</Label>
+            <Textarea
+              value={justificationDraft}
+              onChange={(e) => setJustificationDraft(e.target.value)}
+              placeholder="Ex.: parada técnica programada no mês reduziu a produção..."
+              rows={4}
+            />
+          </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={onClose} disabled={saveJustification.isPending}>
-              Cancelar
+            <Button variant="outline" onClick={onClose} disabled={addJustification.isPending}>
+              Fechar
             </Button>
-            <Button onClick={handleSaveJustification} disabled={saveJustification.isPending}>
-              {saveJustification.isPending ? "Salvando..." : "Salvar justificativa"}
+            <Button onClick={handleAddJustification} disabled={addJustification.isPending || !justificationDraft.trim()}>
+              {addJustification.isPending ? "Salvando..." : "Adicionar entrada"}
             </Button>
           </DialogFooter>
         </TabsContent>

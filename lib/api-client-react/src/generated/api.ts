@@ -25,6 +25,7 @@ import type {
   AddAssetDocumentBody,
   AddDocumentAttachmentBody,
   AddEmployeeProfileItemAttachmentBody,
+  AddKpiMonthJustificationBody,
   AddMaintenanceRecordAttachmentBody,
   AddMeasurementResourceAttachmentBody,
   AddWorkEnvironmentAttachmentBody,
@@ -129,6 +130,7 @@ import type {
   KnowledgeAssetDetail,
   KpiIndicator,
   KpiMonthlyValue,
+  KpiMonthlyValueJustification,
   KpiObjective,
   KpiYearConfig,
   KpiYearRow,
@@ -261,8 +263,6 @@ import type {
   UpdateUserModulesBody,
   UpdateUserRoleBody,
   UpdateWorkEnvironmentControlBody,
-  UpsertKpiMonthJustification200,
-  UpsertKpiMonthJustificationBody,
   UpsertKpiValuesBody,
   UpsertKpiYearConfigBody,
   UserOption,
@@ -27717,66 +27717,189 @@ export const useDeleteProjectChange = <
 };
 
 /**
- * @summary Set or clear the justification for a specific monthly cell
+ * @summary List the append-only history of justifications for a monthly cell
  */
-export const getUpsertKpiMonthJustificationUrl = (
+export const getListKpiMonthJustificationsUrl = (
   orgId: number,
   indicatorId: number,
   year: number,
   month: number,
 ) => {
-  return `/api/organizations/${orgId}/kpi/indicators/${indicatorId}/years/${year}/months/${month}/justification`;
+  return `/api/organizations/${orgId}/kpi/indicators/${indicatorId}/years/${year}/months/${month}/justifications`;
 };
 
-export const upsertKpiMonthJustification = async (
+export const listKpiMonthJustifications = async (
   orgId: number,
   indicatorId: number,
   year: number,
   month: number,
-  upsertKpiMonthJustificationBody: UpsertKpiMonthJustificationBody,
   options?: RequestInit,
-): Promise<UpsertKpiMonthJustification200> => {
-  return customFetch<UpsertKpiMonthJustification200>(
-    getUpsertKpiMonthJustificationUrl(orgId, indicatorId, year, month),
+): Promise<KpiMonthlyValueJustification[]> => {
+  return customFetch<KpiMonthlyValueJustification[]>(
+    getListKpiMonthJustificationsUrl(orgId, indicatorId, year, month),
     {
       ...options,
-      method: "PUT",
-      headers: { "Content-Type": "application/json", ...options?.headers },
-      body: JSON.stringify(upsertKpiMonthJustificationBody),
+      method: "GET",
     },
   );
 };
 
-export const getUpsertKpiMonthJustificationMutationOptions = <
+export const getListKpiMonthJustificationsQueryKey = (
+  orgId: number,
+  indicatorId: number,
+  year: number,
+  month: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/kpi/indicators/${indicatorId}/years/${year}/months/${month}/justifications`,
+  ] as const;
+};
+
+export const getListKpiMonthJustificationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listKpiMonthJustifications>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  indicatorId: number,
+  year: number,
+  month: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listKpiMonthJustifications>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListKpiMonthJustificationsQueryKey(orgId, indicatorId, year, month);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listKpiMonthJustifications>>
+  > = ({ signal }) =>
+    listKpiMonthJustifications(orgId, indicatorId, year, month, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && indicatorId && year && month),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listKpiMonthJustifications>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListKpiMonthJustificationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listKpiMonthJustifications>>
+>;
+export type ListKpiMonthJustificationsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the append-only history of justifications for a monthly cell
+ */
+
+export function useListKpiMonthJustifications<
+  TData = Awaited<ReturnType<typeof listKpiMonthJustifications>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  indicatorId: number,
+  year: number,
+  month: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listKpiMonthJustifications>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListKpiMonthJustificationsQueryOptions(
+    orgId,
+    indicatorId,
+    year,
+    month,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Append a new justification entry for a monthly cell
+ */
+export const getAddKpiMonthJustificationUrl = (
+  orgId: number,
+  indicatorId: number,
+  year: number,
+  month: number,
+) => {
+  return `/api/organizations/${orgId}/kpi/indicators/${indicatorId}/years/${year}/months/${month}/justifications`;
+};
+
+export const addKpiMonthJustification = async (
+  orgId: number,
+  indicatorId: number,
+  year: number,
+  month: number,
+  addKpiMonthJustificationBody: AddKpiMonthJustificationBody,
+  options?: RequestInit,
+): Promise<KpiMonthlyValueJustification> => {
+  return customFetch<KpiMonthlyValueJustification>(
+    getAddKpiMonthJustificationUrl(orgId, indicatorId, year, month),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(addKpiMonthJustificationBody),
+    },
+  );
+};
+
+export const getAddKpiMonthJustificationMutationOptions = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof upsertKpiMonthJustification>>,
+    Awaited<ReturnType<typeof addKpiMonthJustification>>,
     TError,
     {
       orgId: number;
       indicatorId: number;
       year: number;
       month: number;
-      data: BodyType<UpsertKpiMonthJustificationBody>;
+      data: BodyType<AddKpiMonthJustificationBody>;
     },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof upsertKpiMonthJustification>>,
+  Awaited<ReturnType<typeof addKpiMonthJustification>>,
   TError,
   {
     orgId: number;
     indicatorId: number;
     year: number;
     month: number;
-    data: BodyType<UpsertKpiMonthJustificationBody>;
+    data: BodyType<AddKpiMonthJustificationBody>;
   },
   TContext
 > => {
-  const mutationKey = ["upsertKpiMonthJustification"];
+  const mutationKey = ["addKpiMonthJustification"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -27786,18 +27909,18 @@ export const getUpsertKpiMonthJustificationMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof upsertKpiMonthJustification>>,
+    Awaited<ReturnType<typeof addKpiMonthJustification>>,
     {
       orgId: number;
       indicatorId: number;
       year: number;
       month: number;
-      data: BodyType<UpsertKpiMonthJustificationBody>;
+      data: BodyType<AddKpiMonthJustificationBody>;
     }
   > = (props) => {
     const { orgId, indicatorId, year, month, data } = props ?? {};
 
-    return upsertKpiMonthJustification(
+    return addKpiMonthJustification(
       orgId,
       indicatorId,
       year,
@@ -27810,46 +27933,46 @@ export const getUpsertKpiMonthJustificationMutationOptions = <
   return { mutationFn, ...mutationOptions };
 };
 
-export type UpsertKpiMonthJustificationMutationResult = NonNullable<
-  Awaited<ReturnType<typeof upsertKpiMonthJustification>>
+export type AddKpiMonthJustificationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addKpiMonthJustification>>
 >;
-export type UpsertKpiMonthJustificationMutationBody =
-  BodyType<UpsertKpiMonthJustificationBody>;
-export type UpsertKpiMonthJustificationMutationError = ErrorType<unknown>;
+export type AddKpiMonthJustificationMutationBody =
+  BodyType<AddKpiMonthJustificationBody>;
+export type AddKpiMonthJustificationMutationError = ErrorType<unknown>;
 
 /**
- * @summary Set or clear the justification for a specific monthly cell
+ * @summary Append a new justification entry for a monthly cell
  */
-export const useUpsertKpiMonthJustification = <
+export const useAddKpiMonthJustification = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof upsertKpiMonthJustification>>,
+    Awaited<ReturnType<typeof addKpiMonthJustification>>,
     TError,
     {
       orgId: number;
       indicatorId: number;
       year: number;
       month: number;
-      data: BodyType<UpsertKpiMonthJustificationBody>;
+      data: BodyType<AddKpiMonthJustificationBody>;
     },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof upsertKpiMonthJustification>>,
+  Awaited<ReturnType<typeof addKpiMonthJustification>>,
   TError,
   {
     orgId: number;
     indicatorId: number;
     year: number;
     month: number;
-    data: BodyType<UpsertKpiMonthJustificationBody>;
+    data: BodyType<AddKpiMonthJustificationBody>;
   },
   TContext
 > => {
-  return useMutation(getUpsertKpiMonthJustificationMutationOptions(options));
+  return useMutation(getAddKpiMonthJustificationMutationOptions(options));
 };
 
 /**

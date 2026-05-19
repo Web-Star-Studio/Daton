@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UpsertKpiMonthJustificationBody {
-  justification: string | null;
+export interface AddKpiMonthJustificationBody {
+  /**
+   * @minLength 1
+   * @maxLength 5000
+   */
+  body: string;
 }

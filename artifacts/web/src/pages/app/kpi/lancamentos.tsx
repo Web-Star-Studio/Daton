@@ -79,7 +79,6 @@ export default function KpiAlimentacaoPage() {
     monthlyValueId: number | null;
     value: number | null;
     goal: number | null;
-    currentJustification: string | null;
   } | null>(null);
 
   function openFormulaDialog(row: KpiYearRow) {
@@ -437,7 +436,6 @@ export default function KpiAlimentacaoPage() {
                                   monthlyValueId,
                                   value: val,
                                   goal: row.yearConfig.goal ?? null,
-                                  currentJustification: justification,
                                 });
                               }}
                               title={
@@ -602,7 +600,6 @@ export default function KpiAlimentacaoPage() {
             monthlyValueId: cellDialog.monthlyValueId,
             value: cellDialog.value,
             goal: cellDialog.goal,
-            currentJustification: cellDialog.currentJustification,
           }}
           onClose={() => setCellDialog(null)}
         />

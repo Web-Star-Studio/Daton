@@ -7972,11 +7972,47 @@ paths:
         "204":
           description: Project change deleted
 
-  /organizations/{orgId}/kpi/indicators/{indicatorId}/years/{year}/months/{month}/justification:
-    put:
-      operationId: upsertKpiMonthJustification
+  /organizations/{orgId}/kpi/indicators/{indicatorId}/years/{year}/months/{month}/justifications:
+    get:
+      operationId: listKpiMonthJustifications
       tags: [kpi]
-      summary: Set or clear the justification for a specific monthly cell
+      summary: List the append-only history of justifications for a monthly cell
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: indicatorId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+      responses:
+        "200":
+          description: Chronological history (newest first)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KpiMonthlyValueJustification"
+    post:
+      operationId: addKpiMonthJustification
+      tags: [kpi]
+      summary: Append a new justification entry for a monthly cell
       parameters:
         - name: orgId
           in: path
@@ -8005,20 +8041,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpsertKpiMonthJustificationBody"
+              $ref: "#/components/schemas/AddKpiMonthJustificationBody"
       responses:
-        "200":
-          description: Justification updated
+        "201":
+          description: Justification entry created
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  justification:
-                    type: string
-                    nullable: true
-                required:
-                  - justification
+                $ref: "#/components/schemas/KpiMonthlyValueJustification"
 
   /organizations/{orgId}/action-plans:
     get:
@@ -14513,8 +14543,13 @@ components:
           nullable: true
           description: Database id of the kpi_monthly_values row; null when the cell has never been written
         justification:
-          type: string
+          $ref: "#/components/schemas/KpiMonthlyValueJustification"
           nullable: true
+          description: Latest entry from the append-only justification history; null if no entry exists
+        justificationsCount:
+          type: integer
+          minimum: 0
+          description: Total entries in the justification history for this cell
         actionPlansCount:
           type: integer
           minimum: 0
@@ -14522,7 +14557,30 @@ components:
         - month
         - monthlyValueId
         - justification
+        - justificationsCount
         - actionPlansCount
+
+    KpiMonthlyValueJustification:
+      type: object
+      properties:
+        id:
+          type: integer
+        monthlyValueId:
+          type: integer
+        body:
+          type: string
+        createdByUserId:
+          type: ["integer", "null"]
+        createdByUserName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - monthlyValueId
+        - body
+        - createdAt
 
     UpsertKpiValuesBody:
       type: object
@@ -14534,14 +14592,15 @@ components:
       required:
         - values
 
-    UpsertKpiMonthJustificationBody:
+    AddKpiMonthJustificationBody:
       type: object
       properties:
-        justification:
+        body:
           type: string
-          nullable: true
+          minLength: 1
+          maxLength: 5000
       required:
-        - justification
+        - body
 
     ActionPlanStatus:
       type: string

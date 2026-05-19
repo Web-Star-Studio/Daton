@@ -2,15 +2,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetActionPlanQueryKey,
   getListActionPlansQueryKey,
+  getListKpiMonthJustificationsQueryKey,
   getListKpiYearDataQueryKey,
   useAddActionPlanEvidence,
+  useAddKpiMonthJustification,
   useCreateActionPlan,
   useDeleteActionPlan,
   useDeleteActionPlanEvidence,
   useGetActionPlan,
   useListActionPlans,
+  useListKpiMonthJustifications,
   useUpdateActionPlan,
-  useUpsertKpiMonthJustification,
   type ActionPlan,
   type ActionPlanEvidence,
   type ActionPlanListItem,
@@ -18,6 +20,7 @@ import {
   type ActionPlanSourceModule,
   type ActionPlanStatus,
   type CreateActionPlanBody,
+  type KpiMonthlyValueJustification,
   type ListActionPlansParams,
   type UpdateActionPlanBody,
 } from "@workspace/api-client-react";
@@ -30,6 +33,7 @@ export type {
   ActionPlanSourceModule,
   ActionPlanStatus,
   CreateActionPlanBody,
+  KpiMonthlyValueJustification,
   ListActionPlansParams,
   UpdateActionPlanBody,
 };
@@ -183,12 +187,36 @@ export function useDeleteActionPlanEvidenceWithInvalidation(orgId: number) {
   });
 }
 
-export function useUpsertKpiMonthJustificationWithInvalidation(orgId: number, year: number) {
+export function useKpiMonthJustifications(
+  orgId: number,
+  indicatorId: number | null,
+  year: number,
+  month: number | null,
+) {
+  const enabled = indicatorId !== null && month !== null;
+  return useListKpiMonthJustifications(
+    orgId,
+    indicatorId ?? 0,
+    year,
+    month ?? 0,
+    {
+      query: {
+        queryKey: getListKpiMonthJustificationsQueryKey(orgId, indicatorId ?? 0, year, month ?? 0),
+        enabled,
+      },
+    },
+  );
+}
+
+export function useAddKpiMonthJustificationWithInvalidation(orgId: number, year: number) {
   const queryClient = useQueryClient();
-  return useUpsertKpiMonthJustification({
+  return useAddKpiMonthJustification({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (_data, variables) => {
         queryClient.invalidateQueries({ queryKey: getListKpiYearDataQueryKey(orgId, year) });
+        queryClient.invalidateQueries({
+          queryKey: getListKpiMonthJustificationsQueryKey(orgId, variables.indicatorId, variables.year, variables.month),
+        });
       },
     },
   });

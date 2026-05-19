@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { KpiMonthlyValueInputs } from "./kpiMonthlyValueInputs";
+import type { KpiMonthlyValueJustification } from "./kpiMonthlyValueJustification";
 
 /**
  * Read shape of a monthly cell — includes server-resolved metadata
@@ -20,7 +21,13 @@ export interface KpiMonthlyValue {
   inputs?: KpiMonthlyValueInputs;
   /** Database id of the kpi_monthly_values row; null when the cell has never been written */
   monthlyValueId: number | null;
-  justification: string | null;
+  /** Latest entry from the append-only justification history; null if no entry exists */
+  justification: KpiMonthlyValueJustification | null;
+  /**
+   * Total entries in the justification history for this cell
+   * @minimum 0
+   */
+  justificationsCount: number;
   /** @minimum 0 */
   actionPlansCount: number;
 }

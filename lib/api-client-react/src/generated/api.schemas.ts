@@ -3405,6 +3405,17 @@ export interface KpiMonthlyValueInput {
 
 export type KpiMonthlyValueInputs = { [key: string]: number | null };
 
+export interface KpiMonthlyValueJustification {
+  id: number;
+  monthlyValueId: number;
+  body: string;
+  /** @nullable */
+  createdByUserId?: number | null;
+  /** @nullable */
+  createdByUserName?: string | null;
+  createdAt: string;
+}
+
 /**
  * Read shape of a monthly cell — includes server-resolved metadata
  */
@@ -3418,7 +3429,13 @@ export interface KpiMonthlyValue {
   inputs?: KpiMonthlyValueInputs;
   /** Database id of the kpi_monthly_values row; null when the cell has never been written */
   monthlyValueId: number | null;
-  justification: string | null;
+  /** Latest entry from the append-only justification history; null if no entry exists */
+  justification: KpiMonthlyValueJustification | null;
+  /**
+   * Total entries in the justification history for this cell
+   * @minimum 0
+   */
+  justificationsCount: number;
   /** @minimum 0 */
   actionPlansCount: number;
 }
@@ -3427,8 +3444,12 @@ export interface UpsertKpiValuesBody {
   values: KpiMonthlyValueInput[];
 }
 
-export interface UpsertKpiMonthJustificationBody {
-  justification: string | null;
+export interface AddKpiMonthJustificationBody {
+  /**
+   * @minLength 1
+   * @maxLength 5000
+   */
+  body: string;
 }
 
 export type ActionPlanStatus =
@@ -3607,8 +3628,9 @@ export interface AddActionPlanEvidenceBody {
    */
   contentType: string;
   /**
-   * Object path returned by /storage/uploads/direct (e.g. /objects/<id>)
+   * Object path returned by /storage/uploads/direct; must live under the canonical upload prefix
    * @minLength 1
+   * @pattern ^/objects/uploads/
    */
   objectPath: string;
 }
@@ -4917,10 +4939,6 @@ export type ListMeasurementResourcesParams = {
   unitId?: number;
   resourceType?: string;
   status?: string;
-};
-
-export type UpsertKpiMonthJustification200 = {
-  justification: string | null;
 };
 
 export type ListActionPlansParams = {
