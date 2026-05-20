@@ -47,6 +47,7 @@ import SupplierTypesPage from "@/pages/app/qualidade/fornecedores/tipos";
 import EnvironmentalLaiaPage from "@/pages/app/ambiental/laia";
 import EnvironmentalLaiaUnitDetailPage from "@/pages/app/ambiental/laia/unidades/[unitId]";
 import KpiModulePage from "@/pages/app/kpi/kpi-module";
+import RoadSafetyModulePage from "@/pages/app/road-safety/module";
 import ActionPlansListPage from "@/pages/app/planos-acao";
 import ActionPlanDetailPage from "@/pages/app/planos-acao/[id]";
 import AtivosPage from "@/pages/app/organizacao/ativos";
@@ -234,6 +235,7 @@ function AppPages() {
       <Route path="/kpi/indicadores" component={KpiModulePage} />
       <Route path="/kpi/lancamentos" component={KpiModulePage} />
       <Route path="/kpi/dashboard" component={KpiModulePage} />
+      <Route path="/fatores-desempenho" component={RoadSafetyModulePage} />
       <Route path="/planos-acao/:id" component={ActionPlanDetailPage} />
       <Route path="/planos-acao" component={ActionPlansListPage} />
       <Route path="/configuracoes/perfil" component={ProfileSettingsPage} />
@@ -349,6 +351,7 @@ function AppPages() {
       <Route path="/app/kpi/indicadores" component={KpiModulePage} />
       <Route path="/app/kpi/lancamentos" component={KpiModulePage} />
       <Route path="/app/kpi/dashboard" component={KpiModulePage} />
+      <Route path="/app/fatores-desempenho" component={RoadSafetyModulePage} />
       <Route path="/app/planos-acao/:id" component={ActionPlanDetailPage} />
       <Route path="/app/planos-acao" component={ActionPlansListPage} />
       <Route path="/app/configuracoes/perfil" component={ProfileSettingsPage} />
@@ -369,6 +372,7 @@ function Router() {
     location.startsWith("/qualidade") ||
     location.startsWith("/ambiental") ||
     location.startsWith("/kpi") ||
+    location.startsWith("/fatores-desempenho") ||
     location.startsWith("/planos-acao") ||
     location.startsWith("/infraestrutura") ||
     location.startsWith("/configuracoes");

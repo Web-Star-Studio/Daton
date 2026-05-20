@@ -82,6 +82,7 @@ const MODULE_LABELS: Record<string, string> = {
   suppliers: "Fornecedores",
   environmental: "Ambiental",
   kpi: "Indicadores",
+  roadSafety: "Fatores de Desempenho (SV)",
   assets: "Infraestrutura",
 };
 
@@ -96,6 +97,7 @@ const ALL_MODULES: OrgUserModule[] = [
   "suppliers",
   "environmental",
   "kpi",
+  "roadSafety",
   "assets",
 ];
 

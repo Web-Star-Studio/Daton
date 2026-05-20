@@ -16,6 +16,7 @@ import {
   Scale,
   Settings,
   Sparkles,
+  TrafficCone,
   Wrench,
 } from "lucide-react";
 import { cn, formatFirstAndLastName } from "@/lib/utils";
@@ -40,6 +41,7 @@ type AppModule =
   | "suppliers"
   | "environmental"
   | "kpi"
+  | "roadSafety"
   | "assets";
 
 type NavLink = {
@@ -191,6 +193,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       { prefix: "/governanca", module: "governance" },
       { prefix: "/ambiental", module: "environmental" },
       { prefix: "/kpi", module: "kpi" },
+      { prefix: "/fatores-desempenho", module: "roadSafety" },
       { prefix: "/infraestrutura", module: "assets" },
     ];
 
@@ -348,6 +351,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       } else if (normalizedLocation.startsWith("/kpi/dashboard")) {
         crumbs.push({ label: "Dashboard", href: "/kpi/dashboard" });
       }
+    } else if (normalizedLocation.startsWith("/fatores-desempenho")) {
+      crumbs.push({ label: "Fatores de Desempenho — SV" });
     } else if (normalizedLocation.startsWith("/planos-acao")) {
       crumbs.push({ label: "Planos de Ação", href: "/planos-acao" });
       if (pageTitle && normalizedLocation !== "/planos-acao") {
@@ -465,6 +470,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const showGovernanca = hasModuleAccess("governance");
   const showAmbiental = hasModuleAccess("environmental");
   const showKpi = hasModuleAccess("kpi");
+  const showRoadSafety = hasModuleAccess("roadSafety");
   const showInfraestrutura = infraestruturaLinks.length > 0;
 
   const openPopover = (
@@ -781,6 +787,28 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 )}
               </Link>
             </div>
+          )}
+
+          {showRoadSafety && (
+            <Link
+              href="/fatores-desempenho"
+              className={cn(
+                "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+                isActive("/fatores-desempenho")
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <div className="flex items-center">
+                <TrafficCone
+                  className={cn(
+                    "h-[18px] w-[18px] shrink-0",
+                    isSidebarOpen && "mr-2.5",
+                  )}
+                />
+                {isSidebarOpen && <span>Segurança Viária</span>}
+              </div>
+            </Link>
           )}
 
           <Link

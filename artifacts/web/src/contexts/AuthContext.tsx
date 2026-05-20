@@ -14,6 +14,7 @@ type AppModule =
   | "suppliers"
   | "environmental"
   | "kpi"
+  | "roadSafety"
   | "assets";
 
 interface AuthContextType {
