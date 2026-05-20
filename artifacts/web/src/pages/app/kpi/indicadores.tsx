@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { BarChart2, Pencil, Plus, Target, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Pencil, Plus, Target, Trash2, X } from "lucide-react";
 import {
   getListOrgUsersQueryKey,
   useListOrgUsers,
@@ -17,9 +17,11 @@ import { SearchableStringSelect } from "@/components/ui/searchable-string-select
 import { Select } from "@/components/ui/select";
 import { YearPicker } from "@/components/ui/year-picker";
 import { FormulaBuilder } from "@/components/kpi/formula-builder";
-import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 import {
+  KPI_CATEGORIES,
+  KPI_NORMS,
   PERIODICITY_LABELS,
   type KpiIndicator,
   type KpiObjective,
@@ -35,14 +37,15 @@ import {
   useUpdateKpiObjectiveWithInvalidation,
   useUpsertKpiYearConfigWithInvalidation,
 } from "@/lib/kpi-client";
-import { AlertTriangle } from "lucide-react";
 import {
   buildMeasurementLabel,
   formulaToNaturalText,
-  hasValidFormula,
   parseNaturalFormula,
   validateFormula,
 } from "@/lib/formula-evaluator";
+import type { FeedFilter, StatusFilter } from "./_components/summary-tiles";
+import { ObjectiveSection } from "./_components/objective-section";
+import { getIndicatorStatus, type CardStatus } from "./_components/indicator-card";
 
 const DEFAULT_YEAR = new Date().getFullYear();
 
@@ -74,6 +77,8 @@ type IndicatorFormData = {
   measureUnit: string;
   direction: "up" | "down";
   periodicity: "monthly" | "quarterly" | "semiannual" | "annual" | "monthly_15d" | "monthly_45d";
+  category: string;
+  norms: string[];
   objectiveId: string;
   goal: string;
 };
@@ -87,6 +92,8 @@ const defaultIndicatorForm = (): IndicatorFormData => ({
   measureUnit: "",
   direction: "up",
   periodicity: "monthly",
+  category: "",
+  norms: [],
   objectiveId: "",
   goal: "",
 });
@@ -109,6 +116,8 @@ function buildEditFormFromIndicator(
     measureUnit: ind.measureUnit ?? "",
     direction: ind.direction as "up" | "down",
     periodicity: ind.periodicity as IndicatorFormData["periodicity"],
+    category: ind.category ?? "",
+    norms: ind.norms ?? [],
     objectiveId:
       yearRow?.yearConfig.objectiveId != null ? String(yearRow.yearConfig.objectiveId) : "",
     goal: yearRow?.yearConfig.goal != null ? String(yearRow.yearConfig.goal) : "",
@@ -132,6 +141,9 @@ export default function KpiIndicadoresPage() {
   const [unitFilter, setUnitFilter] = useState("");
   const [objectiveFilter, setObjectiveFilter] = useState("");
   const [responsibleFilter, setResponsibleFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
+  const [feedFilter, setFeedFilter] = useState<FeedFilter>("");
+  const [focusedIndicatorId, setFocusedIndicatorId] = useState<number | null>(null);
 
   const [objectiveForm, setObjectiveForm] = useState({ code: "", name: "" });
   const [editingObjective, setEditingObjective] = useState<KpiObjective | null>(null);
@@ -207,6 +219,36 @@ export default function KpiIndicadoresPage() {
   });
   const hasUnassignedResponsible = indicatorsForYear.some((ind) => !ind.responsibleUserId);
 
+  const indicatorStatusMap = useMemo(() => {
+    const map = new Map<number, CardStatus>();
+    for (const ind of indicatorsForYear) {
+      const row = yearRows.find((r) => r.indicator.id === ind.id);
+      map.set(ind.id, getIndicatorStatus(ind, row));
+    }
+    return map;
+  }, [indicatorsForYear, yearRows]);
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<CardStatus, number> = { green: 0, yellow: 0, red: 0, nodata: 0 };
+    for (const ind of indicatorsForYear) {
+      const s = indicatorStatusMap.get(ind.id) ?? "nodata";
+      counts[s] += 1;
+    }
+    return counts;
+  }, [indicatorsForYear, indicatorStatusMap]);
+
+  const feedCounts = useMemo(() => {
+    let fed = 0;
+    let overdue = 0;
+    for (const ind of indicatorsForYear) {
+      const row = yearRows.find((r) => r.indicator.id === ind.id);
+      if (!row) continue;
+      if (row.feedStatus === "overdue") overdue += 1;
+      else fed += 1;
+    }
+    return { fed, overdue };
+  }, [indicatorsForYear, yearRows]);
+
   const filteredIndicators = indicatorsForYear.filter((ind) => {
     const matchesSearch = ind.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesUnit = !unitFilter || (ind.unit ?? "") === unitFilter;
@@ -220,8 +262,35 @@ export default function KpiIndicadoresPage() {
       (responsibleFilter === "none"
         ? !ind.responsibleUserId
         : String(ind.responsibleUserId ?? "") === responsibleFilter);
-    return matchesSearch && matchesUnit && matchesObjective && matchesResponsible;
+    const matchesStatus =
+      !statusFilter || (indicatorStatusMap.get(ind.id) ?? "nodata") === statusFilter;
+    const matchesFeed =
+      !feedFilter || (yearRows.find((r) => r.indicator.id === ind.id)?.feedStatus ?? "fed") === feedFilter;
+    return (
+      matchesSearch &&
+      matchesUnit &&
+      matchesObjective &&
+      matchesResponsible &&
+      matchesStatus &&
+      matchesFeed
+    );
   });
+
+  const hasActiveFilters =
+    !!searchQuery ||
+    !!unitFilter ||
+    !!objectiveFilter ||
+    !!responsibleFilter ||
+    !!statusFilter ||
+    !!feedFilter;
+  const clearFilters = () => {
+    setSearchQuery("");
+    setUnitFilter("");
+    setObjectiveFilter("");
+    setResponsibleFilter("");
+    setStatusFilter("");
+    setFeedFilter("");
+  };
 
   const groupMap = new Map<number | null, KpiIndicator[]>();
   for (const ind of filteredIndicators) {
@@ -267,6 +336,8 @@ export default function KpiIndicadoresPage() {
           measureUnit: indicatorForm.measureUnit || undefined,
           direction: indicatorForm.direction,
           periodicity: indicatorForm.periodicity,
+          category: indicatorForm.category || null,
+          norms: indicatorForm.norms,
         }});
         await upsertYearConfig.mutateAsync({
           orgId,
@@ -291,6 +362,8 @@ export default function KpiIndicadoresPage() {
             measureUnit: indicatorForm.measureUnit || undefined,
             direction: indicatorForm.direction,
             periodicity: indicatorForm.periodicity,
+            category: indicatorForm.category || undefined,
+            norms: indicatorForm.norms,
           },
         });
         if (indicatorForm.goal || indicatorForm.objectiveId) {
@@ -351,10 +424,46 @@ export default function KpiIndicadoresPage() {
     }
   }
 
+  const handleEditIndicator = (ind: KpiIndicator) => {
+    setEditingIndicator(ind);
+    setIndicatorForm(buildEditFormFromIndicator(ind, yearRows));
+    setIndicatorDialog(true);
+  };
+
+  const jumpToIndicator = (ind: KpiIndicator) => {
+    // Clear filters that could hide this specific indicator
+    setStatusFilter("");
+    setFeedFilter("");
+    setFocusedIndicatorId(ind.id);
+    // Wait for re-render then scroll
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`ind-card-${ind.id}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    });
+    window.setTimeout(() => setFocusedIndicatorId(null), 2400);
+  };
+
+  // When arriving via deep-link (#ind-card-{id}), expand+scroll to that card.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash;
+    if (!hash.startsWith("#ind-card-")) return;
+    const id = Number(hash.slice("#ind-card-".length));
+    if (!Number.isFinite(id) || indicatorsForYear.length === 0) return;
+    const target = indicatorsForYear.find((i) => i.id === id);
+    if (!target) return;
+    jumpToIndicator(target);
+    // Strip the hash so re-renders don't keep re-triggering
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [indicatorsForYear.length]);
+
   return (
     <div className="p-6 space-y-4">
       {/* Filters */}
-      <div className="flex gap-3 flex-wrap items-center">
+      <div className="flex flex-wrap items-center gap-2">
         <YearPicker value={year} onChange={setYear} />
         <Input
           placeholder="Buscar indicador..."
@@ -362,13 +471,23 @@ export default function KpiIndicadoresPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="max-w-xs"
         />
-        <Select value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)} className="max-w-xs">
+        <Select
+          value={unitFilter}
+          onChange={(e) => setUnitFilter(e.target.value)}
+          className="max-w-xs"
+        >
           <option value="">Todas as unidades</option>
           {uniqueUnits.map((u) => (
-            <option key={u} value={u}>{u}</option>
+            <option key={u} value={u}>
+              {u}
+            </option>
           ))}
         </Select>
-        <Select value={objectiveFilter} onChange={(e) => setObjectiveFilter(e.target.value)} className="w-64">
+        <Select
+          value={objectiveFilter}
+          onChange={(e) => setObjectiveFilter(e.target.value)}
+          className="w-64"
+        >
           <option value="">Todos os objetivos</option>
           {objectives.map((o) => (
             <option key={o.id} value={String(o.id)}>
@@ -377,13 +496,45 @@ export default function KpiIndicadoresPage() {
           ))}
           {hasUnlinkedIndicators && <option value="none">Sem objetivo vinculado</option>}
         </Select>
-        <Select value={responsibleFilter} onChange={(e) => setResponsibleFilter(e.target.value)} className="w-56">
+        <Select
+          value={responsibleFilter}
+          onChange={(e) => setResponsibleFilter(e.target.value)}
+          className="w-56"
+        >
           <option value="">Todos os responsáveis</option>
           {uniqueResponsibles.map(([id, name]) => (
-            <option key={id} value={String(id)}>{name}</option>
+            <option key={id} value={String(id)}>
+              {name}
+            </option>
           ))}
           {hasUnassignedResponsible && <option value="none">Sem responsável</option>}
         </Select>
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          className="w-40"
+        >
+          <option value="">Todos os status</option>
+          <option value="green">Na meta ({statusCounts.green})</option>
+          <option value="yellow">Atenção ({statusCounts.yellow})</option>
+          <option value="red">Fora da meta ({statusCounts.red})</option>
+          <option value="nodata">Sem dados ({statusCounts.nodata})</option>
+        </Select>
+        <Select
+          value={feedFilter}
+          onChange={(e) => setFeedFilter(e.target.value as FeedFilter)}
+          className="w-44"
+        >
+          <option value="">Todo o lançamento</option>
+          <option value="fed">Alimentados ({feedCounts.fed})</option>
+          <option value="overdue">Vencidos ({feedCounts.overdue})</option>
+        </Select>
+        {hasActiveFilters ? (
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9 px-2 text-xs">
+            <X className="mr-1 h-3.5 w-3.5" />
+            Limpar filtros
+          </Button>
+        ) : null}
       </div>
 
       {/* Indicators grouped by objective */}
@@ -394,116 +545,23 @@ export default function KpiIndicadoresPage() {
       ) : filteredIndicators.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
           {indicators.length === 0
-            ? "Nenhum indicador cadastrado. Crie o primeiro clicando em \"Novo Indicador\"."
+            ? 'Nenhum indicador cadastrado. Crie o primeiro clicando em "Novo Indicador".'
             : indicatorsForYear.length === 0
-            ? `Nenhum indicador configurado para ${year}.`
-            : "Nenhum indicador encontrado com os filtros aplicados."}
+              ? `Nenhum indicador configurado para ${year}.`
+              : "Nenhum indicador encontrado com os filtros aplicados."}
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-6">
           {groupedIndicators.map((group) => (
-            <div key={group.objective?.id ?? "none"} className="flex gap-0">
-              {/* [ bracket */}
-              <div className="flex flex-col shrink-0 select-none mt-[2.25rem]">
-                <div className="h-3 w-3 border-l-2 border-t-2 border-primary/30 rounded-tl-[3px]" />
-                <div className="flex-1 w-0 border-l-2 border-primary/20" />
-                <div className="h-3 w-3 border-l-2 border-b-2 border-primary/30 rounded-bl-[3px]" />
-              </div>
-
-              {/* Group content */}
-              <div className="flex-1 min-w-0 pl-3">
-                {/* Objective header */}
-                <div className="flex items-center gap-2 pb-2 h-9">
-                  {group.objective ? (
-                    <>
-                      {group.objective.code && (
-                        <Badge variant="secondary" className="font-mono text-[11px] px-1.5 shrink-0">
-                          {group.objective.code}
-                        </Badge>
-                      )}
-                      <span className="text-xs font-semibold uppercase tracking-wide text-foreground/60 leading-tight truncate">
-                        {group.objective.name}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-xs text-muted-foreground/70 italic">Sem objetivo vinculado</span>
-                  )}
-                  <span className="ml-auto text-xs text-muted-foreground/60 tabular-nums shrink-0">
-                    {group.indicators.length} indicador{group.indicators.length !== 1 ? "es" : ""}
-                  </span>
-                </div>
-
-                {/* Indicators card */}
-                <div className="rounded-lg border overflow-hidden">
-                  {/* Column labels */}
-                  <div className="grid grid-cols-[minmax(0,1fr)_88px_140px_110px_92px_96px_68px] gap-x-3 px-4 py-2 bg-muted/30 border-b text-xs font-medium text-muted-foreground">
-                    <span>Indicador</span>
-                    <span className="text-center">Unidade</span>
-                    <span>Responsável</span>
-                    <span className="text-center">Un. Medida</span>
-                    <span className="text-center">Melhor</span>
-                    <span className="text-center">Período</span>
-                    <span />
-                  </div>
-                  {/* Rows */}
-                  {group.indicators.map((ind) => (
-                    <div
-                      key={ind.id}
-                      className="grid grid-cols-[minmax(0,1fr)_88px_140px_110px_92px_96px_68px] gap-x-3 items-center px-4 py-3 border-b last:border-b-0 hover:bg-muted/20 transition-colors duration-150"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-sm leading-snug truncate">{ind.name}</span>
-                          {!hasValidFormula(ind.formulaVariables, ind.formulaExpression) && (
-                            <span
-                              className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 shrink-0 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300"
-                              title="Sem fórmula válida — não pode lançar valores"
-                            >
-                              <AlertTriangle className="h-2.5 w-2.5" />
-                              fórmula inválida
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{ind.measurement || <span className="italic">sem medição</span>}</div>
-                      </div>
-                      <div className="text-sm text-muted-foreground text-center truncate">{ind.unit ?? "—"}</div>
-                      <div className="text-sm text-muted-foreground truncate">{ind.responsibleUserName ?? "—"}</div>
-                      <div className="text-sm text-muted-foreground text-center">{ind.measureUnit ?? "—"}</div>
-                      <div className="flex justify-center">
-                        <Badge variant="outline" className="text-[11px] px-1.5">
-                          {ind.direction === "up" ? "↑ Maior" : "↓ Menor"}
-                        </Badge>
-                      </div>
-                      <div className="text-xs text-muted-foreground text-center">
-                        {PERIODICITY_LABELS[ind.periodicity as keyof typeof PERIODICITY_LABELS] ?? ind.periodicity}
-                      </div>
-                      <div className="flex gap-0.5 justify-end">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => {
-                            setEditingIndicator(ind);
-                            setIndicatorForm(buildEditFormFromIndicator(ind, yearRows));
-                            setIndicatorDialog(true);
-                          }}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => setDeleteConfirm(ind)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <ObjectiveSection
+              key={group.objective?.id ?? "none"}
+              objective={group.objective}
+              indicators={group.indicators}
+              yearRows={yearRows}
+              onEdit={handleEditIndicator}
+              onDelete={setDeleteConfirm}
+              focusedIndicatorId={focusedIndicatorId}
+            />
           ))}
         </div>
       )}
@@ -530,6 +588,40 @@ export default function KpiIndicadoresPage() {
               value={indicatorForm.formulaText}
               onChange={(next) => setIndicatorForm((f) => ({ ...f, formulaText: next }))}
             />
+          </div>
+          <div className="col-span-2 space-y-1.5">
+            <Label>Norma(s) atendida(s)</Label>
+            <div className="flex flex-wrap gap-2">
+              {KPI_NORMS.map((norm) => {
+                const checked = indicatorForm.norms.includes(norm.code);
+                return (
+                  <label
+                    key={norm.code}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors",
+                      checked
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300"
+                        : "border-border text-foreground hover:bg-muted/50",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-3.5 w-3.5 accent-emerald-600"
+                      checked={checked}
+                      onChange={(e) =>
+                        setIndicatorForm((f) => ({
+                          ...f,
+                          norms: e.target.checked
+                            ? [...f.norms, norm.code]
+                            : f.norms.filter((n) => n !== norm.code),
+                        }))
+                      }
+                    />
+                    {norm.label}
+                  </label>
+                );
+              })}
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label>Unidade / filial</Label>
@@ -604,6 +696,21 @@ export default function KpiIndicadoresPage() {
                 <option key={k} value={k}>{v}</option>
               ))}
             </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Categoria</Label>
+            <Select
+              value={indicatorForm.category}
+              onChange={(e) => setIndicatorForm((f) => ({ ...f, category: e.target.value }))}
+            >
+              <option value="">Sem categoria</option>
+              {KPI_CATEGORIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Alimenta o semáforo por categoria no dashboard.
+            </p>
           </div>
           <div className="col-span-2 border-t pt-3 mt-1">
             <p className="text-xs text-muted-foreground mb-3">Meta e objetivo para {year} (opcional)</p>

@@ -13254,6 +13254,8 @@ export const ListKpiIndicatorsResponseItem = zod.object({
     "monthly_15d",
     "monthly_45d",
   ]),
+  category: zod.string().nullish(),
+  norms: zod.array(zod.string()),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -13297,6 +13299,8 @@ export const CreateKpiIndicatorBody = zod.object({
     "monthly_15d",
     "monthly_45d",
   ]),
+  category: zod.string().nullish(),
+  norms: zod.array(zod.string()).optional(),
   objectiveId: zod.number().nullish(),
   goal: zod.number().nullish(),
   seq: zod.number().nullish(),
@@ -13343,6 +13347,8 @@ export const UpdateKpiIndicatorBody = zod.object({
       "monthly_45d",
     ])
     .optional(),
+  category: zod.string().nullish(),
+  norms: zod.array(zod.string()).optional(),
 });
 
 export const updateKpiIndicatorResponseFormulaVariablesItemKeyRegExp =
@@ -13384,6 +13390,8 @@ export const UpdateKpiIndicatorResponse = zod.object({
     "monthly_15d",
     "monthly_45d",
   ]),
+  category: zod.string().nullish(),
+  norms: zod.array(zod.string()),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -13454,6 +13462,8 @@ export const ListKpiYearDataResponseItem = zod.object({
       "monthly_15d",
       "monthly_45d",
     ]),
+    category: zod.string().nullish(),
+    norms: zod.array(zod.string()),
     createdAt: zod.string(),
     updatedAt: zod.string(),
   }),

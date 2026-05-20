@@ -25,6 +25,8 @@ export interface KpiIndicator {
   measureUnit?: string | null;
   direction: KpiIndicatorDirection;
   periodicity: KpiIndicatorPeriodicity;
+  category?: string | null;
+  norms: string[];
   createdAt: string;
   updatedAt: string;
 }

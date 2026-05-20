@@ -22,6 +22,8 @@ export interface CreateKpiIndicatorBody {
   measureUnit?: string;
   direction: CreateKpiIndicatorBodyDirection;
   periodicity: CreateKpiIndicatorBodyPeriodicity;
+  category?: string | null;
+  norms?: string[];
   objectiveId?: number | null;
   goal?: number | null;
   seq?: number | null;

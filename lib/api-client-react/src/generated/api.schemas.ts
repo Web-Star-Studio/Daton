@@ -3293,6 +3293,8 @@ export interface KpiIndicator {
   measureUnit?: string | null;
   direction: KpiIndicatorDirection;
   periodicity: KpiIndicatorPeriodicity;
+  category?: string | null;
+  norms: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -3330,6 +3332,8 @@ export interface CreateKpiIndicatorBody {
   measureUnit?: string;
   direction: CreateKpiIndicatorBodyDirection;
   periodicity: CreateKpiIndicatorBodyPeriodicity;
+  category?: string | null;
+  norms?: string[];
   objectiveId?: number | null;
   goal?: number | null;
   seq?: number | null;
@@ -3368,6 +3372,8 @@ export interface UpdateKpiIndicatorBody {
   measureUnit?: string;
   direction?: UpdateKpiIndicatorBodyDirection;
   periodicity?: UpdateKpiIndicatorBodyPeriodicity;
+  category?: string | null;
+  norms?: string[];
 }
 
 export interface KpiYearConfig {

@@ -1000,6 +1000,38 @@ const INDICATORS: IndicatorSeed[] = [
   },
 ];
 
+// ─── Category / norm derivation ──────────────────────────────────────────────
+// The prototype dashboard groups indicators by category and tags them with the
+// ISO norm(s) they attend. We derive both from the indicator's objective + name.
+
+function deriveCategory(ind: IndicatorSeed): string {
+  const k = ind.objectiveKey;
+  if (k === "A1" || k === "A3" || k === "GHG" || k === "A1_DOC" || k === "A2") {
+    return "Ambiental";
+  }
+  if (k === "S2" || k === "S1_VIA") return "Seg. Viária";
+  if (k === "Q1") return "Financeiro";
+  const name = ind.name.toLowerCase();
+  const resp = ind.responsible.toLowerCase();
+  if (resp.includes("frota") || /combust|pneu|manuten|idade m/.test(name)) {
+    return "Frota";
+  }
+  if (
+    resp.includes("psicolog") ||
+    resp.includes("recursos humanos") ||
+    /treinamento|turnover|recrutamento/.test(name)
+  ) {
+    return "RH";
+  }
+  return "Qualidade";
+}
+
+function deriveNorms(category: string): string[] {
+  if (category === "Ambiental") return ["14001"];
+  if (category === "Seg. Viária") return ["9001", "39001"];
+  return ["9001"];
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -1048,10 +1080,17 @@ async function main() {
 
     const existingInd = existingInds.find((e) => (e.unit ?? "") === ind.unit);
 
+    const category = deriveCategory(ind);
+    const norms = deriveNorms(category);
+
     let indicatorId: number;
 
     if (existingInd) {
       indicatorId = existingInd.id;
+      // Backfill category + norms onto indicators created before these fields existed.
+      await db.update(kpiIndicatorsTable)
+        .set({ category, norms })
+        .where(eq(kpiIndicatorsTable.id, existingInd.id));
       skipped++;
     } else {
       const [newInd] = await db.insert(kpiIndicatorsTable).values({
@@ -1063,6 +1102,8 @@ async function main() {
         measureUnit: ind.measureUnit || undefined,
         direction: ind.direction,
         periodicity: ind.periodicity,
+        category,
+        norms,
       }).returning();
       indicatorId = newInd.id;
       created++;
@@ -1086,9 +1127,11 @@ async function main() {
     })
     .returning();
 
-    // Also upsert year config for current year so the edit form shows meta/objetivo
+    // Also upsert year config for current year so the dashboard (which defaults
+    // to the current year) renders populated data for the demo org.
+    let currentYearConfigId: number | null = null;
     if (CURRENT_YEAR !== YEAR) {
-      await db.insert(kpiYearConfigsTable).values({
+      const [ycCurrent] = await db.insert(kpiYearConfigsTable).values({
         organizationId: orgId,
         indicatorId,
         objectiveId,
@@ -1098,23 +1141,29 @@ async function main() {
       .onConflictDoUpdate({
         target: [kpiYearConfigsTable.organizationId, kpiYearConfigsTable.indicatorId, kpiYearConfigsTable.year],
         set: { objectiveId, goal: goalStr },
-      });
+      })
+      .returning();
+      currentYearConfigId = ycCurrent.id;
     }
 
-    // Insert monthly values
+    // Insert monthly values into every relevant year config.
     const monthValues = ind.values
       .map((v, i) => ({ month: i + 1, value: v }))
       .filter((mv) => mv.value !== null) as { month: number; value: number }[];
 
     if (monthValues.length > 0) {
-      await db.insert(kpiMonthlyValuesTable).values(
-        monthValues.map((mv) => ({
-          organizationId: orgId,
-          yearConfigId: yc.id,
-          month: mv.month,
-          value: String(mv.value),
-        }))
-      ).onConflictDoNothing();
+      const targetConfigIds = [yc.id];
+      if (currentYearConfigId !== null) targetConfigIds.push(currentYearConfigId);
+      for (const configId of targetConfigIds) {
+        await db.insert(kpiMonthlyValuesTable).values(
+          monthValues.map((mv) => ({
+            organizationId: orgId,
+            yearConfigId: configId,
+            month: mv.month,
+            value: String(mv.value),
+          }))
+        ).onConflictDoNothing();
+      }
     }
   }
 

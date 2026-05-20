@@ -14364,6 +14364,13 @@ components:
         periodicity:
           type: string
           enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+        category:
+          type: string
+          nullable: true
+        norms:
+          type: array
+          items:
+            type: string
         createdAt:
           type: string
         updatedAt:
@@ -14377,6 +14384,7 @@ components:
         - formulaExpression
         - direction
         - periodicity
+        - norms
         - createdAt
         - updatedAt
 
@@ -14410,6 +14418,13 @@ components:
         periodicity:
           type: string
           enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+        category:
+          type: string
+          nullable: true
+        norms:
+          type: array
+          items:
+            type: string
         objectiveId:
           type: integer
           nullable: true
@@ -14457,6 +14472,13 @@ components:
         periodicity:
           type: string
           enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+        category:
+          type: string
+          nullable: true
+        norms:
+          type: array
+          items:
+            type: string
 
     KpiYearConfig:
       type: object

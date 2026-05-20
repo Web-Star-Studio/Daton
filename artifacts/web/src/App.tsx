@@ -46,9 +46,7 @@ import SupplierDocumentRequirementsPage from "@/pages/app/qualidade/fornecedores
 import SupplierTypesPage from "@/pages/app/qualidade/fornecedores/tipos";
 import EnvironmentalLaiaPage from "@/pages/app/ambiental/laia";
 import EnvironmentalLaiaUnitDetailPage from "@/pages/app/ambiental/laia/unidades/[unitId]";
-import KpiIndicadoresPage from "@/pages/app/kpi/indicadores";
-import KpiLancamentosPage from "@/pages/app/kpi/lancamentos";
-import KpiDashboardPage from "@/pages/app/kpi/dashboard";
+import KpiModulePage from "@/pages/app/kpi/kpi-module";
 import ActionPlansListPage from "@/pages/app/planos-acao";
 import ActionPlanDetailPage from "@/pages/app/planos-acao/[id]";
 import AtivosPage from "@/pages/app/organizacao/ativos";
@@ -233,9 +231,9 @@ function AppPages() {
         component={EnvironmentalLaiaUnitDetailPage}
       />
       <Route path="/ambiental/laia" component={EnvironmentalLaiaPage} />
-      <Route path="/kpi/indicadores" component={KpiIndicadoresPage} />
-      <Route path="/kpi/lancamentos" component={KpiLancamentosPage} />
-      <Route path="/kpi/dashboard" component={KpiDashboardPage} />
+      <Route path="/kpi/indicadores" component={KpiModulePage} />
+      <Route path="/kpi/lancamentos" component={KpiModulePage} />
+      <Route path="/kpi/dashboard" component={KpiModulePage} />
       <Route path="/planos-acao/:id" component={ActionPlanDetailPage} />
       <Route path="/planos-acao" component={ActionPlansListPage} />
       <Route path="/configuracoes/perfil" component={ProfileSettingsPage} />
@@ -348,9 +346,9 @@ function AppPages() {
         component={EnvironmentalLaiaUnitDetailPage}
       />
       <Route path="/app/ambiental/laia" component={EnvironmentalLaiaPage} />
-      <Route path="/app/kpi/indicadores" component={KpiIndicadoresPage} />
-      <Route path="/app/kpi/lancamentos" component={KpiLancamentosPage} />
-      <Route path="/app/kpi/dashboard" component={KpiDashboardPage} />
+      <Route path="/app/kpi/indicadores" component={KpiModulePage} />
+      <Route path="/app/kpi/lancamentos" component={KpiModulePage} />
+      <Route path="/app/kpi/dashboard" component={KpiModulePage} />
       <Route path="/app/planos-acao/:id" component={ActionPlanDetailPage} />
       <Route path="/app/planos-acao" component={ActionPlansListPage} />
       <Route path="/app/configuracoes/perfil" component={ProfileSettingsPage} />
