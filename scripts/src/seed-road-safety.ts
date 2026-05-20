@@ -316,10 +316,24 @@ function referenceDate(month: number): string {
 }
 
 async function main() {
-  const orgs = await db.select().from(organizationsTable).limit(1);
-  if (orgs.length === 0) throw new Error("No organization found — run seed.ts first");
-  const orgId = orgs[0].id;
-  console.log(`Using org: ${orgs[0].name} (id=${orgId})`);
+  // Target org — CLI arg (e.g. `seed-road-safety 3`) or the first org.
+  const orgArg = process.argv[2];
+  let orgId: number;
+  let orgName: string;
+  if (orgArg) {
+    const parsed = Number(orgArg);
+    if (!Number.isInteger(parsed)) throw new Error(`Org id inválido: ${orgArg}`);
+    const [org] = await db.select().from(organizationsTable).where(eq(organizationsTable.id, parsed));
+    if (!org) throw new Error(`Organização ${parsed} não encontrada`);
+    orgId = org.id;
+    orgName = org.name;
+  } else {
+    const orgs = await db.select().from(organizationsTable).limit(1);
+    if (orgs.length === 0) throw new Error("No organization found — run seed.ts first");
+    orgId = orgs[0].id;
+    orgName = orgs[0].name;
+  }
+  console.log(`Using org: ${orgName} (id=${orgId})`);
 
   let created = 0;
   let skipped = 0;
