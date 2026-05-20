@@ -352,7 +352,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         crumbs.push({ label: "Dashboard", href: "/kpi/dashboard" });
       }
     } else if (normalizedLocation.startsWith("/fatores-desempenho")) {
-      crumbs.push({ label: "Fatores de Desempenho — SV" });
+      crumbs.push({ label: "Fatores de Desempenho" });
     } else if (normalizedLocation.startsWith("/planos-acao")) {
       crumbs.push({ label: "Planos de Ação", href: "/planos-acao" });
       if (pageTitle && normalizedLocation !== "/planos-acao") {
@@ -806,7 +806,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     isSidebarOpen && "mr-2.5",
                   )}
                 />
-                {isSidebarOpen && <span>Segurança Viária</span>}
+                {isSidebarOpen && <span>Fatores de Desempenho</span>}
               </div>
             </Link>
           )}
