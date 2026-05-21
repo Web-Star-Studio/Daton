@@ -1033,18 +1033,87 @@ function deriveNorms(category: string): string[] {
 }
 
 // ─── Formula ─────────────────────────────────────────────────────────────────
-// Generic numerador/denominador formula so the "Lançar" screen can render the
-// value-entry fields and compute the result (matches the IndicaOS prototype).
+// Parses the human "measurement" text into structured variables + a key-based
+// expression, so the "Lançar" screen renders one field per real formula
+// variable (not a generic numerador/denominador).
 
-const KPI_FORMULA_VARIABLES = [
-  { key: "numerador", label: "Numerador" },
-  { key: "denominador", label: "Denominador" },
-];
+const ACCENT_MAP: Record<string, string> = {
+  á: "a", à: "a", ã: "a", â: "a", ä: "a",
+  é: "e", è: "e", ê: "e", ë: "e",
+  í: "i", ì: "i", î: "i", ï: "i",
+  ó: "o", ò: "o", õ: "o", ô: "o", ö: "o",
+  ú: "u", ù: "u", û: "u", ü: "u",
+  ç: "c", ñ: "n",
+};
 
-function formulaExpressionFor(measureUnit: string): string {
-  return measureUnit === "%"
-    ? "(numerador / denominador) * 100"
-    : "numerador / denominador";
+function slugifyKey(label: string): string {
+  let out = "";
+  for (const ch of label.toLowerCase()) {
+    if (ACCENT_MAP[ch]) out += ACCENT_MAP[ch];
+    else if ((ch >= "a" && ch <= "z") || (ch >= "0" && ch <= "9")) out += ch;
+    else if (ch === " " || ch === "_" || ch === "-") out += "_";
+  }
+  out = out.replace(/_+/g, "_").replace(/^_|_$/g, "");
+  if (!out) return "var";
+  if (out[0] >= "0" && out[0] <= "9") out = `v_${out}`;
+  return out;
+}
+
+const isNumericLiteral = (s: string): boolean => /^\d+([.,]\d+)?$/.test(s.trim());
+
+function deriveFormula(measurement: string): {
+  variables: { key: string; label: string }[];
+  expression: string;
+} {
+  // Normalize multiplication aliases (× and the standalone word "x") to "*".
+  const text = (measurement || "").replace(/×/g, " * ").replace(/\bx\b/gi, " * ");
+  // Tokenize on the safe operators only — "-" stays inside words (e.g. "CT-e").
+  const tokens: { type: "op" | "term"; value: string }[] = [];
+  let buf = "";
+  for (const ch of text) {
+    if ("/*+()".includes(ch)) {
+      if (buf.trim()) tokens.push({ type: "term", value: buf.trim() });
+      buf = "";
+      tokens.push({ type: "op", value: ch });
+    } else {
+      buf += ch;
+    }
+  }
+  if (buf.trim()) tokens.push({ type: "term", value: buf.trim() });
+
+  const cleanTerm = (s: string) => s.replace(/\.+$/, "").trim();
+  const variables: { key: string; label: string }[] = [];
+  const seen = new Set<string>();
+  for (const t of tokens) {
+    if (t.type !== "term" || isNumericLiteral(t.value)) continue;
+    const label = cleanTerm(t.value);
+    const key = slugifyKey(label);
+    if (!seen.has(key)) {
+      seen.add(key);
+      variables.push({ key, label });
+    }
+  }
+
+  // Descriptive measurement with no operators → a single direct-value variable.
+  if (variables.length === 0) {
+    const label = (measurement || "").trim() || "Valor apurado";
+    return { variables: [{ key: "valor", label }], expression: "valor" };
+  }
+
+  const expression = tokens
+    .map((t) => {
+      if (t.type === "op") {
+        return t.value === "(" || t.value === ")" ? t.value : ` ${t.value} `;
+      }
+      return isNumericLiteral(t.value)
+        ? t.value.replace(",", ".")
+        : slugifyKey(cleanTerm(t.value));
+    })
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return { variables, expression };
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -1111,6 +1180,8 @@ async function main() {
     const category = deriveCategory(ind);
     const norms = deriveNorms(category);
 
+    const formula = deriveFormula(ind.measurement);
+
     let indicatorId: number;
 
     if (existingInd) {
@@ -1121,8 +1192,8 @@ async function main() {
         .set({
           category,
           norms,
-          formulaVariables: KPI_FORMULA_VARIABLES,
-          formulaExpression: formulaExpressionFor(ind.measureUnit),
+          formulaVariables: formula.variables,
+          formulaExpression: formula.expression,
         })
         .where(eq(kpiIndicatorsTable.id, existingInd.id));
       skipped++;
@@ -1138,8 +1209,8 @@ async function main() {
         periodicity: ind.periodicity,
         category,
         norms,
-        formulaVariables: KPI_FORMULA_VARIABLES,
-        formulaExpression: formulaExpressionFor(ind.measureUnit),
+        formulaVariables: formula.variables,
+        formulaExpression: formula.expression,
       }).returning();
       indicatorId = newInd.id;
       created++;

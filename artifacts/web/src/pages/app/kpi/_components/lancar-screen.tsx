@@ -16,19 +16,32 @@ import { toast } from "@/hooks/use-toast";
 import { evaluateFormula, hasValidFormula } from "@/lib/formula-evaluator";
 import {
   MONTH_LABELS,
+  computeMonthlyStats,
   getTrafficLight,
+  trafficLightColor,
   useKpiYearData,
   useUpsertKpiValuesWithInvalidation,
   type KpiDirection,
   type KpiYearRow,
 } from "@/lib/kpi-client";
+import { Sparkline } from "./sparkline";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const CURRENT_MONTH = new Date().getMonth() + 1;
 
 const MONTH_FULL = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
 ];
 
 function fmt(n: number | null | undefined): string {
@@ -38,7 +51,10 @@ function fmt(n: number | null | undefined): string {
 
 type StatusInfo = { label: string; box: string; pill: string };
 
-function statusInfo(status: "green" | "yellow" | "red" | null, hasGoal: boolean): StatusInfo {
+function statusInfo(
+  status: "green" | "yellow" | "red" | null,
+  hasGoal: boolean,
+): StatusInfo {
   if (status === "green")
     return {
       label: "Dentro da meta",
@@ -62,6 +78,84 @@ function statusInfo(status: "green" | "yellow" | "red" | null, hasGoal: boolean)
     box: "border-border bg-muted/40",
     pill: "bg-muted text-muted-foreground",
   };
+}
+
+/** Spreadsheet-style year history for the indicator being launched. */
+function HistoryPanel({
+  row,
+  goal,
+  direction,
+  selectedMonth,
+  measureUnit,
+}: {
+  row: KpiYearRow;
+  goal: number | null;
+  direction: KpiDirection;
+  selectedMonth: number;
+  measureUnit: string;
+}) {
+  const monthValues = Array.from(
+    { length: 12 },
+    (_, i) => row.monthlyValues.find((m) => m.month === i + 1)?.value ?? null,
+  );
+  const stats = computeMonthlyStats(monthValues, goal, direction);
+  return (
+    <div className="space-y-3 rounded-xl border bg-card p-4">
+      <h3 className="text-[13px] font-semibold text-foreground">
+        Histórico {CURRENT_YEAR}
+      </h3>
+      <div className="grid grid-cols-4 gap-1.5">
+        {MONTH_LABELS.map((label, i) => {
+          const v = monthValues[i];
+          const st = getTrafficLight(v, goal, direction);
+          return (
+            <div
+              key={label}
+              className={cn(
+                "rounded-md border px-1 py-1 text-center",
+                i + 1 === selectedMonth && "ring-2 ring-blue-500",
+                v !== null && st ? trafficLightColor(st) : "bg-muted/30",
+              )}
+            >
+              <div className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+                {label}
+              </div>
+              <div className="text-[11px] font-medium tabular-nums">
+                {v !== null ? fmt(v) : "—"}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <Sparkline
+        values={monthValues}
+        goal={goal}
+        status={stats.overallStatus ?? "nodata"}
+        height={44}
+      />
+      <dl className="space-y-1 border-t pt-2 text-[11px]">
+        <div className="flex items-center justify-between">
+          <dt className="text-muted-foreground">Média</dt>
+          <dd className="font-medium tabular-nums text-foreground">
+            {fmt(stats.average)}
+            {measureUnit && stats.average !== null ? ` ${measureUnit}` : ""}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between">
+          <dt className="text-muted-foreground">Acumulado</dt>
+          <dd className="font-medium tabular-nums text-foreground">
+            {fmt(stats.accumulated)}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between">
+          <dt className="text-muted-foreground">Progresso da meta</dt>
+          <dd className="font-medium tabular-nums text-foreground">
+            {stats.progress != null ? `${Math.round(stats.progress)}%` : "—"}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
 }
 
 export function LancarScreen() {
@@ -92,7 +186,10 @@ export function LancarScreen() {
   const [analise, setAnalise] = useState("");
 
   const selectedRow = useMemo(
-    () => (selectedId != null ? rows.find((r) => r.indicator.id === selectedId) ?? null : null),
+    () =>
+      selectedId != null
+        ? (rows.find((r) => r.indicator.id === selectedId) ?? null)
+        : null,
     [rows, selectedId],
   );
 
@@ -131,7 +228,10 @@ export function LancarScreen() {
   const computedValue = useMemo<number | null>(() => {
     if (!selectedRow) return null;
     if (hasFormula) {
-      return evaluateFormula(selectedRow.indicator.formulaExpression, parsedInputs);
+      return evaluateFormula(
+        selectedRow.indicator.formulaExpression,
+        parsedInputs,
+      );
     }
     const raw = directValue.trim().replace(",", ".");
     const n = raw ? Number(raw) : NaN;
@@ -176,13 +276,17 @@ export function LancarScreen() {
   async function handleSave() {
     if (!selectedRow) return;
     if (computedValue === null) {
-      toast({ title: "Informe os valores para calcular o resultado", variant: "destructive" });
+      toast({
+        title: "Informe os valores para calcular o resultado",
+        variant: "destructive",
+      });
       return;
     }
     if (status === "red" && !analise.trim()) {
       toast({
         title: "Análise obrigatória",
-        description: "O resultado está fora da meta — descreva a análise (ISO 9.1.3).",
+        description:
+          "O resultado está fora da meta — descreva a análise (ISO 9.1.3).",
         variant: "destructive",
       });
       return;
@@ -194,7 +298,11 @@ export function LancarScreen() {
         year,
         data: {
           values: [
-            { month, value: computedValue, inputs: hasFormula ? parsedInputs : {} },
+            {
+              month,
+              value: computedValue,
+              inputs: hasFormula ? parsedInputs : {},
+            },
           ],
         },
       });
@@ -230,143 +338,165 @@ export function LancarScreen() {
           Voltar para a fila
         </button>
 
-        <div className="max-w-xl space-y-4 rounded-xl border bg-card p-5">
-          <div className="border-b pb-3">
-            <h2 className="text-base font-semibold text-foreground">
-              {selectedRow.indicator.name}
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Meta:{" "}
-              <span className="font-medium text-foreground/80">
-                {goal !== null ? `${fmt(goal)} ${measureUnit}`.trim() : "não definida"}
-              </span>
-              {selectedRow.indicator.unit ? ` · ${selectedRow.indicator.unit}` : ""}
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Período de referência
-            </label>
-            <Select
-              value={String(month)}
-              onChange={(e) => setMonth(Number(e.target.value))}
-              className="w-48"
-            >
-              {Array.from({ length: CURRENT_MONTH }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={String(m)}>
-                  {MONTH_FULL[m - 1]} de {year}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          {hasFormula ? (
-            <>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Fórmula de cálculo
-                </label>
-                <div className="rounded-md bg-muted/50 px-3 py-2 font-mono text-[11px] text-muted-foreground">
-                  {selectedRow.indicator.measurement || "—"}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Valores
-                </label>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {(selectedRow.indicator.formulaVariables ?? []).map((v) => (
-                    <div key={v.key} className="rounded-lg bg-muted/50 px-3 py-2">
-                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        {v.label || v.key}
-                      </div>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={draft[v.key] ?? ""}
-                        onChange={(e) =>
-                          setDraft((d) => ({ ...d, [v.key]: e.target.value }))
-                        }
-                        placeholder="0"
-                        className="h-8 border-0 bg-transparent px-0 text-base font-medium shadow-none focus-visible:ring-0"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Resultado do período
-              </label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={directValue}
-                onChange={(e) => setDirectValue(e.target.value)}
-                placeholder="Informe o valor apurado"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Este indicador não tem fórmula configurada — informe o resultado
-                diretamente.
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,560px)_320px]">
+          <div className="space-y-4 rounded-xl border bg-card p-5">
+            <div className="border-b pb-3">
+              <h2 className="text-base font-semibold text-foreground">
+                {selectedRow.indicator.name}
+              </h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Meta:{" "}
+                <span className="font-medium text-foreground/80">
+                  {goal !== null
+                    ? `${fmt(goal)} ${measureUnit}`.trim()
+                    : "não definida"}
+                </span>
+                {selectedRow.indicator.unit
+                  ? ` · ${selectedRow.indicator.unit}`
+                  : ""}
               </p>
             </div>
-          )}
 
-          <div
-            className={cn(
-              "flex items-center justify-between gap-4 rounded-lg border px-4 py-3",
-              s.box,
-            )}
-          >
-            <div>
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                Resultado
-              </div>
-              <div className="text-2xl font-semibold tabular-nums text-foreground">
-                {computedValue !== null ? `${fmt(computedValue)} ${measureUnit}`.trim() : "—"}
-              </div>
-            </div>
-            <div className="text-right">
-              <span
-                className={cn(
-                  "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                  s.pill,
-                )}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Período de referência
+              </label>
+              <Select
+                value={String(month)}
+                onChange={(e) => setMonth(Number(e.target.value))}
+                className="w-48"
               >
-                {s.label}
-              </span>
-              {goal !== null ? (
-                <div className="mt-1 text-[11px] text-muted-foreground">
-                  Meta: {fmt(goal)} {measureUnit}
-                </div>
-              ) : null}
+                {Array.from({ length: CURRENT_MONTH }, (_, i) => i + 1).map(
+                  (m) => (
+                    <option key={m} value={String(m)}>
+                      {MONTH_FULL[m - 1]} de {year}
+                    </option>
+                  ),
+                )}
+              </Select>
             </div>
-          </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Análise{" "}
-              <span className="font-normal normal-case text-muted-foreground/80">
-                {status === "red"
-                  ? "(obrigatória — resultado fora da meta · ISO 9.1.3)"
-                  : "(opcional)"}
-              </span>
-            </label>
-            <Textarea
-              value={analise}
-              onChange={(e) => setAnalise(e.target.value)}
-              placeholder="Descreva a causa e o contexto do resultado..."
-            />
-          </div>
+            {hasFormula ? (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Fórmula de cálculo
+                  </label>
+                  <div className="rounded-md bg-muted/50 px-3 py-2 font-mono text-[11px] text-muted-foreground">
+                    {selectedRow.indicator.measurement || "—"}
+                  </div>
+                </div>
 
-          <Button className="w-full" onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-            Salvar lançamento
-          </Button>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Valores
+                  </label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {(selectedRow.indicator.formulaVariables ?? []).map((v) => (
+                      <div
+                        key={v.key}
+                        className="rounded-lg bg-muted/50 px-3 py-2"
+                      >
+                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          {v.label || v.key}
+                        </div>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={draft[v.key] ?? ""}
+                          onChange={(e) =>
+                            setDraft((d) => ({ ...d, [v.key]: e.target.value }))
+                          }
+                          placeholder="0"
+                          className="h-8 border-0 bg-transparent px-0 text-base font-medium shadow-none focus-visible:ring-0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Resultado do período
+                </label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={directValue}
+                  onChange={(e) => setDirectValue(e.target.value)}
+                  placeholder="Informe o valor apurado"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Este indicador não tem fórmula configurada — informe o
+                  resultado diretamente.
+                </p>
+              </div>
+            )}
+
+            <div
+              className={cn(
+                "flex items-center justify-between gap-4 rounded-lg border px-4 py-3",
+                s.box,
+              )}
+            >
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Resultado
+                </div>
+                <div className="text-2xl font-semibold tabular-nums text-foreground">
+                  {computedValue !== null
+                    ? `${fmt(computedValue)} ${measureUnit}`.trim()
+                    : "—"}
+                </div>
+              </div>
+              <div className="text-right">
+                <span
+                  className={cn(
+                    "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                    s.pill,
+                  )}
+                >
+                  {s.label}
+                </span>
+                {goal !== null ? (
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    Meta: {fmt(goal)} {measureUnit}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Análise{" "}
+                <span className="font-normal normal-case text-muted-foreground/80">
+                  {status === "red"
+                    ? "(obrigatória — resultado fora da meta · ISO 9.1.3)"
+                    : "(opcional)"}
+                </span>
+              </label>
+              <Textarea
+                value={analise}
+                onChange={(e) => setAnalise(e.target.value)}
+                placeholder="Descreva a causa e o contexto do resultado..."
+              />
+            </div>
+
+            <Button className="w-full" onClick={handleSave} disabled={saving}>
+              {saving ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : null}
+              Salvar lançamento
+            </Button>
+          </div>
+          <HistoryPanel
+            row={selectedRow}
+            goal={goal}
+            direction={direction}
+            selectedMonth={month}
+            measureUnit={measureUnit}
+          />
         </div>
       </div>
     );
