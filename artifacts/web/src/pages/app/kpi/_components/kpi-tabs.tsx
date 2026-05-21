@@ -1,7 +1,7 @@
-import { LayoutDashboard, PencilLine, Table2 } from "lucide-react";
+import { LayoutDashboard, PencilLine, Table2, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type KpiTabId = "dashboard" | "indicadores" | "lancamentos";
+export type KpiTabId = "dashboard" | "indicadores" | "lancamentos" | "rac";
 
 type TabDef = {
   id: KpiTabId;
@@ -15,6 +15,7 @@ const TABS: TabDef[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "indicadores", label: "Indicadores", icon: Table2 },
   { id: "lancamentos", label: "Lançar", icon: PencilLine },
+  { id: "rac", label: "RAC", icon: TriangleAlert },
 ];
 
 export function KpiTabs({
