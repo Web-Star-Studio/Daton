@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ChevronRight, Loader2, TriangleAlert } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
 import {
-  getListKpiYearDataQueryKey,
-  useAddKpiMonthJustification,
-} from "@workspace/api-client-react";
+  ArrowLeft,
+  ChevronRight,
+  ClipboardList,
+  Loader2,
+  TriangleAlert,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { CellRedActionsDialog } from "@/components/kpi/cell-red-actions-dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { evaluateFormula, hasValidFormula } from "@/lib/formula-evaluator";
@@ -168,22 +169,13 @@ export function LancarScreen() {
 
   const { data: rows = [], isLoading } = useKpiYearData(orgId, year);
   const upsertValues = useUpsertKpiValuesWithInvalidation(orgId, year);
-  const queryClient = useQueryClient();
-  const addJustification = useAddKpiMonthJustification({
-    mutation: {
-      onSuccess: () =>
-        queryClient.invalidateQueries({
-          queryKey: getListKpiYearDataQueryKey(orgId, year),
-        }),
-    },
-  });
 
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [month, setMonth] = useState(CURRENT_MONTH);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [directValue, setDirectValue] = useState("");
-  const [analise, setAnalise] = useState("");
+  const [racOpen, setRacOpen] = useState(false);
 
   const selectedRow = useMemo(
     () =>
@@ -211,7 +203,6 @@ export function LancarScreen() {
     }
     setDraft(next);
     setDirectValue(mv?.value != null ? String(mv.value).replace(".", ",") : "");
-    setAnalise(mv?.justification?.body ?? "");
   }, [selectedRow, month]);
 
   const parsedInputs = useMemo(() => {
@@ -242,6 +233,16 @@ export function LancarScreen() {
   const direction = (selectedRow?.indicator.direction ?? "up") as KpiDirection;
   const status = getTrafficLight(computedValue, goal, direction);
   const measureUnit = selectedRow?.indicator.measureUnit ?? "";
+
+  // The chosen month may already have a saved value — drives the result box
+  // and gates the corrective-action flow (a RAC needs a saved monthly value).
+  const savedMonthly =
+    selectedRow?.monthlyValues.find((m) => m.month === month) ?? null;
+  const monthlyValueId = savedMonthly?.monthlyValueId ?? null;
+  const effectiveValue =
+    computedValue !== null ? computedValue : (savedMonthly?.value ?? null);
+  const effectiveStatus = getTrafficLight(effectiveValue, goal, direction);
+  const outOfTarget = effectiveStatus === "red";
 
   const queue = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -282,15 +283,6 @@ export function LancarScreen() {
       });
       return;
     }
-    if (status === "red" && !analise.trim()) {
-      toast({
-        title: "Análise obrigatória",
-        description:
-          "O resultado está fora da meta — descreva a análise (ISO 9.1.3).",
-        variant: "destructive",
-      });
-      return;
-    }
     try {
       await upsertValues.mutateAsync({
         orgId,
@@ -306,27 +298,28 @@ export function LancarScreen() {
           ],
         },
       });
-      if (analise.trim()) {
-        await addJustification.mutateAsync({
-          orgId,
-          indicatorId: selectedRow.indicator.id,
-          year,
-          month,
-          data: { body: analise.trim() },
+      if (status === "red") {
+        // Stay on the form so the highlighted justification / RAC action is
+        // visible — the monthly value now exists and can receive a plan.
+        toast({
+          title: "Resultado lançado — fora da meta",
+          description:
+            "Registre a justificativa e, se necessário, um plano de ação.",
         });
+      } else {
+        toast({ title: "Resultado lançado" });
+        setSelectedId(null);
       }
-      toast({ title: "Resultado lançado" });
-      setSelectedId(null);
     } catch {
       toast({ title: "Erro ao lançar o resultado", variant: "destructive" });
     }
   }
 
-  const saving = upsertValues.isPending || addJustification.isPending;
+  const saving = upsertValues.isPending;
 
   // ─── Form view ─────────────────────────────────────────────────────────────
   if (selectedRow) {
-    const s = statusInfo(status, goal !== null);
+    const s = statusInfo(effectiveStatus, goal !== null);
     return (
       <div className="space-y-4 p-6">
         <button
@@ -445,8 +438,8 @@ export function LancarScreen() {
                   Resultado
                 </div>
                 <div className="text-2xl font-semibold tabular-nums text-foreground">
-                  {computedValue !== null
-                    ? `${fmt(computedValue)} ${measureUnit}`.trim()
+                  {effectiveValue !== null
+                    ? `${fmt(effectiveValue)} ${measureUnit}`.trim()
                     : "—"}
                 </div>
               </div>
@@ -467,28 +460,62 @@ export function LancarScreen() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Análise{" "}
-                <span className="font-normal normal-case text-muted-foreground/80">
-                  {status === "red"
-                    ? "(obrigatória — resultado fora da meta · ISO 9.1.3)"
-                    : "(opcional)"}
-                </span>
-              </label>
-              <Textarea
-                value={analise}
-                onChange={(e) => setAnalise(e.target.value)}
-                placeholder="Descreva a causa e o contexto do resultado..."
-              />
-            </div>
-
             <Button className="w-full" onClick={handleSave} disabled={saving}>
               {saving ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
               ) : null}
               Salvar lançamento
             </Button>
+
+            {/* Justificativa / plano de ação — abre o diálogo já existente.
+               Destacado quando o resultado está fora da meta. */}
+            {outOfTarget ? (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-500/40 dark:bg-amber-500/10">
+                <div className="flex items-start gap-2">
+                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                      Resultado fora da meta
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-amber-700/90 dark:text-amber-300/80">
+                      Registre a justificativa do desvio e, se necessário, um
+                      plano de ação corretiva (ISO 9.1.3 · 10.1).
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 border-amber-300 bg-amber-100/60 text-amber-900 hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200 dark:hover:bg-amber-500/25"
+                      disabled={monthlyValueId === null}
+                      onClick={() => setRacOpen(true)}
+                    >
+                      <ClipboardList className="mr-1.5 h-4 w-4" />
+                      Justificativa e plano de ação
+                    </Button>
+                    {monthlyValueId === null ? (
+                      <p className="mt-1 text-[10px] text-amber-700/70 dark:text-amber-300/60">
+                        Salve o lançamento para registrar.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="self-start text-muted-foreground"
+                disabled={monthlyValueId === null}
+                onClick={() => setRacOpen(true)}
+                title={
+                  monthlyValueId === null
+                    ? "Salve o lançamento para registrar"
+                    : undefined
+                }
+              >
+                <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
+                Justificativa / plano de ação
+              </Button>
+            )}
           </div>
           <HistoryPanel
             row={selectedRow}
@@ -498,6 +525,21 @@ export function LancarScreen() {
             measureUnit={measureUnit}
           />
         </div>
+        {racOpen ? (
+          <CellRedActionsDialog
+            context={{
+              orgId,
+              indicatorId: selectedRow.indicator.id,
+              indicatorName: selectedRow.indicator.name,
+              year,
+              month,
+              monthlyValueId,
+              value: effectiveValue,
+              goal,
+            }}
+            onClose={() => setRacOpen(false)}
+          />
+        ) : null}
       </div>
     );
   }
