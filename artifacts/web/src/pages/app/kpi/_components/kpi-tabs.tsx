@@ -1,7 +1,7 @@
-import { LayoutDashboard, Table2 } from "lucide-react";
+import { LayoutDashboard, PencilLine, Table2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type KpiTabId = "dashboard" | "indicadores";
+export type KpiTabId = "dashboard" | "indicadores" | "lancamentos";
 
 type TabDef = {
   id: KpiTabId;
@@ -10,11 +10,11 @@ type TabDef = {
 };
 
 // State-based tabs (no route navigation) — the whole module lives on one page,
-// mirroring the IndicaOS prototype. "Lançar" stays out of the shell for now: it
-// still uses the old flow and keeps only its standalone /kpi/lancamentos route.
+// mirroring the IndicaOS prototype.
 const TABS: TabDef[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "indicadores", label: "Indicadores", icon: Table2 },
+  { id: "lancamentos", label: "Lançar", icon: PencilLine },
 ];
 
 export function KpiTabs({

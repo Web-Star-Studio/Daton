@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { KpiTabs, type KpiTabId } from "./_components/kpi-tabs";
+import { LancarScreen } from "./_components/lancar-screen";
 import KpiDashboardPage from "./dashboard";
 import KpiIndicadoresPage from "./indicadores";
 
@@ -28,6 +29,8 @@ export default function KpiModulePage() {
       <KpiTabs active={tab} onChange={setTab} />
       {tab === "indicadores" ? (
         <KpiIndicadoresPage />
+      ) : tab === "lancamentos" ? (
+        <LancarScreen />
       ) : (
         <KpiDashboardPage
           onSelectIndicator={(id) => {
