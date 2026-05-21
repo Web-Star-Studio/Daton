@@ -2,6 +2,7 @@ import { useState } from "react";
 import { KpiTabs, type KpiTabId } from "./_components/kpi-tabs";
 import { LancarScreen } from "./_components/lancar-screen";
 import { RacScreen } from "./_components/rac-screen";
+import { AuditoriaScreen } from "./_components/auditoria-screen";
 import KpiDashboardPage from "./dashboard";
 import KpiIndicadoresPage from "./indicadores";
 
@@ -34,6 +35,8 @@ export default function KpiModulePage() {
         <LancarScreen />
       ) : tab === "rac" ? (
         <RacScreen />
+      ) : tab === "auditoria" ? (
+        <AuditoriaScreen />
       ) : (
         <KpiDashboardPage
           onSelectIndicator={(id) => {
