@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, Plus, Target, Trash2, X } from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Target, Trash2, X } from "lucide-react";
 import {
   getListOrgUsersQueryKey,
   useListOrgUsers,
@@ -15,6 +15,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableStringSelect } from "@/components/ui/searchable-string-select";
 import { Select } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { YearPicker } from "@/components/ui/year-picker";
 import { FormulaBuilder } from "@/components/kpi/formula-builder";
 import { cn } from "@/lib/utils";
@@ -43,8 +57,7 @@ import {
   parseNaturalFormula,
   validateFormula,
 } from "@/lib/formula-evaluator";
-import type { FeedFilter, StatusFilter } from "./_components/summary-tiles";
-import { ObjectiveSection } from "./_components/objective-section";
+import type { StatusFilter } from "./_components/summary-tiles";
 import { getIndicatorStatus, type CardStatus } from "./_components/indicator-card";
 
 const DEFAULT_YEAR = new Date().getFullYear();
@@ -124,6 +137,45 @@ function buildEditFormFromIndicator(
   };
 }
 
+const STATUS_BADGE: Record<CardStatus, { label: string; cls: string; bar: string }> = {
+  green: {
+    label: "Na meta",
+    cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+    bar: "bg-emerald-500",
+  },
+  yellow: {
+    label: "Atenção",
+    cls: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+    bar: "bg-amber-500",
+  },
+  red: {
+    label: "Fora da meta",
+    cls: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
+    bar: "bg-red-500",
+  },
+  nodata: {
+    label: "Sem dados",
+    cls: "bg-muted text-muted-foreground",
+    bar: "bg-muted-foreground/30",
+  },
+};
+
+/** Most recent month with a value for the indicator's year row. */
+function latestValue(row: KpiYearRow | undefined): number | null {
+  if (!row) return null;
+  let latest: { month: number; value: number } | null = null;
+  for (const m of row.monthlyValues) {
+    if (m.value === null || m.value === undefined) continue;
+    if (!latest || m.month > latest.month) latest = { month: m.month, value: m.value };
+  }
+  return latest ? latest.value : null;
+}
+
+function fmtNum(v: number | null | undefined): string {
+  if (v === null || v === undefined) return "—";
+  return v.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+}
+
 export default function KpiIndicadoresPage() {
   const { organization } = useAuth();
   const orgId = organization!.id;
@@ -142,7 +194,8 @@ export default function KpiIndicadoresPage() {
   const [objectiveFilter, setObjectiveFilter] = useState("");
   const [responsibleFilter, setResponsibleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
-  const [feedFilter, setFeedFilter] = useState<FeedFilter>("");
+  const [normaFilter, setNormaFilter] = useState("");
+  const [categoriaFilter, setCategoriaFilter] = useState("");
   const [focusedIndicatorId, setFocusedIndicatorId] = useState<number | null>(null);
 
   const [objectiveForm, setObjectiveForm] = useState({ code: "", name: "" });
@@ -237,21 +290,11 @@ export default function KpiIndicadoresPage() {
     return counts;
   }, [indicatorsForYear, indicatorStatusMap]);
 
-  const feedCounts = useMemo(() => {
-    let fed = 0;
-    let overdue = 0;
-    for (const ind of indicatorsForYear) {
-      const row = yearRows.find((r) => r.indicator.id === ind.id);
-      if (!row) continue;
-      if (row.feedStatus === "overdue") overdue += 1;
-      else fed += 1;
-    }
-    return { fed, overdue };
-  }, [indicatorsForYear, yearRows]);
-
   const filteredIndicators = indicatorsForYear.filter((ind) => {
     const matchesSearch = ind.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesUnit = !unitFilter || (ind.unit ?? "") === unitFilter;
+    const matchesNorma = !normaFilter || (ind.norms ?? []).includes(normaFilter);
+    const matchesCategoria = !categoriaFilter || (ind.category ?? "") === categoriaFilter;
     const row = yearRows.find((r) => r.indicator.id === ind.id);
     const objId = row?.yearConfig?.objectiveId ?? null;
     const matchesObjective =
@@ -264,53 +307,34 @@ export default function KpiIndicadoresPage() {
         : String(ind.responsibleUserId ?? "") === responsibleFilter);
     const matchesStatus =
       !statusFilter || (indicatorStatusMap.get(ind.id) ?? "nodata") === statusFilter;
-    const matchesFeed =
-      !feedFilter || (yearRows.find((r) => r.indicator.id === ind.id)?.feedStatus ?? "fed") === feedFilter;
     return (
       matchesSearch &&
       matchesUnit &&
+      matchesNorma &&
+      matchesCategoria &&
       matchesObjective &&
       matchesResponsible &&
-      matchesStatus &&
-      matchesFeed
+      matchesStatus
     );
   });
 
   const hasActiveFilters =
     !!searchQuery ||
     !!unitFilter ||
+    !!normaFilter ||
+    !!categoriaFilter ||
     !!objectiveFilter ||
     !!responsibleFilter ||
-    !!statusFilter ||
-    !!feedFilter;
+    !!statusFilter;
   const clearFilters = () => {
     setSearchQuery("");
     setUnitFilter("");
+    setNormaFilter("");
+    setCategoriaFilter("");
     setObjectiveFilter("");
     setResponsibleFilter("");
     setStatusFilter("");
-    setFeedFilter("");
   };
-
-  const groupMap = new Map<number | null, KpiIndicator[]>();
-  for (const ind of filteredIndicators) {
-    const row = yearRows.find((r) => r.indicator.id === ind.id);
-    const objId = row?.yearConfig?.objectiveId ?? null;
-    if (!groupMap.has(objId)) groupMap.set(objId, []);
-    groupMap.get(objId)!.push(ind);
-  }
-  const groupedIndicators = [...groupMap.keys()]
-    .sort((a, b) => {
-      if (a === null) return 1;
-      if (b === null) return -1;
-      const oa = objectives.find((o) => o.id === a);
-      const ob = objectives.find((o) => o.id === b);
-      return (oa?.code ?? oa?.name ?? "").localeCompare(ob?.code ?? ob?.name ?? "");
-    })
-    .map((objId) => ({
-      objective: objId != null ? (objectives.find((o) => o.id === objId) ?? null) : null,
-      indicators: groupMap.get(objId)!,
-    }));
 
   async function handleSaveIndicator() {
     if (!indicatorForm.name.trim()) {
@@ -433,7 +457,8 @@ export default function KpiIndicadoresPage() {
   const jumpToIndicator = (ind: KpiIndicator) => {
     // Clear filters that could hide this specific indicator
     setStatusFilter("");
-    setFeedFilter("");
+    setNormaFilter("");
+    setCategoriaFilter("");
     setFocusedIndicatorId(ind.id);
     // Wait for re-render then scroll
     requestAnimationFrame(() => {
@@ -471,6 +496,30 @@ export default function KpiIndicadoresPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="max-w-xs"
         />
+        <Select
+          value={normaFilter}
+          onChange={(e) => setNormaFilter(e.target.value)}
+          className="w-44"
+        >
+          <option value="">Todas as normas</option>
+          {KPI_NORMS.map((n) => (
+            <option key={n.code} value={n.code}>
+              ISO {n.code}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={categoriaFilter}
+          onChange={(e) => setCategoriaFilter(e.target.value)}
+          className="w-44"
+        >
+          <option value="">Todas as categorias</option>
+          {KPI_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </Select>
         <Select
           value={unitFilter}
           onChange={(e) => setUnitFilter(e.target.value)}
@@ -520,15 +569,6 @@ export default function KpiIndicadoresPage() {
           <option value="red">Fora da meta ({statusCounts.red})</option>
           <option value="nodata">Sem dados ({statusCounts.nodata})</option>
         </Select>
-        <Select
-          value={feedFilter}
-          onChange={(e) => setFeedFilter(e.target.value as FeedFilter)}
-          className="w-44"
-        >
-          <option value="">Todo o lançamento</option>
-          <option value="fed">Alimentados ({feedCounts.fed})</option>
-          <option value="overdue">Vencidos ({feedCounts.overdue})</option>
-        </Select>
         {hasActiveFilters ? (
           <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9 px-2 text-xs">
             <X className="mr-1 h-3.5 w-3.5" />
@@ -537,7 +577,7 @@ export default function KpiIndicadoresPage() {
         ) : null}
       </div>
 
-      {/* Indicators grouped by objective */}
+      {/* Indicators table */}
       {isLoading ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
           Carregando...
@@ -551,18 +591,147 @@ export default function KpiIndicadoresPage() {
               : "Nenhum indicador encontrado com os filtros aplicados."}
         </div>
       ) : (
-        <div className="space-y-6">
-          {groupedIndicators.map((group) => (
-            <ObjectiveSection
-              key={group.objective?.id ?? "none"}
-              objective={group.objective}
-              indicators={group.indicators}
-              yearRows={yearRows}
-              onEdit={handleEditIndicator}
-              onDelete={setDeleteConfirm}
-              focusedIndicatorId={focusedIndicatorId}
-            />
-          ))}
+        <div className="rounded-lg border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Indicador</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead>Norma</TableHead>
+                <TableHead>Unidade</TableHead>
+                <TableHead>Período</TableHead>
+                <TableHead className="text-right">Meta</TableHead>
+                <TableHead className="text-right">Resultado</TableHead>
+                <TableHead>Progresso</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Responsável</TableHead>
+                <TableHead className="w-0" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredIndicators.map((ind) => {
+                const row = yearRows.find((r) => r.indicator.id === ind.id);
+                const st = indicatorStatusMap.get(ind.id) ?? "nodata";
+                const badge = STATUS_BADGE[st];
+                const goal = row?.yearConfig.goal ?? null;
+                const result = latestValue(row);
+                const pct =
+                  result !== null && goal != null && goal !== 0
+                    ? Math.min(100, Math.round(Math.abs(result / goal) * 100))
+                    : 0;
+                const focused = focusedIndicatorId === ind.id;
+                return (
+                  <TableRow
+                    key={ind.id}
+                    id={`ind-card-${ind.id}`}
+                    className={cn("scroll-mt-6", focused && "bg-primary/10")}
+                  >
+                    <TableCell className="max-w-[240px] font-medium text-foreground">
+                      {ind.name}
+                    </TableCell>
+                    <TableCell>
+                      {ind.category ? (
+                        <Badge variant="neutral" className="text-[10px]">
+                          {ind.category}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {(ind.norms ?? []).length > 0 ? (
+                          (ind.norms ?? []).map((n) => (
+                            <span
+                              key={n}
+                              className="rounded border px-1 text-[9px] font-medium leading-4 text-muted-foreground"
+                            >
+                              {n}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {ind.unit ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {PERIODICITY_LABELS[
+                        ind.periodicity as keyof typeof PERIODICITY_LABELS
+                      ] ?? ind.periodicity}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {goal != null ? (
+                        <>
+                          {fmtNum(goal)}{" "}
+                          <span className="text-muted-foreground">
+                            {ind.direction === "up" ? "↑" : "↓"}
+                          </span>
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-medium tabular-nums">
+                      {result !== null
+                        ? `${fmtNum(result)}${ind.measureUnit ? " " + ind.measureUnit : ""}`
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={cn("h-full rounded-full", badge.bar)}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={cn(
+                          "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                          badge.cls,
+                        )}
+                      >
+                        {badge.label}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {ind.responsibleUserName ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            aria-label="Ações do indicador"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEditIndicator(ind)}>
+                            <Pencil className="mr-2 h-3.5 w-3.5" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setDeleteConfirm(ind)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-3.5 w-3.5" />
+                            Remover
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </div>
       )}
 
