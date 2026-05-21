@@ -38,7 +38,7 @@ export function KpiTabs({
   onChange: (tab: KpiTabId) => void;
 }) {
   return (
-    <div className="flex items-center gap-0.5 overflow-x-auto border-b bg-card px-3">
+    <div className="flex items-center gap-0.5 overflow-x-auto border-b">
       {TABS.map((t) => {
         const on = t.id === active;
         const Icon = t.icon;
@@ -48,7 +48,7 @@ export function KpiTabs({
             type="button"
             onClick={() => onChange(t.id)}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-[13px] transition-colors",
+              "flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3.5 py-2.5 text-[13px] transition-colors",
               on
                 ? "border-emerald-500 font-medium text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground",
