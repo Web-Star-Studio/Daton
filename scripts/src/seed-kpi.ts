@@ -1032,6 +1032,21 @@ function deriveNorms(category: string): string[] {
   return ["9001"];
 }
 
+// ─── Formula ─────────────────────────────────────────────────────────────────
+// Generic numerador/denominador formula so the "Lançar" screen can render the
+// value-entry fields and compute the result (matches the IndicaOS prototype).
+
+const KPI_FORMULA_VARIABLES = [
+  { key: "numerador", label: "Numerador" },
+  { key: "denominador", label: "Denominador" },
+];
+
+function formulaExpressionFor(measureUnit: string): string {
+  return measureUnit === "%"
+    ? "(numerador / denominador) * 100"
+    : "numerador / denominador";
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -1100,9 +1115,15 @@ async function main() {
 
     if (existingInd) {
       indicatorId = existingInd.id;
-      // Backfill category + norms onto indicators created before these fields existed.
+      // Backfill category + norms + formula onto indicators created before
+      // these fields existed.
       await db.update(kpiIndicatorsTable)
-        .set({ category, norms })
+        .set({
+          category,
+          norms,
+          formulaVariables: KPI_FORMULA_VARIABLES,
+          formulaExpression: formulaExpressionFor(ind.measureUnit),
+        })
         .where(eq(kpiIndicatorsTable.id, existingInd.id));
       skipped++;
     } else {
@@ -1117,6 +1138,8 @@ async function main() {
         periodicity: ind.periodicity,
         category,
         norms,
+        formulaVariables: KPI_FORMULA_VARIABLES,
+        formulaExpression: formulaExpressionFor(ind.measureUnit),
       }).returning();
       indicatorId = newInd.id;
       created++;
