@@ -47,6 +47,8 @@ import SupplierTypesPage from "@/pages/app/qualidade/fornecedores/tipos";
 import EnvironmentalLaiaPage from "@/pages/app/ambiental/laia";
 import EnvironmentalLaiaUnitDetailPage from "@/pages/app/ambiental/laia/unidades/[unitId]";
 import KpiModulePage from "@/pages/app/kpi/kpi-module";
+import KpiDashboardPage from "@/pages/app/kpi/dashboard";
+import KpiLancamentosPage from "@/pages/app/kpi/lancamentos";
 import RoadSafetyModulePage from "@/pages/app/road-safety/module";
 import ActionPlansListPage from "@/pages/app/planos-acao";
 import ActionPlanDetailPage from "@/pages/app/planos-acao/[id]";
@@ -233,8 +235,10 @@ function AppPages() {
       />
       <Route path="/ambiental/laia" component={EnvironmentalLaiaPage} />
       <Route path="/kpi/indicadores" component={KpiModulePage} />
-      <Route path="/kpi/lancamentos" component={KpiModulePage} />
-      <Route path="/kpi/dashboard" component={KpiModulePage} />
+      <Route path="/kpi/lancamentos" component={KpiLancamentosPage} />
+      <Route path="/kpi/dashboard">
+        <KpiDashboardPage />
+      </Route>
       <Route path="/fatores-desempenho" component={RoadSafetyModulePage} />
       <Route path="/planos-acao/:id" component={ActionPlanDetailPage} />
       <Route path="/planos-acao" component={ActionPlansListPage} />
@@ -349,8 +353,10 @@ function AppPages() {
       />
       <Route path="/app/ambiental/laia" component={EnvironmentalLaiaPage} />
       <Route path="/app/kpi/indicadores" component={KpiModulePage} />
-      <Route path="/app/kpi/lancamentos" component={KpiModulePage} />
-      <Route path="/app/kpi/dashboard" component={KpiModulePage} />
+      <Route path="/app/kpi/lancamentos" component={KpiLancamentosPage} />
+      <Route path="/app/kpi/dashboard">
+        <KpiDashboardPage />
+      </Route>
       <Route path="/app/fatores-desempenho" component={RoadSafetyModulePage} />
       <Route path="/app/planos-acao/:id" component={ActionPlanDetailPage} />
       <Route path="/app/planos-acao" component={ActionPlansListPage} />

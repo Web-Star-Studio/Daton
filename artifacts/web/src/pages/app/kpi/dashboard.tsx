@@ -42,7 +42,15 @@ const MONTH_NAMES = [
   "Dezembro",
 ];
 
-export default function KpiDashboardPage() {
+type KpiDashboardPageProps = {
+  /** Shell mode: clicking a critical indicator switches to the Indicadores
+   *  tab instead of navigating by route. */
+  onSelectIndicator?: (indicatorId: number) => void;
+};
+
+export default function KpiDashboardPage({
+  onSelectIndicator,
+}: KpiDashboardPageProps = {}) {
   const { organization } = useAuth();
   const orgId = organization!.id;
   const [, navigate] = useLocation();
@@ -158,6 +166,10 @@ export default function KpiDashboardPage() {
   }, [indicatorsForYear, indicatorStatusMap, statusFilter, feedFilter, yearRows]);
 
   const handleCriticalSelect = (ind: KpiIndicator) => {
+    if (onSelectIndicator) {
+      onSelectIndicator(ind.id);
+      return;
+    }
     navigate(`/kpi/indicadores#ind-card-${ind.id}`);
   };
 
