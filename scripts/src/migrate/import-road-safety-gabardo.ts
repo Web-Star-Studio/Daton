@@ -11,7 +11,7 @@
  */
 import { createRequire } from "module";
 import { db, organizationsTable, roadSafetyFactorsTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 
 // xlsx é dependência transitiva — resolvida pelo caminho explícito do store.
 const require = createRequire(import.meta.url);
@@ -77,11 +77,21 @@ function clampGut(v: unknown): number {
   return Math.min(5, Math.max(1, n));
 }
 
+/**
+ * Código do FD a partir do ITEM da planilha — preserva a numeração real do
+ * documento controlado ("FD1" → "FD01", "FD27" → "FD27"). NÃO renumera.
+ */
+function planilhaCode(item: unknown): string {
+  const m = /(\d+)/.exec(String(item ?? ""));
+  return `FD${(m ? m[1] : "0").padStart(2, "0")}`;
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
   const args = process.argv.slice(2);
   const apply = args.includes("--apply");
+  const recode = args.includes("--recode");
   const orgId = Number(args.find((a) => !a.startsWith("--")));
   if (!Number.isInteger(orgId)) throw new Error("Informe o org id.");
 
@@ -116,7 +126,7 @@ async function main() {
       sheetCode: clean(r[0]),
       values: {
         organizationId: orgId,
-        code: `FD${String(i + 1).padStart(2, "0")}`,
+        code: planilhaCode(r[0]),
         type: mapType(r[1]),
         origin: mapOrigin(r[2]),
         normItem: null,
@@ -140,6 +150,54 @@ async function main() {
       },
     };
   });
+
+  // ─── Modo recodificação: atualiza os códigos dos FDs já importados ─────────
+  if (recode) {
+    const current = await db
+      .select()
+      .from(roadSafetyFactorsTable)
+      .where(eq(roadSafetyFactorsTable.organizationId, orgId))
+      .orderBy(asc(roadSafetyFactorsTable.id));
+    console.log(
+      `Org: ${org.name} (id=${orgId}) · recodificação · ${apply ? "MODO: APLICAR" : "MODO: dry-run"}`,
+    );
+    if (current.length !== factors.length) {
+      console.log(
+        `\n⚠ ${current.length} FDs no sistema vs ${factors.length} na planilha — abortado (precisam bater).`,
+      );
+      process.exit(1);
+    }
+    // Ordem de cadastro (id) = ordem da planilha — o import inseriu em ordem.
+    const changes = current.map((e, i) => ({
+      id: e.id,
+      from: e.code,
+      to: factors[i].values.code,
+      name: e.name,
+    }));
+    console.log("");
+    for (const c of changes) {
+      console.log(
+        `  ${c.from} → ${c.to}${c.from === c.to ? "  (sem mudança)" : ""}   ${c.name}`,
+      );
+    }
+    if (!apply) {
+      console.log(
+        "\n*** DRY-RUN — nada gravado. Rode com --recode --apply para aplicar. ***",
+      );
+      process.exit(0);
+    }
+    let changed = 0;
+    for (const c of changes) {
+      if (c.from === c.to) continue;
+      await db
+        .update(roadSafetyFactorsTable)
+        .set({ code: c.to })
+        .where(eq(roadSafetyFactorsTable.id, c.id));
+      changed += 1;
+    }
+    console.log(`\n✓ Recodificados: ${changed} fatores.`);
+    process.exit(0);
+  }
 
   console.log(`Org: ${org.name} (id=${orgId})`);
   console.log(
