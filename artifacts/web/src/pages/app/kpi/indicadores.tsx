@@ -40,6 +40,7 @@ import {
   type KpiIndicator,
   type KpiObjective,
   type KpiYearRow,
+  type WithReferenceMonth,
   useCreateKpiIndicatorWithInvalidation,
   useCreateKpiObjectiveWithInvalidation,
   useDeleteKpiIndicatorWithInvalidation,
@@ -61,6 +62,20 @@ import type { StatusFilter } from "./_components/summary-tiles";
 import { getIndicatorStatus, type CardStatus } from "./_components/indicator-card";
 
 const DEFAULT_YEAR = new Date().getFullYear();
+
+const MONTH_NAMES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+/** Periodicidades não mensais precisam de um mês de referência. */
+function needsReferenceMonth(periodicity: string): boolean {
+  return (
+    periodicity === "quarterly" ||
+    periodicity === "semiannual" ||
+    periodicity === "annual"
+  );
+}
 
 const MEASURE_UNIT_OPTIONS = [
   "%",
@@ -90,6 +105,7 @@ type IndicatorFormData = {
   measureUnit: string;
   direction: "up" | "down";
   periodicity: "monthly" | "quarterly" | "semiannual" | "annual" | "monthly_15d" | "monthly_45d";
+  referenceMonth: string;
   category: string;
   norms: string[];
   objectiveId: string;
@@ -105,6 +121,7 @@ const defaultIndicatorForm = (): IndicatorFormData => ({
   measureUnit: "",
   direction: "up",
   periodicity: "monthly",
+  referenceMonth: "",
   category: "",
   norms: [],
   objectiveId: "",
@@ -129,6 +146,9 @@ function buildEditFormFromIndicator(
     measureUnit: ind.measureUnit ?? "",
     direction: ind.direction as "up" | "down",
     periodicity: ind.periodicity as IndicatorFormData["periodicity"],
+    referenceMonth: (ind as WithReferenceMonth).referenceMonth
+      ? String((ind as WithReferenceMonth).referenceMonth)
+      : "",
     category: ind.category ?? "",
     norms: ind.norms ?? [],
     objectiveId:
@@ -348,9 +368,14 @@ export default function KpiIndicadoresPage() {
       return;
     }
     const measurement = buildMeasurementLabel(parsed.variables, parsed.expression);
+    const referenceMonth =
+      needsReferenceMonth(indicatorForm.periodicity) &&
+      indicatorForm.referenceMonth
+        ? Number(indicatorForm.referenceMonth)
+        : null;
     try {
       if (editingIndicator) {
-        await updateIndicator.mutateAsync({ orgId, indicatorId: editingIndicator.id, data: {
+        const data = {
           name: indicatorForm.name,
           measurement,
           formulaVariables: parsed.variables,
@@ -360,9 +385,15 @@ export default function KpiIndicadoresPage() {
           measureUnit: indicatorForm.measureUnit || undefined,
           direction: indicatorForm.direction,
           periodicity: indicatorForm.periodicity,
+          referenceMonth,
           category: indicatorForm.category || null,
           norms: indicatorForm.norms,
-        }});
+        };
+        await updateIndicator.mutateAsync({
+          orgId,
+          indicatorId: editingIndicator.id,
+          data,
+        });
         await upsertYearConfig.mutateAsync({
           orgId,
           indicatorId: editingIndicator.id,
@@ -374,22 +405,21 @@ export default function KpiIndicadoresPage() {
         });
         toast({ title: "Indicador atualizado" });
       } else {
-        const created = await createIndicator.mutateAsync({
-          orgId,
-          data: {
-            name: indicatorForm.name,
-            measurement,
-            formulaVariables: parsed.variables,
-            formulaExpression: parsed.expression,
-            unit: indicatorForm.unit || undefined,
-            responsibleUserId: indicatorForm.responsibleUserId ?? undefined,
-            measureUnit: indicatorForm.measureUnit || undefined,
-            direction: indicatorForm.direction,
-            periodicity: indicatorForm.periodicity,
-            category: indicatorForm.category || undefined,
-            norms: indicatorForm.norms,
-          },
-        });
+        const data = {
+          name: indicatorForm.name,
+          measurement,
+          formulaVariables: parsed.variables,
+          formulaExpression: parsed.expression,
+          unit: indicatorForm.unit || undefined,
+          responsibleUserId: indicatorForm.responsibleUserId ?? undefined,
+          measureUnit: indicatorForm.measureUnit || undefined,
+          direction: indicatorForm.direction,
+          periodicity: indicatorForm.periodicity,
+          referenceMonth,
+          category: indicatorForm.category || undefined,
+          norms: indicatorForm.norms,
+        };
+        const created = await createIndicator.mutateAsync({ orgId, data });
         if (indicatorForm.goal || indicatorForm.objectiveId) {
           await upsertYearConfig.mutateAsync({
             orgId,
@@ -866,6 +896,31 @@ export default function KpiIndicadoresPage() {
               ))}
             </Select>
           </div>
+          {needsReferenceMonth(indicatorForm.periodicity) ? (
+            <div className="space-y-1.5">
+              <Label>Mês de referência</Label>
+              <Select
+                value={indicatorForm.referenceMonth}
+                onChange={(e) =>
+                  setIndicatorForm((f) => ({
+                    ...f,
+                    referenceMonth: e.target.value,
+                  }))
+                }
+              >
+                <option value="">Selecione o mês</option>
+                {MONTH_NAMES.map((name, i) => (
+                  <option key={name} value={String(i + 1)}>
+                    {name}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Mês em que o indicador deve ser lançado — fica destacado na
+                tela de Lançar.
+              </p>
+            </div>
+          ) : null}
           <div className="space-y-1.5">
             <Label>Categoria</Label>
             <Select

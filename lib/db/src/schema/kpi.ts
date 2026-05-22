@@ -63,6 +63,8 @@ export const kpiIndicatorsTable = pgTable("kpi_indicators", {
   measureUnit: varchar("measure_unit", { length: 50 }),
   direction: varchar("direction", { length: 4 }).notNull(),
   periodicity: varchar("periodicity", { length: 50 }).notNull(),
+  /** Mês de referência (1–12) para periodicidades não mensais. */
+  referenceMonth: integer("reference_month"),
   category: varchar("category", { length: 50 }),
   norms: jsonb("norms")
     .$type<string[]>()

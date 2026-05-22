@@ -71,6 +71,9 @@ export const KPI_NORMS: { code: KpiNorm; label: string }[] = [
   { code: "39001", label: "ISO 39001 · cl. 9.1" },
 ];
 
+/** Campo `referenceMonth` (1–12) ainda fora do contrato gerado da API. */
+export type WithReferenceMonth = { referenceMonth?: number | null };
+
 // ─── Semaphore logic ────────────────────────────────────────────────────────
 
 export function getTrafficLight(

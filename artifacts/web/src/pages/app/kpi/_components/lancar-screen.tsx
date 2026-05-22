@@ -25,6 +25,7 @@ import {
   useUpsertKpiValuesWithInvalidation,
   type KpiDirection,
   type KpiYearRow,
+  type WithReferenceMonth,
 } from "@/lib/kpi-client";
 import { Sparkline } from "./sparkline";
 import { getIndicatorStatus, type CardStatus } from "./indicator-card";
@@ -83,6 +84,19 @@ function statusInfo(
   };
 }
 
+/** Meses em que o indicador deve ser lançado, conforme a periodicidade. */
+function expectedMonths(
+  periodicity: string,
+  ref: number | null | undefined,
+): Set<number> {
+  if (!ref || ref < 1 || ref > 12) return new Set();
+  const at = (offset: number) => ((ref - 1 + offset) % 12) + 1;
+  if (periodicity === "annual") return new Set([at(0)]);
+  if (periodicity === "semiannual") return new Set([at(0), at(6)]);
+  if (periodicity === "quarterly") return new Set([at(0), at(3), at(6), at(9)]);
+  return new Set();
+}
+
 /** Spreadsheet-style year history for the indicator being launched. */
 function HistoryPanel({
   row,
@@ -105,6 +119,10 @@ function HistoryPanel({
     (_, i) => row.monthlyValues.find((m) => m.month === i + 1)?.value ?? null,
   );
   const stats = computeMonthlyStats(monthValues, goal, direction);
+  const expected = expectedMonths(
+    row.indicator.periodicity,
+    (row.indicator as WithReferenceMonth).referenceMonth,
+  );
   return (
     <div className="space-y-3 rounded-xl border bg-card p-4">
       <div>
@@ -124,10 +142,15 @@ function HistoryPanel({
           const st = getTrafficLight(v, goal, direction);
           const month = i + 1;
           const clickable = v !== null;
+          const isExpectedEmpty = v === null && expected.has(month);
           const cls = cn(
             "rounded-md border px-1 py-1 text-center",
             month === selectedMonth && "ring-2 ring-blue-500",
-            v !== null && st ? trafficLightColor(st) : "bg-muted/30",
+            v !== null && st
+              ? trafficLightColor(st)
+              : isExpectedEmpty
+                ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/15 dark:text-indigo-300"
+                : "bg-muted/30",
             clickable &&
               "cursor-pointer transition hover:ring-2 hover:ring-blue-400",
           );
@@ -137,7 +160,7 @@ function HistoryPanel({
                 {label}
               </div>
               <div className="text-[11px] font-medium tabular-nums">
-                {v !== null ? fmt(v) : "—"}
+                {v !== null ? fmt(v) : isExpectedEmpty ? "previsto" : "—"}
               </div>
             </>
           );

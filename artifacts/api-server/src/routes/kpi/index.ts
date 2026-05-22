@@ -60,6 +60,7 @@ function serializeIndicator(
     measureUnit: r.measureUnit ?? null,
     direction: r.direction,
     periodicity: r.periodicity,
+    referenceMonth: r.referenceMonth ?? null,
     category: r.category ?? null,
     norms: r.norms ?? [],
     createdAt: r.createdAt.toISOString(),
@@ -254,6 +255,11 @@ router.post("/organizations/:orgId/kpi/indicators", requireAuth, requireWriteAcc
     measureUnit: body.data.measureUnit ?? null,
     direction: body.data.direction,
     periodicity: body.data.periodicity,
+    // referenceMonth ainda fora do contrato gerado — lido do corpo direto.
+    referenceMonth:
+      typeof req.body?.referenceMonth === "number"
+        ? req.body.referenceMonth
+        : null,
     category: body.data.category ?? null,
     norms: body.data.norms ?? [],
   }).returning();
@@ -308,6 +314,12 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
   if (body.data.measureUnit !== undefined) updateData.measureUnit = body.data.measureUnit;
   if (body.data.direction !== undefined) updateData.direction = body.data.direction;
   if (body.data.periodicity !== undefined) updateData.periodicity = body.data.periodicity;
+  if (req.body && "referenceMonth" in req.body) {
+    updateData.referenceMonth =
+      typeof req.body.referenceMonth === "number"
+        ? req.body.referenceMonth
+        : null;
+  }
   if (body.data.category !== undefined) updateData.category = body.data.category;
   if (body.data.norms !== undefined) updateData.norms = body.data.norms;
 
