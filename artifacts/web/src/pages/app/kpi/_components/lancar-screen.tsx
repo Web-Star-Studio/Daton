@@ -869,14 +869,26 @@ export function LancarScreen({
                           aria-hidden
                         />
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-[13px] font-medium text-foreground">
-                            {row.indicator.name}
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="min-w-0 truncate text-[13px] font-medium text-foreground">
+                              {row.indicator.name}
+                            </span>
+                            {row.indicator.unit ? (
+                              <span className="shrink-0 text-[11px] text-muted-foreground">
+                                · {row.indicator.unit}
+                              </span>
+                            ) : null}
                           </div>
                           <div className="mt-0.5 text-[11px] text-red-700 dark:text-red-300">
                             {reds.length} {reds.length === 1 ? "mês" : "meses"}{" "}
                             fora da tolerância:{" "}
                             {reds.map((m) => MONTH_LABELS[m - 1]).join(", ")}
                           </div>
+                          {row.indicator.responsibleUserName ? (
+                            <div className="mt-0.5 text-[11px] text-muted-foreground">
+                              Responsável: {row.indicator.responsibleUserName}
+                            </div>
+                          ) : null}
                         </div>
                         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                       </button>
