@@ -41,6 +41,16 @@ const RULES: { category: Category; keywords: string[] }[] = [
     ],
   },
   {
+    // Acidente "de trabalho" é SST / pessoas (taxa por nº de funcionários) —
+    // precede "Seg. Viária" para não casar apenas com a palavra "acidente".
+    category: "RH",
+    keywords: [
+      "acidente de trabalho", "acidentes de trabalho", "treinamento",
+      "turnover", "recrutamento", "selecao", "colaborador", "absenteismo",
+      "capacitacao", "funcionario", "admiss",
+    ],
+  },
+  {
     category: "Seg. Viária",
     keywords: [
       "transito", "sinistro", "viagem", "velocidade", "viaria", "viario",
@@ -52,13 +62,6 @@ const RULES: { category: Category; keywords: string[] }[] = [
     keywords: [
       "combustivel", "pneu", "manutencao", "frota", "diesel", "idade media",
       "veiculo",
-    ],
-  },
-  {
-    category: "RH",
-    keywords: [
-      "treinamento", "turnover", "recrutamento", "selecao", "colaborador",
-      "absenteismo", "capacitacao", "funcionario", "admiss",
     ],
   },
   {
