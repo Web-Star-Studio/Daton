@@ -27,6 +27,7 @@ import {
   type KpiYearRow,
 } from "@/lib/kpi-client";
 import { Sparkline } from "./sparkline";
+import { getIndicatorStatus, type CardStatus } from "./indicator-card";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const CURRENT_MONTH = new Date().getMonth() + 1;
@@ -183,6 +184,7 @@ export function LancarScreen() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [unitFilter, setUnitFilter] = useState("");
   const [responsibleFilter, setResponsibleFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<CardStatus | "">("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [month, setMonth] = useState(CURRENT_MONTH);
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -289,15 +291,24 @@ export function LancarScreen() {
           String(r.indicator.responsibleUserId ?? "") !== responsibleFilter
         )
           return false;
+        if (
+          statusFilter &&
+          getIndicatorStatus(r.indicator, r) !== statusFilter
+        )
+          return false;
         return true;
       })
       .sort((a, b) => a.indicator.name.localeCompare(b.indicator.name, "pt-BR"));
-  }, [rows, search, categoryFilter, unitFilter, responsibleFilter]);
+  }, [rows, search, categoryFilter, unitFilter, responsibleFilter, statusFilter]);
 
   const pendentes = filtered.filter((r) => r.feedStatus === "overdue");
   const emDia = filtered.filter((r) => r.feedStatus !== "overdue");
   const hasFilters =
-    !!search || !!categoryFilter || !!unitFilter || !!responsibleFilter;
+    !!search ||
+    !!categoryFilter ||
+    !!unitFilter ||
+    !!responsibleFilter ||
+    !!statusFilter;
 
   function openForm(row: KpiYearRow) {
     let defaultMonth = CURRENT_MONTH;
@@ -629,6 +640,17 @@ export function LancarScreen() {
             </option>
           ))}
         </Select>
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as CardStatus | "")}
+          className="w-40"
+        >
+          <option value="">Todos os status</option>
+          <option value="green">Na meta</option>
+          <option value="yellow">Atenção</option>
+          <option value="red">Fora da meta</option>
+          <option value="nodata">Sem dados</option>
+        </Select>
         {hasFilters ? (
           <Button
             variant="ghost"
@@ -639,6 +661,7 @@ export function LancarScreen() {
               setCategoryFilter("");
               setUnitFilter("");
               setResponsibleFilter("");
+              setStatusFilter("");
             }}
           >
             Limpar
