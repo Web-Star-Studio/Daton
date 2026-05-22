@@ -18,6 +18,7 @@ import { evaluateFormula, hasValidFormula } from "@/lib/formula-evaluator";
 import {
   KPI_CATEGORIES,
   MONTH_LABELS,
+  PERIODICITY_LABELS,
   computeMonthlyStats,
   getTrafficLight,
   trafficLightColor,
@@ -83,6 +84,9 @@ function statusInfo(
     pill: "bg-muted text-muted-foreground",
   };
 }
+
+/** Periodicidades não mensais — precisam de um mês de referência definido. */
+const NON_MONTHLY = new Set(["quarterly", "semiannual", "annual"]);
 
 /** Meses em que o indicador deve ser lançado, conforme a periodicidade. */
 function expectedMonths(
@@ -216,7 +220,12 @@ function HistoryPanel({
   );
 }
 
-export function LancarScreen() {
+export function LancarScreen({
+  onEditIndicator,
+}: {
+  /** Abre o cadastro do indicador (aba Indicadores) para definir o mês de referência. */
+  onEditIndicator: (indicatorId: number) => void;
+}) {
   const { organization } = useAuth();
   const orgId = organization!.id;
   const year = CURRENT_YEAR;
@@ -354,8 +363,17 @@ export function LancarScreen() {
       .sort((a, b) => a.indicator.name.localeCompare(b.indicator.name, "pt-BR"));
   }, [rows, search, categoryFilter, unitFilter, responsibleFilter, statusFilter]);
 
-  const pendentes = filtered.filter((r) => r.feedStatus === "overdue");
-  const emDia = filtered.filter((r) => r.feedStatus !== "overdue");
+  // Indicador não mensal sem mês de referência → precisa de configuração.
+  const needsConfig = (r: KpiYearRow) =>
+    NON_MONTHLY.has(r.indicator.periodicity) &&
+    !(r.indicator as WithReferenceMonth).referenceMonth;
+  const faltaConfig = filtered.filter(needsConfig);
+  const pendentes = filtered.filter(
+    (r) => !needsConfig(r) && r.feedStatus === "overdue",
+  );
+  const emDia = filtered.filter(
+    (r) => !needsConfig(r) && r.feedStatus !== "overdue",
+  );
   const hasFilters =
     !!search ||
     !!categoryFilter ||
@@ -735,6 +753,57 @@ export function LancarScreen() {
         </div>
       ) : (
         <div className="space-y-5">
+          {faltaConfig.length > 0 ? (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-500/40 dark:bg-amber-500/10">
+              <div className="mb-1 flex items-center gap-2">
+                <TriangleAlert
+                  className="h-4 w-4 text-amber-600 dark:text-amber-400"
+                  aria-hidden
+                />
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                  Falta o mês de referência
+                </h3>
+                <span className="rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-500/25 dark:text-amber-200">
+                  {faltaConfig.length}
+                </span>
+              </div>
+              <p className="mb-2.5 text-[11px] text-amber-700/90 dark:text-amber-300/80">
+                Indicadores não mensais sem mês de referência — clique para
+                definir no cadastro.
+              </p>
+              <ul className="space-y-2">
+                {faltaConfig.map((row) => (
+                  <li key={row.indicator.id}>
+                    <button
+                      type="button"
+                      onClick={() => onEditIndicator(row.indicator.id)}
+                      className="group flex w-full items-center gap-3 rounded-lg border border-amber-200 bg-card px-4 py-3 text-left transition-colors hover:border-amber-300 hover:bg-amber-50/60 dark:border-amber-500/30 dark:hover:bg-amber-500/10"
+                    >
+                      <TriangleAlert
+                        className="h-4 w-4 shrink-0 text-amber-500"
+                        aria-hidden
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[13px] font-medium text-foreground">
+                          {row.indicator.name}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          {PERIODICITY_LABELS[
+                            row.indicator
+                              .periodicity as keyof typeof PERIODICITY_LABELS
+                          ] ?? row.indicator.periodicity}
+                          {row.indicator.unit ? ` · ${row.indicator.unit}` : ""}
+                        </div>
+                      </div>
+                      <span className="shrink-0 whitespace-nowrap text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                        Definir mês →
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {(
             [
               {

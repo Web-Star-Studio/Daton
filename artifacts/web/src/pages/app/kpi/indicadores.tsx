@@ -515,6 +515,25 @@ export default function KpiIndicadoresPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [indicatorsForYear.length]);
 
+  // Deep-link #ind-edit-{id}: abre o diálogo de edição daquele indicador
+  // (usado pela aba Lançar para configurar o mês de referência).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash;
+    if (!hash.startsWith("#ind-edit-")) return;
+    const id = Number(hash.slice("#ind-edit-".length));
+    if (!Number.isFinite(id) || indicators.length === 0) return;
+    const target = indicators.find((i) => i.id === id);
+    if (!target) return;
+    handleEditIndicator(target);
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + window.location.search,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [indicators.length]);
+
   return (
     <div className="p-6 space-y-4">
       {/* Filters */}
