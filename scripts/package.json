@@ -20,6 +20,7 @@
     "migrate-kpi": "tsx --env-file ../.env ./src/migrate/migrate-kpi.ts",
     "migrate-kpi-formulas": "tsx --env-file ../.env ./src/migrate/migrate-kpi-formulas.ts",
     "backfill-kpi-category-norms": "tsx --env-file ../.env ./src/migrate/backfill-kpi-category-norms.ts",
+    "import-road-safety-gabardo": "tsx --env-file ../.env ./src/migrate/import-road-safety-gabardo.ts",
     "cleanup-kpi-responsible": "tsx --env-file ../.env ./src/migrate/cleanup-kpi-responsible.ts",
     "inspect-kpi-responsible": "tsx --env-file ../.env ./src/migrate/inspect-kpi-responsible.ts",
     "add-kpi-responsible-user-id": "tsx --env-file ../.env ./src/migrate/add-kpi-responsible-user-id.ts",
