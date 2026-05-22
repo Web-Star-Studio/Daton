@@ -108,7 +108,7 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
   const subtitle = useMemo(() => {
     const monthLabel = MONTH_LABELS[month - 1] ?? `Mês ${month}`;
     const valuePart = value !== null && goal !== null
-      ? ` · ${formatNumber(value)} / meta ${formatNumber(goal)}`
+      ? ` · ${formatNumber(value)} / tolerância ${formatNumber(goal)}`
       : "";
     return `${monthLabel}/${year}${valuePart}`;
   }, [month, year, value, goal]);

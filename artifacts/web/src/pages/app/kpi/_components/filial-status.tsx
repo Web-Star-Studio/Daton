@@ -95,7 +95,7 @@ export function FilialStatus({ indicators, yearRows }: FilialStatusProps) {
       <p className="mt-3 flex items-center gap-3 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          ≥70% na meta
+          ≥70% na tolerância
         </span>
         <span className="flex items-center gap-1">
           <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />

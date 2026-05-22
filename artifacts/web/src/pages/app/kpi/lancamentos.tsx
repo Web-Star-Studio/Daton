@@ -279,7 +279,7 @@ export default function KpiAlimentacaoPage() {
               <th className="border px-2 py-2 text-left font-medium sticky top-0 left-0 z-30 bg-muted min-w-[200px]">Indicador</th>
               <th className="border px-2 py-2 text-left font-medium sticky top-0 z-20 bg-muted min-w-[120px]">Objetivo</th>
               <th className="border px-2 py-2 text-left font-medium sticky top-0 z-20 bg-muted min-w-[80px]">Unidade</th>
-              <th className="border px-2 py-2 text-right font-medium sticky top-0 z-20 bg-muted min-w-[70px]">Meta</th>
+              <th className="border px-2 py-2 text-right font-medium sticky top-0 z-20 bg-muted min-w-[70px]">Tolerância</th>
               {MONTH_LABELS.map((m) => (
                 <th key={m} className="border px-2 py-2 text-right font-medium sticky top-0 z-20 bg-muted min-w-[55px]">{m}</th>
               ))}
@@ -303,7 +303,7 @@ export default function KpiAlimentacaoPage() {
               <tr>
                 <td colSpan={20} className="text-center py-10 text-muted-foreground">
                   Nenhum indicador configurado para {year}.
-                  {" "}Configure indicadores e defina metas para começar.
+                  {" "}Configure indicadores e defina tolerâncias para começar.
                 </td>
               </tr>
             ) : (
@@ -483,7 +483,7 @@ export default function KpiAlimentacaoPage() {
                         variant="ghost"
                         size="icon"
                         className="h-5 w-5"
-                        title="Configurar meta e objetivo"
+                        title="Configurar tolerância e objetivo"
                         onClick={() => openConfigDialog(row)}
                       >
                         <Settings2 className="h-3 w-3" />
@@ -637,7 +637,7 @@ export default function KpiAlimentacaoPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Meta *</Label>
+                <Label>Tolerância *</Label>
                 <Input
                   type="number"
                   value={configForm.goal}

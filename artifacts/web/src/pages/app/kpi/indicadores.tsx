@@ -77,6 +77,15 @@ function needsReferenceMonth(periodicity: string): boolean {
   );
 }
 
+/** Ciclo de meses derivado da periodicidade + mês de referência (1º do ciclo). */
+function referenceCycle(periodicity: string, ref: number): number[] {
+  const at = (o: number) => ((ref - 1 + o) % 12) + 1;
+  if (periodicity === "quarterly")
+    return [at(0), at(3), at(6), at(9)].sort((a, b) => a - b);
+  if (periodicity === "semiannual") return [at(0), at(6)].sort((a, b) => a - b);
+  return [ref];
+}
+
 const MEASURE_UNIT_OPTIONS = [
   "%",
   "R$",
@@ -159,7 +168,7 @@ function buildEditFormFromIndicator(
 
 const STATUS_BADGE: Record<CardStatus, { label: string; cls: string; bar: string }> = {
   green: {
-    label: "Na meta",
+    label: "Na tolerância",
     cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
     bar: "bg-emerald-500",
   },
@@ -169,7 +178,7 @@ const STATUS_BADGE: Record<CardStatus, { label: string; cls: string; bar: string
     bar: "bg-amber-500",
   },
   red: {
-    label: "Fora da meta",
+    label: "Fora da tolerância",
     cls: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
     bar: "bg-red-500",
   },
@@ -613,9 +622,9 @@ export default function KpiIndicadoresPage() {
           className="w-40"
         >
           <option value="">Todos os status</option>
-          <option value="green">Na meta ({statusCounts.green})</option>
+          <option value="green">Na tolerância ({statusCounts.green})</option>
           <option value="yellow">Atenção ({statusCounts.yellow})</option>
-          <option value="red">Fora da meta ({statusCounts.red})</option>
+          <option value="red">Fora da tolerância ({statusCounts.red})</option>
           <option value="nodata">Sem dados ({statusCounts.nodata})</option>
         </Select>
         {hasActiveFilters ? (
@@ -649,7 +658,7 @@ export default function KpiIndicadoresPage() {
                 <TableHead>Norma</TableHead>
                 <TableHead>Unidade</TableHead>
                 <TableHead>Período</TableHead>
-                <TableHead className="text-right">Meta</TableHead>
+                <TableHead className="text-right">Tolerância</TableHead>
                 <TableHead className="text-right">Resultado</TableHead>
                 <TableHead>Progresso</TableHead>
                 <TableHead>Status</TableHead>
@@ -934,10 +943,26 @@ export default function KpiIndicadoresPage() {
                   </option>
                 ))}
               </Select>
-              <p className="text-[11px] text-muted-foreground">
-                Mês em que o indicador deve ser lançado — fica destacado na
-                tela de Lançar.
-              </p>
+              {indicatorForm.referenceMonth &&
+              indicatorForm.periodicity !== "annual" ? (
+                <p className="text-[11px] text-muted-foreground">
+                  Lançado em:{" "}
+                  <span className="font-medium text-foreground">
+                    {referenceCycle(
+                      indicatorForm.periodicity,
+                      Number(indicatorForm.referenceMonth),
+                    )
+                      .map((m) => MONTH_NAMES[m - 1])
+                      .join(" · ")}
+                  </span>
+                  . O sistema marca o ciclo automaticamente.
+                </p>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  Mês em que o indicador deve ser lançado — fica destacado na
+                  tela de Lançar.
+                </p>
+              )}
             </div>
           ) : null}
           <div className="space-y-1.5">
@@ -956,7 +981,7 @@ export default function KpiIndicadoresPage() {
             </p>
           </div>
           <div className="col-span-2 border-t pt-3 mt-1">
-            <p className="text-xs text-muted-foreground mb-3">Meta e objetivo para {year} (opcional)</p>
+            <p className="text-xs text-muted-foreground mb-3">Tolerância e objetivo para {year} (opcional)</p>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Objetivo estratégico</Label>
@@ -973,7 +998,7 @@ export default function KpiIndicadoresPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Meta ({year})</Label>
+                <Label>Tolerância ({year})</Label>
                 <Input
                   type="number"
                   value={indicatorForm.goal}
@@ -1004,7 +1029,7 @@ export default function KpiIndicadoresPage() {
           size="sm"
         >
           <p className="text-sm text-muted-foreground">
-            Esta ação também removerá todos os dados de metas e valores mensais associados a "{deleteConfirm.name}".
+            Esta ação também removerá todos os dados de tolerâncias e valores mensais associados a "{deleteConfirm.name}".
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancelar</Button>
