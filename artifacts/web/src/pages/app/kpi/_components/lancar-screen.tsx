@@ -62,7 +62,7 @@ function statusInfo(
 ): StatusInfo {
   if (status === "green")
     return {
-      label: "Dentro da meta",
+      label: "Dentro da tolerância",
       box: "border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10",
       pill: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
     };
@@ -74,12 +74,12 @@ function statusInfo(
     };
   if (status === "red")
     return {
-      label: "Fora da meta",
+      label: "Fora da tolerância",
       box: "border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10",
       pill: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
     };
   return {
-    label: hasGoal ? "Aguardando valores" : "Meta não definida",
+    label: hasGoal ? "Aguardando valores" : "Tolerância não definida",
     box: "border-border bg-muted/40",
     pill: "bg-muted text-muted-foreground",
   };
@@ -101,7 +101,7 @@ function expectedMonths(
   return new Set();
 }
 
-/** Meses vermelhos (fora da meta) ainda sem justificativa nem plano de ação. */
+/** Meses vermelhos (fora da tolerância) ainda sem justificativa nem plano de ação. */
 function untreatedRedMonths(row: KpiYearRow): number[] {
   const goal = row.yearConfig.goal ?? null;
   const direction = (row.indicator.direction ?? "up") as KpiDirection;
@@ -150,7 +150,7 @@ function HistoryPanel({
           Histórico {CURRENT_YEAR}
         </h3>
         <p className="mt-0.5 text-[11px] text-muted-foreground">
-          Meta:{" "}
+          Tolerância:{" "}
           {goal !== null
             ? `${direction === "down" ? "≤" : "≥"} ${fmt(goal)}${measureUnit ? ` ${measureUnit}` : ""}`
             : "não definida"}
@@ -208,7 +208,7 @@ function HistoryPanel({
       {untreated.size > 0 ? (
         <p className="flex items-center gap-1.5 rounded-md bg-red-50 px-2 py-1.5 text-[11px] font-medium text-red-700 dark:bg-red-500/10 dark:text-red-300">
           <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
-          {untreated.size} {untreated.size === 1 ? "mês" : "meses"} fora da meta
+          {untreated.size} {untreated.size === 1 ? "mês" : "meses"} fora da tolerância
           sem plano de ação — clique para tratar.
         </p>
       ) : (
@@ -238,7 +238,7 @@ function HistoryPanel({
           </dd>
         </div>
         <div className="flex items-center justify-between">
-          <dt className="text-muted-foreground">Progresso da meta</dt>
+          <dt className="text-muted-foreground">Progresso da tolerância</dt>
           <dd className="font-medium tabular-nums text-foreground">
             {stats.progress != null ? `${Math.round(stats.progress)}%` : "—"}
           </dd>
@@ -454,7 +454,7 @@ export function LancarScreen({
         // Stay on the form so the highlighted justification / RAC action is
         // visible — the monthly value now exists and can receive a plan.
         toast({
-          title: "Resultado lançado — fora da meta",
+          title: "Resultado lançado — fora da tolerância",
           description:
             "Registre a justificativa e, se necessário, um plano de ação.",
         });
@@ -490,7 +490,7 @@ export function LancarScreen({
                 {selectedRow.indicator.name}
               </h2>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Meta:{" "}
+                Tolerância:{" "}
                 <span className="font-medium text-foreground/80">
                   {goal !== null
                     ? `${fmt(goal)} ${measureUnit}`.trim()
@@ -606,7 +606,7 @@ export function LancarScreen({
                 </span>
                 {goal !== null ? (
                   <div className="mt-1 text-[11px] text-muted-foreground">
-                    Meta: {fmt(goal)} {measureUnit}
+                    Tolerância: {fmt(goal)} {measureUnit}
                   </div>
                 ) : null}
               </div>
@@ -620,14 +620,14 @@ export function LancarScreen({
             </Button>
 
             {/* Justificativa / plano de ação — abre o diálogo já existente.
-               Destacado quando o resultado está fora da meta. */}
+               Destacado quando o resultado está fora da tolerância. */}
             {outOfTarget ? (
               <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-500/40 dark:bg-amber-500/10">
                 <div className="flex items-start gap-2">
                   <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
                   <div className="flex-1">
                     <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
-                      Resultado fora da meta
+                      Resultado fora da tolerância
                     </p>
                     <p className="mt-0.5 text-[11px] text-amber-700/90 dark:text-amber-300/80">
                       Registre a justificativa do desvio e, se necessário, um
@@ -750,9 +750,9 @@ export function LancarScreen({
           className="w-40"
         >
           <option value="">Todos os status</option>
-          <option value="green">Na meta</option>
+          <option value="green">Na tolerância</option>
           <option value="yellow">Atenção</option>
-          <option value="red">Fora da meta</option>
+          <option value="red">Fora da tolerância</option>
           <option value="nodata">Sem dados</option>
         </Select>
         {hasFilters ? (
@@ -851,7 +851,7 @@ export function LancarScreen({
                 </span>
               </div>
               <p className="mb-2.5 text-[11px] text-red-700/90 dark:text-red-300/80">
-                Indicadores com mês fora da meta ainda sem justificativa nem
+                Indicadores com mês fora da tolerância ainda sem justificativa nem
                 plano de ação — clique para tratar.
               </p>
               <ul className="space-y-2">
@@ -874,7 +874,7 @@ export function LancarScreen({
                           </div>
                           <div className="mt-0.5 text-[11px] text-red-700 dark:text-red-300">
                             {reds.length} {reds.length === 1 ? "mês" : "meses"}{" "}
-                            fora da meta:{" "}
+                            fora da tolerância:{" "}
                             {reds.map((m) => MONTH_LABELS[m - 1]).join(", ")}
                           </div>
                         </div>
@@ -952,8 +952,8 @@ export function LancarScreen({
                           </div>
                           <div className="mt-0.5 text-[11px] text-muted-foreground">
                             {row.yearConfig.goal !== null
-                              ? `Meta: ${fmt(row.yearConfig.goal)} ${row.indicator.measureUnit ?? ""}`.trim()
-                              : "Meta não definida"}
+                              ? `Tolerância: ${fmt(row.yearConfig.goal)} ${row.indicator.measureUnit ?? ""}`.trim()
+                              : "Tolerância não definida"}
                             {row.indicator.unit
                               ? ` · ${row.indicator.unit}`
                               : ""}

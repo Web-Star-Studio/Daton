@@ -147,7 +147,7 @@ export function AuditoriaScreen() {
                     <dd className="font-medium tabular-nums text-foreground">{withResult}</dd>
                   </div>
                   <div className="flex items-center justify-between">
-                    <dt className="text-muted-foreground">Dentro da meta</dt>
+                    <dt className="text-muted-foreground">Dentro da tolerância</dt>
                     <dd className="font-medium tabular-nums text-foreground">{ot}</dd>
                   </div>
                 </dl>

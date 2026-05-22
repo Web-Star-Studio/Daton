@@ -116,7 +116,7 @@ export function EvolutionPanel({ indicators, yearRows, limit = 3 }: EvolutionPan
                   )}
                 >
                   {status === "green"
-                    ? "Na meta"
+                    ? "Na tolerância"
                     : status === "yellow"
                       ? "Atenção"
                       : status === "red"
@@ -135,7 +135,7 @@ export function EvolutionPanel({ indicators, yearRows, limit = 3 }: EvolutionPan
                       className="inline-block h-0 w-2.5 border-t-2 border-dashed"
                       style={{ borderColor: "#ef4444" }}
                     />
-                    Meta {formatTick(goal, measureUnit)}
+                    Tolerância {formatTick(goal, measureUnit)}
                   </span>
                 ) : null}
                 {indicator.unit ? (

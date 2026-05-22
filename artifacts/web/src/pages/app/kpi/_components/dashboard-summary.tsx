@@ -105,8 +105,8 @@ export function DashboardSummary({
       value: needAction,
       sub:
         needAction + attention > 0
-          ? `${needAction} fora da meta · ${attention} em atenção`
-          : "Tudo dentro da meta",
+          ? `${needAction} fora da tolerância · ${attention} em atenção`
+          : "Tudo dentro da tolerância",
       tone: (needAction > 0 ? "amber" : "neutral") as TileTone,
       Icon: TriangleAlert,
       active: statusFilter === "red",

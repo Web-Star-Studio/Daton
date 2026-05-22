@@ -89,7 +89,7 @@ export function CriticalIndicators({
       </div>
       {items.length === 0 ? (
         <p className="py-6 text-center text-xs text-muted-foreground">
-          Nenhum indicador crítico no momento. Tudo dentro da meta.
+          Nenhum indicador crítico no momento. Tudo dentro da tolerância.
         </p>
       ) : (
         <ul className="divide-y">
@@ -153,7 +153,7 @@ export function CriticalIndicators({
                       {latest ? formatValue(latest.value, indicator.measureUnit) : "—"}
                     </div>
                     <div className="text-[10px] text-muted-foreground tabular-nums">
-                      meta{" "}
+                      tolerância{" "}
                       {goal !== null && goal !== undefined
                         ? formatValue(goal, indicator.measureUnit)
                         : "—"}

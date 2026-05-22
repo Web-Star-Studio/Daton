@@ -42,9 +42,9 @@ const STATUS_BAR: Record<CardStatus, string> = {
 };
 
 const STATUS_LABEL: Record<CardStatus, string> = {
-  green: "Na meta",
+  green: "Na tolerância",
   yellow: "Atenção",
-  red: "Fora da meta",
+  red: "Fora da tolerância",
   nodata: "Sem dados",
 };
 
@@ -212,7 +212,7 @@ export function IndicatorCard({
       <div className="mt-2 space-y-1">
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
           <span>
-            Meta:{" "}
+            Tolerância:{" "}
             <span className="font-medium tabular-nums text-foreground/80">
               {goal !== null && goal !== undefined
                 ? formatValue(goal, indicator.measureUnit)

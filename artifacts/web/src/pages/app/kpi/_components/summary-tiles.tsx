@@ -120,7 +120,7 @@ export function SummaryTiles({
     },
     {
       key: "green",
-      label: "Na meta",
+      label: "Na tolerância",
       value: statusCounts.green,
       sub: pct(statusCounts.green, total),
       color: "green",
@@ -142,7 +142,7 @@ export function SummaryTiles({
     },
     {
       key: "red",
-      label: "Fora da meta",
+      label: "Fora da tolerância",
       value: statusCounts.red,
       sub: pct(statusCounts.red, total),
       color: "red",
