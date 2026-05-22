@@ -90,12 +90,15 @@ function HistoryPanel({
   direction,
   selectedMonth,
   measureUnit,
+  onSelectMonth,
 }: {
   row: KpiYearRow;
   goal: number | null;
   direction: KpiDirection;
   selectedMonth: number;
   measureUnit: string;
+  /** Abre o diálogo de justificativa/plano de ação para o mês clicado. */
+  onSelectMonth: (month: number) => void;
 }) {
   const monthValues = Array.from(
     { length: 12 },
@@ -119,25 +122,46 @@ function HistoryPanel({
         {MONTH_LABELS.map((label, i) => {
           const v = monthValues[i];
           const st = getTrafficLight(v, goal, direction);
-          return (
-            <div
-              key={label}
-              className={cn(
-                "rounded-md border px-1 py-1 text-center",
-                i + 1 === selectedMonth && "ring-2 ring-blue-500",
-                v !== null && st ? trafficLightColor(st) : "bg-muted/30",
-              )}
-            >
+          const month = i + 1;
+          const clickable = v !== null;
+          const cls = cn(
+            "rounded-md border px-1 py-1 text-center",
+            month === selectedMonth && "ring-2 ring-blue-500",
+            v !== null && st ? trafficLightColor(st) : "bg-muted/30",
+            clickable &&
+              "cursor-pointer transition hover:ring-2 hover:ring-blue-400",
+          );
+          const body = (
+            <>
               <div className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
                 {label}
               </div>
               <div className="text-[11px] font-medium tabular-nums">
                 {v !== null ? fmt(v) : "—"}
               </div>
+            </>
+          );
+          return clickable ? (
+            <button
+              key={label}
+              type="button"
+              className={cls}
+              onClick={() => onSelectMonth(month)}
+              title="Registrar justificativa / plano de ação"
+            >
+              {body}
+            </button>
+          ) : (
+            <div key={label} className={cls}>
+              {body}
             </div>
           );
         })}
       </div>
+      <p className="text-[10px] text-muted-foreground">
+        Clique em um mês com resultado para registrar justificativa ou plano de
+        ação.
+      </p>
       <Sparkline
         values={monthValues}
         goal={goal}
@@ -189,7 +213,7 @@ export function LancarScreen() {
   const [month, setMonth] = useState(CURRENT_MONTH);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [directValue, setDirectValue] = useState("");
-  const [racOpen, setRacOpen] = useState(false);
+  const [racMonth, setRacMonth] = useState<number | null>(null);
 
   const selectedRow = useMemo(
     () =>
@@ -257,6 +281,12 @@ export function LancarScreen() {
     computedValue !== null ? computedValue : (savedMonthly?.value ?? null);
   const effectiveStatus = getTrafficLight(effectiveValue, goal, direction);
   const outOfTarget = effectiveStatus === "red";
+
+  // Mês para o qual o diálogo de justificativa/RAC está aberto (forma ou histórico).
+  const racMonthly =
+    racMonth !== null && selectedRow
+      ? (selectedRow.monthlyValues.find((m) => m.month === racMonth) ?? null)
+      : null;
 
   // Opções de filtro derivadas dos indicadores do ano.
   const unitOptions = useMemo(
@@ -535,7 +565,7 @@ export function LancarScreen() {
                       size="sm"
                       className="mt-2 border-amber-300 bg-amber-100/60 text-amber-900 hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200 dark:hover:bg-amber-500/25"
                       disabled={monthlyValueId === null}
-                      onClick={() => setRacOpen(true)}
+                      onClick={() => setRacMonth(month)}
                     >
                       <ClipboardList className="mr-1.5 h-4 w-4" />
                       Justificativa e plano de ação
@@ -554,7 +584,7 @@ export function LancarScreen() {
                 size="sm"
                 className="self-start text-muted-foreground"
                 disabled={monthlyValueId === null}
-                onClick={() => setRacOpen(true)}
+                onClick={() => setRacMonth(month)}
                 title={
                   monthlyValueId === null
                     ? "Salve o lançamento para registrar"
@@ -572,21 +602,22 @@ export function LancarScreen() {
             direction={direction}
             selectedMonth={month}
             measureUnit={measureUnit}
+            onSelectMonth={setRacMonth}
           />
         </div>
-        {racOpen ? (
+        {racMonth !== null ? (
           <CellRedActionsDialog
             context={{
               orgId,
               indicatorId: selectedRow.indicator.id,
               indicatorName: selectedRow.indicator.name,
               year,
-              month,
-              monthlyValueId,
-              value: effectiveValue,
+              month: racMonth,
+              monthlyValueId: racMonthly?.monthlyValueId ?? null,
+              value: racMonthly?.value ?? null,
               goal,
             }}
-            onClose={() => setRacOpen(false)}
+            onClose={() => setRacMonth(null)}
           />
         ) : null}
       </div>
