@@ -77,6 +77,15 @@ function needsReferenceMonth(periodicity: string): boolean {
   );
 }
 
+/** Ciclo de meses derivado da periodicidade + mês de referência (1º do ciclo). */
+function referenceCycle(periodicity: string, ref: number): number[] {
+  const at = (o: number) => ((ref - 1 + o) % 12) + 1;
+  if (periodicity === "quarterly")
+    return [at(0), at(3), at(6), at(9)].sort((a, b) => a - b);
+  if (periodicity === "semiannual") return [at(0), at(6)].sort((a, b) => a - b);
+  return [ref];
+}
+
 const MEASURE_UNIT_OPTIONS = [
   "%",
   "R$",
@@ -934,10 +943,26 @@ export default function KpiIndicadoresPage() {
                   </option>
                 ))}
               </Select>
-              <p className="text-[11px] text-muted-foreground">
-                Mês em que o indicador deve ser lançado — fica destacado na
-                tela de Lançar.
-              </p>
+              {indicatorForm.referenceMonth &&
+              indicatorForm.periodicity !== "annual" ? (
+                <p className="text-[11px] text-muted-foreground">
+                  Lançado em:{" "}
+                  <span className="font-medium text-foreground">
+                    {referenceCycle(
+                      indicatorForm.periodicity,
+                      Number(indicatorForm.referenceMonth),
+                    )
+                      .map((m) => MONTH_NAMES[m - 1])
+                      .join(" · ")}
+                  </span>
+                  . O sistema marca o ciclo automaticamente.
+                </p>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  Mês em que o indicador deve ser lançado — fica destacado na
+                  tela de Lançar.
+                </p>
+              )}
             </div>
           ) : null}
           <div className="space-y-1.5">
