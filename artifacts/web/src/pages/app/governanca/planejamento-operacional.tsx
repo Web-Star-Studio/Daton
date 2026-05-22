@@ -452,7 +452,7 @@ export default function OperationalPlanningPage() {
 
   usePageTitle("Planejamento Operacional");
   usePageSubtitle(
-    "Controle SGI/ESG para critérios, prontidão, mudanças operacionais e evidências do ciclo.",
+    "Controle Sistema de Gestão/ESG para critérios, prontidão, mudanças operacionais e evidências do ciclo.",
   );
 
   useHeaderActions(
@@ -986,7 +986,7 @@ export default function OperationalPlanningPage() {
                         </div>
                         <div>
                           <p className="text-sm font-medium">
-                            Considerações ESG/SGI
+                            Considerações ESG/Sistema de Gestão
                           </p>
                           <p className="text-sm text-muted-foreground">
                             {planDetail.esgConsiderations || "Não registradas"}
@@ -1760,7 +1760,7 @@ export default function OperationalPlanningPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Considerações ESG/SGI</Label>
+              <Label>Considerações ESG/Sistema de Gestão</Label>
               <Textarea
                 value={planForm.esgConsiderations}
                 onChange={(event) =>

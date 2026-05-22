@@ -197,7 +197,7 @@ const DEFAULT_METHODOLOGY_FORM: MethodologyFormState = {
   ],
   responsabilidades: [
     {
-      cargo: "Coordenador do SGI",
+      cargo: "Coordenador do Sistema de Gestão",
       atribuicoes:
         "Gerenciar o processo de levantamento, e realizar a atualizacao e analise de atendimento dos requisitos legais aplicaveis.",
     },

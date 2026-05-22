@@ -232,7 +232,7 @@ function ProfileDraftListSection({
                       updateItem(item.tempId, { title: event.target.value })
                     }
                     className="mt-1"
-                    placeholder="Ex: Analista de SGI na Empresa X"
+                    placeholder="Ex: Analista de Sistema de Gestão na Empresa X"
                   />
                 </div>
                 <div>
