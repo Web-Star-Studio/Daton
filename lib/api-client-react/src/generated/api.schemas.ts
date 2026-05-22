@@ -5,6 +5,167 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+export type RoadSafetyFactorType =
+  (typeof RoadSafetyFactorType)[keyof typeof RoadSafetyFactorType];
+
+export const RoadSafetyFactorType = {
+  exposure: "exposure",
+  intermediate: "intermediate",
+  final: "final",
+} as const;
+
+export type RoadSafetyFactorControlStatus =
+  (typeof RoadSafetyFactorControlStatus)[keyof typeof RoadSafetyFactorControlStatus];
+
+export const RoadSafetyFactorControlStatus = {
+  scheduled: "scheduled",
+  regularized: "regularized",
+  non_conforming: "non_conforming",
+  overdue: "overdue",
+  in_progress: "in_progress",
+} as const;
+
+export interface RoadSafetyFactor {
+  id: number;
+  organizationId: number;
+  code: string;
+  type: RoadSafetyFactorType;
+  origin?: string | null;
+  normItem?: string | null;
+  isAdditional: boolean;
+  name: string;
+  analysis?: string | null;
+  monitoringForm?: string | null;
+  periodicity: string;
+  measureUnit?: string | null;
+  goal?: number | null;
+  responsibleUserId?: number | null;
+  responsibleUserName?: string | null;
+  monitoringDetail?: string | null;
+  gutGravity: number;
+  gutUrgency: number;
+  gutTendency: number;
+  /** Computed — gravity × urgency × tendency. */
+  gutScore: number;
+  existingControls?: string | null;
+  controlStatus: RoadSafetyFactorControlStatus;
+  reviewDeadline?: string | null;
+  actionPlanRef?: string | null;
+  /** Computed — most recent measurement value. */
+  latestValue?: number | null;
+  latestMeasurementDate?: string | null;
+  measurementCount: number;
+  /** Computed — has a measurement dated in the current month. */
+  updatedThisMonth: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RoadSafetyMeasurement {
+  id: number;
+  organizationId: number;
+  factorId: number;
+  value: number;
+  referenceDate: string;
+  note?: string | null;
+  createdByUserId?: number | null;
+  createdByUserName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateRoadSafetyFactorBodyType =
+  (typeof CreateRoadSafetyFactorBodyType)[keyof typeof CreateRoadSafetyFactorBodyType];
+
+export const CreateRoadSafetyFactorBodyType = {
+  exposure: "exposure",
+  intermediate: "intermediate",
+  final: "final",
+} as const;
+
+export type CreateRoadSafetyFactorBodyControlStatus =
+  (typeof CreateRoadSafetyFactorBodyControlStatus)[keyof typeof CreateRoadSafetyFactorBodyControlStatus];
+
+export const CreateRoadSafetyFactorBodyControlStatus = {
+  scheduled: "scheduled",
+  regularized: "regularized",
+  non_conforming: "non_conforming",
+  overdue: "overdue",
+  in_progress: "in_progress",
+} as const;
+
+export interface CreateRoadSafetyFactorBody {
+  type: CreateRoadSafetyFactorBodyType;
+  origin?: string | null;
+  normItem?: string | null;
+  isAdditional?: boolean;
+  /** @minLength 1 */
+  name: string;
+  analysis?: string | null;
+  monitoringForm?: string | null;
+  periodicity?: string;
+  measureUnit?: string | null;
+  goal?: number | null;
+  responsibleUserId?: number | null;
+  monitoringDetail?: string | null;
+  gutGravity?: number;
+  gutUrgency?: number;
+  gutTendency?: number;
+  existingControls?: string | null;
+  controlStatus?: CreateRoadSafetyFactorBodyControlStatus;
+  reviewDeadline?: string | null;
+  actionPlanRef?: string | null;
+}
+
+export type UpdateRoadSafetyFactorBodyType =
+  (typeof UpdateRoadSafetyFactorBodyType)[keyof typeof UpdateRoadSafetyFactorBodyType];
+
+export const UpdateRoadSafetyFactorBodyType = {
+  exposure: "exposure",
+  intermediate: "intermediate",
+  final: "final",
+} as const;
+
+export type UpdateRoadSafetyFactorBodyControlStatus =
+  (typeof UpdateRoadSafetyFactorBodyControlStatus)[keyof typeof UpdateRoadSafetyFactorBodyControlStatus];
+
+export const UpdateRoadSafetyFactorBodyControlStatus = {
+  scheduled: "scheduled",
+  regularized: "regularized",
+  non_conforming: "non_conforming",
+  overdue: "overdue",
+  in_progress: "in_progress",
+} as const;
+
+export interface UpdateRoadSafetyFactorBody {
+  type?: UpdateRoadSafetyFactorBodyType;
+  origin?: string | null;
+  normItem?: string | null;
+  isAdditional?: boolean;
+  /** @minLength 1 */
+  name?: string;
+  analysis?: string | null;
+  monitoringForm?: string | null;
+  periodicity?: string;
+  measureUnit?: string | null;
+  goal?: number | null;
+  responsibleUserId?: number | null;
+  monitoringDetail?: string | null;
+  gutGravity?: number;
+  gutUrgency?: number;
+  gutTendency?: number;
+  existingControls?: string | null;
+  controlStatus?: UpdateRoadSafetyFactorBodyControlStatus;
+  reviewDeadline?: string | null;
+  actionPlanRef?: string | null;
+}
+
+export interface CreateRoadSafetyMeasurementBody {
+  value: number;
+  referenceDate: string;
+  note?: string;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -204,6 +365,7 @@ export const AppModule = {
   suppliers: "suppliers",
   environmental: "environmental",
   kpi: "kpi",
+  roadSafety: "roadSafety",
   assets: "assets",
 } as const;
 
@@ -3293,6 +3455,8 @@ export interface KpiIndicator {
   measureUnit?: string | null;
   direction: KpiIndicatorDirection;
   periodicity: KpiIndicatorPeriodicity;
+  category?: string | null;
+  norms: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -3330,6 +3494,8 @@ export interface CreateKpiIndicatorBody {
   measureUnit?: string;
   direction: CreateKpiIndicatorBodyDirection;
   periodicity: CreateKpiIndicatorBodyPeriodicity;
+  category?: string | null;
+  norms?: string[];
   objectiveId?: number | null;
   goal?: number | null;
   seq?: number | null;
@@ -3368,6 +3534,8 @@ export interface UpdateKpiIndicatorBody {
   measureUnit?: string;
   direction?: UpdateKpiIndicatorBodyDirection;
   periodicity?: UpdateKpiIndicatorBodyPeriodicity;
+  category?: string | null;
+  norms?: string[];
 }
 
 export interface KpiYearConfig {

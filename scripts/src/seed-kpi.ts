@@ -1000,14 +1000,143 @@ const INDICATORS: IndicatorSeed[] = [
   },
 ];
 
+// ─── Category / norm derivation ──────────────────────────────────────────────
+// The prototype dashboard groups indicators by category and tags them with the
+// ISO norm(s) they attend. We derive both from the indicator's objective + name.
+
+function deriveCategory(ind: IndicatorSeed): string {
+  const k = ind.objectiveKey;
+  if (k === "A1" || k === "A3" || k === "GHG" || k === "A1_DOC" || k === "A2") {
+    return "Ambiental";
+  }
+  if (k === "S2" || k === "S1_VIA") return "Seg. Viária";
+  if (k === "Q1") return "Financeiro";
+  const name = ind.name.toLowerCase();
+  const resp = ind.responsible.toLowerCase();
+  if (resp.includes("frota") || /combust|pneu|manuten|idade m/.test(name)) {
+    return "Frota";
+  }
+  if (
+    resp.includes("psicolog") ||
+    resp.includes("recursos humanos") ||
+    /treinamento|turnover|recrutamento/.test(name)
+  ) {
+    return "RH";
+  }
+  return "Qualidade";
+}
+
+function deriveNorms(category: string): string[] {
+  if (category === "Ambiental") return ["14001"];
+  if (category === "Seg. Viária") return ["9001", "39001"];
+  return ["9001"];
+}
+
+// ─── Formula ─────────────────────────────────────────────────────────────────
+// Parses the human "measurement" text into structured variables + a key-based
+// expression, so the "Lançar" screen renders one field per real formula
+// variable (not a generic numerador/denominador).
+
+const ACCENT_MAP: Record<string, string> = {
+  á: "a", à: "a", ã: "a", â: "a", ä: "a",
+  é: "e", è: "e", ê: "e", ë: "e",
+  í: "i", ì: "i", î: "i", ï: "i",
+  ó: "o", ò: "o", õ: "o", ô: "o", ö: "o",
+  ú: "u", ù: "u", û: "u", ü: "u",
+  ç: "c", ñ: "n",
+};
+
+function slugifyKey(label: string): string {
+  let out = "";
+  for (const ch of label.toLowerCase()) {
+    if (ACCENT_MAP[ch]) out += ACCENT_MAP[ch];
+    else if ((ch >= "a" && ch <= "z") || (ch >= "0" && ch <= "9")) out += ch;
+    else if (ch === " " || ch === "_" || ch === "-") out += "_";
+  }
+  out = out.replace(/_+/g, "_").replace(/^_|_$/g, "");
+  if (!out) return "var";
+  if (out[0] >= "0" && out[0] <= "9") out = `v_${out}`;
+  return out;
+}
+
+const isNumericLiteral = (s: string): boolean => /^\d+([.,]\d+)?$/.test(s.trim());
+
+function deriveFormula(measurement: string): {
+  variables: { key: string; label: string }[];
+  expression: string;
+} {
+  // Normalize multiplication aliases (× and the standalone word "x") to "*".
+  const text = (measurement || "").replace(/×/g, " * ").replace(/\bx\b/gi, " * ");
+  // Tokenize on the safe operators only — "-" stays inside words (e.g. "CT-e").
+  const tokens: { type: "op" | "term"; value: string }[] = [];
+  let buf = "";
+  for (const ch of text) {
+    if ("/*+()".includes(ch)) {
+      if (buf.trim()) tokens.push({ type: "term", value: buf.trim() });
+      buf = "";
+      tokens.push({ type: "op", value: ch });
+    } else {
+      buf += ch;
+    }
+  }
+  if (buf.trim()) tokens.push({ type: "term", value: buf.trim() });
+
+  const cleanTerm = (s: string) => s.replace(/\.+$/, "").trim();
+  const variables: { key: string; label: string }[] = [];
+  const seen = new Set<string>();
+  for (const t of tokens) {
+    if (t.type !== "term" || isNumericLiteral(t.value)) continue;
+    const label = cleanTerm(t.value);
+    const key = slugifyKey(label);
+    if (!seen.has(key)) {
+      seen.add(key);
+      variables.push({ key, label });
+    }
+  }
+
+  // Descriptive measurement with no operators → a single direct-value variable.
+  if (variables.length === 0) {
+    const label = (measurement || "").trim() || "Valor apurado";
+    return { variables: [{ key: "valor", label }], expression: "valor" };
+  }
+
+  const expression = tokens
+    .map((t) => {
+      if (t.type === "op") {
+        return t.value === "(" || t.value === ")" ? t.value : ` ${t.value} `;
+      }
+      return isNumericLiteral(t.value)
+        ? t.value.replace(",", ".")
+        : slugifyKey(cleanTerm(t.value));
+    })
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return { variables, expression };
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
-  // 1. Find the organization
-  const orgs = await db.select().from(organizationsTable).limit(1);
-  if (orgs.length === 0) throw new Error("No organization found — run seed.ts first");
-  const orgId = orgs[0].id;
-  console.log(`Using org: ${orgs[0].name} (id=${orgId})`);
+  // 1. Resolve the target org — CLI arg (e.g. `seed-kpi 3`) or the first org.
+  const orgArg = process.argv[2];
+  let orgId: number;
+  let orgName: string;
+  if (orgArg) {
+    const parsed = Number(orgArg);
+    if (!Number.isInteger(parsed)) throw new Error(`Org id inválido: ${orgArg}`);
+    const [org] = await db.select().from(organizationsTable).where(eq(organizationsTable.id, parsed));
+    if (!org) throw new Error(`Organização ${parsed} não encontrada`);
+    orgId = org.id;
+    orgName = org.name;
+  } else {
+    const orgs = await db.select().from(organizationsTable).limit(1);
+    if (orgs.length === 0) throw new Error("No organization found — run seed.ts first");
+    orgId = orgs[0].id;
+    orgName = orgs[0].name;
+  }
+  console.log(`Using org: ${orgName} (id=${orgId})`);
 
   // 2. Upsert objectives (match by name to avoid duplicates)
   const existingObjectives = await db.select().from(kpiObjectivesTable)
@@ -1048,10 +1177,25 @@ async function main() {
 
     const existingInd = existingInds.find((e) => (e.unit ?? "") === ind.unit);
 
+    const category = deriveCategory(ind);
+    const norms = deriveNorms(category);
+
+    const formula = deriveFormula(ind.measurement);
+
     let indicatorId: number;
 
     if (existingInd) {
       indicatorId = existingInd.id;
+      // Backfill category + norms + formula onto indicators created before
+      // these fields existed.
+      await db.update(kpiIndicatorsTable)
+        .set({
+          category,
+          norms,
+          formulaVariables: formula.variables,
+          formulaExpression: formula.expression,
+        })
+        .where(eq(kpiIndicatorsTable.id, existingInd.id));
       skipped++;
     } else {
       const [newInd] = await db.insert(kpiIndicatorsTable).values({
@@ -1063,6 +1207,10 @@ async function main() {
         measureUnit: ind.measureUnit || undefined,
         direction: ind.direction,
         periodicity: ind.periodicity,
+        category,
+        norms,
+        formulaVariables: formula.variables,
+        formulaExpression: formula.expression,
       }).returning();
       indicatorId = newInd.id;
       created++;
@@ -1086,9 +1234,11 @@ async function main() {
     })
     .returning();
 
-    // Also upsert year config for current year so the edit form shows meta/objetivo
+    // Also upsert year config for current year so the dashboard (which defaults
+    // to the current year) renders populated data for the demo org.
+    let currentYearConfigId: number | null = null;
     if (CURRENT_YEAR !== YEAR) {
-      await db.insert(kpiYearConfigsTable).values({
+      const [ycCurrent] = await db.insert(kpiYearConfigsTable).values({
         organizationId: orgId,
         indicatorId,
         objectiveId,
@@ -1098,23 +1248,29 @@ async function main() {
       .onConflictDoUpdate({
         target: [kpiYearConfigsTable.organizationId, kpiYearConfigsTable.indicatorId, kpiYearConfigsTable.year],
         set: { objectiveId, goal: goalStr },
-      });
+      })
+      .returning();
+      currentYearConfigId = ycCurrent.id;
     }
 
-    // Insert monthly values
+    // Insert monthly values into every relevant year config.
     const monthValues = ind.values
       .map((v, i) => ({ month: i + 1, value: v }))
       .filter((mv) => mv.value !== null) as { month: number; value: number }[];
 
     if (monthValues.length > 0) {
-      await db.insert(kpiMonthlyValuesTable).values(
-        monthValues.map((mv) => ({
-          organizationId: orgId,
-          yearConfigId: yc.id,
-          month: mv.month,
-          value: String(mv.value),
-        }))
-      ).onConflictDoNothing();
+      const targetConfigIds = [yc.id];
+      if (currentYearConfigId !== null) targetConfigIds.push(currentYearConfigId);
+      for (const configId of targetConfigIds) {
+        await db.insert(kpiMonthlyValuesTable).values(
+          monthValues.map((mv) => ({
+            organizationId: orgId,
+            yearConfigId: configId,
+            month: mv.month,
+            value: String(mv.value),
+          }))
+        ).onConflictDoNothing();
+      }
     }
   }
 

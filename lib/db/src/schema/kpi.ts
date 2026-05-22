@@ -15,6 +15,26 @@ export type KpiPeriodicity =
   | "monthly_45d";
 export type KpiFeedStatus = "fed" | "overdue";
 
+export type KpiCategory =
+  | "Qualidade"
+  | "Ambiental"
+  | "Seg. Viária"
+  | "RH"
+  | "Frota"
+  | "Financeiro";
+export const KPI_CATEGORIES: KpiCategory[] = [
+  "Qualidade",
+  "Ambiental",
+  "Seg. Viária",
+  "RH",
+  "Frota",
+  "Financeiro",
+];
+
+/** ISO norm codes an indicator can be tagged with (cláusula 9.1 — monitoramento). */
+export type KpiNorm = "9001" | "14001" | "39001";
+export const KPI_NORMS: KpiNorm[] = ["9001", "14001", "39001"];
+
 export type KpiFormulaVariable = { key: string; label: string };
 export type KpiMonthlyValueInputs = Record<string, number | null>;
 
@@ -43,6 +63,11 @@ export const kpiIndicatorsTable = pgTable("kpi_indicators", {
   measureUnit: varchar("measure_unit", { length: 50 }),
   direction: varchar("direction", { length: 4 }).notNull(),
   periodicity: varchar("periodicity", { length: 50 }).notNull(),
+  category: varchar("category", { length: 50 }),
+  norms: jsonb("norms")
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

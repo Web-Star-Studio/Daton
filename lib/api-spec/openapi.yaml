@@ -48,6 +48,8 @@ tags:
     description: Supplier management and external provider control (ISO 9001:2015 §8.4 / §8.6)
   - name: kpi
     description: KPI indicators, objectives and performance data (ISO 9001:2015 §9.1)
+  - name: road-safety
+    description: Road safety performance factors and GUT analysis (ISO 39001 §6.3)
   - name: action-plans
     description: Cross-module action plans (RAC) with corrective actions and evidences
   - name: assets
@@ -8240,8 +8242,439 @@ paths:
         "204":
           description: Evidence deleted
 
+  /organizations/{orgId}/road-safety/factors:
+    get:
+      operationId: listRoadSafetyFactors
+      tags: [road-safety]
+      summary: List road safety performance factors
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of performance factors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoadSafetyFactor"
+    post:
+      operationId: createRoadSafetyFactor
+      tags: [road-safety]
+      summary: Create a road safety performance factor
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoadSafetyFactorBody"
+      responses:
+        "201":
+          description: Factor created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoadSafetyFactor"
+
+  /organizations/{orgId}/road-safety/factors/{factorId}:
+    get:
+      operationId: getRoadSafetyFactor
+      tags: [road-safety]
+      summary: Get a road safety performance factor
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: factorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Performance factor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoadSafetyFactor"
+    patch:
+      operationId: updateRoadSafetyFactor
+      tags: [road-safety]
+      summary: Update a road safety performance factor
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: factorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRoadSafetyFactorBody"
+      responses:
+        "200":
+          description: Factor updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoadSafetyFactor"
+    delete:
+      operationId: deleteRoadSafetyFactor
+      tags: [road-safety]
+      summary: Delete a road safety performance factor
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: factorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Factor deleted
+
+  /organizations/{orgId}/road-safety/factors/{factorId}/measurements:
+    get:
+      operationId: listRoadSafetyMeasurements
+      tags: [road-safety]
+      summary: List measurements (indicator launches) of a factor
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: factorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of measurements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoadSafetyMeasurement"
+    post:
+      operationId: createRoadSafetyMeasurement
+      tags: [road-safety]
+      summary: Register an immutable indicator launch for a factor
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: factorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoadSafetyMeasurementBody"
+      responses:
+        "201":
+          description: Measurement created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoadSafetyMeasurement"
+
 components:
   schemas:
+    RoadSafetyFactor:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        code:
+          type: string
+        type:
+          type: string
+          enum: [exposure, intermediate, final]
+        origin:
+          type: string
+          nullable: true
+        normItem:
+          type: string
+          nullable: true
+        isAdditional:
+          type: boolean
+        name:
+          type: string
+        analysis:
+          type: string
+          nullable: true
+        monitoringForm:
+          type: string
+          nullable: true
+        periodicity:
+          type: string
+        measureUnit:
+          type: string
+          nullable: true
+        goal:
+          type: number
+          nullable: true
+        responsibleUserId:
+          type: integer
+          nullable: true
+        responsibleUserName:
+          type: string
+          nullable: true
+        monitoringDetail:
+          type: string
+          nullable: true
+        gutGravity:
+          type: integer
+        gutUrgency:
+          type: integer
+        gutTendency:
+          type: integer
+        gutScore:
+          type: integer
+          description: Computed — gravity × urgency × tendency.
+        existingControls:
+          type: string
+          nullable: true
+        controlStatus:
+          type: string
+          enum: [scheduled, regularized, non_conforming, overdue, in_progress]
+        reviewDeadline:
+          type: string
+          nullable: true
+        actionPlanRef:
+          type: string
+          nullable: true
+        latestValue:
+          type: number
+          nullable: true
+          description: Computed — most recent measurement value.
+        latestMeasurementDate:
+          type: string
+          nullable: true
+        measurementCount:
+          type: integer
+        updatedThisMonth:
+          type: boolean
+          description: Computed — has a measurement dated in the current month.
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - code
+        - type
+        - isAdditional
+        - name
+        - periodicity
+        - gutGravity
+        - gutUrgency
+        - gutTendency
+        - gutScore
+        - controlStatus
+        - measurementCount
+        - updatedThisMonth
+        - createdAt
+        - updatedAt
+
+    RoadSafetyMeasurement:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        factorId:
+          type: integer
+        value:
+          type: number
+        referenceDate:
+          type: string
+        note:
+          type: string
+          nullable: true
+        createdByUserId:
+          type: integer
+          nullable: true
+        createdByUserName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - factorId
+        - value
+        - referenceDate
+        - createdAt
+        - updatedAt
+
+    CreateRoadSafetyFactorBody:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [exposure, intermediate, final]
+        origin:
+          type: string
+          nullable: true
+        normItem:
+          type: string
+          nullable: true
+        isAdditional:
+          type: boolean
+        name:
+          type: string
+          minLength: 1
+        analysis:
+          type: string
+          nullable: true
+        monitoringForm:
+          type: string
+          nullable: true
+        periodicity:
+          type: string
+        measureUnit:
+          type: string
+          nullable: true
+        goal:
+          type: number
+          nullable: true
+        responsibleUserId:
+          type: integer
+          nullable: true
+        monitoringDetail:
+          type: string
+          nullable: true
+        gutGravity:
+          type: integer
+        gutUrgency:
+          type: integer
+        gutTendency:
+          type: integer
+        existingControls:
+          type: string
+          nullable: true
+        controlStatus:
+          type: string
+          enum: [scheduled, regularized, non_conforming, overdue, in_progress]
+        reviewDeadline:
+          type: string
+          nullable: true
+        actionPlanRef:
+          type: string
+          nullable: true
+      required:
+        - type
+        - name
+
+    UpdateRoadSafetyFactorBody:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [exposure, intermediate, final]
+        origin:
+          type: string
+          nullable: true
+        normItem:
+          type: string
+          nullable: true
+        isAdditional:
+          type: boolean
+        name:
+          type: string
+          minLength: 1
+        analysis:
+          type: string
+          nullable: true
+        monitoringForm:
+          type: string
+          nullable: true
+        periodicity:
+          type: string
+        measureUnit:
+          type: string
+          nullable: true
+        goal:
+          type: number
+          nullable: true
+        responsibleUserId:
+          type: integer
+          nullable: true
+        monitoringDetail:
+          type: string
+          nullable: true
+        gutGravity:
+          type: integer
+        gutUrgency:
+          type: integer
+        gutTendency:
+          type: integer
+        existingControls:
+          type: string
+          nullable: true
+        controlStatus:
+          type: string
+          enum: [scheduled, regularized, non_conforming, overdue, in_progress]
+        reviewDeadline:
+          type: string
+          nullable: true
+        actionPlanRef:
+          type: string
+          nullable: true
+
+    CreateRoadSafetyMeasurementBody:
+      type: object
+      properties:
+        value:
+          type: number
+        referenceDate:
+          type: string
+        note:
+          type: string
+      required:
+        - value
+        - referenceDate
+
     HealthStatus:
       type: object
       properties:
@@ -10495,6 +10928,7 @@ components:
           suppliers,
           environmental,
           kpi,
+          roadSafety,
           assets,
         ]
 
@@ -14364,6 +14798,13 @@ components:
         periodicity:
           type: string
           enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+        category:
+          type: string
+          nullable: true
+        norms:
+          type: array
+          items:
+            type: string
         createdAt:
           type: string
         updatedAt:
@@ -14377,6 +14818,7 @@ components:
         - formulaExpression
         - direction
         - periodicity
+        - norms
         - createdAt
         - updatedAt
 
@@ -14410,6 +14852,13 @@ components:
         periodicity:
           type: string
           enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+        category:
+          type: string
+          nullable: true
+        norms:
+          type: array
+          items:
+            type: string
         objectiveId:
           type: integer
           nullable: true
@@ -14457,6 +14906,13 @@ components:
         periodicity:
           type: string
           enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+        category:
+          type: string
+          nullable: true
+        norms:
+          type: array
+          items:
+            type: string
 
     KpiYearConfig:
       type: object

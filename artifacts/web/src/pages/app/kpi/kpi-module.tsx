@@ -1,0 +1,55 @@
+import { useState } from "react";
+import { KpiTabs, type KpiTabId } from "./_components/kpi-tabs";
+import { LancarScreen } from "./_components/lancar-screen";
+import { RacScreen } from "./_components/rac-screen";
+import { AuditoriaScreen } from "./_components/auditoria-screen";
+import KpiDashboardPage from "./dashboard";
+import KpiIndicadoresPage from "./indicadores";
+
+/**
+ * Shell de página única do módulo de Indicadores (KPI), espelhando o protótipo
+ * IndicaOS. As abas (Dashboard, Indicadores) trocam por estado — sem navegação
+ * de rota. As rotas /kpi/dashboard e /kpi/lancamentos seguem registradas como
+ * páginas avulsas para uso futuro, mas o shell não navega até elas.
+ */
+function initialTab(): KpiTabId {
+  // Deep-link a um indicador (#ind-card-N) abre direto na aba Indicadores.
+  if (
+    typeof window !== "undefined" &&
+    window.location.hash.startsWith("#ind-card-")
+  ) {
+    return "indicadores";
+  }
+  return "dashboard";
+}
+
+export default function KpiModulePage() {
+  const [tab, setTab] = useState<KpiTabId>(initialTab);
+
+  return (
+    <div className="flex min-h-full flex-col">
+      <KpiTabs active={tab} onChange={setTab} />
+      {tab === "indicadores" ? (
+        <KpiIndicadoresPage />
+      ) : tab === "lancamentos" ? (
+        <LancarScreen />
+      ) : tab === "rac" ? (
+        <RacScreen />
+      ) : tab === "auditoria" ? (
+        <AuditoriaScreen />
+      ) : (
+        <KpiDashboardPage
+          onSelectIndicator={(id) => {
+            // O efeito de scroll de indicadores.tsx lê o hash ao montar.
+            window.history.replaceState(
+              null,
+              "",
+              `${window.location.pathname}#ind-card-${id}`,
+            );
+            setTab("indicadores");
+          }}
+        />
+      )}
+    </div>
+  );
+}

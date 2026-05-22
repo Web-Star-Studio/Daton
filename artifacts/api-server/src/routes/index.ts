@@ -24,6 +24,8 @@ import organizationContactsRouter from "./organization-contacts";
 import productKnowledgeRouter from "./product-knowledge";
 import suppliersRouter from "./suppliers";
 import kpiRouter from "./kpi/index";
+import roadSafetyRouter from "./road-safety/index";
+import criticalReviewsRouter from "./critical-reviews";
 import actionPlansRouter from "./action-plans";
 import assetsRouter from "./assets";
 import assetMaintenanceRouter from "./asset-maintenance";
@@ -143,6 +145,15 @@ router.use(
   requireCompletedOnboarding,
   requireModuleAccessForPaths("kpi", [/^\/organizations\/[^/]+\/kpi(?:\/|$)/]),
   kpiRouter,
+  criticalReviewsRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("roadSafety", [
+    /^\/organizations\/[^/]+\/road-safety(?:\/|$)/,
+  ]),
+  roadSafetyRouter,
 );
 router.use(requireAuth, requireCompletedOnboarding, actionPlansRouter);
 router.use(

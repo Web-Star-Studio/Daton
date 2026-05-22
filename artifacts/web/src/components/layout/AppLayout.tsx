@@ -16,6 +16,7 @@ import {
   Scale,
   Settings,
   Sparkles,
+  TrafficCone,
   Wrench,
 } from "lucide-react";
 import { cn, formatFirstAndLastName } from "@/lib/utils";
@@ -40,6 +41,7 @@ type AppModule =
   | "suppliers"
   | "environmental"
   | "kpi"
+  | "roadSafety"
   | "assets";
 
 type NavLink = {
@@ -69,7 +71,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [qualidadePopover, setQualidadePopover] = useState(false);
   const [governancaPopover, setGovernancaPopover] = useState(false);
   const [ambientalPopover, setAmbientalPopover] = useState(false);
-  const [kpiPopover, setKpiPopover] = useState(false);
   const [infraestruturaPopover, setInfraestruturaPopover] = useState(false);
   const [configuracoesPopover, setConfiguracoesPopover] = useState(false);
   const [orgPopoverPos, setOrgPopoverPos] = useState<PopoverPosition>({
@@ -91,10 +92,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       top: 0,
       left: 0,
     });
-  const [kpiPopoverPos, setKpiPopoverPos] = useState<PopoverPosition>({
-    top: 0,
-    left: 0,
-  });
   const [infraestruturaPopoverPos, setInfraestruturaPopoverPos] =
     useState<PopoverPosition>({
       top: 0,
@@ -109,7 +106,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const qualidadeRef = useRef<HTMLDivElement>(null);
   const governancaRef = useRef<HTMLDivElement>(null);
   const ambientalRef = useRef<HTMLDivElement>(null);
-  const kpiRef = useRef<HTMLDivElement>(null);
   const infraestruturaRef = useRef<HTMLDivElement>(null);
   const configuracoesRef = useRef<HTMLDivElement>(null);
   const organizacaoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -124,7 +120,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const ambientalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  const kpiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const infraestruturaTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -165,10 +160,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         clearTimeout(ambientalTimeoutRef.current);
         ambientalTimeoutRef.current = null;
       }
-      if (kpiTimeoutRef.current) {
-        clearTimeout(kpiTimeoutRef.current);
-        kpiTimeoutRef.current = null;
-      }
       if (infraestruturaTimeoutRef.current) {
         clearTimeout(infraestruturaTimeoutRef.current);
         infraestruturaTimeoutRef.current = null;
@@ -191,6 +182,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       { prefix: "/governanca", module: "governance" },
       { prefix: "/ambiental", module: "environmental" },
       { prefix: "/kpi", module: "kpi" },
+      { prefix: "/fatores-desempenho", module: "roadSafety" },
       { prefix: "/infraestrutura", module: "assets" },
     ];
 
@@ -341,13 +333,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     } else if (normalizedLocation.startsWith("/kpi")) {
       crumbs.push({ label: "Indicadores (KPI)" });
 
-      if (normalizedLocation.startsWith("/kpi/indicadores")) {
-        crumbs.push({ label: "Indicadores", href: "/kpi/indicadores" });
-      } else if (normalizedLocation.startsWith("/kpi/lancamentos")) {
-        crumbs.push({ label: "Lançamento", href: "/kpi/lancamentos" });
+      if (normalizedLocation.startsWith("/kpi/lancamentos")) {
+        crumbs.push({ label: "Lançamento" });
       } else if (normalizedLocation.startsWith("/kpi/dashboard")) {
-        crumbs.push({ label: "Dashboard", href: "/kpi/dashboard" });
+        crumbs.push({ label: "Dashboard" });
       }
+    } else if (normalizedLocation.startsWith("/fatores-desempenho")) {
+      crumbs.push({ label: "Fatores de Desempenho" });
     } else if (normalizedLocation.startsWith("/planos-acao")) {
       crumbs.push({ label: "Planos de Ação", href: "/planos-acao" });
       if (pageTitle && normalizedLocation !== "/planos-acao") {
@@ -445,12 +437,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { href: "/configuracoes/sistema", label: "Sistema" },
   ];
 
-  const kpiLinks: NavLink[] = [
-    { href: "/kpi/indicadores", label: "Indicadores" },
-    { href: "/kpi/lancamentos", label: "Lançamentos" },
-    { href: "/kpi/dashboard", label: "Dashboard" },
-  ];
-
   const infraestruturaLinks: NavLink[] = [
     ...(hasModuleAccess("assets")
       ? [
@@ -465,6 +451,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const showGovernanca = hasModuleAccess("governance");
   const showAmbiental = hasModuleAccess("environmental");
   const showKpi = hasModuleAccess("kpi");
+  const showRoadSafety = hasModuleAccess("roadSafety");
   const showInfraestrutura = infraestruturaLinks.length > 0;
 
   const openPopover = (
@@ -746,41 +733,47 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           )}
 
           {showKpi && (
-            <div
-              ref={kpiRef}
-              onMouseEnter={() =>
-                openPopover(
-                  kpiRef,
-                  setKpiPopoverPos,
-                  setKpiPopover,
-                  kpiTimeoutRef,
-                )
-              }
-              onMouseLeave={() => closePopover(setKpiPopover, kpiTimeoutRef)}
+            <Link
+              href="/kpi/indicadores"
+              className={cn(
+                "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+                isActive("/kpi")
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
             >
-              <Link
-                href="/kpi/indicadores"
-                className={cn(
-                  "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
-                  isActive("/kpi")
-                    ? "font-medium text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <div className="flex items-center">
-                  <BarChart2
-                    className={cn(
-                      "h-[18px] w-[18px] shrink-0",
-                      isSidebarOpen && "mr-2.5",
-                    )}
-                  />
-                  {isSidebarOpen && <span>Indicadores</span>}
-                </div>
-                {isSidebarOpen && (
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
-                )}
-              </Link>
-            </div>
+              <div className="flex items-center">
+                <BarChart2
+                  className={cn(
+                    "h-[18px] w-[18px] shrink-0",
+                    isSidebarOpen && "mr-2.5",
+                  )}
+                />
+                {isSidebarOpen && <span>Indicadores</span>}
+              </div>
+            </Link>
+          )}
+
+          {showRoadSafety && (
+            <Link
+              href="/fatores-desempenho"
+              className={cn(
+                "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer",
+                isActive("/fatores-desempenho")
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <div className="flex items-center">
+                <TrafficCone
+                  className={cn(
+                    "h-[18px] w-[18px] shrink-0",
+                    isSidebarOpen && "mr-2.5",
+                  )}
+                />
+                {isSidebarOpen && <span>Fatores de Desempenho</span>}
+              </div>
+            </Link>
           )}
 
           <Link
@@ -912,14 +905,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             setAmbientalPopover,
             ambientalPopoverPos,
             ambientalTimeoutRef,
-          )}
-          {renderPopover(
-            "Indicadores (KPI)",
-            kpiLinks,
-            kpiPopover,
-            setKpiPopover,
-            kpiPopoverPos,
-            kpiTimeoutRef,
           )}
           {renderPopover(
             "Infraestrutura",

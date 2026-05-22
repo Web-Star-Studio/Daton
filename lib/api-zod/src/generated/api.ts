@@ -155,6 +155,7 @@ export const GetMeResponse = zod.object({
       "suppliers",
       "environmental",
       "kpi",
+      "roadSafety",
       "assets",
     ]),
   ),
@@ -265,6 +266,7 @@ export const UpdateMeResponse = zod.object({
       "suppliers",
       "environmental",
       "kpi",
+      "roadSafety",
       "assets",
     ]),
   ),
@@ -5766,6 +5768,7 @@ export const ListOrgUsersResponse = zod.object({
           "suppliers",
           "environmental",
           "kpi",
+          "roadSafety",
           "assets",
         ]),
       ),
@@ -5799,6 +5802,7 @@ export const CreateOrgUserBody = zod.object({
       "suppliers",
       "environmental",
       "kpi",
+      "roadSafety",
       "assets",
     ]),
   ),
@@ -5868,6 +5872,7 @@ export const UpdateUserModulesBody = zod.object({
       "suppliers",
       "environmental",
       "kpi",
+      "roadSafety",
       "assets",
     ]),
   ),
@@ -5888,6 +5893,7 @@ export const UpdateUserModulesResponse = zod.object({
         "suppliers",
         "environmental",
         "kpi",
+        "roadSafety",
         "assets",
       ]),
     )
@@ -5913,6 +5919,7 @@ export const CreateInvitationBody = zod.object({
         "suppliers",
         "environmental",
         "kpi",
+        "roadSafety",
         "assets",
       ]),
     )
@@ -5943,6 +5950,7 @@ export const ListInvitationsResponse = zod.object({
           "suppliers",
           "environmental",
           "kpi",
+          "roadSafety",
           "assets",
         ]),
       ),
@@ -13254,6 +13262,8 @@ export const ListKpiIndicatorsResponseItem = zod.object({
     "monthly_15d",
     "monthly_45d",
   ]),
+  category: zod.string().nullish(),
+  norms: zod.array(zod.string()),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -13297,6 +13307,8 @@ export const CreateKpiIndicatorBody = zod.object({
     "monthly_15d",
     "monthly_45d",
   ]),
+  category: zod.string().nullish(),
+  norms: zod.array(zod.string()).optional(),
   objectiveId: zod.number().nullish(),
   goal: zod.number().nullish(),
   seq: zod.number().nullish(),
@@ -13343,6 +13355,8 @@ export const UpdateKpiIndicatorBody = zod.object({
       "monthly_45d",
     ])
     .optional(),
+  category: zod.string().nullish(),
+  norms: zod.array(zod.string()).optional(),
 });
 
 export const updateKpiIndicatorResponseFormulaVariablesItemKeyRegExp =
@@ -13384,6 +13398,8 @@ export const UpdateKpiIndicatorResponse = zod.object({
     "monthly_15d",
     "monthly_45d",
   ]),
+  category: zod.string().nullish(),
+  norms: zod.array(zod.string()),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -13454,6 +13470,8 @@ export const ListKpiYearDataResponseItem = zod.object({
       "monthly_15d",
       "monthly_45d",
     ]),
+    category: zod.string().nullish(),
+    norms: zod.array(zod.string()),
     createdAt: zod.string(),
     updatedAt: zod.string(),
   }),
@@ -16109,4 +16127,275 @@ export const DeleteActionPlanEvidenceParams = zod.object({
   orgId: zod.coerce.number(),
   planId: zod.coerce.number(),
   evidenceId: zod.coerce.number(),
+});
+
+/**
+ * @summary List road safety performance factors
+ */
+export const ListRoadSafetyFactorsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListRoadSafetyFactorsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  code: zod.string(),
+  type: zod.enum(["exposure", "intermediate", "final"]),
+  origin: zod.string().nullish(),
+  normItem: zod.string().nullish(),
+  isAdditional: zod.boolean(),
+  name: zod.string(),
+  analysis: zod.string().nullish(),
+  monitoringForm: zod.string().nullish(),
+  periodicity: zod.string(),
+  measureUnit: zod.string().nullish(),
+  goal: zod.number().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  monitoringDetail: zod.string().nullish(),
+  gutGravity: zod.number(),
+  gutUrgency: zod.number(),
+  gutTendency: zod.number(),
+  gutScore: zod.number().describe("Computed — gravity × urgency × tendency."),
+  existingControls: zod.string().nullish(),
+  controlStatus: zod.enum([
+    "scheduled",
+    "regularized",
+    "non_conforming",
+    "overdue",
+    "in_progress",
+  ]),
+  reviewDeadline: zod.string().nullish(),
+  actionPlanRef: zod.string().nullish(),
+  latestValue: zod
+    .number()
+    .nullish()
+    .describe("Computed — most recent measurement value."),
+  latestMeasurementDate: zod.string().nullish(),
+  measurementCount: zod.number(),
+  updatedThisMonth: zod
+    .boolean()
+    .describe("Computed — has a measurement dated in the current month."),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListRoadSafetyFactorsResponse = zod.array(
+  ListRoadSafetyFactorsResponseItem,
+);
+
+/**
+ * @summary Create a road safety performance factor
+ */
+export const CreateRoadSafetyFactorParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateRoadSafetyFactorBody = zod.object({
+  type: zod.enum(["exposure", "intermediate", "final"]),
+  origin: zod.string().nullish(),
+  normItem: zod.string().nullish(),
+  isAdditional: zod.boolean().optional(),
+  name: zod.string().min(1),
+  analysis: zod.string().nullish(),
+  monitoringForm: zod.string().nullish(),
+  periodicity: zod.string().optional(),
+  measureUnit: zod.string().nullish(),
+  goal: zod.number().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  monitoringDetail: zod.string().nullish(),
+  gutGravity: zod.number().optional(),
+  gutUrgency: zod.number().optional(),
+  gutTendency: zod.number().optional(),
+  existingControls: zod.string().nullish(),
+  controlStatus: zod
+    .enum([
+      "scheduled",
+      "regularized",
+      "non_conforming",
+      "overdue",
+      "in_progress",
+    ])
+    .optional(),
+  reviewDeadline: zod.string().nullish(),
+  actionPlanRef: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a road safety performance factor
+ */
+export const GetRoadSafetyFactorParams = zod.object({
+  orgId: zod.coerce.number(),
+  factorId: zod.coerce.number(),
+});
+
+export const GetRoadSafetyFactorResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  code: zod.string(),
+  type: zod.enum(["exposure", "intermediate", "final"]),
+  origin: zod.string().nullish(),
+  normItem: zod.string().nullish(),
+  isAdditional: zod.boolean(),
+  name: zod.string(),
+  analysis: zod.string().nullish(),
+  monitoringForm: zod.string().nullish(),
+  periodicity: zod.string(),
+  measureUnit: zod.string().nullish(),
+  goal: zod.number().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  monitoringDetail: zod.string().nullish(),
+  gutGravity: zod.number(),
+  gutUrgency: zod.number(),
+  gutTendency: zod.number(),
+  gutScore: zod.number().describe("Computed — gravity × urgency × tendency."),
+  existingControls: zod.string().nullish(),
+  controlStatus: zod.enum([
+    "scheduled",
+    "regularized",
+    "non_conforming",
+    "overdue",
+    "in_progress",
+  ]),
+  reviewDeadline: zod.string().nullish(),
+  actionPlanRef: zod.string().nullish(),
+  latestValue: zod
+    .number()
+    .nullish()
+    .describe("Computed — most recent measurement value."),
+  latestMeasurementDate: zod.string().nullish(),
+  measurementCount: zod.number(),
+  updatedThisMonth: zod
+    .boolean()
+    .describe("Computed — has a measurement dated in the current month."),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Update a road safety performance factor
+ */
+export const UpdateRoadSafetyFactorParams = zod.object({
+  orgId: zod.coerce.number(),
+  factorId: zod.coerce.number(),
+});
+
+export const UpdateRoadSafetyFactorBody = zod.object({
+  type: zod.enum(["exposure", "intermediate", "final"]).optional(),
+  origin: zod.string().nullish(),
+  normItem: zod.string().nullish(),
+  isAdditional: zod.boolean().optional(),
+  name: zod.string().min(1).optional(),
+  analysis: zod.string().nullish(),
+  monitoringForm: zod.string().nullish(),
+  periodicity: zod.string().optional(),
+  measureUnit: zod.string().nullish(),
+  goal: zod.number().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  monitoringDetail: zod.string().nullish(),
+  gutGravity: zod.number().optional(),
+  gutUrgency: zod.number().optional(),
+  gutTendency: zod.number().optional(),
+  existingControls: zod.string().nullish(),
+  controlStatus: zod
+    .enum([
+      "scheduled",
+      "regularized",
+      "non_conforming",
+      "overdue",
+      "in_progress",
+    ])
+    .optional(),
+  reviewDeadline: zod.string().nullish(),
+  actionPlanRef: zod.string().nullish(),
+});
+
+export const UpdateRoadSafetyFactorResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  code: zod.string(),
+  type: zod.enum(["exposure", "intermediate", "final"]),
+  origin: zod.string().nullish(),
+  normItem: zod.string().nullish(),
+  isAdditional: zod.boolean(),
+  name: zod.string(),
+  analysis: zod.string().nullish(),
+  monitoringForm: zod.string().nullish(),
+  periodicity: zod.string(),
+  measureUnit: zod.string().nullish(),
+  goal: zod.number().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  monitoringDetail: zod.string().nullish(),
+  gutGravity: zod.number(),
+  gutUrgency: zod.number(),
+  gutTendency: zod.number(),
+  gutScore: zod.number().describe("Computed — gravity × urgency × tendency."),
+  existingControls: zod.string().nullish(),
+  controlStatus: zod.enum([
+    "scheduled",
+    "regularized",
+    "non_conforming",
+    "overdue",
+    "in_progress",
+  ]),
+  reviewDeadline: zod.string().nullish(),
+  actionPlanRef: zod.string().nullish(),
+  latestValue: zod
+    .number()
+    .nullish()
+    .describe("Computed — most recent measurement value."),
+  latestMeasurementDate: zod.string().nullish(),
+  measurementCount: zod.number(),
+  updatedThisMonth: zod
+    .boolean()
+    .describe("Computed — has a measurement dated in the current month."),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Delete a road safety performance factor
+ */
+export const DeleteRoadSafetyFactorParams = zod.object({
+  orgId: zod.coerce.number(),
+  factorId: zod.coerce.number(),
+});
+
+/**
+ * @summary List measurements (indicator launches) of a factor
+ */
+export const ListRoadSafetyMeasurementsParams = zod.object({
+  orgId: zod.coerce.number(),
+  factorId: zod.coerce.number(),
+});
+
+export const ListRoadSafetyMeasurementsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  factorId: zod.number(),
+  value: zod.number(),
+  referenceDate: zod.string(),
+  note: zod.string().nullish(),
+  createdByUserId: zod.number().nullish(),
+  createdByUserName: zod.string().nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListRoadSafetyMeasurementsResponse = zod.array(
+  ListRoadSafetyMeasurementsResponseItem,
+);
+
+/**
+ * @summary Register an immutable indicator launch for a factor
+ */
+export const CreateRoadSafetyMeasurementParams = zod.object({
+  orgId: zod.coerce.number(),
+  factorId: zod.coerce.number(),
+});
+
+export const CreateRoadSafetyMeasurementBody = zod.object({
+  value: zod.number(),
+  referenceDate: zod.string(),
+  note: zod.string().optional(),
 });

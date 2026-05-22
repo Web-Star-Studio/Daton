@@ -46,6 +46,31 @@ export type KpiPeriodicity = "monthly" | "quarterly" | "semiannual" | "annual" |
 export type TrafficLight = "green" | "yellow" | "red";
 export type RacStatus = "needs_action" | "no_action" | "no_data";
 
+/** Indicator categories — drive the "Semáforo por categoria" dashboard widget. */
+export type KpiCategory =
+  | "Qualidade"
+  | "Ambiental"
+  | "Seg. Viária"
+  | "RH"
+  | "Frota"
+  | "Financeiro";
+export const KPI_CATEGORIES: KpiCategory[] = [
+  "Qualidade",
+  "Ambiental",
+  "Seg. Viária",
+  "RH",
+  "Frota",
+  "Financeiro",
+];
+
+/** ISO norm codes an indicator can attend (cláusula 9.1 — monitoramento e medição). */
+export type KpiNorm = "9001" | "14001" | "39001";
+export const KPI_NORMS: { code: KpiNorm; label: string }[] = [
+  { code: "9001", label: "ISO 9001 · cl. 9.1" },
+  { code: "14001", label: "ISO 14001 · cl. 9.1" },
+  { code: "39001", label: "ISO 39001 · cl. 9.1" },
+];
+
 // ─── Semaphore logic ────────────────────────────────────────────────────────
 
 export function getTrafficLight(

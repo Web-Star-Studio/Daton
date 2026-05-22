@@ -72,6 +72,8 @@ import type {
   CreateOrgUserResponse,
   CreatePositionBody,
   CreatePositionCompetencyRequirementBody,
+  CreateRoadSafetyFactorBody,
+  CreateRoadSafetyMeasurementBody,
   CreateSgqProcessBody,
   CreateStrategicPlanActionBody,
   CreateStrategicPlanBody,
@@ -193,6 +195,8 @@ import type {
   RegisterBody,
   RejectDocumentBody,
   RequestPasswordResetBody,
+  RoadSafetyFactor,
+  RoadSafetyMeasurement,
   SaveQuestionnaireResponsesBody,
   SgqProcessDetail,
   SgqProcessRevision,
@@ -249,6 +253,7 @@ import type {
   UpdateOrganizationContactGroupBody,
   UpdatePositionBody,
   UpdatePositionCompetencyRequirementBody,
+  UpdateRoadSafetyFactorBody,
   UpdateSgqProcessBody,
   UpdateStrategicPlanActionBody,
   UpdateStrategicPlanBody,
@@ -28632,4 +28637,711 @@ export const useDeleteActionPlanEvidence = <
   TContext
 > => {
   return useMutation(getDeleteActionPlanEvidenceMutationOptions(options));
+};
+
+/**
+ * @summary List road safety performance factors
+ */
+export const getListRoadSafetyFactorsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/road-safety/factors`;
+};
+
+export const listRoadSafetyFactors = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<RoadSafetyFactor[]> => {
+  return customFetch<RoadSafetyFactor[]>(getListRoadSafetyFactorsUrl(orgId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListRoadSafetyFactorsQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/road-safety/factors`] as const;
+};
+
+export const getListRoadSafetyFactorsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRoadSafetyFactors>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRoadSafetyFactors>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListRoadSafetyFactorsQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listRoadSafetyFactors>>
+  > = ({ signal }) =>
+    listRoadSafetyFactors(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRoadSafetyFactors>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRoadSafetyFactorsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRoadSafetyFactors>>
+>;
+export type ListRoadSafetyFactorsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List road safety performance factors
+ */
+
+export function useListRoadSafetyFactors<
+  TData = Awaited<ReturnType<typeof listRoadSafetyFactors>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRoadSafetyFactors>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRoadSafetyFactorsQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a road safety performance factor
+ */
+export const getCreateRoadSafetyFactorUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/road-safety/factors`;
+};
+
+export const createRoadSafetyFactor = async (
+  orgId: number,
+  createRoadSafetyFactorBody: CreateRoadSafetyFactorBody,
+  options?: RequestInit,
+): Promise<RoadSafetyFactor> => {
+  return customFetch<RoadSafetyFactor>(getCreateRoadSafetyFactorUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createRoadSafetyFactorBody),
+  });
+};
+
+export const getCreateRoadSafetyFactorMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRoadSafetyFactor>>,
+    TError,
+    { orgId: number; data: BodyType<CreateRoadSafetyFactorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createRoadSafetyFactor>>,
+  TError,
+  { orgId: number; data: BodyType<CreateRoadSafetyFactorBody> },
+  TContext
+> => {
+  const mutationKey = ["createRoadSafetyFactor"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createRoadSafetyFactor>>,
+    { orgId: number; data: BodyType<CreateRoadSafetyFactorBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createRoadSafetyFactor(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateRoadSafetyFactorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createRoadSafetyFactor>>
+>;
+export type CreateRoadSafetyFactorMutationBody =
+  BodyType<CreateRoadSafetyFactorBody>;
+export type CreateRoadSafetyFactorMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a road safety performance factor
+ */
+export const useCreateRoadSafetyFactor = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRoadSafetyFactor>>,
+    TError,
+    { orgId: number; data: BodyType<CreateRoadSafetyFactorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createRoadSafetyFactor>>,
+  TError,
+  { orgId: number; data: BodyType<CreateRoadSafetyFactorBody> },
+  TContext
+> => {
+  return useMutation(getCreateRoadSafetyFactorMutationOptions(options));
+};
+
+/**
+ * @summary Get a road safety performance factor
+ */
+export const getGetRoadSafetyFactorUrl = (orgId: number, factorId: number) => {
+  return `/api/organizations/${orgId}/road-safety/factors/${factorId}`;
+};
+
+export const getRoadSafetyFactor = async (
+  orgId: number,
+  factorId: number,
+  options?: RequestInit,
+): Promise<RoadSafetyFactor> => {
+  return customFetch<RoadSafetyFactor>(
+    getGetRoadSafetyFactorUrl(orgId, factorId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetRoadSafetyFactorQueryKey = (
+  orgId: number,
+  factorId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/road-safety/factors/${factorId}`,
+  ] as const;
+};
+
+export const getGetRoadSafetyFactorQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRoadSafetyFactor>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  factorId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRoadSafetyFactor>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetRoadSafetyFactorQueryKey(orgId, factorId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRoadSafetyFactor>>
+  > = ({ signal }) =>
+    getRoadSafetyFactor(orgId, factorId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && factorId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRoadSafetyFactor>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRoadSafetyFactorQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRoadSafetyFactor>>
+>;
+export type GetRoadSafetyFactorQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a road safety performance factor
+ */
+
+export function useGetRoadSafetyFactor<
+  TData = Awaited<ReturnType<typeof getRoadSafetyFactor>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  factorId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRoadSafetyFactor>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRoadSafetyFactorQueryOptions(
+    orgId,
+    factorId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a road safety performance factor
+ */
+export const getUpdateRoadSafetyFactorUrl = (
+  orgId: number,
+  factorId: number,
+) => {
+  return `/api/organizations/${orgId}/road-safety/factors/${factorId}`;
+};
+
+export const updateRoadSafetyFactor = async (
+  orgId: number,
+  factorId: number,
+  updateRoadSafetyFactorBody: UpdateRoadSafetyFactorBody,
+  options?: RequestInit,
+): Promise<RoadSafetyFactor> => {
+  return customFetch<RoadSafetyFactor>(
+    getUpdateRoadSafetyFactorUrl(orgId, factorId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateRoadSafetyFactorBody),
+    },
+  );
+};
+
+export const getUpdateRoadSafetyFactorMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateRoadSafetyFactor>>,
+    TError,
+    {
+      orgId: number;
+      factorId: number;
+      data: BodyType<UpdateRoadSafetyFactorBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateRoadSafetyFactor>>,
+  TError,
+  {
+    orgId: number;
+    factorId: number;
+    data: BodyType<UpdateRoadSafetyFactorBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateRoadSafetyFactor"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateRoadSafetyFactor>>,
+    {
+      orgId: number;
+      factorId: number;
+      data: BodyType<UpdateRoadSafetyFactorBody>;
+    }
+  > = (props) => {
+    const { orgId, factorId, data } = props ?? {};
+
+    return updateRoadSafetyFactor(orgId, factorId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateRoadSafetyFactorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateRoadSafetyFactor>>
+>;
+export type UpdateRoadSafetyFactorMutationBody =
+  BodyType<UpdateRoadSafetyFactorBody>;
+export type UpdateRoadSafetyFactorMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a road safety performance factor
+ */
+export const useUpdateRoadSafetyFactor = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateRoadSafetyFactor>>,
+    TError,
+    {
+      orgId: number;
+      factorId: number;
+      data: BodyType<UpdateRoadSafetyFactorBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateRoadSafetyFactor>>,
+  TError,
+  {
+    orgId: number;
+    factorId: number;
+    data: BodyType<UpdateRoadSafetyFactorBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateRoadSafetyFactorMutationOptions(options));
+};
+
+/**
+ * @summary Delete a road safety performance factor
+ */
+export const getDeleteRoadSafetyFactorUrl = (
+  orgId: number,
+  factorId: number,
+) => {
+  return `/api/organizations/${orgId}/road-safety/factors/${factorId}`;
+};
+
+export const deleteRoadSafetyFactor = async (
+  orgId: number,
+  factorId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteRoadSafetyFactorUrl(orgId, factorId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteRoadSafetyFactorMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteRoadSafetyFactor>>,
+    TError,
+    { orgId: number; factorId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteRoadSafetyFactor>>,
+  TError,
+  { orgId: number; factorId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteRoadSafetyFactor"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteRoadSafetyFactor>>,
+    { orgId: number; factorId: number }
+  > = (props) => {
+    const { orgId, factorId } = props ?? {};
+
+    return deleteRoadSafetyFactor(orgId, factorId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteRoadSafetyFactorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteRoadSafetyFactor>>
+>;
+
+export type DeleteRoadSafetyFactorMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a road safety performance factor
+ */
+export const useDeleteRoadSafetyFactor = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteRoadSafetyFactor>>,
+    TError,
+    { orgId: number; factorId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteRoadSafetyFactor>>,
+  TError,
+  { orgId: number; factorId: number },
+  TContext
+> => {
+  return useMutation(getDeleteRoadSafetyFactorMutationOptions(options));
+};
+
+/**
+ * @summary List measurements (indicator launches) of a factor
+ */
+export const getListRoadSafetyMeasurementsUrl = (
+  orgId: number,
+  factorId: number,
+) => {
+  return `/api/organizations/${orgId}/road-safety/factors/${factorId}/measurements`;
+};
+
+export const listRoadSafetyMeasurements = async (
+  orgId: number,
+  factorId: number,
+  options?: RequestInit,
+): Promise<RoadSafetyMeasurement[]> => {
+  return customFetch<RoadSafetyMeasurement[]>(
+    getListRoadSafetyMeasurementsUrl(orgId, factorId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListRoadSafetyMeasurementsQueryKey = (
+  orgId: number,
+  factorId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/road-safety/factors/${factorId}/measurements`,
+  ] as const;
+};
+
+export const getListRoadSafetyMeasurementsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRoadSafetyMeasurements>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  factorId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRoadSafetyMeasurements>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListRoadSafetyMeasurementsQueryKey(orgId, factorId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listRoadSafetyMeasurements>>
+  > = ({ signal }) =>
+    listRoadSafetyMeasurements(orgId, factorId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && factorId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRoadSafetyMeasurements>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRoadSafetyMeasurementsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRoadSafetyMeasurements>>
+>;
+export type ListRoadSafetyMeasurementsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List measurements (indicator launches) of a factor
+ */
+
+export function useListRoadSafetyMeasurements<
+  TData = Awaited<ReturnType<typeof listRoadSafetyMeasurements>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  factorId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRoadSafetyMeasurements>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRoadSafetyMeasurementsQueryOptions(
+    orgId,
+    factorId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Register an immutable indicator launch for a factor
+ */
+export const getCreateRoadSafetyMeasurementUrl = (
+  orgId: number,
+  factorId: number,
+) => {
+  return `/api/organizations/${orgId}/road-safety/factors/${factorId}/measurements`;
+};
+
+export const createRoadSafetyMeasurement = async (
+  orgId: number,
+  factorId: number,
+  createRoadSafetyMeasurementBody: CreateRoadSafetyMeasurementBody,
+  options?: RequestInit,
+): Promise<RoadSafetyMeasurement> => {
+  return customFetch<RoadSafetyMeasurement>(
+    getCreateRoadSafetyMeasurementUrl(orgId, factorId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createRoadSafetyMeasurementBody),
+    },
+  );
+};
+
+export const getCreateRoadSafetyMeasurementMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRoadSafetyMeasurement>>,
+    TError,
+    {
+      orgId: number;
+      factorId: number;
+      data: BodyType<CreateRoadSafetyMeasurementBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createRoadSafetyMeasurement>>,
+  TError,
+  {
+    orgId: number;
+    factorId: number;
+    data: BodyType<CreateRoadSafetyMeasurementBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createRoadSafetyMeasurement"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createRoadSafetyMeasurement>>,
+    {
+      orgId: number;
+      factorId: number;
+      data: BodyType<CreateRoadSafetyMeasurementBody>;
+    }
+  > = (props) => {
+    const { orgId, factorId, data } = props ?? {};
+
+    return createRoadSafetyMeasurement(orgId, factorId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateRoadSafetyMeasurementMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createRoadSafetyMeasurement>>
+>;
+export type CreateRoadSafetyMeasurementMutationBody =
+  BodyType<CreateRoadSafetyMeasurementBody>;
+export type CreateRoadSafetyMeasurementMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register an immutable indicator launch for a factor
+ */
+export const useCreateRoadSafetyMeasurement = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRoadSafetyMeasurement>>,
+    TError,
+    {
+      orgId: number;
+      factorId: number;
+      data: BodyType<CreateRoadSafetyMeasurementBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createRoadSafetyMeasurement>>,
+  TError,
+  {
+    orgId: number;
+    factorId: number;
+    data: BodyType<CreateRoadSafetyMeasurementBody>;
+  },
+  TContext
+> => {
+  return useMutation(getCreateRoadSafetyMeasurementMutationOptions(options));
 };
