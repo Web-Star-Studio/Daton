@@ -92,3 +92,27 @@ quebra quem já tem a planilha no formato antigo.
 Feature de tamanho médio. Arquivos tocados: `governance-import.ts`,
 `governanca/[id].tsx`, novo asset `.xlsx` + script gerador. **Risco principal:**
 não quebrar o import atual — mitigado pelos aliases dos nomes antigos.
+
+## 9. Régua confirmada na implementação
+
+Ao ler o parser inteiro, confirmou-se que o acoplamento vai **além dos nomes de
+aba**: o `governance-import.ts` lê **posições de célula fixas** (título em B13,
+política em B12, missão B25, resumo executivo B65, etc.). Portanto:
+
+- O modelo é de **layout fixo** — replica as posições exatas. A empresa preenche
+  as células indicadas e não pode inserir/remover linhas.
+- O parser **não teve as coordenadas alteradas** (mantém o import da Gabardo
+  funcionando) — só ganhou aliases de nome de aba.
+
+### Implementado (opção A)
+- `governance-import.ts` — `SHEET_ALIASES` + `findSheet()`: aceita os nomes do
+  modelo e, como apelido, os nomes antigos.
+- `scripts/src/build-governance-template.ts` — gera o modelo `.xlsx`.
+- `artifacts/web/public/templates/modelo-planejamento-governanca.xlsx` — o modelo.
+- `governanca/[id].tsx` — botão "Baixar modelo (.xlsx)" + nomes de aba neutros
+  na referência de colunas; `matrixLabel` neutro ("SWOT" / "SWOT Ambiental").
+
+### A validar
+O modelo deve passar por um **teste real de importação ponta a ponta**
+(preencher, subir) antes de divulgar para clientes — as posições de célula foram
+espelhadas do parser, mas não houve teste de round-trip em navegador.
