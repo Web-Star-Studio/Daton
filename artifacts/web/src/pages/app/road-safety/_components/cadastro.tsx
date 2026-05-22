@@ -31,6 +31,7 @@ import {
   type ControlStatus,
   type FactorType,
   type Periodicity,
+  type WithCurrentDiagnosis,
 } from "@/lib/road-safety-client";
 import { RelevanceBadge } from "./badges";
 
@@ -48,6 +49,7 @@ type FormData = {
   isAdditional: boolean;
   name: string;
   analysis: string;
+  currentDiagnosis: string;
   monitoringForm: string;
   periodicity: Periodicity;
   measureUnit: string;
@@ -70,6 +72,7 @@ const emptyForm = (): FormData => ({
   isAdditional: false,
   name: "",
   analysis: "",
+  currentDiagnosis: "",
   monitoringForm: "indicator",
   periodicity: "monthly",
   measureUnit: "",
@@ -154,6 +157,8 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
       isAdditional: factor.isAdditional,
       name: factor.name,
       analysis: factor.analysis ?? "",
+      currentDiagnosis:
+        (factor as WithCurrentDiagnosis).currentDiagnosis ?? "",
       monitoringForm: factor.monitoringForm ?? "",
       periodicity: factor.periodicity as Periodicity,
       measureUnit: factor.measureUnit ?? "",
@@ -188,6 +193,7 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
       isAdditional: form.isAdditional,
       name: form.name.trim(),
       analysis: form.analysis || null,
+      currentDiagnosis: form.currentDiagnosis || null,
       monitoringForm: form.monitoringForm || null,
       periodicity: form.periodicity,
       measureUnit: form.measureUnit || null,
@@ -270,6 +276,13 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
             value={form.analysis}
             onChange={(e) => set("analysis", e.target.value)}
             placeholder="Descreva como e por que este fator impacta a segurança viária da organização..."
+          />
+        </Field>
+        <Field label="Diagnóstico atual" full>
+          <Textarea
+            value={form.currentDiagnosis}
+            onChange={(e) => set("currentDiagnosis", e.target.value)}
+            placeholder="Estado atual do fator — o diagnóstico que embasa a análise GUT..."
           />
         </Field>
         <label className="flex cursor-pointer items-center gap-2 sm:col-span-2">

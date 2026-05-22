@@ -23,6 +23,12 @@ export type {
   UpdateRoadSafetyFactorBody,
 };
 
+/**
+ * "Diagnóstico atual" (FPLAN 005 · §6.3) — campo já gravado/retornado pela API,
+ * ainda fora do contrato gerado. Use até a próxima rodada de codegen.
+ */
+export type WithCurrentDiagnosis = { currentDiagnosis?: string | null };
+
 // ─── Domain enums + labels (ISO 39001 · 6.3) ─────────────────────────────────
 
 export type FactorType = "exposure" | "intermediate" | "final";
@@ -38,18 +44,28 @@ export const FACTOR_TYPE_SHORT: Record<FactorType, string> = {
   final: "Final",
 };
 
-export type FactorOrigin = "human" | "vehicle" | "road" | "human_vehicle";
+export type FactorOrigin =
+  | "human"
+  | "vehicle"
+  | "road"
+  | "human_vehicle"
+  | "road_human"
+  | "emergency_response";
 export const FACTOR_ORIGINS: FactorOrigin[] = [
   "human",
   "vehicle",
   "road",
   "human_vehicle",
+  "road_human",
+  "emergency_response",
 ];
 export const ORIGIN_LABELS: Record<FactorOrigin, string> = {
   human: "Humano",
   vehicle: "Veículo",
   road: "Via",
   human_vehicle: "Humano + Veículo",
+  road_human: "Via + Humano",
+  emergency_response: "Resposta a Emergências",
 };
 
 export type MonitoringForm = "indicator" | "report" | "internal_audit" | "other";

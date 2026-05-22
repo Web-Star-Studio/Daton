@@ -31,12 +31,16 @@ export type RoadSafetyFactorOrigin =
   | "human"
   | "vehicle"
   | "road"
-  | "human_vehicle";
+  | "human_vehicle"
+  | "road_human"
+  | "emergency_response";
 export const ROAD_SAFETY_FACTOR_ORIGINS: RoadSafetyFactorOrigin[] = [
   "human",
   "vehicle",
   "road",
   "human_vehicle",
+  "road_human",
+  "emergency_response",
 ];
 
 /** Forma de monitoramento do fator. */
@@ -116,6 +120,8 @@ export const roadSafetyFactorsTable = pgTable(
     isAdditional: boolean("is_additional").notNull().default(false),
     name: text("name").notNull(),
     analysis: text("analysis"),
+    /** Diagnóstico atual do fator — estado/baseline (FPLAN 005, coluna 6). */
+    currentDiagnosis: text("current_diagnosis"),
     // Bloco B — Monitoramento
     monitoringForm: varchar("monitoring_form", { length: 30 }),
     periodicity: varchar("periodicity", { length: 20 }).notNull().default("monthly"),

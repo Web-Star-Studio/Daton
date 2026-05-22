@@ -79,6 +79,7 @@ function serializeFactor(
     isAdditional: r.isAdditional,
     name: r.name,
     analysis: r.analysis ?? null,
+    currentDiagnosis: r.currentDiagnosis ?? null,
     monitoringForm: r.monitoringForm ?? null,
     periodicity: r.periodicity,
     measureUnit: r.measureUnit ?? null,
@@ -213,6 +214,12 @@ router.post(
         isAdditional: body.data.isAdditional ?? false,
         name: body.data.name,
         analysis: body.data.analysis ?? null,
+        // currentDiagnosis ainda não está no contrato gerado (api-zod) —
+        // lido direto do corpo até a próxima rodada de codegen.
+        currentDiagnosis:
+          typeof req.body?.currentDiagnosis === "string"
+            ? req.body.currentDiagnosis
+            : null,
         monitoringForm: body.data.monitoringForm ?? null,
         periodicity: body.data.periodicity || "monthly",
         measureUnit: body.data.measureUnit ?? null,
@@ -288,6 +295,12 @@ router.patch(
     if (d.isAdditional !== undefined) updateData.isAdditional = d.isAdditional;
     if (d.name !== undefined) updateData.name = d.name;
     if (d.analysis !== undefined) updateData.analysis = d.analysis;
+    if (req.body && "currentDiagnosis" in req.body) {
+      updateData.currentDiagnosis =
+        typeof req.body.currentDiagnosis === "string"
+          ? req.body.currentDiagnosis
+          : null;
+    }
     if (d.monitoringForm !== undefined) updateData.monitoringForm = d.monitoringForm;
     if (d.periodicity !== undefined) updateData.periodicity = d.periodicity;
     if (d.measureUnit !== undefined) updateData.measureUnit = d.measureUnit;
