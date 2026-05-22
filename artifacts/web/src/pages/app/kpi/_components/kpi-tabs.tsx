@@ -1,9 +1,9 @@
 import {
+  ClipboardCheck,
   LayoutDashboard,
   PencilLine,
   ShieldCheck,
   Table2,
-  TriangleAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +26,7 @@ const TABS: TabDef[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "indicadores", label: "Indicadores", icon: Table2 },
   { id: "lancamentos", label: "Lançar", icon: PencilLine },
-  { id: "rac", label: "RAC", icon: TriangleAlert },
+  { id: "rac", label: "RAC", icon: ClipboardCheck },
   { id: "auditoria", label: "Auditoria", icon: ShieldCheck },
 ];
 
