@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { evaluateFormula, hasValidFormula } from "@/lib/formula-evaluator";
 import {
+  KPI_CATEGORIES,
   MONTH_LABELS,
   computeMonthlyStats,
   getTrafficLight,
@@ -102,9 +103,17 @@ function HistoryPanel({
   const stats = computeMonthlyStats(monthValues, goal, direction);
   return (
     <div className="space-y-3 rounded-xl border bg-card p-4">
-      <h3 className="text-[13px] font-semibold text-foreground">
-        Histórico {CURRENT_YEAR}
-      </h3>
+      <div>
+        <h3 className="text-[13px] font-semibold text-foreground">
+          Histórico {CURRENT_YEAR}
+        </h3>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          Meta:{" "}
+          {goal !== null
+            ? `${direction === "down" ? "≤" : "≥"} ${fmt(goal)}${measureUnit ? ` ${measureUnit}` : ""}`
+            : "não definida"}
+        </p>
+      </div>
       <div className="grid grid-cols-4 gap-1.5">
         {MONTH_LABELS.map((label, i) => {
           const v = monthValues[i];
@@ -171,6 +180,9 @@ export function LancarScreen() {
   const upsertValues = useUpsertKpiValuesWithInvalidation(orgId, year);
 
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [unitFilter, setUnitFilter] = useState("");
+  const [responsibleFilter, setResponsibleFilter] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [month, setMonth] = useState(CURRENT_MONTH);
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -244,22 +256,48 @@ export function LancarScreen() {
   const effectiveStatus = getTrafficLight(effectiveValue, goal, direction);
   const outOfTarget = effectiveStatus === "red";
 
-  const queue = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return rows
-      .filter((r) => !q || r.indicator.name.toLowerCase().includes(q))
-      .sort((a, b) => {
-        const ao = a.feedStatus === "overdue" ? 0 : 1;
-        const bo = b.feedStatus === "overdue" ? 0 : 1;
-        if (ao !== bo) return ao - bo;
-        return a.indicator.name.localeCompare(b.indicator.name, "pt-BR");
-      });
-  }, [rows, search]);
-
-  const overdueCount = useMemo(
-    () => rows.filter((r) => r.feedStatus === "overdue").length,
+  // Opções de filtro derivadas dos indicadores do ano.
+  const unitOptions = useMemo(
+    () =>
+      [
+        ...new Set(
+          rows.map((r) => r.indicator.unit).filter(Boolean) as string[],
+        ),
+      ].sort((a, b) => a.localeCompare(b, "pt-BR")),
     [rows],
   );
+  const responsibleOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const r of rows) {
+      if (r.indicator.responsibleUserId && r.indicator.responsibleUserName) {
+        map.set(r.indicator.responsibleUserId, r.indicator.responsibleUserName);
+      }
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+  }, [rows]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows
+      .filter((r) => {
+        if (q && !r.indicator.name.toLowerCase().includes(q)) return false;
+        if (categoryFilter && (r.indicator.category ?? "") !== categoryFilter)
+          return false;
+        if (unitFilter && (r.indicator.unit ?? "") !== unitFilter) return false;
+        if (
+          responsibleFilter &&
+          String(r.indicator.responsibleUserId ?? "") !== responsibleFilter
+        )
+          return false;
+        return true;
+      })
+      .sort((a, b) => a.indicator.name.localeCompare(b.indicator.name, "pt-BR"));
+  }, [rows, search, categoryFilter, unitFilter, responsibleFilter]);
+
+  const pendentes = filtered.filter((r) => r.feedStatus === "overdue");
+  const emDia = filtered.filter((r) => r.feedStatus !== "overdue");
+  const hasFilters =
+    !!search || !!categoryFilter || !!unitFilter || !!responsibleFilter;
 
   function openForm(row: KpiYearRow) {
     let defaultMonth = CURRENT_MONTH;
@@ -547,77 +585,164 @@ export function LancarScreen() {
   // ─── Queue view ────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4 p-6">
-      {overdueCount > 0 ? (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-          <TriangleAlert className="h-4 w-4 shrink-0" />
-          {overdueCount} indicador{overdueCount !== 1 ? "es" : ""} vencido
-          {overdueCount !== 1 ? "s" : ""} — registre os resultados para manter a
-          conformidade (ISO 9001 · 14001 · 39001 · cl. 9.1.1).
-        </div>
-      ) : null}
-
-      <Input
-        placeholder="Buscar indicador..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="max-w-sm"
-      />
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="Buscar indicador..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs"
+        />
+        <Select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="w-44"
+        >
+          <option value="">Todas as categorias</option>
+          {KPI_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={unitFilter}
+          onChange={(e) => setUnitFilter(e.target.value)}
+          className="w-44"
+        >
+          <option value="">Todas as unidades</option>
+          {unitOptions.map((u) => (
+            <option key={u} value={u}>
+              {u}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={responsibleFilter}
+          onChange={(e) => setResponsibleFilter(e.target.value)}
+          className="w-48"
+        >
+          <option value="">Todos os responsáveis</option>
+          {responsibleOptions.map(([id, name]) => (
+            <option key={id} value={String(id)}>
+              {name}
+            </option>
+          ))}
+        </Select>
+        {hasFilters ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 px-2 text-xs"
+            onClick={() => {
+              setSearch("");
+              setCategoryFilter("");
+              setUnitFilter("");
+              setResponsibleFilter("");
+            }}
+          >
+            Limpar
+          </Button>
+        ) : null}
+      </div>
 
       {isLoading ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
           Carregando...
         </div>
-      ) : queue.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
           {rows.length === 0
             ? `Nenhum indicador configurado para ${year}.`
-            : "Nenhum indicador encontrado."}
+            : "Nenhum indicador encontrado com os filtros aplicados."}
         </div>
       ) : (
-        <ul className="space-y-2">
-          {queue.map((row) => {
-            const overdue = row.feedStatus === "overdue";
-            return (
-              <li key={row.indicator.id}>
-                <button
-                  type="button"
-                  onClick={() => openForm(row)}
-                  className="group flex w-full items-center gap-3 rounded-lg border bg-card px-4 py-3 text-left transition-colors hover:border-foreground/15 hover:bg-muted/40"
+        <div className="space-y-5">
+          {(
+            [
+              {
+                key: "pend",
+                title: "Pendentes",
+                items: pendentes,
+                dot: "bg-red-500",
+                badge:
+                  "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
+                empty: "Nenhum indicador vencido — tudo lançado.",
+              },
+              {
+                key: "ok",
+                title: "Em dia",
+                items: emDia,
+                dot: "bg-emerald-500",
+                badge:
+                  "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+                empty: "Nenhum indicador em dia.",
+              },
+            ] as const
+          ).map((section) => (
+            <div key={section.key}>
+              <div className="mb-2 flex items-center gap-2">
+                <span
+                  className={cn("h-2 w-2 rounded-full", section.dot)}
+                  aria-hidden
+                />
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {section.title}
+                </h3>
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                    section.badge,
+                  )}
                 >
-                  <span
-                    className={cn(
-                      "h-2 w-2 shrink-0 rounded-full",
-                      overdue ? "bg-red-500" : "bg-emerald-500",
-                    )}
-                    aria-hidden
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-medium text-foreground">
-                      {row.indicator.name}
-                    </div>
-                    <div className="mt-0.5 text-[11px] text-muted-foreground">
-                      {row.yearConfig.goal !== null
-                        ? `Meta: ${fmt(row.yearConfig.goal)} ${row.indicator.measureUnit ?? ""}`.trim()
-                        : "Meta não definida"}
-                      {row.indicator.unit ? ` · ${row.indicator.unit}` : ""}
-                    </div>
-                  </div>
-                  <span
-                    className={cn(
-                      "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                      overdue
-                        ? "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300"
-                        : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-                    )}
-                  >
-                    {overdue ? "Vencido" : "Em dia"}
-                  </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                  {section.items.length}
+                </span>
+              </div>
+              {section.items.length === 0 ? (
+                <p className="px-1 text-[11px] text-muted-foreground">
+                  {section.empty}
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {section.items.map((row) => (
+                    <li key={row.indicator.id}>
+                      <button
+                        type="button"
+                        onClick={() => openForm(row)}
+                        className="group flex w-full items-center gap-3 rounded-lg border bg-card px-4 py-3 text-left transition-colors hover:border-foreground/15 hover:bg-muted/40"
+                      >
+                        <span
+                          className={cn(
+                            "h-2 w-2 shrink-0 rounded-full",
+                            section.dot,
+                          )}
+                          aria-hidden
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[13px] font-medium text-foreground">
+                            {row.indicator.name}
+                          </div>
+                          <div className="mt-0.5 text-[11px] text-muted-foreground">
+                            {row.yearConfig.goal !== null
+                              ? `Meta: ${fmt(row.yearConfig.goal)} ${row.indicator.measureUnit ?? ""}`.trim()
+                              : "Meta não definida"}
+                            {row.indicator.unit
+                              ? ` · ${row.indicator.unit}`
+                              : ""}
+                            {row.indicator.category
+                              ? ` · ${row.indicator.category}`
+                              : ""}
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
