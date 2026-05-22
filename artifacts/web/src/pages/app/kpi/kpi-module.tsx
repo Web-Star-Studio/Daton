@@ -16,7 +16,8 @@ function initialTab(): KpiTabId {
   // Deep-link a um indicador (#ind-card-N) abre direto na aba Indicadores.
   if (
     typeof window !== "undefined" &&
-    window.location.hash.startsWith("#ind-card-")
+    (window.location.hash.startsWith("#ind-card-") ||
+      window.location.hash.startsWith("#ind-edit-"))
   ) {
     return "indicadores";
   }
@@ -32,7 +33,16 @@ export default function KpiModulePage() {
       {tab === "indicadores" ? (
         <KpiIndicadoresPage />
       ) : tab === "lancamentos" ? (
-        <LancarScreen />
+        <LancarScreen
+          onEditIndicator={(id) => {
+            window.history.replaceState(
+              null,
+              "",
+              `${window.location.pathname}#ind-edit-${id}`,
+            );
+            setTab("indicadores");
+          }}
+        />
       ) : tab === "rac" ? (
         <RacScreen />
       ) : tab === "auditoria" ? (

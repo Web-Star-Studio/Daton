@@ -16,7 +16,9 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { evaluateFormula, hasValidFormula } from "@/lib/formula-evaluator";
 import {
+  KPI_CATEGORIES,
   MONTH_LABELS,
+  PERIODICITY_LABELS,
   computeMonthlyStats,
   getTrafficLight,
   trafficLightColor,
@@ -24,8 +26,10 @@ import {
   useUpsertKpiValuesWithInvalidation,
   type KpiDirection,
   type KpiYearRow,
+  type WithReferenceMonth,
 } from "@/lib/kpi-client";
 import { Sparkline } from "./sparkline";
+import { getIndicatorStatus, type CardStatus } from "./indicator-card";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const CURRENT_MONTH = new Date().getMonth() + 1;
@@ -81,6 +85,22 @@ function statusInfo(
   };
 }
 
+/** Periodicidades não mensais — precisam de um mês de referência definido. */
+const NON_MONTHLY = new Set(["quarterly", "semiannual", "annual"]);
+
+/** Meses em que o indicador deve ser lançado, conforme a periodicidade. */
+function expectedMonths(
+  periodicity: string,
+  ref: number | null | undefined,
+): Set<number> {
+  if (!ref || ref < 1 || ref > 12) return new Set();
+  const at = (offset: number) => ((ref - 1 + offset) % 12) + 1;
+  if (periodicity === "annual") return new Set([at(0)]);
+  if (periodicity === "semiannual") return new Set([at(0), at(6)]);
+  if (periodicity === "quarterly") return new Set([at(0), at(3), at(6), at(9)]);
+  return new Set();
+}
+
 /** Spreadsheet-style year history for the indicator being launched. */
 function HistoryPanel({
   row,
@@ -88,46 +108,87 @@ function HistoryPanel({
   direction,
   selectedMonth,
   measureUnit,
+  onSelectMonth,
 }: {
   row: KpiYearRow;
   goal: number | null;
   direction: KpiDirection;
   selectedMonth: number;
   measureUnit: string;
+  /** Abre o diálogo de justificativa/plano de ação para o mês clicado. */
+  onSelectMonth: (month: number) => void;
 }) {
   const monthValues = Array.from(
     { length: 12 },
     (_, i) => row.monthlyValues.find((m) => m.month === i + 1)?.value ?? null,
   );
   const stats = computeMonthlyStats(monthValues, goal, direction);
+  const expected = expectedMonths(
+    row.indicator.periodicity,
+    (row.indicator as WithReferenceMonth).referenceMonth,
+  );
   return (
     <div className="space-y-3 rounded-xl border bg-card p-4">
-      <h3 className="text-[13px] font-semibold text-foreground">
-        Histórico {CURRENT_YEAR}
-      </h3>
+      <div>
+        <h3 className="text-[13px] font-semibold text-foreground">
+          Histórico {CURRENT_YEAR}
+        </h3>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          Meta:{" "}
+          {goal !== null
+            ? `${direction === "down" ? "≤" : "≥"} ${fmt(goal)}${measureUnit ? ` ${measureUnit}` : ""}`
+            : "não definida"}
+        </p>
+      </div>
       <div className="grid grid-cols-4 gap-1.5">
         {MONTH_LABELS.map((label, i) => {
           const v = monthValues[i];
           const st = getTrafficLight(v, goal, direction);
-          return (
-            <div
-              key={label}
-              className={cn(
-                "rounded-md border px-1 py-1 text-center",
-                i + 1 === selectedMonth && "ring-2 ring-blue-500",
-                v !== null && st ? trafficLightColor(st) : "bg-muted/30",
-              )}
-            >
+          const month = i + 1;
+          const clickable = v !== null;
+          const isExpectedEmpty = v === null && expected.has(month);
+          const cls = cn(
+            "rounded-md border px-1 py-1 text-center",
+            month === selectedMonth && "ring-2 ring-blue-500",
+            v !== null && st
+              ? trafficLightColor(st)
+              : isExpectedEmpty
+                ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/15 dark:text-indigo-300"
+                : "bg-muted/30",
+            clickable &&
+              "cursor-pointer transition hover:ring-2 hover:ring-blue-400",
+          );
+          const body = (
+            <>
               <div className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
                 {label}
               </div>
               <div className="text-[11px] font-medium tabular-nums">
-                {v !== null ? fmt(v) : "—"}
+                {v !== null ? fmt(v) : isExpectedEmpty ? "previsto" : "—"}
               </div>
+            </>
+          );
+          return clickable ? (
+            <button
+              key={label}
+              type="button"
+              className={cls}
+              onClick={() => onSelectMonth(month)}
+              title="Registrar justificativa / plano de ação"
+            >
+              {body}
+            </button>
+          ) : (
+            <div key={label} className={cls}>
+              {body}
             </div>
           );
         })}
       </div>
+      <p className="text-[10px] text-muted-foreground">
+        Clique em um mês com resultado para registrar justificativa ou plano de
+        ação.
+      </p>
       <Sparkline
         values={monthValues}
         goal={goal}
@@ -159,7 +220,12 @@ function HistoryPanel({
   );
 }
 
-export function LancarScreen() {
+export function LancarScreen({
+  onEditIndicator,
+}: {
+  /** Abre o cadastro do indicador (aba Indicadores) para definir o mês de referência. */
+  onEditIndicator: (indicatorId: number) => void;
+}) {
   const { organization } = useAuth();
   const orgId = organization!.id;
   const year = CURRENT_YEAR;
@@ -171,11 +237,15 @@ export function LancarScreen() {
   const upsertValues = useUpsertKpiValuesWithInvalidation(orgId, year);
 
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [unitFilter, setUnitFilter] = useState("");
+  const [responsibleFilter, setResponsibleFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<CardStatus | "">("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [month, setMonth] = useState(CURRENT_MONTH);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [directValue, setDirectValue] = useState("");
-  const [racOpen, setRacOpen] = useState(false);
+  const [racMonth, setRacMonth] = useState<number | null>(null);
 
   const selectedRow = useMemo(
     () =>
@@ -244,22 +314,72 @@ export function LancarScreen() {
   const effectiveStatus = getTrafficLight(effectiveValue, goal, direction);
   const outOfTarget = effectiveStatus === "red";
 
-  const queue = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return rows
-      .filter((r) => !q || r.indicator.name.toLowerCase().includes(q))
-      .sort((a, b) => {
-        const ao = a.feedStatus === "overdue" ? 0 : 1;
-        const bo = b.feedStatus === "overdue" ? 0 : 1;
-        if (ao !== bo) return ao - bo;
-        return a.indicator.name.localeCompare(b.indicator.name, "pt-BR");
-      });
-  }, [rows, search]);
+  // Mês para o qual o diálogo de justificativa/RAC está aberto (forma ou histórico).
+  const racMonthly =
+    racMonth !== null && selectedRow
+      ? (selectedRow.monthlyValues.find((m) => m.month === racMonth) ?? null)
+      : null;
 
-  const overdueCount = useMemo(
-    () => rows.filter((r) => r.feedStatus === "overdue").length,
+  // Opções de filtro derivadas dos indicadores do ano.
+  const unitOptions = useMemo(
+    () =>
+      [
+        ...new Set(
+          rows.map((r) => r.indicator.unit).filter(Boolean) as string[],
+        ),
+      ].sort((a, b) => a.localeCompare(b, "pt-BR")),
     [rows],
   );
+  const responsibleOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const r of rows) {
+      if (r.indicator.responsibleUserId && r.indicator.responsibleUserName) {
+        map.set(r.indicator.responsibleUserId, r.indicator.responsibleUserName);
+      }
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+  }, [rows]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows
+      .filter((r) => {
+        if (q && !r.indicator.name.toLowerCase().includes(q)) return false;
+        if (categoryFilter && (r.indicator.category ?? "") !== categoryFilter)
+          return false;
+        if (unitFilter && (r.indicator.unit ?? "") !== unitFilter) return false;
+        if (
+          responsibleFilter &&
+          String(r.indicator.responsibleUserId ?? "") !== responsibleFilter
+        )
+          return false;
+        if (
+          statusFilter &&
+          getIndicatorStatus(r.indicator, r) !== statusFilter
+        )
+          return false;
+        return true;
+      })
+      .sort((a, b) => a.indicator.name.localeCompare(b.indicator.name, "pt-BR"));
+  }, [rows, search, categoryFilter, unitFilter, responsibleFilter, statusFilter]);
+
+  // Indicador não mensal sem mês de referência → precisa de configuração.
+  const needsConfig = (r: KpiYearRow) =>
+    NON_MONTHLY.has(r.indicator.periodicity) &&
+    !(r.indicator as WithReferenceMonth).referenceMonth;
+  const faltaConfig = filtered.filter(needsConfig);
+  const pendentes = filtered.filter(
+    (r) => !needsConfig(r) && r.feedStatus === "overdue",
+  );
+  const emDia = filtered.filter(
+    (r) => !needsConfig(r) && r.feedStatus !== "overdue",
+  );
+  const hasFilters =
+    !!search ||
+    !!categoryFilter ||
+    !!unitFilter ||
+    !!responsibleFilter ||
+    !!statusFilter;
 
   function openForm(row: KpiYearRow) {
     let defaultMonth = CURRENT_MONTH;
@@ -486,7 +606,7 @@ export function LancarScreen() {
                       size="sm"
                       className="mt-2 border-amber-300 bg-amber-100/60 text-amber-900 hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200 dark:hover:bg-amber-500/25"
                       disabled={monthlyValueId === null}
-                      onClick={() => setRacOpen(true)}
+                      onClick={() => setRacMonth(month)}
                     >
                       <ClipboardList className="mr-1.5 h-4 w-4" />
                       Justificativa e plano de ação
@@ -505,7 +625,7 @@ export function LancarScreen() {
                 size="sm"
                 className="self-start text-muted-foreground"
                 disabled={monthlyValueId === null}
-                onClick={() => setRacOpen(true)}
+                onClick={() => setRacMonth(month)}
                 title={
                   monthlyValueId === null
                     ? "Salve o lançamento para registrar"
@@ -523,21 +643,22 @@ export function LancarScreen() {
             direction={direction}
             selectedMonth={month}
             measureUnit={measureUnit}
+            onSelectMonth={setRacMonth}
           />
         </div>
-        {racOpen ? (
+        {racMonth !== null ? (
           <CellRedActionsDialog
             context={{
               orgId,
               indicatorId: selectedRow.indicator.id,
               indicatorName: selectedRow.indicator.name,
               year,
-              month,
-              monthlyValueId,
-              value: effectiveValue,
+              month: racMonth,
+              monthlyValueId: racMonthly?.monthlyValueId ?? null,
+              value: racMonthly?.value ?? null,
               goal,
             }}
-            onClose={() => setRacOpen(false)}
+            onClose={() => setRacMonth(null)}
           />
         ) : null}
       </div>
@@ -547,77 +668,227 @@ export function LancarScreen() {
   // ─── Queue view ────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4 p-6">
-      {overdueCount > 0 ? (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-          <TriangleAlert className="h-4 w-4 shrink-0" />
-          {overdueCount} indicador{overdueCount !== 1 ? "es" : ""} vencido
-          {overdueCount !== 1 ? "s" : ""} — registre os resultados para manter a
-          conformidade (ISO 9001 · 14001 · 39001 · cl. 9.1.1).
-        </div>
-      ) : null}
-
-      <Input
-        placeholder="Buscar indicador..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="max-w-sm"
-      />
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="Buscar indicador..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs"
+        />
+        <Select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="w-44"
+        >
+          <option value="">Todas as categorias</option>
+          {KPI_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={unitFilter}
+          onChange={(e) => setUnitFilter(e.target.value)}
+          className="w-44"
+        >
+          <option value="">Todas as unidades</option>
+          {unitOptions.map((u) => (
+            <option key={u} value={u}>
+              {u}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={responsibleFilter}
+          onChange={(e) => setResponsibleFilter(e.target.value)}
+          className="w-48"
+        >
+          <option value="">Todos os responsáveis</option>
+          {responsibleOptions.map(([id, name]) => (
+            <option key={id} value={String(id)}>
+              {name}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as CardStatus | "")}
+          className="w-40"
+        >
+          <option value="">Todos os status</option>
+          <option value="green">Na meta</option>
+          <option value="yellow">Atenção</option>
+          <option value="red">Fora da meta</option>
+          <option value="nodata">Sem dados</option>
+        </Select>
+        {hasFilters ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 px-2 text-xs"
+            onClick={() => {
+              setSearch("");
+              setCategoryFilter("");
+              setUnitFilter("");
+              setResponsibleFilter("");
+              setStatusFilter("");
+            }}
+          >
+            Limpar
+          </Button>
+        ) : null}
+      </div>
 
       {isLoading ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
           Carregando...
         </div>
-      ) : queue.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
           {rows.length === 0
             ? `Nenhum indicador configurado para ${year}.`
-            : "Nenhum indicador encontrado."}
+            : "Nenhum indicador encontrado com os filtros aplicados."}
         </div>
       ) : (
-        <ul className="space-y-2">
-          {queue.map((row) => {
-            const overdue = row.feedStatus === "overdue";
-            return (
-              <li key={row.indicator.id}>
-                <button
-                  type="button"
-                  onClick={() => openForm(row)}
-                  className="group flex w-full items-center gap-3 rounded-lg border bg-card px-4 py-3 text-left transition-colors hover:border-foreground/15 hover:bg-muted/40"
+        <div className="space-y-5">
+          {faltaConfig.length > 0 ? (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-500/40 dark:bg-amber-500/10">
+              <div className="mb-1 flex items-center gap-2">
+                <TriangleAlert
+                  className="h-4 w-4 text-amber-600 dark:text-amber-400"
+                  aria-hidden
+                />
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                  Falta o mês de referência
+                </h3>
+                <span className="rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-500/25 dark:text-amber-200">
+                  {faltaConfig.length}
+                </span>
+              </div>
+              <p className="mb-2.5 text-[11px] text-amber-700/90 dark:text-amber-300/80">
+                Indicadores não mensais sem mês de referência — clique para
+                definir no cadastro.
+              </p>
+              <ul className="space-y-2">
+                {faltaConfig.map((row) => (
+                  <li key={row.indicator.id}>
+                    <button
+                      type="button"
+                      onClick={() => onEditIndicator(row.indicator.id)}
+                      className="group flex w-full items-center gap-3 rounded-lg border border-amber-200 bg-card px-4 py-3 text-left transition-colors hover:border-amber-300 hover:bg-amber-50/60 dark:border-amber-500/30 dark:hover:bg-amber-500/10"
+                    >
+                      <TriangleAlert
+                        className="h-4 w-4 shrink-0 text-amber-500"
+                        aria-hidden
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[13px] font-medium text-foreground">
+                          {row.indicator.name}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          {PERIODICITY_LABELS[
+                            row.indicator
+                              .periodicity as keyof typeof PERIODICITY_LABELS
+                          ] ?? row.indicator.periodicity}
+                          {row.indicator.unit ? ` · ${row.indicator.unit}` : ""}
+                        </div>
+                      </div>
+                      <span className="shrink-0 whitespace-nowrap text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                        Definir mês →
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {(
+            [
+              {
+                key: "pend",
+                title: "Pendentes",
+                items: pendentes,
+                dot: "bg-red-500",
+                badge:
+                  "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
+                empty: "Nenhum indicador vencido — tudo lançado.",
+              },
+              {
+                key: "ok",
+                title: "Em dia",
+                items: emDia,
+                dot: "bg-emerald-500",
+                badge:
+                  "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+                empty: "Nenhum indicador em dia.",
+              },
+            ] as const
+          ).map((section) => (
+            <div key={section.key}>
+              <div className="mb-2 flex items-center gap-2">
+                <span
+                  className={cn("h-2 w-2 rounded-full", section.dot)}
+                  aria-hidden
+                />
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {section.title}
+                </h3>
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                    section.badge,
+                  )}
                 >
-                  <span
-                    className={cn(
-                      "h-2 w-2 shrink-0 rounded-full",
-                      overdue ? "bg-red-500" : "bg-emerald-500",
-                    )}
-                    aria-hidden
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-medium text-foreground">
-                      {row.indicator.name}
-                    </div>
-                    <div className="mt-0.5 text-[11px] text-muted-foreground">
-                      {row.yearConfig.goal !== null
-                        ? `Meta: ${fmt(row.yearConfig.goal)} ${row.indicator.measureUnit ?? ""}`.trim()
-                        : "Meta não definida"}
-                      {row.indicator.unit ? ` · ${row.indicator.unit}` : ""}
-                    </div>
-                  </div>
-                  <span
-                    className={cn(
-                      "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                      overdue
-                        ? "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300"
-                        : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-                    )}
-                  >
-                    {overdue ? "Vencido" : "Em dia"}
-                  </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                  {section.items.length}
+                </span>
+              </div>
+              {section.items.length === 0 ? (
+                <p className="px-1 text-[11px] text-muted-foreground">
+                  {section.empty}
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {section.items.map((row) => (
+                    <li key={row.indicator.id}>
+                      <button
+                        type="button"
+                        onClick={() => openForm(row)}
+                        className="group flex w-full items-center gap-3 rounded-lg border bg-card px-4 py-3 text-left transition-colors hover:border-foreground/15 hover:bg-muted/40"
+                      >
+                        <span
+                          className={cn(
+                            "h-2 w-2 shrink-0 rounded-full",
+                            section.dot,
+                          )}
+                          aria-hidden
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[13px] font-medium text-foreground">
+                            {row.indicator.name}
+                          </div>
+                          <div className="mt-0.5 text-[11px] text-muted-foreground">
+                            {row.yearConfig.goal !== null
+                              ? `Meta: ${fmt(row.yearConfig.goal)} ${row.indicator.measureUnit ?? ""}`.trim()
+                              : "Meta não definida"}
+                            {row.indicator.unit
+                              ? ` · ${row.indicator.unit}`
+                              : ""}
+                            {row.indicator.category
+                              ? ` · ${row.indicator.category}`
+                              : ""}
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

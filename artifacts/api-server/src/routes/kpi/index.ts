@@ -60,6 +60,7 @@ function serializeIndicator(
     measureUnit: r.measureUnit ?? null,
     direction: r.direction,
     periodicity: r.periodicity,
+    referenceMonth: r.referenceMonth ?? null,
     category: r.category ?? null,
     norms: r.norms ?? [],
     createdAt: r.createdAt.toISOString(),
@@ -95,31 +96,36 @@ function serializeYearConfig(r: typeof kpiYearConfigsTable.$inferSelect) {
 function computeFeedStatus(
   monthValues: (number | null)[],
   periodicity: string,
+  referenceMonth: number | null,
 ): "fed" | "overdue" {
-  const now = new Date();
-  const currentMonth = now.getMonth() + 1; // 1-indexed
-  const monthsToCheck = currentMonth - 1; // months prior to current
+  const currentMonth = new Date().getMonth() + 1; // 1-indexed
 
-  if (monthsToCheck <= 0) return "fed";
-
-  // For non-monthly periodicities, we're lenient and only check if any data exists
-  if (periodicity === "annual") return "fed";
-  if (periodicity === "semiannual") {
-    // expect at least the first semester data if past June
-    if (currentMonth <= 6) return "fed";
-    return monthValues[5] !== null ? "fed" : "overdue";
-  }
-  if (periodicity === "quarterly") {
-    // expect data for every completed quarter
-    const completedQuarters = Math.floor((currentMonth - 1) / 3);
-    if (completedQuarters === 0) return "fed";
-    const quarterMonths = [3, 6, 9, 12].slice(0, completedQuarters);
-    return quarterMonths.every((m) => monthValues[m - 1] !== null) ? "fed" : "overdue";
+  // Periodicidades mensais: vencido se algum mês ANTERIOR ao atual está vazio
+  // (o mês corrente ainda está em curso).
+  if (
+    periodicity === "monthly" ||
+    periodicity === "monthly_15d" ||
+    periodicity === "monthly_45d"
+  ) {
+    for (let m = 1; m < currentMonth; m++) {
+      if (monthValues[m - 1] === null) return "overdue";
+    }
+    return "fed";
   }
 
-  // For monthly-based periodicities, check all months up to last month
-  for (let m = 1; m <= monthsToCheck; m++) {
-    if (monthValues[m - 1] === null) return "overdue";
+  // Não mensais: precisam do mês de referência. Vencido quando um mês
+  // esperado que já chegou (mês ≤ atual) continua sem lançamento.
+  if (!referenceMonth || referenceMonth < 1 || referenceMonth > 12) {
+    return "fed"; // sem mês de referência — não há como cobrar
+  }
+  const at = (offset: number) => ((referenceMonth - 1 + offset) % 12) + 1;
+  let expected: number[];
+  if (periodicity === "annual") expected = [at(0)];
+  else if (periodicity === "semiannual") expected = [at(0), at(6)];
+  else if (periodicity === "quarterly") expected = [at(0), at(3), at(6), at(9)];
+  else expected = [];
+  for (const m of expected) {
+    if (m <= currentMonth && monthValues[m - 1] === null) return "overdue";
   }
   return "fed";
 }
@@ -254,6 +260,11 @@ router.post("/organizations/:orgId/kpi/indicators", requireAuth, requireWriteAcc
     measureUnit: body.data.measureUnit ?? null,
     direction: body.data.direction,
     periodicity: body.data.periodicity,
+    // referenceMonth ainda fora do contrato gerado — lido do corpo direto.
+    referenceMonth:
+      typeof req.body?.referenceMonth === "number"
+        ? req.body.referenceMonth
+        : null,
     category: body.data.category ?? null,
     norms: body.data.norms ?? [],
   }).returning();
@@ -308,6 +319,12 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
   if (body.data.measureUnit !== undefined) updateData.measureUnit = body.data.measureUnit;
   if (body.data.direction !== undefined) updateData.direction = body.data.direction;
   if (body.data.periodicity !== undefined) updateData.periodicity = body.data.periodicity;
+  if (req.body && "referenceMonth" in req.body) {
+    updateData.referenceMonth =
+      typeof req.body.referenceMonth === "number"
+        ? req.body.referenceMonth
+        : null;
+  }
   if (body.data.category !== undefined) updateData.category = body.data.category;
   if (body.data.norms !== undefined) updateData.norms = body.data.norms;
 
@@ -525,7 +542,11 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
       const filledValues = monthlyValuesOnly.filter((v) => v !== null) as number[];
       const average = filledValues.length > 0 ? filledValues.reduce((a, b) => a + b, 0) / filledValues.length : null;
       const accumulated = filledValues.length > 0 ? filledValues.reduce((a, b) => a + b, 0) : null;
-      const feedStatus = computeFeedStatus(monthlyValuesOnly, ind.periodicity);
+      const feedStatus = computeFeedStatus(
+        monthlyValuesOnly,
+        ind.periodicity,
+        ind.referenceMonth ?? null,
+      );
       const objective = yc.objectiveId ? objectiveById.get(yc.objectiveId) ?? null : null;
 
       const responsibleUserName = ind.responsibleUserId !== null
