@@ -212,7 +212,7 @@ router.post(
         origin: body.data.origin ?? null,
         normItem: body.data.normItem ?? null,
         isAdditional: body.data.isAdditional ?? false,
-        name: body.data.name,
+        name: body.data.name.trim().toUpperCase(),
         analysis: body.data.analysis ?? null,
         // currentDiagnosis ainda não está no contrato gerado (api-zod) —
         // lido direto do corpo até a próxima rodada de codegen.
@@ -293,7 +293,7 @@ router.patch(
     if (d.origin !== undefined) updateData.origin = d.origin;
     if (d.normItem !== undefined) updateData.normItem = d.normItem;
     if (d.isAdditional !== undefined) updateData.isAdditional = d.isAdditional;
-    if (d.name !== undefined) updateData.name = d.name;
+    if (d.name !== undefined) updateData.name = d.name.trim().toUpperCase();
     if (d.analysis !== undefined) updateData.analysis = d.analysis;
     if (req.body && "currentDiagnosis" in req.body) {
       updateData.currentDiagnosis =
