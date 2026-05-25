@@ -15,7 +15,8 @@ type AppModule =
   | "environmental"
   | "kpi"
   | "roadSafety"
-  | "assets";
+  | "assets"
+  | "regulatoryDocuments";
 
 interface AuthContextType {
   user: User | null;

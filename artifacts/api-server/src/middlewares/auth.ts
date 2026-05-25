@@ -30,6 +30,7 @@ export const APP_MODULES = [
   "kpi",
   "roadSafety",
   "assets",
+  "regulatoryDocuments",
 ] as const;
 export type AppModule = typeof APP_MODULES[number];
 

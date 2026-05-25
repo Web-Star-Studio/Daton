@@ -367,6 +367,7 @@ export const AppModule = {
   kpi: "kpi",
   roadSafety: "roadSafety",
   assets: "assets",
+  regulatoryDocuments: "regulatoryDocuments",
 } as const;
 
 export interface MeResponse {
@@ -4467,6 +4468,249 @@ export interface AddMeasurementResourceAttachmentBody {
   objectPath: string;
 }
 
+export type RegulatoryDocumentIdentifierType =
+  (typeof RegulatoryDocumentIdentifierType)[keyof typeof RegulatoryDocumentIdentifierType];
+
+export const RegulatoryDocumentIdentifierType = {
+  licenca_ambiental: "licenca_ambiental",
+  avcb: "avcb",
+  alvara: "alvara",
+  outorga: "outorga",
+  certidao: "certidao",
+  outro: "outro",
+} as const;
+
+export type RegulatoryDocumentStatus =
+  (typeof RegulatoryDocumentStatus)[keyof typeof RegulatoryDocumentStatus];
+
+export const RegulatoryDocumentStatus = {
+  vigente: "vigente",
+  a_vencer: "a_vencer",
+  vencido: "vencido",
+} as const;
+
+/**
+ * @nullable
+ */
+export type RegulatoryDocumentLatestRenewalStatus =
+  | (typeof RegulatoryDocumentLatestRenewalStatus)[keyof typeof RegulatoryDocumentLatestRenewalStatus]
+  | null;
+
+export const RegulatoryDocumentLatestRenewalStatus = {
+  nao_iniciado: "nao_iniciado",
+  em_andamento: "em_andamento",
+  protocolado: "protocolado",
+  renovado: "renovado",
+  indeferido: "indeferido",
+} as const;
+
+export interface RegulatoryDocument {
+  id: number;
+  organizationId: number;
+  identifierType: RegulatoryDocumentIdentifierType;
+  /** @nullable */
+  identifierOther?: string | null;
+  /** @nullable */
+  documentNumber?: string | null;
+  issuingBody: string;
+  /** @nullable */
+  processNumber?: string | null;
+  /** @nullable */
+  responsibleUserId?: number | null;
+  /** @nullable */
+  responsibleUserName?: string | null;
+  /** @nullable */
+  responsibleUserEmail?: string | null;
+  /** @nullable */
+  issueDate?: string | null;
+  expirationDate: string;
+  renewalRequired: boolean;
+  /** @nullable */
+  alertDaysOverride?: number | null;
+  /** @nullable */
+  externalSourceProvider?: string | null;
+  /** @nullable */
+  externalSourceReference?: string | null;
+  /** @nullable */
+  externalSourceUrl?: string | null;
+  /** @nullable */
+  externalLastSyncAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  status: RegulatoryDocumentStatus;
+  unitId: number;
+  /** @nullable */
+  unitName?: string | null;
+  attachmentCount: number;
+  /** @nullable */
+  latestRenewalStatus?: RegulatoryDocumentLatestRenewalStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateRegulatoryDocumentBodyIdentifierType =
+  (typeof CreateRegulatoryDocumentBodyIdentifierType)[keyof typeof CreateRegulatoryDocumentBodyIdentifierType];
+
+export const CreateRegulatoryDocumentBodyIdentifierType = {
+  licenca_ambiental: "licenca_ambiental",
+  avcb: "avcb",
+  alvara: "alvara",
+  outorga: "outorga",
+  certidao: "certidao",
+  outro: "outro",
+} as const;
+
+export interface CreateRegulatoryDocumentBody {
+  unitId: number;
+  identifierType: CreateRegulatoryDocumentBodyIdentifierType;
+  identifierOther?: string;
+  documentNumber?: string;
+  issuingBody: string;
+  processNumber?: string;
+  responsibleUserId?: number;
+  issueDate?: string;
+  expirationDate: string;
+  renewalRequired?: boolean;
+  alertDaysOverride?: number;
+  notes?: string;
+}
+
+export type UpdateRegulatoryDocumentBodyIdentifierType =
+  (typeof UpdateRegulatoryDocumentBodyIdentifierType)[keyof typeof UpdateRegulatoryDocumentBodyIdentifierType];
+
+export const UpdateRegulatoryDocumentBodyIdentifierType = {
+  licenca_ambiental: "licenca_ambiental",
+  avcb: "avcb",
+  alvara: "alvara",
+  outorga: "outorga",
+  certidao: "certidao",
+  outro: "outro",
+} as const;
+
+export interface UpdateRegulatoryDocumentBody {
+  unitId?: number;
+  identifierType?: UpdateRegulatoryDocumentBodyIdentifierType;
+  identifierOther?: string;
+  documentNumber?: string;
+  issuingBody?: string;
+  processNumber?: string;
+  responsibleUserId?: number;
+  issueDate?: string;
+  expirationDate?: string;
+  renewalRequired?: boolean;
+  alertDaysOverride?: number;
+  notes?: string;
+}
+
+export interface ProcessRegulatoryAlertsResponse {
+  scanned: number;
+  statusChanged: number;
+  alertsCreated: number;
+  emailsSent: number;
+}
+
+export type RegulatoryDocumentRenewalStatus =
+  (typeof RegulatoryDocumentRenewalStatus)[keyof typeof RegulatoryDocumentRenewalStatus];
+
+export const RegulatoryDocumentRenewalStatus = {
+  nao_iniciado: "nao_iniciado",
+  em_andamento: "em_andamento",
+  protocolado: "protocolado",
+  renovado: "renovado",
+  indeferido: "indeferido",
+} as const;
+
+export interface RegulatoryDocumentRenewal {
+  id: number;
+  organizationId: number;
+  documentId: number;
+  status: RegulatoryDocumentRenewalStatus;
+  /** @nullable */
+  scheduledStartDate?: string | null;
+  /** @nullable */
+  protocolDeadline?: string | null;
+  /** @nullable */
+  protocolNumber?: string | null;
+  /** @nullable */
+  newExpirationDate?: string | null;
+  /** @nullable */
+  issuingBody?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  recordedByUserId?: number | null;
+  /** @nullable */
+  recordedByUserName?: string | null;
+  attachmentCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateRegulatoryDocumentRenewalBodyStatus =
+  (typeof CreateRegulatoryDocumentRenewalBodyStatus)[keyof typeof CreateRegulatoryDocumentRenewalBodyStatus];
+
+export const CreateRegulatoryDocumentRenewalBodyStatus = {
+  nao_iniciado: "nao_iniciado",
+  em_andamento: "em_andamento",
+  protocolado: "protocolado",
+  renovado: "renovado",
+  indeferido: "indeferido",
+} as const;
+
+export interface CreateRegulatoryDocumentRenewalBody {
+  status: CreateRegulatoryDocumentRenewalBodyStatus;
+  scheduledStartDate?: string;
+  protocolDeadline?: string;
+  protocolNumber?: string;
+  newExpirationDate?: string;
+  issuingBody?: string;
+  notes?: string;
+  recordedByUserId?: number;
+}
+
+export type UpdateRegulatoryDocumentRenewalBodyStatus =
+  (typeof UpdateRegulatoryDocumentRenewalBodyStatus)[keyof typeof UpdateRegulatoryDocumentRenewalBodyStatus];
+
+export const UpdateRegulatoryDocumentRenewalBodyStatus = {
+  nao_iniciado: "nao_iniciado",
+  em_andamento: "em_andamento",
+  protocolado: "protocolado",
+  renovado: "renovado",
+  indeferido: "indeferido",
+} as const;
+
+export interface UpdateRegulatoryDocumentRenewalBody {
+  status?: UpdateRegulatoryDocumentRenewalBodyStatus;
+  scheduledStartDate?: string;
+  protocolDeadline?: string;
+  protocolNumber?: string;
+  newExpirationDate?: string;
+  issuingBody?: string;
+  notes?: string;
+  recordedByUserId?: number;
+}
+
+export interface RegulatoryDocumentAttachment {
+  id: number;
+  organizationId: number;
+  documentId: number;
+  /** @nullable */
+  renewalId?: number | null;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+  uploadedAt: string;
+}
+
+export interface AddRegulatoryDocumentAttachmentBody {
+  renewalId?: number;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  objectPath: string;
+}
+
 export type RequirementApplicabilityApprovalStatus =
   (typeof RequirementApplicabilityApprovalStatus)[keyof typeof RequirementApplicabilityApprovalStatus];
 
@@ -5107,6 +5351,17 @@ export type ListMeasurementResourcesParams = {
   unitId?: number;
   resourceType?: string;
   status?: string;
+};
+
+export type ListRegulatoryDocumentsParams = {
+  unitId?: number;
+  identifierType?: string;
+  status?: string;
+  search?: string;
+};
+
+export type ListRegulatoryDocumentAttachmentsParams = {
+  renewalId?: number;
 };
 
 export type ListActionPlansParams = {

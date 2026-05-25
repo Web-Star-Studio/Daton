@@ -157,6 +157,7 @@ export const GetMeResponse = zod.object({
       "kpi",
       "roadSafety",
       "assets",
+      "regulatoryDocuments",
     ]),
   ),
 });
@@ -268,6 +269,7 @@ export const UpdateMeResponse = zod.object({
       "kpi",
       "roadSafety",
       "assets",
+      "regulatoryDocuments",
     ]),
   ),
 });
@@ -5770,6 +5772,7 @@ export const ListOrgUsersResponse = zod.object({
           "kpi",
           "roadSafety",
           "assets",
+          "regulatoryDocuments",
         ]),
       ),
     }),
@@ -5804,6 +5807,7 @@ export const CreateOrgUserBody = zod.object({
       "kpi",
       "roadSafety",
       "assets",
+      "regulatoryDocuments",
     ]),
   ),
 });
@@ -5874,6 +5878,7 @@ export const UpdateUserModulesBody = zod.object({
       "kpi",
       "roadSafety",
       "assets",
+      "regulatoryDocuments",
     ]),
   ),
 });
@@ -5895,6 +5900,7 @@ export const UpdateUserModulesResponse = zod.object({
         "kpi",
         "roadSafety",
         "assets",
+        "regulatoryDocuments",
       ]),
     )
     .optional(),
@@ -5921,6 +5927,7 @@ export const CreateInvitationBody = zod.object({
         "kpi",
         "roadSafety",
         "assets",
+        "regulatoryDocuments",
       ]),
     )
     .optional(),
@@ -5952,6 +5959,7 @@ export const ListInvitationsResponse = zod.object({
           "kpi",
           "roadSafety",
           "assets",
+          "regulatoryDocuments",
         ]),
       ),
       expiresAt: zod.string(),
@@ -14430,6 +14438,422 @@ export const DeleteMeasurementResourceAttachmentParams = zod.object({
   orgId: zod.coerce.number(),
   resourceId: zod.coerce.number(),
   calibrationId: zod.coerce.number(),
+  attachmentId: zod.coerce.number(),
+});
+
+/**
+ * @summary List regulatory documents (licenças, AVCB, alvarás) for an organization
+ */
+export const ListRegulatoryDocumentsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListRegulatoryDocumentsQueryParams = zod.object({
+  unitId: zod.coerce.number().optional(),
+  identifierType: zod.coerce.string().optional(),
+  status: zod.coerce.string().optional(),
+  search: zod.coerce.string().optional(),
+});
+
+export const ListRegulatoryDocumentsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  identifierType: zod.enum([
+    "licenca_ambiental",
+    "avcb",
+    "alvara",
+    "outorga",
+    "certidao",
+    "outro",
+  ]),
+  identifierOther: zod.string().nullish(),
+  documentNumber: zod.string().nullish(),
+  issuingBody: zod.string(),
+  processNumber: zod.string().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  responsibleUserEmail: zod.string().nullish(),
+  issueDate: zod.string().nullish(),
+  expirationDate: zod.string(),
+  renewalRequired: zod.boolean(),
+  alertDaysOverride: zod.number().nullish(),
+  externalSourceProvider: zod.string().nullish(),
+  externalSourceReference: zod.string().nullish(),
+  externalSourceUrl: zod.string().nullish(),
+  externalLastSyncAt: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["vigente", "a_vencer", "vencido"]),
+  unitId: zod.number(),
+  unitName: zod.string().nullish(),
+  attachmentCount: zod.number(),
+  latestRenewalStatus: zod
+    .union([
+      zod.literal("nao_iniciado"),
+      zod.literal("em_andamento"),
+      zod.literal("protocolado"),
+      zod.literal("renovado"),
+      zod.literal("indeferido"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListRegulatoryDocumentsResponse = zod.array(
+  ListRegulatoryDocumentsResponseItem,
+);
+
+/**
+ * @summary Create a regulatory document
+ */
+export const CreateRegulatoryDocumentParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateRegulatoryDocumentBody = zod.object({
+  unitId: zod.number(),
+  identifierType: zod.enum([
+    "licenca_ambiental",
+    "avcb",
+    "alvara",
+    "outorga",
+    "certidao",
+    "outro",
+  ]),
+  identifierOther: zod.string().optional(),
+  documentNumber: zod.string().optional(),
+  issuingBody: zod.string(),
+  processNumber: zod.string().optional(),
+  responsibleUserId: zod.number().optional(),
+  issueDate: zod.string().optional(),
+  expirationDate: zod.string(),
+  renewalRequired: zod.boolean().optional(),
+  alertDaysOverride: zod.number().optional(),
+  notes: zod.string().optional(),
+});
+
+/**
+ * @summary Get a single regulatory document
+ */
+export const GetRegulatoryDocumentParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const GetRegulatoryDocumentResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  identifierType: zod.enum([
+    "licenca_ambiental",
+    "avcb",
+    "alvara",
+    "outorga",
+    "certidao",
+    "outro",
+  ]),
+  identifierOther: zod.string().nullish(),
+  documentNumber: zod.string().nullish(),
+  issuingBody: zod.string(),
+  processNumber: zod.string().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  responsibleUserEmail: zod.string().nullish(),
+  issueDate: zod.string().nullish(),
+  expirationDate: zod.string(),
+  renewalRequired: zod.boolean(),
+  alertDaysOverride: zod.number().nullish(),
+  externalSourceProvider: zod.string().nullish(),
+  externalSourceReference: zod.string().nullish(),
+  externalSourceUrl: zod.string().nullish(),
+  externalLastSyncAt: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["vigente", "a_vencer", "vencido"]),
+  unitId: zod.number(),
+  unitName: zod.string().nullish(),
+  attachmentCount: zod.number(),
+  latestRenewalStatus: zod
+    .union([
+      zod.literal("nao_iniciado"),
+      zod.literal("em_andamento"),
+      zod.literal("protocolado"),
+      zod.literal("renovado"),
+      zod.literal("indeferido"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Update a regulatory document
+ */
+export const UpdateRegulatoryDocumentParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const UpdateRegulatoryDocumentBody = zod.object({
+  unitId: zod.number().optional(),
+  identifierType: zod
+    .enum([
+      "licenca_ambiental",
+      "avcb",
+      "alvara",
+      "outorga",
+      "certidao",
+      "outro",
+    ])
+    .optional(),
+  identifierOther: zod.string().optional(),
+  documentNumber: zod.string().optional(),
+  issuingBody: zod.string().optional(),
+  processNumber: zod.string().optional(),
+  responsibleUserId: zod.number().optional(),
+  issueDate: zod.string().optional(),
+  expirationDate: zod.string().optional(),
+  renewalRequired: zod.boolean().optional(),
+  alertDaysOverride: zod.number().optional(),
+  notes: zod.string().optional(),
+});
+
+export const UpdateRegulatoryDocumentResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  identifierType: zod.enum([
+    "licenca_ambiental",
+    "avcb",
+    "alvara",
+    "outorga",
+    "certidao",
+    "outro",
+  ]),
+  identifierOther: zod.string().nullish(),
+  documentNumber: zod.string().nullish(),
+  issuingBody: zod.string(),
+  processNumber: zod.string().nullish(),
+  responsibleUserId: zod.number().nullish(),
+  responsibleUserName: zod.string().nullish(),
+  responsibleUserEmail: zod.string().nullish(),
+  issueDate: zod.string().nullish(),
+  expirationDate: zod.string(),
+  renewalRequired: zod.boolean(),
+  alertDaysOverride: zod.number().nullish(),
+  externalSourceProvider: zod.string().nullish(),
+  externalSourceReference: zod.string().nullish(),
+  externalSourceUrl: zod.string().nullish(),
+  externalLastSyncAt: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum(["vigente", "a_vencer", "vencido"]),
+  unitId: zod.number(),
+  unitName: zod.string().nullish(),
+  attachmentCount: zod.number(),
+  latestRenewalStatus: zod
+    .union([
+      zod.literal("nao_iniciado"),
+      zod.literal("em_andamento"),
+      zod.literal("protocolado"),
+      zod.literal("renovado"),
+      zod.literal("indeferido"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Delete a regulatory document
+ */
+export const DeleteRegulatoryDocumentParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+/**
+ * @summary Re-sync regulatory document statuses and dispatch expiry alerts
+ */
+export const ProcessRegulatoryDocumentAlertsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ProcessRegulatoryDocumentAlertsResponse = zod.object({
+  scanned: zod.number(),
+  statusChanged: zod.number(),
+  alertsCreated: zod.number(),
+  emailsSent: zod.number(),
+});
+
+/**
+ * @summary List renewals for a regulatory document
+ */
+export const ListRegulatoryDocumentRenewalsParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const ListRegulatoryDocumentRenewalsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  documentId: zod.number(),
+  status: zod.enum([
+    "nao_iniciado",
+    "em_andamento",
+    "protocolado",
+    "renovado",
+    "indeferido",
+  ]),
+  scheduledStartDate: zod.string().nullish(),
+  protocolDeadline: zod.string().nullish(),
+  protocolNumber: zod.string().nullish(),
+  newExpirationDate: zod.string().nullish(),
+  issuingBody: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  recordedByUserId: zod.number().nullish(),
+  recordedByUserName: zod.string().nullish(),
+  attachmentCount: zod.number(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const ListRegulatoryDocumentRenewalsResponse = zod.array(
+  ListRegulatoryDocumentRenewalsResponseItem,
+);
+
+/**
+ * @summary Register a renewal event
+ */
+export const CreateRegulatoryDocumentRenewalParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const CreateRegulatoryDocumentRenewalBody = zod.object({
+  status: zod.enum([
+    "nao_iniciado",
+    "em_andamento",
+    "protocolado",
+    "renovado",
+    "indeferido",
+  ]),
+  scheduledStartDate: zod.string().optional(),
+  protocolDeadline: zod.string().optional(),
+  protocolNumber: zod.string().optional(),
+  newExpirationDate: zod.string().optional(),
+  issuingBody: zod.string().optional(),
+  notes: zod.string().optional(),
+  recordedByUserId: zod.number().optional(),
+});
+
+/**
+ * @summary Update a renewal event
+ */
+export const UpdateRegulatoryDocumentRenewalParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+  renewalId: zod.coerce.number(),
+});
+
+export const UpdateRegulatoryDocumentRenewalBody = zod.object({
+  status: zod
+    .enum([
+      "nao_iniciado",
+      "em_andamento",
+      "protocolado",
+      "renovado",
+      "indeferido",
+    ])
+    .optional(),
+  scheduledStartDate: zod.string().optional(),
+  protocolDeadline: zod.string().optional(),
+  protocolNumber: zod.string().optional(),
+  newExpirationDate: zod.string().optional(),
+  issuingBody: zod.string().optional(),
+  notes: zod.string().optional(),
+  recordedByUserId: zod.number().optional(),
+});
+
+export const UpdateRegulatoryDocumentRenewalResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  documentId: zod.number(),
+  status: zod.enum([
+    "nao_iniciado",
+    "em_andamento",
+    "protocolado",
+    "renovado",
+    "indeferido",
+  ]),
+  scheduledStartDate: zod.string().nullish(),
+  protocolDeadline: zod.string().nullish(),
+  protocolNumber: zod.string().nullish(),
+  newExpirationDate: zod.string().nullish(),
+  issuingBody: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  recordedByUserId: zod.number().nullish(),
+  recordedByUserName: zod.string().nullish(),
+  attachmentCount: zod.number(),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Delete a renewal event
+ */
+export const DeleteRegulatoryDocumentRenewalParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+  renewalId: zod.coerce.number(),
+});
+
+/**
+ * @summary List attachments (optionally filtered by renewalId)
+ */
+export const ListRegulatoryDocumentAttachmentsParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const ListRegulatoryDocumentAttachmentsQueryParams = zod.object({
+  renewalId: zod.coerce.number().optional(),
+});
+
+export const ListRegulatoryDocumentAttachmentsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  documentId: zod.number(),
+  renewalId: zod.number().nullish(),
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+  uploadedAt: zod.string(),
+});
+export const ListRegulatoryDocumentAttachmentsResponse = zod.array(
+  ListRegulatoryDocumentAttachmentsResponseItem,
+);
+
+/**
+ * @summary Add an attachment to a document (optionally linked to a renewal)
+ */
+export const AddRegulatoryDocumentAttachmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const AddRegulatoryDocumentAttachmentBody = zod.object({
+  renewalId: zod.number().optional(),
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  contentType: zod.string(),
+  objectPath: zod.string(),
+});
+
+/**
+ * @summary Delete an attachment
+ */
+export const DeleteRegulatoryDocumentAttachmentParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
   attachmentId: zod.coerce.number(),
 });
 

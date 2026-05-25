@@ -7342,6 +7342,350 @@ paths:
         "204":
           description: Attachment deleted
 
+  /organizations/{orgId}/regulatory-documents:
+    get:
+      operationId: listRegulatoryDocuments
+      tags: [regulatory-documents]
+      summary: List regulatory documents (licenças, AVCB, alvarás) for an organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: unitId
+          in: query
+          schema:
+            type: integer
+        - name: identifierType
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of regulatory documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RegulatoryDocument"
+    post:
+      operationId: createRegulatoryDocument
+      tags: [regulatory-documents]
+      summary: Create a regulatory document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRegulatoryDocumentBody"
+      responses:
+        "201":
+          description: Regulatory document created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegulatoryDocument"
+
+  /organizations/{orgId}/regulatory-documents/{docId}:
+    get:
+      operationId: getRegulatoryDocument
+      tags: [regulatory-documents]
+      summary: Get a single regulatory document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Regulatory document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegulatoryDocument"
+    patch:
+      operationId: updateRegulatoryDocument
+      tags: [regulatory-documents]
+      summary: Update a regulatory document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRegulatoryDocumentBody"
+      responses:
+        "200":
+          description: Regulatory document updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegulatoryDocument"
+    delete:
+      operationId: deleteRegulatoryDocument
+      tags: [regulatory-documents]
+      summary: Delete a regulatory document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Regulatory document deleted
+
+  /organizations/{orgId}/regulatory-documents/process-alerts:
+    post:
+      operationId: processRegulatoryDocumentAlerts
+      tags: [regulatory-documents]
+      summary: Re-sync regulatory document statuses and dispatch expiry alerts
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Scan results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessRegulatoryAlertsResponse"
+
+  /organizations/{orgId}/regulatory-documents/{docId}/renewals:
+    get:
+      operationId: listRegulatoryDocumentRenewals
+      tags: [regulatory-documents]
+      summary: List renewals for a regulatory document
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of renewals (newest first)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RegulatoryDocumentRenewal"
+    post:
+      operationId: createRegulatoryDocumentRenewal
+      tags: [regulatory-documents]
+      summary: Register a renewal event
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRegulatoryDocumentRenewalBody"
+      responses:
+        "201":
+          description: Renewal created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegulatoryDocumentRenewal"
+
+  /organizations/{orgId}/regulatory-documents/{docId}/renewals/{renewalId}:
+    patch:
+      operationId: updateRegulatoryDocumentRenewal
+      tags: [regulatory-documents]
+      summary: Update a renewal event
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: renewalId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRegulatoryDocumentRenewalBody"
+      responses:
+        "200":
+          description: Renewal updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegulatoryDocumentRenewal"
+    delete:
+      operationId: deleteRegulatoryDocumentRenewal
+      tags: [regulatory-documents]
+      summary: Delete a renewal event
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: renewalId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Renewal deleted
+
+  /organizations/{orgId}/regulatory-documents/{docId}/attachments:
+    get:
+      operationId: listRegulatoryDocumentAttachments
+      tags: [regulatory-documents]
+      summary: List attachments (optionally filtered by renewalId)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: renewalId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of attachments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RegulatoryDocumentAttachment"
+    post:
+      operationId: addRegulatoryDocumentAttachment
+      tags: [regulatory-documents]
+      summary: Add an attachment to a document (optionally linked to a renewal)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddRegulatoryDocumentAttachmentBody"
+      responses:
+        "201":
+          description: Attachment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegulatoryDocumentAttachment"
+
+  /organizations/{orgId}/regulatory-documents/{docId}/attachments/{attachmentId}:
+    delete:
+      operationId: deleteRegulatoryDocumentAttachment
+      tags: [regulatory-documents]
+      summary: Delete an attachment
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Attachment deleted
+
   /organizations/{orgId}/governance/project-development/applicability:
     get:
       operationId: getProjectDevelopmentApplicability
@@ -10930,6 +11274,7 @@ components:
           kpi,
           roadSafety,
           assets,
+          regulatoryDocuments,
         ]
 
     OrgUser:
@@ -16134,6 +16479,296 @@ components:
     AddMeasurementResourceAttachmentBody:
       type: object
       properties:
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        contentType:
+          type: string
+        objectPath:
+          type: string
+      required:
+        - fileName
+        - fileSize
+        - contentType
+        - objectPath
+
+    # ── Regulatory Documents (licenças, AVCB, alvarás) ────────────────────────
+
+    RegulatoryDocument:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        identifierType:
+          type: string
+          enum: [licenca_ambiental, avcb, alvara, outorga, certidao, outro]
+        identifierOther:
+          type: ["string", "null"]
+        documentNumber:
+          type: ["string", "null"]
+        issuingBody:
+          type: string
+        processNumber:
+          type: ["string", "null"]
+        responsibleUserId:
+          type: ["integer", "null"]
+        responsibleUserName:
+          type: ["string", "null"]
+        responsibleUserEmail:
+          type: ["string", "null"]
+        issueDate:
+          type: ["string", "null"]
+        expirationDate:
+          type: string
+        renewalRequired:
+          type: boolean
+        alertDaysOverride:
+          type: ["integer", "null"]
+        externalSourceProvider:
+          type: ["string", "null"]
+        externalSourceReference:
+          type: ["string", "null"]
+        externalSourceUrl:
+          type: ["string", "null"]
+        externalLastSyncAt:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [vigente, a_vencer, vencido]
+        unitId:
+          type: integer
+        unitName:
+          type: ["string", "null"]
+        attachmentCount:
+          type: integer
+        latestRenewalStatus:
+          type: ["string", "null"]
+          enum: [nao_iniciado, em_andamento, protocolado, renovado, indeferido, null]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - unitId
+        - identifierType
+        - issuingBody
+        - expirationDate
+        - renewalRequired
+        - status
+        - attachmentCount
+        - createdAt
+        - updatedAt
+
+    CreateRegulatoryDocumentBody:
+      type: object
+      properties:
+        unitId:
+          type: integer
+        identifierType:
+          type: string
+          enum: [licenca_ambiental, avcb, alvara, outorga, certidao, outro]
+        identifierOther:
+          type: string
+        documentNumber:
+          type: string
+        issuingBody:
+          type: string
+        processNumber:
+          type: string
+        responsibleUserId:
+          type: integer
+        issueDate:
+          type: string
+        expirationDate:
+          type: string
+        renewalRequired:
+          type: boolean
+        alertDaysOverride:
+          type: integer
+        notes:
+          type: string
+      required:
+        - unitId
+        - identifierType
+        - issuingBody
+        - expirationDate
+
+    UpdateRegulatoryDocumentBody:
+      type: object
+      properties:
+        unitId:
+          type: integer
+        identifierType:
+          type: string
+          enum: [licenca_ambiental, avcb, alvara, outorga, certidao, outro]
+        identifierOther:
+          type: string
+        documentNumber:
+          type: string
+        issuingBody:
+          type: string
+        processNumber:
+          type: string
+        responsibleUserId:
+          type: integer
+        issueDate:
+          type: string
+        expirationDate:
+          type: string
+        renewalRequired:
+          type: boolean
+        alertDaysOverride:
+          type: integer
+        notes:
+          type: string
+
+    ProcessRegulatoryAlertsResponse:
+      type: object
+      properties:
+        scanned:
+          type: integer
+        statusChanged:
+          type: integer
+        alertsCreated:
+          type: integer
+        emailsSent:
+          type: integer
+      required:
+        - scanned
+        - statusChanged
+        - alertsCreated
+        - emailsSent
+
+    RegulatoryDocumentRenewal:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        documentId:
+          type: integer
+        status:
+          type: string
+          enum: [nao_iniciado, em_andamento, protocolado, renovado, indeferido]
+        scheduledStartDate:
+          type: ["string", "null"]
+        protocolDeadline:
+          type: ["string", "null"]
+        protocolNumber:
+          type: ["string", "null"]
+        newExpirationDate:
+          type: ["string", "null"]
+        issuingBody:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        recordedByUserId:
+          type: ["integer", "null"]
+        recordedByUserName:
+          type: ["string", "null"]
+        attachmentCount:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - documentId
+        - status
+        - attachmentCount
+        - createdAt
+        - updatedAt
+
+    CreateRegulatoryDocumentRenewalBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [nao_iniciado, em_andamento, protocolado, renovado, indeferido]
+        scheduledStartDate:
+          type: string
+        protocolDeadline:
+          type: string
+        protocolNumber:
+          type: string
+        newExpirationDate:
+          type: string
+        issuingBody:
+          type: string
+        notes:
+          type: string
+        recordedByUserId:
+          type: integer
+      required:
+        - status
+
+    UpdateRegulatoryDocumentRenewalBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [nao_iniciado, em_andamento, protocolado, renovado, indeferido]
+        scheduledStartDate:
+          type: string
+        protocolDeadline:
+          type: string
+        protocolNumber:
+          type: string
+        newExpirationDate:
+          type: string
+        issuingBody:
+          type: string
+        notes:
+          type: string
+        recordedByUserId:
+          type: integer
+
+    RegulatoryDocumentAttachment:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        documentId:
+          type: integer
+        renewalId:
+          type: ["integer", "null"]
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        contentType:
+          type: string
+        objectPath:
+          type: string
+        uploadedAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - documentId
+        - fileName
+        - fileSize
+        - contentType
+        - objectPath
+        - uploadedAt
+
+    AddRegulatoryDocumentAttachmentBody:
+      type: object
+      properties:
+        renewalId:
+          type: integer
         fileName:
           type: string
         fileSize:

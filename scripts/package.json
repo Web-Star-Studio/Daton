@@ -10,6 +10,8 @@
     "seed-road-safety": "tsx --env-file ../.env ./src/seed-road-safety.ts",
     "seed-assets": "tsx --env-file ../.env ./src/seed-assets.ts",
     "seed-operational-planning": "tsx --env-file ../.env ./src/seed-operational-planning.ts",
+    "seed-regulatory-documents": "tsx --env-file ../.env ./src/seed-regulatory-documents.ts",
+    "list-orgs": "tsx --env-file ../.env ./src/list-orgs.ts",
     "create-platform-admin": "tsx --env-file ../.env ./src/create-platform-admin.ts",
     "create-org-admin": "tsx --env-file ../.env ./src/create-org-admin.ts",
     "migrate": "tsx --env-file ../.env ./src/migrate/index.ts",
