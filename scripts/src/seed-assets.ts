@@ -525,6 +525,10 @@ async function seedAssets() {
   console.log(`✓ ${recordsToInsert.length} registros de execução de manutenção inseridos`);
 
   // ── 4. Measurement Resources + Calibrations (C3) ────────────────────────
+  // O campo `responsibleUserId` (e `calibratedByUserId` nas calibrações) é
+  // intencionalmente omitido — o seed não tem mapping confiável de "área" pra
+  // usuário com conta. O responsável é atribuído via UI depois do seed, em
+  // linha com a convenção `responsavel-must-be-user`.
   const insertedResources = await db
     .insert(measurementResourcesTable)
     .values([
@@ -534,7 +538,6 @@ async function seedAssets() {
         name: "Paquímetro Digital PAQ-01",
         identifier: "PAT-2021-0041",
         resourceType: "instrumento",
-        responsibleId: employeeId("qualidade") ?? employeeId(""),
         validUntil: daysFromNow(180),
         status: "ativo",
         notes: "Paquímetro digital com resolução 0,01mm. Certificado IMETRO vigente.",
@@ -545,7 +548,6 @@ async function seedAssets() {
         name: "Termômetro de Precisão TMP-01",
         identifier: "PAT-2019-0017",
         resourceType: "instrumento",
-        responsibleId: employeeId("qualidade") ?? employeeId(""),
         validUntil: daysFromNow(-15),
         status: "vencido",
         notes: "Calibração vencida. Aguardando laboratório credenciado para recalibração.",
@@ -556,7 +558,6 @@ async function seedAssets() {
         name: "Manômetro MAN-01",
         identifier: "PAT-2020-0089",
         resourceType: "instrumento",
-        responsibleId: employeeId("manutenção"),
         validUntil: daysFromNow(60),
         status: "ativo",
         notes: "Instalado no compressor CP-01. Escala 0-16 bar.",
@@ -567,7 +568,6 @@ async function seedAssets() {
         name: "Balança Analítica BAL-02",
         identifier: "PAT-2022-0003",
         resourceType: "equipamento",
-        responsibleId: employeeId("qualidade") ?? employeeId(""),
         validUntil: daysFromNow(270),
         status: "ativo",
         notes: "Resolução 0,0001g. Certificado RBC. Laboratório de referência: IPT-SP.",
@@ -578,7 +578,6 @@ async function seedAssets() {
         name: "Multímetro Digital MUL-01",
         identifier: "PAT-2023-0055",
         resourceType: "instrumento",
-        responsibleId: employeeId("ti") ?? employeeId(""),
         validUntil: daysFromNow(120),
         status: "ativo",
         notes: "Categoria CAT III 600V. Utilizado em verificações elétricas.",
@@ -600,7 +599,6 @@ async function seedAssets() {
         organizationId: orgId,
         resourceId: paquimetro.id,
         calibratedAt: daysAgo(185),
-        calibratedById: employeeId("qualidade") ?? employeeId(""),
         certificateNumber: "RBC-2024-08-00412",
         result: "apto" as const,
         nextDueAt: daysFromNow(180),
@@ -610,7 +608,6 @@ async function seedAssets() {
         organizationId: orgId,
         resourceId: paquimetro.id,
         calibratedAt: daysAgo(550),
-        calibratedById: employeeId("qualidade") ?? employeeId(""),
         certificateNumber: "RBC-2023-07-00287",
         result: "apto" as const,
         nextDueAt: daysAgo(185),
@@ -625,7 +622,6 @@ async function seedAssets() {
       organizationId: orgId,
       resourceId: termometro.id,
       calibratedAt: daysAgo(380),
-      calibratedById: employeeId("qualidade") ?? employeeId(""),
       certificateNumber: "CAL-2023-06-00198",
       result: "apto" as const,
       nextDueAt: daysAgo(15),
@@ -639,7 +635,6 @@ async function seedAssets() {
       organizationId: orgId,
       resourceId: manometro.id,
       calibratedAt: daysAgo(305),
-      calibratedById: employeeId(""),
       certificateNumber: "CAL-2024-06-00099",
       result: "apto" as const,
       nextDueAt: daysFromNow(60),
@@ -654,7 +649,6 @@ async function seedAssets() {
         organizationId: orgId,
         resourceId: balanca.id,
         calibratedAt: daysAgo(95),
-        calibratedById: employeeId("qualidade") ?? employeeId(""),
         certificateNumber: "RBC-2025-01-00504",
         result: "apto" as const,
         nextDueAt: daysFromNow(270),

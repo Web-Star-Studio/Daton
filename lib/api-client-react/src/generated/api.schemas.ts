@@ -4341,9 +4341,11 @@ export interface MeasurementResource {
   identifier?: string | null;
   resourceType: MeasurementResourceResourceType;
   /** @nullable */
-  responsibleId?: number | null;
+  responsibleUserId?: number | null;
   /** @nullable */
-  responsibleName?: string | null;
+  responsibleUserName?: string | null;
+  /** @nullable */
+  responsibleUserEmail?: string | null;
   /** @nullable */
   validUntil?: string | null;
   status: MeasurementResourceStatus;
@@ -4372,7 +4374,7 @@ export interface CreateMeasurementResourceBody {
   identifier?: string;
   resourceType?: CreateMeasurementResourceBodyResourceType;
   unitId?: number;
-  responsibleId?: number;
+  responsibleUserId?: number;
   validUntil?: string;
   notes?: string;
 }
@@ -4400,7 +4402,7 @@ export interface UpdateMeasurementResourceBody {
   identifier?: string;
   resourceType?: UpdateMeasurementResourceBodyResourceType;
   unitId?: number;
-  responsibleId?: number;
+  responsibleUserId?: number;
   validUntil?: string;
   status?: UpdateMeasurementResourceBodyStatus;
   notes?: string;
@@ -4420,9 +4422,9 @@ export interface MeasurementResourceCalibration {
   resourceId: number;
   calibratedAt: string;
   /** @nullable */
-  calibratedById?: number | null;
+  calibratedByUserId?: number | null;
   /** @nullable */
-  calibratedByName?: string | null;
+  calibratedByUserName?: string | null;
   /** @nullable */
   certificateNumber?: string | null;
   result: MeasurementResourceCalibrationResult;
@@ -4443,7 +4445,7 @@ export const CreateMeasurementResourceCalibrationBodyResult = {
 
 export interface CreateMeasurementResourceCalibrationBody {
   calibratedAt: string;
-  calibratedById?: number;
+  calibratedByUserId?: number;
   certificateNumber?: string;
   result: CreateMeasurementResourceCalibrationBodyResult;
   nextDueAt?: string;
