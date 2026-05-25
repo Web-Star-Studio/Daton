@@ -126,6 +126,8 @@ import type {
   HealthStatus,
   ImportLegislationsBody,
   ImportPositionsBody,
+  ImportRegulatoryDocumentsBody,
+  ImportRegulatoryDocumentsResponse,
   ImportResult,
   ImportStrategicPlanBody,
   InternalAuditDetail,
@@ -25483,6 +25485,103 @@ export const useCreateRegulatoryDocument = <
   TContext
 > => {
   return useMutation(getCreateRegulatoryDocumentMutationOptions(options));
+};
+
+/**
+ * Imports an array of regulatory documents. Each row is validated and
+inserted individually — valid rows are persisted while invalid rows
+are reported in the `errors` array with the row number from the
+spreadsheet (header = row 1, first data row = 2). When a row sets
+`renewalRequired=true`, the auto-renewal cycle is created as in POST.
+
+ * @summary Bulk-import regulatory documents from a spreadsheet (CSV/Excel)
+ */
+export const getImportRegulatoryDocumentsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/regulatory-documents/import`;
+};
+
+export const importRegulatoryDocuments = async (
+  orgId: number,
+  importRegulatoryDocumentsBody: ImportRegulatoryDocumentsBody,
+  options?: RequestInit,
+): Promise<ImportRegulatoryDocumentsResponse> => {
+  return customFetch<ImportRegulatoryDocumentsResponse>(
+    getImportRegulatoryDocumentsUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(importRegulatoryDocumentsBody),
+    },
+  );
+};
+
+export const getImportRegulatoryDocumentsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importRegulatoryDocuments>>,
+    TError,
+    { orgId: number; data: BodyType<ImportRegulatoryDocumentsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importRegulatoryDocuments>>,
+  TError,
+  { orgId: number; data: BodyType<ImportRegulatoryDocumentsBody> },
+  TContext
+> => {
+  const mutationKey = ["importRegulatoryDocuments"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importRegulatoryDocuments>>,
+    { orgId: number; data: BodyType<ImportRegulatoryDocumentsBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return importRegulatoryDocuments(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportRegulatoryDocumentsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importRegulatoryDocuments>>
+>;
+export type ImportRegulatoryDocumentsMutationBody =
+  BodyType<ImportRegulatoryDocumentsBody>;
+export type ImportRegulatoryDocumentsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Bulk-import regulatory documents from a spreadsheet (CSV/Excel)
+ */
+export const useImportRegulatoryDocuments = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importRegulatoryDocuments>>,
+    TError,
+    { orgId: number; data: BodyType<ImportRegulatoryDocumentsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importRegulatoryDocuments>>,
+  TError,
+  { orgId: number; data: BodyType<ImportRegulatoryDocumentsBody> },
+  TContext
+> => {
+  return useMutation(getImportRegulatoryDocumentsMutationOptions(options));
 };
 
 /**

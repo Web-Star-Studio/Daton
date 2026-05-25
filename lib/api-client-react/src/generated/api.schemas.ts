@@ -4604,6 +4604,58 @@ export interface UpdateRegulatoryDocumentBody {
   notes?: string;
 }
 
+export type ImportRegulatoryDocumentRowIdentifierType =
+  (typeof ImportRegulatoryDocumentRowIdentifierType)[keyof typeof ImportRegulatoryDocumentRowIdentifierType];
+
+export const ImportRegulatoryDocumentRowIdentifierType = {
+  licenca_ambiental: "licenca_ambiental",
+  avcb: "avcb",
+  alvara: "alvara",
+  outorga: "outorga",
+  certidao: "certidao",
+  outro: "outro",
+} as const;
+
+/**
+ * One row in the import payload. Unlike CreateRegulatoryDocumentBody,
+references are by human-readable lookups so the spreadsheet stays
+editable by end users: `unitName` (case-insensitive contains match
+against units.name) and `responsibleUserEmail` (exact match against
+users.email within the same organization).
+
+ */
+export interface ImportRegulatoryDocumentRow {
+  unitName: string;
+  identifierType: ImportRegulatoryDocumentRowIdentifierType;
+  identifierOther?: string;
+  documentNumber?: string;
+  issuingBody: string;
+  processNumber?: string;
+  responsibleUserEmail?: string;
+  /** Accepts DD/MM/YYYY or YYYY-MM-DD */
+  issueDate?: string;
+  /** Accepts DD/MM/YYYY or YYYY-MM-DD */
+  expirationDate: string;
+  renewalRequired?: boolean;
+  alertDaysOverride?: number;
+  notes?: string;
+}
+
+export interface ImportRegulatoryDocumentsBody {
+  rows: ImportRegulatoryDocumentRow[];
+}
+
+export type ImportRegulatoryDocumentsResponseErrorsItem = {
+  /** 1-based row index (header = 1, first data row = 2) */
+  row: number;
+  message: string;
+};
+
+export interface ImportRegulatoryDocumentsResponse {
+  inserted: number;
+  errors: ImportRegulatoryDocumentsResponseErrorsItem[];
+}
+
 export interface ProcessRegulatoryAlertsResponse {
   scanned: number;
   statusChanged: number;

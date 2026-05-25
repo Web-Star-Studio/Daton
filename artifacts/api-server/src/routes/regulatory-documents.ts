@@ -29,10 +29,13 @@ import {
   AddRegulatoryDocumentAttachmentParams,
   AddRegulatoryDocumentAttachmentBody,
   DeleteRegulatoryDocumentAttachmentParams,
+  ImportRegulatoryDocumentsParams,
+  ImportRegulatoryDocumentsBody,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../middlewares/auth";
 import { runRegulatoryDocumentAlertsPass } from "../services/regulatory-documents/alerts";
 import { computeStatus } from "../services/regulatory-documents/status";
+import { importRegulatoryDocuments } from "../services/regulatory-documents/import";
 
 const router: IRouter = Router();
 
@@ -383,6 +386,30 @@ router.post(
     if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
     const result = await runRegulatoryDocumentAlertsPass(params.data.orgId);
+    res.json(result);
+  },
+);
+
+// --- Bulk import (CSV/Excel) ---
+//
+// Não-transacional: linhas válidas são gravadas e linhas inválidas vão para a
+// lista de erros com o número da linha (1-based, com header na linha 1). A
+// alternativa transacional foi descartada porque, na UX, o cliente quer
+// revisar e corrigir o que falhou — não recomeçar do zero.
+
+router.post(
+  "/organizations/:orgId/regulatory-documents/import",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const params = ImportRegulatoryDocumentsParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+    if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const body = ImportRegulatoryDocumentsBody.safeParse(req.body);
+    if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+    const result = await importRegulatoryDocuments(params.data.orgId, body.data.rows);
     res.json(result);
   },
 );

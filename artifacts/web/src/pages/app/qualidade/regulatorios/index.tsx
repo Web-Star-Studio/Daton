@@ -10,7 +10,9 @@ import {
   Pencil,
   Plus,
   Trash2,
+  Upload,
 } from "lucide-react";
+import { RegulatoryImportDialog } from "./_import-dialog";
 // Note: alertas são processados automaticamente pelo governance-scheduler
 // no backend (boot + a cada GOVERNANCE_MAINTENANCE_INTERVAL_MINUTES, default 60min).
 // Nenhuma ação manual é necessária — não há botão "Processar alertas".
@@ -908,6 +910,7 @@ export default function RegulatoriosPage() {
   const [filterSearch, setFilterSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<RegulatoryDocument | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [detailDocId, setDetailDocId] = useState<number | null>(null);
 
   const deleteMut = useDeleteRegulatoryDocument();
@@ -917,11 +920,19 @@ export default function RegulatoriosPage() {
 
   useHeaderActions(
     canWrite ? (
-      <HeaderActionButton
-        icon={<Plus className="h-4 w-4" />}
-        label="Novo documento regulatório"
-        onClick={() => { setDialogOpen(true); setEditing(null); }}
-      />
+      <div className="flex items-center gap-2">
+        <HeaderActionButton
+          icon={<Upload className="h-4 w-4" />}
+          label="Importar"
+          variant="outline"
+          onClick={() => setImportDialogOpen(true)}
+        />
+        <HeaderActionButton
+          icon={<Plus className="h-4 w-4" />}
+          label="Novo documento regulatório"
+          onClick={() => { setDialogOpen(true); setEditing(null); }}
+        />
+      </div>
     ) : null,
   );
 
@@ -1213,6 +1224,12 @@ export default function RegulatoriosPage() {
         canWrite={canWrite}
         onClose={() => setDetailDocId(null)}
         onEdit={(d) => { setDetailDocId(null); setEditing(d); setDialogOpen(true); }}
+      />
+
+      <RegulatoryImportDialog
+        orgId={orgId}
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
       />
     </div>
   );
