@@ -37,6 +37,7 @@ import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { toast } from "@/hooks/use-toast";
+import { RegulatoryHomeWidget } from "@/components/regulatory-documents/home-widget";
 import {
   GOAL_LABELS,
   MATURITY_LABELS,
@@ -783,6 +784,9 @@ export default function OrganizacaoPage({
     <>
       {activeTab === "visao-geral" && (
         <div className="space-y-10">
+          {/* Compliance — Documentos Regulatórios (oculto se o módulo não estiver habilitado) */}
+          <RegulatoryHomeWidget />
+
           {/* Dados Cadastrais */}
           <div>
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">
