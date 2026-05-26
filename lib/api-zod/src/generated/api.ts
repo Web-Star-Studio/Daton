@@ -14535,6 +14535,66 @@ export const CreateRegulatoryDocumentBody = zod.object({
 });
 
 /**
+ * Imports an array of regulatory documents. Each row is validated and
+inserted individually — valid rows are persisted while invalid rows
+are reported in the `errors` array with the row number from the
+spreadsheet (header = row 1, first data row = 2). When a row sets
+`renewalRequired=true`, the auto-renewal cycle is created as in POST.
+
+ * @summary Bulk-import regulatory documents from a spreadsheet (CSV/Excel)
+ */
+export const ImportRegulatoryDocumentsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ImportRegulatoryDocumentsBody = zod.object({
+  rows: zod.array(
+    zod
+      .object({
+        unitName: zod.string(),
+        identifierType: zod.enum([
+          "licenca_ambiental",
+          "avcb",
+          "alvara",
+          "outorga",
+          "certidao",
+          "outro",
+        ]),
+        identifierOther: zod.string().optional(),
+        documentNumber: zod.string().optional(),
+        issuingBody: zod.string(),
+        processNumber: zod.string().optional(),
+        responsibleUserEmail: zod.string().optional(),
+        issueDate: zod
+          .string()
+          .optional()
+          .describe("Accepts DD\/MM\/YYYY or YYYY-MM-DD"),
+        expirationDate: zod
+          .string()
+          .describe("Accepts DD\/MM\/YYYY or YYYY-MM-DD"),
+        renewalRequired: zod.boolean().optional(),
+        alertDaysOverride: zod.number().optional(),
+        notes: zod.string().optional(),
+      })
+      .describe(
+        "One row in the import payload. Unlike CreateRegulatoryDocumentBody,\nreferences are by human-readable lookups so the spreadsheet stays\neditable by end users: `unitName` (case-insensitive contains match\nagainst units.name) and `responsibleUserEmail` (exact match against\nusers.email within the same organization).\n",
+      ),
+  ),
+});
+
+export const ImportRegulatoryDocumentsResponse = zod.object({
+  inserted: zod.number(),
+  errors: zod.array(
+    zod.object({
+      row: zod
+        .number()
+        .describe("1-based row index (header = 1, first data row = 2)"),
+      message: zod.string(),
+    }),
+  ),
+});
+
+/**
  * @summary Get a single regulatory document
  */
 export const GetRegulatoryDocumentParams = zod.object({

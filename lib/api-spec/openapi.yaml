@@ -7402,6 +7402,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/RegulatoryDocument"
 
+  /organizations/{orgId}/regulatory-documents/import:
+    post:
+      operationId: importRegulatoryDocuments
+      tags: [regulatory-documents]
+      summary: Bulk-import regulatory documents from a spreadsheet (CSV/Excel)
+      description: |
+        Imports an array of regulatory documents. Each row is validated and
+        inserted individually — valid rows are persisted while invalid rows
+        are reported in the `errors` array with the row number from the
+        spreadsheet (header = row 1, first data row = 2). When a row sets
+        `renewalRequired=true`, the auto-renewal cycle is created as in POST.
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportRegulatoryDocumentsBody"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportRegulatoryDocumentsResponse"
+
   /organizations/{orgId}/regulatory-documents/{docId}:
     get:
       operationId: getRegulatoryDocument
@@ -16630,6 +16661,80 @@ components:
           type: integer
         notes:
           type: string
+
+    ImportRegulatoryDocumentRow:
+      type: object
+      description: |
+        One row in the import payload. Unlike CreateRegulatoryDocumentBody,
+        references are by human-readable lookups so the spreadsheet stays
+        editable by end users: `unitName` (case-insensitive contains match
+        against units.name) and `responsibleUserEmail` (exact match against
+        users.email within the same organization).
+      properties:
+        unitName:
+          type: string
+        identifierType:
+          type: string
+          enum: [licenca_ambiental, avcb, alvara, outorga, certidao, outro]
+        identifierOther:
+          type: string
+        documentNumber:
+          type: string
+        issuingBody:
+          type: string
+        processNumber:
+          type: string
+        responsibleUserEmail:
+          type: string
+        issueDate:
+          type: string
+          description: Accepts DD/MM/YYYY or YYYY-MM-DD
+        expirationDate:
+          type: string
+          description: Accepts DD/MM/YYYY or YYYY-MM-DD
+        renewalRequired:
+          type: boolean
+        alertDaysOverride:
+          type: integer
+        notes:
+          type: string
+      required:
+        - unitName
+        - identifierType
+        - issuingBody
+        - expirationDate
+
+    ImportRegulatoryDocumentsBody:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportRegulatoryDocumentRow"
+      required:
+        - rows
+
+    ImportRegulatoryDocumentsResponse:
+      type: object
+      properties:
+        inserted:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              row:
+                type: integer
+                description: 1-based row index (header = 1, first data row = 2)
+              message:
+                type: string
+            required:
+              - row
+              - message
+      required:
+        - inserted
+        - errors
 
     ProcessRegulatoryAlertsResponse:
       type: object
