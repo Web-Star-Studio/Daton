@@ -63,6 +63,12 @@ import { getIndicatorStatus, type CardStatus } from "./_components/indicator-car
 
 const DEFAULT_YEAR = new Date().getFullYear();
 
+// String canônica para indicadores que são compilado/rollup de TODAS as filiais
+// (não é um CNPJ real, por isso não vive na tabela `units`). Conferida com a
+// cliente: "é um indicador que é o compilado de todas as unidades juntas".
+// Mantida centralizada pra garantir match exato com dados importados via Excel.
+const CORPORATE_UNIT_LABEL = "Corporativo";
+
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
@@ -243,9 +249,15 @@ export default function KpiIndicadoresPage() {
     },
   });
 
-  const orgUnitOptions = orgUnits
-    .map((u) => u.name)
-    .sort((a, b) => a.localeCompare(b));
+  // "Corporativo" é um pseudo-unit usado para indicadores que são compilado de
+  // todas as filiais (rollup). Não existe como row em `units` (cada CNPJ é uma
+  // filial real), mas o campo `kpi_indicators.unit` é varchar livre, então
+  // salvamos a string canônica. Mantemos como CONSTANTE pra garantir
+  // capitalização consistente entre cadastros novos e import.
+  const orgUnitOptions = [
+    CORPORATE_UNIT_LABEL,
+    ...orgUnits.map((u) => u.name).sort((a, b) => a.localeCompare(b)),
+  ];
   const responsibleOptions = useMemo(
     () =>
       (orgUsersData?.users ?? [])
@@ -860,6 +872,10 @@ export default function KpiIndicadoresPage() {
               searchPlaceholder="Buscar unidade..."
               emptyMessage="Nenhuma unidade encontrada"
             />
+            <p className="text-[11px] text-muted-foreground">
+              Escolha <span className="font-medium">{CORPORATE_UNIT_LABEL}</span> para
+              indicadores que compilam dados de todas as filiais (rollup).
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Responsável</Label>
