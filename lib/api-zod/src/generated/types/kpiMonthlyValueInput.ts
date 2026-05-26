@@ -18,4 +18,6 @@ export interface KpiMonthlyValueInput {
   month: number;
   value?: number | null;
   inputs?: KpiMonthlyValueInputInputs;
+  /** Override manual sobre cálculo automático do rollup. Default true quando value!=null, false quando value=null. */
+  isOverridden?: boolean;
 }

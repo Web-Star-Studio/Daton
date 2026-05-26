@@ -435,6 +435,10 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
     monthlyValueId: number;
     value: number | null;
     inputs: Record<string, number | null>;
+    isOverridden: boolean;
+    isComputed: boolean;             // true quando o valor visível veio de rollup (não do row)
+    childrenWithData: number | null; // só relevante quando isComputed
+    childrenTotal: number | null;    // só relevante quando isComputed
     justification: JustificationSummary | null;
     justificationsCount: number;
   };
@@ -447,6 +451,10 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
       monthlyValueId: mv.id,
       value: mv.value !== null && mv.value !== undefined ? parseFloat(mv.value) : null,
       inputs: mv.inputs ?? {},
+      isOverridden: mv.isOverridden,
+      isComputed: false,
+      childrenWithData: null,
+      childrenTotal: null,
       justification: null,
       justificationsCount: 0,
     });
@@ -529,6 +537,55 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
     : [];
   const objectiveById = new Map(objectives.map((o) => [o.id, o]));
 
+  // ─── Rollup compose on-read ──────────────────────────────────────────────
+  // Para indicadores que são rollup (rollupStrategy != null), substituímos
+  // os valores mensais por valores computados a partir dos filhos — EXCETO
+  // quando is_overridden=true (Ana editou manual; respeitamos).
+  const rollupIndicators = indicators.filter((ind) => ind.rollupStrategy);
+  for (const ind of rollupIndicators) {
+    const yc = yearConfigByIndicatorId.get(ind.id);
+    if (!yc) continue;
+    const monthMap = valuesByYearConfigId.get(yc.id) ?? new Map<number, MonthCell>();
+
+    // Computa 12 meses em paralelo (limitado — DB local serializa rápido)
+    const computeResults = await Promise.all(
+      Array.from({ length: 12 }, async (_, i) => {
+        const month = i + 1;
+        const existing = monthMap.get(month);
+        // Override manual: respeita o valor armazenado, não recomputa.
+        if (existing?.isOverridden) {
+          return { month, replace: null, breakdown: null };
+        }
+        const result = await computeRollupValue(params.data.orgId, ind.id, params.data.year, month);
+        return { month, replace: result, breakdown: result };
+      }),
+    );
+
+    for (const { month, replace, breakdown } of computeResults) {
+      if (!replace) continue;
+      // Garante que existe um cell pro mês (caso ainda não tenha row em DB)
+      if (!monthMap.has(month)) {
+        monthMap.set(month, {
+          monthlyValueId: 0,
+          value: null,
+          inputs: {},
+          isOverridden: false,
+          isComputed: false,
+          childrenWithData: null,
+          childrenTotal: null,
+          justification: null,
+          justificationsCount: 0,
+        });
+      }
+      const cell = monthMap.get(month)!;
+      cell.value = replace.computed;
+      cell.isComputed = true;
+      cell.childrenWithData = breakdown?.childrenWithData ?? 0;
+      cell.childrenTotal = breakdown?.childrenTotal ?? 0;
+    }
+    valuesByYearConfigId.set(yc.id, monthMap);
+  }
+
   // Build response — only include indicators that have a yearConfig
   const rows = indicators
     .filter((ind) => yearConfigByIndicatorId.has(ind.id))
@@ -536,7 +593,17 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
       const yc = yearConfigByIndicatorId.get(ind.id)!;
       const monthMap = valuesByYearConfigId.get(yc.id) ?? new Map<number, MonthCell>();
       const monthlyCells: MonthCell[] = Array.from({ length: 12 }, (_, i) =>
-        monthMap.get(i + 1) ?? { monthlyValueId: 0, value: null, inputs: {}, justification: null, justificationsCount: 0 },
+        monthMap.get(i + 1) ?? {
+          monthlyValueId: 0,
+          value: null,
+          inputs: {},
+          isOverridden: false,
+          isComputed: false,
+          childrenWithData: null,
+          childrenTotal: null,
+          justification: null,
+          justificationsCount: 0,
+        },
       );
       const monthlyValuesOnly = monthlyCells.map((c) => c.value);
 
@@ -562,6 +629,10 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
           value: c.value,
           inputs: c.inputs,
           monthlyValueId: c.monthlyValueId > 0 ? c.monthlyValueId : null,
+          isOverridden: c.isOverridden,
+          isComputed: c.isComputed,
+          childrenWithData: c.childrenWithData,
+          childrenTotal: c.childrenTotal,
           justification: c.justification,
           justificationsCount: c.justificationsCount,
           actionPlansCount: c.monthlyValueId > 0 ? (actionPlanCountsByMvId.get(c.monthlyValueId) ?? 0) : 0,
@@ -653,13 +724,26 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/values
     return;
   }
 
-  const upsertValues = body.data.values.map((v) => ({
-    organizationId: params.data.orgId,
-    yearConfigId: yearConfig.id,
-    month: v.month,
-    value: v.value !== null && v.value !== undefined ? String(v.value) : null,
-    inputs: v.inputs ?? {},
-  }));
+  // is_overridden defaults to TRUE quando o user entra um valor (entrada manual
+   // = override sobre o que o sistema calcularia). Quando value=null E o
+   // indicador tem rollup configurado, marcamos FALSE pra liberar o compute.
+   // O frontend pode passar isOverridden explicitamente pra controle fino.
+  type UpsertValueRow = typeof body.data.values[number] & { isOverridden?: boolean };
+  const upsertValues = body.data.values.map((v) => {
+    const raw = v as UpsertValueRow;
+    const valueNum = v.value !== null && v.value !== undefined ? String(v.value) : null;
+    const isOverridden = typeof raw.isOverridden === "boolean"
+      ? raw.isOverridden
+      : valueNum !== null;
+    return {
+      organizationId: params.data.orgId,
+      yearConfigId: yearConfig.id,
+      month: v.month,
+      value: valueNum,
+      inputs: v.inputs ?? {},
+      isOverridden,
+    };
+  });
 
   await db.insert(kpiMonthlyValuesTable).values(upsertValues)
     .onConflictDoUpdate({
@@ -667,6 +751,7 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/values
       set: {
         value: sql`excluded.value`,
         inputs: sql`excluded.inputs`,
+        isOverridden: sql`excluded.is_overridden`,
         updatedAt: new Date(),
       },
     });

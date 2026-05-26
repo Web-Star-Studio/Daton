@@ -198,16 +198,36 @@ export default function KpiAlimentacaoPage() {
     month: number,
     value: number | null,
     inputs: Record<string, number | null>,
+    opts?: { isOverridden?: boolean },
   ) {
     try {
       await upsertValues.mutateAsync({
         orgId,
         indicatorId,
         year,
-        data: { values: [{ month, value, inputs }] },
+        data: { values: [{ month, value, inputs, ...(opts?.isOverridden !== undefined ? { isOverridden: opts.isOverridden } : {}) }] },
       });
     } catch {
       toast({ title: "Erro ao salvar valor", variant: "destructive" });
+    }
+  }
+
+  /**
+   * Limpa o override manual de uma célula de indicador Corporativo, deixando
+   * o sistema recalcular automaticamente a partir das filhas no próximo read.
+   * Salva value=null + isOverridden=false (sinal pro backend recomputar).
+   */
+  async function clearOverride(indicatorId: number, month: number) {
+    try {
+      await upsertValues.mutateAsync({
+        orgId,
+        indicatorId,
+        year,
+        data: { values: [{ month, value: null, inputs: {}, isOverridden: false }] },
+      });
+      toast({ title: "Override removido — valor passa a ser calculado automaticamente." });
+    } catch {
+      toast({ title: "Erro ao limpar override", variant: "destructive" });
     }
   }
 
@@ -384,6 +404,13 @@ export default function KpiAlimentacaoPage() {
                       const justification = monthCell?.justification ?? null;
                       const plansCount = monthCell?.actionPlansCount ?? 0;
                       const showFlag = status === "red" && monthlyValueId !== null;
+                      // Rollup awareness:
+                      // - isComputed = valor exibido veio do cálculo on-read das filhas (Corporativo)
+                      // - isOverridden = Ana entrou um valor manual sobre o rollup
+                      // - hasRollup = o indicador é configurado como rollup (algum dos meses tem rollup state)
+                      const isComputed = monthCell?.isComputed === true;
+                      const isOverridden = monthCell?.isOverridden === true;
+                      const hasRollup = row.monthlyValues.some((mv) => mv.isComputed === true || mv.isOverridden === true);
                       const flagColor = plansCount > 0
                         ? "text-amber-700 dark:text-amber-300"
                         : justification
@@ -396,8 +423,26 @@ export default function KpiAlimentacaoPage() {
                           className={cn(
                             "border px-1 py-0.5 text-right relative",
                             status && trafficLightColor(status),
+                            // Subtle background quando valor é calculado (rollup, não-override)
+                            isComputed && "bg-indigo-50/40 dark:bg-indigo-500/5",
                           )}
+                          title={
+                            isComputed
+                              ? `Calculado automaticamente a partir de ${monthCell?.childrenWithData ?? 0}/${monthCell?.childrenTotal ?? 0} filiais. Editar abaixo sobrepõe.`
+                              : isOverridden && hasRollup
+                                ? "Override manual — clique no ↻ abaixo pra voltar ao cálculo automático"
+                                : undefined
+                          }
                         >
+                          {/* Marker "auto" no canto pra valores calculados */}
+                          {isComputed && (
+                            <span
+                              className="absolute top-0 left-0.5 text-[8px] font-medium text-indigo-600/70 dark:text-indigo-400/70 leading-none pt-0.5"
+                              aria-label="Valor calculado automaticamente"
+                            >
+                              auto
+                            </span>
+                          )}
                           {validFormula ? (
                             <FormulaCellEditor
                               indicatorName={row.indicator.name}
@@ -453,6 +498,21 @@ export default function KpiAlimentacaoPage() {
                               )}
                             >
                               <Flag className="h-2.5 w-2.5" fill={plansCount > 0 || justification ? "currentColor" : "none"} />
+                            </button>
+                          )}
+                          {/* Override manual num Corporativo com rollup → permitir voltar ao calculado */}
+                          {isOverridden && hasRollup && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                clearOverride(row.indicator.id, month);
+                              }}
+                              title="Voltar ao cálculo automático (limpar override manual)"
+                              aria-label="Usar valor calculado"
+                              className="absolute bottom-0 right-0.5 text-[8px] leading-none text-indigo-600/70 dark:text-indigo-400/70 hover:text-indigo-700 dark:hover:text-indigo-300 cursor-pointer pb-0.5"
+                            >
+                              ↻ auto
                             </button>
                           )}
                         </td>

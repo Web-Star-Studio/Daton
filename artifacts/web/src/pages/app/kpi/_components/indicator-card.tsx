@@ -165,6 +165,23 @@ export function IndicatorCard({
               {indicator.measurement}
             </p>
           ) : null}
+          {/* Badge sutil indicando "calculado automaticamente" se algum mês do
+              ano tem valor computado via rollup (Corporativo com filiais configurados). */}
+          {(() => {
+            const computedMonths = yearRow?.monthlyValues.filter((m) => m.isComputed) ?? [];
+            if (computedMonths.length === 0) return null;
+            const latest = computedMonths[computedMonths.length - 1];
+            const cw = latest?.childrenWithData ?? 0;
+            const ct = latest?.childrenTotal ?? 0;
+            return (
+              <p
+                className="mt-1 text-[10px] text-indigo-700 dark:text-indigo-300"
+                title="Valor calculado on-read a partir dos indicadores das filiais (rollup)"
+              >
+                ↻ calculado de {cw}/{ct} filia{ct === 1 ? "l" : "is"}
+              </p>
+            );
+          })()}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
