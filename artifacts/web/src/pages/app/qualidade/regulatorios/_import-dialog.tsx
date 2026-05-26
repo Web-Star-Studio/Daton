@@ -417,14 +417,14 @@ export function RegulatoryImportDialog({ orgId, open, onClose }: RegulatoryImpor
     >
       <div className="flex flex-col gap-4">
         {/* Step 1: download template */}
-        <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
           <div className="flex flex-col gap-0.5">
             <p className="text-sm font-medium">1. Baixe o modelo</p>
             <p className="text-xs text-muted-foreground">
               CSV com cabeçalho em PT-BR e uma linha de exemplo (que será ignorada na importação).
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={downloadTemplateXlsx} type="button">
+          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={downloadTemplateXlsx} type="button">
             <Download className="h-3.5 w-3.5 mr-1.5" /> Baixar modelo (.xlsx)
           </Button>
         </div>
@@ -454,7 +454,7 @@ export function RegulatoryImportDialog({ orgId, open, onClose }: RegulatoryImpor
             />
           </div>
         ) : (
-          <div className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border bg-card px-4 py-3">
             <div className="flex items-center gap-3 min-w-0">
               <FileSpreadsheet className="h-5 w-5 text-muted-foreground shrink-0" />
               <div className="flex flex-col gap-0.5 min-w-0">
@@ -469,6 +469,7 @@ export function RegulatoryImportDialog({ orgId, open, onClose }: RegulatoryImpor
             <Button
               variant="ghost"
               size="sm"
+              className="w-full sm:w-auto"
               onClick={resetState}
               disabled={importMut.isPending}
               type="button"
@@ -480,8 +481,8 @@ export function RegulatoryImportDialog({ orgId, open, onClose }: RegulatoryImpor
 
         {/* Step 3: preview table */}
         {rows.length > 0 && (
-          <div className="rounded-lg border overflow-hidden max-h-[40vh] overflow-y-auto">
-            <table className="w-full text-xs">
+          <div className="rounded-lg border max-h-[40vh] overflow-auto">
+            <table className="w-full min-w-[640px] text-xs">
               <thead className="bg-muted/50 sticky top-0 z-10">
                 <tr>
                   <th className="text-left px-3 py-2 font-medium w-8">#</th>
@@ -533,12 +534,13 @@ export function RegulatoryImportDialog({ orgId, open, onClose }: RegulatoryImpor
       </div>
 
       <DialogFooter>
-        <Button type="button" variant="ghost" size="sm" onClick={handleClose} disabled={importMut.isPending}>
+        <Button type="button" variant="ghost" size="sm" className="w-full sm:w-auto" onClick={handleClose} disabled={importMut.isPending}>
           Cancelar
         </Button>
         <Button
           type="button"
           size="sm"
+          className="w-full sm:w-auto"
           onClick={handleConfirm}
           disabled={importMut.isPending || summary.valid === 0}
         >
