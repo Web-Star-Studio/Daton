@@ -14444,66 +14444,89 @@ export const DeleteMeasurementResourceAttachmentParams = zod.object({
 });
 
 /**
+ * Returns a paginated list. Defaults to page=1, pageSize=50 (max 200).
+Pass `all=true` to receive every record in a single page — used by the
+home widget and other places that need the full set to compute summaries.
+
  * @summary List regulatory documents (licenças, AVCB, alvarás) for an organization
  */
 export const ListRegulatoryDocumentsParams = zod.object({
   orgId: zod.coerce.number(),
 });
 
+export const listRegulatoryDocumentsQueryPageSizeMax = 200;
+
 export const ListRegulatoryDocumentsQueryParams = zod.object({
   unitId: zod.coerce.number().optional(),
   identifierType: zod.coerce.string().optional(),
   status: zod.coerce.string().optional(),
   search: zod.coerce.string().optional(),
+  page: zod.coerce.number().min(1).optional(),
+  pageSize: zod.coerce
+    .number()
+    .min(1)
+    .max(listRegulatoryDocumentsQueryPageSizeMax)
+    .optional(),
+  all: zod.coerce
+    .boolean()
+    .optional()
+    .describe(
+      "When true, bypasses pagination and returns all matching rows in a single response.",
+    ),
 });
 
-export const ListRegulatoryDocumentsResponseItem = zod.object({
-  id: zod.number(),
-  organizationId: zod.number(),
-  identifierType: zod.enum([
-    "licenca_ambiental",
-    "avcb",
-    "alvara",
-    "outorga",
-    "certidao",
-    "outro",
-  ]),
-  identifierOther: zod.string().nullish(),
-  documentNumber: zod.string().nullish(),
-  issuingBody: zod.string(),
-  processNumber: zod.string().nullish(),
-  responsibleUserId: zod.number().nullish(),
-  responsibleUserName: zod.string().nullish(),
-  responsibleUserEmail: zod.string().nullish(),
-  issueDate: zod.string().nullish(),
-  expirationDate: zod.string(),
-  renewalRequired: zod.boolean(),
-  alertDaysOverride: zod.number().nullish(),
-  externalSourceProvider: zod.string().nullish(),
-  externalSourceReference: zod.string().nullish(),
-  externalSourceUrl: zod.string().nullish(),
-  externalLastSyncAt: zod.string().nullish(),
-  notes: zod.string().nullish(),
-  status: zod.enum(["vigente", "a_vencer", "vencido"]),
-  unitId: zod.number(),
-  unitName: zod.string().nullish(),
-  attachmentCount: zod.number(),
-  latestRenewalStatus: zod
-    .union([
-      zod.literal("nao_iniciado"),
-      zod.literal("em_andamento"),
-      zod.literal("protocolado"),
-      zod.literal("renovado"),
-      zod.literal("indeferido"),
-      zod.literal(null),
-    ])
-    .nullish(),
-  createdAt: zod.string(),
-  updatedAt: zod.string(),
+export const ListRegulatoryDocumentsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      organizationId: zod.number(),
+      identifierType: zod.enum([
+        "licenca_ambiental",
+        "avcb",
+        "alvara",
+        "outorga",
+        "certidao",
+        "outro",
+      ]),
+      identifierOther: zod.string().nullish(),
+      documentNumber: zod.string().nullish(),
+      issuingBody: zod.string(),
+      processNumber: zod.string().nullish(),
+      responsibleUserId: zod.number().nullish(),
+      responsibleUserName: zod.string().nullish(),
+      responsibleUserEmail: zod.string().nullish(),
+      issueDate: zod.string().nullish(),
+      expirationDate: zod.string(),
+      renewalRequired: zod.boolean(),
+      alertDaysOverride: zod.number().nullish(),
+      externalSourceProvider: zod.string().nullish(),
+      externalSourceReference: zod.string().nullish(),
+      externalSourceUrl: zod.string().nullish(),
+      externalLastSyncAt: zod.string().nullish(),
+      notes: zod.string().nullish(),
+      status: zod.enum(["vigente", "a_vencer", "vencido"]),
+      unitId: zod.number(),
+      unitName: zod.string().nullish(),
+      attachmentCount: zod.number(),
+      latestRenewalStatus: zod
+        .union([
+          zod.literal("nao_iniciado"),
+          zod.literal("em_andamento"),
+          zod.literal("protocolado"),
+          zod.literal("renovado"),
+          zod.literal("indeferido"),
+          zod.literal(null),
+        ])
+        .nullish(),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+    }),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
+  totalPages: zod.number(),
 });
-export const ListRegulatoryDocumentsResponse = zod.array(
-  ListRegulatoryDocumentsResponseItem,
-);
 
 /**
  * @summary Create a regulatory document

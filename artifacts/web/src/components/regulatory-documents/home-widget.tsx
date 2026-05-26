@@ -25,7 +25,11 @@ export function RegulatoryHomeWidget() {
 }
 
 function RegulatoryHomeWidgetInner({ orgId }: { orgId: number }) {
-  const { data: docs = [], isLoading } = useListRegulatoryDocuments(orgId);
+  // The widget needs the full set (counters + urgent shortlist), so we ask
+  // for the un-paginated response. The server still returns the standard
+  // paginated envelope — we just extract `items`.
+  const { data, isLoading } = useListRegulatoryDocuments(orgId, { all: true });
+  const docs = data?.items ?? [];
 
   if (isLoading) {
     return (

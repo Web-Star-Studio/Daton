@@ -199,6 +199,21 @@ router.get(
       )`);
     }
 
+    // Pagination: `all=true` returns everything (back-compat for consumers like
+    // the home widget that need the full set to render counters/urgent list).
+    // Otherwise default to page 1, pageSize 50, capped at 200.
+    const all = query.data.all === true;
+    const page = Math.max(1, query.data.page ?? 1);
+    const pageSize = Math.min(200, Math.max(1, query.data.pageSize ?? 50));
+
+    // Count query — same filters, but skipped joins so the COUNT is a clean
+    // scan of the parent table.
+    const [{ value: totalRaw }] = await db
+      .select({ value: count() })
+      .from(regulatoryDocumentsTable)
+      .where(and(...conditions));
+    const total = Number(totalRaw);
+
     // Subquery: latest renewal status per document.
     const latestRenewalSq = db
       .select({
@@ -215,7 +230,7 @@ router.get(
       )
       .as("latest_renewal");
 
-    const rows = await db
+    const baseSelect = db
       .select({
         d: regulatoryDocumentsTable,
         unitName: unitsTable.name,
@@ -233,7 +248,11 @@ router.get(
       .groupBy(regulatoryDocumentsTable.id, unitsTable.name, usersTable.name, usersTable.email, latestRenewalSq.status)
       .orderBy(asc(regulatoryDocumentsTable.expirationDate));
 
-    res.json(rows.map((row) =>
+    const rows = all
+      ? await baseSelect
+      : await baseSelect.limit(pageSize).offset((page - 1) * pageSize);
+
+    const items = rows.map((row) =>
       serializeDocument(
         row.d,
         row.unitName ?? null,
@@ -242,7 +261,21 @@ router.get(
         row.attachmentCount,
         row.latestRenewalStatus ?? null,
       ),
-    ));
+    );
+
+    // When `all=true` we collapse pagination to a single "page" containing
+    // everything — keeps the response shape stable for all consumers.
+    const effectivePageSize = all ? Math.max(items.length, 1) : pageSize;
+    const effectivePage = all ? 1 : page;
+    const totalPages = total === 0 ? 0 : Math.ceil(total / effectivePageSize);
+
+    res.json({
+      items,
+      total,
+      page: effectivePage,
+      pageSize: effectivePageSize,
+      totalPages,
+    });
   },
 );
 

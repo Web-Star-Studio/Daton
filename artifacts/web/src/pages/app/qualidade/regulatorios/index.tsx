@@ -1226,6 +1226,10 @@ function CounterCard({
 
 // --- Main page ---
 
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200] as const;
+type PageSizeOption = (typeof PAGE_SIZE_OPTIONS)[number];
+const DEFAULT_PAGE_SIZE: PageSizeOption = 50;
+
 export default function RegulatoriosPage() {
   const { organization } = useAuth();
   const orgId = organization!.id;
@@ -1243,6 +1247,8 @@ export default function RegulatoriosPage() {
   const [sortBy, setSortBy] = useState<null | "identifier" | "type" | "issuingBody" | "unit" | "expiration" | "status" | "renewal" | "attachments">(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [filterSearch, setFilterSearch] = useState("");
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSizeOption, setPageSizeOption] = useState<PageSizeOption>(DEFAULT_PAGE_SIZE);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<RegulatoryDocument | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -1367,40 +1373,53 @@ export default function RegulatoriosPage() {
     </div>,
   );
 
-  // The API call intentionally omits filterStatus and filterDaysWindow. Status +
-  // days-window are applied client-side so the counter cards reflect the
-  // universe (filial + tipo + search) — clicking a card filters only the
-  // table, never the cards themselves. Otherwise "Vigentes" would also reset
-  // Total/Vencidos/A vencer to zero, which is confusing.
-  const { data: scopeDocuments = [], isLoading } = useListRegulatoryDocuments(orgId, {
+  // Scope query (`all: true`) — drives the counter cards *and* serves as the
+  // fallback set for the detail-sheet lookup. Status/days-window are applied
+  // client-side over this set so cards always reflect the universe (filial +
+  // tipo + search), regardless of the selected status card.
+  const { data: scopeData } = useListRegulatoryDocuments(orgId, {
     unitId: filterUnit ? Number(filterUnit) : undefined,
     identifierType: filterType || undefined,
     search: filterSearch || undefined,
+    all: true,
   });
+  const scopeDocuments = scopeData?.items ?? [];
 
   const total = scopeDocuments.length;
   const vencidos = scopeDocuments.filter((d) => d.status === "vencido").length;
   const aVencer = scopeDocuments.filter((d) => d.status === "a_vencer").length;
   const vigentes = scopeDocuments.filter((d) => d.status === "vigente").length;
 
-  // Apply client-side filters (status + days-window) over the scope set,
-  // then sort. Default sort is severity-aware: vencidos críticos primeiro,
-  // depois vencidos recentes, depois a vencer (ordenados pela proximidade),
-  // depois vigentes (também por validade). User pode override clicando nos
-  // headers da tabela.
+  // Paginated table query. Status + filtros narrow vão server-side (LIMIT/OFFSET
+  // exato), days-window e sort ficam client-side (sort sobre a página atual —
+  // limitação aceitável pra ~50 docs/page).
+  const { data: pageData, isLoading } = useListRegulatoryDocuments(orgId, {
+    unitId: filterUnit ? Number(filterUnit) : undefined,
+    identifierType: filterType || undefined,
+    search: filterSearch || undefined,
+    status: filterStatus || undefined,
+    page: pageNumber,
+    pageSize: pageSizeOption,
+  });
+
+  const pagedItems = pageData?.items ?? [];
+  const totalForFilters = pageData?.total ?? 0;
+  const totalPages = pageData?.totalPages ?? 0;
+
+  // documents = página filtrada por days-window + ordenada client-side.
+  // Default sort é severity-aware: vencidos críticos primeiro, depois médios,
+  // recentes, a vencer (por validade), vigentes (por validade). Usuário pode
+  // override clicando nos headers das colunas.
   const documents = useMemo(() => {
-    let filtered = scopeDocuments;
-    if (filterStatus) {
-      filtered = filtered.filter((d) => d.status === filterStatus);
-    }
+    let rows = pagedItems;
     if (filterDaysWindow) {
       const max = Number(filterDaysWindow);
-      filtered = filtered.filter((d) => {
+      rows = rows.filter((d) => {
         const left = daysUntil(d.expirationDate);
         return left !== null && left <= max;
       });
     }
-    const sorted = [...filtered];
+    const sorted = [...rows];
     if (sortBy === null) {
       sorted.sort((a, b) => severityRank(b) - severityRank(a) || a.expirationDate.localeCompare(b.expirationDate));
     } else {
@@ -1419,11 +1438,10 @@ export default function RegulatoriosPage() {
       sorted.sort((a, b) => sortDir === "asc" ? cmp(a, b) : -cmp(a, b));
     }
     return sorted;
-  }, [scopeDocuments, filterStatus, filterDaysWindow, sortBy, sortDir]);
+  }, [pagedItems, filterDaysWindow, sortBy, sortDir]);
 
   function toggleSort(col: NonNullable<typeof sortBy>) {
     if (sortBy === col) {
-      // Same col: asc → desc → reset
       if (sortDir === "asc") setSortDir("desc");
       else { setSortBy(null); setSortDir("asc"); }
     } else {
@@ -1433,7 +1451,20 @@ export default function RegulatoriosPage() {
   }
 
   const hasActiveFilters = Boolean(filterUnit || filterType || filterStatus || filterDaysWindow || filterSearch);
-  const detailDoc = detailDocId != null ? (scopeDocuments.find((d) => d.id === detailDocId) ?? null) : null;
+
+  // The detail sheet looks the doc up first in the current page, then falls
+  // back to the broader scope set (e.g. user opened a doc, navigated pages).
+  const detailDoc = detailDocId != null
+    ? (pagedItems.find((d) => d.id === detailDocId) ?? scopeDocuments.find((d) => d.id === detailDocId) ?? null)
+    : null;
+
+  // Reset to page 1 when any filter changes.
+  const filterKey = `${filterUnit}|${filterType}|${filterStatus}|${filterDaysWindow}|${filterSearch}|${pageSizeOption}`;
+  const [lastFilterKey, setLastFilterKey] = useState(filterKey);
+  if (filterKey !== lastFilterKey) {
+    setLastFilterKey(filterKey);
+    if (pageNumber !== 1) setPageNumber(1);
+  }
 
   async function handleDelete(doc: RegulatoryDocument) {
     const label = `${IDENTIFIER_TYPE_LABELS[doc.identifierType]}${doc.documentNumber ? ` ${doc.documentNumber}` : ""}`;
@@ -1746,6 +1777,53 @@ export default function RegulatoriosPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Pagination footer — hidden when the result fits in a single page
+          and there's no benefit to showing controls. */}
+      {totalForFilters > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span>Itens por página:</span>
+            <select
+              className="h-7 rounded border border-input bg-background px-2 text-xs"
+              value={pageSizeOption}
+              onChange={(e) => setPageSizeOption(Number(e.target.value) as PageSizeOption)}
+            >
+              {PAGE_SIZE_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+            <span className="ml-2">
+              {totalForFilters.toLocaleString("pt-BR")} {totalForFilters === 1 ? "documento" : "documentos"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              disabled={pageNumber <= 1}
+              onClick={() => setPageNumber((n) => Math.max(1, n - 1))}
+            >
+              ← Anterior
+            </Button>
+            <span className="tabular-nums">
+              Página {pageNumber} de {Math.max(1, totalPages)}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              disabled={pageNumber >= totalPages}
+              onClick={() => setPageNumber((n) => n + 1)}
+            >
+              Próxima →
+            </Button>
+          </div>
+        </div>
       )}
 
       <RegulatoryDialog

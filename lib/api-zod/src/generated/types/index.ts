@@ -317,6 +317,7 @@ export * from "./paginatedNonconformities";
 export * from "./paginatedOrganizationTrainings";
 export * from "./paginatedOrganizationTrainingsPagination";
 export * from "./paginatedOrganizationTrainingsStats";
+export * from "./paginatedRegulatoryDocuments";
 export * from "./paginatedResponseMeta";
 export * from "./paginatedSgqProcesses";
 export * from "./position";
