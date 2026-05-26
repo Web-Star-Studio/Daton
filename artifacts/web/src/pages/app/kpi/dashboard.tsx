@@ -25,6 +25,7 @@ import { FilialStatus } from "./_components/filial-status";
 import { CategorySemaphore } from "./_components/category-semaphore";
 import { CriticalIndicators } from "./_components/critical-indicators";
 import { EvolutionPanel } from "./_components/evolution-panel";
+import { CORPORATE_UNIT_LABEL } from "@/lib/kpi-constants";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MONTH_NAMES = [
@@ -181,7 +182,7 @@ export default function KpiDashboardPage({
             Gestão à vista
             <span className="text-foreground/60">
               {" — "}
-              {unitFilter || "corporativo"}
+              {unitFilter || CORPORATE_UNIT_LABEL}
             </span>
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">

@@ -58,16 +58,11 @@ import {
   parseNaturalFormula,
   validateFormula,
 } from "@/lib/formula-evaluator";
+import { CORPORATE_UNIT_LABEL, isCorporateUnit } from "@/lib/kpi-constants";
 import type { StatusFilter } from "./_components/summary-tiles";
 import { getIndicatorStatus, type CardStatus } from "./_components/indicator-card";
 
 const DEFAULT_YEAR = new Date().getFullYear();
-
-// String canônica para indicadores que são compilado/rollup de TODAS as filiais
-// (não é um CNPJ real, por isso não vive na tabela `units`). Conferida com a
-// cliente: "é um indicador que é o compilado de todas as unidades juntas".
-// Mantida centralizada pra garantir match exato com dados importados via Excel.
-const CORPORATE_UNIT_LABEL = "Corporativo";
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -725,7 +720,23 @@ export default function KpiIndicadoresPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {ind.unit ?? "—"}
+                      {ind.unit ? (
+                        isCorporateUnit(ind.unit) ? (
+                          // Badge distinto pra rollup corporativo — ajuda Ana a
+                          // bater o olho e identificar quando uma linha é o
+                          // agregado de todas as filiais.
+                          <Badge
+                            variant="outline"
+                            className="bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30 text-[10px]"
+                          >
+                            {ind.unit}
+                          </Badge>
+                        ) : (
+                          ind.unit
+                        )
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {PERIODICITY_LABELS[
