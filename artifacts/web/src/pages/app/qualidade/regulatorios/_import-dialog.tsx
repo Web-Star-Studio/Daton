@@ -147,29 +147,29 @@ function validateRow(raw: Record<TemplateHeader, string>): {
   return { payload, error: null };
 }
 
-// --- Template download (CSV with BOM for Excel) ---
+// --- Template download (.xlsx, Excel/Sheets-friendly) ---
+//
+// Modelo em XLSX (não CSV) — quando o cliente abre, salva e edita em Excel ou
+// Google Sheets, não há prompt de "manter formato CSV?" e nem risco de perda
+// de encoding. O backend aceita os dois formatos no upload, mas o template
+// canônico vira o nativo do Excel.
 
-function downloadTemplateCsv() {
-  const header = TEMPLATE_HEADERS.join(",");
-  const example = TEMPLATE_HEADERS.map((h) => {
-    const value = TEMPLATE_EXAMPLE[h] ?? "";
-    // Quote if contains comma, quote, or newline.
-    if (/[",\n]/.test(value)) {
-      return `"${value.replace(/"/g, '""')}"`;
-    }
-    return value;
-  }).join(",");
-  // BOM faz o Excel abrir UTF-8 corretamente (acentos não viram lixo).
-  const content = `﻿${header}\n${example}\n`;
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "modelo-documentos-regulatorios.csv";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+function downloadTemplateXlsx() {
+  // Linha 1 = header, linha 2 = exemplo (ignorado pelo backend porque a filial
+  // "Filial exemplo" não existe — vira erro e o usuário aprende o formato sem
+  // sujar a base).
+  const rows: Array<Record<TemplateHeader, string>> = [
+    TEMPLATE_EXAMPLE,
+  ];
+  const ws = XLSX.utils.json_to_sheet(rows, { header: [...TEMPLATE_HEADERS] });
+  // Largura confortável por coluna pra não ficar truncado.
+  ws["!cols"] = TEMPLATE_HEADERS.map((h) => ({
+    wch: Math.max(h.length, (TEMPLATE_EXAMPLE[h] ?? "").length, 14),
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Documentos");
+  // writeFile dispara download direto no navegador.
+  XLSX.writeFile(wb, "modelo-documentos-regulatorios.xlsx");
 }
 
 // --- File parsers ---
@@ -424,8 +424,8 @@ export function RegulatoryImportDialog({ orgId, open, onClose }: RegulatoryImpor
               CSV com cabeçalho em PT-BR e uma linha de exemplo (que será ignorada na importação).
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={downloadTemplateCsv} type="button">
-            <Download className="h-3.5 w-3.5 mr-1.5" /> Baixar modelo (.csv)
+          <Button variant="outline" size="sm" onClick={downloadTemplateXlsx} type="button">
+            <Download className="h-3.5 w-3.5 mr-1.5" /> Baixar modelo (.xlsx)
           </Button>
         </div>
 
