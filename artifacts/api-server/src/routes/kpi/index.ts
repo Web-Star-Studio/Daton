@@ -37,6 +37,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../../middlewares/auth";
 import { validateFormula } from "../../lib/formula-evaluator";
+import { normalizeKpiUnit } from "../../services/kpi/units";
 
 const router: IRouter = Router();
 
@@ -254,7 +255,7 @@ router.post("/organizations/:orgId/kpi/indicators", requireAuth, requireWriteAcc
     measurement: body.data.measurement,
     formulaVariables: body.data.formulaVariables,
     formulaExpression: body.data.formulaExpression,
-    unit: body.data.unit ?? null,
+    unit: normalizeKpiUnit(body.data.unit),
     responsible: responsibleText,
     responsibleUserId,
     measureUnit: body.data.measureUnit ?? null,
@@ -295,7 +296,7 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
   const updateData: Record<string, unknown> = {};
   if (body.data.name !== undefined) updateData.name = body.data.name;
   if (body.data.measurement !== undefined) updateData.measurement = body.data.measurement;
-  if (body.data.unit !== undefined) updateData.unit = body.data.unit;
+  if (body.data.unit !== undefined) updateData.unit = normalizeKpiUnit(body.data.unit);
   if (body.data.responsibleUserId !== undefined) {
     const newUserId = body.data.responsibleUserId;
     if (newUserId === null) {
