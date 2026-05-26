@@ -8,8 +8,10 @@ import {
   ChevronRight,
   ChevronUp,
   ChevronsUpDown,
+  Download,
   FileBadge2,
   FilePlus2,
+  FileSpreadsheet,
   FileText,
   History,
   Pencil,
@@ -18,6 +20,13 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { exportRegulatoryToExcel, exportRegulatoryToPdf } from "./_export";
 import { RegulatoryImportDialog } from "./_import-dialog";
 import { RegulatoryCalendarView } from "./_calendar-view";
 // Note: alertas são processados automaticamente pelo governance-scheduler
@@ -1265,6 +1274,27 @@ export default function RegulatoriosPage() {
   usePageTitle("Documentos Regulatórios");
   usePageSubtitle("Licenças, AVCB, alvarás e demais documentos regulatórios por filial");
 
+  function handleExport(format: "excel" | "pdf") {
+    // Exporta a lista ATUAL (escopo já filtrado por filial/tipo/search +
+    // status/days-window client-side). Reusa o array `documents` que a tabela
+    // já renderiza — auditor recebe o que vê.
+    if (documents.length === 0) {
+      toast({ title: "Nada pra exportar", description: "A lista atual está vazia. Ajuste os filtros e tente de novo.", variant: "destructive" });
+      return;
+    }
+    try {
+      if (format === "excel") {
+        exportRegulatoryToExcel(documents);
+      } else {
+        exportRegulatoryToPdf(documents, organization?.name);
+      }
+      toast({ title: `Exportado (${format === "excel" ? "Excel" : "PDF"})`, description: `${documents.length} documento${documents.length === 1 ? "" : "s"} exportado${documents.length === 1 ? "" : "s"}.` });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Falha ao exportar", variant: "destructive" });
+    }
+  }
+
   useHeaderActions(
     <div className="flex items-center gap-2">
       {/* View toggle (pill-style group). Sempre visível — calendar é útil
@@ -1301,6 +1331,24 @@ export default function RegulatoriosPage() {
           <span className="hidden min-[1280px]:inline">Calendário</span>
         </button>
       </div>
+      {/* Exportar sempre visível (auditoria é rotina de quem só consulta também). */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <HeaderActionButton
+            icon={<Download className="h-4 w-4" />}
+            label="Exportar"
+            variant="outline"
+          />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem onClick={() => handleExport("excel")}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel (.xlsx)
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleExport("pdf")}>
+            <FileText className="h-4 w-4 mr-2" /> PDF
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       {canWrite && (
         <>
           <HeaderActionButton
