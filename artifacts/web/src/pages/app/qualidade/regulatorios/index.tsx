@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertTriangle,
+  CalendarDays,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -13,10 +14,12 @@ import {
   History,
   Pencil,
   Plus,
+  Table as TableIcon,
   Trash2,
   Upload,
 } from "lucide-react";
 import { RegulatoryImportDialog } from "./_import-dialog";
+import { RegulatoryCalendarView } from "./_calendar-view";
 // Note: alertas são processados automaticamente pelo governance-scheduler
 // no backend (boot + a cada GOVERNANCE_MAINTENANCE_INTERVAL_MINUTES, default 60min).
 // Nenhuma ação manual é necessária — não há botão "Processar alertas".
@@ -1236,27 +1239,84 @@ export default function RegulatoriosPage() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [detailDocId, setDetailDocId] = useState<number | null>(null);
 
+  // View mode (Tabela | Calendário) — persisted to localStorage so o user volta
+  // como deixou. Lazy init from storage; guard against SSR / disabled storage.
+  const [viewMode, setViewMode] = useState<"table" | "calendar">(() => {
+    if (typeof window === "undefined") return "table";
+    try {
+      const stored = window.localStorage.getItem("regulatorios:view-mode");
+      return stored === "calendar" ? "calendar" : "table";
+    } catch {
+      return "table";
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem("regulatorios:view-mode", viewMode);
+    } catch {
+      /* ignore quota / private-mode errors */
+    }
+  }, [viewMode]);
+
   const deleteMut = useDeleteRegulatoryDocument();
 
   usePageTitle("Documentos Regulatórios");
   usePageSubtitle("Licenças, AVCB, alvarás e demais documentos regulatórios por filial");
 
   useHeaderActions(
-    canWrite ? (
-      <div className="flex items-center gap-2">
-        <HeaderActionButton
-          icon={<Upload className="h-4 w-4" />}
-          label="Importar"
-          variant="outline"
-          onClick={() => setImportDialogOpen(true)}
-        />
-        <HeaderActionButton
-          icon={<Plus className="h-4 w-4" />}
-          label="Novo documento regulatório"
-          onClick={() => { setDialogOpen(true); setEditing(null); }}
-        />
+    <div className="flex items-center gap-2">
+      {/* View toggle (pill-style group). Sempre visível — calendar é útil
+          mesmo no modo leitura. */}
+      <div
+        role="group"
+        aria-label="Modo de visualização"
+        className="inline-flex items-center rounded-md border bg-card p-0.5"
+      >
+        <button
+          type="button"
+          aria-pressed={viewMode === "table"}
+          onClick={() => setViewMode("table")}
+          className={`inline-flex items-center gap-1.5 rounded-[5px] px-2.5 py-1 text-xs font-medium transition ${
+            viewMode === "table"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+          }`}
+        >
+          <TableIcon className="h-3.5 w-3.5" />
+          <span className="hidden min-[1280px]:inline">Tabela</span>
+        </button>
+        <button
+          type="button"
+          aria-pressed={viewMode === "calendar"}
+          onClick={() => setViewMode("calendar")}
+          className={`inline-flex items-center gap-1.5 rounded-[5px] px-2.5 py-1 text-xs font-medium transition ${
+            viewMode === "calendar"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+          }`}
+        >
+          <CalendarDays className="h-3.5 w-3.5" />
+          <span className="hidden min-[1280px]:inline">Calendário</span>
+        </button>
       </div>
-    ) : null,
+      {canWrite && (
+        <>
+          <HeaderActionButton
+            icon={<Upload className="h-4 w-4" />}
+            label="Importar"
+            variant="outline"
+            onClick={() => setImportDialogOpen(true)}
+          />
+          <HeaderActionButton
+            icon={<Plus className="h-4 w-4" />}
+            label="Novo documento regulatório"
+            onClick={() => { setDialogOpen(true); setEditing(null); }}
+          />
+        </>
+      )}
+    </div>,
   );
 
   // The API call intentionally omits filterStatus and filterDaysWindow. Status +
@@ -1438,7 +1498,19 @@ export default function RegulatoriosPage() {
         )}
       </div>
 
-      {/* Table */}
+      {/* Table view OR Calendar view — same filtered `documents` array feeds both. */}
+      {viewMode === "calendar" ? (
+        isLoading ? (
+          <div className="rounded-lg border bg-card py-12 text-center text-xs text-muted-foreground">
+            Carregando...
+          </div>
+        ) : (
+          <RegulatoryCalendarView
+            documents={documents}
+            onDocClick={(doc) => setDetailDocId(doc.id)}
+          />
+        )
+      ) : (
       <div className="rounded-lg border overflow-hidden">
         <Table>
           <TableHeader>
@@ -1566,6 +1638,7 @@ export default function RegulatoriosPage() {
           </TableBody>
         </Table>
       </div>
+      )}
 
       <RegulatoryDialog
         orgId={orgId}
