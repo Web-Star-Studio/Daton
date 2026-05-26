@@ -28,6 +28,7 @@ import type {
   AddKpiMonthJustificationBody,
   AddMaintenanceRecordAttachmentBody,
   AddMeasurementResourceAttachmentBody,
+  AddRegulatoryDocumentAttachmentBody,
   AddWorkEnvironmentAttachmentBody,
   ApplicabilityDecision,
   ApplicabilityDecisionBody,
@@ -72,6 +73,8 @@ import type {
   CreateOrgUserResponse,
   CreatePositionBody,
   CreatePositionCompetencyRequirementBody,
+  CreateRegulatoryDocumentBody,
+  CreateRegulatoryDocumentRenewalBody,
   CreateRoadSafetyFactorBody,
   CreateRoadSafetyMeasurementBody,
   CreateSgqProcessBody,
@@ -158,6 +161,8 @@ import type {
   ListOrgUsers200,
   ListOrganizationContactsParams,
   ListOrganizationTrainingsParams,
+  ListRegulatoryDocumentAttachmentsParams,
+  ListRegulatoryDocumentsParams,
   ListSgqProcessesParams,
   ListUserOptionsParams,
   ListWorkEnvironmentControlsParams,
@@ -190,9 +195,13 @@ import type {
   Position,
   PositionCompetencyMatrixRevision,
   PositionCompetencyRequirement,
+  ProcessRegulatoryAlertsResponse,
   ProjectDevelopmentApplicabilityState,
   QuestionnaireTheme,
   RegisterBody,
+  RegulatoryDocument,
+  RegulatoryDocumentAttachment,
+  RegulatoryDocumentRenewal,
   RejectDocumentBody,
   RequestPasswordResetBody,
   RoadSafetyFactor,
@@ -253,6 +262,8 @@ import type {
   UpdateOrganizationContactGroupBody,
   UpdatePositionBody,
   UpdatePositionCompetencyRequirementBody,
+  UpdateRegulatoryDocumentBody,
+  UpdateRegulatoryDocumentRenewalBody,
   UpdateRoadSafetyFactorBody,
   UpdateSgqProcessBody,
   UpdateStrategicPlanActionBody,
@@ -25260,6 +25271,1414 @@ export const useDeleteMeasurementResourceAttachment = <
 > => {
   return useMutation(
     getDeleteMeasurementResourceAttachmentMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List regulatory documents (licenças, AVCB, alvarás) for an organization
+ */
+export const getListRegulatoryDocumentsUrl = (
+  orgId: number,
+  params?: ListRegulatoryDocumentsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/regulatory-documents?${stringifiedParams}`
+    : `/api/organizations/${orgId}/regulatory-documents`;
+};
+
+export const listRegulatoryDocuments = async (
+  orgId: number,
+  params?: ListRegulatoryDocumentsParams,
+  options?: RequestInit,
+): Promise<RegulatoryDocument[]> => {
+  return customFetch<RegulatoryDocument[]>(
+    getListRegulatoryDocumentsUrl(orgId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListRegulatoryDocumentsQueryKey = (
+  orgId: number,
+  params?: ListRegulatoryDocumentsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/regulatory-documents`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListRegulatoryDocumentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRegulatoryDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListRegulatoryDocumentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRegulatoryDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListRegulatoryDocumentsQueryKey(orgId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listRegulatoryDocuments>>
+  > = ({ signal }) =>
+    listRegulatoryDocuments(orgId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRegulatoryDocuments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRegulatoryDocumentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRegulatoryDocuments>>
+>;
+export type ListRegulatoryDocumentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List regulatory documents (licenças, AVCB, alvarás) for an organization
+ */
+
+export function useListRegulatoryDocuments<
+  TData = Awaited<ReturnType<typeof listRegulatoryDocuments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  params?: ListRegulatoryDocumentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRegulatoryDocuments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRegulatoryDocumentsQueryOptions(
+    orgId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a regulatory document
+ */
+export const getCreateRegulatoryDocumentUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/regulatory-documents`;
+};
+
+export const createRegulatoryDocument = async (
+  orgId: number,
+  createRegulatoryDocumentBody: CreateRegulatoryDocumentBody,
+  options?: RequestInit,
+): Promise<RegulatoryDocument> => {
+  return customFetch<RegulatoryDocument>(
+    getCreateRegulatoryDocumentUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createRegulatoryDocumentBody),
+    },
+  );
+};
+
+export const getCreateRegulatoryDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRegulatoryDocument>>,
+    TError,
+    { orgId: number; data: BodyType<CreateRegulatoryDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createRegulatoryDocument>>,
+  TError,
+  { orgId: number; data: BodyType<CreateRegulatoryDocumentBody> },
+  TContext
+> => {
+  const mutationKey = ["createRegulatoryDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createRegulatoryDocument>>,
+    { orgId: number; data: BodyType<CreateRegulatoryDocumentBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createRegulatoryDocument(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateRegulatoryDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createRegulatoryDocument>>
+>;
+export type CreateRegulatoryDocumentMutationBody =
+  BodyType<CreateRegulatoryDocumentBody>;
+export type CreateRegulatoryDocumentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a regulatory document
+ */
+export const useCreateRegulatoryDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRegulatoryDocument>>,
+    TError,
+    { orgId: number; data: BodyType<CreateRegulatoryDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createRegulatoryDocument>>,
+  TError,
+  { orgId: number; data: BodyType<CreateRegulatoryDocumentBody> },
+  TContext
+> => {
+  return useMutation(getCreateRegulatoryDocumentMutationOptions(options));
+};
+
+/**
+ * @summary Get a single regulatory document
+ */
+export const getGetRegulatoryDocumentUrl = (orgId: number, docId: number) => {
+  return `/api/organizations/${orgId}/regulatory-documents/${docId}`;
+};
+
+export const getRegulatoryDocument = async (
+  orgId: number,
+  docId: number,
+  options?: RequestInit,
+): Promise<RegulatoryDocument> => {
+  return customFetch<RegulatoryDocument>(
+    getGetRegulatoryDocumentUrl(orgId, docId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetRegulatoryDocumentQueryKey = (
+  orgId: number,
+  docId: number,
+) => {
+  return [`/api/organizations/${orgId}/regulatory-documents/${docId}`] as const;
+};
+
+export const getGetRegulatoryDocumentQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRegulatoryDocument>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  docId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRegulatoryDocument>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetRegulatoryDocumentQueryKey(orgId, docId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRegulatoryDocument>>
+  > = ({ signal }) =>
+    getRegulatoryDocument(orgId, docId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && docId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRegulatoryDocument>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRegulatoryDocumentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRegulatoryDocument>>
+>;
+export type GetRegulatoryDocumentQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a single regulatory document
+ */
+
+export function useGetRegulatoryDocument<
+  TData = Awaited<ReturnType<typeof getRegulatoryDocument>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  docId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRegulatoryDocument>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRegulatoryDocumentQueryOptions(
+    orgId,
+    docId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a regulatory document
+ */
+export const getUpdateRegulatoryDocumentUrl = (
+  orgId: number,
+  docId: number,
+) => {
+  return `/api/organizations/${orgId}/regulatory-documents/${docId}`;
+};
+
+export const updateRegulatoryDocument = async (
+  orgId: number,
+  docId: number,
+  updateRegulatoryDocumentBody: UpdateRegulatoryDocumentBody,
+  options?: RequestInit,
+): Promise<RegulatoryDocument> => {
+  return customFetch<RegulatoryDocument>(
+    getUpdateRegulatoryDocumentUrl(orgId, docId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateRegulatoryDocumentBody),
+    },
+  );
+};
+
+export const getUpdateRegulatoryDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateRegulatoryDocument>>,
+    TError,
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<UpdateRegulatoryDocumentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateRegulatoryDocument>>,
+  TError,
+  {
+    orgId: number;
+    docId: number;
+    data: BodyType<UpdateRegulatoryDocumentBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateRegulatoryDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateRegulatoryDocument>>,
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<UpdateRegulatoryDocumentBody>;
+    }
+  > = (props) => {
+    const { orgId, docId, data } = props ?? {};
+
+    return updateRegulatoryDocument(orgId, docId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateRegulatoryDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateRegulatoryDocument>>
+>;
+export type UpdateRegulatoryDocumentMutationBody =
+  BodyType<UpdateRegulatoryDocumentBody>;
+export type UpdateRegulatoryDocumentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a regulatory document
+ */
+export const useUpdateRegulatoryDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateRegulatoryDocument>>,
+    TError,
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<UpdateRegulatoryDocumentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateRegulatoryDocument>>,
+  TError,
+  {
+    orgId: number;
+    docId: number;
+    data: BodyType<UpdateRegulatoryDocumentBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateRegulatoryDocumentMutationOptions(options));
+};
+
+/**
+ * @summary Delete a regulatory document
+ */
+export const getDeleteRegulatoryDocumentUrl = (
+  orgId: number,
+  docId: number,
+) => {
+  return `/api/organizations/${orgId}/regulatory-documents/${docId}`;
+};
+
+export const deleteRegulatoryDocument = async (
+  orgId: number,
+  docId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteRegulatoryDocumentUrl(orgId, docId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteRegulatoryDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteRegulatoryDocument>>,
+    TError,
+    { orgId: number; docId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteRegulatoryDocument>>,
+  TError,
+  { orgId: number; docId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteRegulatoryDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteRegulatoryDocument>>,
+    { orgId: number; docId: number }
+  > = (props) => {
+    const { orgId, docId } = props ?? {};
+
+    return deleteRegulatoryDocument(orgId, docId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteRegulatoryDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteRegulatoryDocument>>
+>;
+
+export type DeleteRegulatoryDocumentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a regulatory document
+ */
+export const useDeleteRegulatoryDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteRegulatoryDocument>>,
+    TError,
+    { orgId: number; docId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteRegulatoryDocument>>,
+  TError,
+  { orgId: number; docId: number },
+  TContext
+> => {
+  return useMutation(getDeleteRegulatoryDocumentMutationOptions(options));
+};
+
+/**
+ * @summary Re-sync regulatory document statuses and dispatch expiry alerts
+ */
+export const getProcessRegulatoryDocumentAlertsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/regulatory-documents/process-alerts`;
+};
+
+export const processRegulatoryDocumentAlerts = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<ProcessRegulatoryAlertsResponse> => {
+  return customFetch<ProcessRegulatoryAlertsResponse>(
+    getProcessRegulatoryDocumentAlertsUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getProcessRegulatoryDocumentAlertsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof processRegulatoryDocumentAlerts>>,
+    TError,
+    { orgId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof processRegulatoryDocumentAlerts>>,
+  TError,
+  { orgId: number },
+  TContext
+> => {
+  const mutationKey = ["processRegulatoryDocumentAlerts"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof processRegulatoryDocumentAlerts>>,
+    { orgId: number }
+  > = (props) => {
+    const { orgId } = props ?? {};
+
+    return processRegulatoryDocumentAlerts(orgId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ProcessRegulatoryDocumentAlertsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof processRegulatoryDocumentAlerts>>
+>;
+
+export type ProcessRegulatoryDocumentAlertsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Re-sync regulatory document statuses and dispatch expiry alerts
+ */
+export const useProcessRegulatoryDocumentAlerts = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof processRegulatoryDocumentAlerts>>,
+    TError,
+    { orgId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof processRegulatoryDocumentAlerts>>,
+  TError,
+  { orgId: number },
+  TContext
+> => {
+  return useMutation(
+    getProcessRegulatoryDocumentAlertsMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List renewals for a regulatory document
+ */
+export const getListRegulatoryDocumentRenewalsUrl = (
+  orgId: number,
+  docId: number,
+) => {
+  return `/api/organizations/${orgId}/regulatory-documents/${docId}/renewals`;
+};
+
+export const listRegulatoryDocumentRenewals = async (
+  orgId: number,
+  docId: number,
+  options?: RequestInit,
+): Promise<RegulatoryDocumentRenewal[]> => {
+  return customFetch<RegulatoryDocumentRenewal[]>(
+    getListRegulatoryDocumentRenewalsUrl(orgId, docId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListRegulatoryDocumentRenewalsQueryKey = (
+  orgId: number,
+  docId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/regulatory-documents/${docId}/renewals`,
+  ] as const;
+};
+
+export const getListRegulatoryDocumentRenewalsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRegulatoryDocumentRenewals>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  docId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRegulatoryDocumentRenewals>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListRegulatoryDocumentRenewalsQueryKey(orgId, docId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listRegulatoryDocumentRenewals>>
+  > = ({ signal }) =>
+    listRegulatoryDocumentRenewals(orgId, docId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && docId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRegulatoryDocumentRenewals>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRegulatoryDocumentRenewalsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRegulatoryDocumentRenewals>>
+>;
+export type ListRegulatoryDocumentRenewalsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List renewals for a regulatory document
+ */
+
+export function useListRegulatoryDocumentRenewals<
+  TData = Awaited<ReturnType<typeof listRegulatoryDocumentRenewals>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  docId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRegulatoryDocumentRenewals>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRegulatoryDocumentRenewalsQueryOptions(
+    orgId,
+    docId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Register a renewal event
+ */
+export const getCreateRegulatoryDocumentRenewalUrl = (
+  orgId: number,
+  docId: number,
+) => {
+  return `/api/organizations/${orgId}/regulatory-documents/${docId}/renewals`;
+};
+
+export const createRegulatoryDocumentRenewal = async (
+  orgId: number,
+  docId: number,
+  createRegulatoryDocumentRenewalBody: CreateRegulatoryDocumentRenewalBody,
+  options?: RequestInit,
+): Promise<RegulatoryDocumentRenewal> => {
+  return customFetch<RegulatoryDocumentRenewal>(
+    getCreateRegulatoryDocumentRenewalUrl(orgId, docId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createRegulatoryDocumentRenewalBody),
+    },
+  );
+};
+
+export const getCreateRegulatoryDocumentRenewalMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRegulatoryDocumentRenewal>>,
+    TError,
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<CreateRegulatoryDocumentRenewalBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createRegulatoryDocumentRenewal>>,
+  TError,
+  {
+    orgId: number;
+    docId: number;
+    data: BodyType<CreateRegulatoryDocumentRenewalBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["createRegulatoryDocumentRenewal"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createRegulatoryDocumentRenewal>>,
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<CreateRegulatoryDocumentRenewalBody>;
+    }
+  > = (props) => {
+    const { orgId, docId, data } = props ?? {};
+
+    return createRegulatoryDocumentRenewal(orgId, docId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateRegulatoryDocumentRenewalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createRegulatoryDocumentRenewal>>
+>;
+export type CreateRegulatoryDocumentRenewalMutationBody =
+  BodyType<CreateRegulatoryDocumentRenewalBody>;
+export type CreateRegulatoryDocumentRenewalMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register a renewal event
+ */
+export const useCreateRegulatoryDocumentRenewal = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createRegulatoryDocumentRenewal>>,
+    TError,
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<CreateRegulatoryDocumentRenewalBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createRegulatoryDocumentRenewal>>,
+  TError,
+  {
+    orgId: number;
+    docId: number;
+    data: BodyType<CreateRegulatoryDocumentRenewalBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getCreateRegulatoryDocumentRenewalMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Update a renewal event
+ */
+export const getUpdateRegulatoryDocumentRenewalUrl = (
+  orgId: number,
+  docId: number,
+  renewalId: number,
+) => {
+  return `/api/organizations/${orgId}/regulatory-documents/${docId}/renewals/${renewalId}`;
+};
+
+export const updateRegulatoryDocumentRenewal = async (
+  orgId: number,
+  docId: number,
+  renewalId: number,
+  updateRegulatoryDocumentRenewalBody: UpdateRegulatoryDocumentRenewalBody,
+  options?: RequestInit,
+): Promise<RegulatoryDocumentRenewal> => {
+  return customFetch<RegulatoryDocumentRenewal>(
+    getUpdateRegulatoryDocumentRenewalUrl(orgId, docId, renewalId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateRegulatoryDocumentRenewalBody),
+    },
+  );
+};
+
+export const getUpdateRegulatoryDocumentRenewalMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateRegulatoryDocumentRenewal>>,
+    TError,
+    {
+      orgId: number;
+      docId: number;
+      renewalId: number;
+      data: BodyType<UpdateRegulatoryDocumentRenewalBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateRegulatoryDocumentRenewal>>,
+  TError,
+  {
+    orgId: number;
+    docId: number;
+    renewalId: number;
+    data: BodyType<UpdateRegulatoryDocumentRenewalBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateRegulatoryDocumentRenewal"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateRegulatoryDocumentRenewal>>,
+    {
+      orgId: number;
+      docId: number;
+      renewalId: number;
+      data: BodyType<UpdateRegulatoryDocumentRenewalBody>;
+    }
+  > = (props) => {
+    const { orgId, docId, renewalId, data } = props ?? {};
+
+    return updateRegulatoryDocumentRenewal(
+      orgId,
+      docId,
+      renewalId,
+      data,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateRegulatoryDocumentRenewalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateRegulatoryDocumentRenewal>>
+>;
+export type UpdateRegulatoryDocumentRenewalMutationBody =
+  BodyType<UpdateRegulatoryDocumentRenewalBody>;
+export type UpdateRegulatoryDocumentRenewalMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a renewal event
+ */
+export const useUpdateRegulatoryDocumentRenewal = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateRegulatoryDocumentRenewal>>,
+    TError,
+    {
+      orgId: number;
+      docId: number;
+      renewalId: number;
+      data: BodyType<UpdateRegulatoryDocumentRenewalBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateRegulatoryDocumentRenewal>>,
+  TError,
+  {
+    orgId: number;
+    docId: number;
+    renewalId: number;
+    data: BodyType<UpdateRegulatoryDocumentRenewalBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getUpdateRegulatoryDocumentRenewalMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Delete a renewal event
+ */
+export const getDeleteRegulatoryDocumentRenewalUrl = (
+  orgId: number,
+  docId: number,
+  renewalId: number,
+) => {
+  return `/api/organizations/${orgId}/regulatory-documents/${docId}/renewals/${renewalId}`;
+};
+
+export const deleteRegulatoryDocumentRenewal = async (
+  orgId: number,
+  docId: number,
+  renewalId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteRegulatoryDocumentRenewalUrl(orgId, docId, renewalId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteRegulatoryDocumentRenewalMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteRegulatoryDocumentRenewal>>,
+    TError,
+    { orgId: number; docId: number; renewalId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteRegulatoryDocumentRenewal>>,
+  TError,
+  { orgId: number; docId: number; renewalId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteRegulatoryDocumentRenewal"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteRegulatoryDocumentRenewal>>,
+    { orgId: number; docId: number; renewalId: number }
+  > = (props) => {
+    const { orgId, docId, renewalId } = props ?? {};
+
+    return deleteRegulatoryDocumentRenewal(
+      orgId,
+      docId,
+      renewalId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteRegulatoryDocumentRenewalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteRegulatoryDocumentRenewal>>
+>;
+
+export type DeleteRegulatoryDocumentRenewalMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a renewal event
+ */
+export const useDeleteRegulatoryDocumentRenewal = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteRegulatoryDocumentRenewal>>,
+    TError,
+    { orgId: number; docId: number; renewalId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteRegulatoryDocumentRenewal>>,
+  TError,
+  { orgId: number; docId: number; renewalId: number },
+  TContext
+> => {
+  return useMutation(
+    getDeleteRegulatoryDocumentRenewalMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List attachments (optionally filtered by renewalId)
+ */
+export const getListRegulatoryDocumentAttachmentsUrl = (
+  orgId: number,
+  docId: number,
+  params?: ListRegulatoryDocumentAttachmentsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/regulatory-documents/${docId}/attachments?${stringifiedParams}`
+    : `/api/organizations/${orgId}/regulatory-documents/${docId}/attachments`;
+};
+
+export const listRegulatoryDocumentAttachments = async (
+  orgId: number,
+  docId: number,
+  params?: ListRegulatoryDocumentAttachmentsParams,
+  options?: RequestInit,
+): Promise<RegulatoryDocumentAttachment[]> => {
+  return customFetch<RegulatoryDocumentAttachment[]>(
+    getListRegulatoryDocumentAttachmentsUrl(orgId, docId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListRegulatoryDocumentAttachmentsQueryKey = (
+  orgId: number,
+  docId: number,
+  params?: ListRegulatoryDocumentAttachmentsParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/regulatory-documents/${docId}/attachments`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListRegulatoryDocumentAttachmentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRegulatoryDocumentAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  docId: number,
+  params?: ListRegulatoryDocumentAttachmentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRegulatoryDocumentAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListRegulatoryDocumentAttachmentsQueryKey(orgId, docId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listRegulatoryDocumentAttachments>>
+  > = ({ signal }) =>
+    listRegulatoryDocumentAttachments(orgId, docId, params, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && docId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRegulatoryDocumentAttachments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRegulatoryDocumentAttachmentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRegulatoryDocumentAttachments>>
+>;
+export type ListRegulatoryDocumentAttachmentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List attachments (optionally filtered by renewalId)
+ */
+
+export function useListRegulatoryDocumentAttachments<
+  TData = Awaited<ReturnType<typeof listRegulatoryDocumentAttachments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  docId: number,
+  params?: ListRegulatoryDocumentAttachmentsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRegulatoryDocumentAttachments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRegulatoryDocumentAttachmentsQueryOptions(
+    orgId,
+    docId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add an attachment to a document (optionally linked to a renewal)
+ */
+export const getAddRegulatoryDocumentAttachmentUrl = (
+  orgId: number,
+  docId: number,
+) => {
+  return `/api/organizations/${orgId}/regulatory-documents/${docId}/attachments`;
+};
+
+export const addRegulatoryDocumentAttachment = async (
+  orgId: number,
+  docId: number,
+  addRegulatoryDocumentAttachmentBody: AddRegulatoryDocumentAttachmentBody,
+  options?: RequestInit,
+): Promise<RegulatoryDocumentAttachment> => {
+  return customFetch<RegulatoryDocumentAttachment>(
+    getAddRegulatoryDocumentAttachmentUrl(orgId, docId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(addRegulatoryDocumentAttachmentBody),
+    },
+  );
+};
+
+export const getAddRegulatoryDocumentAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addRegulatoryDocumentAttachment>>,
+    TError,
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<AddRegulatoryDocumentAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addRegulatoryDocumentAttachment>>,
+  TError,
+  {
+    orgId: number;
+    docId: number;
+    data: BodyType<AddRegulatoryDocumentAttachmentBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["addRegulatoryDocumentAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addRegulatoryDocumentAttachment>>,
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<AddRegulatoryDocumentAttachmentBody>;
+    }
+  > = (props) => {
+    const { orgId, docId, data } = props ?? {};
+
+    return addRegulatoryDocumentAttachment(orgId, docId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddRegulatoryDocumentAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addRegulatoryDocumentAttachment>>
+>;
+export type AddRegulatoryDocumentAttachmentMutationBody =
+  BodyType<AddRegulatoryDocumentAttachmentBody>;
+export type AddRegulatoryDocumentAttachmentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add an attachment to a document (optionally linked to a renewal)
+ */
+export const useAddRegulatoryDocumentAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addRegulatoryDocumentAttachment>>,
+    TError,
+    {
+      orgId: number;
+      docId: number;
+      data: BodyType<AddRegulatoryDocumentAttachmentBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addRegulatoryDocumentAttachment>>,
+  TError,
+  {
+    orgId: number;
+    docId: number;
+    data: BodyType<AddRegulatoryDocumentAttachmentBody>;
+  },
+  TContext
+> => {
+  return useMutation(
+    getAddRegulatoryDocumentAttachmentMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Delete an attachment
+ */
+export const getDeleteRegulatoryDocumentAttachmentUrl = (
+  orgId: number,
+  docId: number,
+  attachmentId: number,
+) => {
+  return `/api/organizations/${orgId}/regulatory-documents/${docId}/attachments/${attachmentId}`;
+};
+
+export const deleteRegulatoryDocumentAttachment = async (
+  orgId: number,
+  docId: number,
+  attachmentId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(
+    getDeleteRegulatoryDocumentAttachmentUrl(orgId, docId, attachmentId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteRegulatoryDocumentAttachmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteRegulatoryDocumentAttachment>>,
+    TError,
+    { orgId: number; docId: number; attachmentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteRegulatoryDocumentAttachment>>,
+  TError,
+  { orgId: number; docId: number; attachmentId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteRegulatoryDocumentAttachment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteRegulatoryDocumentAttachment>>,
+    { orgId: number; docId: number; attachmentId: number }
+  > = (props) => {
+    const { orgId, docId, attachmentId } = props ?? {};
+
+    return deleteRegulatoryDocumentAttachment(
+      orgId,
+      docId,
+      attachmentId,
+      requestOptions,
+    );
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteRegulatoryDocumentAttachmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteRegulatoryDocumentAttachment>>
+>;
+
+export type DeleteRegulatoryDocumentAttachmentMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Delete an attachment
+ */
+export const useDeleteRegulatoryDocumentAttachment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteRegulatoryDocumentAttachment>>,
+    TError,
+    { orgId: number; docId: number; attachmentId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteRegulatoryDocumentAttachment>>,
+  TError,
+  { orgId: number; docId: number; attachmentId: number },
+  TContext
+> => {
+  return useMutation(
+    getDeleteRegulatoryDocumentAttachmentMutationOptions(options),
   );
 };
 

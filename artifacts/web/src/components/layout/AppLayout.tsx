@@ -42,7 +42,8 @@ type AppModule =
   | "environmental"
   | "kpi"
   | "roadSafety"
-  | "assets";
+  | "assets"
+  | "regulatoryDocuments";
 
 type NavLink = {
   href: string;
@@ -175,6 +176,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const moduleByPath: Array<{ prefix: string; module: AppModule }> = [
       { prefix: "/qualidade/legislacoes", module: "legislations" },
       { prefix: "/qualidade/fornecedores", module: "suppliers" },
+      { prefix: "/qualidade/regulatorios", module: "regulatoryDocuments" },
       { prefix: "/organizacao/colaboradores", module: "employees" },
       { prefix: "/organizacao/unidades", module: "units" },
       { prefix: "/organizacao/departamentos", module: "departments" },
@@ -220,6 +222,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       } else if (normalizedLocation.startsWith("/qualidade/fornecedores")) {
         crumbs.push({ label: "Fornecedores", href: "/qualidade/fornecedores" });
         if (pageTitle && normalizedLocation !== "/qualidade/fornecedores") {
+          crumbs.push({ label: pageTitle });
+        }
+      } else if (normalizedLocation.startsWith("/qualidade/regulatorios")) {
+        crumbs.push({ label: "Documentos Regulatórios", href: "/qualidade/regulatorios" });
+        if (pageTitle && normalizedLocation !== "/qualidade/regulatorios") {
           crumbs.push({ label: pageTitle });
         }
       }
@@ -379,6 +386,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const qualidadeLinks: NavLink[] = [
     ...(hasModuleAccess("legislations")
       ? [{ href: "/qualidade/legislacoes", label: "Legislações" }]
+      : []),
+    ...(hasModuleAccess("regulatoryDocuments")
+      ? [{ href: "/qualidade/regulatorios", label: "Documentos Regulatórios" }]
       : []),
     ...(hasModuleAccess("suppliers")
       ? [{ href: "/qualidade/fornecedores", label: "Fornecedores" }]

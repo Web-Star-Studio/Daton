@@ -223,7 +223,7 @@ const governanceRiskOpportunitySchema = z.object({
 function blankSwotForm(): GovernanceSwotBody {
   return {
     domain: "sgq",
-    matrixLabel: "SWOT SGI",
+    matrixLabel: "SWOT",
     swotType: "strength",
     environment: "internal",
     perspective: "",
@@ -383,49 +383,49 @@ const GOVERNANCE_IMPORT_EXAMPLE_ROWS = [
   ],
   [
     "Plano",
-    "B)DIRECIONAMENTO ESTRATÉGICO SV!B65",
+    "B) Direcionamento Estratégico!B65",
     "resumo_executivo",
     "Contexto interno e externo consolidado para o ciclo 2026.",
     "Resumo executivo do plano. Se N65 existir, ela complementa a conclusão estratégica.",
   ],
   [
     "Plano",
-    "C) ESCOPO POLíTICA OBJETIVOS!B4",
+    "C) Escopo, Política e Objetivos!B4",
     "escopo_tecnico",
     "Transporte rodoviário de cargas e apoio operacional.",
     "Descreve o escopo técnico coberto pelo sistema de gestão.",
   ],
   [
     "Plano",
-    "C) ESCOPO POLíTICA OBJETIVOS!B6",
+    "C) Escopo, Política e Objetivos!B6",
     "escopo_geografico",
     "Pernambuco, Bahia e Sergipe.",
     "Regiões ou unidades atendidas pelo plano.",
   ],
   [
     "Plano",
-    "C) ESCOPO POLíTICA OBJETIVOS!B12",
+    "C) Escopo, Política e Objetivos!B12",
     "politica",
     "Atender requisitos legais, clientes e melhoria contínua.",
     "Texto da política corporativa aplicável ao planejamento.",
   ],
   [
     "Plano",
-    "C) ESCOPO POLíTICA OBJETIVOS!B25",
+    "C) Escopo, Política e Objetivos!B25",
     "missao",
     "Entregar operações seguras, confiáveis e sustentáveis.",
     "Missão da organização.",
   ],
   [
     "Plano",
-    "C) ESCOPO POLíTICA OBJETIVOS!B27",
+    "C) Escopo, Política e Objetivos!B27",
     "visao",
     "Ser referência regional em transporte integrado.",
     "Visão da organização.",
   ],
   [
     "Plano",
-    "C) ESCOPO POLíTICA OBJETIVOS!B29",
+    "C) Escopo, Política e Objetivos!B29",
     "valores",
     "Segurança, ética, disciplina operacional e respeito às pessoas.",
     "Valores institucionais.",
@@ -438,36 +438,36 @@ const GOVERNANCE_IMPORT_EXAMPLE_ROWS = [
     "Cada linha representa uma revisão. A data pode estar em dd/mm/aaaa ou yyyy-mm-dd.",
   ],
   [
-    "SWOT SGI",
-    "A) SWOT SGI!C:P",
+    "SWOT",
+    "A) SWOT!C:P",
     "descricao, tipo_fator, ambiente, dominio, desempenho, relevancia, resultado, tratamento, ref_acao, cod_objetivo, nome_objetivo",
     "Alta experiência da equipe | Força | Interno | SGQ | 4 | 4 | 16 | Manter padrão | AC-01 | O1 | Melhorar eficiência operacional",
     "Tipos aceitos: Força, Fraqueza, Oportunidade, Ameaça. Ambiente: Interno ou Externo.",
   ],
   [
-    "SWOT SGA",
-    "A2) SWOT SGA!B:H",
+    "SWOT Ambiental",
+    "A2) SWOT Ambiental!B:H",
     "descricao, resultado, objetivo_relacionado, correlacao, referencia_acao",
     "Consumo elevado de diesel | 9 | O2 | Relacionado ao indicador ambiental | AC-02",
     "A aba separa forças, fraquezas, oportunidades e ameaças por blocos na coluna B.",
   ],
   [
     "Partes interessadas",
-    "B) PARTES INTERESSADAS!C:I",
+    "B) Partes Interessadas!C:I",
     "nome, requisitos, papel_na_empresa, resumo_papel, relevante_sgi, requisito_legal, monitoramento",
     "Clientes | Entregas no prazo | Contratante | Parte central da operação | Sim | Não | Pesquisa de satisfação trimestral",
     "Para os campos booleanos, usar Sim ou Não.",
   ],
   [
     "Objetivos estrategicos",
-    "C) ESCOPO POLíTICA OBJETIVOS!B16:D22",
+    "C) Escopo, Política e Objetivos!B16:D22",
     "dominio_sistema, codigo_objetivo, descricao_objetivo",
     "SGQ | O1 | Melhorar eficiência operacional em 10%",
     "A descrição pode começar com código como O1) Texto. O importador separa o código automaticamente.",
   ],
   [
     "Notas de objetivos",
-    "D) INDICADORES E OBJETIVOS!A:C",
+    "D) Indicadores e Objetivos!A:C",
     "codigo_objetivo, nota_indicador",
     "O1 | Indicador acompanhado mensalmente pela diretoria.",
     "As notas complementam os objetivos quando a aba existir.",
@@ -497,6 +497,16 @@ function downloadGovernanceImportExampleCsv() {
   anchor.click();
   document.body.removeChild(anchor);
   window.URL.revokeObjectURL(url);
+}
+
+/** Baixa o modelo .xlsx oficial para preenchimento e importação. */
+function downloadGovernanceTemplate() {
+  const anchor = document.createElement("a");
+  anchor.href = "/templates/modelo-planejamento-governanca.xlsx";
+  anchor.download = "modelo-planejamento-governanca.xlsx";
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
 }
 
 function toggleMultiSelectValue(selected: number[], value: number) {
@@ -3031,26 +3041,28 @@ export default function GovernanceDetailPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
                 <p className="text-sm font-semibold">
-                  Modelo CSV com campos explicados
+                  Modelo de planilha para importação
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Baixe um exemplo com as colunas, origem dos dados e instruções
-                  de preenchimento para montar ou revisar a planilha fonte.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  A importação automática continua usando arquivo{" "}
-                  <strong>.xlsx</strong> com as abas esperadas pelo sistema.
+                  Baixe o modelo <strong>.xlsx</strong> oficial, preencha as
+                  células indicadas em cada aba e suba o arquivo aqui. O CSV
+                  traz a referência de colunas e instruções de preenchimento.
                 </p>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={downloadGovernanceImportExampleCsv}
-                className="shrink-0"
-              >
-                <FileText className="mr-1.5 h-3.5 w-3.5" />
-                Baixar CSV modelo
-              </Button>
+              <div className="flex shrink-0 flex-col gap-2">
+                <Button type="button" onClick={downloadGovernanceTemplate}>
+                  <FileText className="mr-1.5 h-3.5 w-3.5" />
+                  Baixar modelo (.xlsx)
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={downloadGovernanceImportExampleCsv}
+                >
+                  <FileText className="mr-1.5 h-3.5 w-3.5" />
+                  Baixar CSV de referência
+                </Button>
+              </div>
             </div>
           </div>
           <Input

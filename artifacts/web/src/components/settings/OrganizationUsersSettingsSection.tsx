@@ -84,6 +84,7 @@ const MODULE_LABELS: Record<string, string> = {
   kpi: "Indicadores",
   roadSafety: "Fatores de Desempenho (SV)",
   assets: "Infraestrutura",
+  regulatoryDocuments: "Documentos Regulatórios",
 };
 
 const ALL_MODULES: OrgUserModule[] = [
@@ -99,6 +100,7 @@ const ALL_MODULES: OrgUserModule[] = [
   "kpi",
   "roadSafety",
   "assets",
+  "regulatoryDocuments",
 ];
 
 const emptyCreateUserForm: CreateUserFormData = {

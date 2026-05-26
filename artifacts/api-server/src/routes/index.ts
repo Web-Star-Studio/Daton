@@ -31,6 +31,7 @@ import assetsRouter from "./assets";
 import assetMaintenanceRouter from "./asset-maintenance";
 import workEnvironmentRouter from "./work-environment";
 import measurementResourcesRouter from "./measurement-resources";
+import regulatoryDocumentsRouter from "./regulatory-documents";
 const router: IRouter = Router();
 
 function requireModuleAccessForPaths(
@@ -168,6 +169,14 @@ router.use(
   assetMaintenanceRouter,
   workEnvironmentRouter,
   measurementResourcesRouter,
+);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("regulatoryDocuments", [
+    /^\/organizations\/[^/]+\/regulatory-documents(?:\/|$)/,
+  ]),
+  regulatoryDocumentsRouter,
 );
 
 export default router;

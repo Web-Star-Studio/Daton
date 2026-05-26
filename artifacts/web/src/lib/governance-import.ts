@@ -149,7 +149,7 @@ function parseSwotSgiSheet(worksheet: XLSX.WorkSheet) {
     items.push({
       importKey: `sgi-${row}`,
       domain,
-      matrixLabel: "SWOT SGI",
+      matrixLabel: "SWOT",
       swotType,
       environment: environmentRaw === "externo" ? "external" : "internal",
       perspective: domainRaw || null,
@@ -210,7 +210,7 @@ function parseSwotSgaSheet(worksheet: XLSX.WorkSheet) {
     items.push({
       importKey: `sga-${row}`,
       domain: "sga",
-      matrixLabel: "SWOT SGA",
+      matrixLabel: "SWOT Ambiental",
       swotType: currentType,
       environment: currentEnvironment,
       perspective: "Ambiental",
@@ -290,40 +290,66 @@ function parseObjectivesSheet(scopeSheet: XLSX.WorkSheet, indicatorsSheet?: XLSX
   return items;
 }
 
+/**
+ * Abas do modelo padrão de governança. Cada chave aceita o nome do modelo
+ * atual e, como apelido, o nome do formato antigo (planilha de um cliente).
+ */
+const SHEET_ALIASES = {
+  history: ["Histórico de Revisões"],
+  cover: ["CAPA"],
+  methodology: ["A0) Metodologia", "A0) METODOLOGIA"],
+  swot: ["A) SWOT", "A) SWOT SGI"],
+  swotEnv: ["A2) SWOT Ambiental", "A2) SWOT SGA"],
+  strategy: ["B) Direcionamento Estratégico", "B)DIRECIONAMENTO ESTRATÉGICO SV"],
+  interestedParties: ["B) Partes Interessadas", "B) PARTES INTERESSADAS"],
+  scope: ["C) Escopo, Política e Objetivos", "C) ESCOPO POLíTICA OBJETIVOS"],
+  indicators: ["D) Indicadores e Objetivos", "D) INDICADORES E OBJETIVOS"],
+} satisfies Record<string, string[]>;
+
+function findSheet(
+  workbook: XLSX.WorkBook,
+  key: keyof typeof SHEET_ALIASES,
+): XLSX.WorkSheet | undefined {
+  for (const name of SHEET_ALIASES[key]) {
+    if (workbook.Sheets[name]) return workbook.Sheets[name];
+  }
+  return undefined;
+}
+
 export async function parseGovernanceWorkbook(file: File): Promise<GovernanceImportPreview> {
   const data = await file.arrayBuffer();
   const workbook = XLSX.read(data, { type: "array" });
   const anomalies: string[] = [];
 
-  const requiredSheets = [
-    "Histórico de Revisões",
-    "CAPA",
-    "A0) METODOLOGIA",
-    "A) SWOT SGI",
-    "A2) SWOT SGA",
-    "B)DIRECIONAMENTO ESTRATÉGICO SV",
-    "B) PARTES INTERESSADAS",
-    "C) ESCOPO POLíTICA OBJETIVOS",
+  // Abas obrigatórias — aceitam o nome do modelo padrão ou o formato antigo.
+  const requiredSheetKeys: (keyof typeof SHEET_ALIASES)[] = [
+    "history",
+    "cover",
+    "methodology",
+    "swot",
+    "swotEnv",
+    "strategy",
+    "interestedParties",
+    "scope",
   ];
-
-  for (const sheetName of requiredSheets) {
-    if (!workbook.Sheets[sheetName]) {
-      anomalies.push(`Aba obrigatória ausente: ${sheetName}`);
+  for (const key of requiredSheetKeys) {
+    if (!findSheet(workbook, key)) {
+      anomalies.push(`Aba obrigatória ausente: ${SHEET_ALIASES[key][0]}`);
     }
   }
 
-  const coverSheet = workbook.Sheets["CAPA"];
-  const methodologySheet = workbook.Sheets["A0) METODOLOGIA"];
-  const historySheet = workbook.Sheets["Histórico de Revisões"];
-  const swotSgiSheet = workbook.Sheets["A) SWOT SGI"];
-  const swotSgaSheet = workbook.Sheets["A2) SWOT SGA"];
-  const strategySheet = workbook.Sheets["B)DIRECIONAMENTO ESTRATÉGICO SV"];
-  const interestedSheet = workbook.Sheets["B) PARTES INTERESSADAS"];
-  const scopeSheet = workbook.Sheets["C) ESCOPO POLíTICA OBJETIVOS"];
-  const indicatorsSheet = workbook.Sheets["D) INDICADORES E OBJETIVOS"];
+  const coverSheet = findSheet(workbook, "cover");
+  const methodologySheet = findSheet(workbook, "methodology");
+  const historySheet = findSheet(workbook, "history");
+  const swotSgiSheet = findSheet(workbook, "swot");
+  const swotSgaSheet = findSheet(workbook, "swotEnv");
+  const strategySheet = findSheet(workbook, "strategy");
+  const interestedSheet = findSheet(workbook, "interestedParties");
+  const scopeSheet = findSheet(workbook, "scope");
+  const indicatorsSheet = findSheet(workbook, "indicators");
 
   if (!scopeSheet) {
-    throw new Error("A planilha não possui a aba C) ESCOPO POLíTICA OBJETIVOS, necessária para a importação.");
+    throw new Error("A planilha não possui a aba C) Escopo, Política e Objetivos, necessária para a importação.");
   }
 
   const history = historySheet ? parseHistorySheet(historySheet) : { items: [], anomalies: ["Aba Histórico de Revisões ausente."] };

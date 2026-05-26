@@ -44,6 +44,7 @@ import SupplierMasterEditPage from "@/pages/app/qualidade/fornecedores/[id]-cada
 import SupplierDetailPage from "@/pages/app/qualidade/fornecedores/[id]";
 import SupplierDocumentRequirementsPage from "@/pages/app/qualidade/fornecedores/requisitos-documentais";
 import SupplierTypesPage from "@/pages/app/qualidade/fornecedores/tipos";
+import RegulatoriosPage from "@/pages/app/qualidade/regulatorios";
 import EnvironmentalLaiaPage from "@/pages/app/ambiental/laia";
 import EnvironmentalLaiaUnitDetailPage from "@/pages/app/ambiental/laia/unidades/[unitId]";
 import KpiModulePage from "@/pages/app/kpi/kpi-module";
@@ -204,6 +205,8 @@ function AppPages() {
         path="/qualidade/documentacao/:id"
         component={DocumentDetailPage}
       />
+      <Route path="/qualidade/regulatorios" component={RegulatoriosPage} />
+      <Route path="/app/qualidade/regulatorios" component={RegulatoriosPage} />
       <Route path="/qualidade/fornecedores" component={SuppliersPage} />
       <Route
         path="/qualidade/fornecedores/categorias"

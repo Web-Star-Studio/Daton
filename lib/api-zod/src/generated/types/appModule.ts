@@ -21,4 +21,5 @@ export const AppModule = {
   kpi: "kpi",
   roadSafety: "roadSafety",
   assets: "assets",
+  regulatoryDocuments: "regulatoryDocuments",
 } as const;
