@@ -49,7 +49,7 @@ function RegulatoryHomeWidgetInner({ orgId }: { orgId: number }) {
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.12em] mb-5">
           Compliance — Documentos Regulatórios
         </h3>
-        <div className="rounded-xl border bg-card p-6 flex items-center justify-between gap-4">
+        <div className="rounded-xl border bg-card p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-start gap-3">
             <FileBadge2 className="h-8 w-8 text-muted-foreground/60 shrink-0 mt-0.5" />
             <div className="flex flex-col gap-1">
@@ -60,7 +60,7 @@ function RegulatoryHomeWidgetInner({ orgId }: { orgId: number }) {
             </div>
           </div>
           <Link href="/qualidade/regulatorios">
-            <a className="text-sm font-medium text-primary hover:underline flex items-center gap-1 shrink-0">
+            <a className="text-sm font-medium text-primary hover:underline flex items-center gap-1 shrink-0 self-start sm:self-auto">
               Começar
               <ArrowRight className="h-3.5 w-3.5" />
             </a>
@@ -102,7 +102,7 @@ function RegulatoryHomeWidgetInner({ orgId }: { orgId: number }) {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_2fr] gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-[1fr_1fr_1fr_2fr] gap-3">
         <StatTile
           tone="danger"
           icon={<ShieldAlert className="h-4 w-4" />}
@@ -122,7 +122,7 @@ function RegulatoryHomeWidgetInner({ orgId }: { orgId: number }) {
           value={vigentes}
         />
 
-        <div className="rounded-xl border bg-card p-4 flex flex-col gap-2 min-h-[120px]">
+        <div className="col-span-2 md:col-span-1 rounded-xl border bg-card p-4 flex flex-col gap-2 min-h-[120px]">
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
             Demanda ação agora
           </p>

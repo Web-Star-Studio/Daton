@@ -105,7 +105,9 @@ export function DialogFooter({
   return (
     <div
       className={cn(
-        "flex justify-end gap-2 pt-5 mt-2 border-t border-border/40",
+        // Mobile (<640px): stack vertical com botão primário no topo (column-reverse).
+        // Desktop (sm+): row justificado à direita como sempre foi.
+        "flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-5 mt-2 border-t border-border/40",
         className,
       )}
     >

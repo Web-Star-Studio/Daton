@@ -471,7 +471,7 @@ function RenewalsPanel({
 
             {expanded && (
               <div className="px-3 pb-3 pt-1 border-t bg-muted/20 flex flex-col gap-2">
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                <div className="grid grid-cols-[auto_1fr] gap-x-3 sm:gap-x-4 gap-y-1 text-xs break-words">
                   {r.scheduledStartDate && (
                     <>
                       <span className="text-muted-foreground">Início programado</span>
@@ -531,7 +531,7 @@ function RenewalsPanel({
       {showForm ? (
         <form onSubmit={handleSubmit} className="border rounded-lg p-3 flex flex-col gap-3 bg-muted/10">
           <p className="text-xs font-semibold">Nova renovação</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs">Status *</Label>
               <SearchableSelect
@@ -567,9 +567,9 @@ function RenewalsPanel({
             <Label className="text-xs">Observações</Label>
             <Textarea className="text-xs min-h-[60px]" value={form.notes ?? ""} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value || undefined }))} />
           </div>
-          <div className="flex gap-2 justify-end">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setShowForm(false)}>Cancelar</Button>
-            <Button type="submit" size="sm" disabled={createMut.isPending}>Salvar</Button>
+          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+            <Button type="button" variant="ghost" size="sm" className="w-full sm:w-auto" onClick={() => setShowForm(false)}>Cancelar</Button>
+            <Button type="submit" size="sm" className="w-full sm:w-auto" disabled={createMut.isPending}>Salvar</Button>
           </div>
         </form>
       ) : (
@@ -860,16 +860,16 @@ function RegulatoryDetailSheet({
 
   return (
     <Sheet open={!!document} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto flex flex-col gap-6">
+      <SheetContent className="w-full max-w-full sm:max-w-xl overflow-y-auto overflow-x-hidden flex flex-col gap-6 p-4 sm:p-6">
         <SheetHeader>
           <div className="flex items-start justify-between gap-2">
-            <div className="flex flex-col gap-1">
-              <SheetTitle className="text-base">{titleParts.join(" · ")}</SheetTitle>
+            <div className="flex flex-col gap-1 min-w-0">
+              <SheetTitle className="text-base break-words">{titleParts.join(" · ")}</SheetTitle>
               {document.identifierOther && (
-                <p className="text-xs text-muted-foreground">{document.identifierOther}</p>
+                <p className="text-xs text-muted-foreground break-words">{document.identifierOther}</p>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <DocumentStatusBadge status={document.status} expirationDate={document.expirationDate} />
               {canWrite && (
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(document)}>
@@ -880,7 +880,7 @@ function RegulatoryDetailSheet({
           </div>
         </SheetHeader>
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+        <div className="grid grid-cols-[auto_1fr] sm:grid-cols-2 gap-x-3 sm:gap-x-4 gap-y-2 text-sm break-words">
           {document.unitName && (
             <>
               <span className="text-muted-foreground">Filial</span>
@@ -1043,7 +1043,7 @@ function RegulatoryDialog({
       title={initial ? "Editar documento regulatório" : "Novo documento regulatório"}
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Filial (CNPJ) *</Label>
             <SearchableSelect
@@ -1066,7 +1066,7 @@ function RegulatoryDialog({
             />
           </div>
           {form.identifierType === "outro" && (
-            <div className="col-span-2 flex flex-col gap-1.5">
+            <div className="sm:col-span-2 flex flex-col gap-1.5">
               <Label className="text-xs">Descrição do tipo</Label>
               <Input
                 className="h-9 text-sm"
@@ -1103,7 +1103,7 @@ function RegulatoryDialog({
               onChange={(e) => setForm((f) => ({ ...f, processNumber: e.target.value || undefined }))}
             />
           </div>
-          <div className="col-span-2 flex flex-col gap-1.5">
+          <div className="sm:col-span-2 flex flex-col gap-1.5">
             <Label className="text-xs">Responsável (usuário com conta) *</Label>
             <SearchableSelect
               value={String(form.responsibleUserId ?? "")}
@@ -1148,7 +1148,7 @@ function RegulatoryDialog({
               min={1}
             />
           </div>
-          <div className="col-span-2 flex items-start gap-2">
+          <div className="sm:col-span-2 flex items-start gap-2">
             <input
               type="checkbox"
               id="renewal-required"
@@ -1166,7 +1166,7 @@ function RegulatoryDialog({
               </p>
             </div>
           </div>
-          <div className="col-span-2 flex flex-col gap-1.5">
+          <div className="sm:col-span-2 flex flex-col gap-1.5">
             <Label className="text-xs">Observações</Label>
             <Textarea
               className="text-sm min-h-[60px]"
@@ -1176,8 +1176,8 @@ function RegulatoryDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" size="sm" disabled={isPending}>{initial ? "Salvar" : "Cadastrar"}</Button>
+          <Button type="button" variant="ghost" size="sm" className="w-full sm:w-auto" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" size="sm" className="w-full sm:w-auto" disabled={isPending}>{initial ? "Salvar" : "Cadastrar"}</Button>
         </DialogFooter>
       </form>
     </Dialog>,
@@ -1216,10 +1216,10 @@ function CounterCard({
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-col items-start gap-1 border rounded-lg px-4 py-3 bg-card text-left transition hover:bg-muted/30 ${toneStyles[tone]} ${active ? "ring-2 ring-primary/40" : ""}`}
+      className={`flex flex-col items-start gap-1 border rounded-lg px-3 py-2 md:px-4 md:py-3 bg-card text-left transition hover:bg-muted/30 ${toneStyles[tone]} ${active ? "ring-2 ring-primary/40" : ""}`}
     >
-      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className={`text-2xl font-semibold ${valueTones[tone]}`}>{value}</span>
+      <span className="text-[10px] md:text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className={`text-xl md:text-2xl font-semibold ${valueTones[tone]}`}>{value}</span>
     </button>
   );
 }
@@ -1448,7 +1448,7 @@ export default function RegulatoriosPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
       {/* Counter cards (the "dash" she asked for) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <CounterCard
@@ -1482,14 +1482,14 @@ export default function RegulatoriosPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className="flex flex-col md:flex-row md:flex-wrap gap-2 md:items-center">
         <Input
-          className="h-8 text-sm w-64"
+          className="h-8 text-sm w-full md:w-64"
           placeholder="Buscar por número, órgão, processo..."
           value={filterSearch}
           onChange={(e) => setFilterSearch(e.target.value)}
         />
-        <div className="w-52">
+        <div className="w-full md:w-52">
           <SearchableSelect
             value={filterUnit}
             onChange={setFilterUnit}
@@ -1499,7 +1499,7 @@ export default function RegulatoriosPage() {
             emptyMessage="Nenhuma filial encontrada"
           />
         </div>
-        <div className="w-52">
+        <div className="w-full md:w-52">
           <SearchableSelect
             value={filterType}
             onChange={setFilterType}
@@ -1509,7 +1509,7 @@ export default function RegulatoriosPage() {
             emptyMessage="Nenhum tipo encontrado"
           />
         </div>
-        <div className="w-44">
+        <div className="w-full md:w-44">
           <SearchableSelect
             value={filterStatus}
             onChange={setFilterStatus}
@@ -1519,7 +1519,7 @@ export default function RegulatoriosPage() {
             emptyMessage="Nenhum status encontrado"
           />
         </div>
-        <div className="w-48">
+        <div className="w-full md:w-48">
           <SearchableSelect
             value={filterDaysWindow}
             onChange={setFilterDaysWindow}
@@ -1539,14 +1539,14 @@ export default function RegulatoriosPage() {
               setFilterDaysWindow("");
               setFilterSearch("");
             }}
-            className="text-xs text-blue-600 hover:underline"
+            className="text-xs text-blue-600 hover:underline self-start md:self-auto"
           >
             Limpar filtros
           </button>
         )}
       </div>
 
-      {/* Table view OR Calendar view — same filtered `documents` array feeds both. */}
+      {/* Calendar mode shortcut — calendar é responsivo o suficiente; só uma view dele */}
       {viewMode === "calendar" ? (
         isLoading ? (
           <div className="rounded-lg border bg-card py-12 text-center text-xs text-muted-foreground">
@@ -1559,133 +1559,193 @@ export default function RegulatoriosPage() {
           />
         )
       ) : (
-      <div className="rounded-lg border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <SortableHead label="Identificação / Nº" col="identifier" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-              <SortableHead label="Tipo" col="type" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-              <SortableHead label="Órgão" col="issuingBody" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-              <SortableHead label="Filial" col="unit" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-              <SortableHead label="Validade" col="expiration" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-              <SortableHead label="Status" col="status" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-              <SortableHead label="Renovação" col="renewal" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-              <SortableHead label="Anexos" col="attachments" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-              {canWrite && <TableHead className="text-xs w-16" />}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading && (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center text-xs text-muted-foreground py-8">
-                  Carregando...
-                </TableCell>
-              </TableRow>
-            )}
-            {!isLoading && documents.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center text-xs text-muted-foreground py-12">
-                  <div className="flex flex-col items-center gap-2">
-                    <FileBadge2 className="h-8 w-8 text-muted-foreground/50" />
-                    {hasActiveFilters && scopeDocuments.length === 0 ? (
-                      // Filtros aplicados que removeram tudo do escopo (filial/tipo/search):
-                      // ainda direciona pra "limpar".
-                      <>
-                        <p>Nenhum documento encontrado com os filtros atuais.</p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFilterUnit("");
-                            setFilterType("");
-                            setFilterStatus("");
-                            setFilterDaysWindow("");
-                            setFilterSearch("");
-                          }}
-                          className="text-[11px] text-blue-600 hover:underline"
+        <>
+          {/* Empty/loading state — compartilhado entre desktop table e mobile cards. */}
+          {isLoading && (
+            <div className="rounded-lg border py-8 text-center text-xs text-muted-foreground">
+              Carregando...
+            </div>
+          )}
+          {!isLoading && documents.length === 0 && (
+            <div className="rounded-lg border py-12 text-center text-xs text-muted-foreground">
+              <div className="flex flex-col items-center gap-2">
+                <FileBadge2 className="h-8 w-8 text-muted-foreground/50" />
+                {hasActiveFilters && scopeDocuments.length === 0 ? (
+                  <>
+                    <p>Nenhum documento encontrado com os filtros atuais.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilterUnit("");
+                        setFilterType("");
+                        setFilterStatus("");
+                        setFilterDaysWindow("");
+                        setFilterSearch("");
+                      }}
+                      className="text-[11px] text-blue-600 hover:underline"
+                    >
+                      Limpar filtros
+                    </button>
+                  </>
+                ) : hasActiveFilters ? (
+                  <>
+                    <p>Nenhum documento bate com os filtros atuais.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilterStatus("");
+                        setFilterDaysWindow("");
+                      }}
+                      className="text-[11px] text-blue-600 hover:underline"
+                    >
+                      Limpar filtros de status/prazo
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p>Nenhum documento regulatório cadastrado.</p>
+                    {canWrite && (
+                      <p className="text-[11px] text-muted-foreground/70">
+                        Use <span className="font-medium">+ Novo documento regulatório</span> no topo para começar.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Desktop table — com sortable headers */}
+          {!isLoading && documents.length > 0 && (
+            <div className="hidden md:block rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <SortableHead label="Identificação / Nº" col="identifier" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+                    <SortableHead label="Tipo" col="type" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+                    <SortableHead label="Órgão" col="issuingBody" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+                    <SortableHead label="Filial" col="unit" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+                    <SortableHead label="Validade" col="expiration" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+                    <SortableHead label="Status" col="status" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+                    <SortableHead label="Renovação" col="renewal" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+                    <SortableHead label="Anexos" col="attachments" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+                    {canWrite && <TableHead className="text-xs w-16" />}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {documents.map((d) => (
+                    <TableRow
+                      key={d.id}
+                      className="cursor-pointer hover:bg-muted/40"
+                      onClick={() => setDetailDocId(d.id)}
+                    >
+                      <TableCell className="text-xs">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium">{IDENTIFIER_TYPE_LABELS[d.identifierType] ?? d.identifierType}{d.identifierOther ? ` · ${d.identifierOther}` : ""}</span>
+                          {d.documentNumber && <span className="text-muted-foreground">{d.documentNumber}</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        <Badge variant="outline" className={`text-[10px] ${IDENTIFIER_TYPE_COLORS[d.identifierType] ?? ""}`}>
+                          {IDENTIFIER_TYPE_LABELS[d.identifierType]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{d.issuingBody}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{d.unitName ?? "—"}</TableCell>
+                      <TableCell><ValidityCell expirationDate={d.expirationDate} status={d.status} /></TableCell>
+                      <TableCell><DocumentStatusBadge status={d.status} expirationDate={d.expirationDate} /></TableCell>
+                      <TableCell><RenewalStatusBadge status={d.latestRenewalStatus ?? null} /></TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{d.attachmentCount}</TableCell>
+                  {canWrite && (
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={(e) => { e.stopPropagation(); setEditing(d); setDialogOpen(true); }}
                         >
-                          Limpar filtros
-                        </button>
-                      </>
-                    ) : hasActiveFilters ? (
-                      // Filtros narrow (status/dias) que zeraram a tabela mesmo com escopo > 0:
-                      <>
-                        <p>Nenhum documento bate com os filtros atuais.</p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFilterStatus("");
-                            setFilterDaysWindow("");
-                          }}
-                          className="text-[11px] text-blue-600 hover:underline"
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive"
+                          onClick={(e) => { e.stopPropagation(); handleDelete(d); }}
                         >
-                          Limpar filtros de status/prazo
-                        </button>
-                      </>
-                    ) : (
-                      // Empty state real — nada cadastrado.
-                      <>
-                        <p>Nenhum documento regulatório cadastrado.</p>
-                        {canWrite && (
-                          <p className="text-[11px] text-muted-foreground/70">
-                            Use <span className="font-medium">+ Novo documento regulatório</span> no topo para começar.
-                          </p>
-                        )}
-                      </>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+          {/* Mobile card list — tabela tem 9 colunas, quebra horrível em <768px.
+              Cada card mostra os campos essenciais e abre o detail sheet ao tocar. */}
+          {!isLoading && documents.length > 0 && (
+            <div className="flex flex-col gap-2 md:hidden">
+              {documents.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => setDetailDocId(d.id)}
+                  className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-3 text-left transition active:bg-muted/40"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                      <Badge variant="outline" className={`text-[10px] self-start ${IDENTIFIER_TYPE_COLORS[d.identifierType] ?? ""}`}>
+                        {IDENTIFIER_TYPE_LABELS[d.identifierType]}
+                      </Badge>
+                      {d.documentNumber && (
+                        <span className="text-sm font-medium truncate">{d.documentNumber}</span>
+                      )}
+                      {!d.documentNumber && d.identifierOther && (
+                        <span className="text-sm font-medium truncate">{d.identifierOther}</span>
+                      )}
+                    </div>
+                    {canWrite && (
+                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={(e) => { e.stopPropagation(); setEditing(d); setDialogOpen(true); }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive"
+                          onClick={(e) => { e.stopPropagation(); handleDelete(d); }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     )}
                   </div>
-                </TableCell>
-              </TableRow>
-            )}
-            {documents.map((d) => (
-              <TableRow
-                key={d.id}
-                className="cursor-pointer hover:bg-muted/40"
-                onClick={() => setDetailDocId(d.id)}
-              >
-                <TableCell className="text-xs">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-medium">{IDENTIFIER_TYPE_LABELS[d.identifierType] ?? d.identifierType}{d.identifierOther ? ` · ${d.identifierOther}` : ""}</span>
-                    {d.documentNumber && <span className="text-muted-foreground">{d.documentNumber}</span>}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ValidityCell expirationDate={d.expirationDate} status={d.status} />
+                    <DocumentStatusBadge status={d.status} expirationDate={d.expirationDate} />
+                    <RenewalStatusBadge status={d.latestRenewalStatus ?? null} />
                   </div>
-                </TableCell>
-                <TableCell className="text-xs">
-                  <Badge variant="outline" className={`text-[10px] ${IDENTIFIER_TYPE_COLORS[d.identifierType] ?? ""}`}>
-                    {IDENTIFIER_TYPE_LABELS[d.identifierType]}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{d.issuingBody}</TableCell>
-                <TableCell className="text-xs text-muted-foreground">{d.unitName ?? "—"}</TableCell>
-                <TableCell><ValidityCell expirationDate={d.expirationDate} status={d.status} /></TableCell>
-                <TableCell><DocumentStatusBadge status={d.status} expirationDate={d.expirationDate} /></TableCell>
-                <TableCell><RenewalStatusBadge status={d.latestRenewalStatus ?? null} /></TableCell>
-                <TableCell className="text-xs text-muted-foreground">{d.attachmentCount}</TableCell>
-                {canWrite && (
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={(e) => { e.stopPropagation(); setEditing(d); setDialogOpen(true); }}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive"
-                        onClick={(e) => { e.stopPropagation(); handleDelete(d); }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                )}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                    {d.unitName && <span className="truncate">{d.unitName}</span>}
+                    {d.unitName && <span aria-hidden>·</span>}
+                    <span className="truncate">{d.issuingBody}</span>
+                    <span aria-hidden>·</span>
+                    <span>{d.attachmentCount} anexo{d.attachmentCount === 1 ? "" : "s"}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <RegulatoryDialog
