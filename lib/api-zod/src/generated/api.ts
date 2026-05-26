@@ -13539,6 +13539,30 @@ export const ListKpiYearDataResponseItem = zod.object({
         actionPlansCount: zod
           .number()
           .min(listKpiYearDataResponseMonthlyValuesItemActionPlansCountMin),
+        isOverridden: zod
+          .boolean()
+          .optional()
+          .describe(
+            "True quando a Ana entrou um valor manual sobrepondo o cálculo automático (rollup). False = livre pra recompute.",
+          ),
+        isComputed: zod
+          .boolean()
+          .optional()
+          .describe(
+            "True quando o `value` exibido foi calculado on-read a partir dos filhos do rollup (não é o valor cru do row). Indicador deve ter rollup_strategy != null e isOverridden=false.",
+          ),
+        childrenWithData: zod
+          .number()
+          .nullish()
+          .describe(
+            "Quando isComputed=true, quantos filhos contribuíram com dados neste mês.",
+          ),
+        childrenTotal: zod
+          .number()
+          .nullish()
+          .describe(
+            "Quando isComputed=true, total de filhos configurados pro rollup.",
+          ),
       })
       .describe(
         "Read shape of a monthly cell — includes server-resolved metadata",
@@ -13595,6 +13619,12 @@ export const UpsertKpiValuesBody = zod.object({
         month: zod.number().min(1).max(upsertKpiValuesBodyValuesItemMonthMax),
         value: zod.number().nullish(),
         inputs: zod.record(zod.string(), zod.number().nullable()).optional(),
+        isOverridden: zod
+          .boolean()
+          .optional()
+          .describe(
+            "Override manual sobre cálculo automático do rollup. Default true quando value!=null, false quando value=null.",
+          ),
       })
       .describe(
         "Write payload for a single monthly cell (used in upsert bodies)",
@@ -13639,6 +13669,30 @@ export const UpsertKpiValuesResponseItem = zod
     actionPlansCount: zod
       .number()
       .min(upsertKpiValuesResponseActionPlansCountMin),
+    isOverridden: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True quando a Ana entrou um valor manual sobrepondo o cálculo automático (rollup). False = livre pra recompute.",
+      ),
+    isComputed: zod
+      .boolean()
+      .optional()
+      .describe(
+        "True quando o `value` exibido foi calculado on-read a partir dos filhos do rollup (não é o valor cru do row). Indicador deve ter rollup_strategy != null e isOverridden=false.",
+      ),
+    childrenWithData: zod
+      .number()
+      .nullish()
+      .describe(
+        "Quando isComputed=true, quantos filhos contribuíram com dados neste mês.",
+      ),
+    childrenTotal: zod
+      .number()
+      .nullish()
+      .describe(
+        "Quando isComputed=true, total de filhos configurados pro rollup.",
+      ),
   })
   .describe("Read shape of a monthly cell — includes server-resolved metadata");
 export const UpsertKpiValuesResponse = zod.array(UpsertKpiValuesResponseItem);
