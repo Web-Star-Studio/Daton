@@ -14920,6 +14920,41 @@ export const DeleteRegulatoryDocumentAttachmentParams = zod.object({
 });
 
 /**
+ * @summary List audit log entries for a regulatory document (newest first)
+ */
+export const ListRegulatoryDocumentAuditParams = zod.object({
+  orgId: zod.coerce.number(),
+  docId: zod.coerce.number(),
+});
+
+export const listRegulatoryDocumentAuditQueryLimitDefault = 200;
+export const listRegulatoryDocumentAuditQueryLimitMax = 1000;
+
+export const ListRegulatoryDocumentAuditQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listRegulatoryDocumentAuditQueryLimitMax)
+    .default(listRegulatoryDocumentAuditQueryLimitDefault),
+});
+
+export const ListRegulatoryDocumentAuditResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  documentId: zod.number(),
+  entityType: zod.enum(["document", "renewal", "attachment"]),
+  entityId: zod.number().nullish(),
+  action: zod.enum(["created", "updated", "deleted"]),
+  userId: zod.number().nullish(),
+  userName: zod.string().nullish(),
+  changes: zod.record(zod.string(), zod.unknown()),
+  createdAt: zod.string(),
+});
+export const ListRegulatoryDocumentAuditResponse = zod.array(
+  ListRegulatoryDocumentAuditResponseItem,
+);
+
+/**
  * @summary Get applicability state and decision history for req. 8.3 (ISO 9001:2015 §8.3)
  */
 export const GetProjectDevelopmentApplicabilityParams = zod.object({

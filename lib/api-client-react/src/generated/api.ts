@@ -164,6 +164,7 @@ import type {
   ListOrganizationContactsParams,
   ListOrganizationTrainingsParams,
   ListRegulatoryDocumentAttachmentsParams,
+  ListRegulatoryDocumentAuditParams,
   ListRegulatoryDocumentsParams,
   ListSgqProcessesParams,
   ListUserOptionsParams,
@@ -203,6 +204,7 @@ import type {
   RegisterBody,
   RegulatoryDocument,
   RegulatoryDocumentAttachment,
+  RegulatoryDocumentAuditEntry,
   RegulatoryDocumentRenewal,
   RejectDocumentBody,
   RequestPasswordResetBody,
@@ -26780,6 +26782,136 @@ export const useDeleteRegulatoryDocumentAttachment = <
     getDeleteRegulatoryDocumentAttachmentMutationOptions(options),
   );
 };
+
+/**
+ * @summary List audit log entries for a regulatory document (newest first)
+ */
+export const getListRegulatoryDocumentAuditUrl = (
+  orgId: number,
+  docId: number,
+  params?: ListRegulatoryDocumentAuditParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/organizations/${orgId}/regulatory-documents/${docId}/audit?${stringifiedParams}`
+    : `/api/organizations/${orgId}/regulatory-documents/${docId}/audit`;
+};
+
+export const listRegulatoryDocumentAudit = async (
+  orgId: number,
+  docId: number,
+  params?: ListRegulatoryDocumentAuditParams,
+  options?: RequestInit,
+): Promise<RegulatoryDocumentAuditEntry[]> => {
+  return customFetch<RegulatoryDocumentAuditEntry[]>(
+    getListRegulatoryDocumentAuditUrl(orgId, docId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListRegulatoryDocumentAuditQueryKey = (
+  orgId: number,
+  docId: number,
+  params?: ListRegulatoryDocumentAuditParams,
+) => {
+  return [
+    `/api/organizations/${orgId}/regulatory-documents/${docId}/audit`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListRegulatoryDocumentAuditQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRegulatoryDocumentAudit>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  docId: number,
+  params?: ListRegulatoryDocumentAuditParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRegulatoryDocumentAudit>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getListRegulatoryDocumentAuditQueryKey(orgId, docId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listRegulatoryDocumentAudit>>
+  > = ({ signal }) =>
+    listRegulatoryDocumentAudit(orgId, docId, params, {
+      signal,
+      ...requestOptions,
+    });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && docId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRegulatoryDocumentAudit>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRegulatoryDocumentAuditQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRegulatoryDocumentAudit>>
+>;
+export type ListRegulatoryDocumentAuditQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List audit log entries for a regulatory document (newest first)
+ */
+
+export function useListRegulatoryDocumentAudit<
+  TData = Awaited<ReturnType<typeof listRegulatoryDocumentAudit>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  docId: number,
+  params?: ListRegulatoryDocumentAuditParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRegulatoryDocumentAudit>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRegulatoryDocumentAuditQueryOptions(
+    orgId,
+    docId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get applicability state and decision history for req. 8.3 (ISO 9001:2015 §8.3)

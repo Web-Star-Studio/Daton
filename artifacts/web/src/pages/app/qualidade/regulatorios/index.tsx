@@ -6,7 +6,9 @@ import {
   ChevronDown,
   ChevronRight,
   FileBadge2,
+  FilePlus2,
   FileText,
+  History,
   Pencil,
   Plus,
   Trash2,
@@ -55,14 +57,17 @@ import {
   useListRegulatoryDocumentAttachments,
   useAddRegulatoryDocumentAttachment,
   useDeleteRegulatoryDocumentAttachment,
+  useListRegulatoryDocumentAudit,
   useListOrgUsers,
   useListUnits,
   getListOrgUsersQueryKey,
   getListRegulatoryDocumentsQueryKey,
   getListRegulatoryDocumentRenewalsQueryKey,
   getListRegulatoryDocumentAttachmentsQueryKey,
+  getListRegulatoryDocumentAuditQueryKey,
   type RegulatoryDocument,
   type RegulatoryDocumentRenewal,
+  type RegulatoryDocumentAuditEntry,
   type CreateRegulatoryDocumentBody,
   type CreateRegulatoryDocumentRenewalBody,
 } from "@workspace/api-client-react";
@@ -509,6 +514,236 @@ function QuickConcludeForm({ onSubmit }: { onSubmit: (newExpirationDate: string)
   );
 }
 
+// --- Audit log ---
+
+// PT-BR labels for the fields we surface in the "Ver alterações" expansion.
+// Keep keys in sync with the columns logged server-side (services/.../audit.ts).
+const AUDIT_FIELD_LABELS: Record<string, string> = {
+  // documents
+  unitId: "Filial",
+  identifierType: "Tipo",
+  identifierOther: "Tipo (outro)",
+  documentNumber: "Nº documento",
+  issuingBody: "Órgão emissor",
+  processNumber: "Nº processo",
+  responsibleUserId: "Responsável",
+  issueDate: "Data de emissão",
+  expirationDate: "Validade",
+  renewalRequired: "Requer renovação",
+  alertDaysOverride: "Alerta (dias)",
+  notes: "Observações",
+  status: "Status",
+  externalSourceProvider: "Fonte externa",
+  externalSourceReference: "Ref. externa",
+  externalSourceUrl: "URL externa",
+  externalLastSyncAt: "Última sincronização",
+  // renewals
+  documentId: "Documento",
+  scheduledStartDate: "Início previsto",
+  protocolDeadline: "Prazo do protocolo",
+  protocolNumber: "Nº protocolo",
+  newExpirationDate: "Nova validade",
+  recordedByUserId: "Registrado por",
+  // attachments
+  renewalId: "Renovação",
+  fileName: "Arquivo",
+  fileSize: "Tamanho",
+  contentType: "Tipo do arquivo",
+  objectPath: "Caminho",
+  uploadedAt: "Enviado em",
+};
+
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  created: "criou",
+  updated: "alterou",
+  deleted: "excluiu",
+};
+
+const AUDIT_ENTITY_LABELS: Record<string, string> = {
+  document: "o documento",
+  renewal: "uma renovação",
+  attachment: "um anexo",
+};
+
+const AUDIT_ENTITY_NOUN: Record<string, string> = {
+  document: "Documento",
+  renewal: "Renovação",
+  attachment: "Anexo",
+};
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function formatAuditValue(field: string, value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Sim" : "Não";
+  if (typeof value === "string") {
+    if (ISO_DATE_RE.test(value)) return fmtDate(value);
+    // ISO timestamp w/ time
+    if (/\d{4}-\d{2}-\d{2}T/.test(value)) {
+      const d = new Date(value);
+      if (!Number.isNaN(d.getTime())) {
+        return d.toLocaleString("pt-BR");
+      }
+    }
+    return value;
+  }
+  if (typeof value === "number") {
+    // Translate known enums where possible.
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatAuditFieldName(field: string): string {
+  return AUDIT_FIELD_LABELS[field] ?? field;
+}
+
+// Relative time formatter — PT-BR, no extra deps.
+function formatRelativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "—";
+  const diffSec = Math.round((then - Date.now()) / 1000);
+  const abs = Math.abs(diffSec);
+  if (abs < 30) return "agora há pouco";
+  const rtf = new Intl.RelativeTimeFormat("pt-BR", { numeric: "auto" });
+  if (abs < 60) return rtf.format(diffSec, "second");
+  if (abs < 60 * 60) return rtf.format(Math.round(diffSec / 60), "minute");
+  if (abs < 60 * 60 * 24) return rtf.format(Math.round(diffSec / 3600), "hour");
+  if (abs < 60 * 60 * 24 * 30) return rtf.format(Math.round(diffSec / 86400), "day");
+  if (abs < 60 * 60 * 24 * 365) return rtf.format(Math.round(diffSec / (86400 * 30)), "month");
+  return rtf.format(Math.round(diffSec / (86400 * 365)), "year");
+}
+
+function iconForEntry(entry: RegulatoryDocumentAuditEntry) {
+  if (entry.action === "deleted") return Trash2;
+  if (entry.action === "created") {
+    if (entry.entityType === "attachment") return FilePlus2;
+    return Plus;
+  }
+  // updated
+  return Pencil;
+}
+
+function AuditEntryRow({ entry }: { entry: RegulatoryDocumentAuditEntry }) {
+  const [expanded, setExpanded] = useState(false);
+  const Icon = iconForEntry(entry);
+
+  // Pull a diff payload out of the (loose-typed) `changes` jsonb.
+  const changes = entry.changes as
+    | { kind?: string; fields?: Record<string, { from: unknown; to: unknown }>; snapshot?: Record<string, unknown> }
+    | undefined;
+
+  const isDiff = changes?.kind === "diff" && changes?.fields;
+  const fieldEntries = isDiff
+    ? Object.entries(changes!.fields!).filter(([k]) => k in AUDIT_FIELD_LABELS || true)
+    : [];
+
+  const action = AUDIT_ACTION_LABELS[entry.action] ?? entry.action;
+  const entity = AUDIT_ENTITY_LABELS[entry.entityType] ?? entry.entityType;
+  const userName = entry.userName ?? "Usuário removido";
+
+  return (
+    <li className="relative pl-6">
+      <span className="absolute left-0 top-1 flex h-4 w-4 items-center justify-center rounded-full border bg-background">
+        <Icon className="h-2.5 w-2.5 text-muted-foreground" />
+      </span>
+      <div className="text-xs leading-relaxed">
+        <span className="font-medium">{userName}</span>{" "}
+        <span className="text-muted-foreground">{action}</span>{" "}
+        <span>{entity}</span>
+        <span className="text-muted-foreground"> · {formatRelativeTime(entry.createdAt)}</span>
+      </div>
+      {isDiff && fieldEntries.length > 0 && (
+        <div className="mt-1">
+          <button
+            type="button"
+            onClick={() => setExpanded((x) => !x)}
+            className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+          >
+            {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            Ver alterações ({fieldEntries.length})
+          </button>
+          {expanded && (
+            <ul className="mt-1 ml-4 space-y-0.5 border-l pl-3">
+              {fieldEntries.map(([field, change]) => (
+                <li key={field} className="text-[11px]">
+                  <span className="text-muted-foreground">{formatAuditFieldName(field)}: </span>
+                  <span className="line-through text-muted-foreground/70">
+                    {formatAuditValue(field, change.from)}
+                  </span>
+                  <span className="text-muted-foreground"> → </span>
+                  <span className="font-medium">{formatAuditValue(field, change.to)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      {!isDiff && entry.entityId !== null && entry.entityId !== undefined && (
+        <div className="mt-0.5 text-[11px] text-muted-foreground">
+          {AUDIT_ENTITY_NOUN[entry.entityType] ?? entry.entityType} #{entry.entityId}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function RegulatoryAuditPanel({
+  orgId,
+  docId,
+}: {
+  orgId: number;
+  docId: number;
+}) {
+  const [open, setOpen] = useState(false);
+  // Only fetch once the section is opened — keeps the detail-sheet snappy.
+  const query = useListRegulatoryDocumentAudit(orgId, docId, { limit: 200 }, {
+    query: {
+      enabled: open,
+      queryKey: getListRegulatoryDocumentAuditQueryKey(orgId, docId, { limit: 200 }),
+    },
+  });
+
+  const entries = query.data ?? [];
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((x) => !x)}
+        className="flex w-full items-center justify-between text-sm font-semibold mb-2"
+      >
+        <span className="flex items-center gap-1.5">
+          <History className="h-3.5 w-3.5" />
+          Histórico de alterações
+        </span>
+        {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+      </button>
+      {open && (
+        <>
+          {query.isLoading ? (
+            <p className="text-[11px] text-muted-foreground">Carregando…</p>
+          ) : entries.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground">
+              Sem alterações registradas até agora.
+            </p>
+          ) : (
+            <ul className="relative ml-1 space-y-3 border-l pl-3">
+              {entries.map((entry) => (
+                <AuditEntryRow key={entry.id} entry={entry} />
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // --- Detail sheet ---
 
 function RegulatoryDetailSheet({
@@ -614,6 +849,10 @@ function RegulatoryDetailSheet({
           </p>
           <RegulatoryAttachments orgId={orgId} docId={document.id} renewalId={null} canWrite={canWrite} />
         </div>
+
+        {/* Audit log — collapsed by default, lazy-loaded on expand. Required for
+            ISO 9001/14001/39001: traceability of every change. */}
+        <RegulatoryAuditPanel orgId={orgId} docId={document.id} />
       </SheetContent>
     </Sheet>
   );
