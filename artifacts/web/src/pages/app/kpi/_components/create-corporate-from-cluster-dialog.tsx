@@ -205,14 +205,21 @@ export function CreateCorporateFromClusterDialog({
           )}
         </div>
 
-        {/* Fórmula canonicalizada */}
+        {/* Cálculo — descrição humana herdada do primeiro membro do cluster.
+            Antes mostrávamos a expressão crua tipo "avarias / transportados * 1000",
+            que é técnica demais. Agora mostra "Avarias por mil transportados"
+            (campo `measurement` do indicador) e lista as variáveis pelos labels. */}
         <div className="rounded-md border bg-muted/30 p-2.5 text-xs">
-          <div className="font-medium text-foreground">Fórmula (herdada do agrupamento)</div>
-          <div className="mt-1 font-mono text-[11px] text-foreground/80">
-            {referenceMember.formulaExpression}
+          <div className="font-medium text-foreground">Como o valor é calculado</div>
+          <div className="mt-1 text-[11px] text-foreground/80">
+            {referenceMember.measurement}
           </div>
           <div className="mt-1.5 text-[11px] text-muted-foreground">
-            Variáveis: {positionLabels.map((p) => p.label).join(" · ")}
+            Cada filial selecionada contribui com seus próprios valores de{" "}
+            <span className="text-foreground/80">
+              {positionLabels.map((p) => p.label).join(" e ")}
+            </span>
+            ; a soma desses inputs é usada na fórmula corporativa.
           </div>
         </div>
 
@@ -274,6 +281,16 @@ function ClusterMemberRow({
   onToggle: () => void;
   positionLabels: Array<{ key: string; label: string }>;
 }) {
+  // Mapping didático: pra cada posição (pai), descobre qual variável do FILHO
+  // a ocupa, e mostra o LABEL humano do filho (não a key crua).
+  // Ex: "Avarias = Ocorrências de Avaria" em vez de "avarias=ocorrencias_avaria".
+  const mappingLines = positionLabels.map((p, i) => {
+    const childKey = member.positionToKey[i];
+    const childLabel = member.formulaVariables.find((v) => v.key === childKey)?.label ?? childKey ?? "—";
+    const sameLabel = p.label === childLabel;
+    return { parentLabel: p.label, childLabel, sameLabel };
+  });
+
   return (
     <label
       className={cn(
@@ -288,21 +305,37 @@ function ClusterMemberRow({
         onChange={onToggle}
         className="mt-1"
       />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate font-medium text-foreground">{member.name}</span>
-        <span className="text-[10px] text-muted-foreground">
-          {member.unit ?? "—"} · {member.measureUnit ?? "sem unidade"}
-        </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex flex-wrap items-baseline gap-2">
+          <span className="truncate font-medium text-foreground">{member.name}</span>
+          <span className="text-[10px] text-muted-foreground">
+            📍 {member.unit ?? "sem filial"}
+          </span>
+        </div>
         {isOutlier && (
           <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
             ⚠ A IA julgou este como possível outlier
           </span>
         )}
-        <span className="font-mono text-[10px] text-muted-foreground">
-          {positionLabels
-            .map((p, i) => `${p.label}=${member.positionToKey[i] ?? "?"}`)
-            .join(" · ")}
-        </span>
+        {/* Mapping de variáveis: mostra o LABEL humano de pai → filho.
+            Quando os labels são idênticos, omite a seta (cleanest path). */}
+        <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+          {mappingLines.map((m) => (
+            <span key={m.parentLabel}>
+              {m.sameLabel ? (
+                <>
+                  <span className="text-foreground/70">{m.parentLabel}</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-foreground/70">{m.parentLabel}</span>
+                  <span className="mx-1 text-muted-foreground">←</span>
+                  <span className="text-foreground/70">{m.childLabel}</span>
+                </>
+              )}
+            </span>
+          ))}
+        </div>
       </div>
     </label>
   );

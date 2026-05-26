@@ -624,8 +624,11 @@ export default function KpiIndicadoresPage() {
       {viewMode === "corporates" ? (
         <CorporateRollupsTab
           orgId={orgId}
+          year={year}
           indicators={indicators}
+          yearRows={yearRows}
           onEditIndicator={(ind) => handleEditIndicator(ind)}
+          onDeleteIndicator={(ind) => setDeleteConfirm(ind)}
           onConfigureManually={(ind) => setRollupTargetIndicator(ind)}
         />
       ) : (

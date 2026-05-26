@@ -1,58 +1,59 @@
 /**
  * Tab "Corporativos" da página de Indicadores KPI.
  *
- * Layout:
- * ┌────────────────────────────────────────────────────────────┐
- * │ JÁ CONFIGURADOS — indicadores com unit=Corporativo já criados│
- * │   • [Card por Corporativo]                                  │
- * │     - Nome + badge "agrega N filiais"                       │
- * │     - Ações: editar / ver lançamentos / configurar manual   │
- * │                                                              │
- * │ SUGESTÕES — agrupamentos detectados ✨                        │
- * │   • [Card por cluster]                                       │
- * │     - Nome canônico proposto + N membros                     │
- * │     - Fórmula + Periodicidade                                │
- * │     - Botão "Criar Corporativo deste agrupamento" →          │
- * │       abre CreateCorporateFromClusterDialog (single-save)    │
- * │                                                              │
- * │ Se 0 sugestões e 0 corporativos: empty state explicando      │
- * └────────────────────────────────────────────────────────────┘
+ * Estrutura:
  *
- * Diferente da tab "Por filial" (vista padrão), aqui o user NÃO cria
- * Corporativos do zero — ele agrupa indicadores filial-level já
- * existentes. Pra criar um Corporativo "do zero" (sem cluster), ainda
- * dá pra fazer pela tab "Por filial" → Novo Indicador → unidade
- * Corporativo, e depois usar "Configurar composição manualmente" no
- * card. Mas esse caminho fica escondido pra não atrapalhar o fluxo
- * principal.
+ * 1. JÁ CONFIGURADOS — Corporativos existentes renderizados com o
+ *    `IndicatorCard` padrão (mesma sparkline + status + goal dos demais
+ *    indicadores). Card inteiro clicável → abre `CorporateExploreSheet`
+ *    com tabela mensal, lista de filhos, "quem falta reportar" por mês.
+ *
+ * 2. SUGESTÕES — agrupamentos detectados pelo backend (clusters
+ *    filial-level com mesma estrutura). Click em "Criar Corporativo"
+ *    abre o dialog de preview que cria o indicador + composição numa
+ *    transação atômica.
+ *
+ * Composição manual (ferramenta avançada) é acessível pelo botão dentro
+ * do drawer de exploração — não polui mais a lista principal.
  */
 import { useMemo, useState } from "react";
-import { Loader2, Plus, Sparkles, Wand2 } from "lucide-react";
+import { Loader2, Plus, Sparkles } from "lucide-react";
 import {
   useListKpiRollupClusters,
   type KpiIndicator,
   type KpiRollupCluster,
+  type KpiYearRow,
 } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CORPORATE_UNIT_LABEL } from "@/lib/kpi-constants";
 import { cn } from "@/lib/utils";
 import { CreateCorporateFromClusterDialog } from "./create-corporate-from-cluster-dialog";
+import { CorporateExploreSheet } from "./corporate-explore-sheet";
+import { IndicatorCard } from "./indicator-card";
 
 interface CorporateRollupsTabProps {
   orgId: number;
+  year: number;
   indicators: KpiIndicator[];
+  yearRows: KpiYearRow[];
   onEditIndicator: (ind: KpiIndicator) => void;
+  onDeleteIndicator: (ind: KpiIndicator) => void;
   onConfigureManually: (ind: KpiIndicator) => void;
 }
 
 export function CorporateRollupsTab({
   orgId,
+  year,
   indicators,
+  yearRows,
   onEditIndicator,
+  onDeleteIndicator,
   onConfigureManually,
 }: CorporateRollupsTabProps) {
   const [activeCluster, setActiveCluster] = useState<KpiRollupCluster | null>(null);
+  /** Corporativo aberto no drawer de exploração. */
+  const [exploringIndicator, setExploringIndicator] = useState<KpiIndicator | null>(null);
 
   const { data: clustersData, isLoading: clustersLoading } = useListKpiRollupClusters(orgId);
   const clusters = clustersData?.clusters ?? [];
@@ -87,15 +88,26 @@ export function CorporateRollupsTab({
             de agrupamentos detectados, ou crie manualmente na aba "Por filial".
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            {existingCorporates.map((ind) => (
-              <ExistingCorporateCard
-                key={ind.id}
-                indicator={ind}
-                onEdit={() => onEditIndicator(ind)}
-                onConfigureManually={() => onConfigureManually(ind)}
-              />
-            ))}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {existingCorporates.map((ind) => {
+              const yearRow = yearRows.find((r) => r.indicator.id === ind.id);
+              return (
+                <button
+                  key={ind.id}
+                  type="button"
+                  onClick={() => setExploringIndicator(ind)}
+                  className="block w-full cursor-pointer text-left transition hover:translate-y-[-1px]"
+                  title="Clique para explorar este Corporativo"
+                >
+                  <IndicatorCard
+                    indicator={ind}
+                    yearRow={yearRow}
+                    onEdit={() => onEditIndicator(ind)}
+                    onDelete={() => onDeleteIndicator(ind)}
+                  />
+                </button>
+              );
+            })}
           </div>
         )}
       </section>
@@ -143,54 +155,24 @@ export function CorporateRollupsTab({
           onClose={() => setActiveCluster(null)}
           onCreated={() => {
             // Lista atualiza automaticamente via React Query invalidation.
-            // (O hook generated invalida o list de indicators + clusters por convenção)
             setActiveCluster(null);
           }}
           orgId={orgId}
           cluster={activeCluster}
         />
       )}
-    </div>
-  );
-}
 
-// ─── ExistingCorporateCard ────────────────────────────────────────────────
-
-function ExistingCorporateCard({
-  indicator,
-  onEdit,
-  onConfigureManually,
-}: {
-  indicator: KpiIndicator;
-  onEdit: () => void;
-  onConfigureManually: () => void;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5 rounded-lg border bg-card p-3 transition hover:border-foreground/15 hover:shadow-xs">
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="line-clamp-2 text-sm font-semibold text-foreground">{indicator.name}</h3>
-        <Badge variant="outline" className="shrink-0 border-indigo-200 bg-indigo-50 px-1.5 py-0 text-[10px] font-medium text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
-          rollup
-        </Badge>
-      </div>
-      {indicator.measurement && (
-        <p className="line-clamp-1 text-[11px] text-muted-foreground">{indicator.measurement}</p>
-      )}
-      <div className="mt-1 flex items-center gap-1.5">
-        <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={onEdit}>
-          Editar
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 px-2 text-[11px] text-muted-foreground"
-          onClick={onConfigureManually}
-          title="Ajustar composição manualmente (uso avançado)"
-        >
-          <Wand2 className="mr-1 h-3 w-3" />
-          Composição manual
-        </Button>
-      </div>
+      <CorporateExploreSheet
+        open={!!exploringIndicator}
+        onClose={() => setExploringIndicator(null)}
+        orgId={orgId}
+        indicator={exploringIndicator}
+        year={year}
+        onConfigureManually={(ind) => {
+          setExploringIndicator(null);
+          onConfigureManually(ind);
+        }}
+      />
     </div>
   );
 }
@@ -221,8 +203,11 @@ function ClusterSuggestionCard({
             detectado em {cluster.members.length} filia{cluster.members.length === 1 ? "l" : "is"}
           </span>
         </div>
-        <p className="line-clamp-1 font-mono text-[11px] text-muted-foreground">
-          fórmula: {cluster.formulaShape}
+        {/* Mostra o texto humano da medição (vem do primeiro membro do cluster).
+            Antes mostrávamos a "shape" da fórmula com placeholders __VAR1__/__VAR2__,
+            que é útil pra debug mas péssimo de ler. */}
+        <p className="line-clamp-1 text-[11px] text-muted-foreground">
+          {cluster.members[0]?.measurement}
         </p>
         <div className="flex flex-wrap gap-1">
           {cluster.members.slice(0, 6).map((m) => (
