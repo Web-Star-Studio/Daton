@@ -194,6 +194,7 @@ import type {
   PaginatedManagementReviews,
   PaginatedNonconformities,
   PaginatedOrganizationTrainings,
+  PaginatedRegulatoryDocuments,
   PaginatedSgqProcesses,
   Position,
   PositionCompetencyMatrixRevision,
@@ -25279,6 +25280,10 @@ export const useDeleteMeasurementResourceAttachment = <
 };
 
 /**
+ * Returns a paginated list. Defaults to page=1, pageSize=50 (max 200).
+Pass `all=true` to receive every record in a single page — used by the
+home widget and other places that need the full set to compute summaries.
+
  * @summary List regulatory documents (licenças, AVCB, alvarás) for an organization
  */
 export const getListRegulatoryDocumentsUrl = (
@@ -25304,8 +25309,8 @@ export const listRegulatoryDocuments = async (
   orgId: number,
   params?: ListRegulatoryDocumentsParams,
   options?: RequestInit,
-): Promise<RegulatoryDocument[]> => {
-  return customFetch<RegulatoryDocument[]>(
+): Promise<PaginatedRegulatoryDocuments> => {
+  return customFetch<PaginatedRegulatoryDocuments>(
     getListRegulatoryDocumentsUrl(orgId, params),
     {
       ...options,

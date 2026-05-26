@@ -7347,6 +7347,10 @@ paths:
       operationId: listRegulatoryDocuments
       tags: [regulatory-documents]
       summary: List regulatory documents (licenças, AVCB, alvarás) for an organization
+      description: |
+        Returns a paginated list. Defaults to page=1, pageSize=50 (max 200).
+        Pass `all=true` to receive every record in a single page — used by the
+        home widget and other places that need the full set to compute summaries.
       parameters:
         - name: orgId
           in: path
@@ -7369,15 +7373,29 @@ paths:
           in: query
           schema:
             type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+        - name: all
+          in: query
+          description: When true, bypasses pagination and returns all matching rows in a single response.
+          schema:
+            type: boolean
       responses:
         "200":
-          description: List of regulatory documents
+          description: Paginated list of regulatory documents
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/RegulatoryDocument"
+                $ref: "#/components/schemas/PaginatedRegulatoryDocuments"
     post:
       operationId: createRegulatoryDocument
       tags: [regulatory-documents]
@@ -16632,6 +16650,28 @@ components:
         - attachmentCount
         - createdAt
         - updatedAt
+
+    PaginatedRegulatoryDocuments:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegulatoryDocument"
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalPages:
+          type: integer
+      required:
+        - items
+        - total
+        - page
+        - pageSize
+        - totalPages
 
     CreateRegulatoryDocumentBody:
       type: object

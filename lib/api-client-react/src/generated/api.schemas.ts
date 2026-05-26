@@ -4550,6 +4550,14 @@ export interface RegulatoryDocument {
   updatedAt: string;
 }
 
+export interface PaginatedRegulatoryDocuments {
+  items: RegulatoryDocument[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export type CreateRegulatoryDocumentBodyIdentifierType =
   (typeof CreateRegulatoryDocumentBodyIdentifierType)[keyof typeof CreateRegulatoryDocumentBodyIdentifierType];
 
@@ -5448,6 +5456,19 @@ export type ListRegulatoryDocumentsParams = {
   identifierType?: string;
   status?: string;
   search?: string;
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 200
+   */
+  pageSize?: number;
+  /**
+   * When true, bypasses pagination and returns all matching rows in a single response.
+   */
+  all?: boolean;
 };
 
 export type ListRegulatoryDocumentAttachmentsParams = {
