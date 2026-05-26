@@ -61,6 +61,7 @@ import {
 import { CORPORATE_UNIT_LABEL, isCorporateUnit } from "@/lib/kpi-constants";
 import type { StatusFilter } from "./_components/summary-tiles";
 import { getIndicatorStatus, type CardStatus } from "./_components/indicator-card";
+import { CorporateRollupDialog } from "./_components/corporate-rollup-dialog";
 
 const DEFAULT_YEAR = new Date().getFullYear();
 
@@ -216,6 +217,10 @@ export default function KpiIndicadoresPage() {
   const [indicatorDialog, setIndicatorDialog] = useState(false);
   const [objectivesDialog, setObjectivesDialog] = useState(false);
   const [editingIndicator, setEditingIndicator] = useState<KpiIndicator | null>(null);
+  // Quando um indicador Corporativo é criado/atualizado, abrimos o dialog
+  // de composição em sequência pra Ana configurar as filiais que compõem
+  // o rollup (IA sugere automaticamente).
+  const [rollupTargetIndicator, setRollupTargetIndicator] = useState<KpiIndicator | null>(null);
   const [indicatorForm, setIndicatorForm] = useState<IndicatorFormData>(defaultIndicatorForm());
   const [deleteConfirm, setDeleteConfirm] = useState<KpiIndicator | null>(null);
   const [year, setYear] = useState(DEFAULT_YEAR);
@@ -405,7 +410,7 @@ export default function KpiIndicadoresPage() {
           category: indicatorForm.category || null,
           norms: indicatorForm.norms,
         };
-        await updateIndicator.mutateAsync({
+        const updated = await updateIndicator.mutateAsync({
           orgId,
           indicatorId: editingIndicator.id,
           data,
@@ -420,6 +425,10 @@ export default function KpiIndicadoresPage() {
           },
         });
         toast({ title: "Indicador atualizado" });
+        // Se virou Corporativo (ou continua sendo), abre o dialog de composição
+        if (indicatorForm.unit === CORPORATE_UNIT_LABEL) {
+          setRollupTargetIndicator(updated ?? editingIndicator);
+        }
       } else {
         const data = {
           name: indicatorForm.name,
@@ -448,6 +457,9 @@ export default function KpiIndicadoresPage() {
           });
         }
         toast({ title: "Indicador criado" });
+        if (indicatorForm.unit === CORPORATE_UNIT_LABEL) {
+          setRollupTargetIndicator(created);
+        }
       }
       setIndicatorDialog(false);
     } catch {
@@ -1158,6 +1170,16 @@ export default function KpiIndicadoresPage() {
           <Button onClick={() => setObjectivesDialog(false)}>Fechar</Button>
         </DialogFooter>
       </Dialog>
+
+      {/* Composição corporativa — abre automaticamente após salvar um Corporativo */}
+      {rollupTargetIndicator && (
+        <CorporateRollupDialog
+          open={true}
+          onClose={() => setRollupTargetIndicator(null)}
+          orgId={orgId}
+          parentIndicator={rollupTargetIndicator}
+        />
+      )}
     </div>
   );
 }

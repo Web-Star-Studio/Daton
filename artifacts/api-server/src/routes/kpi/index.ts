@@ -807,4 +807,152 @@ router.post(
   },
 );
 
+// ─── Rollup children (Corporativo composição) ──────────────────────────────
+
+import { kpiIndicatorRollupsTable, type KpiRollupStrategy } from "@workspace/db";
+import { suggestRollupChildren } from "../../services/kpi/rollup-ai";
+import { computeRollupValue } from "../../services/kpi/rollup";
+
+/**
+ * Lista os filhos configurados pra um indicador rollup (parent).
+ * Frontend usa pra montar a seção "Composição" quando edita um Corporativo.
+ */
+router.get(
+  "/organizations/:orgId/kpi/indicators/:indicatorId/rollup-children",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const orgId = Number(req.params.orgId);
+    const indicatorId = Number(req.params.indicatorId);
+    if (!Number.isFinite(orgId) || !Number.isFinite(indicatorId)) { res.status(400).json({ error: "ids inválidos" }); return; }
+    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const rows = await db
+      .select()
+      .from(kpiIndicatorRollupsTable)
+      .where(and(
+        eq(kpiIndicatorRollupsTable.parentIndicatorId, indicatorId),
+        eq(kpiIndicatorRollupsTable.organizationId, orgId),
+      ));
+
+    res.json(rows.map((r) => ({
+      id: r.id,
+      parentIndicatorId: r.parentIndicatorId,
+      childIndicatorId: r.childIndicatorId,
+      variableMapping: r.variableMapping,
+      createdAt: r.createdAt.toISOString(),
+    })));
+  },
+);
+
+/**
+ * Substitui (replace-all) os filhos do rollup. Body:
+ * { children: [{ childIndicatorId, variableMapping }], strategy?: 'sum_inputs' | ... }
+ *
+ * Comportamento idempotente — deleta todos os filhos atuais e insere os novos.
+ * Atualiza `rollupStrategy` no indicador pai.
+ */
+router.put(
+  "/organizations/:orgId/kpi/indicators/:indicatorId/rollup-children",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const orgId = Number(req.params.orgId);
+    const indicatorId = Number(req.params.indicatorId);
+    if (!Number.isFinite(orgId) || !Number.isFinite(indicatorId)) { res.status(400).json({ error: "ids inválidos" }); return; }
+    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const body = req.body as { children?: Array<{ childIndicatorId: number; variableMapping?: Record<string, string> }>; strategy?: string };
+    const children = Array.isArray(body.children) ? body.children : [];
+
+    const VALID_STRATEGIES: KpiRollupStrategy[] = ["sum_inputs", "sum_values", "average", "min", "max"];
+    const strategy: KpiRollupStrategy | null = VALID_STRATEGIES.includes(body.strategy as KpiRollupStrategy)
+      ? (body.strategy as KpiRollupStrategy)
+      : children.length > 0 ? "sum_inputs" : null;
+
+    // Verifica que o parent pertence à org
+    const [parent] = await db
+      .select({ id: kpiIndicatorsTable.id })
+      .from(kpiIndicatorsTable)
+      .where(and(eq(kpiIndicatorsTable.id, indicatorId), eq(kpiIndicatorsTable.organizationId, orgId)));
+    if (!parent) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
+
+    // Verifica que todos os filhos pertencem à org (e não são o próprio pai)
+    if (children.length > 0) {
+      const childIds = children.map((c) => Number(c.childIndicatorId)).filter(Number.isFinite);
+      if (childIds.length !== children.length) { res.status(400).json({ error: "childIndicatorId inválido em algum filho" }); return; }
+      if (childIds.includes(indicatorId)) { res.status(400).json({ error: "Indicador não pode ser filho de si mesmo" }); return; }
+      const owned = await db
+        .select({ id: kpiIndicatorsTable.id })
+        .from(kpiIndicatorsTable)
+        .where(and(eq(kpiIndicatorsTable.organizationId, orgId), inArray(kpiIndicatorsTable.id, childIds)));
+      if (owned.length !== childIds.length) { res.status(400).json({ error: "Algum filho não pertence a esta organização" }); return; }
+    }
+
+    // Replace-all
+    await db
+      .delete(kpiIndicatorRollupsTable)
+      .where(and(
+        eq(kpiIndicatorRollupsTable.parentIndicatorId, indicatorId),
+        eq(kpiIndicatorRollupsTable.organizationId, orgId),
+      ));
+
+    if (children.length > 0) {
+      await db.insert(kpiIndicatorRollupsTable).values(children.map((c) => ({
+        organizationId: orgId,
+        parentIndicatorId: indicatorId,
+        childIndicatorId: Number(c.childIndicatorId),
+        variableMapping: c.variableMapping ?? {},
+      })));
+    }
+
+    await db
+      .update(kpiIndicatorsTable)
+      .set({ rollupStrategy: strategy, updatedAt: new Date() })
+      .where(eq(kpiIndicatorsTable.id, indicatorId));
+
+    res.json({ ok: true, count: children.length, strategy });
+  },
+);
+
+/**
+ * Sugere filhos via IA. Retorna a lista ranqueada por confidence.
+ * Frontend chama em background quando user seleciona unit=Corporativo.
+ */
+router.post(
+  "/organizations/:orgId/kpi/indicators/:indicatorId/suggest-rollup-children",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const orgId = Number(req.params.orgId);
+    const indicatorId = Number(req.params.indicatorId);
+    if (!Number.isFinite(orgId) || !Number.isFinite(indicatorId)) { res.status(400).json({ error: "ids inválidos" }); return; }
+    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const suggestions = await suggestRollupChildren(orgId, indicatorId);
+    res.json({ suggestions });
+  },
+);
+
+/**
+ * Compute on-demand. Frontend pode usar isso pra mostrar o valor calculado
+ * antes de salvar (ex.: preview no form), além do GET de year-data normal.
+ */
+router.get(
+  "/organizations/:orgId/kpi/indicators/:indicatorId/rollup-value",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const orgId = Number(req.params.orgId);
+    const indicatorId = Number(req.params.indicatorId);
+    const year = Number(req.query.year);
+    const month = Number(req.query.month);
+    if (!Number.isFinite(orgId) || !Number.isFinite(indicatorId) || !Number.isFinite(year) || !Number.isFinite(month)) {
+      res.status(400).json({ error: "params/query inválidos" }); return;
+    }
+    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const result = await computeRollupValue(orgId, indicatorId, year, month);
+    if (!result) { res.json({ computed: null, strategy: null, childrenWithData: 0, childrenTotal: 0, breakdown: [] }); return; }
+    res.json(result);
+  },
+);
+
 export default router;

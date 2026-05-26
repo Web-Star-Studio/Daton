@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, integer, jsonb, numeric, pgTable, serial, text, timestamp, unique, varchar } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, numeric, pgTable, serial, text, timestamp, unique, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
@@ -66,6 +66,13 @@ export const kpiIndicatorsTable = pgTable("kpi_indicators", {
   /** Mês de referência (1–12) para periodicidades não mensais. */
   referenceMonth: integer("reference_month"),
   category: varchar("category", { length: 50 }),
+  /**
+   * Estratégia de agregação quando este indicador é um rollup corporativo
+   * (tem rows em `kpi_indicator_rollups` como parent). NULL = indicador
+   * normal/folha. Valores: 'sum_inputs' | 'sum_values' | 'average' | 'min' | 'max'.
+   * Default operacional: 'sum_inputs' (correto pra razões).
+   */
+  rollupStrategy: varchar("rollup_strategy", { length: 32 }),
   norms: jsonb("norms")
     .$type<string[]>()
     .notNull()
@@ -98,6 +105,13 @@ export const kpiMonthlyValuesTable = pgTable("kpi_monthly_values", {
     .$type<KpiMonthlyValueInputs>()
     .notNull()
     .default(sql`'{}'::jsonb`),
+  /**
+   * Quando true, o `value` desta célula é um override manual da Ana sobre o
+   * valor calculado automaticamente via rollup. Quando false (default) e o
+   * indicador tem rollup configurado, o `value` aqui é ignorado e o sistema
+   * recalcula on-read a partir dos filhos.
+   */
+  isOverridden: boolean("is_overridden").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
