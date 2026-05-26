@@ -62,6 +62,7 @@ import { CORPORATE_UNIT_LABEL, isCorporateUnit } from "@/lib/kpi-constants";
 import type { StatusFilter } from "./_components/summary-tiles";
 import { getIndicatorStatus, type CardStatus } from "./_components/indicator-card";
 import { CorporateRollupDialog } from "./_components/corporate-rollup-dialog";
+import { CorporateRollupsTab } from "./_components/corporate-rollups-tab";
 
 const DEFAULT_YEAR = new Date().getFullYear();
 
@@ -217,10 +218,19 @@ export default function KpiIndicadoresPage() {
   const [indicatorDialog, setIndicatorDialog] = useState(false);
   const [objectivesDialog, setObjectivesDialog] = useState(false);
   const [editingIndicator, setEditingIndicator] = useState<KpiIndicator | null>(null);
-  // Quando um indicador Corporativo é criado/atualizado, abrimos o dialog
-  // de composição em sequência pra Ana configurar as filiais que compõem
-  // o rollup (IA sugere automaticamente).
+  /**
+   * Quando NOT-null, abre o dialog de composição manual do rollup.
+   * Não é mais aberto automaticamente após save — só pelo botão
+   * "Composição manual" na tab Corporativos (uso avançado pra edge cases
+   * que não foram detectados pela heurística de clusters).
+   */
   const [rollupTargetIndicator, setRollupTargetIndicator] = useState<KpiIndicator | null>(null);
+  /**
+   * Tab atual: "branches" mostra a listagem por filial (vista padrão),
+   * "corporates" mostra a aba de rollups corporativos com sugestões de
+   * agrupamento automático.
+   */
+  const [viewMode, setViewMode] = useState<"branches" | "corporates">("branches");
   const [indicatorForm, setIndicatorForm] = useState<IndicatorFormData>(defaultIndicatorForm());
   const [deleteConfirm, setDeleteConfirm] = useState<KpiIndicator | null>(null);
   const [year, setYear] = useState(DEFAULT_YEAR);
@@ -425,10 +435,11 @@ export default function KpiIndicadoresPage() {
           },
         });
         toast({ title: "Indicador atualizado" });
-        // Se virou Corporativo (ou continua sendo), abre o dialog de composição
-        if (indicatorForm.unit === CORPORATE_UNIT_LABEL) {
-          setRollupTargetIndicator(updated ?? editingIndicator);
-        }
+        // Nota: o dialog de composição NÃO abre automaticamente.
+        // Pra um Corporativo, a configuração de composição é feita pela
+        // tab "Corporativos" (fluxo principal: criar a partir de cluster),
+        // ou pelo botão "Composição manual" no card daquela tab.
+        void updated;
       } else {
         const data = {
           name: indicatorForm.name,
@@ -457,9 +468,11 @@ export default function KpiIndicadoresPage() {
           });
         }
         toast({ title: "Indicador criado" });
-        if (indicatorForm.unit === CORPORATE_UNIT_LABEL) {
-          setRollupTargetIndicator(created);
-        }
+        // Nota: criação Corporativo via tab "Corporativos" é o fluxo
+        // principal. Aqui o user criou pela tab "Por filial" — se setou
+        // unit=Corporativo, ainda terá que ir pra tab Corporativos pra
+        // ajustar a composição manualmente (caso edge não detectado).
+        void created;
       }
       setIndicatorDialog(false);
     } catch {
@@ -562,8 +575,61 @@ export default function KpiIndicadoresPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [indicators.length]);
 
+  // Conta quantos Corporativos existem (pra badge da tab)
+  const corporateCount = indicators.filter(
+    (i) => i.unit?.trim().toLowerCase() === CORPORATE_UNIT_LABEL.toLowerCase(),
+  ).length;
+
   return (
     <div className="p-6 space-y-4">
+      {/* Tab bar — Por filial / Corporativos */}
+      <div className="flex items-center gap-1 border-b border-border">
+        <button
+          type="button"
+          onClick={() => setViewMode("branches")}
+          className={cn(
+            "relative px-3 py-2 text-sm font-medium transition-colors",
+            viewMode === "branches"
+              ? "text-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          Por filial
+          {viewMode === "branches" && (
+            <span className="absolute inset-x-0 -bottom-px h-0.5 bg-primary" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode("corporates")}
+          className={cn(
+            "relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors",
+            viewMode === "corporates"
+              ? "text-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          Corporativos
+          {corporateCount > 0 && (
+            <span className="rounded-full bg-indigo-100 px-1.5 text-[10px] font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+              {corporateCount}
+            </span>
+          )}
+          {viewMode === "corporates" && (
+            <span className="absolute inset-x-0 -bottom-px h-0.5 bg-primary" />
+          )}
+        </button>
+      </div>
+
+      {viewMode === "corporates" ? (
+        <CorporateRollupsTab
+          orgId={orgId}
+          indicators={indicators}
+          onEditIndicator={(ind) => handleEditIndicator(ind)}
+          onConfigureManually={(ind) => setRollupTargetIndicator(ind)}
+        />
+      ) : (
+      <>
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <YearPicker value={year} onChange={setYear} />
@@ -826,6 +892,8 @@ export default function KpiIndicadoresPage() {
             </TableBody>
           </Table>
         </div>
+      )}
+      </>
       )}
 
       {/* Create/Edit Indicator Dialog */}

@@ -895,8 +895,10 @@ router.post(
 // ─── Rollup children (Corporativo composição) ──────────────────────────────
 
 import { kpiIndicatorRollupsTable, type KpiRollupStrategy } from "@workspace/db";
-import { suggestRollupChildren } from "../../services/kpi/rollup-ai";
+import { suggestRollupChildren, validateCluster, type ClusterValidationInput } from "../../services/kpi/rollup-ai";
 import { computeRollupValue } from "../../services/kpi/rollup";
+import { detectClusters } from "../../services/kpi/rollup-clustering";
+import { CORPORATE_UNIT_LABEL } from "../../services/kpi/units";
 
 /**
  * Lista os filhos configurados pra um indicador rollup (parent).
@@ -1037,6 +1039,225 @@ router.get(
     const result = await computeRollupValue(orgId, indicatorId, year, month);
     if (!result) { res.json({ computed: null, strategy: null, childrenWithData: 0, childrenTotal: 0, breakdown: [] }); return; }
     res.json(result);
+  },
+);
+
+// ─── Rollup CLUSTERS (detecção + criação a partir de cluster) ──────────────
+// Fluxo novo: em vez de Ana criar o Corporativo do zero e configurar depois,
+// o backend detecta agrupamentos no catálogo (indicadores filial-level com
+// mesma forma de fórmula + classe de measurement + nome similar) e oferece
+// "criar Corporativo deste grupo". Atômico — um único save resulta em
+// indicador + composição já populada.
+
+/**
+ * Detecta clusters de indicadores filial-level que provavelmente representam
+ * a mesma medição em filiais diferentes. Filtra os que já têm Corporativo
+ * vinculado (1 child = 1 parent). Veja `services/kpi/rollup-clustering.ts`
+ * pra detalhes da heurística.
+ */
+router.get(
+  "/organizations/:orgId/kpi/rollup-clusters",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const orgId = Number(req.params.orgId);
+    if (!Number.isFinite(orgId)) { res.status(400).json({ error: "orgId inválido" }); return; }
+    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+    const clusters = await detectClusters(orgId);
+    res.json({ clusters });
+  },
+);
+
+/**
+ * Refina um cluster via IA: confirma se membros medem a mesma coisa, propõe
+ * nome canônico humano, e marca outliers. Chamado lazy quando user clica num
+ * cluster específico (não no GET principal, pra não pagar custo OpenAI ×N).
+ *
+ * Body: { childIndicatorIds: number[] }
+ */
+router.post(
+  "/organizations/:orgId/kpi/rollup/validate-cluster",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const orgId = Number(req.params.orgId);
+    if (!Number.isFinite(orgId)) { res.status(400).json({ error: "orgId inválido" }); return; }
+    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const body = req.body as { childIndicatorIds?: unknown };
+    const ids = Array.isArray(body.childIndicatorIds)
+      ? body.childIndicatorIds.filter((x): x is number => typeof x === "number" && Number.isFinite(x))
+      : [];
+    if (ids.length < 2) { res.status(400).json({ error: "childIndicatorIds obrigatório (mínimo 2)" }); return; }
+
+    // Server-fetch dos dados — não confia em payload do cliente
+    const rows = await db
+      .select({
+        id: kpiIndicatorsTable.id,
+        name: kpiIndicatorsTable.name,
+        measurement: kpiIndicatorsTable.measurement,
+        measureUnit: kpiIndicatorsTable.measureUnit,
+        formulaExpression: kpiIndicatorsTable.formulaExpression,
+        formulaVariables: kpiIndicatorsTable.formulaVariables,
+      })
+      .from(kpiIndicatorsTable)
+      .where(and(eq(kpiIndicatorsTable.organizationId, orgId), inArray(kpiIndicatorsTable.id, ids)));
+
+    if (rows.length < 2) { res.status(400).json({ error: "Membros não encontrados ou fora da organização" }); return; }
+
+    const members: ClusterValidationInput[] = rows.map((r) => ({
+      indicatorId: r.id,
+      name: r.name,
+      measurement: r.measurement,
+      measureUnit: r.measureUnit,
+      formulaExpression: r.formulaExpression,
+      formulaVariables: r.formulaVariables,
+    }));
+
+    const result = await validateCluster(members);
+    res.json(result);
+  },
+);
+
+/**
+ * Cria um indicador Corporativo + composição em UMA transação.
+ *
+ * Body:
+ * {
+ *   name: string,
+ *   measurement: string,
+ *   measureUnit?: string | null,
+ *   direction: "up" | "down",
+ *   periodicity: string,
+ *   category?: string | null,
+ *   formulaExpression: string,
+ *   formulaVariables: Array<{key, label}>,
+ *   responsibleUserId?: number | null,
+ *   norms?: string[],
+ *   children: Array<{ childIndicatorId: number, variableMapping: Record<string, string> }>,
+ *   strategy?: "sum_inputs" | "sum_values" | "average" | "min" | "max"  // default sum_inputs
+ * }
+ *
+ * Servidor força `unit = "Corporativo"` e `rollupStrategy != null`. Cliente
+ * pode mandar a fórmula/vars copiadas de um dos filhos do cluster, ou já
+ * canonicalizadas.
+ */
+router.post(
+  "/organizations/:orgId/kpi/rollup/from-cluster",
+  requireAuth,
+  requireWriteAccess(),
+  async (req, res): Promise<void> => {
+    const orgId = Number(req.params.orgId);
+    if (!Number.isFinite(orgId)) { res.status(400).json({ error: "orgId inválido" }); return; }
+    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const body = req.body as {
+      name?: string;
+      measurement?: string;
+      measureUnit?: string | null;
+      direction?: string;
+      periodicity?: string;
+      category?: string | null;
+      formulaExpression?: string;
+      formulaVariables?: Array<{ key: string; label: string }>;
+      responsibleUserId?: number | null;
+      norms?: string[];
+      children?: Array<{ childIndicatorId: number; variableMapping?: Record<string, string> }>;
+      strategy?: string;
+    };
+
+    // Validação básica
+    if (!body.name || typeof body.name !== "string" || !body.name.trim()) {
+      res.status(400).json({ error: "name obrigatório" }); return;
+    }
+    if (!body.measurement || typeof body.measurement !== "string") {
+      res.status(400).json({ error: "measurement obrigatório" }); return;
+    }
+    if (!body.direction || (body.direction !== "up" && body.direction !== "down")) {
+      res.status(400).json({ error: "direction deve ser 'up' ou 'down'" }); return;
+    }
+    if (!body.periodicity || typeof body.periodicity !== "string") {
+      res.status(400).json({ error: "periodicity obrigatório" }); return;
+    }
+    if (!body.formulaExpression || typeof body.formulaExpression !== "string") {
+      res.status(400).json({ error: "formulaExpression obrigatório" }); return;
+    }
+    if (!Array.isArray(body.formulaVariables) || body.formulaVariables.length === 0) {
+      res.status(400).json({ error: "formulaVariables obrigatório (não vazio)" }); return;
+    }
+    const children = Array.isArray(body.children) ? body.children : [];
+    if (children.length < 1) {
+      res.status(400).json({ error: "children obrigatório (mínimo 1 filho)" }); return;
+    }
+
+    const VALID_STRATEGIES: KpiRollupStrategy[] = ["sum_inputs", "sum_values", "average", "min", "max"];
+    const strategy: KpiRollupStrategy = VALID_STRATEGIES.includes(body.strategy as KpiRollupStrategy)
+      ? (body.strategy as KpiRollupStrategy)
+      : "sum_inputs";
+
+    // Verifica que todos os children pertencem à org e não são child de outro rollup
+    const childIds = children.map((c) => Number(c.childIndicatorId)).filter(Number.isFinite);
+    if (childIds.length !== children.length) {
+      res.status(400).json({ error: "childIndicatorId inválido em algum filho" }); return;
+    }
+    const owned = await db
+      .select({ id: kpiIndicatorsTable.id })
+      .from(kpiIndicatorsTable)
+      .where(and(eq(kpiIndicatorsTable.organizationId, orgId), inArray(kpiIndicatorsTable.id, childIds)));
+    if (owned.length !== childIds.length) {
+      res.status(400).json({ error: "Algum filho não pertence a esta organização" }); return;
+    }
+    const alreadyLinked = await db
+      .select({ childIndicatorId: kpiIndicatorRollupsTable.childIndicatorId })
+      .from(kpiIndicatorRollupsTable)
+      .where(and(
+        eq(kpiIndicatorRollupsTable.organizationId, orgId),
+        inArray(kpiIndicatorRollupsTable.childIndicatorId, childIds),
+      ));
+    if (alreadyLinked.length > 0) {
+      res.status(400).json({
+        error: "Filho já vinculado a outro Corporativo",
+        childIndicatorIds: alreadyLinked.map((l) => l.childIndicatorId),
+      });
+      return;
+    }
+
+    // Transação: insert indicator + insert rollup rows
+    const newIndicatorId = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(kpiIndicatorsTable)
+        .values({
+          organizationId: orgId,
+          name: body.name!.trim(),
+          measurement: body.measurement!.trim(),
+          measureUnit: body.measureUnit ?? null,
+          unit: CORPORATE_UNIT_LABEL,
+          direction: body.direction!,
+          periodicity: body.periodicity!,
+          category: body.category ?? null,
+          formulaExpression: body.formulaExpression!,
+          formulaVariables: body.formulaVariables!,
+          responsibleUserId: body.responsibleUserId ?? null,
+          norms: Array.isArray(body.norms) ? body.norms : [],
+          rollupStrategy: strategy,
+        })
+        .returning({ id: kpiIndicatorsTable.id });
+
+      await tx.insert(kpiIndicatorRollupsTable).values(
+        children.map((c) => ({
+          organizationId: orgId,
+          parentIndicatorId: created.id,
+          childIndicatorId: Number(c.childIndicatorId),
+          variableMapping: c.variableMapping ?? {},
+        })),
+      );
+
+      return created.id;
+    });
+
+    res.status(201).json({
+      indicatorId: newIndicatorId,
+      childrenCount: children.length,
+      strategy,
+    });
   },
 );
 

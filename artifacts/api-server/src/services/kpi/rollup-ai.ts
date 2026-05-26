@@ -168,3 +168,119 @@ Retorne o JSON com as sugestões (apenas candidatos com confidence >= 0.5).`;
     return [];
   }
 }
+
+// ─── Cluster validation (novo fluxo) ──────────────────────────────────────
+// Diferente de suggestRollupChildren (que assume um pai já existente e
+// procura filhos no catálogo), validateCluster recebe N candidatos JÁ
+// pré-agrupados pela heurística e pede pra IA confirmar/refinar.
+
+export interface ClusterValidationInput {
+  indicatorId: number;
+  name: string;
+  measurement: string;
+  measureUnit: string | null;
+  formulaExpression: string;
+  formulaVariables: KpiFormulaVariable[];
+}
+
+export interface ClusterValidationResult {
+  /** A IA confirma que esses indicadores medem a mesma coisa? */
+  isValid: boolean;
+  /** 0-1; quão certa a IA está dessa avaliação. */
+  confidence: number;
+  /** Nome humano proposto pra o Corporativo (ex.: "Taxa de avarias no transporte"). */
+  canonicalName: string;
+  /** Indicadores que a IA acha que NÃO pertencem ao grupo. */
+  outlierIndicatorIds: number[];
+  /** Justificativa curta (PT-BR), pra UI exibir como tooltip. */
+  reasoning: string;
+}
+
+const FALLBACK_VALIDATION = (members: ClusterValidationInput[]): ClusterValidationResult => ({
+  isValid: true,
+  confidence: 0.5,
+  canonicalName: members[0]?.name ?? "Corporativo",
+  outlierIndicatorIds: [],
+  reasoning: "Validação automática indisponível; cluster mantido pela heurística.",
+});
+
+/**
+ * Pede ao LLM uma "segunda opinião" sobre um cluster pré-detectado: são
+ * realmente o mesmo indicador? Qual o nome canônico mais natural? Algum
+ * membro é outlier? Usado como refinement opcional — a heurística já entrega
+ * resultados utilizáveis sozinha, isto é só pra polir.
+ *
+ * Se a IA falha (timeout, parse error, etc), devolve um fallback "aceita
+ * tudo como veio" — nunca quebra o fluxo da UI.
+ */
+export async function validateCluster(
+  members: ClusterValidationInput[],
+): Promise<ClusterValidationResult> {
+  if (members.length < 2) return FALLBACK_VALIDATION(members);
+
+  const systemPrompt = `Você é um analista de KPIs/SGQ. Recebeu uma proposta de agrupamento de indicadores que (segundo uma heurística) medem a mesma coisa em filiais diferentes. Avalie criticamente.
+
+REGRAS:
+- "É o mesmo indicador" significa: mede o MESMO conceito, em filiais diferentes (ex.: "% de avaria por mil transportados em SP" e "Avarias / total transportado RJ" → SIM, mesma coisa, expresso diferente).
+- Ignore diferenças de NOME no token de filial (SP/RJ/MG são filiais, não conceito).
+- Ignore diferenças de NOMES DE VARIÁVEIS na fórmula ("avarias" e "ocorrencias" podem ser sinônimos).
+- O que importa é a ESTRUTURA da medição e do cálculo.
+
+RESPONDA SEMPRE EM JSON COM ESTA ESTRUTURA EXATA:
+{
+  "isValid": boolean,            // true se ≥2 membros realmente medem a mesma coisa
+  "confidence": number,           // 0.0 a 1.0
+  "canonicalName": string,        // nome humano natural do indicador corporativo, em pt-BR, sem o token de filial. Ex: "Taxa de avarias no transporte"
+  "outlierIndicatorIds": number[],// ids dos membros que NÃO pertencem ao grupo
+  "reasoning": string             // 1 frase curta (≤140 chars) em pt-BR
+}`;
+
+  const userPrompt = `Cluster proposto (${members.length} membros):
+
+${members.map((m, i) => `
+[${i + 1}] id=${m.indicatorId}
+  Nome: ${m.name}
+  Medição: ${m.measurement}
+  Fórmula: ${m.formulaExpression}
+  Variáveis: ${JSON.stringify(m.formulaVariables)}
+  Unidade: ${m.measureUnit ?? "(não definida)"}
+`).join("\n")}
+
+Avalie e retorne o JSON.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-5-mini-2025-08-07",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 800,
+    });
+
+    const raw = response.choices[0]?.message?.content || "{}";
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+
+    const validIds = new Set(members.map((m) => m.indicatorId));
+    return {
+      isValid: typeof parsed.isValid === "boolean" ? parsed.isValid : true,
+      confidence: typeof parsed.confidence === "number"
+        ? Math.max(0, Math.min(1, parsed.confidence))
+        : 0.5,
+      canonicalName: typeof parsed.canonicalName === "string" && parsed.canonicalName.trim()
+        ? parsed.canonicalName.trim().slice(0, 200)
+        : members[0].name,
+      outlierIndicatorIds: Array.isArray(parsed.outlierIndicatorIds)
+        ? (parsed.outlierIndicatorIds as unknown[])
+            .filter((x): x is number => typeof x === "number" && validIds.has(x))
+        : [],
+      reasoning: typeof parsed.reasoning === "string"
+        ? parsed.reasoning.slice(0, 200)
+        : "",
+    };
+  } catch (err) {
+    console.error("[kpi-rollup-ai] validateCluster failed", err);
+    return FALLBACK_VALIDATION(members);
+  }
+}

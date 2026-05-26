@@ -62,6 +62,8 @@ import type {
   CreateKnowledgeAssetBody,
   CreateKpiIndicatorBody,
   CreateKpiObjectiveBody,
+  CreateKpiRollupFromClusterBody,
+  CreateKpiRollupFromClusterResponse,
   CreateLegislationBody,
   CreateManagementReviewBody,
   CreateManagementReviewInputBody,
@@ -141,6 +143,7 @@ import type {
   KpiMonthlyValueJustification,
   KpiObjective,
   KpiRollupChild,
+  KpiRollupClusterValidation,
   KpiRollupComputeResult,
   KpiYearConfig,
   KpiYearRow,
@@ -157,6 +160,7 @@ import type {
   ListInvitations200,
   ListKnowledgeAssetsParams,
   ListKpiIndicatorsParams,
+  ListKpiRollupClustersResponse,
   ListKpiYearDataParams,
   ListLegislationsParams,
   ListManagementReviewsParams,
@@ -293,6 +297,7 @@ import type {
   UpsertKpiValuesBody,
   UpsertKpiYearConfigBody,
   UserOption,
+  ValidateKpiRollupClusterBody,
   ValidatePasswordResetToken200,
   WorkEnvironmentAttachment,
   WorkEnvironmentControl,
@@ -30084,6 +30089,289 @@ export function useGetKpiRollupValue<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Detecta agrupamentos no catálogo (mesma forma de fórmula + classe de
+measurement + nome similar) que provavelmente representam o mesmo
+indicador em filiais diferentes. Filtra os que já estão vinculados a
+algum Corporativo. Usado pela tab "Corporativos" da página de KPI.
+
+ * @summary Detecta clusters de indicadores filial-level pra criar Corporativos
+ */
+export const getListKpiRollupClustersUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/kpi/rollup-clusters`;
+};
+
+export const listKpiRollupClusters = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<ListKpiRollupClustersResponse> => {
+  return customFetch<ListKpiRollupClustersResponse>(
+    getListKpiRollupClustersUrl(orgId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListKpiRollupClustersQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/kpi/rollup-clusters`] as const;
+};
+
+export const getListKpiRollupClustersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listKpiRollupClusters>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listKpiRollupClusters>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListKpiRollupClustersQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listKpiRollupClusters>>
+  > = ({ signal }) =>
+    listKpiRollupClusters(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listKpiRollupClusters>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListKpiRollupClustersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listKpiRollupClusters>>
+>;
+export type ListKpiRollupClustersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Detecta clusters de indicadores filial-level pra criar Corporativos
+ */
+
+export function useListKpiRollupClusters<
+  TData = Awaited<ReturnType<typeof listKpiRollupClusters>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listKpiRollupClusters>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListKpiRollupClustersQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Refina um cluster via IA — confirma membros + propõe nome canônico
+ */
+export const getValidateKpiRollupClusterUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/kpi/rollup/validate-cluster`;
+};
+
+export const validateKpiRollupCluster = async (
+  orgId: number,
+  validateKpiRollupClusterBody: ValidateKpiRollupClusterBody,
+  options?: RequestInit,
+): Promise<KpiRollupClusterValidation> => {
+  return customFetch<KpiRollupClusterValidation>(
+    getValidateKpiRollupClusterUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(validateKpiRollupClusterBody),
+    },
+  );
+};
+
+export const getValidateKpiRollupClusterMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof validateKpiRollupCluster>>,
+    TError,
+    { orgId: number; data: BodyType<ValidateKpiRollupClusterBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof validateKpiRollupCluster>>,
+  TError,
+  { orgId: number; data: BodyType<ValidateKpiRollupClusterBody> },
+  TContext
+> => {
+  const mutationKey = ["validateKpiRollupCluster"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof validateKpiRollupCluster>>,
+    { orgId: number; data: BodyType<ValidateKpiRollupClusterBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return validateKpiRollupCluster(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ValidateKpiRollupClusterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof validateKpiRollupCluster>>
+>;
+export type ValidateKpiRollupClusterMutationBody =
+  BodyType<ValidateKpiRollupClusterBody>;
+export type ValidateKpiRollupClusterMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Refina um cluster via IA — confirma membros + propõe nome canônico
+ */
+export const useValidateKpiRollupCluster = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof validateKpiRollupCluster>>,
+    TError,
+    { orgId: number; data: BodyType<ValidateKpiRollupClusterBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof validateKpiRollupCluster>>,
+  TError,
+  { orgId: number; data: BodyType<ValidateKpiRollupClusterBody> },
+  TContext
+> => {
+  return useMutation(getValidateKpiRollupClusterMutationOptions(options));
+};
+
+/**
+ * Cria um novo indicador com unit="Corporativo" e rollupStrategy != null,
+e popula os children no kpi_indicator_rollups. Atômico — se algo
+falhar, nada é persistido.
+
+ * @summary Cria indicador Corporativo + composição em uma transação
+ */
+export const getCreateKpiRollupFromClusterUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/kpi/rollup/from-cluster`;
+};
+
+export const createKpiRollupFromCluster = async (
+  orgId: number,
+  createKpiRollupFromClusterBody: CreateKpiRollupFromClusterBody,
+  options?: RequestInit,
+): Promise<CreateKpiRollupFromClusterResponse> => {
+  return customFetch<CreateKpiRollupFromClusterResponse>(
+    getCreateKpiRollupFromClusterUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createKpiRollupFromClusterBody),
+    },
+  );
+};
+
+export const getCreateKpiRollupFromClusterMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createKpiRollupFromCluster>>,
+    TError,
+    { orgId: number; data: BodyType<CreateKpiRollupFromClusterBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createKpiRollupFromCluster>>,
+  TError,
+  { orgId: number; data: BodyType<CreateKpiRollupFromClusterBody> },
+  TContext
+> => {
+  const mutationKey = ["createKpiRollupFromCluster"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createKpiRollupFromCluster>>,
+    { orgId: number; data: BodyType<CreateKpiRollupFromClusterBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createKpiRollupFromCluster(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateKpiRollupFromClusterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createKpiRollupFromCluster>>
+>;
+export type CreateKpiRollupFromClusterMutationBody =
+  BodyType<CreateKpiRollupFromClusterBody>;
+export type CreateKpiRollupFromClusterMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Cria indicador Corporativo + composição em uma transação
+ */
+export const useCreateKpiRollupFromCluster = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createKpiRollupFromCluster>>,
+    TError,
+    { orgId: number; data: BodyType<CreateKpiRollupFromClusterBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createKpiRollupFromCluster>>,
+  TError,
+  { orgId: number; data: BodyType<CreateKpiRollupFromClusterBody> },
+  TContext
+> => {
+  return useMutation(getCreateKpiRollupFromClusterMutationOptions(options));
+};
 
 /**
  * @summary List action plans in the organization with filters

@@ -8581,6 +8581,81 @@ paths:
               schema:
                 $ref: "#/components/schemas/KpiRollupComputeResult"
 
+  /organizations/{orgId}/kpi/rollup-clusters:
+    get:
+      operationId: listKpiRollupClusters
+      tags: [kpi]
+      summary: Detecta clusters de indicadores filial-level pra criar Corporativos
+      description: |
+        Detecta agrupamentos no catálogo (mesma forma de fórmula + classe de
+        measurement + nome similar) que provavelmente representam o mesmo
+        indicador em filiais diferentes. Filtra os que já estão vinculados a
+        algum Corporativo. Usado pela tab "Corporativos" da página de KPI.
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Lista de clusters detectados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListKpiRollupClustersResponse"
+
+  /organizations/{orgId}/kpi/rollup/validate-cluster:
+    post:
+      operationId: validateKpiRollupCluster
+      tags: [kpi]
+      summary: Refina um cluster via IA — confirma membros + propõe nome canônico
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidateKpiRollupClusterBody"
+      responses:
+        "200":
+          description: Resultado da validação
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KpiRollupClusterValidation"
+
+  /organizations/{orgId}/kpi/rollup/from-cluster:
+    post:
+      operationId: createKpiRollupFromCluster
+      tags: [kpi]
+      summary: Cria indicador Corporativo + composição em uma transação
+      description: |
+        Cria um novo indicador com unit="Corporativo" e rollupStrategy != null,
+        e popula os children no kpi_indicator_rollups. Atômico — se algo
+        falhar, nada é persistido.
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateKpiRollupFromClusterBody"
+      responses:
+        "201":
+          description: Indicador criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateKpiRollupFromClusterResponse"
+
   /organizations/{orgId}/action-plans:
     get:
       operationId: listActionPlans
@@ -15707,6 +15782,175 @@ components:
           items:
             $ref: "#/components/schemas/KpiRollupBreakdownEntry"
       required: [computed, childrenWithData, childrenTotal, breakdown]
+
+    KpiRollupClusterMember:
+      type: object
+      description: Membro proposto de um cluster de indicadores filial-level.
+      properties:
+        indicatorId:
+          type: integer
+        name:
+          type: string
+        unit:
+          type: ["string", "null"]
+        measureUnit:
+          type: ["string", "null"]
+        measurement:
+          type: string
+        formulaExpression:
+          type: string
+        formulaVariables:
+          type: array
+          items:
+            type: object
+            properties:
+              key: { type: string }
+              label: { type: string }
+            required: [key, label]
+        positionToKey:
+          type: array
+          description: Mapeia posição na fórmula → key da variável (preserva ordem).
+          items: { type: string }
+      required: [indicatorId, name, measurement, formulaExpression, formulaVariables, positionToKey]
+
+    KpiRollupCluster:
+      type: object
+      description: Cluster de indicadores filial-level detectado pela heurística.
+      properties:
+        clusterKey:
+          type: string
+        formulaShape:
+          type: string
+        measurementClass:
+          type: string
+          enum: [percent, per_thousand, duration, currency, count, volume_or_mass, ratio_other, none]
+        periodicity:
+          type: string
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/KpiRollupClusterMember"
+        proposedName:
+          type: string
+        variableMappingByPosition:
+          type: object
+          description: |
+            Mapping pré-preenchido por POSIÇÃO. Chaves externas são posições
+            (0, 1, ...) da fórmula normalizada. Valores são mapas indicatorId
+            → child var key. Ex: variableMappingByPosition["0"] = { 9: "avarias", 12: "ocorrencias" }
+            significa: na posição 1 da fórmula, o indicador 9 contribui com
+            sua variável "avarias" e o indicador 12 com "ocorrencias".
+          additionalProperties:
+            type: object
+            additionalProperties: { type: string }
+      required: [clusterKey, formulaShape, measurementClass, periodicity, members, proposedName, variableMappingByPosition]
+
+    ListKpiRollupClustersResponse:
+      type: object
+      properties:
+        clusters:
+          type: array
+          items:
+            $ref: "#/components/schemas/KpiRollupCluster"
+      required: [clusters]
+
+    ValidateKpiRollupClusterBody:
+      type: object
+      properties:
+        childIndicatorIds:
+          type: array
+          minItems: 2
+          items: { type: integer }
+      required: [childIndicatorIds]
+
+    KpiRollupClusterValidation:
+      type: object
+      properties:
+        isValid:
+          type: boolean
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        canonicalName:
+          type: string
+        outlierIndicatorIds:
+          type: array
+          items: { type: integer }
+        reasoning:
+          type: string
+      required: [isValid, confidence, canonicalName, outlierIndicatorIds, reasoning]
+
+    CreateKpiRollupFromClusterBody:
+      type: object
+      description: |
+        Cria indicador Corporativo + composição em uma transação. O servidor
+        força unit="Corporativo" e rollupStrategy != null; cliente fornece
+        a fórmula/vars canonicalizadas (geralmente herdadas de um membro do
+        cluster) e o mapping de cada filho.
+      properties:
+        name:
+          type: string
+        measurement:
+          type: string
+        measureUnit:
+          type: ["string", "null"]
+        direction:
+          type: string
+          enum: [up, down]
+        periodicity:
+          type: string
+        category:
+          type: ["string", "null"]
+        formulaExpression:
+          type: string
+        formulaVariables:
+          type: array
+          items:
+            type: object
+            properties:
+              key: { type: string }
+              label: { type: string }
+            required: [key, label]
+        responsibleUserId:
+          type: ["integer", "null"]
+        norms:
+          type: array
+          items: { type: string }
+        strategy:
+          type: string
+          enum: [sum_inputs, sum_values, average, min, max]
+        children:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            properties:
+              childIndicatorId: { type: integer }
+              variableMapping:
+                type: object
+                additionalProperties: { type: string }
+            required: [childIndicatorId, variableMapping]
+      required:
+        - name
+        - measurement
+        - direction
+        - periodicity
+        - formulaExpression
+        - formulaVariables
+        - children
+
+    CreateKpiRollupFromClusterResponse:
+      type: object
+      properties:
+        indicatorId:
+          type: integer
+        childrenCount:
+          type: integer
+        strategy:
+          type: string
+          enum: [sum_inputs, sum_values, average, min, max]
+      required: [indicatorId, childrenCount, strategy]
 
     ActionPlanStatus:
       type: string

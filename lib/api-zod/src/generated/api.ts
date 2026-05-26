@@ -16504,6 +16504,146 @@ export const GetKpiRollupValueResponse = zod.object({
 });
 
 /**
+ * Detecta agrupamentos no catálogo (mesma forma de fórmula + classe de
+measurement + nome similar) que provavelmente representam o mesmo
+indicador em filiais diferentes. Filtra os que já estão vinculados a
+algum Corporativo. Usado pela tab "Corporativos" da página de KPI.
+
+ * @summary Detecta clusters de indicadores filial-level pra criar Corporativos
+ */
+export const ListKpiRollupClustersParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListKpiRollupClustersResponse = zod.object({
+  clusters: zod.array(
+    zod
+      .object({
+        clusterKey: zod.string(),
+        formulaShape: zod.string(),
+        measurementClass: zod.enum([
+          "percent",
+          "per_thousand",
+          "duration",
+          "currency",
+          "count",
+          "volume_or_mass",
+          "ratio_other",
+          "none",
+        ]),
+        periodicity: zod.string(),
+        members: zod.array(
+          zod
+            .object({
+              indicatorId: zod.number(),
+              name: zod.string(),
+              unit: zod.string().nullish(),
+              measureUnit: zod.string().nullish(),
+              measurement: zod.string(),
+              formulaExpression: zod.string(),
+              formulaVariables: zod.array(
+                zod.object({
+                  key: zod.string(),
+                  label: zod.string(),
+                }),
+              ),
+              positionToKey: zod
+                .array(zod.string())
+                .describe(
+                  "Mapeia posição na fórmula → key da variável (preserva ordem).",
+                ),
+            })
+            .describe(
+              "Membro proposto de um cluster de indicadores filial-level.",
+            ),
+        ),
+        proposedName: zod.string(),
+        variableMappingByPosition: zod
+          .record(zod.string(), zod.record(zod.string(), zod.string()))
+          .describe(
+            'Mapping pré-preenchido por POSIÇÃO. Chaves externas são posições\n(0, 1, ...) da fórmula normalizada. Valores são mapas indicatorId\n→ child var key. Ex: variableMappingByPosition[\"0\"] = { 9: \"avarias\", 12: \"ocorrencias\" }\nsignifica: na posição 1 da fórmula, o indicador 9 contribui com\nsua variável \"avarias\" e o indicador 12 com \"ocorrencias\".\n',
+          ),
+      })
+      .describe(
+        "Cluster de indicadores filial-level detectado pela heurística.",
+      ),
+  ),
+});
+
+/**
+ * @summary Refina um cluster via IA — confirma membros + propõe nome canônico
+ */
+export const ValidateKpiRollupClusterParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const validateKpiRollupClusterBodyChildIndicatorIdsMin = 2;
+
+export const ValidateKpiRollupClusterBody = zod.object({
+  childIndicatorIds: zod
+    .array(zod.number())
+    .min(validateKpiRollupClusterBodyChildIndicatorIdsMin),
+});
+
+export const validateKpiRollupClusterResponseConfidenceMin = 0;
+export const validateKpiRollupClusterResponseConfidenceMax = 1;
+
+export const ValidateKpiRollupClusterResponse = zod.object({
+  isValid: zod.boolean(),
+  confidence: zod
+    .number()
+    .min(validateKpiRollupClusterResponseConfidenceMin)
+    .max(validateKpiRollupClusterResponseConfidenceMax),
+  canonicalName: zod.string(),
+  outlierIndicatorIds: zod.array(zod.number()),
+  reasoning: zod.string(),
+});
+
+/**
+ * Cria um novo indicador com unit="Corporativo" e rollupStrategy != null,
+e popula os children no kpi_indicator_rollups. Atômico — se algo
+falhar, nada é persistido.
+
+ * @summary Cria indicador Corporativo + composição em uma transação
+ */
+export const CreateKpiRollupFromClusterParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateKpiRollupFromClusterBody = zod
+  .object({
+    name: zod.string(),
+    measurement: zod.string(),
+    measureUnit: zod.string().nullish(),
+    direction: zod.enum(["up", "down"]),
+    periodicity: zod.string(),
+    category: zod.string().nullish(),
+    formulaExpression: zod.string(),
+    formulaVariables: zod.array(
+      zod.object({
+        key: zod.string(),
+        label: zod.string(),
+      }),
+    ),
+    responsibleUserId: zod.number().nullish(),
+    norms: zod.array(zod.string()).optional(),
+    strategy: zod
+      .enum(["sum_inputs", "sum_values", "average", "min", "max"])
+      .optional(),
+    children: zod
+      .array(
+        zod.object({
+          childIndicatorId: zod.number(),
+          variableMapping: zod.record(zod.string(), zod.string()),
+        }),
+      )
+      .min(1),
+  })
+  .describe(
+    'Cria indicador Corporativo + composição em uma transação. O servidor\nforça unit=\"Corporativo\" e rollupStrategy != null; cliente fornece\na fórmula\/vars canonicalizadas (geralmente herdadas de um membro do\ncluster) e o mapping de cada filho.\n',
+  );
+
+/**
  * @summary List action plans in the organization with filters
  */
 export const ListActionPlansParams = zod.object({
