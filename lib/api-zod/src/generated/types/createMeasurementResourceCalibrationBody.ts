@@ -9,7 +9,7 @@ import type { CreateMeasurementResourceCalibrationBodyResult } from "./createMea
 
 export interface CreateMeasurementResourceCalibrationBody {
   calibratedAt: string;
-  calibratedById?: number;
+  calibratedByUserId?: number;
   certificateNumber?: string;
   result: CreateMeasurementResourceCalibrationBodyResult;
   nextDueAt?: string;

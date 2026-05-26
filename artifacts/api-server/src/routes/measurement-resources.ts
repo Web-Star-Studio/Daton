@@ -5,8 +5,8 @@ import {
   measurementResourcesTable,
   measurementResourceCalibrationsTable,
   measurementResourceAttachmentsTable,
-  employeesTable,
   unitsTable,
+  usersTable,
 } from "@workspace/db";
 import {
   ListMeasurementResourcesParams,
@@ -33,7 +33,8 @@ const router: IRouter = Router();
 
 function serializeResource(
   r: typeof measurementResourcesTable.$inferSelect,
-  responsibleName: string | null,
+  responsibleUserName: string | null,
+  responsibleUserEmail: string | null,
   unitName: string | null,
   calibrationCount: number,
   lastCalibrationAt: string | null,
@@ -47,8 +48,9 @@ function serializeResource(
     name: r.name,
     identifier: r.identifier,
     resourceType: r.resourceType,
-    responsibleId: r.responsibleId,
-    responsibleName,
+    responsibleUserId: r.responsibleUserId,
+    responsibleUserName,
+    responsibleUserEmail,
     validUntil: r.validUntil,
     status: r.status,
     notes: r.notes,
@@ -62,15 +64,15 @@ function serializeResource(
 
 function serializeCalibration(
   c: typeof measurementResourceCalibrationsTable.$inferSelect,
-  calibratedByName: string | null,
+  calibratedByUserName: string | null,
 ) {
   return {
     id: c.id,
     organizationId: c.organizationId,
     resourceId: c.resourceId,
     calibratedAt: c.calibratedAt,
-    calibratedById: c.calibratedById,
-    calibratedByName,
+    calibratedByUserId: c.calibratedByUserId,
+    calibratedByUserName,
     certificateNumber: c.certificateNumber,
     result: c.result,
     nextDueAt: c.nextDueAt,
@@ -117,25 +119,27 @@ router.get(
     const rows = await db
       .select({
         r: measurementResourcesTable,
-        responsibleName: employeesTable.name,
+        responsibleUserName: usersTable.name,
+        responsibleUserEmail: usersTable.email,
         unitName: unitsTable.name,
         calibrationCount: sql<number>`cast(count(distinct ${measurementResourceCalibrationsTable.id}) as int)`,
         lastCalibrationAt: lastCalibSq.calibratedAt,
         lastCalibrationResult: lastCalibSq.result,
       })
       .from(measurementResourcesTable)
-      .leftJoin(employeesTable, eq(measurementResourcesTable.responsibleId, employeesTable.id))
+      .leftJoin(usersTable, eq(measurementResourcesTable.responsibleUserId, usersTable.id))
       .leftJoin(unitsTable, eq(measurementResourcesTable.unitId, unitsTable.id))
       .leftJoin(measurementResourceCalibrationsTable, eq(measurementResourcesTable.id, measurementResourceCalibrationsTable.resourceId))
       .leftJoin(lastCalibSq, eq(measurementResourcesTable.id, lastCalibSq.resourceId))
       .where(and(...conditions))
-      .groupBy(measurementResourcesTable.id, employeesTable.name, unitsTable.name, lastCalibSq.calibratedAt, lastCalibSq.result)
+      .groupBy(measurementResourcesTable.id, usersTable.name, usersTable.email, unitsTable.name, lastCalibSq.calibratedAt, lastCalibSq.result)
       .orderBy(measurementResourcesTable.createdAt);
 
     res.json(rows.map((row) =>
       serializeResource(
         row.r,
-        row.responsibleName ?? null,
+        row.responsibleUserName ?? null,
+        row.responsibleUserEmail ?? null,
         row.unitName ?? null,
         row.calibrationCount,
         row.lastCalibrationAt ?? null,
@@ -165,13 +169,13 @@ router.post(
         name: body.data.name,
         identifier: body.data.identifier ?? null,
         resourceType: body.data.resourceType ?? "instrumento",
-        responsibleId: body.data.responsibleId ?? null,
+        responsibleUserId: body.data.responsibleUserId ?? null,
         validUntil: body.data.validUntil ?? null,
         notes: body.data.notes ?? null,
       })
       .returning();
 
-    res.status(201).json(serializeResource(resource, null, null, 0, null, null));
+    res.status(201).json(serializeResource(resource, null, null, null, 0, null, null));
   },
 );
 
@@ -195,7 +199,7 @@ router.patch(
 
     if (!resource) { res.status(404).json({ error: "Recurso não encontrado" }); return; }
 
-    res.json(serializeResource(resource, null, null, 0, null, null));
+    res.json(serializeResource(resource, null, null, null, 0, null, null));
   },
 );
 
@@ -227,9 +231,9 @@ router.get(
     if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
     const rows = await db
-      .select({ c: measurementResourceCalibrationsTable, calibratedByName: employeesTable.name })
+      .select({ c: measurementResourceCalibrationsTable, calibratedByUserName: usersTable.name })
       .from(measurementResourceCalibrationsTable)
-      .leftJoin(employeesTable, eq(measurementResourceCalibrationsTable.calibratedById, employeesTable.id))
+      .leftJoin(usersTable, eq(measurementResourceCalibrationsTable.calibratedByUserId, usersTable.id))
       .where(
         and(
           eq(measurementResourceCalibrationsTable.resourceId, params.data.resourceId),
@@ -238,7 +242,7 @@ router.get(
       )
       .orderBy(desc(measurementResourceCalibrationsTable.calibratedAt));
 
-    res.json(rows.map((r) => serializeCalibration(r.c, r.calibratedByName ?? null)));
+    res.json(rows.map((r) => serializeCalibration(r.c, r.calibratedByUserName ?? null)));
   },
 );
 
@@ -267,7 +271,7 @@ router.post(
         organizationId: params.data.orgId,
         resourceId: params.data.resourceId,
         calibratedAt: body.data.calibratedAt,
-        calibratedById: body.data.calibratedById ?? null,
+        calibratedByUserId: body.data.calibratedByUserId ?? null,
         certificateNumber: body.data.certificateNumber ?? null,
         result: body.data.result,
         nextDueAt: body.data.nextDueAt ?? null,

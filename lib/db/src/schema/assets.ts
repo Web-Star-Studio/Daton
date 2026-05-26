@@ -5,6 +5,7 @@ import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
 import { unitsTable } from "./units";
 import { employeesTable } from "./employees";
+import { usersTable } from "./users";
 import { documentsTable } from "./documents";
 
 export const assetsTable = pgTable("assets", {
@@ -93,7 +94,9 @@ export const measurementResourcesTable = pgTable("measurement_resources", {
   name: text("name").notNull(),
   identifier: text("identifier"), // tag / serial / patrimônio
   resourceType: text("resource_type").notNull().default("instrumento"), // instrumento | equipamento | padrao
-  responsibleId: integer("responsible_id").references(() => employeesTable.id, { onDelete: "set null" }),
+  // Responsável é um usuário com conta (recebe alertas in-app / e-mail).
+  // Convenção da plataforma — ver memory `responsavel-must-be-user`.
+  responsibleUserId: integer("responsible_user_id").references(() => usersTable.id, { onDelete: "set null" }),
   validUntil: date("valid_until"), // validade da calibração
   status: text("status").notNull().default("ativo"), // ativo | inativo | vencido
   notes: text("notes"),
@@ -108,7 +111,9 @@ export const measurementResourceCalibrationsTable = pgTable("measurement_resourc
   organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
   resourceId: integer("resource_id").notNull().references(() => measurementResourcesTable.id, { onDelete: "cascade" }),
   calibratedAt: date("calibrated_at").notNull(),
-  calibratedById: integer("calibrated_by_id").references(() => employeesTable.id, { onDelete: "set null" }),
+  // Quem registrou a calibração é um usuário com conta — mesma convenção do
+  // `responsibleUserId` do recurso. Mantém a auditoria coerente.
+  calibratedByUserId: integer("calibrated_by_user_id").references(() => usersTable.id, { onDelete: "set null" }),
   certificateNumber: text("certificate_number"),
   result: text("result").notNull().default("apto"), // apto | nao-apto
   nextDueAt: date("next_due_at"),

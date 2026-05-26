@@ -12,7 +12,7 @@ export interface CreateMeasurementResourceBody {
   identifier?: string;
   resourceType?: CreateMeasurementResourceBodyResourceType;
   unitId?: number;
-  responsibleId?: number;
+  responsibleUserId?: number;
   validUntil?: string;
   notes?: string;
 }

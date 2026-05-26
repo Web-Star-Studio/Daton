@@ -20,9 +20,11 @@ export interface MeasurementResource {
   identifier?: string | null;
   resourceType: MeasurementResourceResourceType;
   /** @nullable */
-  responsibleId?: number | null;
+  responsibleUserId?: number | null;
   /** @nullable */
-  responsibleName?: string | null;
+  responsibleUserName?: string | null;
+  /** @nullable */
+  responsibleUserEmail?: string | null;
   /** @nullable */
   validUntil?: string | null;
   status: MeasurementResourceStatus;

@@ -13,7 +13,7 @@ export interface UpdateMeasurementResourceBody {
   identifier?: string;
   resourceType?: UpdateMeasurementResourceBodyResourceType;
   unitId?: number;
-  responsibleId?: number;
+  responsibleUserId?: number;
   validUntil?: string;
   status?: UpdateMeasurementResourceBodyStatus;
   notes?: string;

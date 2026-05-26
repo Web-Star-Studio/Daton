@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Sheet,
@@ -43,6 +43,8 @@ import {
   getListMeasurementResourceCalibrationsQueryKey,
   getListMeasurementResourceAttachmentsQueryKey,
   useListUnits,
+  useListOrgUsers,
+  getListOrgUsersQueryKey,
   type MeasurementResource,
   type MeasurementResourceCalibration,
   type CreateMeasurementResourceBody,
@@ -217,6 +219,10 @@ function CalibrationsPanel({
   });
 
   const { data: calibrations = [] } = useListMeasurementResourceCalibrations(orgId, resource.id);
+  const { data: orgUsersData } = useListOrgUsers(orgId, {
+    query: { queryKey: getListOrgUsersQueryKey(orgId), staleTime: 60_000 },
+  });
+  const orgUsers = orgUsersData?.users ?? [];
   const createMut = useCreateMeasurementResourceCalibration();
   const deleteMut = useDeleteMeasurementResourceCalibration();
 
@@ -285,10 +291,10 @@ function CalibrationsPanel({
             {expanded && (
               <div className="px-3 pb-3 pt-1 border-t bg-muted/20 flex flex-col gap-2">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                  {c.calibratedByName && (
+                  {c.calibratedByUserName && (
                     <>
                       <span className="text-muted-foreground">Responsável</span>
-                      <span>{c.calibratedByName}</span>
+                      <span>{c.calibratedByUserName}</span>
                     </>
                   )}
                   {c.nextDueAt && (
@@ -324,10 +330,13 @@ function CalibrationsPanel({
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs">Resultado *</Label>
-              <Select className="h-8 text-xs" value={form.result} onChange={(e) => setForm((f) => ({ ...f, result: e.target.value as "apto" | "nao-apto" }))}>
-                <option value="apto">Apto</option>
-                <option value="nao-apto">Não Apto</option>
-              </Select>
+              <SearchableSelect
+                value={form.result}
+                onChange={(v) => setForm((f) => ({ ...f, result: (v || "apto") as "apto" | "nao-apto" }))}
+                options={Object.entries(RESULT_LABELS).map(([value, label]) => ({ value, label }))}
+                placeholder="Selecione o resultado"
+                searchPlaceholder="Buscar..."
+              />
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs">Nº Certificado</Label>
@@ -336,6 +345,21 @@ function CalibrationsPanel({
             <div className="flex flex-col gap-1">
               <Label className="text-xs">Próxima calibração</Label>
               <Input type="date" className="h-8 text-xs" value={form.nextDueAt ?? ""} onChange={(e) => setForm((f) => ({ ...f, nextDueAt: e.target.value || undefined }))} />
+            </div>
+            <div className="col-span-2 flex flex-col gap-1">
+              <Label className="text-xs">Responsável (usuário com conta)</Label>
+              <SearchableSelect
+                value={String(form.calibratedByUserId ?? "")}
+                onChange={(v) => setForm((f) => ({ ...f, calibratedByUserId: v ? Number(v) : undefined }))}
+                options={orgUsers.map((u) => ({ value: String(u.id), label: u.name }))}
+                placeholder="Selecione um responsável"
+                searchPlaceholder="Buscar usuário..."
+                emptyMessage={
+                  orgUsers.length === 0
+                    ? "Nenhum usuário com conta. Cadastre em Configurações → Usuários."
+                    : "Nenhum usuário encontrado"
+                }
+              />
             </div>
           </div>
           <div className="flex flex-col gap-1">
@@ -406,10 +430,10 @@ function ResourceDetailSheet({
               <span>{resource.unitName}</span>
             </>
           )}
-          {resource.responsibleName && (
+          {resource.responsibleUserName && (
             <>
               <span className="text-muted-foreground">Responsável</span>
-              <span>{resource.responsibleName}</span>
+              <span>{resource.responsibleUserName}</span>
             </>
           )}
           <span className="text-muted-foreground">Validade</span>
@@ -450,6 +474,10 @@ function ResourceDialog({
 }) {
   const queryClient = useQueryClient();
   const { data: units = [] } = useListUnits(orgId);
+  const { data: orgUsersData } = useListOrgUsers(orgId, {
+    query: { queryKey: getListOrgUsersQueryKey(orgId), staleTime: 60_000 },
+  });
+  const orgUsers = orgUsersData?.users ?? [];
   const createMut = useCreateMeasurementResource();
   const updateMut = useUpdateMeasurementResource();
 
@@ -460,7 +488,7 @@ function ResourceDialog({
           identifier: initial.identifier ?? undefined,
           resourceType: initial.resourceType as "instrumento" | "equipamento" | "padrao",
           unitId: initial.unitId ?? undefined,
-          responsibleId: initial.responsibleId ?? undefined,
+          responsibleUserId: initial.responsibleUserId ?? undefined,
           validUntil: initial.validUntil ?? undefined,
           notes: initial.notes ?? undefined,
         }
@@ -478,7 +506,7 @@ function ResourceDialog({
             identifier: initial.identifier ?? undefined,
             resourceType: initial.resourceType as "instrumento" | "equipamento" | "padrao",
             unitId: initial.unitId ?? undefined,
-            responsibleId: initial.responsibleId ?? undefined,
+            responsibleUserId: initial.responsibleUserId ?? undefined,
             validUntil: initial.validUntil ?? undefined,
             notes: initial.notes ?? undefined,
           }
@@ -532,18 +560,39 @@ function ResourceDialog({
           </div>
           <div className="flex flex-col gap-1">
             <Label className="text-xs">Tipo</Label>
-            <Select className="h-8 text-xs" value={form.resourceType ?? "instrumento"} onChange={(e) => setForm((f) => ({ ...f, resourceType: e.target.value as "instrumento" | "equipamento" | "padrao" }))}>
-              <option value="instrumento">Instrumento</option>
-              <option value="equipamento">Equipamento</option>
-              <option value="padrao">Padrão</option>
-            </Select>
+            <SearchableSelect
+              value={form.resourceType ?? "instrumento"}
+              onChange={(v) => setForm((f) => ({ ...f, resourceType: (v || "instrumento") as "instrumento" | "equipamento" | "padrao" }))}
+              options={Object.entries(RESOURCE_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
+              placeholder="Selecione um tipo"
+              searchPlaceholder="Buscar tipo..."
+            />
           </div>
           <div className="flex flex-col gap-1">
             <Label className="text-xs">Unidade</Label>
-            <Select className="h-8 text-xs" value={String(form.unitId ?? "")} onChange={(e) => setForm((f) => ({ ...f, unitId: e.target.value ? Number(e.target.value) : undefined }))}>
-              <option value="">— Todas —</option>
-              {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </Select>
+            <SearchableSelect
+              value={String(form.unitId ?? "")}
+              onChange={(v) => setForm((f) => ({ ...f, unitId: v ? Number(v) : undefined }))}
+              options={units.map((u) => ({ value: String(u.id), label: u.name }))}
+              placeholder="Selecione uma unidade"
+              searchPlaceholder="Buscar unidade..."
+              emptyMessage="Nenhuma unidade cadastrada. Crie em Organização → Unidades."
+            />
+          </div>
+          <div className="col-span-2 flex flex-col gap-1">
+            <Label className="text-xs">Responsável (usuário com conta)</Label>
+            <SearchableSelect
+              value={String(form.responsibleUserId ?? "")}
+              onChange={(v) => setForm((f) => ({ ...f, responsibleUserId: v ? Number(v) : undefined }))}
+              options={orgUsers.map((u) => ({ value: String(u.id), label: u.name }))}
+              placeholder="Selecione um responsável"
+              searchPlaceholder="Buscar usuário..."
+              emptyMessage={
+                orgUsers.length === 0
+                  ? "Nenhum usuário com conta. Cadastre em Configurações → Usuários."
+                  : "Nenhum usuário encontrado"
+              }
+            />
           </div>
           <div className="flex flex-col gap-1">
             <Label className="text-xs">Validade da calibração</Label>
@@ -645,16 +694,26 @@ export default function MedicaoPage() {
           value={filterSearch}
           onChange={(e) => setFilterSearch(e.target.value)}
         />
-        <Select className="h-8 text-xs w-40" value={filterUnit} onChange={(e) => setFilterUnit(e.target.value)}>
-          <option value="">Todas as unidades</option>
-          {units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-        </Select>
-        <Select className="h-8 text-xs w-36" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-          <option value="">Todos os tipos</option>
-          <option value="instrumento">Instrumento</option>
-          <option value="equipamento">Equipamento</option>
-          <option value="padrao">Padrão</option>
-        </Select>
+        <div className="w-44">
+          <SearchableSelect
+            value={filterUnit}
+            onChange={(v) => setFilterUnit(v)}
+            options={units.map((u) => ({ value: String(u.id), label: u.name }))}
+            placeholder="Todas as unidades"
+            searchPlaceholder="Buscar unidade..."
+            emptyMessage="Nenhuma unidade"
+          />
+        </div>
+        <div className="w-40">
+          <SearchableSelect
+            value={filterType}
+            onChange={(v) => setFilterType(v)}
+            options={Object.entries(RESOURCE_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
+            placeholder="Todos os tipos"
+            searchPlaceholder="Buscar tipo..."
+            emptyMessage="Nenhum tipo"
+          />
+        </div>
       </div>
 
       {/* Table */}

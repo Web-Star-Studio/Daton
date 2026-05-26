@@ -13,9 +13,9 @@ export interface MeasurementResourceCalibration {
   resourceId: number;
   calibratedAt: string;
   /** @nullable */
-  calibratedById?: number | null;
+  calibratedByUserId?: number | null;
   /** @nullable */
-  calibratedByName?: string | null;
+  calibratedByUserName?: string | null;
   /** @nullable */
   certificateNumber?: string | null;
   result: MeasurementResourceCalibrationResult;

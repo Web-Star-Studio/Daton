@@ -16319,9 +16319,11 @@ components:
         resourceType:
           type: string
           enum: [instrumento, equipamento, padrao]
-        responsibleId:
+        responsibleUserId:
           type: ["integer", "null"]
-        responsibleName:
+        responsibleUserName:
+          type: ["string", "null"]
+        responsibleUserEmail:
           type: ["string", "null"]
         validUntil:
           type: ["string", "null"]
@@ -16362,7 +16364,7 @@ components:
           enum: [instrumento, equipamento, padrao]
         unitId:
           type: integer
-        responsibleId:
+        responsibleUserId:
           type: integer
         validUntil:
           type: string
@@ -16383,7 +16385,7 @@ components:
           enum: [instrumento, equipamento, padrao]
         unitId:
           type: integer
-        responsibleId:
+        responsibleUserId:
           type: integer
         validUntil:
           type: string
@@ -16404,9 +16406,9 @@ components:
           type: integer
         calibratedAt:
           type: string
-        calibratedById:
+        calibratedByUserId:
           type: ["integer", "null"]
-        calibratedByName:
+        calibratedByUserName:
           type: ["string", "null"]
         certificateNumber:
           type: ["string", "null"]
@@ -16432,7 +16434,7 @@ components:
       properties:
         calibratedAt:
           type: string
-        calibratedById:
+        calibratedByUserId:
           type: integer
         certificateNumber:
           type: string
