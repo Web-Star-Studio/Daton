@@ -8479,6 +8479,108 @@ paths:
               schema:
                 $ref: "#/components/schemas/KpiMonthlyValueJustification"
 
+  /organizations/{orgId}/kpi/indicators/{indicatorId}/rollup-children:
+    get:
+      operationId: listKpiRollupChildren
+      tags: [kpi]
+      summary: Lista filhos configurados pro rollup de um indicador corporativo
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: indicatorId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: List of rollup children
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KpiRollupChild"
+    put:
+      operationId: putKpiRollupChildren
+      tags: [kpi]
+      summary: Substitui (replace-all) os filhos do rollup. Define rollupStrategy.
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: indicatorId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PutKpiRollupChildrenBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PutKpiRollupChildrenResponse"
+
+  /organizations/{orgId}/kpi/indicators/{indicatorId}/suggest-rollup-children:
+    post:
+      operationId: suggestKpiRollupChildren
+      tags: [kpi]
+      summary: IA sugere filhos do rollup com base no catálogo da org
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: indicatorId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Suggestions ranked by confidence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuggestKpiRollupChildrenResponse"
+
+  /organizations/{orgId}/kpi/indicators/{indicatorId}/rollup-value:
+    get:
+      operationId: getKpiRollupValue
+      tags: [kpi]
+      summary: Compute on-demand do valor de rollup pra um mês (preview)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: indicatorId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: year
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: month
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Computed rollup value with breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KpiRollupComputeResult"
+
   /organizations/{orgId}/action-plans:
     get:
       operationId: listActionPlans
@@ -15485,6 +15587,111 @@ components:
           maxLength: 5000
       required:
         - body
+
+    KpiRollupChild:
+      type: object
+      properties:
+        id:
+          type: integer
+        parentIndicatorId:
+          type: integer
+        childIndicatorId:
+          type: integer
+        variableMapping:
+          type: object
+          additionalProperties:
+            type: string
+        createdAt:
+          type: string
+      required: [id, parentIndicatorId, childIndicatorId, variableMapping, createdAt]
+
+    PutKpiRollupChildrenBody:
+      type: object
+      properties:
+        strategy:
+          type: string
+          enum: [sum_inputs, sum_values, average, min, max]
+        children:
+          type: array
+          items:
+            type: object
+            properties:
+              childIndicatorId:
+                type: integer
+              variableMapping:
+                type: object
+                additionalProperties:
+                  type: string
+            required: [childIndicatorId]
+      required: [children]
+
+    PutKpiRollupChildrenResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        count:
+          type: integer
+        strategy:
+          type: ["string", "null"]
+      required: [ok, count]
+
+    KpiRollupSuggestion:
+      type: object
+      properties:
+        childIndicatorId:
+          type: integer
+        confidence:
+          type: number
+        reason:
+          type: string
+        variableMapping:
+          type: object
+          additionalProperties:
+            type: string
+      required: [childIndicatorId, confidence, reason, variableMapping]
+
+    SuggestKpiRollupChildrenResponse:
+      type: object
+      properties:
+        suggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/KpiRollupSuggestion"
+      required: [suggestions]
+
+    KpiRollupBreakdownEntry:
+      type: object
+      properties:
+        childIndicatorId:
+          type: integer
+        childUnit:
+          type: ["string", "null"]
+        inputs:
+          type: object
+          additionalProperties:
+            type: ["number", "null"]
+        value:
+          type: ["number", "null"]
+      required: [childIndicatorId, inputs]
+
+    KpiRollupComputeResult:
+      type: object
+      properties:
+        computed:
+          type: ["number", "null"]
+        strategy:
+          type: ["string", "null"]
+          enum: [sum_inputs, sum_values, average, min, max, null]
+        childrenWithData:
+          type: integer
+        childrenTotal:
+          type: integer
+        breakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/KpiRollupBreakdownEntry"
+      required: [computed, childrenWithData, childrenTotal, breakdown]
 
     ActionPlanStatus:
       type: string

@@ -3621,6 +3621,97 @@ export interface AddKpiMonthJustificationBody {
   body: string;
 }
 
+export type KpiRollupChildVariableMapping = { [key: string]: string };
+
+export interface KpiRollupChild {
+  id: number;
+  parentIndicatorId: number;
+  childIndicatorId: number;
+  variableMapping: KpiRollupChildVariableMapping;
+  createdAt: string;
+}
+
+export type PutKpiRollupChildrenBodyStrategy =
+  (typeof PutKpiRollupChildrenBodyStrategy)[keyof typeof PutKpiRollupChildrenBodyStrategy];
+
+export const PutKpiRollupChildrenBodyStrategy = {
+  sum_inputs: "sum_inputs",
+  sum_values: "sum_values",
+  average: "average",
+  min: "min",
+  max: "max",
+} as const;
+
+export type PutKpiRollupChildrenBodyChildrenItemVariableMapping = {
+  [key: string]: string;
+};
+
+export type PutKpiRollupChildrenBodyChildrenItem = {
+  childIndicatorId: number;
+  variableMapping?: PutKpiRollupChildrenBodyChildrenItemVariableMapping;
+};
+
+export interface PutKpiRollupChildrenBody {
+  strategy?: PutKpiRollupChildrenBodyStrategy;
+  children: PutKpiRollupChildrenBodyChildrenItem[];
+}
+
+export interface PutKpiRollupChildrenResponse {
+  ok: boolean;
+  count: number;
+  /** @nullable */
+  strategy?: string | null;
+}
+
+export type KpiRollupSuggestionVariableMapping = { [key: string]: string };
+
+export interface KpiRollupSuggestion {
+  childIndicatorId: number;
+  confidence: number;
+  reason: string;
+  variableMapping: KpiRollupSuggestionVariableMapping;
+}
+
+export interface SuggestKpiRollupChildrenResponse {
+  suggestions: KpiRollupSuggestion[];
+}
+
+export type KpiRollupBreakdownEntryInputs = { [key: string]: number | null };
+
+export interface KpiRollupBreakdownEntry {
+  childIndicatorId: number;
+  /** @nullable */
+  childUnit?: string | null;
+  inputs: KpiRollupBreakdownEntryInputs;
+  /** @nullable */
+  value?: number | null;
+}
+
+/**
+ * @nullable
+ */
+export type KpiRollupComputeResultStrategy =
+  | (typeof KpiRollupComputeResultStrategy)[keyof typeof KpiRollupComputeResultStrategy]
+  | null;
+
+export const KpiRollupComputeResultStrategy = {
+  sum_inputs: "sum_inputs",
+  sum_values: "sum_values",
+  average: "average",
+  min: "min",
+  max: "max",
+} as const;
+
+export interface KpiRollupComputeResult {
+  /** @nullable */
+  computed: number | null;
+  /** @nullable */
+  strategy?: KpiRollupComputeResultStrategy;
+  childrenWithData: number;
+  childrenTotal: number;
+  breakdown: KpiRollupBreakdownEntry[];
+}
+
 export type ActionPlanStatus =
   (typeof ActionPlanStatus)[keyof typeof ActionPlanStatus];
 
@@ -5481,6 +5572,11 @@ export type ListRegulatoryDocumentAuditParams = {
    * @maximum 1000
    */
   limit?: number;
+};
+
+export type GetKpiRollupValueParams = {
+  year: number;
+  month: number;
 };
 
 export type ListActionPlansParams = {

@@ -16349,6 +16349,107 @@ export const AddKpiMonthJustificationBody = zod.object({
 });
 
 /**
+ * @summary Lista filhos configurados pro rollup de um indicador corporativo
+ */
+export const ListKpiRollupChildrenParams = zod.object({
+  orgId: zod.coerce.number(),
+  indicatorId: zod.coerce.number(),
+});
+
+export const ListKpiRollupChildrenResponseItem = zod.object({
+  id: zod.number(),
+  parentIndicatorId: zod.number(),
+  childIndicatorId: zod.number(),
+  variableMapping: zod.record(zod.string(), zod.string()),
+  createdAt: zod.string(),
+});
+export const ListKpiRollupChildrenResponse = zod.array(
+  ListKpiRollupChildrenResponseItem,
+);
+
+/**
+ * @summary Substitui (replace-all) os filhos do rollup. Define rollupStrategy.
+ */
+export const PutKpiRollupChildrenParams = zod.object({
+  orgId: zod.coerce.number(),
+  indicatorId: zod.coerce.number(),
+});
+
+export const PutKpiRollupChildrenBody = zod.object({
+  strategy: zod
+    .enum(["sum_inputs", "sum_values", "average", "min", "max"])
+    .optional(),
+  children: zod.array(
+    zod.object({
+      childIndicatorId: zod.number(),
+      variableMapping: zod.record(zod.string(), zod.string()).optional(),
+    }),
+  ),
+});
+
+export const PutKpiRollupChildrenResponse = zod.object({
+  ok: zod.boolean(),
+  count: zod.number(),
+  strategy: zod.string().nullish(),
+});
+
+/**
+ * @summary IA sugere filhos do rollup com base no catálogo da org
+ */
+export const SuggestKpiRollupChildrenParams = zod.object({
+  orgId: zod.coerce.number(),
+  indicatorId: zod.coerce.number(),
+});
+
+export const SuggestKpiRollupChildrenResponse = zod.object({
+  suggestions: zod.array(
+    zod.object({
+      childIndicatorId: zod.number(),
+      confidence: zod.number(),
+      reason: zod.string(),
+      variableMapping: zod.record(zod.string(), zod.string()),
+    }),
+  ),
+});
+
+/**
+ * @summary Compute on-demand do valor de rollup pra um mês (preview)
+ */
+export const GetKpiRollupValueParams = zod.object({
+  orgId: zod.coerce.number(),
+  indicatorId: zod.coerce.number(),
+});
+
+export const GetKpiRollupValueQueryParams = zod.object({
+  year: zod.coerce.number(),
+  month: zod.coerce.number(),
+});
+
+export const GetKpiRollupValueResponse = zod.object({
+  computed: zod.number().nullable(),
+  strategy: zod
+    .union([
+      zod.literal("sum_inputs"),
+      zod.literal("sum_values"),
+      zod.literal("average"),
+      zod.literal("min"),
+      zod.literal("max"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  childrenWithData: zod.number(),
+  childrenTotal: zod.number(),
+  breakdown: zod.array(
+    zod.object({
+      childIndicatorId: zod.number(),
+      childUnit: zod.string().nullish(),
+      inputs: zod.record(zod.string(), zod.number().nullable()),
+      value: zod.number().nullish(),
+    }),
+  ),
+});
+
+/**
  * @summary List action plans in the organization with filters
  */
 export const ListActionPlansParams = zod.object({
