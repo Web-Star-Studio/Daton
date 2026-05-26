@@ -4765,6 +4765,42 @@ export interface AddRegulatoryDocumentAttachmentBody {
   objectPath: string;
 }
 
+export type RegulatoryDocumentAuditEntryEntityType =
+  (typeof RegulatoryDocumentAuditEntryEntityType)[keyof typeof RegulatoryDocumentAuditEntryEntityType];
+
+export const RegulatoryDocumentAuditEntryEntityType = {
+  document: "document",
+  renewal: "renewal",
+  attachment: "attachment",
+} as const;
+
+export type RegulatoryDocumentAuditEntryAction =
+  (typeof RegulatoryDocumentAuditEntryAction)[keyof typeof RegulatoryDocumentAuditEntryAction];
+
+export const RegulatoryDocumentAuditEntryAction = {
+  created: "created",
+  updated: "updated",
+  deleted: "deleted",
+} as const;
+
+export type RegulatoryDocumentAuditEntryChanges = { [key: string]: unknown };
+
+export interface RegulatoryDocumentAuditEntry {
+  id: number;
+  organizationId: number;
+  documentId: number;
+  entityType: RegulatoryDocumentAuditEntryEntityType;
+  /** @nullable */
+  entityId?: number | null;
+  action: RegulatoryDocumentAuditEntryAction;
+  /** @nullable */
+  userId?: number | null;
+  /** @nullable */
+  userName?: string | null;
+  changes: RegulatoryDocumentAuditEntryChanges;
+  createdAt: string;
+}
+
 export type RequirementApplicabilityApprovalStatus =
   (typeof RequirementApplicabilityApprovalStatus)[keyof typeof RequirementApplicabilityApprovalStatus];
 
@@ -5416,6 +5452,14 @@ export type ListRegulatoryDocumentsParams = {
 
 export type ListRegulatoryDocumentAttachmentsParams = {
   renewalId?: number;
+};
+
+export type ListRegulatoryDocumentAuditParams = {
+  /**
+   * @minimum 1
+   * @maximum 1000
+   */
+  limit?: number;
 };
 
 export type ListActionPlansParams = {

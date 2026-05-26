@@ -3,6 +3,7 @@ import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import {
   db,
   regulatoryDocumentAttachmentsTable,
+  regulatoryDocumentAuditLogTable,
   regulatoryDocumentRenewalsTable,
   regulatoryDocumentsTable,
   unitsTable,
@@ -31,9 +32,15 @@ import {
   DeleteRegulatoryDocumentAttachmentParams,
   ImportRegulatoryDocumentsParams,
   ImportRegulatoryDocumentsBody,
+  ListRegulatoryDocumentAuditParams,
+  ListRegulatoryDocumentAuditQueryParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../middlewares/auth";
 import { runRegulatoryDocumentAlertsPass } from "../services/regulatory-documents/alerts";
+import {
+  createAuditUserNameCache,
+  logAudit,
+} from "../services/regulatory-documents/audit";
 import { computeStatus } from "../services/regulatory-documents/status";
 import { importRegulatoryDocuments } from "../services/regulatory-documents/import";
 
@@ -280,15 +287,42 @@ router.post(
       })
       .returning();
 
+    const auditCache = createAuditUserNameCache();
+    await logAudit({
+      orgId: params.data.orgId,
+      documentId: doc.id,
+      entityType: "document",
+      entityId: null,
+      action: "created",
+      userId: req.auth!.userId,
+      after: doc,
+      userNameCache: auditCache,
+    });
+
     // Q2 decision: when renewalRequired, auto-schedule the first renewal cycle.
     if (doc.renewalRequired) {
       const scheduledStartDate = addDays(doc.expirationDate, -AUTO_RENEWAL_OFFSET_DAYS);
-      await db.insert(regulatoryDocumentRenewalsTable).values({
-        organizationId: params.data.orgId,
-        documentId: doc.id,
-        status: "nao_iniciado",
-        scheduledStartDate,
-      });
+      const [autoRenewal] = await db
+        .insert(regulatoryDocumentRenewalsTable)
+        .values({
+          organizationId: params.data.orgId,
+          documentId: doc.id,
+          status: "nao_iniciado",
+          scheduledStartDate,
+        })
+        .returning();
+      if (autoRenewal) {
+        await logAudit({
+          orgId: params.data.orgId,
+          documentId: doc.id,
+          entityType: "renewal",
+          entityId: autoRenewal.id,
+          action: "created",
+          userId: req.auth!.userId,
+          after: autoRenewal,
+          userNameCache: auditCache,
+        });
+      }
     }
 
     const serialized = await loadDocumentSerialized(params.data.orgId, doc.id);
@@ -330,16 +364,17 @@ router.patch(
       if (!unit) { res.status(400).json({ error: "Filial não encontrada" }); return; }
     }
 
+    // Fetch the row BEFORE mutating — both for the status recompute path and
+    // for audit-log diffing.
+    const [existing] = await db
+      .select()
+      .from(regulatoryDocumentsTable)
+      .where(and(eq(regulatoryDocumentsTable.id, params.data.docId), eq(regulatoryDocumentsTable.organizationId, params.data.orgId)));
+    if (!existing) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
     // Recompute status if expirationDate or alertDaysOverride changed.
     const updates: Record<string, unknown> = { ...body.data, updatedAt: new Date() };
     if (body.data.expirationDate !== undefined || body.data.alertDaysOverride !== undefined) {
-      // Need the existing record to fill the field that was not supplied.
-      const [existing] = await db
-        .select({ expirationDate: regulatoryDocumentsTable.expirationDate, alertDaysOverride: regulatoryDocumentsTable.alertDaysOverride })
-        .from(regulatoryDocumentsTable)
-        .where(and(eq(regulatoryDocumentsTable.id, params.data.docId), eq(regulatoryDocumentsTable.organizationId, params.data.orgId)));
-      if (!existing) { res.status(404).json({ error: "Documento não encontrado" }); return; }
-
       const nextExp = body.data.expirationDate ?? existing.expirationDate;
       const nextAlert = body.data.alertDaysOverride !== undefined ? body.data.alertDaysOverride : existing.alertDaysOverride;
       updates.status = computeStatus(nextExp, nextAlert);
@@ -351,6 +386,17 @@ router.patch(
       .where(and(eq(regulatoryDocumentsTable.id, params.data.docId), eq(regulatoryDocumentsTable.organizationId, params.data.orgId)))
       .returning();
     if (!doc) { res.status(404).json({ error: "Documento não encontrado" }); return; }
+
+    await logAudit({
+      orgId: params.data.orgId,
+      documentId: doc.id,
+      entityType: "document",
+      entityId: null,
+      action: "updated",
+      userId: req.auth!.userId,
+      before: existing,
+      after: doc,
+    });
 
     const serialized = await loadDocumentSerialized(params.data.orgId, doc.id);
     res.json(serialized);
@@ -365,6 +411,26 @@ router.delete(
     const params = DeleteRegulatoryDocumentParams.safeParse(req.params);
     if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
     if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    // Snapshot the document for the audit entry. The audit log row itself
+    // will cascade-delete with the document (FK), but we keep the call for
+    // symmetry and so the event surfaces in server logs / external tail.
+    const [existing] = await db
+      .select()
+      .from(regulatoryDocumentsTable)
+      .where(and(eq(regulatoryDocumentsTable.id, params.data.docId), eq(regulatoryDocumentsTable.organizationId, params.data.orgId)));
+
+    if (existing) {
+      await logAudit({
+        orgId: params.data.orgId,
+        documentId: existing.id,
+        entityType: "document",
+        entityId: null,
+        action: "deleted",
+        userId: req.auth!.userId,
+        before: existing,
+      });
+    }
 
     await db
       .delete(regulatoryDocumentsTable)
@@ -486,16 +552,46 @@ router.post(
       })
       .returning();
 
+    const renewalAuditCache = createAuditUserNameCache();
+    await logAudit({
+      orgId: params.data.orgId,
+      documentId: params.data.docId,
+      entityType: "renewal",
+      entityId: renewal.id,
+      action: "created",
+      userId: req.auth!.userId,
+      after: renewal,
+      userNameCache: renewalAuditCache,
+    });
+
     // When renovado, mirror the new validity to parent + recompute status.
     if (renewal.status === "renovado" && renewal.newExpirationDate) {
-      await db
+      const [docBefore] = await db
+        .select()
+        .from(regulatoryDocumentsTable)
+        .where(eq(regulatoryDocumentsTable.id, params.data.docId));
+      const [docAfter] = await db
         .update(regulatoryDocumentsTable)
         .set({
           expirationDate: renewal.newExpirationDate,
           status: computeStatus(renewal.newExpirationDate, doc.alertDaysOverride),
           updatedAt: new Date(),
         })
-        .where(eq(regulatoryDocumentsTable.id, params.data.docId));
+        .where(eq(regulatoryDocumentsTable.id, params.data.docId))
+        .returning();
+      if (docBefore && docAfter) {
+        await logAudit({
+          orgId: params.data.orgId,
+          documentId: params.data.docId,
+          entityType: "document",
+          entityId: null,
+          action: "updated",
+          userId: req.auth!.userId,
+          before: docBefore,
+          after: docAfter,
+          userNameCache: renewalAuditCache,
+        });
+      }
     }
 
     res.status(201).json(serializeRenewal(renewal, null, 0));
@@ -514,6 +610,19 @@ router.patch(
     const body = UpdateRegulatoryDocumentRenewalBody.safeParse(req.body);
     if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
+    // Fetch existing renewal first so we can diff in the audit log.
+    const [existingRenewal] = await db
+      .select()
+      .from(regulatoryDocumentRenewalsTable)
+      .where(
+        and(
+          eq(regulatoryDocumentRenewalsTable.id, params.data.renewalId),
+          eq(regulatoryDocumentRenewalsTable.documentId, params.data.docId),
+          eq(regulatoryDocumentRenewalsTable.organizationId, params.data.orgId),
+        ),
+      );
+    if (!existingRenewal) { res.status(404).json({ error: "Renovação não encontrada" }); return; }
+
     const [renewal] = await db
       .update(regulatoryDocumentRenewalsTable)
       .set({ ...body.data, updatedAt: new Date() })
@@ -527,19 +636,46 @@ router.patch(
       .returning();
     if (!renewal) { res.status(404).json({ error: "Renovação não encontrada" }); return; }
 
+    const renewalUpdateAuditCache = createAuditUserNameCache();
+    await logAudit({
+      orgId: params.data.orgId,
+      documentId: params.data.docId,
+      entityType: "renewal",
+      entityId: renewal.id,
+      action: "updated",
+      userId: req.auth!.userId,
+      before: existingRenewal,
+      after: renewal,
+      userNameCache: renewalUpdateAuditCache,
+    });
+
     if (renewal.status === "renovado" && renewal.newExpirationDate) {
-      const [doc] = await db
-        .select({ alertDaysOverride: regulatoryDocumentsTable.alertDaysOverride })
+      const [docBefore] = await db
+        .select()
         .from(regulatoryDocumentsTable)
         .where(eq(regulatoryDocumentsTable.id, params.data.docId));
-      await db
+      const [docAfter] = await db
         .update(regulatoryDocumentsTable)
         .set({
           expirationDate: renewal.newExpirationDate,
-          status: computeStatus(renewal.newExpirationDate, doc?.alertDaysOverride ?? null),
+          status: computeStatus(renewal.newExpirationDate, docBefore?.alertDaysOverride ?? null),
           updatedAt: new Date(),
         })
-        .where(eq(regulatoryDocumentsTable.id, params.data.docId));
+        .where(eq(regulatoryDocumentsTable.id, params.data.docId))
+        .returning();
+      if (docBefore && docAfter) {
+        await logAudit({
+          orgId: params.data.orgId,
+          documentId: params.data.docId,
+          entityType: "document",
+          entityId: null,
+          action: "updated",
+          userId: req.auth!.userId,
+          before: docBefore,
+          after: docAfter,
+          userNameCache: renewalUpdateAuditCache,
+        });
+      }
     }
 
     res.json(serializeRenewal(renewal, null, 0));
@@ -555,6 +691,17 @@ router.delete(
     if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
     if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
+    const [existingRenewal] = await db
+      .select()
+      .from(regulatoryDocumentRenewalsTable)
+      .where(
+        and(
+          eq(regulatoryDocumentRenewalsTable.id, params.data.renewalId),
+          eq(regulatoryDocumentRenewalsTable.documentId, params.data.docId),
+          eq(regulatoryDocumentRenewalsTable.organizationId, params.data.orgId),
+        ),
+      );
+
     await db
       .delete(regulatoryDocumentRenewalsTable)
       .where(
@@ -564,6 +711,18 @@ router.delete(
           eq(regulatoryDocumentRenewalsTable.organizationId, params.data.orgId),
         ),
       );
+
+    if (existingRenewal) {
+      await logAudit({
+        orgId: params.data.orgId,
+        documentId: params.data.docId,
+        entityType: "renewal",
+        entityId: existingRenewal.id,
+        action: "deleted",
+        userId: req.auth!.userId,
+        before: existingRenewal,
+      });
+    }
 
     res.sendStatus(204);
   },
@@ -645,6 +804,16 @@ router.post(
       })
       .returning();
 
+    await logAudit({
+      orgId: params.data.orgId,
+      documentId: params.data.docId,
+      entityType: "attachment",
+      entityId: attachment.id,
+      action: "created",
+      userId: req.auth!.userId,
+      after: attachment,
+    });
+
     res.status(201).json(serializeAttachment(attachment));
   },
 );
@@ -658,6 +827,17 @@ router.delete(
     if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
     if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
+    const [existingAttachment] = await db
+      .select()
+      .from(regulatoryDocumentAttachmentsTable)
+      .where(
+        and(
+          eq(regulatoryDocumentAttachmentsTable.id, params.data.attachmentId),
+          eq(regulatoryDocumentAttachmentsTable.documentId, params.data.docId),
+          eq(regulatoryDocumentAttachmentsTable.organizationId, params.data.orgId),
+        ),
+      );
+
     await db
       .delete(regulatoryDocumentAttachmentsTable)
       .where(
@@ -668,7 +848,68 @@ router.delete(
         ),
       );
 
+    if (existingAttachment) {
+      await logAudit({
+        orgId: params.data.orgId,
+        documentId: params.data.docId,
+        entityType: "attachment",
+        entityId: existingAttachment.id,
+        action: "deleted",
+        userId: req.auth!.userId,
+        before: existingAttachment,
+      });
+    }
+
     res.sendStatus(204);
+  },
+);
+
+// --- Audit log ---
+
+router.get(
+  "/organizations/:orgId/regulatory-documents/:docId/audit",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const params = ListRegulatoryDocumentAuditParams.safeParse(req.params);
+    if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+    if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+    const query = ListRegulatoryDocumentAuditQueryParams.safeParse(req.query);
+    if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
+    const limit = query.data.limit ?? 200;
+
+    const rows = await db
+      .select({
+        a: regulatoryDocumentAuditLogTable,
+        currentUserName: usersTable.name,
+      })
+      .from(regulatoryDocumentAuditLogTable)
+      .leftJoin(usersTable, eq(regulatoryDocumentAuditLogTable.userId, usersTable.id))
+      .where(
+        and(
+          eq(regulatoryDocumentAuditLogTable.documentId, params.data.docId),
+          eq(regulatoryDocumentAuditLogTable.organizationId, params.data.orgId),
+        ),
+      )
+      .orderBy(desc(regulatoryDocumentAuditLogTable.createdAt))
+      .limit(limit);
+
+    res.json(
+      rows.map((row) => ({
+        id: row.a.id,
+        organizationId: row.a.organizationId,
+        documentId: row.a.documentId,
+        entityType: row.a.entityType,
+        entityId: row.a.entityId,
+        action: row.a.action,
+        userId: row.a.userId,
+        // Prefer the live name (current users.name) when available; fall back to
+        // the snapshot we took at log time (which survives user deletion).
+        userName: row.currentUserName ?? row.a.userName ?? null,
+        changes: row.a.changes,
+        createdAt: row.a.createdAt.toISOString(),
+      })),
+    );
   },
 );
 

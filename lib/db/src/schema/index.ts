@@ -29,3 +29,4 @@ export * from "./project-development";
 export * from "./action-plans";
 export * from "./critical-reviews";
 export * from "./regulatory-documents";
+export * from "./regulatory-documents-audit";

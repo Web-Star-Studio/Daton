@@ -7717,6 +7717,40 @@ paths:
         "204":
           description: Attachment deleted
 
+  /organizations/{orgId}/regulatory-documents/{docId}/audit:
+    get:
+      operationId: listRegulatoryDocumentAudit
+      tags: [regulatory-documents]
+      summary: List audit log entries for a regulatory document (newest first)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 200
+      responses:
+        "200":
+          description: Audit log entries (descending by createdAt)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RegulatoryDocumentAuditEntry"
+
   /organizations/{orgId}/governance/project-development/applicability:
     get:
       operationId: getProjectDevelopmentApplicability
@@ -16889,6 +16923,44 @@ components:
         - fileSize
         - contentType
         - objectPath
+
+    RegulatoryDocumentAuditEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        documentId:
+          type: integer
+        entityType:
+          type: string
+          enum: [document, renewal, attachment]
+        entityId:
+          type: ["integer", "null"]
+        action:
+          type: string
+          enum: [created, updated, deleted]
+        userId:
+          type: ["integer", "null"]
+        userName:
+          type: ["string", "null"]
+        changes:
+          # Either a per-field diff (for 'updated') or a snapshot (created/deleted).
+          # Shape: { kind: 'diff', fields: { [field]: { from, to } } }
+          #     or { kind: 'snapshot', snapshot: { ... } }
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - organizationId
+        - documentId
+        - entityType
+        - action
+        - changes
+        - createdAt
 
     # ── Project & Development (ISO 9001:2015 §8.3) ────────────────────────────
 
