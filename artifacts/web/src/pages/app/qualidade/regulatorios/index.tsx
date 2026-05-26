@@ -5,6 +5,8 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
+  ChevronsUpDown,
   FileBadge2,
   FilePlus2,
   FileText,
@@ -134,10 +136,81 @@ function daysUntil(iso: string | null | undefined): number | null {
   return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+// Severity rank pra default sort: maior = mais urgente, aparece primeiro.
+// 4 = vencido crítico (30+d) | 3 = vencido 8-30d | 2 = vencido recente (<=7d)
+// 1 = a vencer  | 0 = vigente
+function severityRank(d: { status: string; expirationDate: string }): number {
+  if (d.status === "vencido") {
+    const overdue = Math.abs(daysUntil(d.expirationDate) ?? 0);
+    if (overdue > 30) return 4;
+    if (overdue > 7) return 3;
+    return 2;
+  }
+  if (d.status === "a_vencer") return 1;
+  return 0;
+}
+
+// --- Sortable table head ---
+
+type SortCol = "identifier" | "type" | "issuingBody" | "unit" | "expiration" | "status" | "renewal" | "attachments";
+
+function SortableHead({
+  label,
+  col,
+  sortBy,
+  sortDir,
+  onClick,
+}: {
+  label: string;
+  col: SortCol;
+  sortBy: SortCol | null;
+  sortDir: "asc" | "desc";
+  onClick: (col: SortCol) => void;
+}) {
+  const active = sortBy === col;
+  return (
+    <TableHead className="text-xs">
+      <button
+        type="button"
+        onClick={() => onClick(col)}
+        className="flex items-center gap-1 hover:text-foreground transition"
+      >
+        {label}
+        {active ? (
+          sortDir === "asc"
+            ? <ChevronUp className="h-3 w-3 text-foreground" />
+            : <ChevronDown className="h-3 w-3 text-foreground" />
+        ) : (
+          <ChevronsUpDown className="h-3 w-3 text-muted-foreground/40" />
+        )}
+      </button>
+    </TableHead>
+  );
+}
+
 // --- Badges ---
 
-function DocumentStatusBadge({ status }: { status: string }) {
-  if (status === "vencido") return <Badge variant="danger" className="text-xs">Vencido</Badge>;
+// Severidade visual dentro de "Vencido" — empresas reais precisam triar entre
+// "acabou de vencer (1-7d, regularização tranquila)" vs "30+ dias (multa/embargo iminente)".
+// Mesma label "Vencido" mas peso visual cresce com os dias de atraso.
+function DocumentStatusBadge({ status, expirationDate }: { status: string; expirationDate?: string | null }) {
+  if (status === "vencido") {
+    const overdueDays = expirationDate ? Math.abs(daysUntil(expirationDate) ?? 0) : 0;
+    if (overdueDays > 30) {
+      // Crítico: pode estar em multa, perdeu janela de regularização.
+      return (
+        <Badge variant="danger" className="text-xs font-semibold ring-2 ring-red-500/40 ring-offset-1 dark:ring-red-500/60">
+          Vencido +{overdueDays}d
+        </Badge>
+      );
+    }
+    if (overdueDays > 7) {
+      // Crítico moderado.
+      return <Badge variant="danger" className="text-xs">Vencido {overdueDays}d</Badge>;
+    }
+    // Recente — vencido mas dentro da janela de regularização "tranquila".
+    return <Badge variant="orange" className="text-xs">Vencido recente</Badge>;
+  }
   if (status === "a_vencer") return <Badge variant="orange" className="text-xs">A vencer</Badge>;
   return <Badge variant="success" className="text-xs">Vigente</Badge>;
 }
@@ -162,9 +235,16 @@ function ValidityCell({ expirationDate, status }: { expirationDate: string; stat
   const left = daysUntil(expirationDate);
   const label = fmtDate(expirationDate);
   if (status === "vencido") {
+    const overdueDays = Math.abs(left ?? 0);
+    const tone = overdueDays > 30 ? "text-red-700 font-semibold" : "text-red-600";
     return (
-      <span className="flex items-center gap-1 text-xs text-red-600">
-        <AlertTriangle className="h-3 w-3" /> {label}
+      <span className="flex flex-col text-xs">
+        <span className={`flex items-center gap-1 ${tone}`}>
+          <AlertTriangle className="h-3 w-3" /> {label}
+        </span>
+        <span className="text-[10px] text-red-600/70">
+          vencido há {overdueDays} dia{overdueDays === 1 ? "" : "s"}
+        </span>
       </span>
     );
   }
@@ -778,7 +858,7 @@ function RegulatoryDetailSheet({
               )}
             </div>
             <div className="flex items-center gap-2">
-              <DocumentStatusBadge status={document.status} />
+              <DocumentStatusBadge status={document.status} expirationDate={document.expirationDate} />
               {canWrite && (
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(document)}>
                   <Pencil className="h-3.5 w-3.5" />
@@ -1146,6 +1226,10 @@ export default function RegulatoriosPage() {
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterDaysWindow, setFilterDaysWindow] = useState("");
+  // Sort: null = default ordering (severity-aware), otherwise user-chosen column.
+  // Default prioritiza vencidos críticos (30+ d) primeiro pra triagem visual.
+  const [sortBy, setSortBy] = useState<null | "identifier" | "type" | "issuingBody" | "unit" | "expiration" | "status" | "renewal" | "attachments">(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [filterSearch, setFilterSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<RegulatoryDocument | null>(null);
@@ -1191,7 +1275,11 @@ export default function RegulatoriosPage() {
   const aVencer = scopeDocuments.filter((d) => d.status === "a_vencer").length;
   const vigentes = scopeDocuments.filter((d) => d.status === "vigente").length;
 
-  // Apply client-side filters (status + days-window) over the scope set.
+  // Apply client-side filters (status + days-window) over the scope set,
+  // then sort. Default sort is severity-aware: vencidos críticos primeiro,
+  // depois vencidos recentes, depois a vencer (ordenados pela proximidade),
+  // depois vigentes (também por validade). User pode override clicando nos
+  // headers da tabela.
   const documents = useMemo(() => {
     let filtered = scopeDocuments;
     if (filterStatus) {
@@ -1204,8 +1292,37 @@ export default function RegulatoriosPage() {
         return left !== null && left <= max;
       });
     }
-    return filtered;
-  }, [scopeDocuments, filterStatus, filterDaysWindow]);
+    const sorted = [...filtered];
+    if (sortBy === null) {
+      sorted.sort((a, b) => severityRank(b) - severityRank(a) || a.expirationDate.localeCompare(b.expirationDate));
+    } else {
+      const cmp = (a: RegulatoryDocument, b: RegulatoryDocument): number => {
+        switch (sortBy) {
+          case "identifier": return (a.documentNumber ?? "").localeCompare(b.documentNumber ?? "");
+          case "type": return a.identifierType.localeCompare(b.identifierType);
+          case "issuingBody": return a.issuingBody.localeCompare(b.issuingBody);
+          case "unit": return (a.unitName ?? "").localeCompare(b.unitName ?? "");
+          case "expiration": return a.expirationDate.localeCompare(b.expirationDate);
+          case "status": return a.status.localeCompare(b.status);
+          case "renewal": return (a.latestRenewalStatus ?? "").localeCompare(b.latestRenewalStatus ?? "");
+          case "attachments": return a.attachmentCount - b.attachmentCount;
+        }
+      };
+      sorted.sort((a, b) => sortDir === "asc" ? cmp(a, b) : -cmp(a, b));
+    }
+    return sorted;
+  }, [scopeDocuments, filterStatus, filterDaysWindow, sortBy, sortDir]);
+
+  function toggleSort(col: NonNullable<typeof sortBy>) {
+    if (sortBy === col) {
+      // Same col: asc → desc → reset
+      if (sortDir === "asc") setSortDir("desc");
+      else { setSortBy(null); setSortDir("asc"); }
+    } else {
+      setSortBy(col);
+      setSortDir("asc");
+    }
+  }
 
   const hasActiveFilters = Boolean(filterUnit || filterType || filterStatus || filterDaysWindow || filterSearch);
   const detailDoc = detailDocId != null ? (scopeDocuments.find((d) => d.id === detailDocId) ?? null) : null;
@@ -1326,14 +1443,14 @@ export default function RegulatoriosPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-xs">Identificação / Nº</TableHead>
-              <TableHead className="text-xs">Tipo</TableHead>
-              <TableHead className="text-xs">Órgão</TableHead>
-              <TableHead className="text-xs">Filial</TableHead>
-              <TableHead className="text-xs">Validade</TableHead>
-              <TableHead className="text-xs">Status</TableHead>
-              <TableHead className="text-xs">Renovação</TableHead>
-              <TableHead className="text-xs">Anexos</TableHead>
+              <SortableHead label="Identificação / Nº" col="identifier" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+              <SortableHead label="Tipo" col="type" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+              <SortableHead label="Órgão" col="issuingBody" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+              <SortableHead label="Filial" col="unit" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+              <SortableHead label="Validade" col="expiration" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+              <SortableHead label="Status" col="status" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+              <SortableHead label="Renovação" col="renewal" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+              <SortableHead label="Anexos" col="attachments" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
               {canWrite && <TableHead className="text-xs w-16" />}
             </TableRow>
           </TableHeader>
@@ -1419,7 +1536,7 @@ export default function RegulatoriosPage() {
                 <TableCell className="text-xs text-muted-foreground">{d.issuingBody}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">{d.unitName ?? "—"}</TableCell>
                 <TableCell><ValidityCell expirationDate={d.expirationDate} status={d.status} /></TableCell>
-                <TableCell><DocumentStatusBadge status={d.status} /></TableCell>
+                <TableCell><DocumentStatusBadge status={d.status} expirationDate={d.expirationDate} /></TableCell>
                 <TableCell><RenewalStatusBadge status={d.latestRenewalStatus ?? null} /></TableCell>
                 <TableCell className="text-xs text-muted-foreground">{d.attachmentCount}</TableCell>
                 {canWrite && (
