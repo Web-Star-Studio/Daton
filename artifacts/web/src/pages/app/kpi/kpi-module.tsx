@@ -31,7 +31,14 @@ export default function KpiModulePage() {
     <div className="flex min-h-full flex-col">
       <KpiTabs active={tab} onChange={setTab} />
       {tab === "indicadores" ? (
-        <KpiIndicadoresPage />
+        <KpiIndicadoresPage
+          onOpenInLancar={(indicatorId) => {
+            // O LancarScreen ainda não tem deep-link por hash (TODO futuro:
+            // scrollar até #ind-X). Por enquanto só troca de aba.
+            void indicatorId;
+            setTab("lancamentos");
+          }}
+        />
       ) : tab === "lancamentos" ? (
         <LancarScreen
           onEditIndicator={(id) => {

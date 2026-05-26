@@ -40,6 +40,8 @@ interface CorporateRollupsTabProps {
   onEditIndicator: (ind: KpiIndicator) => void;
   onDeleteIndicator: (ind: KpiIndicator) => void;
   onConfigureManually: (ind: KpiIndicator) => void;
+  /** Troca pra aba "Lançar" focando num indicador (passa pelo KpiModulePage). */
+  onOpenInLancar?: (indicatorId: number) => void;
 }
 
 export function CorporateRollupsTab({
@@ -50,6 +52,7 @@ export function CorporateRollupsTab({
   onEditIndicator,
   onDeleteIndicator,
   onConfigureManually,
+  onOpenInLancar,
 }: CorporateRollupsTabProps) {
   const [activeCluster, setActiveCluster] = useState<KpiRollupCluster | null>(null);
   /** Corporativo aberto no drawer de exploração. */
@@ -96,7 +99,7 @@ export function CorporateRollupsTab({
                   key={ind.id}
                   type="button"
                   onClick={() => setExploringIndicator(ind)}
-                  className="block w-full cursor-pointer text-left transition hover:translate-y-[-1px]"
+                  className="block h-full w-full cursor-pointer text-left transition hover:translate-y-[-1px]"
                   title="Clique para explorar este Corporativo"
                 >
                   <IndicatorCard
@@ -172,6 +175,7 @@ export function CorporateRollupsTab({
           setExploringIndicator(null);
           onConfigureManually(ind);
         }}
+        onOpenInLancar={onOpenInLancar}
       />
     </div>
   );

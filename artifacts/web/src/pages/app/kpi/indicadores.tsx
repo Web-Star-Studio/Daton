@@ -208,7 +208,16 @@ function fmtNum(v: number | null | undefined): string {
   return v.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 }
 
-export default function KpiIndicadoresPage() {
+/**
+ * Props opcionais — KpiModulePage usa pra plumbing de troca de aba
+ * (Indicadores → Lançar) sem rotas, já que o módulo KPI usa state
+ * interno em vez de rotas separadas.
+ */
+interface KpiIndicadoresPageProps {
+  onOpenInLancar?: (indicatorId: number) => void;
+}
+
+export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPageProps = {}) {
   const { organization } = useAuth();
   const orgId = organization!.id;
 
@@ -630,6 +639,7 @@ export default function KpiIndicadoresPage() {
           onEditIndicator={(ind) => handleEditIndicator(ind)}
           onDeleteIndicator={(ind) => setDeleteConfirm(ind)}
           onConfigureManually={(ind) => setRollupTargetIndicator(ind)}
+          onOpenInLancar={onOpenInLancar}
         />
       ) : (
       <>

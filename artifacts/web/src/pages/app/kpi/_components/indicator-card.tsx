@@ -145,7 +145,10 @@ export function IndicatorCard({
     <div
       id={`ind-card-${indicator.id}`}
       className={cn(
-        "group relative flex flex-col rounded-lg border border-l-2 bg-card p-3.5 shadow-xs transition-all scroll-mt-6",
+        // h-full pra que cards lado-a-lado em grid estiquem até a altura do
+        // maior (evita visual irregular quando um card tem nome em 2 linhas
+        // ou badges extra de rollup).
+        "group relative flex h-full flex-col rounded-lg border border-l-2 bg-card p-3.5 shadow-xs transition-all scroll-mt-6",
         "hover:shadow-sm hover:border-foreground/15",
         STATUS_BORDER[status],
         isFocused && "ring-2 ring-primary/70 ring-offset-2 ring-offset-background shadow-md",

@@ -15,7 +15,6 @@
  * isComputed/childrenWithData/childrenTotal) + `useListKpiRollupChildren`
  * pra resolver nomes dos filhos quando algum mês está incompleto.
  */
-import { Link } from "wouter";
 import { Loader2, ExternalLink, AlertTriangle, Wand2 } from "lucide-react";
 import {
   getListKpiIndicatorsQueryKey,
@@ -86,6 +85,13 @@ interface CorporateExploreSheetProps {
   year: number;
   /** Abre o dialog de composição manual (uso avançado). */
   onConfigureManually?: (ind: KpiIndicator) => void;
+  /**
+   * Callback pra trocar pra aba "Lançar" do módulo KPI focando num
+   * indicador específico. Como as abas de KPI são state interno em
+   * KpiModulePage (não rotas), Link/href não funciona — precisa ser
+   * callback propagado top-down.
+   */
+  onOpenInLancar?: (indicatorId: number) => void;
 }
 
 export function CorporateExploreSheet({
@@ -95,6 +101,7 @@ export function CorporateExploreSheet({
   indicator,
   year,
   onConfigureManually,
+  onOpenInLancar,
 }: CorporateExploreSheetProps) {
   const { data: yearRows = [], isLoading: yearLoading } = useListKpiYearData(orgId, year, undefined, {
     query: {
@@ -149,6 +156,19 @@ export function CorporateExploreSheet({
   // referenceMonth não está no DTO atualmente; usa 1 como default (jan).
   const periods = expectedMonths(indicator.periodicity, null);
 
+  // "Mês fechado" = mês que já passou e deveria ter dado. Meses futuros
+  // (e o atual em curso) NÃO emitem aviso de "faltam filhos" — não faz
+  // sentido cobrar dado que ainda não foi gerado.
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const isMonthPast = (m: number): boolean => {
+    if (year < currentYear) return true;
+    if (year > currentYear) return false;
+    return m < currentMonth;
+  };
+  const isMonthCurrent = (m: number): boolean => year === currentYear && m === currentMonth;
+
   // Pra cada filho, mapa de month → tem dado?
   // Cruzamos com yearRows pra saber qual filho reportou em qual mês.
   const childReportingByMonth = new Map<number, Set<number>>(); // childId → Set<month>
@@ -199,8 +219,10 @@ export function CorporateExploreSheet({
             )}
           </div>
           <div className="flex flex-col">
+            {/* "Tolerância" (e não "Meta") — convenção do produto, alinhado
+                ao IndicatorCard padrão e à preferência expressa do cliente. */}
             <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-              Meta
+              Tolerância
             </span>
             <span className="text-2xl font-semibold tabular-nums text-foreground/80">
               {goal !== null && goal !== undefined ? formatValue(goal, indicator.measureUnit) : "—"}
@@ -238,18 +260,46 @@ export function CorporateExploreSheet({
             <div className="flex flex-wrap gap-1">
               {children.map((c) => {
                 const childInd = indById.get(c.childIndicatorId);
+                const label = (
+                  <>
+                    {childInd?.unit ?? "sem filial"}
+                    {childInd?.name && (
+                      <span className="ml-1 text-muted-foreground">
+                        · {childInd.name.slice(0, 30)}{childInd.name.length > 30 ? "…" : ""}
+                      </span>
+                    )}
+                  </>
+                );
+                // Badge vira botão clicável quando há callback pra abrir o
+                // indicador filho — leva pra aba Lançar focando nele.
+                if (onOpenInLancar) {
+                  return (
+                    <button
+                      key={c.childIndicatorId}
+                      type="button"
+                      onClick={() => {
+                        onOpenInLancar(c.childIndicatorId);
+                        onClose();
+                      }}
+                      title={childInd?.name ?? "Abrir indicador filho"}
+                    >
+                      <Badge
+                        variant="outline"
+                        className="cursor-pointer px-2 py-0.5 text-[11px] font-normal transition hover:border-foreground/40 hover:bg-muted/60"
+                      >
+                        {label}
+                      </Badge>
+                    </button>
+                  );
+                }
                 return (
                   <Badge
                     key={c.childIndicatorId}
                     variant="outline"
                     className="px-2 py-0.5 text-[11px] font-normal"
+                    title={childInd?.name}
                   >
-                    {childInd?.unit ?? "sem filial"}
-                    {childInd?.name && (
-                      <span className="ml-1 text-muted-foreground" title={childInd.name}>
-                        · {childInd.name.slice(0, 30)}{childInd.name.length > 30 ? "…" : ""}
-                      </span>
-                    )}
+                    {label}
                   </Badge>
                 );
               })}
@@ -280,22 +330,33 @@ export function CorporateExploreSheet({
                 <tbody>
                   {periods.map((month) => {
                     const mv = yearRow?.monthlyValues.find((m) => m.month === month);
+                    const past = isMonthPast(month);
+                    const current = isMonthCurrent(month);
+                    const future = !past && !current;
+                    const hasValue = mv?.value !== null && mv?.value !== undefined;
+
                     const childrenTotal = children.length;
-                    const reportingChildren = children.filter((c) =>
+                    const childrenWithData = mv?.childrenWithData ?? children.filter((c) =>
                       childReportingByMonth.get(c.childIndicatorId)?.has(month),
-                    );
-                    const childrenWithData = mv?.childrenWithData ?? reportingChildren.length;
+                    ).length;
                     const missingChildren = children.filter(
                       (c) => !childReportingByMonth.get(c.childIndicatorId)?.has(month),
                     );
-                    const isComputed = mv?.isComputed === true;
-                    const isOverridden = mv?.isOverridden === true && !isComputed;
+
+                    // Só consideramos o valor como computed/manual quando há dado.
+                    const isComputed = hasValue && mv?.isComputed === true;
+                    const isOverridden = hasValue && mv?.isOverridden === true && !isComputed;
                     return (
-                      <tr key={month} className="border-t">
-                        <td className="px-2.5 py-1.5 text-foreground">
+                      <tr key={month} className={cn("border-t", future && "text-muted-foreground/60")}>
+                        <td className="px-2.5 py-1.5">
                           {MONTH_NAMES_FULL[month - 1]}
+                          {current && (
+                            <span className="ml-1.5 text-[10px] font-medium text-indigo-700 dark:text-indigo-300">
+                              em curso
+                            </span>
+                          )}
                         </td>
-                        <td className="px-2.5 py-1.5 text-right tabular-nums text-foreground/90">
+                        <td className="px-2.5 py-1.5 text-right tabular-nums">
                           {formatValue(mv?.value ?? null, indicator.measureUnit)}
                         </td>
                         <td className="px-2.5 py-1.5 text-center">
@@ -312,13 +373,22 @@ export function CorporateExploreSheet({
                           )}
                         </td>
                         <td className="px-2.5 py-1.5 text-center">
-                          {childrenTotal === 0 ? (
+                          {childrenTotal === 0 || future ? (
+                            // Sem composição OU mês ainda no futuro: célula neutra.
+                            // Não faz sentido cobrar dado que ainda não foi gerado.
                             <span className="text-[10px] text-muted-foreground">—</span>
                           ) : missingChildren.length === 0 ? (
                             <span className="text-[11px] text-emerald-700 dark:text-emerald-400">
                               {childrenWithData}/{childrenTotal} ✓
                             </span>
+                          ) : current ? (
+                            // Mês corrente: mostra status sem warning vermelho;
+                            // ainda dá pra preencher.
+                            <span className="text-[11px] text-muted-foreground">
+                              {childrenWithData}/{childrenTotal}
+                            </span>
                           ) : (
+                            // Mês passado com pendências: warning + tooltip.
                             <span
                               className="flex items-center justify-center gap-1 text-[11px] text-amber-700 dark:text-amber-400"
                               title={`Faltam: ${missingChildren
@@ -345,12 +415,19 @@ export function CorporateExploreSheet({
 
         {/* Ações */}
         <div className="mt-5 flex flex-wrap items-center gap-2 border-t pt-4">
-          <Link href={`/app/kpi/lancamentos#ind-${indicator.id}`}>
-            <Button size="sm" variant="default" onClick={() => onClose()}>
+          {onOpenInLancar && (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => {
+                onOpenInLancar(indicator.id);
+                onClose();
+              }}
+            >
               <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
               Abrir nos Lançamentos
             </Button>
-          </Link>
+          )}
           {onConfigureManually && (
             <Button
               size="sm"
