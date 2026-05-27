@@ -146,8 +146,11 @@ function exportAssessmentsCsv(rows: LaiaAssessmentListItem[]) {
       r.isVigente ? "Sim" : "Não",
     ]
       .map((cell) => {
-        const str = String(cell);
-        return /[",\n;]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+        // Normaliza quebras de linha e tabs antes de decidir se precisa de aspas:
+        // CSV permite \n dentro de aspas duplas, mas Excel/Sheets quebra a linha
+        // de qualquer jeito → substituir por espaço é o caminho mais previsível.
+        const str = String(cell).replace(/\r?\n/g, " ").replace(/\t/g, " ");
+        return /[",;]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
       })
       .join(","),
   );
@@ -234,6 +237,7 @@ export function LaiaMatriz({
               <button
                 key={c.key}
                 type="button"
+                aria-pressed={active}
                 onClick={() => setChip(c.key)}
                 className={`rounded-full border px-3 py-1 text-[12px] transition-colors ${
                   active

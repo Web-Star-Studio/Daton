@@ -827,6 +827,14 @@ export function useUpdateLaiaComplianceItem(orgId?: number) {
         },
       );
     },
-    onSuccess: async () => invalidateLaia(queryClient, orgId),
+    onSuccess: async () => {
+      if (!orgId) return;
+      // Atualizou só conformidade: invalida lista de compliance e o dashboard
+      // (que agrega o score), evitando refetch da matriz/revisões.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: laiaKeys.compliance(orgId) }),
+        queryClient.invalidateQueries({ queryKey: laiaKeys.dashboard(orgId) }),
+      ]);
+    },
   });
 }

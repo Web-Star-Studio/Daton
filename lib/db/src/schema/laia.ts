@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -391,6 +392,13 @@ export const laiaAssessmentsTable = pgTable(
     unique("laia_assessment_org_code_unique").on(
       table.organizationId,
       table.aspectCode,
+    ),
+    // Acelera a varredura da lixeira (purgeExpiredLaiaTrash) e a listagem
+    // padrão que filtra por status. Sem ele, a query do scheduler vira full
+    // scan quando a tabela cresce.
+    index("laia_assessment_status_purged_at_idx").on(
+      table.status,
+      table.purgedAt,
     ),
   ],
 );

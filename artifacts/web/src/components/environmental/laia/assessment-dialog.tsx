@@ -321,7 +321,7 @@ function detailToAssessmentForm(
     startupShutdown: detail.startupShutdown,
     emergencyScenario: detail.emergencyScenario ?? "",
     changeContext: detail.changeContext ?? "",
-    lifecycleStagesText: detail.lifecycleStages.join(", "),
+    lifecycleStagesText: (detail.lifecycleStages ?? []).join(", "),
     controlLevel: detail.controlLevel,
     influenceLevel: detail.influenceLevel ?? "",
     outsourcedProcess: detail.outsourcedProcess ?? "",

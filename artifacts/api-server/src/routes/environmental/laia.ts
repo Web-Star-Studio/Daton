@@ -449,24 +449,25 @@ async function syncAssessmentOds(
 }
 
 async function ensureComplianceItemsForOrg(orgId: number) {
-  const existing = await db
-    .select({ clause: laiaComplianceItemsTable.clause })
-    .from(laiaComplianceItemsTable)
-    .where(eq(laiaComplianceItemsTable.organizationId, orgId));
-
-  const present = new Set(existing.map((row) => row.clause));
-  const missing = LAIA_COMPLIANCE_CLAUSES.filter((c) => !present.has(c));
-  if (missing.length === 0) return;
-
-  await db.insert(laiaComplianceItemsTable).values(
-    missing.map((clause) => ({
-      organizationId: orgId,
-      clause,
-      title: LAIA_COMPLIANCE_DEFAULTS[clause].title,
-      description: LAIA_COMPLIANCE_DEFAULTS[clause].description,
-      status: "nao_atendido" as LaiaComplianceStatus,
-    })),
-  );
+  // Insert idempotente — duas chamadas concorrentes não disparam unique violation
+  // graças ao ON CONFLICT DO NOTHING via constraint laia_compliance_org_clause_unique.
+  await db
+    .insert(laiaComplianceItemsTable)
+    .values(
+      LAIA_COMPLIANCE_CLAUSES.map((clause) => ({
+        organizationId: orgId,
+        clause,
+        title: LAIA_COMPLIANCE_DEFAULTS[clause].title,
+        description: LAIA_COMPLIANCE_DEFAULTS[clause].description,
+        status: "nao_atendido" as LaiaComplianceStatus,
+      })),
+    )
+    .onConflictDoNothing({
+      target: [
+        laiaComplianceItemsTable.organizationId,
+        laiaComplianceItemsTable.clause,
+      ],
+    });
 }
 
 async function syncAssessmentCommunicationPlans(
@@ -1318,14 +1319,16 @@ router.get("/organizations/:orgId/environmental/laia/assessments", async (req, r
     conditions.push(eq(laiaAssessmentsTable.sectorId, query.data.sectorId));
   }
   if (query.data.view === "trash") {
+    // Lixeira: somente archives criados pela soft-delete deste PR (têm archivedAt).
+    // Archives legacy (sem archivedAt) não voltam — eles foram deletados antes
+    // do conceito de lixeira existir e não devem ser restaurados.
     conditions.push(eq(laiaAssessmentsTable.status, "archived"));
     conditions.push(sql`${laiaAssessmentsTable.archivedAt} is not null`);
   } else if (query.data.status) {
     conditions.push(eq(laiaAssessmentsTable.status, query.data.status));
   } else {
-    conditions.push(
-      sql`(${laiaAssessmentsTable.status} <> 'archived' or ${laiaAssessmentsTable.archivedAt} is null)`,
-    );
+    // Matriz default: esconde todos os archives, novos ou legacy.
+    conditions.push(sql`${laiaAssessmentsTable.status} <> 'archived'`);
   }
   if (query.data.significance) {
     conditions.push(eq(laiaAssessmentsTable.significance, query.data.significance));
@@ -2206,10 +2209,15 @@ router.post(
       return;
     }
 
+    // Restaurar é conservador: o status pré-delete não fica registrado em lugar
+    // recuperável (snapshot da revisão não inclui status), então volta como
+    // rascunho + fora de vigência. Quem restaura precisa revalidar antes de
+    // colocar em vigência de novo.
     await db
       .update(laiaAssessmentsTable)
       .set({
-        status: "active",
+        status: "draft",
+        isVigente: false,
         archivedAt: null,
         purgedAt: null,
         updatedById: req.auth!.userId,
@@ -2231,7 +2239,7 @@ router.post(
       req.auth!.userId,
       beforeState,
       afterState,
-      "Avaliação restaurada",
+      "Avaliação restaurada (rascunho, aguardando re-vigência)",
     );
 
     res.json(await getAssessmentDetail(params.data.orgId, params.data.assessmentId));

@@ -312,11 +312,15 @@ export async function runEnvironmentalMaintenancePass(): Promise<void> {
 }
 
 export async function purgeExpiredLaiaTrash(): Promise<number> {
+  // Apaga somente registros que entraram na lixeira via DELETE do PR atual
+  // (status='archived' + ambos timestamps preenchidos + prazo expirado).
+  // Archives legacy (sem archivedAt/purgedAt) são intencionalmente preservados.
   const purged = await db
     .delete(laiaAssessmentsTable)
     .where(
       and(
         eq(laiaAssessmentsTable.status, "archived"),
+        isNotNull(laiaAssessmentsTable.archivedAt),
         isNotNull(laiaAssessmentsTable.purgedAt),
         lt(laiaAssessmentsTable.purgedAt, sql`now()`),
       ),

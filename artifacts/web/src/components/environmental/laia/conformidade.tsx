@@ -19,7 +19,6 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import {
-  useLaiaAssessments,
   useLaiaComplianceItems,
   useLaiaDashboard,
   useLaiaRevisions,
@@ -184,7 +183,6 @@ function ComplianceItemRow({
 export function LaiaConformidade({ orgId }: { orgId?: number }) {
   const { data: items = [], isLoading } = useLaiaComplianceItems(orgId);
   const { data: dashboard } = useLaiaDashboard(orgId);
-  const { data: assessments = [] } = useLaiaAssessments(orgId);
   const updateMutation = useUpdateLaiaComplianceItem(orgId);
 
   const score = dashboard?.compliance?.score ?? 0;
@@ -193,17 +191,6 @@ export function LaiaConformidade({ orgId }: { orgId?: number }) {
     parcial: 0,
     nao_atendido: 0,
   };
-
-  const odsAlignment = useMemo(() => {
-    const map = new Map<number, number>();
-    for (const a of assessments) {
-      if (a.significance !== "significant") continue;
-      // ODS data not in list payload; the dashboard summary has byOds aggregated
-    }
-    return map;
-  }, [assessments]);
-
-  void odsAlignment;
 
   if (!orgId) return null;
 
