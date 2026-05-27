@@ -155,7 +155,8 @@ function semaforoFromAssessment(
 
   let action = "Controle ativo";
   let actionLevel: "critical" | "moderate" | "ok" = "ok";
-  if (assessment.controlTypes.includes("NC")) {
+  const controlTypes = assessment.controlTypes ?? [];
+  if (controlTypes.includes("NC")) {
     action = "Sem controle — NC";
     actionLevel = "critical";
   } else if (assessment.hasLegalRequirements) {
