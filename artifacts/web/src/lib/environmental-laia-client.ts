@@ -81,6 +81,8 @@ export interface LaiaAssessmentListFilters {
   status?: "draft" | "active" | "archived";
   category?: "desprezivel" | "moderado" | "critico";
   significance?: "significant" | "not_significant";
+  isVigente?: boolean;
+  view?: "matrix" | "trash";
 }
 
 export interface LaiaAssessmentListItem {
@@ -92,11 +94,20 @@ export interface LaiaAssessmentListItem {
   environmentalAspect: string;
   environmentalImpact: string;
   status: "draft" | "active" | "archived";
+  isVigente: boolean;
+  archivedAt: string | null;
+  purgedAt: string | null;
   category: "desprezivel" | "moderado" | "critico" | null;
   significance: "significant" | "not_significant" | null;
   totalScore: number | null;
   operationalSituation: string | null;
+  hasLegalRequirements: boolean;
+  hasStakeholderDemand: boolean;
+  hasStrategicOption: boolean;
+  controlTypes: string[];
+  lifecycleStages: string[];
   sectorName: string | null;
+  sectorCode: string | null;
   unitName: string | null;
   createdAt: string | null;
   updatedAt: string | null;
@@ -147,6 +158,9 @@ export interface LaiaAssessmentDetail {
   aspectCode: string;
   mode: "quick" | "complete";
   status: "draft" | "active" | "archived";
+  isVigente: boolean;
+  archivedAt: string | null;
+  purgedAt: string | null;
   activityOperation: string;
   environmentalAspect: string;
   environmentalImpact: string;
@@ -193,9 +207,33 @@ export interface LaiaAssessmentDetail {
   sectorName: string | null;
   sectorCode: string | null;
   unitName: string | null;
+  odsNumbers: number[];
   requirements: LaiaAssessmentRequirement[];
   communicationPlans: LaiaAssessmentCommunicationPlan[];
   monitoringPlans: LaiaMonitoringPlan[];
+}
+
+export type LaiaComplianceClause =
+  | "6.1.1"
+  | "6.1.2"
+  | "6.1.3"
+  | "6.1.4"
+  | "6.2.1"
+  | "6.2.2";
+
+export type LaiaComplianceStatus = "atendido" | "parcial" | "nao_atendido";
+
+export interface LaiaComplianceItem {
+  id: number;
+  clause: LaiaComplianceClause;
+  title: string;
+  description: string | null;
+  status: LaiaComplianceStatus;
+  evidence: string | null;
+  notes: string | null;
+  lastAssessedAt: string | null;
+  lastAssessedById: number | null;
+  updatedAt: string | null;
 }
 
 export interface LaiaRevisionChange {
@@ -221,12 +259,24 @@ export interface LaiaRevision {
 export interface LaiaDashboardSummary {
   totalAssessments: number;
   significantAssessments: number;
+  notSignificantAssessments: number;
   criticalAssessments: number;
+  moderateAssessments: number;
+  negligibleAssessments: number;
   withoutControlResponsible: number;
   withLegalRequirement: number;
+  withStakeholderDemand: number;
+  withStrategicOption: number;
   withMonitoringPending: number;
+  pendingVigence: number;
+  trashCount: number;
   byOperationalSituation: Record<string, number>;
   byLifecycleStage: Record<string, number>;
+  byOds: Record<string, { total: number; significant: number }>;
+  compliance: {
+    score: number;
+    itemsByStatus: Record<LaiaComplianceStatus, number>;
+  };
 }
 
 export interface LaiaAssessmentRequirementInput {
@@ -291,6 +341,8 @@ export interface LaiaAssessmentInput {
   reviewFrequencyDays?: number | null;
   nextReviewAt?: string | null;
   notes?: string | null;
+  isVigente?: boolean;
+  odsNumbers?: number[];
   requirements?: LaiaAssessmentRequirementInput[];
   communicationPlans?: LaiaCommunicationPlanInput[];
 }
@@ -345,6 +397,9 @@ function buildLaiaQueryString(filters?: LaiaAssessmentListFilters) {
   if (filters?.status) params.set("status", filters.status);
   if (filters?.category) params.set("category", filters.category);
   if (filters?.significance) params.set("significance", filters.significance);
+  if (filters?.isVigente !== undefined)
+    params.set("isVigente", String(filters.isVigente));
+  if (filters?.view) params.set("view", filters.view);
 
   const query = params.toString();
   return query ? `?${query}` : "";
@@ -364,6 +419,7 @@ export const laiaKeys = {
   assessment: (orgId: number, assessmentId: number) =>
     ["laia", orgId, "assessment", assessmentId] as const,
   revisions: (orgId: number) => ["laia", orgId, "revisions"] as const,
+  compliance: (orgId: number) => ["laia", orgId, "compliance"] as const,
 };
 
 async function invalidateLaia(
@@ -637,4 +693,140 @@ export async function createLaiaMonitoringPlan(
       body: JSON.stringify(body),
     },
   );
+}
+
+export function useRestoreLaiaAssessment(orgId?: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (assessmentId: number) => {
+      const safeOrgId = requireOrgId(orgId);
+      return laiaRequest<LaiaAssessmentDetail>(
+        `/api/organizations/${safeOrgId}/environmental/laia/assessments/${assessmentId}/restore`,
+        { method: "POST" },
+      );
+    },
+    onSuccess: async () => invalidateLaia(queryClient, orgId),
+  });
+}
+
+export function useSetLaiaAssessmentVigence(orgId?: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (params: { assessmentId: number; isVigente: boolean }) => {
+      const safeOrgId = requireOrgId(orgId);
+      return laiaRequest<LaiaAssessmentDetail>(
+        `/api/organizations/${safeOrgId}/environmental/laia/assessments/${params.assessmentId}/vigence`,
+        {
+          method: "POST",
+          body: JSON.stringify({ isVigente: params.isVigente }),
+        },
+      );
+    },
+    onSuccess: async () => invalidateLaia(queryClient, orgId),
+  });
+}
+
+export function useHardDeleteLaiaAssessment(orgId?: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (assessmentId: number) => {
+      const safeOrgId = requireOrgId(orgId);
+      return laiaRequest<void>(
+        `/api/organizations/${safeOrgId}/environmental/laia/trash/${assessmentId}`,
+        { method: "DELETE" },
+      );
+    },
+    onSuccess: async () => invalidateLaia(queryClient, orgId),
+  });
+}
+
+export function useLaiaComplianceItems(orgId?: number) {
+  return useQuery({
+    queryKey: laiaKeys.compliance(orgId || 0),
+    enabled: !!orgId,
+    queryFn: () =>
+      laiaRequest<LaiaComplianceItem[]>(
+        `/api/organizations/${orgId}/environmental/laia/compliance`,
+      ),
+  });
+}
+
+export interface LaiaLegislationSuggestion {
+  reference: string;
+  url: string | null;
+  summary: string;
+}
+
+export function useSuggestLaiaLegislation(orgId?: number) {
+  return useMutation({
+    mutationFn: async (body: {
+      sectorName?: string | null;
+      activityOperation?: string | null;
+      environmentalAspect: string;
+      environmentalImpact: string;
+      controlTypes?: string[] | null;
+      existingControls?: string | null;
+      lifecycleStages?: string[] | null;
+      branchState?: string | null;
+      branchCity?: string | null;
+    }) => {
+      const safeOrgId = requireOrgId(orgId);
+      return laiaRequest<{ suggestions: LaiaLegislationSuggestion[] }>(
+        `/api/organizations/${safeOrgId}/environmental/laia/assessments/suggest-legislation`,
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        },
+      );
+    },
+  });
+}
+
+export function useCloneLaiaSector(orgId?: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      sourceSectorId: number;
+      targetUnitId?: number | null;
+      newCode: string;
+      newName: string;
+      copyAssessments?: boolean;
+    }) => {
+      const safeOrgId = requireOrgId(orgId);
+      return laiaRequest<{
+        sector: LaiaSector;
+        copiedAssessments: number;
+      }>(
+        `/api/organizations/${safeOrgId}/environmental/laia/sectors/clone`,
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        },
+      );
+    },
+    onSuccess: async () => invalidateLaia(queryClient, orgId),
+  });
+}
+
+export function useUpdateLaiaComplianceItem(orgId?: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (params: {
+      clause: LaiaComplianceClause;
+      status: LaiaComplianceStatus;
+      evidence?: string | null;
+      notes?: string | null;
+    }) => {
+      const safeOrgId = requireOrgId(orgId);
+      const { clause, ...payload } = params;
+      return laiaRequest<LaiaComplianceItem>(
+        `/api/organizations/${safeOrgId}/environmental/laia/compliance/${clause}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        },
+      );
+    },
+    onSuccess: async () => invalidateLaia(queryClient, orgId),
+  });
 }

@@ -14,11 +14,13 @@ import {
   db,
   laiaAssessmentsTable,
   laiaBranchConfigsTable,
+  laiaComplianceItemsTable,
   laiaImportJobsTable,
   laiaMethodologiesTable,
   laiaMethodologyVersionsTable,
   laiaMonitoringPlansTable,
   laiaMonitoringRecordsTable,
+  laiaOdsAlignmentsTable,
   laiaRequirementLinksTable,
   laiaRevisionChangesTable,
   laiaRevisionsTable,
@@ -27,8 +29,13 @@ import {
   sgqCommunicationPlansTable,
   usersTable,
   unitsTable,
+  LAIA_COMPLIANCE_CLAUSES,
+  LAIA_COMPLIANCE_DEFAULTS,
+  type LaiaComplianceClause,
+  type LaiaComplianceStatus,
 } from "@workspace/db";
 import { requireWriteAccess } from "../../middlewares/auth";
+import { suggestLegislation } from "../../services/laia/legislation-suggester";
 
 const router = Router();
 
@@ -139,6 +146,8 @@ const assessmentBodySchema = z.object({
   reviewFrequencyDays: z.number().int().positive().nullable().optional(),
   nextReviewAt: z.string().datetime().nullable().optional(),
   notes: z.string().nullable().optional(),
+  isVigente: z.boolean().optional(),
+  odsNumbers: z.array(z.number().int().min(1).max(17)).optional(),
   requirements: z.array(requirementLinkSchema).optional(),
   communicationPlans: z.array(communicationPlanSchema).optional(),
 });
@@ -149,8 +158,27 @@ const assessmentListQuerySchema = z.object({
   status: z.enum(["draft", "active", "archived"]).optional(),
   significance: z.enum(["significant", "not_significant"]).optional(),
   category: z.enum(["desprezivel", "moderado", "critico"]).optional(),
+  isVigente: z.coerce.boolean().optional(),
+  view: z.enum(["matrix", "trash"]).optional(),
   q: z.string().optional(),
 });
+
+const complianceItemUpdateSchema = z.object({
+  status: z.enum(["atendido", "parcial", "nao_atendido"]),
+  evidence: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+});
+
+const complianceClauseSchema = z.enum([
+  "6.1.1",
+  "6.1.2",
+  "6.1.3",
+  "6.1.4",
+  "6.2.1",
+  "6.2.2",
+]);
+
+const TRASH_TTL_MS = 60 * 60 * 1000;
 
 const monitoringPlanSchema = z.object({
   title: z.string().min(1),
@@ -390,6 +418,57 @@ async function syncAssessmentRequirements(
   );
 }
 
+async function syncAssessmentOds(
+  orgId: number,
+  assessmentId: number,
+  odsNumbers: number[] | undefined,
+) {
+  if (odsNumbers === undefined) return;
+
+  await db
+    .delete(laiaOdsAlignmentsTable)
+    .where(
+      and(
+        eq(laiaOdsAlignmentsTable.organizationId, orgId),
+        eq(laiaOdsAlignmentsTable.assessmentId, assessmentId),
+      ),
+    );
+
+  const unique = Array.from(new Set(odsNumbers)).filter(
+    (n) => Number.isInteger(n) && n >= 1 && n <= 17,
+  );
+  if (unique.length === 0) return;
+
+  await db.insert(laiaOdsAlignmentsTable).values(
+    unique.map((odsNumber) => ({
+      organizationId: orgId,
+      assessmentId,
+      odsNumber,
+    })),
+  );
+}
+
+async function ensureComplianceItemsForOrg(orgId: number) {
+  const existing = await db
+    .select({ clause: laiaComplianceItemsTable.clause })
+    .from(laiaComplianceItemsTable)
+    .where(eq(laiaComplianceItemsTable.organizationId, orgId));
+
+  const present = new Set(existing.map((row) => row.clause));
+  const missing = LAIA_COMPLIANCE_CLAUSES.filter((c) => !present.has(c));
+  if (missing.length === 0) return;
+
+  await db.insert(laiaComplianceItemsTable).values(
+    missing.map((clause) => ({
+      organizationId: orgId,
+      clause,
+      title: LAIA_COMPLIANCE_DEFAULTS[clause].title,
+      description: LAIA_COMPLIANCE_DEFAULTS[clause].description,
+      status: "nao_atendido" as LaiaComplianceStatus,
+    })),
+  );
+}
+
 async function syncAssessmentCommunicationPlans(
   orgId: number,
   assessmentId: number,
@@ -437,6 +516,9 @@ async function getAssessmentDetail(orgId: number, assessmentId: number) {
       aspectCode: laiaAssessmentsTable.aspectCode,
       mode: laiaAssessmentsTable.mode,
       status: laiaAssessmentsTable.status,
+      isVigente: laiaAssessmentsTable.isVigente,
+      archivedAt: laiaAssessmentsTable.archivedAt,
+      purgedAt: laiaAssessmentsTable.purgedAt,
       activityOperation: laiaAssessmentsTable.activityOperation,
       environmentalAspect: laiaAssessmentsTable.environmentalAspect,
       environmentalImpact: laiaAssessmentsTable.environmentalImpact,
@@ -496,56 +578,65 @@ async function getAssessmentDetail(orgId: number, assessmentId: number) {
 
   if (!assessment) return null;
 
-  const [requirements, communicationPlans, monitoringPlans] = await Promise.all([
-    db
-      .select({
-        id: laiaRequirementLinksTable.id,
-        type: laiaRequirementLinksTable.type,
-        title: laiaRequirementLinksTable.title,
-        requirementReference: laiaRequirementLinksTable.requirementReference,
-        description: laiaRequirementLinksTable.description,
-        legislationId: laiaRequirementLinksTable.legislationId,
-        legislationTitle: legislationsTable.title,
-      })
-      .from(laiaRequirementLinksTable)
-      .leftJoin(
-        legislationsTable,
-        eq(laiaRequirementLinksTable.legislationId, legislationsTable.id),
-      )
-      .where(eq(laiaRequirementLinksTable.assessmentId, assessmentId))
-      .orderBy(asc(laiaRequirementLinksTable.id)),
-    db
-      .select({
-        id: sgqCommunicationPlansTable.id,
-        channel: sgqCommunicationPlansTable.channel,
-        audience: sgqCommunicationPlansTable.audience,
-        periodicity: sgqCommunicationPlansTable.periodicity,
-        requiresAcknowledgment: sgqCommunicationPlansTable.requiresAcknowledgment,
-        notes: sgqCommunicationPlansTable.notes,
-        lastDistributedAt: sgqCommunicationPlansTable.lastDistributedAt,
-      })
-      .from(sgqCommunicationPlansTable)
-      .where(
-        and(
-          eq(sgqCommunicationPlansTable.organizationId, orgId),
-          eq(sgqCommunicationPlansTable.contextType, "laia_assessment"),
-          eq(sgqCommunicationPlansTable.contextId, assessmentId),
-        ),
-      )
-      .orderBy(asc(sgqCommunicationPlansTable.id)),
-    db
-      .select()
-      .from(laiaMonitoringPlansTable)
-      .where(eq(laiaMonitoringPlansTable.assessmentId, assessmentId))
-      .orderBy(asc(laiaMonitoringPlansTable.id)),
-  ]);
+  const [requirements, communicationPlans, monitoringPlans, odsRows] =
+    await Promise.all([
+      db
+        .select({
+          id: laiaRequirementLinksTable.id,
+          type: laiaRequirementLinksTable.type,
+          title: laiaRequirementLinksTable.title,
+          requirementReference: laiaRequirementLinksTable.requirementReference,
+          description: laiaRequirementLinksTable.description,
+          legislationId: laiaRequirementLinksTable.legislationId,
+          legislationTitle: legislationsTable.title,
+        })
+        .from(laiaRequirementLinksTable)
+        .leftJoin(
+          legislationsTable,
+          eq(laiaRequirementLinksTable.legislationId, legislationsTable.id),
+        )
+        .where(eq(laiaRequirementLinksTable.assessmentId, assessmentId))
+        .orderBy(asc(laiaRequirementLinksTable.id)),
+      db
+        .select({
+          id: sgqCommunicationPlansTable.id,
+          channel: sgqCommunicationPlansTable.channel,
+          audience: sgqCommunicationPlansTable.audience,
+          periodicity: sgqCommunicationPlansTable.periodicity,
+          requiresAcknowledgment: sgqCommunicationPlansTable.requiresAcknowledgment,
+          notes: sgqCommunicationPlansTable.notes,
+          lastDistributedAt: sgqCommunicationPlansTable.lastDistributedAt,
+        })
+        .from(sgqCommunicationPlansTable)
+        .where(
+          and(
+            eq(sgqCommunicationPlansTable.organizationId, orgId),
+            eq(sgqCommunicationPlansTable.contextType, "laia_assessment"),
+            eq(sgqCommunicationPlansTable.contextId, assessmentId),
+          ),
+        )
+        .orderBy(asc(sgqCommunicationPlansTable.id)),
+      db
+        .select()
+        .from(laiaMonitoringPlansTable)
+        .where(eq(laiaMonitoringPlansTable.assessmentId, assessmentId))
+        .orderBy(asc(laiaMonitoringPlansTable.id)),
+      db
+        .select({ odsNumber: laiaOdsAlignmentsTable.odsNumber })
+        .from(laiaOdsAlignmentsTable)
+        .where(eq(laiaOdsAlignmentsTable.assessmentId, assessmentId))
+        .orderBy(asc(laiaOdsAlignmentsTable.odsNumber)),
+    ]);
 
   return {
     ...assessment,
+    archivedAt: formatDate(assessment.archivedAt),
+    purgedAt: formatDate(assessment.purgedAt),
     controlDueAt: formatDate(assessment.controlDueAt),
     nextReviewAt: formatDate(assessment.nextReviewAt),
     createdAt: formatDate(assessment.createdAt),
     updatedAt: formatDate(assessment.updatedAt),
+    odsNumbers: odsRows.map((row) => row.odsNumber),
     requirements,
     communicationPlans: communicationPlans.map((plan) => ({
       ...plan,
@@ -1226,14 +1317,24 @@ router.get("/organizations/:orgId/environmental/laia/assessments", async (req, r
   if (query.data.sectorId) {
     conditions.push(eq(laiaAssessmentsTable.sectorId, query.data.sectorId));
   }
-  if (query.data.status) {
+  if (query.data.view === "trash") {
+    conditions.push(eq(laiaAssessmentsTable.status, "archived"));
+    conditions.push(sql`${laiaAssessmentsTable.archivedAt} is not null`);
+  } else if (query.data.status) {
     conditions.push(eq(laiaAssessmentsTable.status, query.data.status));
+  } else {
+    conditions.push(
+      sql`(${laiaAssessmentsTable.status} <> 'archived' or ${laiaAssessmentsTable.archivedAt} is null)`,
+    );
   }
   if (query.data.significance) {
     conditions.push(eq(laiaAssessmentsTable.significance, query.data.significance));
   }
   if (query.data.category) {
     conditions.push(eq(laiaAssessmentsTable.category, query.data.category));
+  }
+  if (query.data.isVigente !== undefined) {
+    conditions.push(eq(laiaAssessmentsTable.isVigente, query.data.isVigente));
   }
 
   const rows = await db
@@ -1246,13 +1347,22 @@ router.get("/organizations/:orgId/environmental/laia/assessments", async (req, r
       environmentalAspect: laiaAssessmentsTable.environmentalAspect,
       environmentalImpact: laiaAssessmentsTable.environmentalImpact,
       status: laiaAssessmentsTable.status,
+      isVigente: laiaAssessmentsTable.isVigente,
+      archivedAt: laiaAssessmentsTable.archivedAt,
+      purgedAt: laiaAssessmentsTable.purgedAt,
       category: laiaAssessmentsTable.category,
       significance: laiaAssessmentsTable.significance,
       totalScore: laiaAssessmentsTable.totalScore,
       operationalSituation: laiaAssessmentsTable.operationalSituation,
+      hasLegalRequirements: laiaAssessmentsTable.hasLegalRequirements,
+      hasStakeholderDemand: laiaAssessmentsTable.hasStakeholderDemand,
+      hasStrategicOption: laiaAssessmentsTable.hasStrategicOption,
+      controlTypes: laiaAssessmentsTable.controlTypes,
+      lifecycleStages: laiaAssessmentsTable.lifecycleStages,
       createdAt: laiaAssessmentsTable.createdAt,
       updatedAt: laiaAssessmentsTable.updatedAt,
       sectorName: laiaSectorsTable.name,
+      sectorCode: laiaSectorsTable.code,
       unitName: unitsTable.name,
     })
     .from(laiaAssessmentsTable)
@@ -1280,6 +1390,8 @@ router.get("/organizations/:orgId/environmental/laia/assessments", async (req, r
   res.json(
     filtered.map((row) => ({
       ...row,
+      archivedAt: formatDate(row.archivedAt),
+      purgedAt: formatDate(row.purgedAt),
       createdAt: formatDate(row.createdAt),
       updatedAt: formatDate(row.updatedAt),
     })),
@@ -1331,6 +1443,7 @@ router.post(
         aspectCode,
         mode: body.data.mode,
         status: body.data.status,
+        isVigente: body.data.isVigente ?? true,
         activityOperation: body.data.activityOperation,
         environmentalAspect: body.data.environmentalAspect,
         environmentalImpact: body.data.environmentalImpact,
@@ -1382,6 +1495,7 @@ router.post(
         req.auth!.userId,
         body.data.communicationPlans,
       ),
+      syncAssessmentOds(params.data.orgId, assessmentId, body.data.odsNumbers),
     ]);
 
     const snapshot = await getAssessmentSnapshot(params.data.orgId, assessmentId);
@@ -1478,7 +1592,12 @@ router.patch(
           ? { aspectCode: body.data.aspectCode }
           : {}),
         ...(body.data.mode !== undefined ? { mode: body.data.mode } : {}),
-        ...(body.data.status !== undefined ? { status: body.data.status } : {}),
+        ...(body.data.status !== undefined
+          ? body.data.status === "archived"
+            ? { status: "archived" }
+            : { status: body.data.status, archivedAt: null, purgedAt: null }
+          : {}),
+        ...(body.data.isVigente !== undefined ? { isVigente: body.data.isVigente } : {}),
         ...(body.data.activityOperation !== undefined
           ? { activityOperation: body.data.activityOperation }
           : {}),
@@ -1602,6 +1721,13 @@ router.patch(
         body.data.communicationPlans,
       );
     }
+    if (body.data.odsNumbers !== undefined) {
+      await syncAssessmentOds(
+        params.data.orgId,
+        params.data.assessmentId,
+        body.data.odsNumbers,
+      );
+    }
 
     const afterState = await getAssessmentSnapshot(
       params.data.orgId,
@@ -1640,10 +1766,15 @@ router.delete(
       return;
     }
 
+    const now = new Date();
+    const purgeAt = new Date(now.getTime() + TRASH_TTL_MS);
+
     await db
       .update(laiaAssessmentsTable)
       .set({
         status: "archived",
+        archivedAt: now,
+        purgedAt: purgeAt,
         updatedById: req.auth!.userId,
       })
       .where(
@@ -2055,6 +2186,392 @@ router.get("/organizations/:orgId/environmental/laia/revisions", async (req, res
   );
 });
 
+router.post(
+  "/organizations/:orgId/environmental/laia/assessments/:assessmentId/restore",
+  requireWriteAccess(),
+  async (req, res) => {
+    const params = paramsSchema.safeParse(req.params);
+    if (!params.success || !params.data.assessmentId) {
+      res.status(400).json({ error: "Parâmetros inválidos" });
+      return;
+    }
+    if (!requireOrgAccess(req, res, params.data.orgId)) return;
+
+    const beforeState = await getAssessmentSnapshot(
+      params.data.orgId,
+      params.data.assessmentId,
+    );
+    if (!beforeState) {
+      res.status(404).json({ error: "Avaliação não encontrada" });
+      return;
+    }
+
+    await db
+      .update(laiaAssessmentsTable)
+      .set({
+        status: "active",
+        archivedAt: null,
+        purgedAt: null,
+        updatedById: req.auth!.userId,
+      })
+      .where(
+        and(
+          eq(laiaAssessmentsTable.organizationId, params.data.orgId),
+          eq(laiaAssessmentsTable.id, params.data.assessmentId),
+        ),
+      );
+
+    const afterState = await getAssessmentSnapshot(
+      params.data.orgId,
+      params.data.assessmentId,
+    );
+    await createRevision(
+      params.data.orgId,
+      params.data.assessmentId,
+      req.auth!.userId,
+      beforeState,
+      afterState,
+      "Avaliação restaurada",
+    );
+
+    res.json(await getAssessmentDetail(params.data.orgId, params.data.assessmentId));
+  },
+);
+
+router.post(
+  "/organizations/:orgId/environmental/laia/assessments/:assessmentId/vigence",
+  requireWriteAccess(),
+  async (req, res) => {
+    const params = paramsSchema.safeParse(req.params);
+    const bodySchema = z.object({ isVigente: z.boolean() });
+    const body = bodySchema.safeParse(req.body);
+    if (!params.success || !params.data.assessmentId || !body.success) {
+      res.status(400).json({ error: "Parâmetros inválidos" });
+      return;
+    }
+    if (!requireOrgAccess(req, res, params.data.orgId)) return;
+
+    const beforeState = await getAssessmentSnapshot(
+      params.data.orgId,
+      params.data.assessmentId,
+    );
+    if (!beforeState) {
+      res.status(404).json({ error: "Avaliação não encontrada" });
+      return;
+    }
+
+    await db
+      .update(laiaAssessmentsTable)
+      .set({
+        isVigente: body.data.isVigente,
+        updatedById: req.auth!.userId,
+      })
+      .where(
+        and(
+          eq(laiaAssessmentsTable.organizationId, params.data.orgId),
+          eq(laiaAssessmentsTable.id, params.data.assessmentId),
+        ),
+      );
+
+    const afterState = await getAssessmentSnapshot(
+      params.data.orgId,
+      params.data.assessmentId,
+    );
+    await createRevision(
+      params.data.orgId,
+      params.data.assessmentId,
+      req.auth!.userId,
+      beforeState,
+      afterState,
+      body.data.isVigente ? "Avaliação colocada em vigência" : "Avaliação marcada como pendente",
+    );
+
+    res.json(await getAssessmentDetail(params.data.orgId, params.data.assessmentId));
+  },
+);
+
+router.delete(
+  "/organizations/:orgId/environmental/laia/trash/:assessmentId",
+  requireWriteAccess(),
+  async (req, res) => {
+    const params = paramsSchema.safeParse(req.params);
+    if (!params.success || !params.data.assessmentId) {
+      res.status(400).json({ error: "Parâmetros inválidos" });
+      return;
+    }
+    if (!requireOrgAccess(req, res, params.data.orgId)) return;
+
+    const result = await db
+      .delete(laiaAssessmentsTable)
+      .where(
+        and(
+          eq(laiaAssessmentsTable.organizationId, params.data.orgId),
+          eq(laiaAssessmentsTable.id, params.data.assessmentId),
+          eq(laiaAssessmentsTable.status, "archived"),
+        ),
+      )
+      .returning({ id: laiaAssessmentsTable.id });
+
+    if (result.length === 0) {
+      res.status(404).json({ error: "Avaliação não está na lixeira" });
+      return;
+    }
+    res.status(204).end();
+  },
+);
+
+router.get(
+  "/organizations/:orgId/environmental/laia/compliance",
+  async (req, res) => {
+    const params = paramsSchema.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    if (!requireOrgAccess(req, res, params.data.orgId)) return;
+
+    await ensureComplianceItemsForOrg(params.data.orgId);
+
+    const rows = await db
+      .select({
+        id: laiaComplianceItemsTable.id,
+        clause: laiaComplianceItemsTable.clause,
+        title: laiaComplianceItemsTable.title,
+        description: laiaComplianceItemsTable.description,
+        status: laiaComplianceItemsTable.status,
+        evidence: laiaComplianceItemsTable.evidence,
+        notes: laiaComplianceItemsTable.notes,
+        lastAssessedAt: laiaComplianceItemsTable.lastAssessedAt,
+        lastAssessedById: laiaComplianceItemsTable.lastAssessedById,
+        updatedAt: laiaComplianceItemsTable.updatedAt,
+      })
+      .from(laiaComplianceItemsTable)
+      .where(eq(laiaComplianceItemsTable.organizationId, params.data.orgId))
+      .orderBy(asc(laiaComplianceItemsTable.clause));
+
+    res.json(
+      rows.map((row) => ({
+        ...row,
+        lastAssessedAt: formatDate(row.lastAssessedAt),
+        updatedAt: formatDate(row.updatedAt),
+      })),
+    );
+  },
+);
+
+router.patch(
+  "/organizations/:orgId/environmental/laia/compliance/:clause",
+  requireWriteAccess(),
+  async (req, res) => {
+    const params = paramsSchema.safeParse(req.params);
+    const clauseParse = complianceClauseSchema.safeParse(req.params.clause);
+    const body = complianceItemUpdateSchema.safeParse(req.body);
+    if (!params.success || !clauseParse.success || !body.success) {
+      res.status(400).json({ error: "Parâmetros inválidos" });
+      return;
+    }
+    if (!requireOrgAccess(req, res, params.data.orgId)) return;
+
+    await ensureComplianceItemsForOrg(params.data.orgId);
+
+    const [row] = await db
+      .update(laiaComplianceItemsTable)
+      .set({
+        status: body.data.status,
+        evidence: body.data.evidence ?? null,
+        notes: body.data.notes ?? null,
+        lastAssessedAt: new Date(),
+        lastAssessedById: req.auth!.userId,
+      })
+      .where(
+        and(
+          eq(laiaComplianceItemsTable.organizationId, params.data.orgId),
+          eq(laiaComplianceItemsTable.clause, clauseParse.data),
+        ),
+      )
+      .returning();
+
+    if (!row) {
+      res.status(404).json({ error: "Item de conformidade não encontrado" });
+      return;
+    }
+
+    res.json({
+      ...row,
+      lastAssessedAt: formatDate(row.lastAssessedAt),
+      updatedAt: formatDate(row.updatedAt),
+      createdAt: formatDate(row.createdAt),
+    });
+  },
+);
+
+const suggestLegislationSchema = z.object({
+  sectorName: z.string().nullable().optional(),
+  activityOperation: z.string().nullable().optional(),
+  environmentalAspect: z.string().min(1),
+  environmentalImpact: z.string().min(1),
+  controlTypes: z.array(z.string()).nullable().optional(),
+  existingControls: z.string().nullable().optional(),
+  lifecycleStages: z.array(z.string()).nullable().optional(),
+  branchState: z.string().nullable().optional(),
+  branchCity: z.string().nullable().optional(),
+});
+
+router.post(
+  "/organizations/:orgId/environmental/laia/assessments/suggest-legislation",
+  requireWriteAccess(),
+  async (req, res) => {
+    const params = paramsSchema.safeParse(req.params);
+    const body = suggestLegislationSchema.safeParse(req.body);
+    if (!params.success || !body.success) {
+      res.status(400).json({ error: "Parâmetros inválidos" });
+      return;
+    }
+    if (!requireOrgAccess(req, res, params.data.orgId)) return;
+
+    try {
+      const suggestions = await suggestLegislation(body.data);
+      res.json({ suggestions });
+    } catch (error) {
+      res.status(502).json({
+        error: error instanceof Error ? error.message : "Falha ao consultar IA",
+      });
+    }
+  },
+);
+
+const sectorCloneSchema = z.object({
+  sourceSectorId: z.number().int().positive(),
+  targetUnitId: z.number().int().positive().nullable().optional(),
+  newCode: z.string().min(1),
+  newName: z.string().min(1),
+  copyAssessments: z.boolean().optional().default(true),
+});
+
+router.post(
+  "/organizations/:orgId/environmental/laia/sectors/clone",
+  requireWriteAccess(),
+  async (req, res) => {
+    const params = paramsSchema.safeParse(req.params);
+    const body = sectorCloneSchema.safeParse(req.body);
+    if (!params.success || !body.success) {
+      res.status(400).json({ error: "Parâmetros inválidos" });
+      return;
+    }
+    if (!requireOrgAccess(req, res, params.data.orgId)) return;
+
+    const [source] = await db
+      .select()
+      .from(laiaSectorsTable)
+      .where(
+        and(
+          eq(laiaSectorsTable.id, body.data.sourceSectorId),
+          eq(laiaSectorsTable.organizationId, params.data.orgId),
+        ),
+      );
+
+    if (!source) {
+      res.status(404).json({ error: "Setor de origem não encontrado" });
+      return;
+    }
+
+    try {
+      const result = await db.transaction(async (trx) => {
+        const [newSector] = await trx
+          .insert(laiaSectorsTable)
+          .values({
+            organizationId: params.data.orgId,
+            unitId: body.data.targetUnitId ?? null,
+            departmentId: source.departmentId,
+            code: body.data.newCode,
+            name: body.data.newName,
+            description: source.description,
+            isActive: true,
+            createdById: req.auth!.userId,
+            updatedById: req.auth!.userId,
+          })
+          .returning();
+
+        let copiedAssessments = 0;
+        if (body.data.copyAssessments) {
+          const sourceAssessments = await trx
+            .select()
+            .from(laiaAssessmentsTable)
+            .where(
+              and(
+                eq(laiaAssessmentsTable.organizationId, params.data.orgId),
+                eq(laiaAssessmentsTable.sectorId, source.id),
+                inArray(laiaAssessmentsTable.status, ["draft", "active"]),
+              ),
+            );
+
+          for (let i = 0; i < sourceAssessments.length; i += 1) {
+            const orig = sourceAssessments[i];
+            const newCode = `${newSector.code}.${String(i + 1).padStart(2, "0")}`;
+            await trx.insert(laiaAssessmentsTable).values({
+              organizationId: params.data.orgId,
+              unitId: body.data.targetUnitId ?? orig.unitId,
+              sectorId: newSector.id,
+              methodologyVersionId: orig.methodologyVersionId,
+              aspectCode: newCode,
+              mode: orig.mode,
+              status: "draft",
+              isVigente: false,
+              activityOperation: orig.activityOperation,
+              environmentalAspect: orig.environmentalAspect,
+              environmentalImpact: orig.environmentalImpact,
+              temporality: orig.temporality,
+              operationalSituation: orig.operationalSituation,
+              incidence: orig.incidence,
+              impactClass: orig.impactClass,
+              scope: orig.scope,
+              severity: orig.severity,
+              consequenceScore: orig.consequenceScore,
+              frequencyProbability: orig.frequencyProbability,
+              frequencyProbabilityScore: orig.frequencyProbabilityScore,
+              totalScore: orig.totalScore,
+              category: orig.category,
+              significance: orig.significance,
+              significanceReason: orig.significanceReason,
+              hasLegalRequirements: orig.hasLegalRequirements,
+              hasStakeholderDemand: orig.hasStakeholderDemand,
+              hasStrategicOption: orig.hasStrategicOption,
+              normalCondition: orig.normalCondition,
+              abnormalCondition: orig.abnormalCondition,
+              startupShutdown: orig.startupShutdown,
+              emergencyScenario: orig.emergencyScenario,
+              lifecycleStages: orig.lifecycleStages,
+              controlLevel: orig.controlLevel,
+              influenceLevel: orig.influenceLevel,
+              outsourcedProcess: orig.outsourcedProcess,
+              supplierReference: orig.supplierReference,
+              controlTypes: orig.controlTypes,
+              existingControls: orig.existingControls,
+              controlRequired: orig.controlRequired,
+              notes: orig.notes,
+              createdById: req.auth!.userId,
+              updatedById: req.auth!.userId,
+            });
+            copiedAssessments += 1;
+          }
+        }
+
+        return { sector: newSector, copiedAssessments };
+      });
+
+      res.status(201).json(result);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Falha ao clonar setor";
+      if (/laia_sector_org_unit_code_unique|duplicate key/i.test(message)) {
+        res.status(409).json({ error: "Já existe um setor com este código" });
+        return;
+      }
+      res.status(500).json({ error: message });
+    }
+  },
+);
+
 router.get("/organizations/:orgId/environmental/laia/dashboard", async (req, res) => {
   const params = paramsSchema.safeParse(req.params);
   if (!params.success) {
@@ -2062,6 +2579,8 @@ router.get("/organizations/:orgId/environmental/laia/dashboard", async (req, res
     return;
   }
   if (!requireOrgAccess(req, res, params.data.orgId)) return;
+
+  await ensureComplianceItemsForOrg(params.data.orgId);
 
   const assessments = await db
     .select({
@@ -2071,6 +2590,9 @@ router.get("/organizations/:orgId/environmental/laia/dashboard", async (req, res
       unitId: laiaAssessmentsTable.unitId,
       sectorId: laiaAssessmentsTable.sectorId,
       hasLegalRequirements: laiaAssessmentsTable.hasLegalRequirements,
+      hasStakeholderDemand: laiaAssessmentsTable.hasStakeholderDemand,
+      hasStrategicOption: laiaAssessmentsTable.hasStrategicOption,
+      isVigente: laiaAssessmentsTable.isVigente,
       operationalSituation: laiaAssessmentsTable.operationalSituation,
       lifecycleStages: laiaAssessmentsTable.lifecycleStages,
       controlResponsibleUserId: laiaAssessmentsTable.controlResponsibleUserId,
@@ -2091,6 +2613,42 @@ router.get("/organizations/:orgId/environmental/laia/dashboard", async (req, res
     })
     .from(laiaMonitoringPlansTable)
     .where(eq(laiaMonitoringPlansTable.organizationId, params.data.orgId));
+
+  const complianceRows = await db
+    .select({
+      clause: laiaComplianceItemsTable.clause,
+      status: laiaComplianceItemsTable.status,
+    })
+    .from(laiaComplianceItemsTable)
+    .where(eq(laiaComplianceItemsTable.organizationId, params.data.orgId));
+
+  const odsRows = await db
+    .select({
+      odsNumber: laiaOdsAlignmentsTable.odsNumber,
+      significance: laiaAssessmentsTable.significance,
+    })
+    .from(laiaOdsAlignmentsTable)
+    .innerJoin(
+      laiaAssessmentsTable,
+      eq(laiaOdsAlignmentsTable.assessmentId, laiaAssessmentsTable.id),
+    )
+    .where(
+      and(
+        eq(laiaOdsAlignmentsTable.organizationId, params.data.orgId),
+        inArray(laiaAssessmentsTable.status, ["draft", "active"]),
+      ),
+    );
+
+  const trashCount = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(laiaAssessmentsTable)
+    .where(
+      and(
+        eq(laiaAssessmentsTable.organizationId, params.data.orgId),
+        eq(laiaAssessmentsTable.status, "archived"),
+        sql`${laiaAssessmentsTable.archivedAt} is not null`,
+      ),
+    );
 
   const now = Date.now();
   const monitoringPendingAssessmentIds = new Set(
@@ -2124,18 +2682,61 @@ router.get("/organizations/:orgId/environmental/laia/dashboard", async (req, res
     {},
   );
 
+  const byOds = odsRows.reduce<
+    Record<string, { total: number; significant: number }>
+  >((acc, row) => {
+    const key = String(row.odsNumber);
+    if (!acc[key]) acc[key] = { total: 0, significant: 0 };
+    acc[key].total += 1;
+    if (row.significance === "significant") acc[key].significant += 1;
+    return acc;
+  }, {});
+
+  const complianceScore = computeComplianceScore(complianceRows);
+
   res.json({
     totalAssessments: assessments.length,
     significantAssessments: assessments.filter((item) => item.significance === "significant")
       .length,
     criticalAssessments: assessments.filter((item) => item.category === "critico").length,
+    moderateAssessments: assessments.filter((item) => item.category === "moderado").length,
+    negligibleAssessments: assessments.filter((item) => item.category === "desprezivel").length,
+    notSignificantAssessments: assessments.filter(
+      (item) => item.significance === "not_significant",
+    ).length,
     withoutControlResponsible: assessments.filter((item) => !item.controlResponsibleUserId)
       .length,
     withLegalRequirement: assessments.filter((item) => item.hasLegalRequirements).length,
+    withStakeholderDemand: assessments.filter((item) => item.hasStakeholderDemand).length,
+    withStrategicOption: assessments.filter((item) => item.hasStrategicOption).length,
     withMonitoringPending: monitoringPendingAssessmentIds.size,
+    pendingVigence: assessments.filter((item) => !item.isVigente).length,
+    trashCount: trashCount[0]?.count ?? 0,
     byOperationalSituation,
     byLifecycleStage,
+    byOds,
+    compliance: {
+      score: complianceScore.score,
+      itemsByStatus: complianceScore.byStatus,
+    },
   });
 });
+
+function computeComplianceScore(
+  rows: Array<{ clause: LaiaComplianceClause; status: LaiaComplianceStatus }>,
+) {
+  const byStatus: Record<LaiaComplianceStatus, number> = {
+    atendido: 0,
+    parcial: 0,
+    nao_atendido: 0,
+  };
+  for (const row of rows) {
+    byStatus[row.status] += 1;
+  }
+  const total = LAIA_COMPLIANCE_CLAUSES.length;
+  const weighted = byStatus.atendido * 1 + byStatus.parcial * 0.5;
+  const score = total === 0 ? 0 : Math.round((weighted / total) * 100);
+  return { score, byStatus };
+}
 
 export default router;

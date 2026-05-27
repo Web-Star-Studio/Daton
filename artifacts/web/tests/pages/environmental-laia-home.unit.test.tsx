@@ -130,7 +130,7 @@ vi.mock("@/lib/environmental-laia-client", () => ({
     mutateAsync: vi.fn(),
   })),
   useLaiaAssessment: vi.fn(() => ({ data: undefined })),
-  useLaiaAssessments: vi.fn(() => ({ data: [] })),
+  useLaiaAssessments: vi.fn(() => ({ data: [], isLoading: false })),
   useLaiaBranchConfigs: vi.fn(() => ({
     data: branchConfigsData,
   })),
@@ -152,6 +152,31 @@ vi.mock("@/lib/environmental-laia-client", () => ({
     isPending: false,
     mutateAsync: vi.fn(),
   })),
+  useLaiaComplianceItems: vi.fn(() => ({ data: [], isLoading: false })),
+  useUpdateLaiaComplianceItem: vi.fn(() => ({
+    isPending: false,
+    mutateAsync: vi.fn(),
+  })),
+  useSetLaiaAssessmentVigence: vi.fn(() => ({
+    isPending: false,
+    mutateAsync: vi.fn(),
+  })),
+  useRestoreLaiaAssessment: vi.fn(() => ({
+    isPending: false,
+    mutateAsync: vi.fn(),
+  })),
+  useHardDeleteLaiaAssessment: vi.fn(() => ({
+    isPending: false,
+    mutateAsync: vi.fn(),
+  })),
+  useSuggestLaiaLegislation: vi.fn(() => ({
+    isPending: false,
+    mutateAsync: vi.fn(),
+  })),
+  useCloneLaiaSector: vi.fn(() => ({
+    isPending: false,
+    mutateAsync: vi.fn(),
+  })),
 }));
 
 describe("Environmental LAIA home page", () => {
@@ -159,12 +184,14 @@ describe("Environmental LAIA home page", () => {
     navigateMock.mockReset();
   });
 
-  it("renders methodology, units and revisions tabs in the expected order", () => {
+  it("renders the matriz/evidências/conformidade tabs alongside legacy ones", () => {
     render(<EnvironmentalLaiaPage />);
 
-    expect(screen.queryByRole("tab", { name: "Matriz" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Setores" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Matriz",
+      "Evidências",
+      "Conformidade 6.1",
       "Metodologia",
       "Unidades",
       "Revisões",
