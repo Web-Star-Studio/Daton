@@ -11,6 +11,7 @@ import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { YearPicker } from "@/components/ui/year-picker";
 import { CellRedActionsDialog } from "@/components/kpi/cell-red-actions-dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -117,6 +118,7 @@ function untreatedRedMonths(row: KpiYearRow): number[] {
 /** Spreadsheet-style year history for the indicator being launched. */
 function HistoryPanel({
   row,
+  year,
   goal,
   direction,
   selectedMonth,
@@ -124,6 +126,7 @@ function HistoryPanel({
   onSelectMonth,
 }: {
   row: KpiYearRow;
+  year: number;
   goal: number | null;
   direction: KpiDirection;
   selectedMonth: number;
@@ -145,7 +148,7 @@ function HistoryPanel({
     <div className="space-y-3 rounded-xl border bg-card p-4">
       <div>
         <h3 className="text-[13px] font-semibold text-foreground">
-          Histórico {CURRENT_YEAR}
+          Histórico {year}
         </h3>
         <p className="mt-0.5 text-[11px] text-muted-foreground">
           Tolerância:{" "}
@@ -267,7 +270,14 @@ export function LancarScreen({
 }) {
   const { organization } = useAuth();
   const orgId = organization!.id;
-  const year = CURRENT_YEAR;
+  // Ano selecionado pela Ana. Default = ano corrente, mas backfill de anos
+  // passados é suportado: o backend faz carry-forward de tolerância/objetivo
+  // do ano anterior, então indicadores aparecem em qualquer ano sem que
+  // alguém precise reabrir o cadastro.
+  const [year, setYear] = useState(CURRENT_YEAR);
+  // Quantos meses do ano selecionado já viraram "lançáveis": no ano corrente
+  // só até o mês atual (CURRENT_MONTH); em anos passados/futuros, todos os 12.
+  const maxLaunchableMonth = year === CURRENT_YEAR ? CURRENT_MONTH : 12;
 
   usePageTitle("Lançar resultado");
   usePageSubtitle("Sua fila de pendências — registre os resultados mensais");
@@ -447,8 +457,10 @@ export function LancarScreen({
     !!statusFilter;
 
   function openForm(row: KpiYearRow) {
-    let defaultMonth = CURRENT_MONTH;
-    for (let m = CURRENT_MONTH; m >= 1; m--) {
+    // Começa procurando o mês mais recente sem valor — em ano passado, isso
+    // significa varrer Dez→Jan; em ano corrente, mês corrente→Jan.
+    let defaultMonth = maxLaunchableMonth;
+    for (let m = maxLaunchableMonth; m >= 1; m--) {
       const mv = row.monthlyValues.find((x) => x.month === m);
       if (mv?.value == null) {
         defaultMonth = m;
@@ -544,7 +556,7 @@ export function LancarScreen({
                 onChange={(e) => setMonth(Number(e.target.value))}
                 className="w-48"
               >
-                {Array.from({ length: CURRENT_MONTH }, (_, i) => i + 1).map(
+                {Array.from({ length: maxLaunchableMonth }, (_, i) => i + 1).map(
                   (m) => (
                     <option key={m} value={String(m)}>
                       {MONTH_FULL[m - 1]} de {year}
@@ -704,6 +716,7 @@ export function LancarScreen({
           </div>
           <HistoryPanel
             row={selectedRow}
+            year={year}
             goal={goal}
             direction={direction}
             selectedMonth={month}
@@ -735,6 +748,16 @@ export function LancarScreen({
     <div className="space-y-4 p-6">
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
+        <YearPicker
+          value={year}
+          onChange={(y) => {
+            setYear(y);
+            // Se o user tinha um indicador aberto, fecha — a tela volta pra
+            // fila do novo ano. Evita confusão de "estou editando 2025 mas
+            // o título mostra 2026".
+            setSelectedId(null);
+          }}
+        />
         <Input
           placeholder="Buscar indicador..."
           value={search}

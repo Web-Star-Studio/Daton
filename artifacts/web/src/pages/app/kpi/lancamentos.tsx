@@ -342,7 +342,7 @@ export default function KpiAlimentacaoPage() {
                 );
 
                 return (
-                  <tr key={row.yearConfig.id} className="hover:bg-muted/20">
+                  <tr key={row.indicator.id} className="hover:bg-muted/20">
                     <td className="border px-2 py-1.5 sticky left-0 z-10 bg-card font-medium">
                       <div className="flex items-start gap-1.5">
                         <button
