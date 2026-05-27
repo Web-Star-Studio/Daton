@@ -1,4 +1,15 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+// React 19.1 ainda não exporta `useEffectEvent` (API experimental). Polyfill
+// equivalente: ref atualizada a cada render, callback estável retorna o valor
+// atual sem invalidar deps de useEffect.
+function useEffectEvent<T extends (...args: never[]) => unknown>(fn: T): T {
+  const ref = useRef(fn);
+  useEffect(() => {
+    ref.current = fn;
+  });
+  return useCallback(((...args: Parameters<T>) => ref.current(...args)) as T, []);
+}
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
