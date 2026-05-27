@@ -37,6 +37,7 @@ import {
   KPI_CATEGORIES,
   KPI_NORMS,
   PERIODICITY_LABELS,
+  formatKpiNumber,
   type KpiIndicator,
   type KpiObjective,
   type KpiYearRow,
@@ -203,10 +204,7 @@ function latestValue(row: KpiYearRow | undefined): number | null {
   return latest ? latest.value : null;
 }
 
-function fmtNum(v: number | null | undefined): string {
-  if (v === null || v === undefined) return "—";
-  return v.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
-}
+const fmtNum = formatKpiNumber;
 
 /**
  * Props opcionais — KpiModulePage usa pra plumbing de troca de aba

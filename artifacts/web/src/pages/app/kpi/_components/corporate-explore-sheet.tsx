@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getTrafficLight } from "@/lib/kpi-client";
+import { formatKpiNumberFixed, getTrafficLight } from "@/lib/kpi-client";
 import { cn } from "@/lib/utils";
 import { Sparkline } from "./sparkline";
 import type { CardStatus } from "./indicator-card";
@@ -44,16 +44,7 @@ const MONTH_NAMES_FULL = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
-function formatValue(value: number | null | undefined, unit?: string | null): string {
-  if (value === null || value === undefined) return "—";
-  const abs = Math.abs(value);
-  const decimals = abs >= 100 ? 0 : abs >= 10 ? 1 : 2;
-  const formatted = value.toLocaleString("pt-BR", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-  return unit ? `${formatted} ${unit}` : formatted;
-}
+const formatValue = formatKpiNumberFixed;
 
 /**
  * Mapeia periodicity → lista de meses (1-based) que esperamos ter valor.

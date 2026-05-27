@@ -171,6 +171,41 @@ export function computeMonthlyStats(
   return { average, accumulated, progress, overallStatus, rac1, rac2 };
 }
 
+// ─── Number formatting ─────────────────────────────────────────────────────
+
+function pickKpiDecimals(value: number): number {
+  if (value === 0) return 0;
+  const abs = Math.abs(value);
+  if (abs >= 100) return 0;
+  if (abs >= 10) return 1;
+  if (abs >= 0.01) return 2;
+  // Para frações pequenas (ex.: 8/9483 = 0,000843) preserva casas suficientes
+  // para mostrar ~2 dígitos significativos — evita arredondar para "0".
+  return Math.min(6, 2 - Math.floor(Math.log10(abs)));
+}
+
+/** Formata número para tabelas/tooltips: casas decimais adaptativas, sem zeros à direita. */
+export function formatKpiNumber(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  return value.toLocaleString("pt-BR", {
+    maximumFractionDigits: pickKpiDecimals(value),
+  });
+}
+
+/** Formata número para cards/dashboards: casas decimais adaptativas, com zeros à direita preservados. */
+export function formatKpiNumberFixed(
+  value: number | null | undefined,
+  measureUnit?: string | null,
+): string {
+  if (value === null || value === undefined) return "—";
+  const decimals = pickKpiDecimals(value);
+  const formatted = value.toLocaleString("pt-BR", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+  return measureUnit ? `${formatted} ${measureUnit}` : formatted;
+}
+
 // ─── Periodicity label ─────────────────────────────────────────────────────
 
 export const PERIODICITY_LABELS: Record<KpiPeriodicity, string> = {

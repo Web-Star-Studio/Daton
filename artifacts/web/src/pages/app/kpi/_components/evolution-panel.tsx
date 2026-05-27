@@ -11,7 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import type { KpiIndicator, KpiYearRow } from "@/lib/kpi-client";
+import { formatKpiNumberFixed, type KpiIndicator, type KpiYearRow } from "@/lib/kpi-client";
 import { getIndicatorStatus, type CardStatus } from "./indicator-card";
 
 const MONTH_ABBR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -69,13 +69,8 @@ function buildSeries(row: KpiYearRow): { name: string; value: number | null; met
 }
 
 function formatTick(value: number, measureUnit?: string | null): string {
-  const abs = Math.abs(value);
-  const decimals = abs >= 100 ? 0 : abs >= 10 ? 1 : 2;
-  const formatted = value.toLocaleString("pt-BR", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-  return measureUnit ? `${formatted}${measureUnit.length <= 3 ? measureUnit : ""}` : formatted;
+  const formatted = formatKpiNumberFixed(value);
+  return measureUnit && measureUnit.length <= 3 ? `${formatted}${measureUnit}` : formatted;
 }
 
 export function EvolutionPanel({ indicators, yearRows, limit = 3 }: EvolutionPanelProps) {
