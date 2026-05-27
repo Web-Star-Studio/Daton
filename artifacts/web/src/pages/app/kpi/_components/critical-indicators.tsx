@@ -1,7 +1,7 @@
 import { AlertCircle, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { KpiIndicator, KpiYearRow } from "@/lib/kpi-client";
+import { formatKpiNumberFixed, type KpiIndicator, type KpiYearRow } from "@/lib/kpi-client";
 import { getIndicatorStatus, type CardStatus } from "./indicator-card";
 
 type CriticalIndicatorsProps = {
@@ -14,16 +14,7 @@ type CriticalIndicatorsProps = {
 
 const MONTH_ABBR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-function formatValue(value: number | null | undefined, measureUnit?: string | null): string {
-  if (value === null || value === undefined) return "—";
-  const abs = Math.abs(value);
-  const decimals = abs >= 100 ? 0 : abs >= 10 ? 1 : 2;
-  const formatted = value.toLocaleString("pt-BR", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-  return measureUnit ? `${formatted} ${measureUnit}` : formatted;
-}
+const formatValue = formatKpiNumberFixed;
 
 function latestValue(row: KpiYearRow | undefined): { month: number; value: number } | null {
   if (!row) return null;

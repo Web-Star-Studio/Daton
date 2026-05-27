@@ -20,6 +20,7 @@ import {
   MONTH_LABELS,
   PERIODICITY_LABELS,
   computeMonthlyStats,
+  formatKpiNumber,
   getTrafficLight,
   trafficLightColor,
   useKpiYearData,
@@ -49,10 +50,7 @@ const MONTH_FULL = [
   "Dezembro",
 ];
 
-function fmt(n: number | null | undefined): string {
-  if (n === null || n === undefined) return "—";
-  return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
-}
+const fmt = formatKpiNumber;
 
 type StatusInfo = { label: string; box: string; pill: string };
 

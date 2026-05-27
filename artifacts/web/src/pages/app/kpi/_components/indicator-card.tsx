@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { hasValidFormula } from "@/lib/formula-evaluator";
 import {
   PERIODICITY_LABELS,
+  formatKpiNumberFixed,
   getTrafficLight,
   type KpiIndicator,
   type KpiYearRow,
@@ -50,16 +51,7 @@ const STATUS_LABEL: Record<CardStatus, string> = {
 
 const MONTH_ABBR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-function formatValue(value: number | null | undefined, measureUnit?: string | null): string {
-  if (value === null || value === undefined) return "—";
-  const abs = Math.abs(value);
-  const decimals = abs >= 100 ? 0 : abs >= 10 ? 1 : 2;
-  const formatted = value.toLocaleString("pt-BR", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-  return measureUnit ? `${formatted} ${measureUnit}` : formatted;
-}
+const formatValue = formatKpiNumberFixed;
 
 function findLatestValue(
   monthlyValues: KpiYearRow["monthlyValues"] | undefined,
