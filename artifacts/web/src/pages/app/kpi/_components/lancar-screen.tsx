@@ -119,6 +119,7 @@ function untreatedRedMonths(row: KpiYearRow): number[] {
 function HistoryPanel({
   row,
   year,
+  maxLaunchableMonth,
   goal,
   direction,
   selectedMonth,
@@ -127,11 +128,13 @@ function HistoryPanel({
 }: {
   row: KpiYearRow;
   year: number;
+  /** Último mês que pode receber lançamento (em ano corrente = mês atual). */
+  maxLaunchableMonth: number;
   goal: number | null;
   direction: KpiDirection;
   selectedMonth: number;
   measureUnit: string;
-  /** Abre o diálogo de justificativa/plano de ação para o mês clicado. */
+  /** Foca o mês no form (cria lançamento se vazio, edita se já tem valor). */
   onSelectMonth: (month: number) => void;
 }) {
   const monthValues = Array.from(
@@ -162,7 +165,10 @@ function HistoryPanel({
           const v = monthValues[i];
           const st = getTrafficLight(v, goal, direction);
           const month = i + 1;
-          const clickable = v !== null;
+          // Mês pode ser lançado (ainda não é futuro). Em ano corrente,
+          // limita ao mês corrente; em ano passado, todos os 12; em ano
+          // futuro, nenhum.
+          const clickable = month <= maxLaunchableMonth;
           const isExpectedEmpty = v === null && expected.has(month);
           const isUntreatedRed = untreated.has(month);
           const cls = cn(
@@ -195,12 +201,12 @@ function HistoryPanel({
               type="button"
               className={cls}
               onClick={() => onSelectMonth(month)}
-              title="Registrar justificativa / plano de ação"
+              title={v !== null ? "Editar lançamento" : "Lançar valor neste mês"}
             >
               {body}
             </button>
           ) : (
-            <div key={label} className={cls}>
+            <div key={label} className={cls} title="Mês futuro — ainda não disponível">
               {body}
             </div>
           );
@@ -210,12 +216,11 @@ function HistoryPanel({
         <p className="flex items-center gap-1.5 rounded-md bg-red-50 px-2 py-1.5 text-[11px] font-medium text-red-700 dark:bg-red-500/10 dark:text-red-300">
           <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
           {untreated.size} {untreated.size === 1 ? "mês" : "meses"} fora da tolerância
-          sem plano de ação — clique para tratar.
+          sem plano de ação — use o botão de justificativa abaixo do resultado.
         </p>
       ) : (
         <p className="text-[10px] text-muted-foreground">
-          Clique em um mês com resultado para registrar justificativa ou plano
-          de ação.
+          Clique em um mês pra editar o lançamento ou lançar o valor.
         </p>
       )}
       <Sparkline
@@ -717,11 +722,12 @@ export function LancarScreen({
           <HistoryPanel
             row={selectedRow}
             year={year}
+            maxLaunchableMonth={maxLaunchableMonth}
             goal={goal}
             direction={direction}
             selectedMonth={month}
             measureUnit={measureUnit}
-            onSelectMonth={setRacMonth}
+            onSelectMonth={setMonth}
           />
         </div>
         {racMonth !== null ? (
