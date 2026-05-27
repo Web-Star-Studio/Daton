@@ -250,9 +250,22 @@ function HistoryPanel({
 
 export function LancarScreen({
   onEditIndicator,
+  initialIndicatorId,
+  onInitialIndicatorConsumed,
 }: {
   /** Abre o cadastro do indicador (aba Indicadores) para definir o mês de referência. */
   onEditIndicator: (indicatorId: number) => void;
+  /**
+   * Quando definido, o LancarScreen seleciona esse indicador automaticamente
+   * (abrindo o painel de edição) e rola até ele. Usado pelo deep-link vindo
+   * do drawer "Explorar Corporativo" e dos badges de composição.
+   */
+  initialIndicatorId?: number | null;
+  /**
+   * Chamado uma vez após consumir o `initialIndicatorId` — o pai usa pra
+   * resetar o estado de pendingFocus, evitando re-focar a cada re-render.
+   */
+  onInitialIndicatorConsumed?: () => void;
 }) {
   const { organization } = useAuth();
   const orgId = organization!.id;
@@ -282,6 +295,28 @@ export function LancarScreen({
         : null,
     [rows, selectedId],
   );
+
+  // Deep-link: quando o pai (KpiModulePage) entrega um initialIndicatorId,
+  // selecionamos esse indicador, rolamos até o cartão dele na lista, e
+  // sinalizamos consumo pro pai resetar o pendingFocus.
+  useEffect(() => {
+    if (initialIndicatorId == null) return;
+    // Espera os rows carregarem pra garantir que o indicador existe no ano corrente
+    if (rows.length === 0) return;
+    const match = rows.find((r) => r.indicator.id === initialIndicatorId);
+    if (!match) {
+      onInitialIndicatorConsumed?.();
+      return;
+    }
+    setSelectedId(initialIndicatorId);
+    // Scroll suave até o cartão; o id é colocado nos <li> das listas abaixo.
+    setTimeout(() => {
+      const el = document.getElementById(`lancar-ind-${initialIndicatorId}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+    onInitialIndicatorConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialIndicatorId, rows.length]);
 
   const hasFormula =
     !!selectedRow &&
@@ -805,7 +840,7 @@ export function LancarScreen({
               </p>
               <ul className="space-y-2">
                 {faltaConfig.map((row) => (
-                  <li key={row.indicator.id}>
+                  <li key={row.indicator.id} id={`lancar-ind-${row.indicator.id}`} className="scroll-mt-6">
                     <button
                       type="button"
                       onClick={() => onEditIndicator(row.indicator.id)}
@@ -858,7 +893,7 @@ export function LancarScreen({
                 {requerAcao.map((row) => {
                   const reds = untreatedRedMonths(row);
                   return (
-                    <li key={row.indicator.id}>
+                    <li key={row.indicator.id} id={`lancar-ind-${row.indicator.id}`} className="scroll-mt-6">
                       <button
                         type="button"
                         onClick={() => openForm(row)}
@@ -945,7 +980,7 @@ export function LancarScreen({
               ) : (
                 <ul className="space-y-2">
                   {section.items.map((row) => (
-                    <li key={row.indicator.id}>
+                    <li key={row.indicator.id} id={`lancar-ind-${row.indicator.id}`} className="scroll-mt-6">
                       <button
                         type="button"
                         onClick={() => openForm(row)}

@@ -3728,6 +3728,170 @@ export interface KpiRollupComputeResult {
   breakdown: KpiRollupBreakdownEntry[];
 }
 
+export type KpiRollupClusterMemberFormulaVariablesItem = {
+  key: string;
+  label: string;
+};
+
+/**
+ * Membro proposto de um cluster de indicadores filial-level.
+ */
+export interface KpiRollupClusterMember {
+  indicatorId: number;
+  name: string;
+  /** @nullable */
+  unit?: string | null;
+  /** @nullable */
+  measureUnit?: string | null;
+  measurement: string;
+  formulaExpression: string;
+  formulaVariables: KpiRollupClusterMemberFormulaVariablesItem[];
+  /** Mapeia posição na fórmula → key da variável (preserva ordem). */
+  positionToKey: string[];
+}
+
+export type KpiRollupClusterMeasurementClass =
+  (typeof KpiRollupClusterMeasurementClass)[keyof typeof KpiRollupClusterMeasurementClass];
+
+export const KpiRollupClusterMeasurementClass = {
+  percent: "percent",
+  per_thousand: "per_thousand",
+  duration: "duration",
+  currency: "currency",
+  count: "count",
+  volume_or_mass: "volume_or_mass",
+  ratio_other: "ratio_other",
+  none: "none",
+} as const;
+
+/**
+ * Mapping pré-preenchido por POSIÇÃO. Chaves externas são posições
+(0, 1, ...) da fórmula normalizada. Valores são mapas indicatorId
+→ child var key. Ex: variableMappingByPosition["0"] = { 9: "avarias", 12: "ocorrencias" }
+significa: na posição 1 da fórmula, o indicador 9 contribui com
+sua variável "avarias" e o indicador 12 com "ocorrencias".
+
+ */
+export type KpiRollupClusterVariableMappingByPosition = {
+  [key: string]: { [key: string]: string };
+};
+
+/**
+ * Cluster de indicadores filial-level detectado pela heurística.
+ */
+export interface KpiRollupCluster {
+  clusterKey: string;
+  formulaShape: string;
+  measurementClass: KpiRollupClusterMeasurementClass;
+  periodicity: string;
+  members: KpiRollupClusterMember[];
+  proposedName: string;
+  /** Mapping pré-preenchido por POSIÇÃO. Chaves externas são posições
+(0, 1, ...) da fórmula normalizada. Valores são mapas indicatorId
+→ child var key. Ex: variableMappingByPosition["0"] = { 9: "avarias", 12: "ocorrencias" }
+significa: na posição 1 da fórmula, o indicador 9 contribui com
+sua variável "avarias" e o indicador 12 com "ocorrencias".
+ */
+  variableMappingByPosition: KpiRollupClusterVariableMappingByPosition;
+}
+
+export interface ListKpiRollupClustersResponse {
+  clusters: KpiRollupCluster[];
+}
+
+export interface ValidateKpiRollupClusterBody {
+  /** @minItems 2 */
+  childIndicatorIds: number[];
+}
+
+export interface KpiRollupClusterValidation {
+  isValid: boolean;
+  /**
+   * @minimum 0
+   * @maximum 1
+   */
+  confidence: number;
+  canonicalName: string;
+  outlierIndicatorIds: number[];
+  reasoning: string;
+}
+
+export type CreateKpiRollupFromClusterBodyDirection =
+  (typeof CreateKpiRollupFromClusterBodyDirection)[keyof typeof CreateKpiRollupFromClusterBodyDirection];
+
+export const CreateKpiRollupFromClusterBodyDirection = {
+  up: "up",
+  down: "down",
+} as const;
+
+export type CreateKpiRollupFromClusterBodyFormulaVariablesItem = {
+  key: string;
+  label: string;
+};
+
+export type CreateKpiRollupFromClusterBodyStrategy =
+  (typeof CreateKpiRollupFromClusterBodyStrategy)[keyof typeof CreateKpiRollupFromClusterBodyStrategy];
+
+export const CreateKpiRollupFromClusterBodyStrategy = {
+  sum_inputs: "sum_inputs",
+  sum_values: "sum_values",
+  average: "average",
+  min: "min",
+  max: "max",
+} as const;
+
+export type CreateKpiRollupFromClusterBodyChildrenItemVariableMapping = {
+  [key: string]: string;
+};
+
+export type CreateKpiRollupFromClusterBodyChildrenItem = {
+  childIndicatorId: number;
+  variableMapping: CreateKpiRollupFromClusterBodyChildrenItemVariableMapping;
+};
+
+/**
+ * Cria indicador Corporativo + composição em uma transação. O servidor
+força unit="Corporativo" e rollupStrategy != null; cliente fornece
+a fórmula/vars canonicalizadas (geralmente herdadas de um membro do
+cluster) e o mapping de cada filho.
+
+ */
+export interface CreateKpiRollupFromClusterBody {
+  name: string;
+  measurement: string;
+  /** @nullable */
+  measureUnit?: string | null;
+  direction: CreateKpiRollupFromClusterBodyDirection;
+  periodicity: string;
+  /** @nullable */
+  category?: string | null;
+  formulaExpression: string;
+  formulaVariables: CreateKpiRollupFromClusterBodyFormulaVariablesItem[];
+  /** @nullable */
+  responsibleUserId?: number | null;
+  norms?: string[];
+  strategy?: CreateKpiRollupFromClusterBodyStrategy;
+  /** @minItems 1 */
+  children: CreateKpiRollupFromClusterBodyChildrenItem[];
+}
+
+export type CreateKpiRollupFromClusterResponseStrategy =
+  (typeof CreateKpiRollupFromClusterResponseStrategy)[keyof typeof CreateKpiRollupFromClusterResponseStrategy];
+
+export const CreateKpiRollupFromClusterResponseStrategy = {
+  sum_inputs: "sum_inputs",
+  sum_values: "sum_values",
+  average: "average",
+  min: "min",
+  max: "max",
+} as const;
+
+export interface CreateKpiRollupFromClusterResponse {
+  indicatorId: number;
+  childrenCount: number;
+  strategy: CreateKpiRollupFromClusterResponseStrategy;
+}
+
 export type ActionPlanStatus =
   (typeof ActionPlanStatus)[keyof typeof ActionPlanStatus];
 

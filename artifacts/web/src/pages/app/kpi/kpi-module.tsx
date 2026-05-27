@@ -26,12 +26,25 @@ function initialTab(): KpiTabId {
 
 export default function KpiModulePage() {
   const [tab, setTab] = useState<KpiTabId>(initialTab);
+  /**
+   * Indicador que deve receber foco ao entrar na aba "Lançar". É setado
+   * pelo callback `onOpenInLancar` (vindo do drawer Explorar Corporativo
+   * ou dos badges de composição) ANTES da troca de aba. LancarScreen
+   * consome via prop + reseta para null logo após scrollar — assim o
+   * foco não persiste em re-entradas naturais na aba.
+   */
+  const [pendingFocusId, setPendingFocusId] = useState<number | null>(null);
 
   return (
     <div className="flex min-h-full flex-col">
       <KpiTabs active={tab} onChange={setTab} />
       {tab === "indicadores" ? (
-        <KpiIndicadoresPage />
+        <KpiIndicadoresPage
+          onOpenInLancar={(indicatorId) => {
+            setPendingFocusId(indicatorId);
+            setTab("lancamentos");
+          }}
+        />
       ) : tab === "lancamentos" ? (
         <LancarScreen
           onEditIndicator={(id) => {
@@ -42,6 +55,8 @@ export default function KpiModulePage() {
             );
             setTab("indicadores");
           }}
+          initialIndicatorId={pendingFocusId}
+          onInitialIndicatorConsumed={() => setPendingFocusId(null)}
         />
       ) : tab === "rac" ? (
         <RacScreen />
