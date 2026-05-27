@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, lt, sql } from "drizzle-orm";
 import {
   actionPlansTable,
   db,
@@ -98,24 +98,35 @@ function computeFeedStatus(
   monthValues: (number | null)[],
   periodicity: string,
   referenceMonth: number | null,
+  year: number,
 ): "fed" | "overdue" {
-  const currentMonth = new Date().getMonth() + 1; // 1-indexed
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-indexed
 
-  // Periodicidades mensais: vencido se algum mês ANTERIOR ao atual está vazio
-  // (o mês corrente ainda está em curso).
+  // Quantos meses do ano selecionado já viraram exigíveis (passaram).
+  //   - ano passado : todos os 12 são exigíveis
+  //   - ano corrente: 1..currentMonth-1 (o mês corrente ainda está em curso)
+  //   - ano futuro  : 0 (nada cobrável ainda)
+  const maxMonthDue =
+    year < currentYear ? 12 : year > currentYear ? 0 : currentMonth - 1;
+
+  if (maxMonthDue === 0) return "fed";
+
+  // Periodicidades mensais: vencido se algum mês exigível está vazio.
   if (
     periodicity === "monthly" ||
     periodicity === "monthly_15d" ||
     periodicity === "monthly_45d"
   ) {
-    for (let m = 1; m < currentMonth; m++) {
+    for (let m = 1; m <= maxMonthDue; m++) {
       if (monthValues[m - 1] === null) return "overdue";
     }
     return "fed";
   }
 
   // Não mensais: precisam do mês de referência. Vencido quando um mês
-  // esperado que já chegou (mês ≤ atual) continua sem lançamento.
+  // esperado que já chegou (mês ≤ maxMonthDue) continua sem lançamento.
   if (!referenceMonth || referenceMonth < 1 || referenceMonth > 12) {
     return "fed"; // sem mês de referência — não há como cobrar
   }
@@ -126,9 +137,91 @@ function computeFeedStatus(
   else if (periodicity === "quarterly") expected = [at(0), at(3), at(6), at(9)];
   else expected = [];
   for (const m of expected) {
-    if (m <= currentMonth && monthValues[m - 1] === null) return "overdue";
+    if (m <= maxMonthDue && monthValues[m - 1] === null) return "overdue";
   }
   return "fed";
+}
+
+/**
+ * Garante a existência de `kpi_year_configs` para (org, indicator, year),
+ * herdando `goal`, `seq` e `objectiveId` do config mais recente de ANO
+ * ANTERIOR quando precisa criar (carry-forward). Idempotente — usa
+ * onConflictDoUpdate pra resolver races sem perder a row existente.
+ *
+ * Retorna `null` se o indicador não existe (ou não pertence à org).
+ *
+ * Por que carry-forward: o catálogo de indicadores (fórmula, periodicidade,
+ * direction, etc.) não tem ano — eles seguem ativos. Apenas a meta/objetivo
+ * tem dimensão temporal. Sem isso, todo dia 1º de janeiro o usuário precisava
+ * reabrir cada indicador e reconfigurar a tolerância pra que ele voltasse a
+ * aparecer na tela de Lançamentos. Agora a tolerância anterior fica como
+ * default e o cliente sobrescreve quando quiser.
+ */
+async function ensureYearConfig(
+  orgId: number,
+  indicatorId: number,
+  year: number,
+): Promise<typeof kpiYearConfigsTable.$inferSelect | null> {
+  const [existing] = await db
+    .select()
+    .from(kpiYearConfigsTable)
+    .where(
+      and(
+        eq(kpiYearConfigsTable.organizationId, orgId),
+        eq(kpiYearConfigsTable.indicatorId, indicatorId),
+        eq(kpiYearConfigsTable.year, year),
+      ),
+    );
+  if (existing) return existing;
+
+  // Garante que o indicador existe na org antes de inserir (evita FK error)
+  const [ind] = await db
+    .select({ id: kpiIndicatorsTable.id })
+    .from(kpiIndicatorsTable)
+    .where(
+      and(
+        eq(kpiIndicatorsTable.id, indicatorId),
+        eq(kpiIndicatorsTable.organizationId, orgId),
+      ),
+    );
+  if (!ind) return null;
+
+  // Busca o config mais recente em ano anterior pra herdar valores.
+  const [prior] = await db
+    .select()
+    .from(kpiYearConfigsTable)
+    .where(
+      and(
+        eq(kpiYearConfigsTable.organizationId, orgId),
+        eq(kpiYearConfigsTable.indicatorId, indicatorId),
+        lt(kpiYearConfigsTable.year, year),
+      ),
+    )
+    .orderBy(desc(kpiYearConfigsTable.year))
+    .limit(1);
+
+  const [created] = await db
+    .insert(kpiYearConfigsTable)
+    .values({
+      organizationId: orgId,
+      indicatorId,
+      year,
+      objectiveId: prior?.objectiveId ?? null,
+      seq: prior?.seq ?? null,
+      goal: prior?.goal ?? null,
+    })
+    .onConflictDoUpdate({
+      target: [
+        kpiYearConfigsTable.organizationId,
+        kpiYearConfigsTable.indicatorId,
+        kpiYearConfigsTable.year,
+      ],
+      // Race: outra request criou no meio tempo. Mantém o que estava lá,
+      // só toca updatedAt pro returning retornar a row.
+      set: { updatedAt: new Date() },
+    })
+    .returning();
+  return created;
 }
 
 // ─── Objectives ────────────────────────────────────────────────────────────
@@ -417,6 +510,52 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
   const yearConfigByIndicatorId = new Map(yearConfigs.map((yc) => [yc.indicatorId, yc]));
   const yearConfigIds = yearConfigs.map((yc) => yc.id);
 
+  // Carry-forward sintético: pra cada indicador sem config no ano alvo, busca
+  // o config mais recente de ano anterior e materializa em memória (id=0
+  // marca "não persistido"). Persiste de verdade só quando a Ana salvar um
+  // valor — vide PUT /years/:year/values e ensureYearConfig. Sem isso, ano
+  // novo viria vazio e o cliente teria que reabrir cada indicador no início
+  // de cada ano (jan/2027 etc).
+  const indicatorsWithoutConfig = indicators.filter(
+    (ind) => !yearConfigByIndicatorId.has(ind.id),
+  );
+  if (indicatorsWithoutConfig.length > 0) {
+    const missingIds = indicatorsWithoutConfig.map((i) => i.id);
+    const priorRows = await db.execute<{
+      indicator_id: number;
+      objective_id: number | null;
+      seq: number | null;
+      goal: string | null;
+    }>(sql`
+      SELECT DISTINCT ON (indicator_id)
+        indicator_id, objective_id, seq, goal
+      FROM ${kpiYearConfigsTable}
+      WHERE organization_id = ${params.data.orgId}
+        AND year < ${params.data.year}
+        AND indicator_id IN ${missingIds}
+      ORDER BY indicator_id, year DESC
+    `);
+    const priorByIndicatorId = new Map(
+      priorRows.rows.map((r) => [Number(r.indicator_id), r]),
+    );
+    const now = new Date();
+    for (const ind of indicatorsWithoutConfig) {
+      const prior = priorByIndicatorId.get(ind.id);
+      const synthetic: typeof kpiYearConfigsTable.$inferSelect = {
+        id: 0, // sentinela "não persistido"
+        organizationId: params.data.orgId,
+        indicatorId: ind.id,
+        year: params.data.year,
+        objectiveId: prior?.objective_id ?? null,
+        seq: prior?.seq ?? null,
+        goal: prior?.goal ?? null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      yearConfigByIndicatorId.set(ind.id, synthetic);
+    }
+  }
+
   // Fetch monthly values
   const monthlyValues = yearConfigIds.length > 0
     ? await db.select().from(kpiMonthlyValuesTable)
@@ -586,9 +725,10 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
     valuesByYearConfigId.set(yc.id, monthMap);
   }
 
-  // Build response — only include indicators that have a yearConfig
+  // Build response — todos os indicadores aparecem em qualquer ano. Os que
+  // não tinham config no ano alvo já receberam um sintético acima (carry-
+  // forward), então sempre há um `yc` pra mapear.
   const rows = indicators
-    .filter((ind) => yearConfigByIndicatorId.has(ind.id))
     .map((ind) => {
       const yc = yearConfigByIndicatorId.get(ind.id)!;
       const monthMap = valuesByYearConfigId.get(yc.id) ?? new Map<number, MonthCell>();
@@ -614,6 +754,7 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
         monthlyValuesOnly,
         ind.periodicity,
         ind.referenceMonth ?? null,
+        params.data.year,
       );
       const objective = yc.objectiveId ? objectiveById.get(yc.objectiveId) ?? null : null;
 
@@ -699,15 +840,16 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/values
   const body = UpsertKpiValuesBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  // Verify year config exists and belongs to org
-  const [yearConfig] = await db.select().from(kpiYearConfigsTable)
-    .where(and(
-      eq(kpiYearConfigsTable.indicatorId, params.data.indicatorId),
-      eq(kpiYearConfigsTable.year, params.data.year),
-      eq(kpiYearConfigsTable.organizationId, params.data.orgId),
-    ));
-
-  if (!yearConfig) { res.status(404).json({ error: "Configuração de ano não encontrada. Configure a meta antes de inserir valores." }); return; }
+  // Garante a existência do yearConfig — se não existe, é criado com
+  // carry-forward (goal/seq/objectiveId do ano anterior). Isso elimina a
+  // necessidade de "reabrir" o indicador no início de cada ano antes de
+  // poder lançar valores.
+  const yearConfig = await ensureYearConfig(
+    params.data.orgId,
+    params.data.indicatorId,
+    params.data.year,
+  );
+  if (!yearConfig) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
 
   if (body.data.values.length === 0) {
     const existing = await db.select().from(kpiMonthlyValuesTable)
@@ -793,14 +935,12 @@ async function ensureMonthlyValueRow(
   year: number,
   month: number,
 ): Promise<{ id: number } | { error: string; status: number }> {
-  const [yearConfig] = await db.select().from(kpiYearConfigsTable)
-    .where(and(
-      eq(kpiYearConfigsTable.indicatorId, indicatorId),
-      eq(kpiYearConfigsTable.year, year),
-      eq(kpiYearConfigsTable.organizationId, orgId),
-    ));
+  // Mesma lógica do PUT values: cria o yearConfig sob demanda (carry-forward
+  // do ano anterior) em vez de bloquear com 404. Permite justificar um mês
+  // em ano que ainda não foi "aberto" manualmente.
+  const yearConfig = await ensureYearConfig(orgId, indicatorId, year);
   if (!yearConfig) {
-    return { error: "Configuração de ano não encontrada. Configure a meta antes de adicionar justificativa.", status: 404 };
+    return { error: "Indicador não encontrado", status: 404 };
   }
   // Insert (or no-op via onConflictDoUpdate that touches only updatedAt) to guarantee row exists.
   const [row] = await db.insert(kpiMonthlyValuesTable).values({
