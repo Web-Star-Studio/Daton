@@ -71,8 +71,50 @@ export const KPI_NORMS: { code: KpiNorm; label: string }[] = [
   { code: "39001", label: "ISO 39001 · cl. 9.1" },
 ];
 
-/** Campo `referenceMonth` (1–12) ainda fora do contrato gerado da API. */
+/**
+ * @deprecated `referenceMonth` agora faz parte do contrato gerado (`KpiIndicator`).
+ * Mantido por compatibilidade enquanto callers antigos são migrados.
+ */
 export type WithReferenceMonth = { referenceMonth?: number | null };
+
+/** Periodicidades não mensais — precisam de um mês de referência definido. */
+export const NON_MONTHLY_PERIODICITIES = new Set<string>([
+  "quarterly",
+  "semiannual",
+  "annual",
+]);
+
+/**
+ * Meses (1–12) em que um indicador não-mensal deve ser lançado, conforme a
+ * periodicidade e o mês de referência. Vazio para mensal ou quando não há
+ * referência válida definida.
+ */
+export function expectedMonths(
+  periodicity: string,
+  ref: number | null | undefined,
+): Set<number> {
+  if (!ref || ref < 1 || ref > 12) return new Set();
+  const at = (offset: number) => ((ref - 1 + offset) % 12) + 1;
+  if (periodicity === "annual") return new Set([at(0)]);
+  if (periodicity === "semiannual") return new Set([at(0), at(6)]);
+  if (periodicity === "quarterly") return new Set([at(0), at(3), at(6), at(9)]);
+  return new Set();
+}
+
+/**
+ * Conjunto de meses que CONTAM para um indicador (cálculos, preenchimento) —
+ * ou `null` quando não há restrição (mensal, ou não-mensal sem referência),
+ * significando "todos os 12 meses contam". Para não-mensal com referência,
+ * retorna o subconjunto esperado. Contrato de uso:
+ *   const r = restrictedMonths(p, ref); const counts = (m) => !r || r.has(m);
+ */
+export function restrictedMonths(
+  periodicity: string,
+  ref: number | null | undefined,
+): Set<number> | null {
+  const e = expectedMonths(periodicity, ref);
+  return e.size > 0 ? e : null;
+}
 
 // ─── Semaphore logic ────────────────────────────────────────────────────────
 
@@ -158,16 +200,26 @@ export function computeMonthlyStats(
   monthValues: (number | null)[],
   goal: number | null | undefined,
   direction: KpiDirection,
+  /**
+   * Quando fornecido, só os meses neste conjunto contam (média/acumulado/RAC).
+   * Meses fora dele são ignorados — usado p/ indicadores não-mensais, onde
+   * valores fora do mês de referência não devem entrar na conta.
+   */
+  restrict?: Set<number> | null,
 ) {
-  const filled = monthValues.filter((v): v is number => v !== null && v !== undefined);
+  // Zera (ignora) os meses fora da restrição antes de qualquer agregação.
+  const considered = restrict
+    ? monthValues.map((v, i) => (restrict.has(i + 1) ? v : null))
+    : monthValues;
+  const filled = considered.filter((v): v is number => v !== null && v !== undefined);
   const average = filled.length > 0 ? filled.reduce((a, b) => a + b, 0) / filled.length : null;
   const accumulated = filled.length > 0 ? filled.reduce((a, b) => a + b, 0) : null;
   const progress = average !== null && goal !== null && goal !== undefined && goal !== 0
     ? (average / goal) * 100
     : null;
   const overallStatus = getTrafficLight(average, goal, direction);
-  const rac1 = getRac(monthValues, [1, 2, 3, 4, 5, 6], goal, direction);
-  const rac2 = getRac(monthValues, [7, 8, 9, 10, 11, 12], goal, direction);
+  const rac1 = getRac(considered, [1, 2, 3, 4, 5, 6], goal, direction);
+  const rac2 = getRac(considered, [7, 8, 9, 10, 11, 12], goal, direction);
   return { average, accumulated, progress, overallStatus, rac1, rac2 };
 }
 

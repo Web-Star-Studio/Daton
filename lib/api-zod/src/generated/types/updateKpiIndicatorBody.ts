@@ -22,6 +22,11 @@ export interface UpdateKpiIndicatorBody {
   measureUnit?: string;
   direction?: UpdateKpiIndicatorBodyDirection;
   periodicity?: UpdateKpiIndicatorBodyPeriodicity;
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  referenceMonth?: number | null;
   category?: string | null;
   norms?: string[];
 }

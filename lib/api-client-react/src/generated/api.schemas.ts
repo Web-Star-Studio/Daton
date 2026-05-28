@@ -3456,6 +3456,12 @@ export interface KpiIndicator {
   measureUnit?: string | null;
   direction: KpiIndicatorDirection;
   periodicity: KpiIndicatorPeriodicity;
+  /**
+   * Mês de referência (1–12) para periodicidades não mensais — define em quais meses o indicador deve ser lançado.
+   * @minimum 1
+   * @maximum 12
+   */
+  referenceMonth?: number | null;
   category?: string | null;
   norms: string[];
   createdAt: string;
@@ -3495,6 +3501,11 @@ export interface CreateKpiIndicatorBody {
   measureUnit?: string;
   direction: CreateKpiIndicatorBodyDirection;
   periodicity: CreateKpiIndicatorBodyPeriodicity;
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  referenceMonth?: number | null;
   category?: string | null;
   norms?: string[];
   objectiveId?: number | null;
@@ -3535,6 +3546,11 @@ export interface UpdateKpiIndicatorBody {
   measureUnit?: string;
   direction?: UpdateKpiIndicatorBodyDirection;
   periodicity?: UpdateKpiIndicatorBodyPeriodicity;
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  referenceMonth?: number | null;
   category?: string | null;
   norms?: string[];
 }
