@@ -238,7 +238,9 @@ function AppPages() {
       />
       <Route path="/ambiental/laia" component={EnvironmentalLaiaPage} />
       <Route path="/kpi/indicadores" component={KpiModulePage} />
-      <Route path="/kpi/lancamentos" component={KpiLancamentosPage} />
+      <Route path="/kpi/lancamentos">
+        <KpiLancamentosPage />
+      </Route>
       <Route path="/kpi/dashboard">
         <KpiDashboardPage />
       </Route>
@@ -356,7 +358,9 @@ function AppPages() {
       />
       <Route path="/app/ambiental/laia" component={EnvironmentalLaiaPage} />
       <Route path="/app/kpi/indicadores" component={KpiModulePage} />
-      <Route path="/app/kpi/lancamentos" component={KpiLancamentosPage} />
+      <Route path="/app/kpi/lancamentos">
+        <KpiLancamentosPage />
+      </Route>
       <Route path="/app/kpi/dashboard">
         <KpiDashboardPage />
       </Route>
