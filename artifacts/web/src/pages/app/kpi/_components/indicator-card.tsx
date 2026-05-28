@@ -14,6 +14,7 @@ import {
   computeMonthlyStats,
   formatKpiNumberFixed,
   getTrafficLight,
+  restrictedMonths,
   type KpiDirection,
   type KpiIndicator,
   type KpiYearRow,
@@ -56,12 +57,16 @@ const MONTH_ABBR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set
 const formatValue = formatKpiNumberFixed;
 
 function findLatestValue(
+  indicator: KpiIndicator,
   monthlyValues: KpiYearRow["monthlyValues"] | undefined,
 ): { month: number; value: number } | null {
   if (!monthlyValues) return null;
+  // Indicador não-mensal: só os meses de referência valem como "o resultado".
+  const restrict = restrictedMonths(indicator.periodicity, indicator.referenceMonth);
   let latest: { month: number; value: number } | null = null;
   for (const m of monthlyValues) {
     if (m.value === null || m.value === undefined) continue;
+    if (restrict && !restrict.has(m.month)) continue;
     if (!latest || m.month > latest.month) latest = { month: m.month, value: m.value };
   }
   return latest;
@@ -82,6 +87,8 @@ export function getIndicatorStatus(
 ): CardStatus {
   const goal = yearRow?.yearConfig.goal ?? null;
   if (!yearRow) return "nodata";
+  // Indicador não-mensal: só os meses de referência entram na média anual.
+  const restrict = restrictedMonths(indicator.periodicity, indicator.referenceMonth);
   const monthValues: (number | null)[] = Array.from({ length: 12 }, (_, i) => {
     const m = yearRow.monthlyValues.find((v) => v.month === i + 1);
     return m?.value ?? null;
@@ -90,6 +97,7 @@ export function getIndicatorStatus(
     monthValues,
     goal,
     indicator.direction as KpiDirection,
+    restrict,
   );
   return overallStatus ?? "nodata";
 }
@@ -111,7 +119,7 @@ export function IndicatorCard({
 }: IndicatorCardProps) {
   const goal = yearRow?.yearConfig.goal ?? null;
   const direction = indicator.direction as "up" | "down";
-  const latest = findLatestValue(yearRow?.monthlyValues);
+  const latest = findLatestValue(indicator, yearRow?.monthlyValues);
   // Status do card (borda, dot, label) = MÉDIA ANUAL, alinhado com agregações
   // (gráfico de unidades, semáforo por categoria, tiles do dashboard). O número
   // mostrado abaixo continua sendo o último valor lançado pra contexto recente.

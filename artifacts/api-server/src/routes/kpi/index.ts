@@ -36,7 +36,12 @@ import {
   UpsertKpiYearConfigParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../../middlewares/auth";
-import { validateFormula } from "../../lib/formula-evaluator";
+import { evaluateFormula, validateFormula } from "../../lib/formula-evaluator";
+import {
+  detectVariableRenames,
+  migrateInputsForRename,
+  type FormulaVar,
+} from "../../services/kpi/formula-rename";
 import { normalizeKpiUnit } from "../../services/kpi/units";
 
 const router: IRouter = Router();
@@ -94,6 +99,23 @@ function serializeYearConfig(r: typeof kpiYearConfigsTable.$inferSelect) {
   };
 }
 
+/**
+ * Meses (1–12) em que um indicador não-mensal deve ser lançado, conforme a
+ * periodicidade e o mês de referência. Vazio quando mensal ou sem referência
+ * válida — nesse caso não há restrição (todos os meses contam).
+ */
+function expectedMonthsFor(
+  periodicity: string,
+  referenceMonth: number | null,
+): number[] {
+  if (!referenceMonth || referenceMonth < 1 || referenceMonth > 12) return [];
+  const at = (offset: number) => ((referenceMonth - 1 + offset) % 12) + 1;
+  if (periodicity === "annual") return [at(0)];
+  if (periodicity === "semiannual") return [at(0), at(6)];
+  if (periodicity === "quarterly") return [at(0), at(3), at(6), at(9)];
+  return [];
+}
+
 function computeFeedStatus(
   monthValues: (number | null)[],
   periodicity: string,
@@ -130,12 +152,7 @@ function computeFeedStatus(
   if (!referenceMonth || referenceMonth < 1 || referenceMonth > 12) {
     return "fed"; // sem mês de referência — não há como cobrar
   }
-  const at = (offset: number) => ((referenceMonth - 1 + offset) % 12) + 1;
-  let expected: number[];
-  if (periodicity === "annual") expected = [at(0)];
-  else if (periodicity === "semiannual") expected = [at(0), at(6)];
-  else if (periodicity === "quarterly") expected = [at(0), at(3), at(6), at(9)];
-  else expected = [];
+  const expected = expectedMonthsFor(periodicity, referenceMonth);
   for (const m of expected) {
     if (m <= maxMonthDue && monthValues[m - 1] === null) return "overdue";
   }
@@ -431,10 +448,104 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
     if (body.data.formulaVariables !== undefined) updateData.formulaVariables = body.data.formulaVariables;
   }
 
-  const [row] = await db.update(kpiIndicatorsTable)
-    .set(Object.keys(updateData).length > 0 ? updateData : { updatedAt: new Date() })
-    .where(and(eq(kpiIndicatorsTable.id, params.data.indicatorId), eq(kpiIndicatorsTable.organizationId, params.data.orgId)))
-    .returning();
+  // Mudança de fórmula precisa recalcular os `value` dos kpi_monthly_values já
+  // gravados — senão o histórico continua refletindo o cálculo antigo enquanto
+  // o "Resultado" da tela de Lançar (que reavalia ao vivo) mostra o novo.
+  // Pegamos expression + variables atuais antes do update pra comparar.
+  const [current] = await db
+    .select({
+      formulaExpression: kpiIndicatorsTable.formulaExpression,
+      formulaVariables: kpiIndicatorsTable.formulaVariables,
+    })
+    .from(kpiIndicatorsTable)
+    .where(and(
+      eq(kpiIndicatorsTable.id, params.data.indicatorId),
+      eq(kpiIndicatorsTable.organizationId, params.data.orgId),
+    ));
+  if (!current) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
+
+  const newExpression = typeof updateData.formulaExpression === "string"
+    ? updateData.formulaExpression
+    : current.formulaExpression;
+  const newVariables: FormulaVar[] = Array.isArray(updateData.formulaVariables)
+    ? (updateData.formulaVariables as FormulaVar[])
+    : current.formulaVariables;
+  const expressionChanged =
+    typeof updateData.formulaExpression === "string" &&
+    updateData.formulaExpression !== current.formulaExpression;
+  // Editar texto da fórmula faz `parseNaturalFormula` regenerar os slugs das
+  // variáveis. Detecta renames inequívocos pra migrar as chaves dos `inputs`
+  // dos lançamentos antigos. Em qualquer ambiguidade, devolve [] e o guard
+  // de NULL abaixo preserva o `value` visível.
+  const renames = expressionChanged
+    ? detectVariableRenames(current.formulaVariables, newVariables)
+    : [];
+
+  const row = await db.transaction(async (tx) => {
+    const [updated] = await tx.update(kpiIndicatorsTable)
+      .set(Object.keys(updateData).length > 0 ? updateData : { updatedAt: new Date() })
+      .where(and(eq(kpiIndicatorsTable.id, params.data.indicatorId), eq(kpiIndicatorsTable.organizationId, params.data.orgId)))
+      .returning();
+    if (!updated) return null;
+
+    if (expressionChanged && newExpression.trim()) {
+      const yearConfigs = await tx
+        .select({ id: kpiYearConfigsTable.id })
+        .from(kpiYearConfigsTable)
+        .where(and(
+          eq(kpiYearConfigsTable.organizationId, params.data.orgId),
+          eq(kpiYearConfigsTable.indicatorId, params.data.indicatorId),
+        ));
+      const yearConfigIds = yearConfigs.map((yc) => yc.id);
+      if (yearConfigIds.length > 0) {
+        const monthlyRows = await tx
+          .select()
+          .from(kpiMonthlyValuesTable)
+          .where(inArray(kpiMonthlyValuesTable.yearConfigId, yearConfigIds));
+        const now = new Date();
+        for (const mv of monthlyRows) {
+          const inputs = mv.inputs ?? {};
+          if (Object.keys(inputs).length === 0) continue;
+
+          // Camada 2: aplica renames (se houver) aos inputs antes de reavaliar.
+          // Os inputs gravados podem ter chaves órfãs após edição de fórmula.
+          const { migrated, changed: inputsChanged } = migrateInputsForRename(
+            inputs,
+            renames,
+          );
+          const recomputed = evaluateFormula(newExpression, migrated);
+          const newValueStr = recomputed !== null && Number.isFinite(recomputed)
+            ? String(recomputed)
+            : null;
+
+          // Camada 1 (guard de NULL): se a nova fórmula não consegue avaliar
+          // mas o `value` antigo existe, NÃO apaga. Preserva o número visível
+          // no histórico — o `inputs` continua intacto pra recuperação. Sem
+          // este guard, edições de fórmula corromperiam o histórico já
+          // lançado.
+          const preserveValue = newValueStr === null && mv.value !== null;
+
+          if (preserveValue && !inputsChanged) {
+            // Nada a fazer: nem value novo nem inputs migrado.
+            continue;
+          }
+
+          const setPayload: {
+            value?: string | null;
+            inputs?: typeof inputs;
+            updatedAt: Date;
+          } = { updatedAt: now };
+          if (!preserveValue) setPayload.value = newValueStr;
+          if (inputsChanged) setPayload.inputs = migrated;
+
+          await tx.update(kpiMonthlyValuesTable)
+            .set(setPayload)
+            .where(eq(kpiMonthlyValuesTable.id, mv.id));
+        }
+      }
+    }
+    return updated;
+  });
 
   if (!row) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
 
@@ -747,7 +858,16 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
       );
       const monthlyValuesOnly = monthlyCells.map((c) => c.value);
 
-      const filledValues = monthlyValuesOnly.filter((v) => v !== null) as number[];
+      // Indicador não-mensal: só os meses de referência contam na agregação —
+      // valores fora dela (ex.: carga de zero indevida) são ignorados.
+      const expectedMonthSet = (() => {
+        const e = expectedMonthsFor(ind.periodicity, ind.referenceMonth ?? null);
+        return e.length > 0 ? new Set(e) : null;
+      })();
+      // monthlyValuesOnly é ordenado 1..12, então índice + 1 = mês.
+      const filledValues = monthlyValuesOnly.filter(
+        (v, i) => v !== null && (!expectedMonthSet || expectedMonthSet.has(i + 1)),
+      ) as number[];
       const average = filledValues.length > 0 ? filledValues.reduce((a, b) => a + b, 0) / filledValues.length : null;
       const accumulated = filledValues.length > 0 ? filledValues.reduce((a, b) => a + b, 0) : null;
       const feedStatus = computeFeedStatus(

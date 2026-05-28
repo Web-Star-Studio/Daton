@@ -13234,6 +13234,8 @@ export const ListKpiIndicatorsQueryParams = zod.object({
 export const listKpiIndicatorsResponseFormulaVariablesItemKeyRegExp =
   new RegExp("^[a-z][a-z0-9_]\*$");
 
+export const listKpiIndicatorsResponseReferenceMonthMax = 12;
+
 export const ListKpiIndicatorsResponseItem = zod.object({
   id: zod.number(),
   organizationId: zod.number(),
@@ -13270,6 +13272,14 @@ export const ListKpiIndicatorsResponseItem = zod.object({
     "monthly_15d",
     "monthly_45d",
   ]),
+  referenceMonth: zod
+    .number()
+    .min(1)
+    .max(listKpiIndicatorsResponseReferenceMonthMax)
+    .nullish()
+    .describe(
+      "Mês de referência (1–12) para periodicidades não mensais — define em quais meses o indicador deve ser lançado.",
+    ),
   category: zod.string().nullish(),
   norms: zod.array(zod.string()),
   createdAt: zod.string(),
@@ -13289,6 +13299,8 @@ export const CreateKpiIndicatorParams = zod.object({
 export const createKpiIndicatorBodyFormulaVariablesItemKeyRegExp = new RegExp(
   "^[a-z][a-z0-9_]\*$",
 );
+
+export const createKpiIndicatorBodyReferenceMonthMax = 12;
 
 export const CreateKpiIndicatorBody = zod.object({
   name: zod.string().min(1),
@@ -13315,6 +13327,11 @@ export const CreateKpiIndicatorBody = zod.object({
     "monthly_15d",
     "monthly_45d",
   ]),
+  referenceMonth: zod
+    .number()
+    .min(1)
+    .max(createKpiIndicatorBodyReferenceMonthMax)
+    .nullish(),
   category: zod.string().nullish(),
   norms: zod.array(zod.string()).optional(),
   objectiveId: zod.number().nullish(),
@@ -13333,6 +13350,8 @@ export const UpdateKpiIndicatorParams = zod.object({
 export const updateKpiIndicatorBodyFormulaVariablesItemKeyRegExp = new RegExp(
   "^[a-z][a-z0-9_]\*$",
 );
+
+export const updateKpiIndicatorBodyReferenceMonthMax = 12;
 
 export const UpdateKpiIndicatorBody = zod.object({
   name: zod.string().min(1).optional(),
@@ -13363,12 +13382,19 @@ export const UpdateKpiIndicatorBody = zod.object({
       "monthly_45d",
     ])
     .optional(),
+  referenceMonth: zod
+    .number()
+    .min(1)
+    .max(updateKpiIndicatorBodyReferenceMonthMax)
+    .nullish(),
   category: zod.string().nullish(),
   norms: zod.array(zod.string()).optional(),
 });
 
 export const updateKpiIndicatorResponseFormulaVariablesItemKeyRegExp =
   new RegExp("^[a-z][a-z0-9_]\*$");
+
+export const updateKpiIndicatorResponseReferenceMonthMax = 12;
 
 export const UpdateKpiIndicatorResponse = zod.object({
   id: zod.number(),
@@ -13406,6 +13432,14 @@ export const UpdateKpiIndicatorResponse = zod.object({
     "monthly_15d",
     "monthly_45d",
   ]),
+  referenceMonth: zod
+    .number()
+    .min(1)
+    .max(updateKpiIndicatorResponseReferenceMonthMax)
+    .nullish()
+    .describe(
+      "Mês de referência (1–12) para periodicidades não mensais — define em quais meses o indicador deve ser lançado.",
+    ),
   category: zod.string().nullish(),
   norms: zod.array(zod.string()),
   createdAt: zod.string(),
@@ -13434,6 +13468,8 @@ export const ListKpiYearDataQueryParams = zod.object({
 
 export const listKpiYearDataResponseIndicatorFormulaVariablesItemKeyRegExp =
   new RegExp("^[a-z][a-z0-9_]\*$");
+
+export const listKpiYearDataResponseIndicatorReferenceMonthMax = 12;
 
 export const listKpiYearDataResponseMonthlyValuesItemMonthMax = 12;
 
@@ -13478,6 +13514,14 @@ export const ListKpiYearDataResponseItem = zod.object({
       "monthly_15d",
       "monthly_45d",
     ]),
+    referenceMonth: zod
+      .number()
+      .min(1)
+      .max(listKpiYearDataResponseIndicatorReferenceMonthMax)
+      .nullish()
+      .describe(
+        "Mês de referência (1–12) para periodicidades não mensais — define em quais meses o indicador deve ser lançado.",
+      ),
     category: zod.string().nullish(),
     norms: zod.array(zod.string()),
     createdAt: zod.string(),

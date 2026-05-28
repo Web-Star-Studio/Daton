@@ -15403,6 +15403,12 @@ components:
         periodicity:
           type: string
           enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+        referenceMonth:
+          type: integer
+          minimum: 1
+          maximum: 12
+          nullable: true
+          description: Mês de referência (1–12) para periodicidades não mensais — define em quais meses o indicador deve ser lançado.
         category:
           type: string
           nullable: true
@@ -15457,6 +15463,11 @@ components:
         periodicity:
           type: string
           enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+        referenceMonth:
+          type: integer
+          minimum: 1
+          maximum: 12
+          nullable: true
         category:
           type: string
           nullable: true
@@ -15511,6 +15522,11 @@ components:
         periodicity:
           type: string
           enum: [monthly, quarterly, semiannual, annual, monthly_15d, monthly_45d]
+        referenceMonth:
+          type: integer
+          minimum: 1
+          maximum: 12
+          nullable: true
         category:
           type: string
           nullable: true
