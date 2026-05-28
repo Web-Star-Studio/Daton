@@ -163,7 +163,11 @@ export function computeMonthlyStats(
   const average = filled.length > 0 ? filled.reduce((a, b) => a + b, 0) / filled.length : null;
   const accumulated = filled.length > 0 ? filled.reduce((a, b) => a + b, 0) : null;
   // Progresso da tolerância: % atingido em relação à meta, respeitando direction.
-  // - "up" (maior é melhor): avg/goal*100 — 100% = bateu, >100% = superou
+  // Clampado em 100% — atingir OU superar a meta = 100% (a métrica é "quanto da
+  // meta foi cumprido", não "quão folgado"). Sem o teto, "down" com realizado
+  // muito abaixo do goal explodia (ex: avaria 0,02% vs teto 1,20% → 7579%),
+  // poluindo a coluna sem agregar leitura.
+  // - "up" (maior é melhor): avg/goal*100 — 100% = bateu/superou
   // - "down" (menor é melhor): inverte — goal/avg*100, com avg=0 = 100% (perfeito,
   //   "zero do problema"). Antes, a fórmula uniforme dava 0% pra avaria=0 com
   //   goal>0, opondo a leitura natural ("Atendido 0%" parecia péssimo).
@@ -171,9 +175,9 @@ export function computeMonthlyStats(
     if (average === null || goal === null || goal === undefined || goal === 0) return null;
     if (direction === "down") {
       if (average <= 0) return 100;
-      return (goal / average) * 100;
+      return Math.min(100, (goal / average) * 100);
     }
-    return (average / goal) * 100;
+    return Math.min(100, (average / goal) * 100);
   })();
   const overallStatus = getTrafficLight(average, goal, direction);
   const rac1 = getRac(monthValues, [1, 2, 3, 4, 5, 6], goal, direction);
