@@ -88,7 +88,10 @@ export const kpiYearConfigsTable = pgTable("kpi_year_configs", {
   objectiveId: integer("objective_id").references(() => kpiObjectivesTable.id, { onDelete: "set null" }),
   year: integer("year").notNull(),
   seq: integer("seq"),
-  goal: numeric("goal", { precision: 12, scale: 4 }),
+  // scale 8 (não 4): razões pequenas como tolerância de avaria (8/9483 ≈
+  // 0,0008436) precisam de casas suficientes pra não truncar pra "0,0008".
+  // Aumentar scale é não-destrutivo no Postgres (ALTER COLUMN TYPE preserva).
+  goal: numeric("goal", { precision: 20, scale: 8 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
@@ -100,7 +103,10 @@ export const kpiMonthlyValuesTable = pgTable("kpi_monthly_values", {
   organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
   yearConfigId: integer("year_config_id").notNull().references(() => kpiYearConfigsTable.id, { onDelete: "cascade" }),
   month: integer("month").notNull(),
-  value: numeric("value", { precision: 15, scale: 4 }),
+  // scale 8 (não 4): valores de razão (ex.: % de avaria 8/9483 ≈ 0,0008436)
+  // truncavam pra 0,0008 com scale 4, o que distorcia média/acumulado e
+  // gerava divergência entre o "Resultado" recalculado ao vivo e o histórico.
+  value: numeric("value", { precision: 20, scale: 8 }),
   inputs: jsonb("inputs")
     .$type<KpiMonthlyValueInputs>()
     .notNull()
