@@ -37,6 +37,11 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../../middlewares/auth";
 import { evaluateFormula, validateFormula } from "../../lib/formula-evaluator";
+import {
+  detectVariableRenames,
+  migrateInputsForRename,
+  type FormulaVar,
+} from "../../services/kpi/formula-rename";
 import { normalizeKpiUnit } from "../../services/kpi/units";
 
 const router: IRouter = Router();
@@ -434,10 +439,11 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
   // Mudança de fórmula precisa recalcular os `value` dos kpi_monthly_values já
   // gravados — senão o histórico continua refletindo o cálculo antigo enquanto
   // o "Resultado" da tela de Lançar (que reavalia ao vivo) mostra o novo.
-  // Pegamos o expression atual antes do update pra comparar.
+  // Pegamos expression + variables atuais antes do update pra comparar.
   const [current] = await db
     .select({
       formulaExpression: kpiIndicatorsTable.formulaExpression,
+      formulaVariables: kpiIndicatorsTable.formulaVariables,
     })
     .from(kpiIndicatorsTable)
     .where(and(
@@ -449,9 +455,19 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
   const newExpression = typeof updateData.formulaExpression === "string"
     ? updateData.formulaExpression
     : current.formulaExpression;
+  const newVariables: FormulaVar[] = Array.isArray(updateData.formulaVariables)
+    ? (updateData.formulaVariables as FormulaVar[])
+    : current.formulaVariables;
   const expressionChanged =
     typeof updateData.formulaExpression === "string" &&
     updateData.formulaExpression !== current.formulaExpression;
+  // Editar texto da fórmula faz `parseNaturalFormula` regenerar os slugs das
+  // variáveis. Detecta renames inequívocos pra migrar as chaves dos `inputs`
+  // dos lançamentos antigos. Em qualquer ambiguidade, devolve [] e o guard
+  // de NULL abaixo preserva o `value` visível.
+  const renames = expressionChanged
+    ? detectVariableRenames(current.formulaVariables, newVariables)
+    : [];
 
   const row = await db.transaction(async (tx) => {
     const [updated] = await tx.update(kpiIndicatorsTable)
@@ -478,12 +494,40 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
         for (const mv of monthlyRows) {
           const inputs = mv.inputs ?? {};
           if (Object.keys(inputs).length === 0) continue;
-          const recomputed = evaluateFormula(newExpression, inputs);
-          const newValue = recomputed !== null && Number.isFinite(recomputed)
+
+          // Camada 2: aplica renames (se houver) aos inputs antes de reavaliar.
+          // Os inputs gravados podem ter chaves órfãs após edição de fórmula.
+          const { migrated, changed: inputsChanged } = migrateInputsForRename(
+            inputs,
+            renames,
+          );
+          const recomputed = evaluateFormula(newExpression, migrated);
+          const newValueStr = recomputed !== null && Number.isFinite(recomputed)
             ? String(recomputed)
             : null;
+
+          // Camada 1 (guard de NULL): se a nova fórmula não consegue avaliar
+          // mas o `value` antigo existe, NÃO apaga. Preserva o número visível
+          // no histórico — o `inputs` continua intacto pra recuperação. Sem
+          // este guard, edições de fórmula corromperiam o histórico já
+          // lançado.
+          const preserveValue = newValueStr === null && mv.value !== null;
+
+          if (preserveValue && !inputsChanged) {
+            // Nada a fazer: nem value novo nem inputs migrado.
+            continue;
+          }
+
+          const setPayload: {
+            value?: string | null;
+            inputs?: typeof inputs;
+            updatedAt: Date;
+          } = { updatedAt: now };
+          if (!preserveValue) setPayload.value = newValueStr;
+          if (inputsChanged) setPayload.inputs = migrated;
+
           await tx.update(kpiMonthlyValuesTable)
-            .set({ value: newValue, updatedAt: now })
+            .set(setPayload)
             .where(eq(kpiMonthlyValuesTable.id, mv.id));
         }
       }
