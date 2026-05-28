@@ -14,6 +14,16 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { YearPicker } from "@/components/ui/year-picker";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CellRedActionsDialog } from "@/components/kpi/cell-red-actions-dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -331,6 +341,8 @@ export function LancarScreen({
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [directValue, setDirectValue] = useState("");
   const [racMonth, setRacMonth] = useState<number | null>(null);
+  // Mês pendente de limpeza (abre o AlertDialog de confirmação).
+  const [clearMonth, setClearMonth] = useState<number | null>(null);
 
   const selectedRow = useMemo(
     () =>
@@ -550,15 +562,11 @@ export function LancarScreen({
 
   // Limpa o valor de um mês (deixa em branco). Usado pelo "×" das células do
   // histórico — p/ casos como carga de zero importada do Excel em indicador
-  // anual onde o mês não deveria ser preenchido.
-  async function handleClearMonth(targetMonth: number) {
-    if (!selectedRow) return;
-    if (
-      !window.confirm(
-        `Limpar o lançamento de ${MONTH_FULL[targetMonth - 1]} de ${year}? O valor será removido e o mês voltará a ficar em branco.`,
-      )
-    )
-      return;
+  // anual onde o mês não deveria ser preenchido. Confirma via AlertDialog
+  // (clearMonth guarda o mês pendente de limpeza).
+  async function confirmClearMonth() {
+    if (!selectedRow || clearMonth === null) return;
+    const targetMonth = clearMonth;
     try {
       await upsertValues.mutateAsync({
         orgId,
@@ -576,6 +584,8 @@ export function LancarScreen({
       toast({ title: "Lançamento removido" });
     } catch {
       toast({ title: "Erro ao remover o lançamento", variant: "destructive" });
+    } finally {
+      setClearMonth(null);
     }
   }
 
@@ -790,7 +800,7 @@ export function LancarScreen({
             selectedMonth={month}
             measureUnit={measureUnit}
             onSelectMonth={setMonth}
-            onClearMonth={handleClearMonth}
+            onClearMonth={setClearMonth}
           />
         </div>
         {racMonth !== null ? (
@@ -808,6 +818,42 @@ export function LancarScreen({
             onClose={() => setRacMonth(null)}
           />
         ) : null}
+        <AlertDialog
+          open={clearMonth !== null}
+          onOpenChange={(open) => {
+            if (!open) setClearMonth(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Limpar lançamento?</AlertDialogTitle>
+              <AlertDialogDescription>
+                O valor de{" "}
+                <span className="font-medium text-foreground">
+                  {clearMonth !== null ? MONTH_FULL[clearMonth - 1] : ""} de{" "}
+                  {year}
+                </span>{" "}
+                será removido e o mês voltará a ficar em branco. Esta ação não
+                pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  void confirmClearMonth();
+                }}
+                disabled={saving}
+              >
+                {saving ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : null}
+                Limpar lançamento
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
