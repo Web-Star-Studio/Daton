@@ -99,6 +99,23 @@ function serializeYearConfig(r: typeof kpiYearConfigsTable.$inferSelect) {
   };
 }
 
+/**
+ * Meses (1–12) em que um indicador não-mensal deve ser lançado, conforme a
+ * periodicidade e o mês de referência. Vazio quando mensal ou sem referência
+ * válida — nesse caso não há restrição (todos os meses contam).
+ */
+function expectedMonthsFor(
+  periodicity: string,
+  referenceMonth: number | null,
+): number[] {
+  if (!referenceMonth || referenceMonth < 1 || referenceMonth > 12) return [];
+  const at = (offset: number) => ((referenceMonth - 1 + offset) % 12) + 1;
+  if (periodicity === "annual") return [at(0)];
+  if (periodicity === "semiannual") return [at(0), at(6)];
+  if (periodicity === "quarterly") return [at(0), at(3), at(6), at(9)];
+  return [];
+}
+
 function computeFeedStatus(
   monthValues: (number | null)[],
   periodicity: string,
@@ -135,12 +152,7 @@ function computeFeedStatus(
   if (!referenceMonth || referenceMonth < 1 || referenceMonth > 12) {
     return "fed"; // sem mês de referência — não há como cobrar
   }
-  const at = (offset: number) => ((referenceMonth - 1 + offset) % 12) + 1;
-  let expected: number[];
-  if (periodicity === "annual") expected = [at(0)];
-  else if (periodicity === "semiannual") expected = [at(0), at(6)];
-  else if (periodicity === "quarterly") expected = [at(0), at(3), at(6), at(9)];
-  else expected = [];
+  const expected = expectedMonthsFor(periodicity, referenceMonth);
   for (const m of expected) {
     if (m <= maxMonthDue && monthValues[m - 1] === null) return "overdue";
   }
@@ -846,7 +858,16 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
       );
       const monthlyValuesOnly = monthlyCells.map((c) => c.value);
 
-      const filledValues = monthlyValuesOnly.filter((v) => v !== null) as number[];
+      // Indicador não-mensal: só os meses de referência contam na agregação —
+      // valores fora dela (ex.: carga de zero indevida) são ignorados.
+      const expectedMonthSet = (() => {
+        const e = expectedMonthsFor(ind.periodicity, ind.referenceMonth ?? null);
+        return e.length > 0 ? new Set(e) : null;
+      })();
+      // monthlyValuesOnly é ordenado 1..12, então índice + 1 = mês.
+      const filledValues = monthlyValuesOnly.filter(
+        (v, i) => v !== null && (!expectedMonthSet || expectedMonthSet.has(i + 1)),
+      ) as number[];
       const average = filledValues.length > 0 ? filledValues.reduce((a, b) => a + b, 0) / filledValues.length : null;
       const accumulated = filledValues.length > 0 ? filledValues.reduce((a, b) => a + b, 0) : null;
       const feedStatus = computeFeedStatus(

@@ -1,7 +1,12 @@
 import { AlertCircle, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { formatKpiNumberFixed, type KpiIndicator, type KpiYearRow } from "@/lib/kpi-client";
+import {
+  formatKpiNumberFixed,
+  restrictedMonths,
+  type KpiIndicator,
+  type KpiYearRow,
+} from "@/lib/kpi-client";
 import { getIndicatorStatus, type CardStatus } from "./indicator-card";
 
 type CriticalIndicatorsProps = {
@@ -16,11 +21,16 @@ const MONTH_ABBR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set
 
 const formatValue = formatKpiNumberFixed;
 
-function latestValue(row: KpiYearRow | undefined): { month: number; value: number } | null {
+function latestValue(
+  indicator: KpiIndicator,
+  row: KpiYearRow | undefined,
+): { month: number; value: number } | null {
   if (!row) return null;
+  const restrict = restrictedMonths(indicator.periodicity, indicator.referenceMonth);
   let latest: { month: number; value: number } | null = null;
   for (const m of row.monthlyValues) {
     if (m.value === null || m.value === undefined) continue;
+    if (restrict && !restrict.has(m.month)) continue;
     if (!latest || m.month > latest.month) latest = { month: m.month, value: m.value };
   }
   return latest;
@@ -46,7 +56,7 @@ function pickCritical(
       indicator: ind,
       row,
       status,
-      latest: latestValue(row),
+      latest: latestValue(ind, row),
       overdue: row?.feedStatus === "overdue",
     };
   });

@@ -13,6 +13,7 @@ import {
   PERIODICITY_LABELS,
   formatKpiNumberFixed,
   getTrafficLight,
+  restrictedMonths,
   type KpiIndicator,
   type KpiYearRow,
   type TrafficLight,
@@ -54,12 +55,16 @@ const MONTH_ABBR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set
 const formatValue = formatKpiNumberFixed;
 
 function findLatestValue(
+  indicator: KpiIndicator,
   monthlyValues: KpiYearRow["monthlyValues"] | undefined,
 ): { month: number; value: number } | null {
   if (!monthlyValues) return null;
+  // Indicador não-mensal: só os meses de referência valem como "o resultado".
+  const restrict = restrictedMonths(indicator.periodicity, indicator.referenceMonth);
   let latest: { month: number; value: number } | null = null;
   for (const m of monthlyValues) {
     if (m.value === null || m.value === undefined) continue;
+    if (restrict && !restrict.has(m.month)) continue;
     if (!latest || m.month > latest.month) latest = { month: m.month, value: m.value };
   }
   return latest;
@@ -70,7 +75,7 @@ export function getIndicatorStatus(
   yearRow: KpiYearRow | undefined,
 ): CardStatus {
   const goal = yearRow?.yearConfig.goal ?? null;
-  const latest = findLatestValue(yearRow?.monthlyValues);
+  const latest = findLatestValue(indicator, yearRow?.monthlyValues);
   if (!latest) return "nodata";
   return getTrafficLight(latest.value, goal, indicator.direction as "up" | "down") ?? "nodata";
 }
@@ -92,7 +97,7 @@ export function IndicatorCard({
 }: IndicatorCardProps) {
   const goal = yearRow?.yearConfig.goal ?? null;
   const direction = indicator.direction as "up" | "down";
-  const latest = findLatestValue(yearRow?.monthlyValues);
+  const latest = findLatestValue(indicator, yearRow?.monthlyValues);
   const status: CardStatus = !latest
     ? "nodata"
     : getTrafficLight(latest.value, goal, direction) ?? "nodata";
