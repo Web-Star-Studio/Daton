@@ -1,5 +1,54 @@
 export type FormulaVariable = { key: string; label: string };
 
+export type RenamePair = { from: string; to: string };
+
+/**
+ * Detecta renames inequívocos de variável entre dois estados de
+ * `formulaVariables`. Espelha a lógica do backend
+ * (artifacts/api-server/src/services/kpi/formula-rename.ts) — usada só pra
+ * AVISAR o usuário na UI que editar a fórmula vai recalcular lançamentos
+ * antigos. A migração de fato acontece no backend (PATCH indicator).
+ *
+ * Política conservadora: só retorna pares quando `|removed| == |added|` E o
+ * pareamento posicional cobre exatamente removidos/adicionados. Em qualquer
+ * ambiguidade (reorder + rename, adição/remoção real), devolve [].
+ */
+export function detectVariableRenames(
+  oldVars: FormulaVariable[],
+  newVars: FormulaVariable[],
+): RenamePair[] {
+  const oldKeys = new Set(oldVars.map((v) => v.key));
+  const newKeys = new Set(newVars.map((v) => v.key));
+  const removed = new Set([...oldKeys].filter((k) => !newKeys.has(k)));
+  const added = new Set([...newKeys].filter((k) => !oldKeys.has(k)));
+
+  if (removed.size === 0 && added.size === 0) return [];
+  if (removed.size !== added.size) return [];
+
+  const renames: RenamePair[] = [];
+  const maxLen = Math.max(oldVars.length, newVars.length);
+  for (let i = 0; i < maxLen; i++) {
+    const o = oldVars[i];
+    const n = newVars[i];
+    if (o && n && o.key !== n.key && removed.has(o.key) && added.has(n.key)) {
+      renames.push({ from: o.key, to: n.key });
+    }
+  }
+
+  const coveredFrom = new Set(renames.map((r) => r.from));
+  const coveredTo = new Set(renames.map((r) => r.to));
+  if (
+    coveredFrom.size !== removed.size ||
+    coveredTo.size !== added.size ||
+    [...removed].some((k) => !coveredFrom.has(k)) ||
+    [...added].some((k) => !coveredTo.has(k))
+  ) {
+    return [];
+  }
+
+  return renames;
+}
+
 type Token =
   | { type: "num"; value: number }
   | { type: "id"; value: string }

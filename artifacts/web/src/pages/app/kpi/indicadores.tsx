@@ -8,6 +8,16 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useHeaderActions, usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
@@ -55,6 +65,7 @@ import {
 } from "@/lib/kpi-client";
 import {
   buildMeasurementLabel,
+  detectVariableRenames,
   formulaToNaturalText,
   parseNaturalFormula,
   validateFormula,
@@ -240,6 +251,12 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
   const [viewMode, setViewMode] = useState<"branches" | "corporates">("branches");
   const [indicatorForm, setIndicatorForm] = useState<IndicatorFormData>(defaultIndicatorForm());
   const [deleteConfirm, setDeleteConfirm] = useState<KpiIndicator | null>(null);
+  // Quando a edição da fórmula renomeia variável(is), guarda os pares (já com
+  // labels) pra confirmar com o usuário antes de salvar — o backend recalcula
+  // os lançamentos antigos migrando as chaves dos inputs.
+  const [pendingRenames, setPendingRenames] = useState<
+    Array<{ fromLabel: string; toLabel: string }> | null
+  >(null);
   const [year, setYear] = useState(DEFAULT_YEAR);
   const [searchQuery, setSearchQuery] = useState("");
   const [unitFilter, setUnitFilter] = useState("");
@@ -405,6 +422,29 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
       toast({ title: `Fórmula inválida: ${formulaCheck.error}`, variant: "destructive" });
       return;
     }
+    // Editar a fórmula de um indicador que já tem lançamentos pode renomear
+    // variáveis (o slug é regenerado a partir do label). O backend migra as
+    // chaves dos `inputs` antigos e recalcula os valores — confirmamos com o
+    // usuário antes de salvar pra deixar o efeito explícito.
+    if (editingIndicator) {
+      const oldVars = editingIndicator.formulaVariables ?? [];
+      const renames = detectVariableRenames(oldVars, parsed.variables);
+      if (renames.length > 0) {
+        setPendingRenames(
+          renames.map((r) => ({
+            fromLabel: oldVars.find((v) => v.key === r.from)?.label ?? r.from,
+            toLabel:
+              parsed.variables.find((v) => v.key === r.to)?.label ?? r.to,
+          })),
+        );
+        return;
+      }
+    }
+    await persistIndicator();
+  }
+
+  async function persistIndicator() {
+    const parsed = parseNaturalFormula(indicatorForm.formulaText);
     const measurement = buildMeasurementLabel(parsed.variables, parsed.expression);
     const referenceMonth =
       needsReferenceMonth(indicatorForm.periodicity) &&
@@ -1161,6 +1201,57 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
           </DialogFooter>
         </Dialog>
       )}
+
+      {/* Confirmação de rename de variável — a edição da fórmula renomeou
+          variável(is), o que faz o backend recalcular os lançamentos já
+          registrados migrando as chaves dos inputs. */}
+      <AlertDialog
+        open={pendingRenames !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingRenames(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recalcular lançamentos?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A nova fórmula renomeia{" "}
+              {pendingRenames && pendingRenames.length === 1
+                ? "uma variável"
+                : `${pendingRenames?.length ?? 0} variáveis`}
+              . Os lançamentos já registrados serão recalculados automaticamente
+              com a nova fórmula — os valores informados são preservados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {pendingRenames && pendingRenames.length > 0 ? (
+            <ul className="space-y-1 rounded-lg bg-muted/50 p-3 text-[13px]">
+              {pendingRenames.map((r, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <span className="text-muted-foreground line-through">
+                    {r.fromLabel}
+                  </span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="font-medium text-foreground">
+                    {r.toLabel}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => {
+                setPendingRenames(null);
+                void persistIndicator();
+              }}
+            >
+              Recalcular e salvar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Objectives Dialog */}
       <Dialog
