@@ -1,22 +1,25 @@
 /**
- * One-shot: recalcula `value` de todos os `kpi_monthly_values` cujo `inputs`
- * está populado, aplicando a `formulaExpression` atual do indicador. Conserta
- * a base de produção depois de edições históricas de fórmula que não
- * repropagavam pros valores já gravados (sintoma: histórico mostra um número,
- * "Resultado" recalculado na tela de Lançar mostra outro).
+ * One-shot: conserta os 5 indicadores em prod (Transportes Gabardo) cujos
+ * `inputs` ficaram com chaves órfãs depois de edições históricas de
+ * fórmula que renomearam variáveis sem migrar os lançamentos antigos.
  *
- * Não destrutivo:
- *  - só toca células com `inputs` não vazio E indicador com fórmula válida;
- *  - células de entrada direta (sem `inputs`) ficam intocadas;
- *  - rolling-up de pais (rollupStrategy != null) é compute-on-read no runtime,
- *    então não precisa rodar aqui — pulamos esses indicadores;
- *  - dry-run por padrão; --apply pra escrever no banco.
+ * Pra cada indicador:
+ *  1. Aplica o mapeamento hardcoded (oldKey → newKey) em `inputs` de todos
+ *     os lançamentos do indicador.
+ *  2. Reavalia a fórmula atual com os inputs migrados.
+ *  3. Atualiza `value` e `inputs` em transação.
+ *
+ * Reusa a mesma política do helper `formula-rename`:
+ *  - só renomeia se `from` existe e `to` ainda não existe (proteção contra
+ *    colisão);
+ *  - se a fórmula nova retornar null mesmo com inputs migrados, preserva
+ *    o valor antigo (guard de NULL).
+ *
+ * Dry-run por padrão. --apply pra gravar. Dump JSON em /tmp pra rollback.
  *
  * Uso:
- *   pnpm --filter @workspace/scripts backfill-kpi-values-from-formula
- *   pnpm --filter @workspace/scripts backfill-kpi-values-from-formula -- --apply
- *   pnpm --filter @workspace/scripts backfill-kpi-values-from-formula -- --org 42
- *   pnpm --filter @workspace/scripts backfill-kpi-values-from-formula -- --org 42 --apply
+ *   pnpm --filter @workspace/scripts fix-kpi-indicator-rename
+ *   pnpm --filter @workspace/scripts fix-kpi-indicator-rename -- --apply
  */
 import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -30,8 +33,6 @@ import {
 import { and, eq, inArray } from "drizzle-orm";
 
 // ─── Mini evaluator (espelha artifacts/api-server/src/lib/formula-evaluator) ─
-// Cópia local porque `rootDir` do tsconfig isola scripts/ dos outros pacotes.
-// Mantém apenas o necessário pra reavaliar expressões já validadas.
 type Token =
   | { type: "num"; value: number }
   | { type: "id"; value: string }
@@ -76,24 +77,20 @@ function tokenize(expr: string): Token[] {
   }
   return tokens;
 }
-
 function toRpn(tokens: Token[]): Token[] {
   const out: Token[] = [];
   const ops: Token[] = [];
   for (const t of tokens) {
-    if (t.type === "num" || t.type === "id") {
-      out.push(t);
-    } else if (t.type === "op") {
+    if (t.type === "num" || t.type === "id") out.push(t);
+    else if (t.type === "op") {
       while (ops.length > 0) {
         const top = ops[ops.length - 1];
-        if (top.type === "op" && OP_PRECEDENCE[top.value] >= OP_PRECEDENCE[t.value]) {
-          out.push(ops.pop()!);
-        } else break;
+        if (top.type === "op" && OP_PRECEDENCE[top.value] >= OP_PRECEDENCE[t.value]) out.push(ops.pop()!);
+        else break;
       }
       ops.push(t);
-    } else if (t.type === "lparen") {
-      ops.push(t);
-    } else if (t.type === "rparen") {
+    } else if (t.type === "lparen") ops.push(t);
+    else if (t.type === "rparen") {
       while (ops.length > 0 && ops[ops.length - 1].type !== "lparen") out.push(ops.pop()!);
       if (ops.length === 0) throw new Error("Parêntese fechado sem abertura");
       ops.pop();
@@ -106,7 +103,6 @@ function toRpn(tokens: Token[]): Token[] {
   }
   return out;
 }
-
 function evalRpn(rpn: Token[], inputs: Record<string, number | null>): number | null {
   const stack: (number | null)[] = [];
   for (const t of rpn) {
@@ -128,7 +124,6 @@ function evalRpn(rpn: Token[], inputs: Record<string, number | null>): number | 
   if (stack.length !== 1) throw new Error("Expressão malformada");
   return stack[0]!;
 }
-
 function evaluateFormula(expression: string, inputs: Record<string, number | null>): number | null {
   const trimmed = expression.trim();
   if (!trimmed) return null;
@@ -145,165 +140,166 @@ function evaluateFormula(expression: string, inputs: Record<string, number | nul
   }
 }
 
+// ─── Mapeamento dos 5 indicadores (Transportes Gabardo, org=2) ─────────────
+// Determinado por inspeção do estado atual do banco em 2026-05-28.
+// Cada entrada: id do indicador → todos os renames já realizados na história
+// daquele indicador, ordenados do mais recente pro mais antigo. Inputs antigos
+// podem refletir qualquer geração; o migrador percorre todos os pares e
+// migra o `from` que existir no JSON.
+const INDICATOR_RENAMES: Record<number, Array<{ from: string; to: string }>> = {
+  // Orgânico: 1 geração → volume_gerado_mensalmente
+  91: [{ from: "volume_gerado", to: "volume_gerado_mensalmente" }],
+
+  // Material Reciclável: 2 gerações → atual = volume_gerado_mensalmente
+  77: [
+    { from: "volume_gerado", to: "volume_gerado_mensalmente" },
+    { from: "valor_reciclavel", to: "volume_gerado_mensalmente" },
+  ],
+
+  // Material contaminado: 2 gerações → atual = volume_gerado_mensalmente
+  84: [
+    { from: "volume_gerado", to: "volume_gerado_mensalmente" },
+    { from: "volume", to: "volume_gerado_mensalmente" },
+  ],
+
+  // Óleo Usado: 2 gerações → atual = volume_gerado_mensalmente
+  98: [
+    { from: "volume_gerado", to: "volume_gerado_mensalmente" },
+    { from: "volume", to: "volume_gerado_mensalmente" },
+  ],
+
+  // Taxa de Acidentes de Trabalho - Anápolis: 2 vars renomeadas
+  52: [
+    { from: "acidentes_trabalho", to: "numero_de_acidentes_de_trabalho" },
+    {
+      from: "funcionarios_ativos",
+      to: "funcionarios_ativos_no_cadastro_da_matriz_no_mes",
+    },
+  ],
+};
+
+function migrateInputs(
+  inputs: Record<string, number | null>,
+  renames: Array<{ from: string; to: string }>,
+): { migrated: Record<string, number | null>; changed: boolean } {
+  if (renames.length === 0) return { migrated: inputs, changed: false };
+  const migrated: Record<string, number | null> = { ...inputs };
+  let changed = false;
+  for (const { from, to } of renames) {
+    if (from in migrated && !(to in migrated)) {
+      migrated[to] = migrated[from];
+      delete migrated[from];
+      changed = true;
+    }
+  }
+  return { migrated, changed };
+}
+
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
-const orgArgIdx = args.indexOf("--org");
-const orgFilter =
-  orgArgIdx >= 0 && args[orgArgIdx + 1] ? Number(args[orgArgIdx + 1]) : null;
 
 type Plan = {
   indicatorId: number;
   indicatorName: string;
-  organizationId: number;
   monthlyValueId: number;
   year: number;
   month: number;
+  oldInputs: Record<string, number | null>;
+  newInputs: Record<string, number | null>;
   oldValue: number | null;
   newValue: number | null;
+  valuePreserved: boolean;
 };
 
 async function main() {
-  const indicatorsQuery = orgFilter !== null
-    ? db.select().from(kpiIndicatorsTable).where(eq(kpiIndicatorsTable.organizationId, orgFilter))
-    : db.select().from(kpiIndicatorsTable);
-  const indicators = await indicatorsQuery;
-
-  const candidates = indicators.filter((ind) => {
-    if (ind.rollupStrategy) return false; // compute-on-read no runtime
-    if (!ind.formulaExpression || !ind.formulaExpression.trim()) return false;
-    return true;
-  });
-
-  console.log(
-    `Indicadores candidatos: ${candidates.length} (de ${indicators.length} totais)`,
-  );
-
   const plans: Plan[] = [];
-  const preserved: Plan[] = [];
-  let scanned = 0;
 
-  for (const ind of candidates) {
-    const yearConfigs = await db
+  for (const [idStr, renames] of Object.entries(INDICATOR_RENAMES)) {
+    const indicatorId = Number(idStr);
+    const [ind] = await db
+      .select()
+      .from(kpiIndicatorsTable)
+      .where(eq(kpiIndicatorsTable.id, indicatorId));
+    if (!ind) {
+      console.warn(`! Indicador #${indicatorId} não encontrado, pulando`);
+      continue;
+    }
+
+    const ycs = await db
       .select({ id: kpiYearConfigsTable.id, year: kpiYearConfigsTable.year })
       .from(kpiYearConfigsTable)
       .where(and(
         eq(kpiYearConfigsTable.organizationId, ind.organizationId),
         eq(kpiYearConfigsTable.indicatorId, ind.id),
       ));
-    if (yearConfigs.length === 0) continue;
+    if (ycs.length === 0) continue;
+    const yearByConfig = new Map(ycs.map((y) => [y.id, y.year]));
 
-    const yearByConfigId = new Map(yearConfigs.map((yc) => [yc.id, yc.year]));
-    const yearConfigIds = yearConfigs.map((yc) => yc.id);
-    const monthlyRows = await db
+    const mvs = await db
       .select()
       .from(kpiMonthlyValuesTable)
-      .where(inArray(kpiMonthlyValuesTable.yearConfigId, yearConfigIds));
+      .where(inArray(kpiMonthlyValuesTable.yearConfigId, ycs.map((y) => y.id)));
 
-    for (const mv of monthlyRows) {
-      scanned++;
-      const inputs = mv.inputs ?? {};
-      if (Object.keys(inputs).length === 0) continue;
+    for (const mv of mvs) {
+      const oldInputs = (mv.inputs ?? {}) as Record<string, number | null>;
+      if (Object.keys(oldInputs).length === 0) continue;
+      const { migrated, changed } = migrateInputs(oldInputs, renames);
+      if (!changed) continue; // nada a fazer (chaves já estão certas, raro)
 
-      const recomputed = evaluateFormula(ind.formulaExpression, inputs);
+      const recomputed = evaluateFormula(ind.formulaExpression, migrated);
       const newValue =
         recomputed !== null && Number.isFinite(recomputed) ? recomputed : null;
       const oldValue = mv.value !== null ? parseFloat(mv.value) : null;
-
-      // Compara em ponto-flutuante respeitando o scale do DB (4 casas).
-      const same =
-        oldValue === null && newValue === null
-          ? true
-          : oldValue !== null && newValue !== null
-            ? Math.abs(oldValue - newValue) < 1e-5
-            : false;
-      if (same) continue;
-
-      // Guard de NULL: NÃO apaga `value` existente quando a fórmula nova
-      // não consegue avaliar a partir dos `inputs` antigos (rename de variável
-      // entre saves). Preserva o número que o usuário vê hoje no histórico.
-      // O `inputs` original continua intacto pra recuperação manual.
-      if (oldValue !== null && newValue === null) {
-        preserved.push({
-          indicatorId: ind.id,
-          indicatorName: ind.name,
-          organizationId: ind.organizationId,
-          monthlyValueId: mv.id,
-          year: yearByConfigId.get(mv.yearConfigId) ?? 0,
-          month: mv.month,
-          oldValue,
-          newValue: null,
-        });
-        continue;
-      }
+      // Guard: se a fórmula atual ainda retorna null (mesmo migrado), preserva
+      // o valor antigo. Não deveria acontecer pros 5 mapeados, mas é a regra.
+      const valuePreserved = newValue === null && oldValue !== null;
 
       plans.push({
         indicatorId: ind.id,
         indicatorName: ind.name,
-        organizationId: ind.organizationId,
         monthlyValueId: mv.id,
-        year: yearByConfigId.get(mv.yearConfigId) ?? 0,
+        year: yearByConfig.get(mv.yearConfigId) ?? 0,
         month: mv.month,
+        oldInputs,
+        newInputs: migrated,
         oldValue,
         newValue,
+        valuePreserved,
       });
     }
   }
 
-  console.log(`Células escaneadas: ${scanned}`);
-  console.log(`Divergências a aplicar: ${plans.length}`);
-  console.log(
-    `Células preservadas (guard de NULL — fórmula nova não bate com inputs antigos): ${preserved.length}`,
-  );
-
-  // Relatório dos preservados (sempre, mesmo em dry-run)
-  if (preserved.length > 0) {
-    const byIndPres = new Map<number, Plan[]>();
-    for (const p of preserved) {
-      if (!byIndPres.has(p.indicatorId)) byIndPres.set(p.indicatorId, []);
-      byIndPres.get(p.indicatorId)!.push(p);
-    }
-    console.log("\n──── Preservadas (não serão tocadas) ────");
-    for (const [indId, list] of byIndPres) {
-      const sample = list[0];
-      console.log(
-        `  org=${sample.organizationId} #${indId} "${sample.indicatorName}" → ${list.length} célula(s) (rename de variável; inputs antigos não batem com a fórmula nova)`,
-      );
-    }
-  }
-
+  console.log(`Lançamentos com renames a aplicar: ${plans.length}`);
   if (plans.length === 0) {
-    console.log("\nNenhuma divergência aplicável. ✅");
+    console.log("Nada a fazer. ✅");
     return;
   }
 
-  // Agrupa por indicador pro relatório
   const byIndicator = new Map<number, Plan[]>();
   for (const p of plans) {
     if (!byIndicator.has(p.indicatorId)) byIndicator.set(p.indicatorId, []);
     byIndicator.get(p.indicatorId)!.push(p);
   }
-  console.log("\n──── A aplicar ────");
   for (const [indId, list] of byIndicator) {
     const sample = list[0];
-    console.log(
-      `\n  org=${sample.organizationId} #${indId} "${sample.indicatorName}" → ${list.length} célula(s)`,
-    );
-    for (const p of list.slice(0, 5)) {
+    console.log(`\n  #${indId} "${sample.indicatorName}" → ${list.length} célula(s)`);
+    for (const p of list.slice(0, 6)) {
+      const tag = p.valuePreserved ? " [value preservado]" : "";
       console.log(
-        `    ${p.year}/${String(p.month).padStart(2, "0")}: ${p.oldValue ?? "—"} → ${p.newValue ?? "—"}`,
+        `    ${p.year}/${String(p.month).padStart(2, "0")}: value ${p.oldValue ?? "—"} → ${p.newValue ?? "—"}${tag}`,
       );
+      console.log(`      inputs: ${JSON.stringify(p.oldInputs)} → ${JSON.stringify(p.newInputs)}`);
     }
-    if (list.length > 5) console.log(`    ... +${list.length - 5} mais`);
+    if (list.length > 6) console.log(`    ... +${list.length - 6} mais`);
   }
 
-  // Dump JSON sempre (dry-run e apply) — vira backup manual / referência.
   const dumpPath = join(
     tmpdir(),
-    `kpi-backfill-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
+    `kpi-rename-fix-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
   );
   writeFileSync(
     dumpPath,
-    JSON.stringify({ plans, preserved, scannedAt: new Date().toISOString() }, null, 2),
+    JSON.stringify({ plans, scannedAt: new Date().toISOString() }, null, 2),
   );
   console.log(`\nDump salvo em: ${dumpPath}`);
 
@@ -316,10 +312,17 @@ async function main() {
   const now = new Date();
   await db.transaction(async (tx) => {
     for (const p of plans) {
-      const newValueStr = p.newValue !== null ? String(p.newValue) : null;
+      const newValueStr =
+        !p.valuePreserved && p.newValue !== null ? String(p.newValue) : null;
+      const setPayload: {
+        value?: string | null;
+        inputs: Record<string, number | null>;
+        updatedAt: Date;
+      } = { inputs: p.newInputs, updatedAt: now };
+      if (!p.valuePreserved) setPayload.value = newValueStr;
       await tx
         .update(kpiMonthlyValuesTable)
-        .set({ value: newValueStr, updatedAt: now })
+        .set(setPayload)
         .where(eq(kpiMonthlyValuesTable.id, p.monthlyValueId));
     }
   });
