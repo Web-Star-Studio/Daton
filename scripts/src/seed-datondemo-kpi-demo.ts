@@ -436,6 +436,16 @@ function synthGenericInputs(
     if (variables[0]) inputs[variables[0].key] = finalValue;
     return inputs;
   }
+  // Expressões aditivas (a - b, a + b) NÃO são razões — sem isso, o caminho
+  // de razão abaixo trataria "promotores - detratores" como num/denom e
+  // geraria promotores=58000, detratores=1000 (value 57000 em vez de 58).
+  // Sintetiza o segundo operando e deriva o primeiro pra recompor o final.
+  if (!expr.includes("*") && !expr.includes("/")) {
+    const [vA, vB] = variables;
+    const b = Math.max(1, Math.round(Math.abs(finalValue) * 0.2));
+    const a = expr.includes("-") ? finalValue + b : finalValue - b;
+    return { [vA.key]: a, [vB.key]: b };
+  }
   const denom = expr.includes("* 1000")
     ? 2000 + Math.round((Math.random() - 0.5) * 500) // ~2000 unidades
     : expr.includes("* 100")
