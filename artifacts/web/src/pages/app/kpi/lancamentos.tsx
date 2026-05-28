@@ -8,6 +8,7 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { YearPicker } from "@/components/ui/year-picker";
 import { CellRedActionsDialog } from "@/components/kpi/cell-red-actions-dialog";
 import { FormulaBuilder } from "@/components/kpi/formula-builder";
@@ -45,7 +46,19 @@ type ConfigFormData = {
   goal: string;
 };
 
-export default function KpiAlimentacaoPage() {
+export default function KpiAlimentacaoPage({
+  advanced = true,
+  onAdvancedChange,
+}: {
+  /**
+   * Estado do toggle "Modo avançado" — quando `kpi-module` é o pai (aba Lançar),
+   * recebe true e o usuário pode desligar pra voltar à fila guiada. Quando o
+   * componente é montado pela rota standalone (`/kpi/lancamentos`), os props
+   * ficam undefined e o toggle não aparece.
+   */
+  advanced?: boolean;
+  onAdvancedChange?: (v: boolean) => void;
+} = {}) {
   const { organization } = useAuth();
   const orgId = organization!.id;
 
@@ -289,6 +302,20 @@ export default function KpiAlimentacaoPage() {
         <span className="text-sm text-muted-foreground">
           {yearRows.length} indicador{yearRows.length !== 1 ? "es" : ""}
         </span>
+
+        {onAdvancedChange ? (
+          <label
+            className="ml-auto flex cursor-pointer items-center gap-2 text-xs text-muted-foreground"
+            title="Volta para a fila guiada de pendências"
+          >
+            <Switch
+              checked={advanced}
+              onCheckedChange={onAdvancedChange}
+              aria-label="Modo avançado"
+            />
+            Modo avançado
+          </label>
+        ) : null}
       </div>
 
       {/* Spreadsheet table */}
