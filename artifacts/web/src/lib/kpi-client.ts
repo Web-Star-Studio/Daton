@@ -271,7 +271,21 @@ export function useUpdateKpiIndicatorWithInvalidation(orgId: number) {
   const queryClient = useQueryClient();
   return useUpdateKpiIndicator({
     mutation: {
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListKpiIndicatorsQueryKey(orgId) }),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListKpiIndicatorsQueryKey(orgId) });
+        // Mudar fórmula recalcula `value` das células no servidor (rota PATCH).
+        // Invalida o year-data de TODOS os anos pra que o histórico/Média/
+        // Acumulado/Dashboard reflitam o recompute na mesma hora.
+        queryClient.invalidateQueries({
+          predicate: (q) => {
+            const key = q.queryKey[0];
+            return (
+              typeof key === "string" &&
+              key.startsWith(`/api/organizations/${orgId}/kpi/years/`)
+            );
+          },
+        });
+      },
     },
   });
 }

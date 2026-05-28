@@ -36,7 +36,7 @@ import {
   UpsertKpiYearConfigParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../../middlewares/auth";
-import { validateFormula } from "../../lib/formula-evaluator";
+import { evaluateFormula, validateFormula } from "../../lib/formula-evaluator";
 import { normalizeKpiUnit } from "../../services/kpi/units";
 
 const router: IRouter = Router();
@@ -431,10 +431,65 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
     if (body.data.formulaVariables !== undefined) updateData.formulaVariables = body.data.formulaVariables;
   }
 
-  const [row] = await db.update(kpiIndicatorsTable)
-    .set(Object.keys(updateData).length > 0 ? updateData : { updatedAt: new Date() })
-    .where(and(eq(kpiIndicatorsTable.id, params.data.indicatorId), eq(kpiIndicatorsTable.organizationId, params.data.orgId)))
-    .returning();
+  // Mudança de fórmula precisa recalcular os `value` dos kpi_monthly_values já
+  // gravados — senão o histórico continua refletindo o cálculo antigo enquanto
+  // o "Resultado" da tela de Lançar (que reavalia ao vivo) mostra o novo.
+  // Pegamos o expression atual antes do update pra comparar.
+  const [current] = await db
+    .select({
+      formulaExpression: kpiIndicatorsTable.formulaExpression,
+    })
+    .from(kpiIndicatorsTable)
+    .where(and(
+      eq(kpiIndicatorsTable.id, params.data.indicatorId),
+      eq(kpiIndicatorsTable.organizationId, params.data.orgId),
+    ));
+  if (!current) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
+
+  const newExpression = typeof updateData.formulaExpression === "string"
+    ? updateData.formulaExpression
+    : current.formulaExpression;
+  const expressionChanged =
+    typeof updateData.formulaExpression === "string" &&
+    updateData.formulaExpression !== current.formulaExpression;
+
+  const row = await db.transaction(async (tx) => {
+    const [updated] = await tx.update(kpiIndicatorsTable)
+      .set(Object.keys(updateData).length > 0 ? updateData : { updatedAt: new Date() })
+      .where(and(eq(kpiIndicatorsTable.id, params.data.indicatorId), eq(kpiIndicatorsTable.organizationId, params.data.orgId)))
+      .returning();
+    if (!updated) return null;
+
+    if (expressionChanged && newExpression.trim()) {
+      const yearConfigs = await tx
+        .select({ id: kpiYearConfigsTable.id })
+        .from(kpiYearConfigsTable)
+        .where(and(
+          eq(kpiYearConfigsTable.organizationId, params.data.orgId),
+          eq(kpiYearConfigsTable.indicatorId, params.data.indicatorId),
+        ));
+      const yearConfigIds = yearConfigs.map((yc) => yc.id);
+      if (yearConfigIds.length > 0) {
+        const monthlyRows = await tx
+          .select()
+          .from(kpiMonthlyValuesTable)
+          .where(inArray(kpiMonthlyValuesTable.yearConfigId, yearConfigIds));
+        const now = new Date();
+        for (const mv of monthlyRows) {
+          const inputs = mv.inputs ?? {};
+          if (Object.keys(inputs).length === 0) continue;
+          const recomputed = evaluateFormula(newExpression, inputs);
+          const newValue = recomputed !== null && Number.isFinite(recomputed)
+            ? String(recomputed)
+            : null;
+          await tx.update(kpiMonthlyValuesTable)
+            .set({ value: newValue, updatedAt: now })
+            .where(eq(kpiMonthlyValuesTable.id, mv.id));
+        }
+      }
+    }
+    return updated;
+  });
 
   if (!row) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
 
