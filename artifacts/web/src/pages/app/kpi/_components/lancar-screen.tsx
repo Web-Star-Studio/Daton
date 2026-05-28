@@ -4,6 +4,7 @@ import {
   ChevronRight,
   ClipboardList,
   Loader2,
+  Trash2,
   TriangleAlert,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -523,7 +524,34 @@ export function LancarScreen({
     }
   }
 
+  async function handleClear() {
+    if (!selectedRow) return;
+    if (
+      !window.confirm(
+        `Limpar o lançamento de ${MONTH_FULL[month - 1]} de ${year}? O valor será removido e o mês voltará a ficar em branco.`,
+      )
+    )
+      return;
+    try {
+      await upsertValues.mutateAsync({
+        orgId,
+        indicatorId: selectedRow.indicator.id,
+        year,
+        data: {
+          values: [{ month, value: null, inputs: {} }],
+        },
+      });
+      setDraft({});
+      setDirectValue("");
+      toast({ title: "Lançamento removido" });
+    } catch {
+      toast({ title: "Erro ao remover o lançamento", variant: "destructive" });
+    }
+  }
+
   const saving = upsertValues.isPending;
+  // Mês corrente já tem valor salvo (inclusive zero) — habilita o "Limpar".
+  const hasSavedValue = savedMonthly?.value != null;
 
   // ─── Form view ─────────────────────────────────────────────────────────────
   if (selectedRow) {
@@ -674,6 +702,22 @@ export function LancarScreen({
               ) : null}
               Salvar lançamento
             </Button>
+
+            {/* Limpar lançamento — para meses preenchidos por engano (ex.: carga
+               de zero importada do Excel em indicador anual). Só aparece quando
+               há valor salvo no mês selecionado. */}
+            {hasSavedValue ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
+                onClick={handleClear}
+                disabled={saving}
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                Limpar lançamento deste mês
+              </Button>
+            ) : null}
 
             {/* Justificativa / plano de ação — abre o diálogo já existente.
                Destacado quando o resultado está fora da tolerância. */}
