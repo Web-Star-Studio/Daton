@@ -67,13 +67,13 @@ export function FilialStatus({ indicators, yearRows }: FilialStatusProps) {
           {filiais.map((f) => {
             const t = tone(f.percentOk);
             // Breakdown completo no tooltip — % verde por si só esconde se a
-            // unidade está mal por falta de meta (nodata) ou por desempenho
+            // unidade está mal por falta de tolerância (nodata) ou por desempenho
             // (red/yellow). Cliente precisa saber a diferença pra agir.
             const breakdown = [
               `${f.green} no verde`,
               f.yellow > 0 ? `${f.yellow} em atenção` : null,
               f.red > 0 ? `${f.red} fora da tolerância` : null,
-              f.nodata > 0 ? `${f.nodata} sem dados / sem meta` : null,
+              f.nodata > 0 ? `${f.nodata} sem dados / sem tolerância` : null,
             ]
               .filter(Boolean)
               .join(" · ");
