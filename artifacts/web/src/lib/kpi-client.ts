@@ -162,9 +162,19 @@ export function computeMonthlyStats(
   const filled = monthValues.filter((v): v is number => v !== null && v !== undefined);
   const average = filled.length > 0 ? filled.reduce((a, b) => a + b, 0) / filled.length : null;
   const accumulated = filled.length > 0 ? filled.reduce((a, b) => a + b, 0) : null;
-  const progress = average !== null && goal !== null && goal !== undefined && goal !== 0
-    ? (average / goal) * 100
-    : null;
+  // Progresso da tolerância: % atingido em relação à meta, respeitando direction.
+  // - "up" (maior é melhor): avg/goal*100 — 100% = bateu, >100% = superou
+  // - "down" (menor é melhor): inverte — goal/avg*100, com avg=0 = 100% (perfeito,
+  //   "zero do problema"). Antes, a fórmula uniforme dava 0% pra avaria=0 com
+  //   goal>0, opondo a leitura natural ("Atendido 0%" parecia péssimo).
+  const progress = (() => {
+    if (average === null || goal === null || goal === undefined || goal === 0) return null;
+    if (direction === "down") {
+      if (average <= 0) return 100;
+      return (goal / average) * 100;
+    }
+    return (average / goal) * 100;
+  })();
   const overallStatus = getTrafficLight(average, goal, direction);
   const rac1 = getRac(monthValues, [1, 2, 3, 4, 5, 6], goal, direction);
   const rac2 = getRac(monthValues, [7, 8, 9, 10, 11, 12], goal, direction);
