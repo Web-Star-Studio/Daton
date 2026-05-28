@@ -4,8 +4,8 @@ import {
   ChevronRight,
   ClipboardList,
   Loader2,
-  Trash2,
   TriangleAlert,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
@@ -127,6 +127,7 @@ function HistoryPanel({
   selectedMonth,
   measureUnit,
   onSelectMonth,
+  onClearMonth,
 }: {
   row: KpiYearRow;
   year: number;
@@ -138,6 +139,8 @@ function HistoryPanel({
   measureUnit: string;
   /** Foca o mês no form (cria lançamento se vazio, edita se já tem valor). */
   onSelectMonth: (month: number) => void;
+  /** Limpa o valor do mês (deixa em branco) — gatilho do "×" no canto da célula. */
+  onClearMonth: (month: number) => void;
 }) {
   const monthValues = Array.from(
     { length: 12 },
@@ -197,19 +200,40 @@ function HistoryPanel({
               </div>
             </>
           );
-          return clickable ? (
-            <button
-              key={label}
-              type="button"
-              className={cls}
-              onClick={() => onSelectMonth(month)}
-              title={v !== null ? "Editar lançamento" : "Lançar valor neste mês"}
-            >
-              {body}
-            </button>
-          ) : (
-            <div key={label} className={cls} title="Mês futuro — ainda não disponível">
-              {body}
+          return (
+            <div key={label} className="group/cell relative">
+              {clickable ? (
+                <button
+                  type="button"
+                  className={cn(cls, "w-full")}
+                  onClick={() => onSelectMonth(month)}
+                  title={
+                    v !== null ? "Editar lançamento" : "Lançar valor neste mês"
+                  }
+                >
+                  {body}
+                </button>
+              ) : (
+                <div className={cls} title="Mês futuro — ainda não disponível">
+                  {body}
+                </div>
+              )}
+              {/* "×" no canto pra limpar o valor do mês (deixa em branco). Só
+                 em meses lançáveis que já têm valor salvo (inclusive zero). */}
+              {clickable && v !== null ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClearMonth(month);
+                  }}
+                  title="Limpar valor deste mês"
+                  aria-label={`Limpar valor de ${label}`}
+                  className="absolute -right-1 -top-1 z-10 rounded-full border bg-card p-0.5 text-muted-foreground opacity-0 shadow-sm transition hover:text-red-600 focus-visible:opacity-100 group-hover/cell:opacity-100 dark:hover:text-red-400"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              ) : null}
             </div>
           );
         })}
@@ -524,11 +548,14 @@ export function LancarScreen({
     }
   }
 
-  async function handleClear() {
+  // Limpa o valor de um mês (deixa em branco). Usado pelo "×" das células do
+  // histórico — p/ casos como carga de zero importada do Excel em indicador
+  // anual onde o mês não deveria ser preenchido.
+  async function handleClearMonth(targetMonth: number) {
     if (!selectedRow) return;
     if (
       !window.confirm(
-        `Limpar o lançamento de ${MONTH_FULL[month - 1]} de ${year}? O valor será removido e o mês voltará a ficar em branco.`,
+        `Limpar o lançamento de ${MONTH_FULL[targetMonth - 1]} de ${year}? O valor será removido e o mês voltará a ficar em branco.`,
       )
     )
       return;
@@ -538,11 +565,14 @@ export function LancarScreen({
         indicatorId: selectedRow.indicator.id,
         year,
         data: {
-          values: [{ month, value: null, inputs: {} }],
+          values: [{ month: targetMonth, value: null, inputs: {} }],
         },
       });
-      setDraft({});
-      setDirectValue("");
+      // Se limpamos o mês que está aberto no form, zera os campos também.
+      if (targetMonth === month) {
+        setDraft({});
+        setDirectValue("");
+      }
       toast({ title: "Lançamento removido" });
     } catch {
       toast({ title: "Erro ao remover o lançamento", variant: "destructive" });
@@ -550,8 +580,6 @@ export function LancarScreen({
   }
 
   const saving = upsertValues.isPending;
-  // Mês corrente já tem valor salvo (inclusive zero) — habilita o "Limpar".
-  const hasSavedValue = savedMonthly?.value != null;
 
   // ─── Form view ─────────────────────────────────────────────────────────────
   if (selectedRow) {
@@ -703,22 +731,6 @@ export function LancarScreen({
               Salvar lançamento
             </Button>
 
-            {/* Limpar lançamento — para meses preenchidos por engano (ex.: carga
-               de zero importada do Excel em indicador anual). Só aparece quando
-               há valor salvo no mês selecionado. */}
-            {hasSavedValue ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
-                onClick={handleClear}
-                disabled={saving}
-              >
-                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                Limpar lançamento deste mês
-              </Button>
-            ) : null}
-
             {/* Justificativa / plano de ação — abre o diálogo já existente.
                Destacado quando o resultado está fora da tolerância. */}
             {outOfTarget ? (
@@ -778,6 +790,7 @@ export function LancarScreen({
             selectedMonth={month}
             measureUnit={measureUnit}
             onSelectMonth={setMonth}
+            onClearMonth={handleClearMonth}
           />
         </div>
         {racMonth !== null ? (
