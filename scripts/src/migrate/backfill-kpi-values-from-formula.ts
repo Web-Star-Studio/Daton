@@ -18,6 +18,9 @@
  *   pnpm --filter @workspace/scripts backfill-kpi-values-from-formula -- --org 42
  *   pnpm --filter @workspace/scripts backfill-kpi-values-from-formula -- --org 42 --apply
  */
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   db,
   kpiIndicatorsTable,
@@ -176,6 +179,7 @@ async function main() {
   );
 
   const plans: Plan[] = [];
+  const preserved: Plan[] = [];
   let scanned = 0;
 
   for (const ind of candidates) {
@@ -214,6 +218,24 @@ async function main() {
             : false;
       if (same) continue;
 
+      // Guard de NULL: NÃO apaga `value` existente quando a fórmula nova
+      // não consegue avaliar a partir dos `inputs` antigos (rename de variável
+      // entre saves). Preserva o número que o usuário vê hoje no histórico.
+      // O `inputs` original continua intacto pra recuperação manual.
+      if (oldValue !== null && newValue === null) {
+        preserved.push({
+          indicatorId: ind.id,
+          indicatorName: ind.name,
+          organizationId: ind.organizationId,
+          monthlyValueId: mv.id,
+          year: yearByConfigId.get(mv.yearConfigId) ?? 0,
+          month: mv.month,
+          oldValue,
+          newValue: null,
+        });
+        continue;
+      }
+
       plans.push({
         indicatorId: ind.id,
         indicatorName: ind.name,
@@ -228,10 +250,29 @@ async function main() {
   }
 
   console.log(`Células escaneadas: ${scanned}`);
-  console.log(`Divergências encontradas: ${plans.length}`);
+  console.log(`Divergências a aplicar: ${plans.length}`);
+  console.log(
+    `Células preservadas (guard de NULL — fórmula nova não bate com inputs antigos): ${preserved.length}`,
+  );
+
+  // Relatório dos preservados (sempre, mesmo em dry-run)
+  if (preserved.length > 0) {
+    const byIndPres = new Map<number, Plan[]>();
+    for (const p of preserved) {
+      if (!byIndPres.has(p.indicatorId)) byIndPres.set(p.indicatorId, []);
+      byIndPres.get(p.indicatorId)!.push(p);
+    }
+    console.log("\n──── Preservadas (não serão tocadas) ────");
+    for (const [indId, list] of byIndPres) {
+      const sample = list[0];
+      console.log(
+        `  org=${sample.organizationId} #${indId} "${sample.indicatorName}" → ${list.length} célula(s) (rename de variável; inputs antigos não batem com a fórmula nova)`,
+      );
+    }
+  }
 
   if (plans.length === 0) {
-    console.log("Nada a fazer. ✅");
+    console.log("\nNenhuma divergência aplicável. ✅");
     return;
   }
 
@@ -241,6 +282,7 @@ async function main() {
     if (!byIndicator.has(p.indicatorId)) byIndicator.set(p.indicatorId, []);
     byIndicator.get(p.indicatorId)!.push(p);
   }
+  console.log("\n──── A aplicar ────");
   for (const [indId, list] of byIndicator) {
     const sample = list[0];
     console.log(
@@ -254,8 +296,19 @@ async function main() {
     if (list.length > 5) console.log(`    ... +${list.length - 5} mais`);
   }
 
+  // Dump JSON sempre (dry-run e apply) — vira backup manual / referência.
+  const dumpPath = join(
+    tmpdir(),
+    `kpi-backfill-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
+  );
+  writeFileSync(
+    dumpPath,
+    JSON.stringify({ plans, preserved, scannedAt: new Date().toISOString() }, null, 2),
+  );
+  console.log(`\nDump salvo em: ${dumpPath}`);
+
   if (!apply) {
-    console.log("\nDry-run. Use --apply pra gravar.");
+    console.log("Dry-run. Use --apply pra gravar.");
     return;
   }
 
