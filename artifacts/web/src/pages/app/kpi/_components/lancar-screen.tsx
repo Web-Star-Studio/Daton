@@ -11,6 +11,7 @@ import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { YearPicker } from "@/components/ui/year-picker";
 import { CellRedActionsDialog } from "@/components/kpi/cell-red-actions-dialog";
 import { cn } from "@/lib/utils";
@@ -258,6 +259,8 @@ export function LancarScreen({
   onEditIndicator,
   initialIndicatorId,
   onInitialIndicatorConsumed,
+  advanced = false,
+  onAdvancedChange,
 }: {
   /** Abre o cadastro do indicador (aba Indicadores) para definir o mês de referência. */
   onEditIndicator: (indicatorId: number) => void;
@@ -272,6 +275,9 @@ export function LancarScreen({
    * resetar o estado de pendingFocus, evitando re-focar a cada re-render.
    */
   onInitialIndicatorConsumed?: () => void;
+  /** Estado do toggle "Modo avançado" — controlado pelo pai (kpi-module). */
+  advanced?: boolean;
+  onAdvancedChange?: (v: boolean) => void;
 }) {
   const { organization } = useAuth();
   const orgId = organization!.id;
@@ -832,6 +838,19 @@ export function LancarScreen({
           >
             Limpar
           </Button>
+        ) : null}
+        {onAdvancedChange ? (
+          <label
+            className="ml-auto flex cursor-pointer items-center gap-2 text-xs text-muted-foreground"
+            title="Alterna para a planilha completa (visão antiga, edição em massa por célula)"
+          >
+            <Switch
+              checked={advanced}
+              onCheckedChange={onAdvancedChange}
+              aria-label="Modo avançado"
+            />
+            Modo avançado
+          </label>
         ) : null}
       </div>
 
