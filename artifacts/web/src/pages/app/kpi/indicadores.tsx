@@ -48,6 +48,8 @@ import {
   KPI_NORMS,
   PERIODICITY_LABELS,
   formatKpiNumber,
+  formatKpiValue,
+  isCurrencyUnit,
   type KpiIndicator,
   type KpiObjective,
   type KpiYearRow,
@@ -73,10 +75,31 @@ import {
 import { CORPORATE_UNIT_LABEL, isCorporateUnit } from "@/lib/kpi-constants";
 import type { StatusFilter } from "./_components/summary-tiles";
 import { getIndicatorStatus, type CardStatus } from "./_components/indicator-card";
-import { CorporateRollupDialog } from "./_components/corporate-rollup-dialog";
 import { CorporateRollupsTab } from "./_components/corporate-rollups-tab";
+import { CorporateCreateDialog } from "./_components/corporate-create-dialog";
 
 const DEFAULT_YEAR = new Date().getFullYear();
+
+/**
+ * Filtros/visão persistidos entre trocas de aba do shell KPI. A página de
+ * Indicadores desmonta ao navegar pra "Lançar" e remontava zerada — perdendo o
+ * filtro de filial/norma/etc. que o usuário tinha aplicado. Guardamos em nível
+ * de módulo (sobrevive ao remount; reseta só no reload da página) e guardamos o
+ * orgId pra não vazar filtros entre organizações.
+ */
+type PersistedIndicadoresView = {
+  orgId: number;
+  viewMode: "branches" | "corporates";
+  year: number;
+  searchQuery: string;
+  unitFilter: string;
+  objectiveFilter: string;
+  responsibleFilter: string;
+  statusFilter: StatusFilter;
+  normaFilter: string;
+  categoriaFilter: string;
+};
+let persistedView: PersistedIndicadoresView | null = null;
 
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -234,21 +257,18 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
   usePageSubtitle("Cadastro de KPIs e objetivos estratégicos");
 
   const [indicatorDialog, setIndicatorDialog] = useState(false);
+  const [corporateCreateOpen, setCorporateCreateOpen] = useState(false);
   const [objectivesDialog, setObjectivesDialog] = useState(false);
   const [editingIndicator, setEditingIndicator] = useState<KpiIndicator | null>(null);
   /**
-   * Quando NOT-null, abre o dialog de composição manual do rollup.
-   * Não é mais aberto automaticamente após save — só pelo botão
-   * "Composição manual" na tab Corporativos (uso avançado pra edge cases
-   * que não foram detectados pela heurística de clusters).
-   */
-  const [rollupTargetIndicator, setRollupTargetIndicator] = useState<KpiIndicator | null>(null);
-  /**
    * Tab atual: "branches" mostra a listagem por filial (vista padrão),
-   * "corporates" mostra a aba de rollups corporativos com sugestões de
-   * agrupamento automático.
+   * "corporates" mostra os indicadores corporativos (KPIs da empresa toda).
    */
-  const [viewMode, setViewMode] = useState<"branches" | "corporates">("branches");
+  // Restaura filtros/visão da última visita (mesma org) — ver `persistedView`.
+  const saved = persistedView?.orgId === orgId ? persistedView : null;
+  const [viewMode, setViewMode] = useState<"branches" | "corporates">(
+    saved?.viewMode ?? "branches",
+  );
   const [indicatorForm, setIndicatorForm] = useState<IndicatorFormData>(defaultIndicatorForm());
   const [deleteConfirm, setDeleteConfirm] = useState<KpiIndicator | null>(null);
   // Quando a edição da fórmula renomeia variável(is), guarda os pares (já com
@@ -257,15 +277,51 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
   const [pendingRenames, setPendingRenames] = useState<
     Array<{ fromLabel: string; toLabel: string }> | null
   >(null);
-  const [year, setYear] = useState(DEFAULT_YEAR);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [unitFilter, setUnitFilter] = useState("");
-  const [objectiveFilter, setObjectiveFilter] = useState("");
-  const [responsibleFilter, setResponsibleFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
-  const [normaFilter, setNormaFilter] = useState("");
-  const [categoriaFilter, setCategoriaFilter] = useState("");
+  const [year, setYear] = useState(saved?.year ?? DEFAULT_YEAR);
+  const [searchQuery, setSearchQuery] = useState(saved?.searchQuery ?? "");
+  const [unitFilter, setUnitFilter] = useState(saved?.unitFilter ?? "");
+  const [objectiveFilter, setObjectiveFilter] = useState(
+    saved?.objectiveFilter ?? "",
+  );
+  const [responsibleFilter, setResponsibleFilter] = useState(
+    saved?.responsibleFilter ?? "",
+  );
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    saved?.statusFilter ?? "",
+  );
+  const [normaFilter, setNormaFilter] = useState(saved?.normaFilter ?? "");
+  const [categoriaFilter, setCategoriaFilter] = useState(
+    saved?.categoriaFilter ?? "",
+  );
   const [focusedIndicatorId, setFocusedIndicatorId] = useState<number | null>(null);
+
+  // Mantém `persistedView` em dia pra restaurar filtros/visão ao voltar de outra
+  // aba (a página desmonta nessa navegação).
+  useEffect(() => {
+    persistedView = {
+      orgId,
+      viewMode,
+      year,
+      searchQuery,
+      unitFilter,
+      objectiveFilter,
+      responsibleFilter,
+      statusFilter,
+      normaFilter,
+      categoriaFilter,
+    };
+  }, [
+    orgId,
+    viewMode,
+    year,
+    searchQuery,
+    unitFilter,
+    objectiveFilter,
+    responsibleFilter,
+    statusFilter,
+    normaFilter,
+    categoriaFilter,
+  ]);
 
   const [objectiveForm, setObjectiveForm] = useState({ code: "", name: "" });
   const [editingObjective, setEditingObjective] = useState<KpiObjective | null>(null);
@@ -283,15 +339,13 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
     },
   });
 
-  // "Corporativo" é um pseudo-unit usado para indicadores que são compilado de
-  // todas as filiais (rollup). Não existe como row em `units` (cada CNPJ é uma
-  // filial real), mas o campo `kpi_indicators.unit` é varchar livre, então
-  // salvamos a string canônica. Mantemos como CONSTANTE pra garantir
-  // capitalização consistente entre cadastros novos e import.
-  const orgUnitOptions = [
-    CORPORATE_UNIT_LABEL,
-    ...orgUnits.map((u) => u.name).sort((a, b) => a.localeCompare(b)),
-  ];
+  // Opções de unidade/filial para o cadastro. "Corporativo" NÃO entra aqui de
+  // propósito: indicadores corporativos são criados na aba Corporativos (botão
+  // "Novo corporativo"), não por este formulário. Ao editar um corporativo já
+  // existente, o SearchableStringSelect preserva o valor legado "Corporativo".
+  const orgUnitOptions = orgUnits
+    .map((u) => u.name)
+    .sort((a, b) => a.localeCompare(b));
   const responsibleOptions = useMemo(
     () =>
       (orgUsersData?.users ?? [])
@@ -314,15 +368,23 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
         <Target className="h-4 w-4 mr-1.5" />
         Objetivos
       </Button>
-      <HeaderActionButton
-        label="Novo Indicador"
-        icon={<Plus className="h-4 w-4" />}
-        onClick={() => {
-          setEditingIndicator(null);
-          setIndicatorForm(defaultIndicatorForm());
-          setIndicatorDialog(true);
-        }}
-      />
+      {viewMode === "corporates" ? (
+        <HeaderActionButton
+          label="Novo corporativo"
+          icon={<Plus className="h-4 w-4" />}
+          onClick={() => setCorporateCreateOpen(true)}
+        />
+      ) : (
+        <HeaderActionButton
+          label="Novo Indicador"
+          icon={<Plus className="h-4 w-4" />}
+          onClick={() => {
+            setEditingIndicator(null);
+            setIndicatorForm(defaultIndicatorForm());
+            setIndicatorDialog(true);
+          }}
+        />
+      )}
     </div>,
   );
 
@@ -482,10 +544,6 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
           },
         });
         toast({ title: "Indicador atualizado" });
-        // Nota: o dialog de composição NÃO abre automaticamente.
-        // Pra um Corporativo, a configuração de composição é feita pela
-        // tab "Corporativos" (fluxo principal: criar a partir de cluster),
-        // ou pelo botão "Composição manual" no card daquela tab.
         void updated;
       } else {
         const data = {
@@ -670,14 +728,10 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
 
       {viewMode === "corporates" ? (
         <CorporateRollupsTab
-          orgId={orgId}
-          year={year}
           indicators={indicators}
           yearRows={yearRows}
           onEditIndicator={(ind) => handleEditIndicator(ind)}
           onDeleteIndicator={(ind) => setDeleteConfirm(ind)}
-          onConfigureManually={(ind) => setRollupTargetIndicator(ind)}
-          onOpenInLancar={onOpenInLancar}
         />
       ) : (
       <>
@@ -821,7 +875,21 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
                     className={cn("scroll-mt-6", focused && "bg-primary/10")}
                   >
                     <TableCell className="max-w-[240px] font-medium text-foreground">
-                      {ind.name}
+                      {onOpenInLancar ? (
+                        // Título leva direto ao lançamento do indicador (foca a
+                        // fila na aba "Lançar") — evita o cliente ter que buscar
+                        // ou filtrar de novo lá. Mesmo plumbing do drawer corporativo.
+                        <button
+                          type="button"
+                          onClick={() => onOpenInLancar(ind.id)}
+                          title={`Lançar valores de ${ind.name}`}
+                          className="text-left hover:text-primary hover:underline focus-visible:outline-none focus-visible:text-primary focus-visible:underline"
+                        >
+                          {ind.name}
+                        </button>
+                      ) : (
+                        ind.name
+                      )}
                     </TableCell>
                     <TableCell>
                       {ind.category ? (
@@ -875,7 +943,9 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
                     <TableCell className="text-right tabular-nums">
                       {goal != null ? (
                         <>
-                          {fmtNum(goal)}{" "}
+                          {isCurrencyUnit(ind.measureUnit)
+                            ? formatKpiValue(goal, ind.measureUnit)
+                            : fmtNum(goal)}{" "}
                           <span className="text-muted-foreground">
                             {ind.direction === "up" ? "↑" : "↓"}
                           </span>
@@ -886,7 +956,7 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">
                       {result !== null
-                        ? `${fmtNum(result)}${ind.measureUnit ? " " + ind.measureUnit : ""}`
+                        ? formatKpiValue(result, ind.measureUnit)
                         : "—"}
                     </TableCell>
                     <TableCell>
@@ -1015,8 +1085,9 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
               emptyMessage="Nenhuma unidade encontrada"
             />
             <p className="text-[11px] text-muted-foreground">
-              Escolha <span className="font-medium">{CORPORATE_UNIT_LABEL}</span> para
-              indicadores que compilam dados de todas as filiais (rollup).
+              Para um KPI da empresa toda, use{" "}
+              <span className="font-medium">"Novo corporativo"</span> na aba
+              Corporativos — não cadastre aqui.
             </p>
           </div>
           <div className="space-y-1.5">
@@ -1341,15 +1412,13 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
         </DialogFooter>
       </Dialog>
 
-      {/* Composição corporativa — abre automaticamente após salvar um Corporativo */}
-      {rollupTargetIndicator && (
-        <CorporateRollupDialog
-          open={true}
-          onClose={() => setRollupTargetIndicator(null)}
-          orgId={orgId}
-          parentIndicator={rollupTargetIndicator}
-        />
-      )}
+      <CorporateCreateDialog
+        open={corporateCreateOpen}
+        onClose={() => setCorporateCreateOpen(false)}
+        orgId={orgId}
+        year={year}
+        indicators={indicators}
+      />
     </div>
   );
 }

@@ -60,10 +60,10 @@ import type {
   CreateInternalAuditFindingBody,
   CreateInvitationBody,
   CreateKnowledgeAssetBody,
+  CreateKpiCorporateIndicatorBody,
+  CreateKpiCorporateIndicatorResponse,
   CreateKpiIndicatorBody,
   CreateKpiObjectiveBody,
-  CreateKpiRollupFromClusterBody,
-  CreateKpiRollupFromClusterResponse,
   CreateLegislationBody,
   CreateManagementReviewBody,
   CreateManagementReviewInputBody,
@@ -123,7 +123,6 @@ import type {
   EmployeeTraining,
   ErrorResponse,
   GetDocumentAttachmentFileParams,
-  GetKpiRollupValueParams,
   GetUnitQuestionnaireResponses200,
   GovernanceRiskOpportunityListItem,
   HealthStatus,
@@ -142,9 +141,6 @@ import type {
   KpiMonthlyValue,
   KpiMonthlyValueJustification,
   KpiObjective,
-  KpiRollupChild,
-  KpiRollupClusterValidation,
-  KpiRollupComputeResult,
   KpiYearConfig,
   KpiYearRow,
   Legislation,
@@ -160,7 +156,6 @@ import type {
   ListInvitations200,
   ListKnowledgeAssetsParams,
   ListKpiIndicatorsParams,
-  ListKpiRollupClustersResponse,
   ListKpiYearDataParams,
   ListLegislationsParams,
   ListManagementReviewsParams,
@@ -208,8 +203,6 @@ import type {
   PositionCompetencyRequirement,
   ProcessRegulatoryAlertsResponse,
   ProjectDevelopmentApplicabilityState,
-  PutKpiRollupChildrenBody,
-  PutKpiRollupChildrenResponse,
   QuestionnaireTheme,
   RegisterBody,
   RegulatoryDocument,
@@ -235,7 +228,6 @@ import type {
   SubmitDocumentForReviewBody,
   SubmitQuestionnaireResponse,
   SuccessResponse,
-  SuggestKpiRollupChildrenResponse,
   SyncInternalAuditChecklistBody,
   TrainingEffectivenessReview,
   Unit,
@@ -297,7 +289,6 @@ import type {
   UpsertKpiValuesBody,
   UpsertKpiYearConfigBody,
   UserOption,
-  ValidateKpiRollupClusterBody,
   ValidatePasswordResetToken200,
   WorkEnvironmentAttachment,
   WorkEnvironmentControl,
@@ -29647,587 +29638,46 @@ export const useAddKpiMonthJustification = <
 };
 
 /**
- * @summary Lista filhos configurados pro rollup de um indicador corporativo
+ * @summary Cria um indicador corporativo que agrega (média/soma/mín/máx) os valores dos indicadores-filhos selecionados
  */
-export const getListKpiRollupChildrenUrl = (
-  orgId: number,
-  indicatorId: number,
-) => {
-  return `/api/organizations/${orgId}/kpi/indicators/${indicatorId}/rollup-children`;
+export const getCreateKpiCorporateIndicatorUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/kpi/corporate-indicators`;
 };
 
-export const listKpiRollupChildren = async (
+export const createKpiCorporateIndicator = async (
   orgId: number,
-  indicatorId: number,
+  createKpiCorporateIndicatorBody: CreateKpiCorporateIndicatorBody,
   options?: RequestInit,
-): Promise<KpiRollupChild[]> => {
-  return customFetch<KpiRollupChild[]>(
-    getListKpiRollupChildrenUrl(orgId, indicatorId),
-    {
-      ...options,
-      method: "GET",
-    },
-  );
-};
-
-export const getListKpiRollupChildrenQueryKey = (
-  orgId: number,
-  indicatorId: number,
-) => {
-  return [
-    `/api/organizations/${orgId}/kpi/indicators/${indicatorId}/rollup-children`,
-  ] as const;
-};
-
-export const getListKpiRollupChildrenQueryOptions = <
-  TData = Awaited<ReturnType<typeof listKpiRollupChildren>>,
-  TError = ErrorType<unknown>,
->(
-  orgId: number,
-  indicatorId: number,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof listKpiRollupChildren>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey =
-    queryOptions?.queryKey ??
-    getListKpiRollupChildrenQueryKey(orgId, indicatorId);
-
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof listKpiRollupChildren>>
-  > = ({ signal }) =>
-    listKpiRollupChildren(orgId, indicatorId, { signal, ...requestOptions });
-
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!(orgId && indicatorId),
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof listKpiRollupChildren>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type ListKpiRollupChildrenQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listKpiRollupChildren>>
->;
-export type ListKpiRollupChildrenQueryError = ErrorType<unknown>;
-
-/**
- * @summary Lista filhos configurados pro rollup de um indicador corporativo
- */
-
-export function useListKpiRollupChildren<
-  TData = Awaited<ReturnType<typeof listKpiRollupChildren>>,
-  TError = ErrorType<unknown>,
->(
-  orgId: number,
-  indicatorId: number,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof listKpiRollupChildren>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListKpiRollupChildrenQueryOptions(
-    orgId,
-    indicatorId,
-    options,
-  );
-
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-/**
- * @summary Substitui (replace-all) os filhos do rollup. Define rollupStrategy.
- */
-export const getPutKpiRollupChildrenUrl = (
-  orgId: number,
-  indicatorId: number,
-) => {
-  return `/api/organizations/${orgId}/kpi/indicators/${indicatorId}/rollup-children`;
-};
-
-export const putKpiRollupChildren = async (
-  orgId: number,
-  indicatorId: number,
-  putKpiRollupChildrenBody: PutKpiRollupChildrenBody,
-  options?: RequestInit,
-): Promise<PutKpiRollupChildrenResponse> => {
-  return customFetch<PutKpiRollupChildrenResponse>(
-    getPutKpiRollupChildrenUrl(orgId, indicatorId),
-    {
-      ...options,
-      method: "PUT",
-      headers: { "Content-Type": "application/json", ...options?.headers },
-      body: JSON.stringify(putKpiRollupChildrenBody),
-    },
-  );
-};
-
-export const getPutKpiRollupChildrenMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof putKpiRollupChildren>>,
-    TError,
-    {
-      orgId: number;
-      indicatorId: number;
-      data: BodyType<PutKpiRollupChildrenBody>;
-    },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof putKpiRollupChildren>>,
-  TError,
-  {
-    orgId: number;
-    indicatorId: number;
-    data: BodyType<PutKpiRollupChildrenBody>;
-  },
-  TContext
-> => {
-  const mutationKey = ["putKpiRollupChildren"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof putKpiRollupChildren>>,
-    {
-      orgId: number;
-      indicatorId: number;
-      data: BodyType<PutKpiRollupChildrenBody>;
-    }
-  > = (props) => {
-    const { orgId, indicatorId, data } = props ?? {};
-
-    return putKpiRollupChildren(orgId, indicatorId, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type PutKpiRollupChildrenMutationResult = NonNullable<
-  Awaited<ReturnType<typeof putKpiRollupChildren>>
->;
-export type PutKpiRollupChildrenMutationBody =
-  BodyType<PutKpiRollupChildrenBody>;
-export type PutKpiRollupChildrenMutationError = ErrorType<unknown>;
-
-/**
- * @summary Substitui (replace-all) os filhos do rollup. Define rollupStrategy.
- */
-export const usePutKpiRollupChildren = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof putKpiRollupChildren>>,
-    TError,
-    {
-      orgId: number;
-      indicatorId: number;
-      data: BodyType<PutKpiRollupChildrenBody>;
-    },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof putKpiRollupChildren>>,
-  TError,
-  {
-    orgId: number;
-    indicatorId: number;
-    data: BodyType<PutKpiRollupChildrenBody>;
-  },
-  TContext
-> => {
-  return useMutation(getPutKpiRollupChildrenMutationOptions(options));
-};
-
-/**
- * @summary IA sugere filhos do rollup com base no catálogo da org
- */
-export const getSuggestKpiRollupChildrenUrl = (
-  orgId: number,
-  indicatorId: number,
-) => {
-  return `/api/organizations/${orgId}/kpi/indicators/${indicatorId}/suggest-rollup-children`;
-};
-
-export const suggestKpiRollupChildren = async (
-  orgId: number,
-  indicatorId: number,
-  options?: RequestInit,
-): Promise<SuggestKpiRollupChildrenResponse> => {
-  return customFetch<SuggestKpiRollupChildrenResponse>(
-    getSuggestKpiRollupChildrenUrl(orgId, indicatorId),
-    {
-      ...options,
-      method: "POST",
-    },
-  );
-};
-
-export const getSuggestKpiRollupChildrenMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof suggestKpiRollupChildren>>,
-    TError,
-    { orgId: number; indicatorId: number },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof suggestKpiRollupChildren>>,
-  TError,
-  { orgId: number; indicatorId: number },
-  TContext
-> => {
-  const mutationKey = ["suggestKpiRollupChildren"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof suggestKpiRollupChildren>>,
-    { orgId: number; indicatorId: number }
-  > = (props) => {
-    const { orgId, indicatorId } = props ?? {};
-
-    return suggestKpiRollupChildren(orgId, indicatorId, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type SuggestKpiRollupChildrenMutationResult = NonNullable<
-  Awaited<ReturnType<typeof suggestKpiRollupChildren>>
->;
-
-export type SuggestKpiRollupChildrenMutationError = ErrorType<unknown>;
-
-/**
- * @summary IA sugere filhos do rollup com base no catálogo da org
- */
-export const useSuggestKpiRollupChildren = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof suggestKpiRollupChildren>>,
-    TError,
-    { orgId: number; indicatorId: number },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof suggestKpiRollupChildren>>,
-  TError,
-  { orgId: number; indicatorId: number },
-  TContext
-> => {
-  return useMutation(getSuggestKpiRollupChildrenMutationOptions(options));
-};
-
-/**
- * @summary Compute on-demand do valor de rollup pra um mês (preview)
- */
-export const getGetKpiRollupValueUrl = (
-  orgId: number,
-  indicatorId: number,
-  params: GetKpiRollupValueParams,
-) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0
-    ? `/api/organizations/${orgId}/kpi/indicators/${indicatorId}/rollup-value?${stringifiedParams}`
-    : `/api/organizations/${orgId}/kpi/indicators/${indicatorId}/rollup-value`;
-};
-
-export const getKpiRollupValue = async (
-  orgId: number,
-  indicatorId: number,
-  params: GetKpiRollupValueParams,
-  options?: RequestInit,
-): Promise<KpiRollupComputeResult> => {
-  return customFetch<KpiRollupComputeResult>(
-    getGetKpiRollupValueUrl(orgId, indicatorId, params),
-    {
-      ...options,
-      method: "GET",
-    },
-  );
-};
-
-export const getGetKpiRollupValueQueryKey = (
-  orgId: number,
-  indicatorId: number,
-  params?: GetKpiRollupValueParams,
-) => {
-  return [
-    `/api/organizations/${orgId}/kpi/indicators/${indicatorId}/rollup-value`,
-    ...(params ? [params] : []),
-  ] as const;
-};
-
-export const getGetKpiRollupValueQueryOptions = <
-  TData = Awaited<ReturnType<typeof getKpiRollupValue>>,
-  TError = ErrorType<unknown>,
->(
-  orgId: number,
-  indicatorId: number,
-  params: GetKpiRollupValueParams,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getKpiRollupValue>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey =
-    queryOptions?.queryKey ??
-    getGetKpiRollupValueQueryKey(orgId, indicatorId, params);
-
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof getKpiRollupValue>>
-  > = ({ signal }) =>
-    getKpiRollupValue(orgId, indicatorId, params, {
-      signal,
-      ...requestOptions,
-    });
-
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!(orgId && indicatorId),
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof getKpiRollupValue>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type GetKpiRollupValueQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getKpiRollupValue>>
->;
-export type GetKpiRollupValueQueryError = ErrorType<unknown>;
-
-/**
- * @summary Compute on-demand do valor de rollup pra um mês (preview)
- */
-
-export function useGetKpiRollupValue<
-  TData = Awaited<ReturnType<typeof getKpiRollupValue>>,
-  TError = ErrorType<unknown>,
->(
-  orgId: number,
-  indicatorId: number,
-  params: GetKpiRollupValueParams,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof getKpiRollupValue>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetKpiRollupValueQueryOptions(
-    orgId,
-    indicatorId,
-    params,
-    options,
-  );
-
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-/**
- * Detecta agrupamentos no catálogo (mesma forma de fórmula + classe de
-measurement + nome similar) que provavelmente representam o mesmo
-indicador em filiais diferentes. Filtra os que já estão vinculados a
-algum Corporativo. Usado pela tab "Corporativos" da página de KPI.
-
- * @summary Detecta clusters de indicadores filial-level pra criar Corporativos
- */
-export const getListKpiRollupClustersUrl = (orgId: number) => {
-  return `/api/organizations/${orgId}/kpi/rollup-clusters`;
-};
-
-export const listKpiRollupClusters = async (
-  orgId: number,
-  options?: RequestInit,
-): Promise<ListKpiRollupClustersResponse> => {
-  return customFetch<ListKpiRollupClustersResponse>(
-    getListKpiRollupClustersUrl(orgId),
-    {
-      ...options,
-      method: "GET",
-    },
-  );
-};
-
-export const getListKpiRollupClustersQueryKey = (orgId: number) => {
-  return [`/api/organizations/${orgId}/kpi/rollup-clusters`] as const;
-};
-
-export const getListKpiRollupClustersQueryOptions = <
-  TData = Awaited<ReturnType<typeof listKpiRollupClusters>>,
-  TError = ErrorType<unknown>,
->(
-  orgId: number,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof listKpiRollupClusters>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey =
-    queryOptions?.queryKey ?? getListKpiRollupClustersQueryKey(orgId);
-
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof listKpiRollupClusters>>
-  > = ({ signal }) =>
-    listKpiRollupClusters(orgId, { signal, ...requestOptions });
-
-  return {
-    queryKey,
-    queryFn,
-    enabled: !!orgId,
-    ...queryOptions,
-  } as UseQueryOptions<
-    Awaited<ReturnType<typeof listKpiRollupClusters>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type ListKpiRollupClustersQueryResult = NonNullable<
-  Awaited<ReturnType<typeof listKpiRollupClusters>>
->;
-export type ListKpiRollupClustersQueryError = ErrorType<unknown>;
-
-/**
- * @summary Detecta clusters de indicadores filial-level pra criar Corporativos
- */
-
-export function useListKpiRollupClusters<
-  TData = Awaited<ReturnType<typeof listKpiRollupClusters>>,
-  TError = ErrorType<unknown>,
->(
-  orgId: number,
-  options?: {
-    query?: UseQueryOptions<
-      Awaited<ReturnType<typeof listKpiRollupClusters>>,
-      TError,
-      TData
-    >;
-    request?: SecondParameter<typeof customFetch>;
-  },
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListKpiRollupClustersQueryOptions(orgId, options);
-
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-/**
- * @summary Refina um cluster via IA — confirma membros + propõe nome canônico
- */
-export const getValidateKpiRollupClusterUrl = (orgId: number) => {
-  return `/api/organizations/${orgId}/kpi/rollup/validate-cluster`;
-};
-
-export const validateKpiRollupCluster = async (
-  orgId: number,
-  validateKpiRollupClusterBody: ValidateKpiRollupClusterBody,
-  options?: RequestInit,
-): Promise<KpiRollupClusterValidation> => {
-  return customFetch<KpiRollupClusterValidation>(
-    getValidateKpiRollupClusterUrl(orgId),
+): Promise<CreateKpiCorporateIndicatorResponse> => {
+  return customFetch<CreateKpiCorporateIndicatorResponse>(
+    getCreateKpiCorporateIndicatorUrl(orgId),
     {
       ...options,
       method: "POST",
       headers: { "Content-Type": "application/json", ...options?.headers },
-      body: JSON.stringify(validateKpiRollupClusterBody),
+      body: JSON.stringify(createKpiCorporateIndicatorBody),
     },
   );
 };
 
-export const getValidateKpiRollupClusterMutationOptions = <
+export const getCreateKpiCorporateIndicatorMutationOptions = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof validateKpiRollupCluster>>,
+    Awaited<ReturnType<typeof createKpiCorporateIndicator>>,
     TError,
-    { orgId: number; data: BodyType<ValidateKpiRollupClusterBody> },
+    { orgId: number; data: BodyType<CreateKpiCorporateIndicatorBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof validateKpiRollupCluster>>,
+  Awaited<ReturnType<typeof createKpiCorporateIndicator>>,
   TError,
-  { orgId: number; data: BodyType<ValidateKpiRollupClusterBody> },
+  { orgId: number; data: BodyType<CreateKpiCorporateIndicatorBody> },
   TContext
 > => {
-  const mutationKey = ["validateKpiRollupCluster"];
+  const mutationKey = ["createKpiCorporateIndicator"];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -30237,140 +29687,45 @@ export const getValidateKpiRollupClusterMutationOptions = <
     : { mutation: { mutationKey }, request: undefined };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof validateKpiRollupCluster>>,
-    { orgId: number; data: BodyType<ValidateKpiRollupClusterBody> }
+    Awaited<ReturnType<typeof createKpiCorporateIndicator>>,
+    { orgId: number; data: BodyType<CreateKpiCorporateIndicatorBody> }
   > = (props) => {
     const { orgId, data } = props ?? {};
 
-    return validateKpiRollupCluster(orgId, data, requestOptions);
+    return createKpiCorporateIndicator(orgId, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type ValidateKpiRollupClusterMutationResult = NonNullable<
-  Awaited<ReturnType<typeof validateKpiRollupCluster>>
+export type CreateKpiCorporateIndicatorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createKpiCorporateIndicator>>
 >;
-export type ValidateKpiRollupClusterMutationBody =
-  BodyType<ValidateKpiRollupClusterBody>;
-export type ValidateKpiRollupClusterMutationError = ErrorType<unknown>;
+export type CreateKpiCorporateIndicatorMutationBody =
+  BodyType<CreateKpiCorporateIndicatorBody>;
+export type CreateKpiCorporateIndicatorMutationError = ErrorType<unknown>;
 
 /**
- * @summary Refina um cluster via IA — confirma membros + propõe nome canônico
+ * @summary Cria um indicador corporativo que agrega (média/soma/mín/máx) os valores dos indicadores-filhos selecionados
  */
-export const useValidateKpiRollupCluster = <
+export const useCreateKpiCorporateIndicator = <
   TError = ErrorType<unknown>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof validateKpiRollupCluster>>,
+    Awaited<ReturnType<typeof createKpiCorporateIndicator>>,
     TError,
-    { orgId: number; data: BodyType<ValidateKpiRollupClusterBody> },
+    { orgId: number; data: BodyType<CreateKpiCorporateIndicatorBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
-  Awaited<ReturnType<typeof validateKpiRollupCluster>>,
+  Awaited<ReturnType<typeof createKpiCorporateIndicator>>,
   TError,
-  { orgId: number; data: BodyType<ValidateKpiRollupClusterBody> },
+  { orgId: number; data: BodyType<CreateKpiCorporateIndicatorBody> },
   TContext
 > => {
-  return useMutation(getValidateKpiRollupClusterMutationOptions(options));
-};
-
-/**
- * Cria um novo indicador com unit="Corporativo" e rollupStrategy != null,
-e popula os children no kpi_indicator_rollups. Atômico — se algo
-falhar, nada é persistido.
-
- * @summary Cria indicador Corporativo + composição em uma transação
- */
-export const getCreateKpiRollupFromClusterUrl = (orgId: number) => {
-  return `/api/organizations/${orgId}/kpi/rollup/from-cluster`;
-};
-
-export const createKpiRollupFromCluster = async (
-  orgId: number,
-  createKpiRollupFromClusterBody: CreateKpiRollupFromClusterBody,
-  options?: RequestInit,
-): Promise<CreateKpiRollupFromClusterResponse> => {
-  return customFetch<CreateKpiRollupFromClusterResponse>(
-    getCreateKpiRollupFromClusterUrl(orgId),
-    {
-      ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
-      body: JSON.stringify(createKpiRollupFromClusterBody),
-    },
-  );
-};
-
-export const getCreateKpiRollupFromClusterMutationOptions = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createKpiRollupFromCluster>>,
-    TError,
-    { orgId: number; data: BodyType<CreateKpiRollupFromClusterBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof createKpiRollupFromCluster>>,
-  TError,
-  { orgId: number; data: BodyType<CreateKpiRollupFromClusterBody> },
-  TContext
-> => {
-  const mutationKey = ["createKpiRollupFromCluster"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof createKpiRollupFromCluster>>,
-    { orgId: number; data: BodyType<CreateKpiRollupFromClusterBody> }
-  > = (props) => {
-    const { orgId, data } = props ?? {};
-
-    return createKpiRollupFromCluster(orgId, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type CreateKpiRollupFromClusterMutationResult = NonNullable<
-  Awaited<ReturnType<typeof createKpiRollupFromCluster>>
->;
-export type CreateKpiRollupFromClusterMutationBody =
-  BodyType<CreateKpiRollupFromClusterBody>;
-export type CreateKpiRollupFromClusterMutationError = ErrorType<unknown>;
-
-/**
- * @summary Cria indicador Corporativo + composição em uma transação
- */
-export const useCreateKpiRollupFromCluster = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof createKpiRollupFromCluster>>,
-    TError,
-    { orgId: number; data: BodyType<CreateKpiRollupFromClusterBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof createKpiRollupFromCluster>>,
-  TError,
-  { orgId: number; data: BodyType<CreateKpiRollupFromClusterBody> },
-  TContext
-> => {
-  return useMutation(getCreateKpiRollupFromClusterMutationOptions(options));
+  return useMutation(getCreateKpiCorporateIndicatorMutationOptions(options));
 };
 
 /**

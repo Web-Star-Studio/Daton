@@ -4,6 +4,7 @@ import {
   ChevronRight,
   ClipboardList,
   Loader2,
+  Pencil,
   TriangleAlert,
   X,
 } from "lucide-react";
@@ -36,6 +37,7 @@ import {
   computeMonthlyStats,
   expectedMonths,
   formatKpiNumber,
+  formatKpiValue,
   getTrafficLight,
   restrictedMonths,
   trafficLightColor,
@@ -178,7 +180,7 @@ function HistoryPanel({
         <p className="mt-0.5 text-[11px] text-muted-foreground">
           Tolerância:{" "}
           {goal !== null
-            ? `${direction === "down" ? "≤" : "≥"} ${fmt(goal)}${measureUnit ? ` ${measureUnit}` : ""}`
+            ? `${direction === "down" ? "≤" : "≥"} ${formatKpiValue(goal, measureUnit)}`
             : "não definida"}
         </p>
       </div>
@@ -303,14 +305,13 @@ function HistoryPanel({
         <div className="flex items-center justify-between">
           <dt className="text-muted-foreground">Média</dt>
           <dd className="font-medium tabular-nums text-foreground">
-            {fmt(stats.average)}
-            {measureUnit && stats.average !== null ? ` ${measureUnit}` : ""}
+            {formatKpiValue(stats.average, measureUnit)}
           </dd>
         </div>
         <div className="flex items-center justify-between">
           <dt className="text-muted-foreground">Acumulado</dt>
           <dd className="font-medium tabular-nums text-foreground">
-            {fmt(stats.accumulated)}
+            {formatKpiValue(stats.accumulated, measureUnit)}
           </dd>
         </div>
         <div className="flex items-center justify-between">
@@ -326,6 +327,7 @@ function HistoryPanel({
 
 export function LancarScreen({
   onEditIndicator,
+  onBackToIndicadores,
   initialIndicatorId,
   onInitialIndicatorConsumed,
   advanced = false,
@@ -333,6 +335,12 @@ export function LancarScreen({
 }: {
   /** Abre o cadastro do indicador (aba Indicadores) para definir o mês de referência. */
   onEditIndicator: (indicatorId: number) => void;
+  /**
+   * Volta para a aba Indicadores (rolando até o indicador). Usado quando o form
+   * foi aberto via deep-link a partir de lá — o "Voltar" devolve à origem em vez
+   * de cair na fila local. Quando ausente, o "Voltar" sempre volta para a fila.
+   */
+  onBackToIndicadores?: (indicatorId: number) => void;
   /**
    * Quando definido, o LancarScreen seleciona esse indicador automaticamente
    * (abrindo o painel de edição) e rola até ele. Usado pelo deep-link vindo
@@ -371,6 +379,9 @@ export function LancarScreen({
   const [responsibleFilter, setResponsibleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<CardStatus | "">("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // Origem da abertura do form: deep-link vindo da aba Indicadores (true) vs
+  // clique na fila local (false). Decide o destino do botão "Voltar".
+  const [cameFromIndicadores, setCameFromIndicadores] = useState(false);
   const [month, setMonth] = useState(CURRENT_MONTH);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [directValue, setDirectValue] = useState("");
@@ -399,6 +410,8 @@ export function LancarScreen({
       return;
     }
     setSelectedId(initialIndicatorId);
+    // Veio da aba Indicadores (ou drawer corporativo) — "Voltar" devolve pra lá.
+    setCameFromIndicadores(true);
     // Scroll suave até o cartão; o id é colocado nos <li> das listas abaixo.
     setTimeout(() => {
       const el = document.getElementById(`lancar-ind-${initialIndicatorId}`);
@@ -585,7 +598,18 @@ export function LancarScreen({
       }
     }
     setSelectedId(row.indicator.id);
+    // Aberto pela fila local — "Voltar" volta para a fila.
+    setCameFromIndicadores(false);
     setMonth(defaultMonth);
+  }
+
+  // Sai do form para a origem: aba Indicadores (deep-link) ou fila local.
+  function exitForm() {
+    if (cameFromIndicadores && onBackToIndicadores && selectedRow) {
+      onBackToIndicadores(selectedRow.indicator.id);
+    } else {
+      setSelectedId(null);
+    }
   }
 
   async function handleSave() {
@@ -622,7 +646,7 @@ export function LancarScreen({
         });
       } else {
         toast({ title: "Resultado lançado" });
-        setSelectedId(null);
+        exitForm();
       }
     } catch {
       toast({ title: "Erro ao lançar o resultado", variant: "destructive" });
@@ -663,34 +687,84 @@ export function LancarScreen({
   // ─── Form view ─────────────────────────────────────────────────────────────
   if (selectedRow) {
     const s = statusInfo(effectiveStatus, goal !== null);
+    const ind = selectedRow.indicator;
+    // Como o indicador está configurado (mensal/trimestral/anual…) e, para os
+    // não-mensais, em quais meses ele deve ser lançado. Mostrado no cabeçalho
+    // pra Ana saber a cadência sem ter que sair pra outra tela.
+    const periodicityLabel =
+      PERIODICITY_LABELS[ind.periodicity as keyof typeof PERIODICITY_LABELS] ??
+      ind.periodicity;
+    const isNonMonthly = NON_MONTHLY_PERIODICITIES.has(ind.periodicity);
+    const refExpected = expectedMonths(ind.periodicity, ind.referenceMonth);
+    const refMonthsLabel = [...refExpected]
+      .sort((a, b) => a - b)
+      .map((m) => MONTH_FULL[m - 1])
+      .join(", ");
+    // Não-mensal sem mês de referência: a cadência fica indefinida — sinaliza e
+    // leva pro cadastro pra configurar.
+    const missingReference = isNonMonthly && refExpected.size === 0;
+    // "Voltar" devolve à origem: aba Indicadores (deep-link) ou fila local.
+    const backToIndicadores = cameFromIndicadores && !!onBackToIndicadores;
     return (
       <div className="space-y-4 p-6">
         <button
           type="button"
-          onClick={() => setSelectedId(null)}
+          onClick={exitForm}
           className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Voltar para a fila
+          {backToIndicadores ? "Voltar para indicadores" : "Voltar para a fila"}
         </button>
 
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,560px)_320px]">
           <div className="space-y-4 rounded-xl border bg-card p-5">
             <div className="border-b pb-3">
-              <h2 className="text-base font-semibold text-foreground">
-                {selectedRow.indicator.name}
-              </h2>
+              <div className="flex items-start justify-between gap-2">
+                <h2 className="text-base font-semibold text-foreground">
+                  {ind.name}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => onEditIndicator(ind.id)}
+                  title="Editar a configuração do indicador"
+                  className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Editar
+                </button>
+              </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Tolerância:{" "}
                 <span className="font-medium text-foreground/80">
                   {goal !== null
-                    ? `${fmt(goal)} ${measureUnit}`.trim()
+                    ? formatKpiValue(goal, measureUnit)
                     : "não definida"}
                 </span>
-                {selectedRow.indicator.unit
-                  ? ` · ${selectedRow.indicator.unit}`
-                  : ""}
+                {ind.unit ? ` · ${ind.unit}` : ""}
               </p>
+              {/* Cadência do indicador (mensal/trimestral/anual…) + meses de
+                 referência. Quando falta a referência num não-mensal, abre o
+                 cadastro pra configurar. */}
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  {periodicityLabel}
+                </span>
+                {isNonMonthly && !missingReference ? (
+                  <span className="text-[11px] text-muted-foreground">
+                    Lança em: {refMonthsLabel}
+                  </span>
+                ) : null}
+                {missingReference ? (
+                  <button
+                    type="button"
+                    onClick={() => onEditIndicator(ind.id)}
+                    className="flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
+                  >
+                    <TriangleAlert className="h-3 w-3" />
+                    Mês de referência não definido — configurar
+                  </button>
+                ) : null}
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -780,7 +854,7 @@ export function LancarScreen({
                 </div>
                 <div className="text-2xl font-semibold tabular-nums text-foreground">
                   {effectiveValue !== null
-                    ? `${fmt(effectiveValue)} ${measureUnit}`.trim()
+                    ? formatKpiValue(effectiveValue, measureUnit)
                     : "—"}
                 </div>
               </div>
@@ -795,7 +869,7 @@ export function LancarScreen({
                 </span>
                 {goal !== null ? (
                   <div className="mt-1 text-[11px] text-muted-foreground">
-                    Tolerância: {fmt(goal)} {measureUnit}
+                    Tolerância: {formatKpiValue(goal, measureUnit)}
                   </div>
                 ) : null}
               </div>
@@ -881,6 +955,7 @@ export function LancarScreen({
               monthlyValueId: racMonthly?.monthlyValueId ?? null,
               value: racMonthly?.value ?? null,
               goal,
+              measureUnit,
             }}
             onClose={() => setRacMonth(null)}
           />
@@ -1215,7 +1290,7 @@ export function LancarScreen({
                           </div>
                           <div className="mt-0.5 text-[11px] text-muted-foreground">
                             {row.yearConfig.goal !== null
-                              ? `Tolerância: ${fmt(row.yearConfig.goal)} ${row.indicator.measureUnit ?? ""}`.trim()
+                              ? `Tolerância: ${formatKpiValue(row.yearConfig.goal, row.indicator.measureUnit)}`
                               : "Tolerância não definida"}
                             {row.indicator.unit
                               ? ` · ${row.indicator.unit}`

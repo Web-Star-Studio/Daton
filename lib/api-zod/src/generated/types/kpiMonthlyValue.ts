@@ -30,17 +30,17 @@ export interface KpiMonthlyValue {
   justificationsCount: number;
   /** @minimum 0 */
   actionPlansCount: number;
-  /** True quando a Ana entrou um valor manual sobrepondo o cálculo automático (rollup). False = livre pra recompute. */
+  /** True quando o valor foi entrado manualmente (override sobre o cálculo do corporativo). */
   isOverridden?: boolean;
-  /** True quando o `value` exibido foi calculado on-read a partir dos filhos do rollup (não é o valor cru do row). Indicador deve ter rollup_strategy != null e isOverridden=false. */
+  /** True quando o valor foi calculado on-read a partir dos filhos do corporativo (não é lançamento manual). */
   isComputed?: boolean;
   /**
-   * Quando isComputed=true, quantos filhos contribuíram com dados neste mês.
+   * Quando isComputed=true, quantos filhos tinham dado no mês.
    * @nullable
    */
   childrenWithData?: number | null;
   /**
-   * Quando isComputed=true, total de filhos configurados pro rollup.
+   * Quando isComputed=true, total de filhos do corporativo.
    * @nullable
    */
   childrenTotal?: number | null;

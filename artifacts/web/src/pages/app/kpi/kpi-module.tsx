@@ -78,6 +78,15 @@ export default function KpiModulePage() {
               );
               setTab("indicadores");
             }}
+            onBackToIndicadores={(id) => {
+              // Devolve pra aba Indicadores rolando até o indicador de origem.
+              window.history.replaceState(
+                null,
+                "",
+                `${window.location.pathname}#ind-card-${id}`,
+              );
+              setTab("indicadores");
+            }}
             initialIndicatorId={pendingFocusId}
             onInitialIndicatorConsumed={() => setPendingFocusId(null)}
             advanced={advancedLancar}

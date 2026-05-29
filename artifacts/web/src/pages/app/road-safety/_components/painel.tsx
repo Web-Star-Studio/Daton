@@ -21,6 +21,7 @@ import {
   gutRelevance,
   useRoadSafetyFactors,
 } from "@/lib/road-safety-client";
+import { formatKpiValue } from "@/lib/kpi-client";
 import { RelevanceBadge, StatusBadge, TypeBadge } from "./badges";
 
 type PainelScreenProps = {
@@ -31,9 +32,8 @@ type PainelScreenProps = {
 };
 
 function fmt(n: number | null | undefined, unit?: string | null): string {
-  if (n === null || n === undefined) return "—";
-  const s = n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
-  return unit ? `${s} ${unit}` : s;
+  // Delega ao formatador central de KPI (moeda com R$, etc.).
+  return formatKpiValue(n, unit);
 }
 
 type TileTone = "neutral" | "red" | "amber" | "green";
