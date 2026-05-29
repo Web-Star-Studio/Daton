@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getListLegislationsQueryKey,
   getListUnitsQueryKey,
@@ -41,6 +41,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { LaiaGestaoAVista } from "@/components/environmental/laia/gestao-a-vista";
+import { LaiaMatriz } from "@/components/environmental/laia/matriz";
+import {
+  LaiaConformidade,
+  LaiaEvidencias,
+} from "@/components/environmental/laia/conformidade";
+import { LegislationSuggesterButton } from "@/components/environmental/laia/legislation-suggester-button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -56,6 +63,7 @@ import {
   useLaiaSectors,
   usePublishLaiaMethodology,
   useUpdateLaiaAssessment,
+  type DrillFilter,
   type LaiaAssessmentDetail,
   type LaiaAssessmentInput,
   type LaiaAssessmentListFilters,
@@ -620,6 +628,14 @@ export default function EnvironmentalLaiaPage() {
   const [matrixFilters, setMatrixFilters] = useState<MatrixFiltersState>(
     DEFAULT_MATRIX_FILTERS,
   );
+  const [activeTab, setActiveTab] = useState<string>("matriz");
+  const [drillFilter, setDrillFilter] = useState<DrillFilter>(null);
+
+  const handleDrill = useCallback((filter: DrillFilter) => {
+    setDrillFilter(filter);
+    if (filter) setActiveTab("matriz");
+  }, []);
+  const handleClearDrill = useCallback(() => setDrillFilter(null), []);
   const [sectorDialogOpen, setSectorDialogOpen] = useState(false);
   const [methodologyDialogOpen, setMethodologyDialogOpen] = useState(false);
   const [assessmentDialogOpen, setAssessmentDialogOpen] = useState(false);
@@ -1861,6 +1877,31 @@ export default function EnvironmentalLaiaPage() {
               </div>
             </div>
 
+            <LegislationSuggesterButton
+              orgId={orgId}
+              context={{
+                activityOperation: assessmentForm.activityOperation,
+                environmentalAspect: assessmentForm.environmentalAspect,
+                environmentalImpact: assessmentForm.environmentalImpact,
+                existingControls: assessmentForm.existingControls,
+                lifecycleStages: assessmentForm.lifecycleStagesText
+                  ? assessmentForm.lifecycleStagesText
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  : null,
+              }}
+              onApply={(suggestion) =>
+                setAssessmentForm((current) => ({
+                  ...current,
+                  hasLegalRequirements: true,
+                  legalRequirementTitle: suggestion.reference,
+                  legalRequirementReference: suggestion.reference,
+                  legalRequirementDescription: suggestion.summary,
+                }))
+              }
+            />
+
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <Label htmlFor="legal-requirement">Legislação vinculada</Label>
@@ -2170,12 +2211,39 @@ export default function EnvironmentalLaiaPage() {
         ))}
       </div>
 
-      <Tabs defaultValue="metodologia">
+      <LaiaGestaoAVista orgId={orgId} onDrill={handleDrill} />
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
+          <TabsTrigger value="matriz">Matriz</TabsTrigger>
+          <TabsTrigger value="evidencias">Evidências</TabsTrigger>
+          <TabsTrigger value="conformidade">Conformidade 6.1</TabsTrigger>
           <TabsTrigger value="metodologia">Metodologia</TabsTrigger>
           <TabsTrigger value="unidades">Unidades</TabsTrigger>
           <TabsTrigger value="revisoes">Revisões</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="matriz" className="space-y-4">
+          <LaiaMatriz
+            orgId={orgId}
+            drillFilter={drillFilter}
+            onClearDrill={handleClearDrill}
+            onOpenAssessment={(row) =>
+              handleOpenEditAssessment(row.id, row.status)
+            }
+            onEditAssessment={(row) =>
+              handleOpenEditAssessment(row.id, row.status)
+            }
+          />
+        </TabsContent>
+
+        <TabsContent value="evidencias" className="space-y-4">
+          <LaiaEvidencias orgId={orgId} />
+        </TabsContent>
+
+        <TabsContent value="conformidade" className="space-y-4">
+          <LaiaConformidade orgId={orgId} />
+        </TabsContent>
 
         <TabsContent value="metodologia" className="space-y-6">
           {/* Save bar */}

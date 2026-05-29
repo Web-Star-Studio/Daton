@@ -39,6 +39,7 @@
     "@radix-ui/react-toggle-group": "^1.1.3",
     "@radix-ui/react-tooltip": "^1.2.0",
     "@tanstack/react-query": "catalog:",
+    "@tanstack/react-virtual": "^3.13.26",
     "@types/papaparse": "^5.5.2",
     "@workspace/api-client-react": "workspace:*",
     "class-variance-authority": "catalog:",

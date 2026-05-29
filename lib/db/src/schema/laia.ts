@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -53,6 +54,61 @@ export type LaiaImportJobStatus =
   | "processing"
   | "completed"
   | "failed";
+
+export type LaiaComplianceClause =
+  | "6.1.1"
+  | "6.1.2"
+  | "6.1.3"
+  | "6.1.4"
+  | "6.2.1"
+  | "6.2.2";
+
+export type LaiaComplianceStatus = "atendido" | "parcial" | "nao_atendido";
+
+export const LAIA_COMPLIANCE_CLAUSES: LaiaComplianceClause[] = [
+  "6.1.1",
+  "6.1.2",
+  "6.1.3",
+  "6.1.4",
+  "6.2.1",
+  "6.2.2",
+];
+
+export const LAIA_COMPLIANCE_DEFAULTS: Record<
+  LaiaComplianceClause,
+  { title: string; description: string }
+> = {
+  "6.1.1": {
+    title: "Ações para abordar riscos e oportunidades",
+    description:
+      "Determinar contexto, partes interessadas e escopo do SGA, garantindo que riscos e oportunidades sejam considerados.",
+  },
+  "6.1.2": {
+    title: "Aspectos ambientais (LAIA)",
+    description:
+      "Identificar aspectos e impactos, determinar significância com critérios documentados — atividades, produtos, serviços e ciclo de vida.",
+  },
+  "6.1.3": {
+    title: "Requisitos legais e outros requisitos",
+    description:
+      "Identificar e ter acesso aos requisitos legais aplicáveis e demais requisitos, mantendo-os atualizados.",
+  },
+  "6.1.4": {
+    title: "Planejamento de ações",
+    description:
+      "Planejar ações para abordar aspectos significativos, requisitos legais, riscos e oportunidades; integrar e avaliar eficácia.",
+  },
+  "6.2.1": {
+    title: "Objetivos ambientais",
+    description:
+      "Estabelecer objetivos ambientais coerentes com a política ambiental, considerando aspectos significativos.",
+  },
+  "6.2.2": {
+    title: "Planejamento para atingir objetivos",
+    description:
+      "Determinar o que será feito, recursos, responsáveis, prazos e como os resultados serão avaliados.",
+  },
+};
 
 export interface LaiaReminderFlags {
   d30?: boolean;
@@ -251,6 +307,9 @@ export const laiaAssessmentsTable = pgTable(
       .notNull()
       .default("draft")
       .$type<LaiaAssessmentStatus>(),
+    isVigente: boolean("is_vigente").notNull().default(true),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    purgedAt: timestamp("purged_at", { withTimezone: true }),
     activityOperation: text("activity_operation").notNull(),
     environmentalAspect: text("environmental_aspect").notNull(),
     environmentalImpact: text("environmental_impact").notNull(),
@@ -333,6 +392,13 @@ export const laiaAssessmentsTable = pgTable(
     unique("laia_assessment_org_code_unique").on(
       table.organizationId,
       table.aspectCode,
+    ),
+    // Acelera a varredura da lixeira (purgeExpiredLaiaTrash) e a listagem
+    // padrão que filtra por status. Sem ele, a query do scheduler vira full
+    // scan quando a tabela cresce.
+    index("laia_assessment_status_purged_at_idx").on(
+      table.status,
+      table.purgedAt,
     ),
   ],
 );
@@ -462,6 +528,66 @@ export const laiaRevisionChangesTable = pgTable("laia_revision_changes", {
   newValue: text("new_value"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const laiaComplianceItemsTable = pgTable(
+  "laia_compliance_items",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: integer("organization_id")
+      .notNull()
+      .references(() => organizationsTable.id, { onDelete: "cascade" }),
+    clause: text("clause").notNull().$type<LaiaComplianceClause>(),
+    title: text("title").notNull(),
+    description: text("description"),
+    status: text("status")
+      .notNull()
+      .default("nao_atendido")
+      .$type<LaiaComplianceStatus>(),
+    evidence: text("evidence"),
+    notes: text("notes"),
+    lastAssessedAt: timestamp("last_assessed_at", { withTimezone: true }),
+    lastAssessedById: integer("last_assessed_by_id").references(
+      () => usersTable.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    unique("laia_compliance_org_clause_unique").on(
+      table.organizationId,
+      table.clause,
+    ),
+  ],
+);
+
+export const laiaOdsAlignmentsTable = pgTable(
+  "laia_ods_alignments",
+  {
+    id: serial("id").primaryKey(),
+    assessmentId: integer("assessment_id")
+      .notNull()
+      .references(() => laiaAssessmentsTable.id, { onDelete: "cascade" }),
+    organizationId: integer("organization_id")
+      .notNull()
+      .references(() => organizationsTable.id, { onDelete: "cascade" }),
+    odsNumber: integer("ods_number").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("laia_ods_assessment_ods_unique").on(
+      table.assessmentId,
+      table.odsNumber,
+    ),
+  ],
+);
 
 export const laiaImportJobsTable = pgTable("laia_import_jobs", {
   id: serial("id").primaryKey(),

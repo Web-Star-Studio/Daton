@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, or } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lt, or, sql } from "drizzle-orm";
 import {
   db,
   laiaAssessmentsTable,
@@ -307,4 +307,27 @@ export async function runEnvironmentalMaintenancePass(): Promise<void> {
     }
     await applyMonitoringMaintenance(plan, recipientIds);
   }
+
+  await purgeExpiredLaiaTrash();
+}
+
+export async function purgeExpiredLaiaTrash(): Promise<number> {
+  // Apaga somente registros que entraram na lixeira via DELETE do PR atual
+  // (status='archived' + ambos timestamps preenchidos + prazo expirado).
+  // Archives legacy (sem archivedAt/purgedAt) são intencionalmente preservados.
+  const purged = await db
+    .delete(laiaAssessmentsTable)
+    .where(
+      and(
+        eq(laiaAssessmentsTable.status, "archived"),
+        isNotNull(laiaAssessmentsTable.archivedAt),
+        isNotNull(laiaAssessmentsTable.purgedAt),
+        lt(laiaAssessmentsTable.purgedAt, sql`now()`),
+      ),
+    )
+    .returning({ id: laiaAssessmentsTable.id });
+  if (purged.length > 0) {
+    console.log(`[environmental] purged ${purged.length} LAIA assessments from trash`);
+  }
+  return purged.length;
 }
