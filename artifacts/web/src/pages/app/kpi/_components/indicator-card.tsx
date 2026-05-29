@@ -11,8 +11,12 @@ import { cn } from "@/lib/utils";
 import { hasValidFormula } from "@/lib/formula-evaluator";
 import {
   PERIODICITY_LABELS,
+  computeMonthlyStats,
   formatKpiNumberFixed,
   getTrafficLight,
+  isCurrencyUnit,
+  restrictedMonths,
+  type KpiDirection,
   type KpiIndicator,
   type KpiYearRow,
   type TrafficLight,
@@ -54,25 +58,49 @@ const MONTH_ABBR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set
 const formatValue = formatKpiNumberFixed;
 
 function findLatestValue(
+  indicator: KpiIndicator,
   monthlyValues: KpiYearRow["monthlyValues"] | undefined,
 ): { month: number; value: number } | null {
   if (!monthlyValues) return null;
+  // Indicador não-mensal: só os meses de referência valem como "o resultado".
+  const restrict = restrictedMonths(indicator.periodicity, indicator.referenceMonth);
   let latest: { month: number; value: number } | null = null;
   for (const m of monthlyValues) {
     if (m.value === null || m.value === undefined) continue;
+    if (restrict && !restrict.has(m.month)) continue;
     if (!latest || m.month > latest.month) latest = { month: m.month, value: m.value };
   }
   return latest;
 }
 
+/**
+ * Status anual do indicador (usado em todas as agregações: gráfico de unidades,
+ * semáforo por categoria, tiles do dashboard, filtros).
+ *
+ * Why: antes usava o ÚLTIMO mês com valor, o que sub-representava unidades com
+ * picos pontuais no fim do ano (caso real: Cariacica caía pra 0% verde só
+ * porque dezembro estourou a tolerância, embora a média anual estivesse OK).
+ * Agora usa a média do ano, alinhado com "Progresso da tolerância" do painel.
+ */
 export function getIndicatorStatus(
   indicator: KpiIndicator,
   yearRow: KpiYearRow | undefined,
 ): CardStatus {
   const goal = yearRow?.yearConfig.goal ?? null;
-  const latest = findLatestValue(yearRow?.monthlyValues);
-  if (!latest) return "nodata";
-  return getTrafficLight(latest.value, goal, indicator.direction as "up" | "down") ?? "nodata";
+  if (!yearRow) return "nodata";
+  // Indicador não-mensal: só os meses de referência entram na média anual.
+  const restrict = restrictedMonths(indicator.periodicity, indicator.referenceMonth);
+  const monthValues: (number | null)[] = Array.from({ length: 12 }, (_, i) => {
+    const m = yearRow.monthlyValues.find((v) => v.month === i + 1);
+    return m?.value ?? null;
+  });
+  const { overallStatus } = computeMonthlyStats(
+    monthValues,
+    goal,
+    indicator.direction as KpiDirection,
+    restrict,
+  );
+  return overallStatus ?? "nodata";
 }
 
 type IndicatorCardProps = {
@@ -92,8 +120,14 @@ export function IndicatorCard({
 }: IndicatorCardProps) {
   const goal = yearRow?.yearConfig.goal ?? null;
   const direction = indicator.direction as "up" | "down";
-  const latest = findLatestValue(yearRow?.monthlyValues);
-  const status: CardStatus = !latest
+  const latest = findLatestValue(indicator, yearRow?.monthlyValues);
+  // Status do card (borda, dot, label) = MÉDIA ANUAL, alinhado com agregações
+  // (gráfico de unidades, semáforo por categoria, tiles do dashboard). O número
+  // mostrado abaixo continua sendo o último valor lançado pra contexto recente.
+  const status: CardStatus = getIndicatorStatus(indicator, yearRow);
+  // Cor do número (valueColor) reflete o status DAQUELE valor específico, não
+  // o anual — pra cliente perceber visualmente se o último mês destoou.
+  const latestStatus: CardStatus = !latest
     ? "nodata"
     : getTrafficLight(latest.value, goal, direction) ?? "nodata";
 
@@ -125,11 +159,11 @@ export function IndicatorCard({
     : null;
 
   const valueColor =
-    status === "green"
+    latestStatus === "green"
       ? "text-emerald-700 dark:text-emerald-300"
-      : status === "yellow"
+      : latestStatus === "yellow"
         ? "text-amber-700 dark:text-amber-300"
-        : status === "red"
+        : latestStatus === "red"
           ? "text-red-700 dark:text-red-300"
           : "text-muted-foreground";
 
@@ -253,7 +287,8 @@ export function IndicatorCard({
           {PERIODICITY_LABELS[indicator.periodicity as keyof typeof PERIODICITY_LABELS] ??
             indicator.periodicity}
         </Badge>
-        {indicator.measureUnit ? (
+        {indicator.measureUnit && !isCurrencyUnit(indicator.measureUnit) ? (
+          // Em moeda, o valor já mostra "R$ ..." — o chip "R$" seria redundante.
           <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-medium">
             {indicator.measureUnit}
           </Badge>

@@ -71,8 +71,50 @@ export const KPI_NORMS: { code: KpiNorm; label: string }[] = [
   { code: "39001", label: "ISO 39001 · cl. 9.1" },
 ];
 
-/** Campo `referenceMonth` (1–12) ainda fora do contrato gerado da API. */
+/**
+ * @deprecated `referenceMonth` agora faz parte do contrato gerado (`KpiIndicator`).
+ * Mantido por compatibilidade enquanto callers antigos são migrados.
+ */
 export type WithReferenceMonth = { referenceMonth?: number | null };
+
+/** Periodicidades não mensais — precisam de um mês de referência definido. */
+export const NON_MONTHLY_PERIODICITIES = new Set<string>([
+  "quarterly",
+  "semiannual",
+  "annual",
+]);
+
+/**
+ * Meses (1–12) em que um indicador não-mensal deve ser lançado, conforme a
+ * periodicidade e o mês de referência. Vazio para mensal ou quando não há
+ * referência válida definida.
+ */
+export function expectedMonths(
+  periodicity: string,
+  ref: number | null | undefined,
+): Set<number> {
+  if (!ref || ref < 1 || ref > 12) return new Set();
+  const at = (offset: number) => ((ref - 1 + offset) % 12) + 1;
+  if (periodicity === "annual") return new Set([at(0)]);
+  if (periodicity === "semiannual") return new Set([at(0), at(6)]);
+  if (periodicity === "quarterly") return new Set([at(0), at(3), at(6), at(9)]);
+  return new Set();
+}
+
+/**
+ * Conjunto de meses que CONTAM para um indicador (cálculos, preenchimento) —
+ * ou `null` quando não há restrição (mensal, ou não-mensal sem referência),
+ * significando "todos os 12 meses contam". Para não-mensal com referência,
+ * retorna o subconjunto esperado. Contrato de uso:
+ *   const r = restrictedMonths(p, ref); const counts = (m) => !r || r.has(m);
+ */
+export function restrictedMonths(
+  periodicity: string,
+  ref: number | null | undefined,
+): Set<number> | null {
+  const e = expectedMonths(periodicity, ref);
+  return e.size > 0 ? e : null;
+}
 
 // ─── Semaphore logic ────────────────────────────────────────────────────────
 
@@ -158,16 +200,40 @@ export function computeMonthlyStats(
   monthValues: (number | null)[],
   goal: number | null | undefined,
   direction: KpiDirection,
+  /**
+   * Quando fornecido, só os meses neste conjunto contam (média/acumulado/RAC).
+   * Meses fora dele são ignorados — usado p/ indicadores não-mensais, onde
+   * valores fora do mês de referência não devem entrar na conta.
+   */
+  restrict?: Set<number> | null,
 ) {
-  const filled = monthValues.filter((v): v is number => v !== null && v !== undefined);
+  // Zera (ignora) os meses fora da restrição antes de qualquer agregação.
+  const considered = restrict
+    ? monthValues.map((v, i) => (restrict.has(i + 1) ? v : null))
+    : monthValues;
+  const filled = considered.filter((v): v is number => v !== null && v !== undefined);
   const average = filled.length > 0 ? filled.reduce((a, b) => a + b, 0) / filled.length : null;
   const accumulated = filled.length > 0 ? filled.reduce((a, b) => a + b, 0) : null;
-  const progress = average !== null && goal !== null && goal !== undefined && goal !== 0
-    ? (average / goal) * 100
-    : null;
+  // Progresso da tolerância: % atingido em relação à meta, respeitando direction.
+  // Clampado em 100% — atingir OU superar a meta = 100% (a métrica é "quanto da
+  // meta foi cumprido", não "quão folgado"). Sem o teto, "down" com realizado
+  // muito abaixo do goal explodia (ex: avaria 0,02% vs teto 1,20% → 7579%),
+  // poluindo a coluna sem agregar leitura.
+  // - "up" (maior é melhor): avg/goal*100 — 100% = bateu/superou
+  // - "down" (menor é melhor): inverte — goal/avg*100, com avg=0 = 100% (perfeito,
+  //   "zero do problema"). Antes, a fórmula uniforme dava 0% pra avaria=0 com
+  //   goal>0, opondo a leitura natural ("Atendido 0%" parecia péssimo).
+  const progress = (() => {
+    if (average === null || goal === null || goal === undefined || goal === 0) return null;
+    if (direction === "down") {
+      if (average <= 0) return 100;
+      return Math.min(100, (goal / average) * 100);
+    }
+    return Math.min(100, (average / goal) * 100);
+  })();
   const overallStatus = getTrafficLight(average, goal, direction);
-  const rac1 = getRac(monthValues, [1, 2, 3, 4, 5, 6], goal, direction);
-  const rac2 = getRac(monthValues, [7, 8, 9, 10, 11, 12], goal, direction);
+  const rac1 = getRac(considered, [1, 2, 3, 4, 5, 6], goal, direction);
+  const rac2 = getRac(considered, [7, 8, 9, 10, 11, 12], goal, direction);
   return { average, accumulated, progress, overallStatus, rac1, rac2 };
 }
 
@@ -192,18 +258,73 @@ export function formatKpiNumber(value: number | null | undefined): string {
   });
 }
 
-/** Formata número para cards/dashboards: casas decimais adaptativas, com zeros à direita preservados. */
+/** Número com casas fixas (zeros à direita preservados), SEM unidade. */
+function formatKpiNumberFixedRaw(value: number): string {
+  const decimals = pickKpiDecimals(value);
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+/**
+ * Detecta unidade de moeda (BRL). Retorna o sufixo de taxa preservado
+ * (ex.: "/Km", "/1000 Km", "/mês") ou "" quando é moeda pura; `null` quando
+ * NÃO é moeda. Cobre "R$", "real", "reais", "BRL", "$" e taxas "R$/algo".
+ */
+function currencyRateSuffix(measureUnit: string): string | null {
+  const norm = measureUnit
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase();
+  if (!/^(r\$|reais|real|brl|\$)(\s*\/.*)?$/.test(norm)) return null;
+  // Remove o token de moeda do início, preservando o sufixo de taxa original.
+  return measureUnit.trim().replace(/^\s*(r\$|reais|real|brl|\$)\s*/i, "");
+}
+
+/** A unidade representa moeda (BRL)? Útil pra UI (ex.: esconder chip redundante). */
+export function isCurrencyUnit(measureUnit?: string | null): boolean {
+  return measureUnit != null && currencyRateSuffix(measureUnit) !== null;
+}
+
+/**
+ * Formata um valor de KPI conforme a unidade de medida — fonte única de
+ * verdade para exibição de valores. Regras:
+ * - Moeda (R$, real, reais, BRL, $, inclusive taxas "R$/Km"): prefixo
+ *   "R$ " + 2 casas decimais (ex.: "R$ 1.234,56", "R$ 1.234,56/Km").
+ * - Percentual e demais unidades: número + " unidade" (ex.: "12,5 %", "27 KG").
+ * - Sem unidade: só o número.
+ * `opts.fixed` = casas fixas (cards/dashboards) vs adaptativas (tabelas).
+ */
+export function formatKpiValue(
+  value: number | null | undefined,
+  measureUnit?: string | null,
+  opts?: { fixed?: boolean },
+): string {
+  if (value === null || value === undefined) return "—";
+  if (measureUnit) {
+    const rateSuffix = currencyRateSuffix(measureUnit);
+    if (rateSuffix !== null) {
+      // Sinal antes do símbolo (pt-BR): "-R$ 1.234,56", não "R$ -1.234,56".
+      const neg = value < 0;
+      const money = Math.abs(value).toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return `${neg ? "-" : ""}R$ ${money}${rateSuffix}`;
+    }
+  }
+  const num = opts?.fixed ? formatKpiNumberFixedRaw(value) : formatKpiNumber(value);
+  return measureUnit ? `${num} ${measureUnit}` : num;
+}
+
+/** Formata número para cards/dashboards (casas fixas), ciente da unidade. */
 export function formatKpiNumberFixed(
   value: number | null | undefined,
   measureUnit?: string | null,
 ): string {
-  if (value === null || value === undefined) return "—";
-  const decimals = pickKpiDecimals(value);
-  const formatted = value.toLocaleString("pt-BR", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-  return measureUnit ? `${formatted} ${measureUnit}` : formatted;
+  return formatKpiValue(value, measureUnit, { fixed: true });
 }
 
 // ─── Periodicity label ─────────────────────────────────────────────────────
@@ -271,7 +392,21 @@ export function useUpdateKpiIndicatorWithInvalidation(orgId: number) {
   const queryClient = useQueryClient();
   return useUpdateKpiIndicator({
     mutation: {
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListKpiIndicatorsQueryKey(orgId) }),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListKpiIndicatorsQueryKey(orgId) });
+        // Mudar fórmula recalcula `value` das células no servidor (rota PATCH).
+        // Invalida o year-data de TODOS os anos pra que o histórico/Média/
+        // Acumulado/Dashboard reflitam o recompute na mesma hora.
+        queryClient.invalidateQueries({
+          predicate: (q) => {
+            const key = q.queryKey[0];
+            return (
+              typeof key === "string" &&
+              key.startsWith(`/api/organizations/${orgId}/kpi/years/`)
+            );
+          },
+        });
+      },
     },
   });
 }

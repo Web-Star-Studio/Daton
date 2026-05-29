@@ -32,6 +32,7 @@ import {
   type ActionPlanPriority,
   type ActionPlanStatus,
 } from "@/lib/action-plans-client";
+import { formatKpiValue } from "@/lib/kpi-client";
 
 const MONTH_LABELS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
@@ -47,6 +48,7 @@ type DialogContext = {
   monthlyValueId: number | null;
   value: number | null;
   goal: number | null;
+  measureUnit?: string | null;
 };
 
 interface CellRedActionsDialogProps {
@@ -76,13 +78,8 @@ function emptyForm(): PlanFormState {
   };
 }
 
-function formatNumber(v: number | null): string {
-  if (v === null) return "—";
-  return v % 1 === 0 ? v.toFixed(0) : v.toFixed(2);
-}
-
 export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogProps) {
-  const { orgId, indicatorId, indicatorName, year, month, monthlyValueId, value, goal } = context;
+  const { orgId, indicatorId, indicatorName, year, month, monthlyValueId, value, goal, measureUnit } = context;
   const [, setLocation] = useLocation();
 
   const { data: justifications = [], isLoading: justificationsLoading } =
@@ -108,10 +105,10 @@ export function CellRedActionsDialog({ context, onClose }: CellRedActionsDialogP
   const subtitle = useMemo(() => {
     const monthLabel = MONTH_LABELS[month - 1] ?? `Mês ${month}`;
     const valuePart = value !== null && goal !== null
-      ? ` · ${formatNumber(value)} / tolerância ${formatNumber(goal)}`
+      ? ` · ${formatKpiValue(value, measureUnit)} / tolerância ${formatKpiValue(goal, measureUnit)}`
       : "";
     return `${monthLabel}/${year}${valuePart}`;
-  }, [month, year, value, goal]);
+  }, [month, year, value, goal, measureUnit]);
 
   async function handleAddJustification() {
     const body = justificationDraft.trim();

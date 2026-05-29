@@ -25,6 +25,12 @@ export interface KpiIndicator {
   measureUnit?: string | null;
   direction: KpiIndicatorDirection;
   periodicity: KpiIndicatorPeriodicity;
+  /**
+   * Mês de referência (1–12) para periodicidades não mensais — define em quais meses o indicador deve ser lançado.
+   * @minimum 1
+   * @maximum 12
+   */
+  referenceMonth?: number | null;
   category?: string | null;
   norms: string[];
   createdAt: string;

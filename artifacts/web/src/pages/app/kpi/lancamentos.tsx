@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, ClipboardPaste, Flag, Settings2 } from "lucide-react";
+import { AlertTriangle, ClipboardPaste, Flag, Settings2, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { YearPicker } from "@/components/ui/year-picker";
 import { CellRedActionsDialog } from "@/components/kpi/cell-red-actions-dialog";
 import { FormulaBuilder } from "@/components/kpi/formula-builder";
@@ -25,9 +26,11 @@ import {
   MONTH_LABELS,
   PERIODICITY_LABELS,
   computeMonthlyStats,
+  formatKpiValue,
   getTrafficLight,
   racColor,
   racLabel,
+  restrictedMonths,
   trafficLightColor,
   type KpiYearRow,
   useKpiObjectives,
@@ -45,7 +48,19 @@ type ConfigFormData = {
   goal: string;
 };
 
-export default function KpiAlimentacaoPage() {
+export default function KpiAlimentacaoPage({
+  advanced = true,
+  onAdvancedChange,
+}: {
+  /**
+   * Estado do toggle "Modo avançado" — quando `kpi-module` é o pai (aba Lançar),
+   * recebe true e o usuário pode desligar pra voltar à fila guiada. Quando o
+   * componente é montado pela rota standalone (`/kpi/lancamentos`), os props
+   * ficam undefined e o toggle não aparece.
+   */
+  advanced?: boolean;
+  onAdvancedChange?: (v: boolean) => void;
+} = {}) {
   const { organization } = useAuth();
   const orgId = organization!.id;
 
@@ -79,6 +94,7 @@ export default function KpiAlimentacaoPage() {
     monthlyValueId: number | null;
     value: number | null;
     goal: number | null;
+    measureUnit: string | null;
   } | null>(null);
 
   function openFormulaDialog(row: KpiYearRow) {
@@ -233,11 +249,24 @@ export default function KpiAlimentacaoPage() {
 
   async function handleSavePaste() {
     if (!pasteDialog) return;
-    const values = parsedPasteValues
+    // Indicador não-mensal: ignora meses fora da referência (não recria
+    // cargas de zero em meses que não deveriam ser preenchidos).
+    const restrict = restrictedMonths(
+      pasteDialog.indicator.periodicity,
+      pasteDialog.indicator.referenceMonth,
+    );
+    const parsed = parsedPasteValues
       .map((value, i) => ({ month: i + 1, value, inputs: {} as Record<string, number | null> }))
       .filter((v) => v.value !== null);
+    const values = restrict ? parsed.filter((v) => restrict.has(v.month)) : parsed;
+    const ignored = parsed.length - values.length;
     if (values.length === 0) {
-      toast({ title: "Nenhum valor válido para salvar", variant: "destructive" });
+      toast({
+        title: ignored > 0
+          ? "Todos os valores caem fora do mês de referência"
+          : "Nenhum valor válido para salvar",
+        variant: "destructive",
+      });
       return;
     }
     try {
@@ -247,7 +276,12 @@ export default function KpiAlimentacaoPage() {
         year,
         data: { values },
       });
-      toast({ title: `${values.length} valor${values.length !== 1 ? "es" : ""} salvos` });
+      toast({
+        title: `${values.length} valor${values.length !== 1 ? "es" : ""} salvos`,
+        description: ignored > 0
+          ? `${ignored} ${ignored === 1 ? "mês" : "meses"} fora da referência ignorado${ignored === 1 ? "" : "s"}.`
+          : undefined,
+      });
       setPasteDialog(null);
       setPasteInput("");
     } catch {
@@ -289,6 +323,20 @@ export default function KpiAlimentacaoPage() {
         <span className="text-sm text-muted-foreground">
           {yearRows.length} indicador{yearRows.length !== 1 ? "es" : ""}
         </span>
+
+        {onAdvancedChange ? (
+          <label
+            className="ml-auto flex cursor-pointer items-center gap-2 text-xs text-muted-foreground"
+            title="Volta para a fila guiada de pendências"
+          >
+            <Switch
+              checked={advanced}
+              onCheckedChange={onAdvancedChange}
+              aria-label="Modo avançado"
+            />
+            Modo avançado
+          </label>
+        ) : null}
       </div>
 
       {/* Spreadsheet table */}
@@ -330,10 +378,17 @@ export default function KpiAlimentacaoPage() {
               yearRows.map((row) => {
                 const monthValues = row.monthlyValues.map((mv) => mv.value ?? null);
                 const direction = row.indicator.direction as "up" | "down";
+                // restrict = meses que contam (null = todos). Não-mensal com
+                // referência ignora os meses fora dela nos cálculos.
+                const restrict = restrictedMonths(
+                  row.indicator.periodicity,
+                  row.indicator.referenceMonth,
+                );
                 const { average, accumulated, progress, rac1, rac2 } = computeMonthlyStats(
                   monthValues,
                   row.yearConfig.goal,
                   direction,
+                  restrict,
                 );
 
                 const validFormula = hasValidFormula(
@@ -342,7 +397,7 @@ export default function KpiAlimentacaoPage() {
                 );
 
                 return (
-                  <tr key={row.yearConfig.id} className="hover:bg-muted/20">
+                  <tr key={row.indicator.id} className="hover:bg-muted/20">
                     <td className="border px-2 py-1.5 sticky left-0 z-10 bg-card font-medium">
                       <div className="flex items-start gap-1.5">
                         <button
@@ -391,7 +446,9 @@ export default function KpiAlimentacaoPage() {
                     </td>
                     <td className="border px-2 py-1.5 text-muted-foreground">{row.indicator.unit ?? "—"}</td>
                     <td className="border px-2 py-1.5 text-right font-medium">
-                      {row.yearConfig.goal != null ? formatNumber(row.yearConfig.goal) : "—"}
+                      {row.yearConfig.goal != null
+                        ? formatKpiValue(row.yearConfig.goal, row.indicator.measureUnit)
+                        : "—"}
                     </td>
 
                     {/* Month cells */}
@@ -399,7 +456,13 @@ export default function KpiAlimentacaoPage() {
                       const month = idx + 1;
                       const val = monthValues[idx];
                       const monthCell = row.monthlyValues[idx];
-                      const status = getTrafficLight(val, row.yearConfig.goal, direction);
+                      // Mês fora da referência: travado (não preenchível) e
+                      // ignorado nos cálculos. Com valor = anomalia (erro de carga).
+                      const locked = !!restrict && !restrict.has(month);
+                      const isAnomaly = locked && val !== null;
+                      const status = locked
+                        ? null
+                        : getTrafficLight(val, row.yearConfig.goal, direction);
                       const monthlyValueId = monthCell?.monthlyValueId ?? null;
                       const justification = monthCell?.justification ?? null;
                       const plansCount = monthCell?.actionPlansCount ?? 0;
@@ -423,15 +486,24 @@ export default function KpiAlimentacaoPage() {
                           className={cn(
                             "border px-1 py-0.5 text-right relative",
                             status && trafficLightColor(status),
+                            // Anomalia (valor fora da referência) em âmbar; mês
+                            // travado vazio fica esmaecido.
+                            isAnomaly
+                              ? "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+                              : locked && "bg-muted/20 text-muted-foreground/40",
                             // Subtle background quando valor é calculado (rollup, não-override)
                             isComputed && "bg-indigo-50/40 dark:bg-indigo-500/5",
                           )}
                           title={
-                            isComputed
-                              ? `Calculado automaticamente a partir de ${monthCell?.childrenWithData ?? 0}/${monthCell?.childrenTotal ?? 0} filiais. Editar abaixo sobrepõe.`
-                              : isOverridden && hasRollup
-                                ? "Override manual — clique no ↻ abaixo pra voltar ao cálculo automático"
-                                : undefined
+                            locked
+                              ? isAnomaly
+                                ? "Valor fora do mês de referência — clique no × para limpar"
+                                : `Indicador ${(PERIODICITY_LABELS[row.indicator.periodicity as keyof typeof PERIODICITY_LABELS] ?? row.indicator.periodicity).toLowerCase()} — não lança neste mês`
+                              : isComputed
+                                ? `Calculado automaticamente a partir de ${monthCell?.childrenWithData ?? 0}/${monthCell?.childrenTotal ?? 0} filiais. Editar abaixo sobrepõe.`
+                                : isOverridden && hasRollup
+                                  ? "Override manual — clique no ↻ abaixo pra voltar ao cálculo automático"
+                                  : undefined
                           }
                         >
                           {/* Marker "auto" no canto pra valores calculados */}
@@ -443,7 +515,29 @@ export default function KpiAlimentacaoPage() {
                               auto
                             </span>
                           )}
-                          {validFormula ? (
+                          {locked ? (
+                            // Mês fora da referência: não preenchível. Anomalia
+                            // (com valor) mostra o número + × pra limpar.
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-[11px] tabular-nums">
+                                {isAnomaly ? formatNumber(val) : "—"}
+                              </span>
+                              {isAnomaly ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    saveCell(row.indicator.id, month, null, {});
+                                  }}
+                                  title="Limpar valor fora da referência"
+                                  aria-label="Limpar valor fora da referência"
+                                  className="shrink-0 rounded-full p-0.5 text-amber-700/80 hover:bg-amber-100 hover:text-red-600 dark:text-amber-300/80 dark:hover:bg-amber-500/20 dark:hover:text-red-400"
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : validFormula ? (
                             <FormulaCellEditor
                               indicatorName={row.indicator.name}
                               variables={row.indicator.formulaVariables}
@@ -481,6 +575,7 @@ export default function KpiAlimentacaoPage() {
                                   monthlyValueId,
                                   value: val,
                                   goal: row.yearConfig.goal ?? null,
+                                  measureUnit: row.indicator.measureUnit ?? null,
                                 });
                               }}
                               title={
@@ -519,8 +614,8 @@ export default function KpiAlimentacaoPage() {
                       );
                     })}
 
-                    <td className="border px-2 py-1.5 text-right">{formatNumber(average)}</td>
-                    <td className="border px-2 py-1.5 text-right">{formatNumber(accumulated)}</td>
+                    <td className="border px-2 py-1.5 text-right">{formatKpiValue(average, row.indicator.measureUnit)}</td>
+                    <td className="border px-2 py-1.5 text-right">{formatKpiValue(accumulated, row.indicator.measureUnit)}</td>
                     <td className="border px-2 py-1.5 text-right">
                       {progress != null ? `${Math.round(progress)}%` : "—"}
                     </td>
@@ -609,29 +704,54 @@ export default function KpiAlimentacaoPage() {
             {pasteInput.trim() && (
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Preview</Label>
-                <div className="grid grid-cols-6 gap-1">
-                  {MONTH_LABELS.map((label, i) => {
-                    const v = parsedPasteValues[i];
-                    const status = pasteDialog.yearConfig.goal != null && v != null
-                      ? getTrafficLight(v, pasteDialog.yearConfig.goal, pasteDialog.indicator.direction as "up" | "down")
-                      : null;
-                    return (
-                      <div
-                        key={label}
-                        className={cn(
-                          "rounded border px-2 py-1 text-center text-xs",
-                          v !== null ? (status ? trafficLightColor(status) : "bg-muted/40") : "bg-muted/20 text-muted-foreground",
-                        )}
-                      >
-                        <div className="font-medium text-[10px] text-muted-foreground">{label}</div>
-                        <div>{v !== null ? (v % 1 === 0 ? v.toFixed(0) : v.toFixed(2)) : "—"}</div>
+                {(() => {
+                  const pasteRestrict = restrictedMonths(
+                    pasteDialog.indicator.periodicity,
+                    pasteDialog.indicator.referenceMonth,
+                  );
+                  const ignoredCount = pasteRestrict
+                    ? parsedPasteValues.filter(
+                        (v, i) => v !== null && !pasteRestrict.has(i + 1),
+                      ).length
+                    : 0;
+                  return (
+                    <>
+                      <div className="grid grid-cols-6 gap-1">
+                        {MONTH_LABELS.map((label, i) => {
+                          const v = parsedPasteValues[i];
+                          const outOfRef = !!pasteRestrict && !pasteRestrict.has(i + 1);
+                          const status =
+                            !outOfRef && pasteDialog.yearConfig.goal != null && v != null
+                              ? getTrafficLight(v, pasteDialog.yearConfig.goal, pasteDialog.indicator.direction as "up" | "down")
+                              : null;
+                          return (
+                            <div
+                              key={label}
+                              title={outOfRef ? "Fora do mês de referência — será ignorado" : undefined}
+                              className={cn(
+                                "rounded border px-2 py-1 text-center text-xs",
+                                outOfRef
+                                  ? "border-dashed bg-muted/20 text-muted-foreground/40 line-through"
+                                  : v !== null
+                                    ? status ? trafficLightColor(status) : "bg-muted/40"
+                                    : "bg-muted/20 text-muted-foreground",
+                              )}
+                            >
+                              <div className="font-medium text-[10px] text-muted-foreground">{label}</div>
+                              <div>{v !== null ? (v % 1 === 0 ? v.toFixed(0) : v.toFixed(2)) : "—"}</div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {parsedPasteValues.filter((v) => v !== null).length} de 12 valores reconhecidos
-                </p>
+                      <p className="text-xs text-muted-foreground">
+                        {parsedPasteValues.filter((v) => v !== null).length} de 12 valores reconhecidos
+                        {ignoredCount > 0
+                          ? ` · ${ignoredCount} fora da referência ${ignoredCount === 1 ? "será ignorado" : "serão ignorados"}`
+                          : ""}
+                      </p>
+                    </>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -660,6 +780,7 @@ export default function KpiAlimentacaoPage() {
             monthlyValueId: cellDialog.monthlyValueId,
             value: cellDialog.value,
             goal: cellDialog.goal,
+            measureUnit: cellDialog.measureUnit,
           }}
           onClose={() => setCellDialog(null)}
         />

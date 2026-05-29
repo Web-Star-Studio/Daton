@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { KpiTabs, type KpiTabId } from "./_components/kpi-tabs";
 import { LancarScreen } from "./_components/lancar-screen";
 import { RacScreen } from "./_components/rac-screen";
 import { AuditoriaScreen } from "./_components/auditoria-screen";
 import KpiDashboardPage from "./dashboard";
 import KpiIndicadoresPage from "./indicadores";
+import KpiLancamentosPage from "./lancamentos";
+
+const ADVANCED_LANCAR_STORAGE_KEY = "kpi:lancar:advanced";
 
 /**
  * Shell de página única do módulo de Indicadores (KPI), espelhando o protótipo
@@ -34,6 +37,20 @@ export default function KpiModulePage() {
    * foco não persiste em re-entradas naturais na aba.
    */
   const [pendingFocusId, setPendingFocusId] = useState<number | null>(null);
+  // Toggle entre a fila guiada (LancarScreen) e a planilha avançada
+  // (KpiAlimentacaoPage). Persistido em localStorage pra Ana não precisar
+  // re-ativar a cada visita — o modo avançado é a UX antiga.
+  const [advancedLancar, setAdvancedLancar] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(ADVANCED_LANCAR_STORAGE_KEY) === "1";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      ADVANCED_LANCAR_STORAGE_KEY,
+      advancedLancar ? "1" : "0",
+    );
+  }, [advancedLancar]);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -46,18 +63,36 @@ export default function KpiModulePage() {
           }}
         />
       ) : tab === "lancamentos" ? (
-        <LancarScreen
-          onEditIndicator={(id) => {
-            window.history.replaceState(
-              null,
-              "",
-              `${window.location.pathname}#ind-edit-${id}`,
-            );
-            setTab("indicadores");
-          }}
-          initialIndicatorId={pendingFocusId}
-          onInitialIndicatorConsumed={() => setPendingFocusId(null)}
-        />
+        advancedLancar ? (
+          <KpiLancamentosPage
+            advanced={advancedLancar}
+            onAdvancedChange={setAdvancedLancar}
+          />
+        ) : (
+          <LancarScreen
+            onEditIndicator={(id) => {
+              window.history.replaceState(
+                null,
+                "",
+                `${window.location.pathname}#ind-edit-${id}`,
+              );
+              setTab("indicadores");
+            }}
+            onBackToIndicadores={(id) => {
+              // Devolve pra aba Indicadores rolando até o indicador de origem.
+              window.history.replaceState(
+                null,
+                "",
+                `${window.location.pathname}#ind-card-${id}`,
+              );
+              setTab("indicadores");
+            }}
+            initialIndicatorId={pendingFocusId}
+            onInitialIndicatorConsumed={() => setPendingFocusId(null)}
+            advanced={advancedLancar}
+            onAdvancedChange={setAdvancedLancar}
+          />
+        )
       ) : tab === "rac" ? (
         <RacScreen />
       ) : tab === "auditoria" ? (

@@ -66,6 +66,17 @@ export function FilialStatus({ indicators, yearRows }: FilialStatusProps) {
         <ul className="space-y-2">
           {filiais.map((f) => {
             const t = tone(f.percentOk);
+            // Breakdown completo no tooltip — % verde por si só esconde se a
+            // unidade está mal por falta de tolerância (nodata) ou por desempenho
+            // (red/yellow). Cliente precisa saber a diferença pra agir.
+            const breakdown = [
+              `${f.green} no verde`,
+              f.yellow > 0 ? `${f.yellow} em atenção` : null,
+              f.red > 0 ? `${f.red} fora da tolerância` : null,
+              f.nodata > 0 ? `${f.nodata} sem dados / sem tolerância` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ");
             return (
               <li key={f.name} className="flex items-center gap-2.5 text-xs">
                 <span
@@ -74,18 +85,30 @@ export function FilialStatus({ indicators, yearRows }: FilialStatusProps) {
                 >
                   {f.name}
                 </span>
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"
+                  title={breakdown}
+                >
                   <div
                     className={cn("h-full rounded-full transition-all", t.bar)}
                     style={{ width: `${f.percentOk}%` }}
                     aria-hidden
                   />
                 </div>
-                <span className={cn("w-9 shrink-0 text-right font-medium tabular-nums", t.pct)}>
+                <span
+                  className={cn("w-9 shrink-0 text-right font-medium tabular-nums", t.pct)}
+                  title={breakdown}
+                >
                   {f.percentOk}%
                 </span>
-                <span className="w-12 shrink-0 text-right text-muted-foreground tabular-nums">
-                  {f.green}/{f.total}
+                <span
+                  className="w-20 shrink-0 text-right text-[10px] text-muted-foreground tabular-nums"
+                  title={breakdown}
+                >
+                  {f.green}<span className="text-emerald-600/70">✓</span>
+                  {f.yellow > 0 ? <> {f.yellow}<span className="text-amber-600/70">~</span></> : null}
+                  {f.red > 0 ? <> {f.red}<span className="text-red-600/70">✗</span></> : null}
+                  {f.nodata > 0 ? <> {f.nodata}<span className="text-muted-foreground/70">·</span></> : null}
                 </span>
               </li>
             );

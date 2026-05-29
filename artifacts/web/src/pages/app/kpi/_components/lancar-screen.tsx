@@ -4,13 +4,27 @@ import {
   ChevronRight,
   ClipboardList,
   Loader2,
+  Pencil,
   TriangleAlert,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageSubtitle, usePageTitle } from "@/contexts/LayoutContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { YearPicker } from "@/components/ui/year-picker";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CellRedActionsDialog } from "@/components/kpi/cell-red-actions-dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -18,16 +32,19 @@ import { evaluateFormula, hasValidFormula } from "@/lib/formula-evaluator";
 import {
   KPI_CATEGORIES,
   MONTH_LABELS,
+  NON_MONTHLY_PERIODICITIES,
   PERIODICITY_LABELS,
   computeMonthlyStats,
+  expectedMonths,
   formatKpiNumber,
+  formatKpiValue,
   getTrafficLight,
+  restrictedMonths,
   trafficLightColor,
   useKpiYearData,
   useUpsertKpiValuesWithInvalidation,
   type KpiDirection,
   type KpiYearRow,
-  type WithReferenceMonth,
 } from "@/lib/kpi-client";
 import { Sparkline } from "./sparkline";
 import { getIndicatorStatus, type CardStatus } from "./indicator-card";
@@ -83,30 +100,20 @@ function statusInfo(
   };
 }
 
-/** Periodicidades não mensais — precisam de um mês de referência definido. */
-const NON_MONTHLY = new Set(["quarterly", "semiannual", "annual"]);
-
-/** Meses em que o indicador deve ser lançado, conforme a periodicidade. */
-function expectedMonths(
-  periodicity: string,
-  ref: number | null | undefined,
-): Set<number> {
-  if (!ref || ref < 1 || ref > 12) return new Set();
-  const at = (offset: number) => ((ref - 1 + offset) % 12) + 1;
-  if (periodicity === "annual") return new Set([at(0)]);
-  if (periodicity === "semiannual") return new Set([at(0), at(6)]);
-  if (periodicity === "quarterly") return new Set([at(0), at(3), at(6), at(9)]);
-  return new Set();
-}
-
 /** Meses vermelhos (fora da tolerância) ainda sem justificativa nem plano de ação. */
 function untreatedRedMonths(row: KpiYearRow): number[] {
   const goal = row.yearConfig.goal ?? null;
   const direction = (row.indicator.direction ?? "up") as KpiDirection;
+  // Indicador não-mensal: meses fora da referência não contam como desvio.
+  const restrict = restrictedMonths(
+    row.indicator.periodicity,
+    row.indicator.referenceMonth,
+  );
   return row.monthlyValues
     .filter(
       (mv) =>
         mv.value != null &&
+        (!restrict || restrict.has(mv.month)) &&
         getTrafficLight(mv.value, goal, direction) === "red" &&
         mv.justificationsCount === 0 &&
         mv.actionPlansCount === 0,
@@ -117,40 +124,63 @@ function untreatedRedMonths(row: KpiYearRow): number[] {
 /** Spreadsheet-style year history for the indicator being launched. */
 function HistoryPanel({
   row,
+  year,
+  maxLaunchableMonth,
   goal,
   direction,
   selectedMonth,
   measureUnit,
   onSelectMonth,
+  onClearMonth,
 }: {
   row: KpiYearRow;
+  year: number;
+  /** Último mês que pode receber lançamento (em ano corrente = mês atual). */
+  maxLaunchableMonth: number;
   goal: number | null;
   direction: KpiDirection;
   selectedMonth: number;
   measureUnit: string;
-  /** Abre o diálogo de justificativa/plano de ação para o mês clicado. */
+  /** Foca o mês no form (cria lançamento se vazio, edita se já tem valor). */
   onSelectMonth: (month: number) => void;
+  /** Limpa o valor do mês (deixa em branco) — gatilho do "×" no canto da célula. */
+  onClearMonth: (month: number) => void;
 }) {
   const monthValues = Array.from(
     { length: 12 },
     (_, i) => row.monthlyValues.find((m) => m.month === i + 1)?.value ?? null,
   );
-  const stats = computeMonthlyStats(monthValues, goal, direction);
   const expected = expectedMonths(
     row.indicator.periodicity,
-    (row.indicator as WithReferenceMonth).referenceMonth,
+    row.indicator.referenceMonth,
   );
+  // restrict = meses que CONTAM (null = todos). Para não-mensal com referência,
+  // os meses fora dela ficam travados e são ignorados nos cálculos.
+  const restrict = restrictedMonths(
+    row.indicator.periodicity,
+    row.indicator.referenceMonth,
+  );
+  const stats = computeMonthlyStats(monthValues, goal, direction, restrict);
   const untreated = new Set(untreatedRedMonths(row));
+  const refMonthsLabel = [...expected]
+    .sort((a, b) => a - b)
+    .map((m) => MONTH_FULL[m - 1])
+    .join(", ");
+  const periodicityLabel = (
+    PERIODICITY_LABELS[
+      row.indicator.periodicity as keyof typeof PERIODICITY_LABELS
+    ] ?? row.indicator.periodicity
+  ).toLowerCase();
   return (
     <div className="space-y-3 rounded-xl border bg-card p-4">
       <div>
         <h3 className="text-[13px] font-semibold text-foreground">
-          Histórico {CURRENT_YEAR}
+          Histórico {year}
         </h3>
         <p className="mt-0.5 text-[11px] text-muted-foreground">
           Tolerância:{" "}
           {goal !== null
-            ? `${direction === "down" ? "≤" : "≥"} ${fmt(goal)}${measureUnit ? ` ${measureUnit}` : ""}`
+            ? `${direction === "down" ? "≤" : "≥"} ${formatKpiValue(goal, measureUnit)}`
             : "não definida"}
         </p>
       </div>
@@ -159,17 +189,26 @@ function HistoryPanel({
           const v = monthValues[i];
           const st = getTrafficLight(v, goal, direction);
           const month = i + 1;
-          const clickable = v !== null;
+          // Mês fora da referência (indicador não-mensal): travado, ignorado
+          // nos cálculos. Se tiver valor, é anomalia (provável erro de carga).
+          const locked = !!restrict && !restrict.has(month);
+          const isAnomaly = locked && v !== null;
+          // Mês lançável: não é futuro E não está travado pela referência.
+          const clickable = month <= maxLaunchableMonth && !locked;
           const isExpectedEmpty = v === null && expected.has(month);
           const isUntreatedRed = untreated.has(month);
           const cls = cn(
             "rounded-md border px-1 py-1 text-center",
-            month === selectedMonth && "ring-2 ring-blue-500",
-            v !== null && st
-              ? trafficLightColor(st)
-              : isExpectedEmpty
-                ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/15 dark:text-indigo-300"
-                : "bg-muted/30",
+            month === selectedMonth && !locked && "ring-2 ring-blue-500",
+            isAnomaly
+              ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300"
+              : locked
+                ? "border-dashed bg-muted/20 text-muted-foreground/40"
+                : v !== null && st
+                  ? trafficLightColor(st)
+                  : isExpectedEmpty
+                    ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/15 dark:text-indigo-300"
+                    : "bg-muted/30",
             clickable &&
               "cursor-pointer transition hover:ring-2 hover:ring-blue-400",
           );
@@ -177,28 +216,70 @@ function HistoryPanel({
             <>
               <div className="flex items-center justify-center gap-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
                 {label}
-                {isUntreatedRed ? (
+                {isAnomaly ? (
+                  <TriangleAlert className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
+                ) : isUntreatedRed ? (
                   <TriangleAlert className="h-2.5 w-2.5 text-red-600 dark:text-red-400" />
                 ) : null}
               </div>
               <div className="text-[11px] font-medium tabular-nums">
-                {v !== null ? fmt(v) : isExpectedEmpty ? "previsto" : "—"}
+                {v !== null
+                  ? fmt(v)
+                  : isExpectedEmpty
+                    ? "previsto"
+                    : locked
+                      ? "—"
+                      : "—"}
               </div>
             </>
           );
-          return clickable ? (
-            <button
-              key={label}
-              type="button"
-              className={cls}
-              onClick={() => onSelectMonth(month)}
-              title="Registrar justificativa / plano de ação"
-            >
-              {body}
-            </button>
-          ) : (
-            <div key={label} className={cls}>
-              {body}
+          // Tooltip do mês travado explica por que não dá pra lançar.
+          const lockedTitle = isAnomaly
+            ? `Valor fora do mês de referência (${refMonthsLabel}) — clique no × para limpar`
+            : `Indicador ${periodicityLabel} — lance só em ${refMonthsLabel}`;
+          return (
+            <div key={label} className="group/cell relative">
+              {clickable ? (
+                <button
+                  type="button"
+                  className={cn(cls, "w-full")}
+                  onClick={() => onSelectMonth(month)}
+                  title={
+                    v !== null ? "Editar lançamento" : "Lançar valor neste mês"
+                  }
+                >
+                  {body}
+                </button>
+              ) : (
+                <div
+                  className={cls}
+                  title={
+                    locked
+                      ? lockedTitle
+                      : "Mês futuro — ainda não disponível"
+                  }
+                >
+                  {body}
+                </div>
+              )}
+              {/* "×" pra limpar o valor do mês (deixa em branco): meses lançáveis
+                 com valor salvo (inclusive zero) E anomalias fora da referência. */}
+              {v !== null && (clickable || isAnomaly) ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClearMonth(month);
+                  }}
+                  title={
+                    isAnomaly ? "Limpar valor fora da referência" : "Limpar valor deste mês"
+                  }
+                  aria-label={`Limpar valor de ${label}`}
+                  className="absolute -right-1 -top-1 z-10 rounded-full border bg-card p-0.5 text-muted-foreground opacity-0 shadow-sm transition hover:text-red-600 focus-visible:opacity-100 group-hover/cell:opacity-100 dark:hover:text-red-400"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              ) : null}
             </div>
           );
         })}
@@ -207,12 +288,11 @@ function HistoryPanel({
         <p className="flex items-center gap-1.5 rounded-md bg-red-50 px-2 py-1.5 text-[11px] font-medium text-red-700 dark:bg-red-500/10 dark:text-red-300">
           <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
           {untreated.size} {untreated.size === 1 ? "mês" : "meses"} fora da tolerância
-          sem plano de ação — clique para tratar.
+          sem plano de ação — use o botão de justificativa abaixo do resultado.
         </p>
       ) : (
         <p className="text-[10px] text-muted-foreground">
-          Clique em um mês com resultado para registrar justificativa ou plano
-          de ação.
+          Clique em um mês pra editar o lançamento ou lançar o valor.
         </p>
       )}
       <Sparkline
@@ -225,14 +305,13 @@ function HistoryPanel({
         <div className="flex items-center justify-between">
           <dt className="text-muted-foreground">Média</dt>
           <dd className="font-medium tabular-nums text-foreground">
-            {fmt(stats.average)}
-            {measureUnit && stats.average !== null ? ` ${measureUnit}` : ""}
+            {formatKpiValue(stats.average, measureUnit)}
           </dd>
         </div>
         <div className="flex items-center justify-between">
           <dt className="text-muted-foreground">Acumulado</dt>
           <dd className="font-medium tabular-nums text-foreground">
-            {fmt(stats.accumulated)}
+            {formatKpiValue(stats.accumulated, measureUnit)}
           </dd>
         </div>
         <div className="flex items-center justify-between">
@@ -248,11 +327,20 @@ function HistoryPanel({
 
 export function LancarScreen({
   onEditIndicator,
+  onBackToIndicadores,
   initialIndicatorId,
   onInitialIndicatorConsumed,
+  advanced = false,
+  onAdvancedChange,
 }: {
   /** Abre o cadastro do indicador (aba Indicadores) para definir o mês de referência. */
   onEditIndicator: (indicatorId: number) => void;
+  /**
+   * Volta para a aba Indicadores (rolando até o indicador). Usado quando o form
+   * foi aberto via deep-link a partir de lá — o "Voltar" devolve à origem em vez
+   * de cair na fila local. Quando ausente, o "Voltar" sempre volta para a fila.
+   */
+  onBackToIndicadores?: (indicatorId: number) => void;
   /**
    * Quando definido, o LancarScreen seleciona esse indicador automaticamente
    * (abrindo o painel de edição) e rola até ele. Usado pelo deep-link vindo
@@ -264,10 +352,20 @@ export function LancarScreen({
    * resetar o estado de pendingFocus, evitando re-focar a cada re-render.
    */
   onInitialIndicatorConsumed?: () => void;
+  /** Estado do toggle "Modo avançado" — controlado pelo pai (kpi-module). */
+  advanced?: boolean;
+  onAdvancedChange?: (v: boolean) => void;
 }) {
   const { organization } = useAuth();
   const orgId = organization!.id;
-  const year = CURRENT_YEAR;
+  // Ano selecionado pela Ana. Default = ano corrente, mas backfill de anos
+  // passados é suportado: o backend faz carry-forward de tolerância/objetivo
+  // do ano anterior, então indicadores aparecem em qualquer ano sem que
+  // alguém precise reabrir o cadastro.
+  const [year, setYear] = useState(CURRENT_YEAR);
+  // Quantos meses do ano selecionado já viraram "lançáveis": no ano corrente
+  // só até o mês atual (CURRENT_MONTH); em anos passados/futuros, todos os 12.
+  const maxLaunchableMonth = year === CURRENT_YEAR ? CURRENT_MONTH : 12;
 
   usePageTitle("Lançar resultado");
   usePageSubtitle("Sua fila de pendências — registre os resultados mensais");
@@ -281,10 +379,15 @@ export function LancarScreen({
   const [responsibleFilter, setResponsibleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<CardStatus | "">("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // Origem da abertura do form: deep-link vindo da aba Indicadores (true) vs
+  // clique na fila local (false). Decide o destino do botão "Voltar".
+  const [cameFromIndicadores, setCameFromIndicadores] = useState(false);
   const [month, setMonth] = useState(CURRENT_MONTH);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [directValue, setDirectValue] = useState("");
   const [racMonth, setRacMonth] = useState<number | null>(null);
+  // Mês pendente de limpeza (abre o AlertDialog de confirmação).
+  const [clearMonth, setClearMonth] = useState<number | null>(null);
 
   const selectedRow = useMemo(
     () =>
@@ -307,6 +410,8 @@ export function LancarScreen({
       return;
     }
     setSelectedId(initialIndicatorId);
+    // Veio da aba Indicadores (ou drawer corporativo) — "Voltar" devolve pra lá.
+    setCameFromIndicadores(true);
     // Scroll suave até o cartão; o id é colocado nos <li> das listas abaixo.
     setTimeout(() => {
       const el = document.getElementById(`lancar-ind-${initialIndicatorId}`);
@@ -375,6 +480,30 @@ export function LancarScreen({
   const effectiveStatus = getTrafficLight(effectiveValue, goal, direction);
   const outOfTarget = effectiveStatus === "red";
 
+  // Meses que o form pode lançar: não-futuros e, p/ indicador não-mensal,
+  // só os meses de referência. Fallback p/ todos quando a restrição ainda não
+  // tem mês lançável (ex.: referência em dezembro no meio do ano corrente).
+  const launchableMonths = useMemo(() => {
+    const all = Array.from({ length: maxLaunchableMonth }, (_, i) => i + 1);
+    const restrict = selectedRow
+      ? restrictedMonths(
+          selectedRow.indicator.periodicity,
+          selectedRow.indicator.referenceMonth,
+        )
+      : null;
+    const filtered = restrict ? all.filter((m) => restrict.has(m)) : all;
+    return filtered.length ? filtered : all;
+  }, [selectedRow, maxLaunchableMonth]);
+
+  // Se o mês selecionado caiu fora dos lançáveis (deep-link, troca de
+  // indicador), ajusta pro último lançável.
+  useEffect(() => {
+    if (!selectedRow) return;
+    if (!launchableMonths.includes(month)) {
+      setMonth(launchableMonths[launchableMonths.length - 1]);
+    }
+  }, [selectedRow, launchableMonths, month]);
+
   // Mês para o qual o diálogo de justificativa/RAC está aberto (forma ou histórico).
   const racMonthly =
     racMonth !== null && selectedRow
@@ -426,8 +555,8 @@ export function LancarScreen({
 
   // Indicador não mensal sem mês de referência → precisa de configuração.
   const needsConfig = (r: KpiYearRow) =>
-    NON_MONTHLY.has(r.indicator.periodicity) &&
-    !(r.indicator as WithReferenceMonth).referenceMonth;
+    NON_MONTHLY_PERIODICITIES.has(r.indicator.periodicity) &&
+    !r.indicator.referenceMonth;
   const hasUntreatedRed = (r: KpiYearRow) => untreatedRedMonths(r).length > 0;
   const faltaConfig = filtered.filter(needsConfig);
   const requerAcao = filtered.filter(
@@ -447,8 +576,21 @@ export function LancarScreen({
     !!statusFilter;
 
   function openForm(row: KpiYearRow) {
-    let defaultMonth = CURRENT_MONTH;
-    for (let m = CURRENT_MONTH; m >= 1; m--) {
+    // Candidatos = meses lançáveis respeitando a referência (não-mensal só
+    // lança nos meses esperados). Começa no mês mais recente sem valor.
+    const restrict = restrictedMonths(
+      row.indicator.periodicity,
+      row.indicator.referenceMonth,
+    );
+    const candidates = Array.from(
+      { length: maxLaunchableMonth },
+      (_, i) => i + 1,
+    ).filter((m) => !restrict || restrict.has(m));
+    let defaultMonth = candidates.length
+      ? candidates[candidates.length - 1]
+      : maxLaunchableMonth;
+    for (let k = candidates.length - 1; k >= 0; k--) {
+      const m = candidates[k];
       const mv = row.monthlyValues.find((x) => x.month === m);
       if (mv?.value == null) {
         defaultMonth = m;
@@ -456,7 +598,18 @@ export function LancarScreen({
       }
     }
     setSelectedId(row.indicator.id);
+    // Aberto pela fila local — "Voltar" volta para a fila.
+    setCameFromIndicadores(false);
     setMonth(defaultMonth);
+  }
+
+  // Sai do form para a origem: aba Indicadores (deep-link) ou fila local.
+  function exitForm() {
+    if (cameFromIndicadores && onBackToIndicadores && selectedRow) {
+      onBackToIndicadores(selectedRow.indicator.id);
+    } else {
+      setSelectedId(null);
+    }
   }
 
   async function handleSave() {
@@ -493,10 +646,39 @@ export function LancarScreen({
         });
       } else {
         toast({ title: "Resultado lançado" });
-        setSelectedId(null);
+        exitForm();
       }
     } catch {
       toast({ title: "Erro ao lançar o resultado", variant: "destructive" });
+    }
+  }
+
+  // Limpa o valor de um mês (deixa em branco). Usado pelo "×" das células do
+  // histórico — p/ casos como carga de zero importada do Excel em indicador
+  // anual onde o mês não deveria ser preenchido. Confirma via AlertDialog
+  // (clearMonth guarda o mês pendente de limpeza).
+  async function confirmClearMonth() {
+    if (!selectedRow || clearMonth === null) return;
+    const targetMonth = clearMonth;
+    try {
+      await upsertValues.mutateAsync({
+        orgId,
+        indicatorId: selectedRow.indicator.id,
+        year,
+        data: {
+          values: [{ month: targetMonth, value: null, inputs: {} }],
+        },
+      });
+      // Se limpamos o mês que está aberto no form, zera os campos também.
+      if (targetMonth === month) {
+        setDraft({});
+        setDirectValue("");
+      }
+      toast({ title: "Lançamento removido" });
+    } catch {
+      toast({ title: "Erro ao remover o lançamento", variant: "destructive" });
+    } finally {
+      setClearMonth(null);
     }
   }
 
@@ -505,34 +687,84 @@ export function LancarScreen({
   // ─── Form view ─────────────────────────────────────────────────────────────
   if (selectedRow) {
     const s = statusInfo(effectiveStatus, goal !== null);
+    const ind = selectedRow.indicator;
+    // Como o indicador está configurado (mensal/trimestral/anual…) e, para os
+    // não-mensais, em quais meses ele deve ser lançado. Mostrado no cabeçalho
+    // pra Ana saber a cadência sem ter que sair pra outra tela.
+    const periodicityLabel =
+      PERIODICITY_LABELS[ind.periodicity as keyof typeof PERIODICITY_LABELS] ??
+      ind.periodicity;
+    const isNonMonthly = NON_MONTHLY_PERIODICITIES.has(ind.periodicity);
+    const refExpected = expectedMonths(ind.periodicity, ind.referenceMonth);
+    const refMonthsLabel = [...refExpected]
+      .sort((a, b) => a - b)
+      .map((m) => MONTH_FULL[m - 1])
+      .join(", ");
+    // Não-mensal sem mês de referência: a cadência fica indefinida — sinaliza e
+    // leva pro cadastro pra configurar.
+    const missingReference = isNonMonthly && refExpected.size === 0;
+    // "Voltar" devolve à origem: aba Indicadores (deep-link) ou fila local.
+    const backToIndicadores = cameFromIndicadores && !!onBackToIndicadores;
     return (
       <div className="space-y-4 p-6">
         <button
           type="button"
-          onClick={() => setSelectedId(null)}
+          onClick={exitForm}
           className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Voltar para a fila
+          {backToIndicadores ? "Voltar para indicadores" : "Voltar para a fila"}
         </button>
 
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,560px)_320px]">
           <div className="space-y-4 rounded-xl border bg-card p-5">
             <div className="border-b pb-3">
-              <h2 className="text-base font-semibold text-foreground">
-                {selectedRow.indicator.name}
-              </h2>
+              <div className="flex items-start justify-between gap-2">
+                <h2 className="text-base font-semibold text-foreground">
+                  {ind.name}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => onEditIndicator(ind.id)}
+                  title="Editar a configuração do indicador"
+                  className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Editar
+                </button>
+              </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Tolerância:{" "}
                 <span className="font-medium text-foreground/80">
                   {goal !== null
-                    ? `${fmt(goal)} ${measureUnit}`.trim()
+                    ? formatKpiValue(goal, measureUnit)
                     : "não definida"}
                 </span>
-                {selectedRow.indicator.unit
-                  ? ` · ${selectedRow.indicator.unit}`
-                  : ""}
+                {ind.unit ? ` · ${ind.unit}` : ""}
               </p>
+              {/* Cadência do indicador (mensal/trimestral/anual…) + meses de
+                 referência. Quando falta a referência num não-mensal, abre o
+                 cadastro pra configurar. */}
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  {periodicityLabel}
+                </span>
+                {isNonMonthly && !missingReference ? (
+                  <span className="text-[11px] text-muted-foreground">
+                    Lança em: {refMonthsLabel}
+                  </span>
+                ) : null}
+                {missingReference ? (
+                  <button
+                    type="button"
+                    onClick={() => onEditIndicator(ind.id)}
+                    className="flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
+                  >
+                    <TriangleAlert className="h-3 w-3" />
+                    Mês de referência não definido — configurar
+                  </button>
+                ) : null}
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -544,13 +776,11 @@ export function LancarScreen({
                 onChange={(e) => setMonth(Number(e.target.value))}
                 className="w-48"
               >
-                {Array.from({ length: CURRENT_MONTH }, (_, i) => i + 1).map(
-                  (m) => (
-                    <option key={m} value={String(m)}>
-                      {MONTH_FULL[m - 1]} de {year}
-                    </option>
-                  ),
-                )}
+                {launchableMonths.map((m) => (
+                  <option key={m} value={String(m)}>
+                    {MONTH_FULL[m - 1]} de {year}
+                  </option>
+                ))}
               </Select>
             </div>
 
@@ -624,7 +854,7 @@ export function LancarScreen({
                 </div>
                 <div className="text-2xl font-semibold tabular-nums text-foreground">
                   {effectiveValue !== null
-                    ? `${fmt(effectiveValue)} ${measureUnit}`.trim()
+                    ? formatKpiValue(effectiveValue, measureUnit)
                     : "—"}
                 </div>
               </div>
@@ -639,7 +869,7 @@ export function LancarScreen({
                 </span>
                 {goal !== null ? (
                   <div className="mt-1 text-[11px] text-muted-foreground">
-                    Tolerância: {fmt(goal)} {measureUnit}
+                    Tolerância: {formatKpiValue(goal, measureUnit)}
                   </div>
                 ) : null}
               </div>
@@ -704,11 +934,14 @@ export function LancarScreen({
           </div>
           <HistoryPanel
             row={selectedRow}
+            year={year}
+            maxLaunchableMonth={maxLaunchableMonth}
             goal={goal}
             direction={direction}
             selectedMonth={month}
             measureUnit={measureUnit}
-            onSelectMonth={setRacMonth}
+            onSelectMonth={setMonth}
+            onClearMonth={setClearMonth}
           />
         </div>
         {racMonth !== null ? (
@@ -722,10 +955,47 @@ export function LancarScreen({
               monthlyValueId: racMonthly?.monthlyValueId ?? null,
               value: racMonthly?.value ?? null,
               goal,
+              measureUnit,
             }}
             onClose={() => setRacMonth(null)}
           />
         ) : null}
+        <AlertDialog
+          open={clearMonth !== null}
+          onOpenChange={(open) => {
+            if (!open) setClearMonth(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Limpar lançamento?</AlertDialogTitle>
+              <AlertDialogDescription>
+                O valor de{" "}
+                <span className="font-medium text-foreground">
+                  {clearMonth !== null ? MONTH_FULL[clearMonth - 1] : ""} de{" "}
+                  {year}
+                </span>{" "}
+                será removido e o mês voltará a ficar em branco. Esta ação não
+                pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  void confirmClearMonth();
+                }}
+                disabled={saving}
+              >
+                {saving ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : null}
+                Limpar lançamento
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
@@ -735,6 +1005,16 @@ export function LancarScreen({
     <div className="space-y-4 p-6">
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
+        <YearPicker
+          value={year}
+          onChange={(y) => {
+            setYear(y);
+            // Se o user tinha um indicador aberto, fecha — a tela volta pra
+            // fila do novo ano. Evita confusão de "estou editando 2025 mas
+            // o título mostra 2026".
+            setSelectedId(null);
+          }}
+        />
         <Input
           placeholder="Buscar indicador..."
           value={search}
@@ -803,6 +1083,19 @@ export function LancarScreen({
           >
             Limpar
           </Button>
+        ) : null}
+        {onAdvancedChange ? (
+          <label
+            className="ml-auto flex cursor-pointer items-center gap-2 text-xs text-muted-foreground"
+            title="Alterna para a planilha completa (visão antiga, edição em massa por célula)"
+          >
+            <Switch
+              checked={advanced}
+              onCheckedChange={onAdvancedChange}
+              aria-label="Modo avançado"
+            />
+            Modo avançado
+          </label>
         ) : null}
       </div>
 
@@ -997,7 +1290,7 @@ export function LancarScreen({
                           </div>
                           <div className="mt-0.5 text-[11px] text-muted-foreground">
                             {row.yearConfig.goal !== null
-                              ? `Tolerância: ${fmt(row.yearConfig.goal)} ${row.indicator.measureUnit ?? ""}`.trim()
+                              ? `Tolerância: ${formatKpiValue(row.yearConfig.goal, row.indicator.measureUnit)}`
                               : "Tolerância não definida"}
                             {row.indicator.unit
                               ? ` · ${row.indicator.unit}`

@@ -3456,6 +3456,12 @@ export interface KpiIndicator {
   measureUnit?: string | null;
   direction: KpiIndicatorDirection;
   periodicity: KpiIndicatorPeriodicity;
+  /**
+   * Mês de referência (1–12) para periodicidades não mensais — define em quais meses o indicador deve ser lançado.
+   * @minimum 1
+   * @maximum 12
+   */
+  referenceMonth?: number | null;
   category?: string | null;
   norms: string[];
   createdAt: string;
@@ -3495,6 +3501,11 @@ export interface CreateKpiIndicatorBody {
   measureUnit?: string;
   direction: CreateKpiIndicatorBodyDirection;
   periodicity: CreateKpiIndicatorBodyPeriodicity;
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  referenceMonth?: number | null;
   category?: string | null;
   norms?: string[];
   objectiveId?: number | null;
@@ -3535,6 +3546,11 @@ export interface UpdateKpiIndicatorBody {
   measureUnit?: string;
   direction?: UpdateKpiIndicatorBodyDirection;
   periodicity?: UpdateKpiIndicatorBodyPeriodicity;
+  /**
+   * @minimum 1
+   * @maximum 12
+   */
+  referenceMonth?: number | null;
   category?: string | null;
   norms?: string[];
 }
@@ -3570,7 +3586,7 @@ export interface KpiMonthlyValueInput {
   month: number;
   value?: number | null;
   inputs?: KpiMonthlyValueInputInputs;
-  /** Override manual sobre cálculo automático do rollup. Default true quando value!=null, false quando value=null. */
+  /** Marca o valor como entrada manual. Default true quando value!=null, false quando value=null. */
   isOverridden?: boolean;
 }
 
@@ -3609,17 +3625,17 @@ export interface KpiMonthlyValue {
   justificationsCount: number;
   /** @minimum 0 */
   actionPlansCount: number;
-  /** True quando a Ana entrou um valor manual sobrepondo o cálculo automático (rollup). False = livre pra recompute. */
+  /** True quando o valor foi entrado manualmente (override sobre o cálculo do corporativo). */
   isOverridden?: boolean;
-  /** True quando o `value` exibido foi calculado on-read a partir dos filhos do rollup (não é o valor cru do row). Indicador deve ter rollup_strategy != null e isOverridden=false. */
+  /** True quando o valor foi calculado on-read a partir dos filhos do corporativo (não é lançamento manual). */
   isComputed?: boolean;
   /**
-   * Quando isComputed=true, quantos filhos contribuíram com dados neste mês.
+   * Quando isComputed=true, quantos filhos tinham dado no mês.
    * @nullable
    */
   childrenWithData?: number | null;
   /**
-   * Quando isComputed=true, total de filhos configurados pro rollup.
+   * Quando isComputed=true, total de filhos do corporativo.
    * @nullable
    */
   childrenTotal?: number | null;
@@ -3637,259 +3653,74 @@ export interface AddKpiMonthJustificationBody {
   body: string;
 }
 
-export type KpiRollupChildVariableMapping = { [key: string]: string };
+/**
+ * Operação de agregação sobre os valores mensais dos filhos.
+ */
+export type CreateKpiCorporateIndicatorBodyStrategy =
+  (typeof CreateKpiCorporateIndicatorBodyStrategy)[keyof typeof CreateKpiCorporateIndicatorBodyStrategy];
 
-export interface KpiRollupChild {
-  id: number;
-  parentIndicatorId: number;
-  childIndicatorId: number;
-  variableMapping: KpiRollupChildVariableMapping;
-  createdAt: string;
-}
-
-export type PutKpiRollupChildrenBodyStrategy =
-  (typeof PutKpiRollupChildrenBodyStrategy)[keyof typeof PutKpiRollupChildrenBodyStrategy];
-
-export const PutKpiRollupChildrenBodyStrategy = {
-  sum_inputs: "sum_inputs",
-  sum_values: "sum_values",
+export const CreateKpiCorporateIndicatorBodyStrategy = {
   average: "average",
+  sum_values: "sum_values",
   min: "min",
   max: "max",
 } as const;
 
-export type PutKpiRollupChildrenBodyChildrenItemVariableMapping = {
-  [key: string]: string;
-};
+export type CreateKpiCorporateIndicatorBodyDirection =
+  (typeof CreateKpiCorporateIndicatorBodyDirection)[keyof typeof CreateKpiCorporateIndicatorBodyDirection];
 
-export type PutKpiRollupChildrenBodyChildrenItem = {
-  childIndicatorId: number;
-  variableMapping?: PutKpiRollupChildrenBodyChildrenItemVariableMapping;
-};
-
-export interface PutKpiRollupChildrenBody {
-  strategy?: PutKpiRollupChildrenBodyStrategy;
-  children: PutKpiRollupChildrenBodyChildrenItem[];
-}
-
-export interface PutKpiRollupChildrenResponse {
-  ok: boolean;
-  count: number;
-  /** @nullable */
-  strategy?: string | null;
-}
-
-export type KpiRollupSuggestionVariableMapping = { [key: string]: string };
-
-export interface KpiRollupSuggestion {
-  childIndicatorId: number;
-  confidence: number;
-  reason: string;
-  variableMapping: KpiRollupSuggestionVariableMapping;
-}
-
-export interface SuggestKpiRollupChildrenResponse {
-  suggestions: KpiRollupSuggestion[];
-}
-
-export type KpiRollupBreakdownEntryInputs = { [key: string]: number | null };
-
-export interface KpiRollupBreakdownEntry {
-  childIndicatorId: number;
-  /** @nullable */
-  childUnit?: string | null;
-  inputs: KpiRollupBreakdownEntryInputs;
-  /** @nullable */
-  value?: number | null;
-}
-
-/**
- * @nullable
- */
-export type KpiRollupComputeResultStrategy =
-  | (typeof KpiRollupComputeResultStrategy)[keyof typeof KpiRollupComputeResultStrategy]
-  | null;
-
-export const KpiRollupComputeResultStrategy = {
-  sum_inputs: "sum_inputs",
-  sum_values: "sum_values",
-  average: "average",
-  min: "min",
-  max: "max",
-} as const;
-
-export interface KpiRollupComputeResult {
-  /** @nullable */
-  computed: number | null;
-  /** @nullable */
-  strategy?: KpiRollupComputeResultStrategy;
-  childrenWithData: number;
-  childrenTotal: number;
-  breakdown: KpiRollupBreakdownEntry[];
-}
-
-export type KpiRollupClusterMemberFormulaVariablesItem = {
-  key: string;
-  label: string;
-};
-
-/**
- * Membro proposto de um cluster de indicadores filial-level.
- */
-export interface KpiRollupClusterMember {
-  indicatorId: number;
-  name: string;
-  /** @nullable */
-  unit?: string | null;
-  /** @nullable */
-  measureUnit?: string | null;
-  measurement: string;
-  formulaExpression: string;
-  formulaVariables: KpiRollupClusterMemberFormulaVariablesItem[];
-  /** Mapeia posição na fórmula → key da variável (preserva ordem). */
-  positionToKey: string[];
-}
-
-export type KpiRollupClusterMeasurementClass =
-  (typeof KpiRollupClusterMeasurementClass)[keyof typeof KpiRollupClusterMeasurementClass];
-
-export const KpiRollupClusterMeasurementClass = {
-  percent: "percent",
-  per_thousand: "per_thousand",
-  duration: "duration",
-  currency: "currency",
-  count: "count",
-  volume_or_mass: "volume_or_mass",
-  ratio_other: "ratio_other",
-  none: "none",
-} as const;
-
-/**
- * Mapping pré-preenchido por POSIÇÃO. Chaves externas são posições
-(0, 1, ...) da fórmula normalizada. Valores são mapas indicatorId
-→ child var key. Ex: variableMappingByPosition["0"] = { 9: "avarias", 12: "ocorrencias" }
-significa: na posição 1 da fórmula, o indicador 9 contribui com
-sua variável "avarias" e o indicador 12 com "ocorrencias".
-
- */
-export type KpiRollupClusterVariableMappingByPosition = {
-  [key: string]: { [key: string]: string };
-};
-
-/**
- * Cluster de indicadores filial-level detectado pela heurística.
- */
-export interface KpiRollupCluster {
-  clusterKey: string;
-  formulaShape: string;
-  measurementClass: KpiRollupClusterMeasurementClass;
-  periodicity: string;
-  members: KpiRollupClusterMember[];
-  proposedName: string;
-  /** Mapping pré-preenchido por POSIÇÃO. Chaves externas são posições
-(0, 1, ...) da fórmula normalizada. Valores são mapas indicatorId
-→ child var key. Ex: variableMappingByPosition["0"] = { 9: "avarias", 12: "ocorrencias" }
-significa: na posição 1 da fórmula, o indicador 9 contribui com
-sua variável "avarias" e o indicador 12 com "ocorrencias".
- */
-  variableMappingByPosition: KpiRollupClusterVariableMappingByPosition;
-}
-
-export interface ListKpiRollupClustersResponse {
-  clusters: KpiRollupCluster[];
-}
-
-export interface ValidateKpiRollupClusterBody {
-  /** @minItems 2 */
-  childIndicatorIds: number[];
-}
-
-export interface KpiRollupClusterValidation {
-  isValid: boolean;
-  /**
-   * @minimum 0
-   * @maximum 1
-   */
-  confidence: number;
-  canonicalName: string;
-  outlierIndicatorIds: number[];
-  reasoning: string;
-}
-
-export type CreateKpiRollupFromClusterBodyDirection =
-  (typeof CreateKpiRollupFromClusterBodyDirection)[keyof typeof CreateKpiRollupFromClusterBodyDirection];
-
-export const CreateKpiRollupFromClusterBodyDirection = {
+export const CreateKpiCorporateIndicatorBodyDirection = {
   up: "up",
   down: "down",
 } as const;
 
-export type CreateKpiRollupFromClusterBodyFormulaVariablesItem = {
-  key: string;
-  label: string;
-};
-
-export type CreateKpiRollupFromClusterBodyStrategy =
-  (typeof CreateKpiRollupFromClusterBodyStrategy)[keyof typeof CreateKpiRollupFromClusterBodyStrategy];
-
-export const CreateKpiRollupFromClusterBodyStrategy = {
-  sum_inputs: "sum_inputs",
-  sum_values: "sum_values",
-  average: "average",
-  min: "min",
-  max: "max",
-} as const;
-
-export type CreateKpiRollupFromClusterBodyChildrenItemVariableMapping = {
-  [key: string]: string;
-};
-
-export type CreateKpiRollupFromClusterBodyChildrenItem = {
-  childIndicatorId: number;
-  variableMapping: CreateKpiRollupFromClusterBodyChildrenItemVariableMapping;
-};
-
 /**
- * Cria indicador Corporativo + composição em uma transação. O servidor
-força unit="Corporativo" e rollupStrategy != null; cliente fornece
-a fórmula/vars canonicalizadas (geralmente herdadas de um membro do
-cluster) e o mapping de cada filho.
-
+ * Cria um corporativo que agrega os valores dos filhos selecionados.
  */
-export interface CreateKpiRollupFromClusterBody {
+export interface CreateKpiCorporateIndicatorBody {
+  /** @minLength 1 */
   name: string;
-  measurement: string;
+  /** Operação de agregação sobre os valores mensais dos filhos. */
+  strategy: CreateKpiCorporateIndicatorBodyStrategy;
+  /**
+   * Indicadores-filhos selecionados (mín. 2, não-corporativos, não usados em outro corporativo).
+   * @minItems 2
+   */
+  childIndicatorIds: number[];
+  /** Ano da configuração inicial (tolerância/meta). */
+  year?: number;
+  /**
+   * Tolerância/meta do corporativo.
+   * @nullable
+   */
+  goal?: number | null;
   /** @nullable */
   measureUnit?: string | null;
-  direction: CreateKpiRollupFromClusterBodyDirection;
+  direction: CreateKpiCorporateIndicatorBodyDirection;
   periodicity: string;
   /** @nullable */
+  referenceMonth?: number | null;
+  /** @nullable */
   category?: string | null;
-  formulaExpression: string;
-  formulaVariables: CreateKpiRollupFromClusterBodyFormulaVariablesItem[];
+  norms?: string[];
   /** @nullable */
   responsibleUserId?: number | null;
-  norms?: string[];
-  strategy?: CreateKpiRollupFromClusterBodyStrategy;
-  /** @minItems 1 */
-  children: CreateKpiRollupFromClusterBodyChildrenItem[];
 }
 
-export type CreateKpiRollupFromClusterResponseStrategy =
-  (typeof CreateKpiRollupFromClusterResponseStrategy)[keyof typeof CreateKpiRollupFromClusterResponseStrategy];
+export type CreateKpiCorporateIndicatorResponseStrategy =
+  (typeof CreateKpiCorporateIndicatorResponseStrategy)[keyof typeof CreateKpiCorporateIndicatorResponseStrategy];
 
-export const CreateKpiRollupFromClusterResponseStrategy = {
-  sum_inputs: "sum_inputs",
-  sum_values: "sum_values",
+export const CreateKpiCorporateIndicatorResponseStrategy = {
   average: "average",
+  sum_values: "sum_values",
   min: "min",
   max: "max",
 } as const;
 
-export interface CreateKpiRollupFromClusterResponse {
+export interface CreateKpiCorporateIndicatorResponse {
   indicatorId: number;
   childrenCount: number;
-  strategy: CreateKpiRollupFromClusterResponseStrategy;
+  strategy: CreateKpiCorporateIndicatorResponseStrategy;
 }
 
 export type ActionPlanStatus =
@@ -5752,11 +5583,6 @@ export type ListRegulatoryDocumentAuditParams = {
    * @maximum 1000
    */
   limit?: number;
-};
-
-export type GetKpiRollupValueParams = {
-  year: number;
-  month: number;
 };
 
 export type ListActionPlansParams = {

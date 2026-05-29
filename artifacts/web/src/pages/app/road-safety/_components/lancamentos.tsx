@@ -13,6 +13,7 @@ import {
   useRoadSafetyMeasurements,
   type Periodicity,
 } from "@/lib/road-safety-client";
+import { formatKpiValue } from "@/lib/kpi-client";
 
 type LancamentosScreenProps = {
   orgId: number;
@@ -25,10 +26,6 @@ function fmtMonth(d: string): string {
   const [y, m] = d.split("-");
   const idx = parseInt(m, 10) - 1;
   return `${MONTHS[idx] ?? m} ${y}`;
-}
-
-function fmtNum(n: number): string {
-  return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 }
 
 function todayISO(): string {
@@ -132,7 +129,7 @@ export function LancamentosScreen({ orgId, initialFactorId }: LancamentosScreenP
             </div>
             Unidade: <b className="text-foreground/80">{factor.measureUnit || "—"}</b> · Meta:{" "}
             <b className="text-foreground/80">
-              {factor.goal != null ? fmtNum(factor.goal) : "—"}
+              {factor.goal != null ? formatKpiValue(factor.goal, factor.measureUnit) : "—"}
             </b>{" "}
             · Periodicidade:{" "}
             <b className="text-foreground/80">
@@ -216,10 +213,10 @@ export function LancamentosScreen({ orgId, initialFactorId }: LancamentosScreenP
                       <span className="text-muted-foreground">{fmtMonth(m.referenceDate)}</span>
                       <div className="text-right">
                         <div className="font-medium tabular-nums text-foreground">
-                          {fmtNum(m.value)} {factor?.measureUnit ?? ""}
+                          {formatKpiValue(m.value, factor?.measureUnit)}
                         </div>
                         <div className="text-[11px] text-muted-foreground tabular-nums">
-                          {goal != null ? `Meta: ${fmtNum(goal)}` : "Sem meta"}
+                          {goal != null ? `Meta: ${formatKpiValue(goal, factor?.measureUnit)}` : "Sem meta"}
                           {dev != null ? (
                             <span className={cn("ml-1 font-medium", deviationTone(dev))}>
                               · {dev > 0 ? "+" : ""}
@@ -246,7 +243,7 @@ export function LancamentosScreen({ orgId, initialFactorId }: LancamentosScreenP
                         style={{
                           height: `${Math.max(4, (Math.abs(m.value) / chartMax) * 100)}%`,
                         }}
-                        title={`${fmtMonth(m.referenceDate)}: ${fmtNum(m.value)}`}
+                        title={`${fmtMonth(m.referenceDate)}: ${formatKpiValue(m.value, factor?.measureUnit)}`}
                       />
                     ))}
                   </div>

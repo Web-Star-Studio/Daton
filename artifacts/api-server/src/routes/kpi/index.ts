@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
-import { and, asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, lt, sql } from "drizzle-orm";
 import {
   actionPlansTable,
   db,
+  kpiIndicatorRollupsTable,
   kpiIndicatorsTable,
   kpiMonthlyValueJustificationsTable,
   kpiMonthlyValuesTable,
@@ -10,6 +11,7 @@ import {
   kpiYearConfigsTable,
   usersTable,
   type KpiMonthlyValueJustification as DbKpiMonthlyValueJustification,
+  type KpiRollupStrategy,
 } from "@workspace/db";
 import {
   AddKpiMonthJustificationBody,
@@ -36,8 +38,14 @@ import {
   UpsertKpiYearConfigParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../../middlewares/auth";
-import { validateFormula } from "../../lib/formula-evaluator";
-import { normalizeKpiUnit } from "../../services/kpi/units";
+import { evaluateFormula, validateFormula } from "../../lib/formula-evaluator";
+import {
+  detectVariableRenames,
+  migrateInputsForRename,
+  type FormulaVar,
+} from "../../services/kpi/formula-rename";
+import { normalizeKpiUnit, CORPORATE_UNIT_LABEL } from "../../services/kpi/units";
+import { computeRollupValue } from "../../services/kpi/rollup";
 
 const router: IRouter = Router();
 
@@ -94,41 +102,146 @@ function serializeYearConfig(r: typeof kpiYearConfigsTable.$inferSelect) {
   };
 }
 
+/**
+ * Meses (1–12) em que um indicador não-mensal deve ser lançado, conforme a
+ * periodicidade e o mês de referência. Vazio quando mensal ou sem referência
+ * válida — nesse caso não há restrição (todos os meses contam).
+ */
+function expectedMonthsFor(
+  periodicity: string,
+  referenceMonth: number | null,
+): number[] {
+  if (!referenceMonth || referenceMonth < 1 || referenceMonth > 12) return [];
+  const at = (offset: number) => ((referenceMonth - 1 + offset) % 12) + 1;
+  if (periodicity === "annual") return [at(0)];
+  if (periodicity === "semiannual") return [at(0), at(6)];
+  if (periodicity === "quarterly") return [at(0), at(3), at(6), at(9)];
+  return [];
+}
+
 function computeFeedStatus(
   monthValues: (number | null)[],
   periodicity: string,
   referenceMonth: number | null,
+  year: number,
 ): "fed" | "overdue" {
-  const currentMonth = new Date().getMonth() + 1; // 1-indexed
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-indexed
 
-  // Periodicidades mensais: vencido se algum mês ANTERIOR ao atual está vazio
-  // (o mês corrente ainda está em curso).
+  // Quantos meses do ano selecionado já viraram exigíveis (passaram).
+  //   - ano passado : todos os 12 são exigíveis
+  //   - ano corrente: 1..currentMonth-1 (o mês corrente ainda está em curso)
+  //   - ano futuro  : 0 (nada cobrável ainda)
+  const maxMonthDue =
+    year < currentYear ? 12 : year > currentYear ? 0 : currentMonth - 1;
+
+  if (maxMonthDue === 0) return "fed";
+
+  // Periodicidades mensais: vencido se algum mês exigível está vazio.
   if (
     periodicity === "monthly" ||
     periodicity === "monthly_15d" ||
     periodicity === "monthly_45d"
   ) {
-    for (let m = 1; m < currentMonth; m++) {
+    for (let m = 1; m <= maxMonthDue; m++) {
       if (monthValues[m - 1] === null) return "overdue";
     }
     return "fed";
   }
 
   // Não mensais: precisam do mês de referência. Vencido quando um mês
-  // esperado que já chegou (mês ≤ atual) continua sem lançamento.
+  // esperado que já chegou (mês ≤ maxMonthDue) continua sem lançamento.
   if (!referenceMonth || referenceMonth < 1 || referenceMonth > 12) {
     return "fed"; // sem mês de referência — não há como cobrar
   }
-  const at = (offset: number) => ((referenceMonth - 1 + offset) % 12) + 1;
-  let expected: number[];
-  if (periodicity === "annual") expected = [at(0)];
-  else if (periodicity === "semiannual") expected = [at(0), at(6)];
-  else if (periodicity === "quarterly") expected = [at(0), at(3), at(6), at(9)];
-  else expected = [];
+  const expected = expectedMonthsFor(periodicity, referenceMonth);
   for (const m of expected) {
-    if (m <= currentMonth && monthValues[m - 1] === null) return "overdue";
+    if (m <= maxMonthDue && monthValues[m - 1] === null) return "overdue";
   }
   return "fed";
+}
+
+/**
+ * Garante a existência de `kpi_year_configs` para (org, indicator, year),
+ * herdando `goal`, `seq` e `objectiveId` do config mais recente de ANO
+ * ANTERIOR quando precisa criar (carry-forward). Idempotente — usa
+ * onConflictDoUpdate pra resolver races sem perder a row existente.
+ *
+ * Retorna `null` se o indicador não existe (ou não pertence à org).
+ *
+ * Por que carry-forward: o catálogo de indicadores (fórmula, periodicidade,
+ * direction, etc.) não tem ano — eles seguem ativos. Apenas a meta/objetivo
+ * tem dimensão temporal. Sem isso, todo dia 1º de janeiro o usuário precisava
+ * reabrir cada indicador e reconfigurar a tolerância pra que ele voltasse a
+ * aparecer na tela de Lançamentos. Agora a tolerância anterior fica como
+ * default e o cliente sobrescreve quando quiser.
+ */
+async function ensureYearConfig(
+  orgId: number,
+  indicatorId: number,
+  year: number,
+): Promise<typeof kpiYearConfigsTable.$inferSelect | null> {
+  const [existing] = await db
+    .select()
+    .from(kpiYearConfigsTable)
+    .where(
+      and(
+        eq(kpiYearConfigsTable.organizationId, orgId),
+        eq(kpiYearConfigsTable.indicatorId, indicatorId),
+        eq(kpiYearConfigsTable.year, year),
+      ),
+    );
+  if (existing) return existing;
+
+  // Garante que o indicador existe na org antes de inserir (evita FK error)
+  const [ind] = await db
+    .select({ id: kpiIndicatorsTable.id })
+    .from(kpiIndicatorsTable)
+    .where(
+      and(
+        eq(kpiIndicatorsTable.id, indicatorId),
+        eq(kpiIndicatorsTable.organizationId, orgId),
+      ),
+    );
+  if (!ind) return null;
+
+  // Busca o config mais recente em ano anterior pra herdar valores.
+  const [prior] = await db
+    .select()
+    .from(kpiYearConfigsTable)
+    .where(
+      and(
+        eq(kpiYearConfigsTable.organizationId, orgId),
+        eq(kpiYearConfigsTable.indicatorId, indicatorId),
+        lt(kpiYearConfigsTable.year, year),
+      ),
+    )
+    .orderBy(desc(kpiYearConfigsTable.year))
+    .limit(1);
+
+  const [created] = await db
+    .insert(kpiYearConfigsTable)
+    .values({
+      organizationId: orgId,
+      indicatorId,
+      year,
+      objectiveId: prior?.objectiveId ?? null,
+      seq: prior?.seq ?? null,
+      goal: prior?.goal ?? null,
+    })
+    .onConflictDoUpdate({
+      target: [
+        kpiYearConfigsTable.organizationId,
+        kpiYearConfigsTable.indicatorId,
+        kpiYearConfigsTable.year,
+      ],
+      // Race: outra request criou no meio tempo. Mantém o que estava lá,
+      // só toca updatedAt pro returning retornar a row.
+      set: { updatedAt: new Date() },
+    })
+    .returning();
+  return created;
 }
 
 // ─── Objectives ────────────────────────────────────────────────────────────
@@ -338,10 +451,104 @@ router.patch("/organizations/:orgId/kpi/indicators/:indicatorId", requireAuth, r
     if (body.data.formulaVariables !== undefined) updateData.formulaVariables = body.data.formulaVariables;
   }
 
-  const [row] = await db.update(kpiIndicatorsTable)
-    .set(Object.keys(updateData).length > 0 ? updateData : { updatedAt: new Date() })
-    .where(and(eq(kpiIndicatorsTable.id, params.data.indicatorId), eq(kpiIndicatorsTable.organizationId, params.data.orgId)))
-    .returning();
+  // Mudança de fórmula precisa recalcular os `value` dos kpi_monthly_values já
+  // gravados — senão o histórico continua refletindo o cálculo antigo enquanto
+  // o "Resultado" da tela de Lançar (que reavalia ao vivo) mostra o novo.
+  // Pegamos expression + variables atuais antes do update pra comparar.
+  const [current] = await db
+    .select({
+      formulaExpression: kpiIndicatorsTable.formulaExpression,
+      formulaVariables: kpiIndicatorsTable.formulaVariables,
+    })
+    .from(kpiIndicatorsTable)
+    .where(and(
+      eq(kpiIndicatorsTable.id, params.data.indicatorId),
+      eq(kpiIndicatorsTable.organizationId, params.data.orgId),
+    ));
+  if (!current) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
+
+  const newExpression = typeof updateData.formulaExpression === "string"
+    ? updateData.formulaExpression
+    : current.formulaExpression;
+  const newVariables: FormulaVar[] = Array.isArray(updateData.formulaVariables)
+    ? (updateData.formulaVariables as FormulaVar[])
+    : current.formulaVariables;
+  const expressionChanged =
+    typeof updateData.formulaExpression === "string" &&
+    updateData.formulaExpression !== current.formulaExpression;
+  // Editar texto da fórmula faz `parseNaturalFormula` regenerar os slugs das
+  // variáveis. Detecta renames inequívocos pra migrar as chaves dos `inputs`
+  // dos lançamentos antigos. Em qualquer ambiguidade, devolve [] e o guard
+  // de NULL abaixo preserva o `value` visível.
+  const renames = expressionChanged
+    ? detectVariableRenames(current.formulaVariables, newVariables)
+    : [];
+
+  const row = await db.transaction(async (tx) => {
+    const [updated] = await tx.update(kpiIndicatorsTable)
+      .set(Object.keys(updateData).length > 0 ? updateData : { updatedAt: new Date() })
+      .where(and(eq(kpiIndicatorsTable.id, params.data.indicatorId), eq(kpiIndicatorsTable.organizationId, params.data.orgId)))
+      .returning();
+    if (!updated) return null;
+
+    if (expressionChanged && newExpression.trim()) {
+      const yearConfigs = await tx
+        .select({ id: kpiYearConfigsTable.id })
+        .from(kpiYearConfigsTable)
+        .where(and(
+          eq(kpiYearConfigsTable.organizationId, params.data.orgId),
+          eq(kpiYearConfigsTable.indicatorId, params.data.indicatorId),
+        ));
+      const yearConfigIds = yearConfigs.map((yc) => yc.id);
+      if (yearConfigIds.length > 0) {
+        const monthlyRows = await tx
+          .select()
+          .from(kpiMonthlyValuesTable)
+          .where(inArray(kpiMonthlyValuesTable.yearConfigId, yearConfigIds));
+        const now = new Date();
+        for (const mv of monthlyRows) {
+          const inputs = mv.inputs ?? {};
+          if (Object.keys(inputs).length === 0) continue;
+
+          // Camada 2: aplica renames (se houver) aos inputs antes de reavaliar.
+          // Os inputs gravados podem ter chaves órfãs após edição de fórmula.
+          const { migrated, changed: inputsChanged } = migrateInputsForRename(
+            inputs,
+            renames,
+          );
+          const recomputed = evaluateFormula(newExpression, migrated);
+          const newValueStr = recomputed !== null && Number.isFinite(recomputed)
+            ? String(recomputed)
+            : null;
+
+          // Camada 1 (guard de NULL): se a nova fórmula não consegue avaliar
+          // mas o `value` antigo existe, NÃO apaga. Preserva o número visível
+          // no histórico — o `inputs` continua intacto pra recuperação. Sem
+          // este guard, edições de fórmula corromperiam o histórico já
+          // lançado.
+          const preserveValue = newValueStr === null && mv.value !== null;
+
+          if (preserveValue && !inputsChanged) {
+            // Nada a fazer: nem value novo nem inputs migrado.
+            continue;
+          }
+
+          const setPayload: {
+            value?: string | null;
+            inputs?: typeof inputs;
+            updatedAt: Date;
+          } = { updatedAt: now };
+          if (!preserveValue) setPayload.value = newValueStr;
+          if (inputsChanged) setPayload.inputs = migrated;
+
+          await tx.update(kpiMonthlyValuesTable)
+            .set(setPayload)
+            .where(eq(kpiMonthlyValuesTable.id, mv.id));
+        }
+      }
+    }
+    return updated;
+  });
 
   if (!row) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
 
@@ -416,6 +623,52 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
 
   const yearConfigByIndicatorId = new Map(yearConfigs.map((yc) => [yc.indicatorId, yc]));
   const yearConfigIds = yearConfigs.map((yc) => yc.id);
+
+  // Carry-forward sintético: pra cada indicador sem config no ano alvo, busca
+  // o config mais recente de ano anterior e materializa em memória (id=0
+  // marca "não persistido"). Persiste de verdade só quando a Ana salvar um
+  // valor — vide PUT /years/:year/values e ensureYearConfig. Sem isso, ano
+  // novo viria vazio e o cliente teria que reabrir cada indicador no início
+  // de cada ano (jan/2027 etc).
+  const indicatorsWithoutConfig = indicators.filter(
+    (ind) => !yearConfigByIndicatorId.has(ind.id),
+  );
+  if (indicatorsWithoutConfig.length > 0) {
+    const missingIds = indicatorsWithoutConfig.map((i) => i.id);
+    const priorRows = await db.execute<{
+      indicator_id: number;
+      objective_id: number | null;
+      seq: number | null;
+      goal: string | null;
+    }>(sql`
+      SELECT DISTINCT ON (indicator_id)
+        indicator_id, objective_id, seq, goal
+      FROM ${kpiYearConfigsTable}
+      WHERE organization_id = ${params.data.orgId}
+        AND year < ${params.data.year}
+        AND indicator_id IN ${missingIds}
+      ORDER BY indicator_id, year DESC
+    `);
+    const priorByIndicatorId = new Map(
+      priorRows.rows.map((r) => [Number(r.indicator_id), r]),
+    );
+    const now = new Date();
+    for (const ind of indicatorsWithoutConfig) {
+      const prior = priorByIndicatorId.get(ind.id);
+      const synthetic: typeof kpiYearConfigsTable.$inferSelect = {
+        id: 0, // sentinela "não persistido"
+        organizationId: params.data.orgId,
+        indicatorId: ind.id,
+        year: params.data.year,
+        objectiveId: prior?.objective_id ?? null,
+        seq: prior?.seq ?? null,
+        goal: prior?.goal ?? null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      yearConfigByIndicatorId.set(ind.id, synthetic);
+    }
+  }
 
   // Fetch monthly values
   const monthlyValues = yearConfigIds.length > 0
@@ -538,32 +791,40 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
   const objectiveById = new Map(objectives.map((o) => [o.id, o]));
 
   // ─── Rollup compose on-read ──────────────────────────────────────────────
-  // Para indicadores que são rollup (rollupStrategy != null), substituímos
-  // os valores mensais por valores computados a partir dos filhos — EXCETO
-  // quando is_overridden=true (Ana editou manual; respeitamos).
+  // Corporativos com filhos + estratégia (rollupStrategy != null) têm o valor
+  // mensal CALCULADO a partir dos filhos — EXCETO meses com is_overridden=true
+  // (lançamento manual; respeitamos o que já está preenchido).
   const rollupIndicators = indicators.filter((ind) => ind.rollupStrategy);
   for (const ind of rollupIndicators) {
     const yc = yearConfigByIndicatorId.get(ind.id);
     if (!yc) continue;
     const monthMap = valuesByYearConfigId.get(yc.id) ?? new Map<number, MonthCell>();
 
-    // Computa 12 meses em paralelo (limitado — DB local serializa rápido)
+    // Respeita a periodicidade: não-mensal com mês de referência só calcula nos
+    // meses esperados (trimestre/semestre/ano). null = sem restrição (mensal),
+    // calcula os 12. Evita agregar dado de mês fora do ciclo.
+    const expected = expectedMonthsFor(ind.periodicity, ind.referenceMonth ?? null);
+    const expectedSet = expected.length > 0 ? new Set(expected) : null;
+
     const computeResults = await Promise.all(
       Array.from({ length: 12 }, async (_, i) => {
         const month = i + 1;
+        // Fora da referência (indicador não-mensal): não calcula.
+        if (expectedSet && !expectedSet.has(month)) {
+          return { month, replace: null };
+        }
         const existing = monthMap.get(month);
-        // Override manual: respeita o valor armazenado, não recomputa.
+        // Override manual / mês já preenchido: respeita o valor armazenado.
         if (existing?.isOverridden) {
-          return { month, replace: null, breakdown: null };
+          return { month, replace: null };
         }
         const result = await computeRollupValue(params.data.orgId, ind.id, params.data.year, month);
-        return { month, replace: result, breakdown: result };
+        return { month, replace: result };
       }),
     );
 
-    for (const { month, replace, breakdown } of computeResults) {
+    for (const { month, replace } of computeResults) {
       if (!replace) continue;
-      // Garante que existe um cell pro mês (caso ainda não tenha row em DB)
       if (!monthMap.has(month)) {
         monthMap.set(month, {
           monthlyValueId: 0,
@@ -580,15 +841,16 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
       const cell = monthMap.get(month)!;
       cell.value = replace.computed;
       cell.isComputed = true;
-      cell.childrenWithData = breakdown?.childrenWithData ?? 0;
-      cell.childrenTotal = breakdown?.childrenTotal ?? 0;
+      cell.childrenWithData = replace.childrenWithData;
+      cell.childrenTotal = replace.childrenTotal;
     }
     valuesByYearConfigId.set(yc.id, monthMap);
   }
 
-  // Build response — only include indicators that have a yearConfig
+  // Build response — todos os indicadores aparecem em qualquer ano. Os que
+  // não tinham config no ano alvo já receberam um sintético acima (carry-
+  // forward), então sempre há um `yc` pra mapear.
   const rows = indicators
-    .filter((ind) => yearConfigByIndicatorId.has(ind.id))
     .map((ind) => {
       const yc = yearConfigByIndicatorId.get(ind.id)!;
       const monthMap = valuesByYearConfigId.get(yc.id) ?? new Map<number, MonthCell>();
@@ -607,13 +869,23 @@ router.get("/organizations/:orgId/kpi/years/:year", requireAuth, async (req, res
       );
       const monthlyValuesOnly = monthlyCells.map((c) => c.value);
 
-      const filledValues = monthlyValuesOnly.filter((v) => v !== null) as number[];
+      // Indicador não-mensal: só os meses de referência contam na agregação —
+      // valores fora dela (ex.: carga de zero indevida) são ignorados.
+      const expectedMonthSet = (() => {
+        const e = expectedMonthsFor(ind.periodicity, ind.referenceMonth ?? null);
+        return e.length > 0 ? new Set(e) : null;
+      })();
+      // monthlyValuesOnly é ordenado 1..12, então índice + 1 = mês.
+      const filledValues = monthlyValuesOnly.filter(
+        (v, i) => v !== null && (!expectedMonthSet || expectedMonthSet.has(i + 1)),
+      ) as number[];
       const average = filledValues.length > 0 ? filledValues.reduce((a, b) => a + b, 0) / filledValues.length : null;
       const accumulated = filledValues.length > 0 ? filledValues.reduce((a, b) => a + b, 0) : null;
       const feedStatus = computeFeedStatus(
         monthlyValuesOnly,
         ind.periodicity,
         ind.referenceMonth ?? null,
+        params.data.year,
       );
       const objective = yc.objectiveId ? objectiveById.get(yc.objectiveId) ?? null : null;
 
@@ -699,15 +971,16 @@ router.put("/organizations/:orgId/kpi/indicators/:indicatorId/years/:year/values
   const body = UpsertKpiValuesBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  // Verify year config exists and belongs to org
-  const [yearConfig] = await db.select().from(kpiYearConfigsTable)
-    .where(and(
-      eq(kpiYearConfigsTable.indicatorId, params.data.indicatorId),
-      eq(kpiYearConfigsTable.year, params.data.year),
-      eq(kpiYearConfigsTable.organizationId, params.data.orgId),
-    ));
-
-  if (!yearConfig) { res.status(404).json({ error: "Configuração de ano não encontrada. Configure a meta antes de inserir valores." }); return; }
+  // Garante a existência do yearConfig — se não existe, é criado com
+  // carry-forward (goal/seq/objectiveId do ano anterior). Isso elimina a
+  // necessidade de "reabrir" o indicador no início de cada ano antes de
+  // poder lançar valores.
+  const yearConfig = await ensureYearConfig(
+    params.data.orgId,
+    params.data.indicatorId,
+    params.data.year,
+  );
+  if (!yearConfig) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
 
   if (body.data.values.length === 0) {
     const existing = await db.select().from(kpiMonthlyValuesTable)
@@ -793,14 +1066,12 @@ async function ensureMonthlyValueRow(
   year: number,
   month: number,
 ): Promise<{ id: number } | { error: string; status: number }> {
-  const [yearConfig] = await db.select().from(kpiYearConfigsTable)
-    .where(and(
-      eq(kpiYearConfigsTable.indicatorId, indicatorId),
-      eq(kpiYearConfigsTable.year, year),
-      eq(kpiYearConfigsTable.organizationId, orgId),
-    ));
+  // Mesma lógica do PUT values: cria o yearConfig sob demanda (carry-forward
+  // do ano anterior) em vez de bloquear com 404. Permite justificar um mês
+  // em ano que ainda não foi "aberto" manualmente.
+  const yearConfig = await ensureYearConfig(orgId, indicatorId, year);
   if (!yearConfig) {
-    return { error: "Configuração de ano não encontrada. Configure a meta antes de adicionar justificativa.", status: 404 };
+    return { error: "Indicador não encontrado", status: 404 };
   }
   // Insert (or no-op via onConflictDoUpdate that touches only updatedAt) to guarantee row exists.
   const [row] = await db.insert(kpiMonthlyValuesTable).values({
@@ -892,256 +1163,13 @@ router.post(
   },
 );
 
-// ─── Rollup children (Corporativo composição) ──────────────────────────────
-
-import { kpiIndicatorRollupsTable, type KpiRollupStrategy } from "@workspace/db";
-import { suggestRollupChildren, validateCluster, type ClusterValidationInput } from "../../services/kpi/rollup-ai";
-import { computeRollupValue } from "../../services/kpi/rollup";
-import { detectClusters } from "../../services/kpi/rollup-clustering";
-import { CORPORATE_UNIT_LABEL } from "../../services/kpi/units";
-
-/**
- * Lista os filhos configurados pra um indicador rollup (parent).
- * Frontend usa pra montar a seção "Composição" quando edita um Corporativo.
- */
-router.get(
-  "/organizations/:orgId/kpi/indicators/:indicatorId/rollup-children",
-  requireAuth,
-  async (req, res): Promise<void> => {
-    const orgId = Number(req.params.orgId);
-    const indicatorId = Number(req.params.indicatorId);
-    if (!Number.isFinite(orgId) || !Number.isFinite(indicatorId)) { res.status(400).json({ error: "ids inválidos" }); return; }
-    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
-
-    const rows = await db
-      .select()
-      .from(kpiIndicatorRollupsTable)
-      .where(and(
-        eq(kpiIndicatorRollupsTable.parentIndicatorId, indicatorId),
-        eq(kpiIndicatorRollupsTable.organizationId, orgId),
-      ));
-
-    res.json(rows.map((r) => ({
-      id: r.id,
-      parentIndicatorId: r.parentIndicatorId,
-      childIndicatorId: r.childIndicatorId,
-      variableMapping: r.variableMapping,
-      createdAt: r.createdAt.toISOString(),
-    })));
-  },
-);
-
-/**
- * Substitui (replace-all) os filhos do rollup. Body:
- * { children: [{ childIndicatorId, variableMapping }], strategy?: 'sum_inputs' | ... }
- *
- * Comportamento idempotente — deleta todos os filhos atuais e insere os novos.
- * Atualiza `rollupStrategy` no indicador pai.
- */
-router.put(
-  "/organizations/:orgId/kpi/indicators/:indicatorId/rollup-children",
-  requireAuth,
-  requireWriteAccess(),
-  async (req, res): Promise<void> => {
-    const orgId = Number(req.params.orgId);
-    const indicatorId = Number(req.params.indicatorId);
-    if (!Number.isFinite(orgId) || !Number.isFinite(indicatorId)) { res.status(400).json({ error: "ids inválidos" }); return; }
-    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
-
-    const body = req.body as { children?: Array<{ childIndicatorId: number; variableMapping?: Record<string, string> }>; strategy?: string };
-    const children = Array.isArray(body.children) ? body.children : [];
-
-    const VALID_STRATEGIES: KpiRollupStrategy[] = ["sum_inputs", "sum_values", "average", "min", "max"];
-    const strategy: KpiRollupStrategy | null = VALID_STRATEGIES.includes(body.strategy as KpiRollupStrategy)
-      ? (body.strategy as KpiRollupStrategy)
-      : children.length > 0 ? "sum_inputs" : null;
-
-    // Verifica que o parent pertence à org
-    const [parent] = await db
-      .select({ id: kpiIndicatorsTable.id })
-      .from(kpiIndicatorsTable)
-      .where(and(eq(kpiIndicatorsTable.id, indicatorId), eq(kpiIndicatorsTable.organizationId, orgId)));
-    if (!parent) { res.status(404).json({ error: "Indicador não encontrado" }); return; }
-
-    // Verifica que todos os filhos pertencem à org (e não são o próprio pai)
-    if (children.length > 0) {
-      const childIds = children.map((c) => Number(c.childIndicatorId)).filter(Number.isFinite);
-      if (childIds.length !== children.length) { res.status(400).json({ error: "childIndicatorId inválido em algum filho" }); return; }
-      if (childIds.includes(indicatorId)) { res.status(400).json({ error: "Indicador não pode ser filho de si mesmo" }); return; }
-      const owned = await db
-        .select({ id: kpiIndicatorsTable.id })
-        .from(kpiIndicatorsTable)
-        .where(and(eq(kpiIndicatorsTable.organizationId, orgId), inArray(kpiIndicatorsTable.id, childIds)));
-      if (owned.length !== childIds.length) { res.status(400).json({ error: "Algum filho não pertence a esta organização" }); return; }
-    }
-
-    // Replace-all
-    await db
-      .delete(kpiIndicatorRollupsTable)
-      .where(and(
-        eq(kpiIndicatorRollupsTable.parentIndicatorId, indicatorId),
-        eq(kpiIndicatorRollupsTable.organizationId, orgId),
-      ));
-
-    if (children.length > 0) {
-      await db.insert(kpiIndicatorRollupsTable).values(children.map((c) => ({
-        organizationId: orgId,
-        parentIndicatorId: indicatorId,
-        childIndicatorId: Number(c.childIndicatorId),
-        variableMapping: c.variableMapping ?? {},
-      })));
-    }
-
-    await db
-      .update(kpiIndicatorsTable)
-      .set({ rollupStrategy: strategy, updatedAt: new Date() })
-      .where(eq(kpiIndicatorsTable.id, indicatorId));
-
-    res.json({ ok: true, count: children.length, strategy });
-  },
-);
-
-/**
- * Sugere filhos via IA. Retorna a lista ranqueada por confidence.
- * Frontend chama em background quando user seleciona unit=Corporativo.
- */
+// ─── Corporativo (rollup por valores) ──────────────────────────────────────
+// Cria um indicador unit="Corporativo" cujo valor mensal é a agregação
+// (média/soma/mín/máx) dos VALORES dos indicadores-filhos selecionados pelo
+// usuário. Sem fórmula própria e sem IA — o cálculo é compose-on-read e
+// respeita meses lançados manualmente. Atômico: indicador + composição + meta.
 router.post(
-  "/organizations/:orgId/kpi/indicators/:indicatorId/suggest-rollup-children",
-  requireAuth,
-  async (req, res): Promise<void> => {
-    const orgId = Number(req.params.orgId);
-    const indicatorId = Number(req.params.indicatorId);
-    if (!Number.isFinite(orgId) || !Number.isFinite(indicatorId)) { res.status(400).json({ error: "ids inválidos" }); return; }
-    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
-
-    const suggestions = await suggestRollupChildren(orgId, indicatorId);
-    res.json({ suggestions });
-  },
-);
-
-/**
- * Compute on-demand. Frontend pode usar isso pra mostrar o valor calculado
- * antes de salvar (ex.: preview no form), além do GET de year-data normal.
- */
-router.get(
-  "/organizations/:orgId/kpi/indicators/:indicatorId/rollup-value",
-  requireAuth,
-  async (req, res): Promise<void> => {
-    const orgId = Number(req.params.orgId);
-    const indicatorId = Number(req.params.indicatorId);
-    const year = Number(req.query.year);
-    const month = Number(req.query.month);
-    if (!Number.isFinite(orgId) || !Number.isFinite(indicatorId) || !Number.isFinite(year) || !Number.isFinite(month)) {
-      res.status(400).json({ error: "params/query inválidos" }); return;
-    }
-    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
-
-    const result = await computeRollupValue(orgId, indicatorId, year, month);
-    if (!result) { res.json({ computed: null, strategy: null, childrenWithData: 0, childrenTotal: 0, breakdown: [] }); return; }
-    res.json(result);
-  },
-);
-
-// ─── Rollup CLUSTERS (detecção + criação a partir de cluster) ──────────────
-// Fluxo novo: em vez de Ana criar o Corporativo do zero e configurar depois,
-// o backend detecta agrupamentos no catálogo (indicadores filial-level com
-// mesma forma de fórmula + classe de measurement + nome similar) e oferece
-// "criar Corporativo deste grupo". Atômico — um único save resulta em
-// indicador + composição já populada.
-
-/**
- * Detecta clusters de indicadores filial-level que provavelmente representam
- * a mesma medição em filiais diferentes. Filtra os que já têm Corporativo
- * vinculado (1 child = 1 parent). Veja `services/kpi/rollup-clustering.ts`
- * pra detalhes da heurística.
- */
-router.get(
-  "/organizations/:orgId/kpi/rollup-clusters",
-  requireAuth,
-  async (req, res): Promise<void> => {
-    const orgId = Number(req.params.orgId);
-    if (!Number.isFinite(orgId)) { res.status(400).json({ error: "orgId inválido" }); return; }
-    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
-    const clusters = await detectClusters(orgId);
-    res.json({ clusters });
-  },
-);
-
-/**
- * Refina um cluster via IA: confirma se membros medem a mesma coisa, propõe
- * nome canônico humano, e marca outliers. Chamado lazy quando user clica num
- * cluster específico (não no GET principal, pra não pagar custo OpenAI ×N).
- *
- * Body: { childIndicatorIds: number[] }
- */
-router.post(
-  "/organizations/:orgId/kpi/rollup/validate-cluster",
-  requireAuth,
-  async (req, res): Promise<void> => {
-    const orgId = Number(req.params.orgId);
-    if (!Number.isFinite(orgId)) { res.status(400).json({ error: "orgId inválido" }); return; }
-    if (orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
-
-    const body = req.body as { childIndicatorIds?: unknown };
-    const ids = Array.isArray(body.childIndicatorIds)
-      ? body.childIndicatorIds.filter((x): x is number => typeof x === "number" && Number.isFinite(x))
-      : [];
-    if (ids.length < 2) { res.status(400).json({ error: "childIndicatorIds obrigatório (mínimo 2)" }); return; }
-
-    // Server-fetch dos dados — não confia em payload do cliente
-    const rows = await db
-      .select({
-        id: kpiIndicatorsTable.id,
-        name: kpiIndicatorsTable.name,
-        measurement: kpiIndicatorsTable.measurement,
-        measureUnit: kpiIndicatorsTable.measureUnit,
-        formulaExpression: kpiIndicatorsTable.formulaExpression,
-        formulaVariables: kpiIndicatorsTable.formulaVariables,
-      })
-      .from(kpiIndicatorsTable)
-      .where(and(eq(kpiIndicatorsTable.organizationId, orgId), inArray(kpiIndicatorsTable.id, ids)));
-
-    if (rows.length < 2) { res.status(400).json({ error: "Membros não encontrados ou fora da organização" }); return; }
-
-    const members: ClusterValidationInput[] = rows.map((r) => ({
-      indicatorId: r.id,
-      name: r.name,
-      measurement: r.measurement,
-      measureUnit: r.measureUnit,
-      formulaExpression: r.formulaExpression,
-      formulaVariables: r.formulaVariables,
-    }));
-
-    const result = await validateCluster(members);
-    res.json(result);
-  },
-);
-
-/**
- * Cria um indicador Corporativo + composição em UMA transação.
- *
- * Body:
- * {
- *   name: string,
- *   measurement: string,
- *   measureUnit?: string | null,
- *   direction: "up" | "down",
- *   periodicity: string,
- *   category?: string | null,
- *   formulaExpression: string,
- *   formulaVariables: Array<{key, label}>,
- *   responsibleUserId?: number | null,
- *   norms?: string[],
- *   children: Array<{ childIndicatorId: number, variableMapping: Record<string, string> }>,
- *   strategy?: "sum_inputs" | "sum_values" | "average" | "min" | "max"  // default sum_inputs
- * }
- *
- * Servidor força `unit = "Corporativo"` e `rollupStrategy != null`. Cliente
- * pode mandar a fórmula/vars copiadas de um dos filhos do cluster, ou já
- * canonicalizadas.
- */
-router.post(
-  "/organizations/:orgId/kpi/rollup/from-cluster",
+  "/organizations/:orgId/kpi/corporate-indicators",
   requireAuth,
   requireWriteAccess(),
   async (req, res): Promise<void> => {
@@ -1151,25 +1179,26 @@ router.post(
 
     const body = req.body as {
       name?: string;
-      measurement?: string;
+      strategy?: string;
+      childIndicatorIds?: number[];
+      year?: number;
+      goal?: number | null;
       measureUnit?: string | null;
       direction?: string;
       periodicity?: string;
+      referenceMonth?: number | null;
       category?: string | null;
-      formulaExpression?: string;
-      formulaVariables?: Array<{ key: string; label: string }>;
-      responsibleUserId?: number | null;
       norms?: string[];
-      children?: Array<{ childIndicatorId: number; variableMapping?: Record<string, string> }>;
-      strategy?: string;
+      responsibleUserId?: number | null;
     };
 
-    // Validação básica
+    // Estratégias por VALOR (não expomos sum_inputs neste fluxo).
+    const VALUE_STRATEGIES: KpiRollupStrategy[] = ["average", "sum_values", "min", "max"];
     if (!body.name || typeof body.name !== "string" || !body.name.trim()) {
       res.status(400).json({ error: "name obrigatório" }); return;
     }
-    if (!body.measurement || typeof body.measurement !== "string") {
-      res.status(400).json({ error: "measurement obrigatório" }); return;
+    if (!body.strategy || !VALUE_STRATEGIES.includes(body.strategy as KpiRollupStrategy)) {
+      res.status(400).json({ error: "strategy deve ser average | sum_values | min | max" }); return;
     }
     if (!body.direction || (body.direction !== "up" && body.direction !== "down")) {
       res.status(400).json({ error: "direction deve ser 'up' ou 'down'" }); return;
@@ -1177,34 +1206,35 @@ router.post(
     if (!body.periodicity || typeof body.periodicity !== "string") {
       res.status(400).json({ error: "periodicity obrigatório" }); return;
     }
-    if (!body.formulaExpression || typeof body.formulaExpression !== "string") {
-      res.status(400).json({ error: "formulaExpression obrigatório" }); return;
+    if (body.goal == null || !Number.isFinite(Number(body.goal))) {
+      res.status(400).json({ error: "Tolerância obrigatória" }); return;
     }
-    if (!Array.isArray(body.formulaVariables) || body.formulaVariables.length === 0) {
-      res.status(400).json({ error: "formulaVariables obrigatório (não vazio)" }); return;
+    if (body.responsibleUserId == null || !Number.isFinite(Number(body.responsibleUserId))) {
+      res.status(400).json({ error: "Responsável obrigatório" }); return;
     }
-    const children = Array.isArray(body.children) ? body.children : [];
-    if (children.length < 1) {
-      res.status(400).json({ error: "children obrigatório (mínimo 1 filho)" }); return;
+    const year = Number.isFinite(body.year) ? Number(body.year) : new Date().getFullYear();
+    const childIds = Array.isArray(body.childIndicatorIds)
+      ? [...new Set(body.childIndicatorIds.map(Number).filter(Number.isFinite))]
+      : [];
+    if (childIds.length < 2) {
+      res.status(400).json({ error: "Selecione ao menos 2 indicadores-filhos" }); return;
     }
 
-    const VALID_STRATEGIES: KpiRollupStrategy[] = ["sum_inputs", "sum_values", "average", "min", "max"];
-    const strategy: KpiRollupStrategy = VALID_STRATEGIES.includes(body.strategy as KpiRollupStrategy)
-      ? (body.strategy as KpiRollupStrategy)
-      : "sum_inputs";
-
-    // Verifica que todos os children pertencem à org e não são child de outro rollup
-    const childIds = children.map((c) => Number(c.childIndicatorId)).filter(Number.isFinite);
-    if (childIds.length !== children.length) {
-      res.status(400).json({ error: "childIndicatorId inválido em algum filho" }); return;
-    }
-    const owned = await db
-      .select({ id: kpiIndicatorsTable.id })
+    // Filhos precisam pertencer à org e NÃO ser corporativos.
+    const childRows = await db
+      .select({ id: kpiIndicatorsTable.id, unit: kpiIndicatorsTable.unit })
       .from(kpiIndicatorsTable)
       .where(and(eq(kpiIndicatorsTable.organizationId, orgId), inArray(kpiIndicatorsTable.id, childIds)));
-    if (owned.length !== childIds.length) {
+    if (childRows.length !== childIds.length) {
       res.status(400).json({ error: "Algum filho não pertence a esta organização" }); return;
     }
+    const corporateChild = childRows.find(
+      (c) => (c.unit ?? "").trim().toLowerCase() === CORPORATE_UNIT_LABEL.toLowerCase(),
+    );
+    if (corporateChild) {
+      res.status(400).json({ error: "Um corporativo não pode ser filho de outro" }); return;
+    }
+    // 1 filho = 1 pai: rejeita filhos já vinculados a outro corporativo.
     const alreadyLinked = await db
       .select({ childIndicatorId: kpiIndicatorRollupsTable.childIndicatorId })
       .from(kpiIndicatorRollupsTable)
@@ -1213,28 +1243,33 @@ router.post(
         inArray(kpiIndicatorRollupsTable.childIndicatorId, childIds),
       ));
     if (alreadyLinked.length > 0) {
-      res.status(400).json({
-        error: "Filho já vinculado a outro Corporativo",
+      res.status(409).json({
+        error: "Algum indicador já compõe outro corporativo",
         childIndicatorIds: alreadyLinked.map((l) => l.childIndicatorId),
       });
       return;
     }
 
-    // Transação: insert indicator + insert rollup rows
+    const strategy = body.strategy as KpiRollupStrategy;
+    const strategyLabel = strategy === "average" ? "Média"
+      : strategy === "sum_values" ? "Soma"
+      : strategy === "min" ? "Mínimo" : "Máximo";
+
     const newIndicatorId = await db.transaction(async (tx) => {
       const [created] = await tx
         .insert(kpiIndicatorsTable)
         .values({
           organizationId: orgId,
           name: body.name!.trim(),
-          measurement: body.measurement!.trim(),
+          measurement: `${strategyLabel} de ${childIds.length} indicadores filiais`,
           measureUnit: body.measureUnit ?? null,
           unit: CORPORATE_UNIT_LABEL,
           direction: body.direction!,
           periodicity: body.periodicity!,
+          referenceMonth: body.referenceMonth ?? null,
           category: body.category ?? null,
-          formulaExpression: body.formulaExpression!,
-          formulaVariables: body.formulaVariables!,
+          formulaExpression: "",
+          formulaVariables: [],
           responsibleUserId: body.responsibleUserId ?? null,
           norms: Array.isArray(body.norms) ? body.norms : [],
           rollupStrategy: strategy,
@@ -1242,20 +1277,28 @@ router.post(
         .returning({ id: kpiIndicatorsTable.id });
 
       await tx.insert(kpiIndicatorRollupsTable).values(
-        children.map((c) => ({
+        childIds.map((childIndicatorId) => ({
           organizationId: orgId,
           parentIndicatorId: created.id,
-          childIndicatorId: Number(c.childIndicatorId),
-          variableMapping: c.variableMapping ?? {},
+          childIndicatorId,
+          variableMapping: {},
         })),
       );
+
+      // Year config com a tolerância/meta do corporativo.
+      await tx.insert(kpiYearConfigsTable).values({
+        organizationId: orgId,
+        indicatorId: created.id,
+        year,
+        goal: body.goal != null ? String(body.goal) : null,
+      });
 
       return created.id;
     });
 
     res.status(201).json({
       indicatorId: newIndicatorId,
-      childrenCount: children.length,
+      childrenCount: childIds.length,
       strategy,
     });
   },
