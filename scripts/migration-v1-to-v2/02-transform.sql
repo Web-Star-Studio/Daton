@@ -15,6 +15,15 @@ BEGIN;
 
 -- ---------- 0) Config helpers ------------------------------------------------
 
+-- Normaliza string para match sem acentos / case / espaços (Neon não tem unaccent).
+CREATE OR REPLACE FUNCTION _migration.normalize(t TEXT) RETURNS TEXT LANGUAGE sql IMMUTABLE AS $func$
+  SELECT TRIM(LOWER(translate(
+    COALESCE($1, ''),
+    'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇáàâãäéèêëíìîïóòôõöúùûüç',
+    'AAAAAEEEEIIIIOOOOOUUUUCaaaaaeeeeiiiioooooouuuuc'
+  )))
+$func$;
+
 DO $$
 DECLARE
   org_id INT;
@@ -58,14 +67,15 @@ SELECT
   b.id,
   un.id,
   current_setting('migration.org_id')::int,
-  CASE WHEN b.code IS NOT NULL AND b.code = un.code THEN 'matched by code'
+  CASE WHEN b.code IS NOT NULL AND TRIM(LOWER(un.code)) = TRIM(LOWER(b.code)) THEN 'matched by code'
        ELSE 'matched by name' END
 FROM _migration.v1_branches b
 JOIN public.units un
   ON un.organization_id = current_setting('migration.org_id')::int
  AND (
-   (b.code IS NOT NULL AND un.code = b.code)
-   OR (b.code IS NULL AND LOWER(un.name) = LOWER(b.name))
+   -- normalize() = case-insensitive + sem acento + sem espaços (ex: CAMAÇARI ≡ CAMACARI)
+   (b.code IS NOT NULL AND _migration.normalize(un.code) = _migration.normalize(b.code))
+   OR (b.code IS NULL AND _migration.normalize(un.name) = _migration.normalize(b.name))
  )
 ON CONFLICT (entity, v1_uuid) DO NOTHING;
 
@@ -207,7 +217,14 @@ inserted AS (
     _migration.resolve_unit(branch_id),
     (SELECT v2_id FROM _migration.id_map WHERE entity='sector' AND v1_uuid=t.sector_id),
     NULL,                                                              -- methodology_version_id (cliente escolhe pós)
-    aspect_code,
+    -- aspect_code precisa ser globalmente único na org. v1 numera "1.04",
+    -- "2.03" etc por SETOR, e cada filial usa as mesmas numerações, então
+    -- prefixamos com o code da filial (PIR-1.04, POA-1.04, SBC-1.04...).
+    -- Branch sem code: fallback pro 'SEM' (raro, mas defensivo).
+    COALESCE(
+      (SELECT NULLIF(TRIM(b.code), '') FROM _migration.v1_branches b WHERE b.id = t.branch_id),
+      'SEM'
+    ) || '-' || t.aspect_code AS aspect_code,
     'complete',                                                        -- mode (v1 sempre é completa)
     _migration.map_status(t.status, t.deleted_at),
     COALESCE(t.is_vigente, true),
@@ -253,19 +270,25 @@ INSERT INTO _migration.id_map (entity, v1_uuid, v2_id, organization_id, notes)
 SELECT 'assessment', t.id, i.id, i.organization_id, 'migrated'
 FROM to_insert t
 JOIN inserted i
-  ON i.aspect_code = t.aspect_code
+  ON i.aspect_code = COALESCE(
+       (SELECT NULLIF(TRIM(b.code), '') FROM _migration.v1_branches b WHERE b.id = t.branch_id),
+       'SEM'
+     ) || '-' || t.aspect_code
  AND i.organization_id = t.org_id
 ON CONFLICT (entity, v1_uuid) DO NOTHING;
 
--- Avaliações com aspect_code duplicado em v2 (skipped por ON CONFLICT)
+-- Avaliações skipped pelo ON CONFLICT
 INSERT INTO _migration.skipped (entity, v1_uuid, reason, payload)
-SELECT 'assessment', a.id, 'aspect_code já existe em v2 (provavelmente da migração anterior ou criada manualmente)', to_jsonb(a)
+SELECT 'assessment', a.id, 'aspect_code já existe em v2', to_jsonb(a)
 FROM _migration.v1_laia_assessments a
 WHERE NOT EXISTS (SELECT 1 FROM _migration.id_map m WHERE m.entity='assessment' AND m.v1_uuid=a.id)
   AND EXISTS (
     SELECT 1 FROM public.laia_assessments existing
     WHERE existing.organization_id = current_setting('migration.org_id')::int
-      AND existing.aspect_code = a.aspect_code
+      AND existing.aspect_code = COALESCE(
+        (SELECT NULLIF(TRIM(b.code), '') FROM _migration.v1_branches b WHERE b.id = a.branch_id),
+        'SEM'
+      ) || '-' || a.aspect_code
   )
 ON CONFLICT DO NOTHING;
 
