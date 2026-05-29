@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import {
   CheckCircle2,
   ChevronDown,
@@ -55,11 +55,7 @@ const ODS_BADGES: Array<{ ods: number; label: string; color: string }> = [
   { ods: 15, label: "Vida Terrestre", color: "bg-green-100 text-green-800" },
 ];
 
-function ComplianceItemRow({
-  item,
-  onSave,
-  isSaving,
-}: {
+interface ComplianceItemRowProps {
   item: LaiaComplianceItem;
   onSave: (params: {
     clause: LaiaComplianceClause;
@@ -68,7 +64,9 @@ function ComplianceItemRow({
     notes: string | null;
   }) => Promise<void>;
   isSaving: boolean;
-}) {
+}
+
+function ComplianceItemRowImpl({ item, onSave, isSaving }: ComplianceItemRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [status, setStatus] = useState<LaiaComplianceStatus>(item.status);
   const [evidence, setEvidence] = useState(item.evidence ?? "");
@@ -180,10 +178,41 @@ function ComplianceItemRow({
   );
 }
 
+// Re-renderiza apenas quando o conteúdo do item, o estado de saving ou a referência
+// estável do onSave mudam. updatedAt é o sinal canônico de mutação no item.
+const ComplianceItemRow = memo(
+  ComplianceItemRowImpl,
+  (prev, next) =>
+    prev.item.id === next.item.id &&
+    prev.item.updatedAt === next.item.updatedAt &&
+    prev.item.status === next.item.status &&
+    prev.item.evidence === next.item.evidence &&
+    prev.item.notes === next.item.notes &&
+    prev.isSaving === next.isSaving &&
+    prev.onSave === next.onSave,
+);
+
 export function LaiaConformidade({ orgId }: { orgId?: number }) {
   const { data: items = [], isLoading } = useLaiaComplianceItems(orgId);
   const { data: dashboard } = useLaiaDashboard(orgId);
   const updateMutation = useUpdateLaiaComplianceItem(orgId);
+
+  const handleSave = useCallback<ComplianceItemRowProps["onSave"]>(
+    async (payload) => {
+      try {
+        await updateMutation.mutateAsync(payload);
+        toast({ title: "Conformidade atualizada" });
+      } catch (error) {
+        toast({
+          title: "Falha ao salvar",
+          description:
+            error instanceof Error ? error.message : "Tente novamente.",
+          variant: "destructive",
+        });
+      }
+    },
+    [updateMutation],
+  );
 
   const score = dashboard?.compliance?.score ?? 0;
   const byStatus = dashboard?.compliance?.itemsByStatus ?? {
@@ -263,19 +292,7 @@ export function LaiaConformidade({ orgId }: { orgId?: number }) {
             key={item.clause}
             item={item}
             isSaving={updateMutation.isPending}
-            onSave={async (payload) => {
-              try {
-                await updateMutation.mutateAsync(payload);
-                toast({ title: "Conformidade atualizada" });
-              } catch (error) {
-                toast({
-                  title: "Falha ao salvar",
-                  description:
-                    error instanceof Error ? error.message : "Tente novamente.",
-                  variant: "destructive",
-                });
-              }
-            }}
+            onSave={handleSave}
           />
         ))}
       </div>

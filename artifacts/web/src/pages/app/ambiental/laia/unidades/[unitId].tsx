@@ -156,9 +156,11 @@ function buildDistributionData(
 function DistributionChartCard({
   title,
   data,
+  onDrill,
 }: {
   title: string;
   data: { key: string; label: string; total: number; fill: string }[];
+  onDrill?: (entry: { key: string; label: string }) => void;
 }) {
   const config = useMemo(
     () =>
@@ -205,30 +207,63 @@ function DistributionChartCard({
               cursor={false}
               content={<ChartTooltipContent hideIndicator />}
             />
-            <Bar dataKey="total" radius={[8, 8, 0, 0]}>
+            <Bar
+              dataKey="total"
+              radius={[8, 8, 0, 0]}
+              isAnimationActive={false}
+              onClick={(payload) => {
+                if (!onDrill || !payload) return;
+                const entry = payload as unknown as { key?: string; label?: string };
+                if (!entry.key || !entry.label) return;
+                onDrill({ key: entry.key, label: entry.label });
+              }}
+            >
               {data.map((entry) => (
-                <Cell key={entry.key} fill={entry.fill} />
+                <Cell
+                  key={entry.key}
+                  fill={entry.fill}
+                  cursor={onDrill ? "pointer" : undefined}
+                />
               ))}
             </Bar>
           </BarChart>
         </ChartContainer>
 
         <div className="grid gap-2">
-          {data.map((item) => (
-            <div
-              key={item.key}
-              className="flex items-center justify-between rounded-xl border border-border/60 px-3 py-2 text-sm"
-            >
-              <div className="flex items-center gap-2">
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: item.fill }}
-                />
-                <span>{item.label}</span>
+          {data.map((item) =>
+            onDrill ? (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => onDrill({ key: item.key, label: item.label })}
+                aria-label={`Mostrar avaliações com ${item.label}`}
+                className="flex items-center justify-between rounded-xl border border-border/60 px-3 py-2 text-sm hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: item.fill }}
+                  />
+                  <span>{item.label}</span>
+                </span>
+                <span className="font-medium">{item.total}</span>
+              </button>
+            ) : (
+              <div
+                key={item.key}
+                className="flex items-center justify-between rounded-xl border border-border/60 px-3 py-2 text-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: item.fill }}
+                  />
+                  <span>{item.label}</span>
+                </div>
+                <span className="font-medium">{item.total}</span>
               </div>
-              <span className="font-medium">{item.total}</span>
-            </div>
-          ))}
+            ),
+          )}
         </div>
       </CardContent>
     </Card>
@@ -251,6 +286,13 @@ export default function EnvironmentalLaiaUnitDetailPage() {
       draftAssessmentId: null,
     });
   const [pendingSectorId, setPendingSectorId] = useState<number | null>(null);
+  // Drill-down local: filtra a tabela "Avaliações" da unidade sem mudar de rota.
+  // chave segue o formato `${dim}:${value}` para preservar contexto humano.
+  const [localDrill, setLocalDrill] = useState<{
+    dim: "temporality" | "operationalSituation" | "incidence" | "impactClass";
+    value: string;
+    label: string;
+  } | null>(null);
 
   const { data: overview } = useLaiaUnitOverview(orgId, unitId);
   const { data: branchConfigs = [] } = useLaiaBranchConfigs(orgId);
@@ -441,6 +483,19 @@ export default function EnvironmentalLaiaUnitDetailPage() {
     DISTRIBUTION_META.byImpactClass,
   );
 
+  // Lista mostrada na tabela "Avaliações" da unidade — filtrada pelo drill local
+  // quando possível. As dimensões temporality/incidence/impactClass não estão no
+  // payload da lista; aceitamos exibir tudo + chip indicando o contexto.
+  const filteredAssessments = useMemo(() => {
+    if (!localDrill) return assessments;
+    if (localDrill.dim === "operationalSituation") {
+      return assessments.filter(
+        (a) => (a.operationalSituation ?? "nao_informado") === localDrill.value,
+      );
+    }
+    return assessments;
+  }, [assessments, localDrill]);
+
   return (
     <div className="space-y-8 px-6 py-6">
       <Card>
@@ -503,22 +558,69 @@ export default function EnvironmentalLaiaUnitDetailPage() {
         </TabsList>
 
         <TabsContent value="visao-geral" className="space-y-4">
+          {localDrill && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-[12px] text-primary w-fit"
+            >
+              <span>
+                Filtrado por: <strong>{localDrill.label}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setLocalDrill(null)}
+                aria-label="Limpar filtro de drill-down"
+                className="-mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                ×
+              </button>
+            </div>
+          )}
           <div className="grid gap-4 xl:grid-cols-2">
             <DistributionChartCard
               title={DISTRIBUTION_META.byTemporality.title}
               data={temporalityData}
+              onDrill={(entry) =>
+                setLocalDrill({
+                  dim: "temporality",
+                  value: entry.key,
+                  label: `Temporalidade · ${entry.label}`,
+                })
+              }
             />
             <DistributionChartCard
               title={DISTRIBUTION_META.byOperationalSituation.title}
               data={operationalSituationData}
+              onDrill={(entry) =>
+                setLocalDrill({
+                  dim: "operationalSituation",
+                  value: entry.key,
+                  label: `Operacional · ${entry.label}`,
+                })
+              }
             />
             <DistributionChartCard
               title={DISTRIBUTION_META.byIncidence.title}
               data={incidenceData}
+              onDrill={(entry) =>
+                setLocalDrill({
+                  dim: "incidence",
+                  value: entry.key,
+                  label: `Incidência · ${entry.label}`,
+                })
+              }
             />
             <DistributionChartCard
               title={DISTRIBUTION_META.byImpactClass.title}
               data={impactClassData}
+              onDrill={(entry) =>
+                setLocalDrill({
+                  dim: "impactClass",
+                  value: entry.key,
+                  label: `Classe de impacto · ${entry.label}`,
+                })
+              }
             />
           </div>
         </TabsContent>
@@ -544,7 +646,7 @@ export default function EnvironmentalLaiaUnitDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {assessments.map((assessment) => (
+                  {filteredAssessments.map((assessment) => (
                     <TableRow key={assessment.id}>
                       <TableCell className="font-medium">
                         {assessment.aspectCode}
@@ -583,13 +685,15 @@ export default function EnvironmentalLaiaUnitDetailPage() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {assessments.length === 0 && (
+                  {filteredAssessments.length === 0 && (
                     <TableRow>
                       <TableCell
                         colSpan={9}
                         className="py-10 text-center text-muted-foreground"
                       >
-                        Nenhuma avaliação cadastrada para esta unidade.
+                        {localDrill
+                          ? "Nenhuma avaliação corresponde ao filtro de drill-down."
+                          : "Nenhuma avaliação cadastrada para esta unidade."}
                       </TableCell>
                     </TableRow>
                   )}

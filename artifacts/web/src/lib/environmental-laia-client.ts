@@ -85,6 +85,23 @@ export interface LaiaAssessmentListFilters {
   view?: "matrix" | "trash";
 }
 
+// Drill-down: dimensão clicada nos charts da Gestão à Vista. O filtro flui para a
+// Matriz como predicate local (ver applyDrillFilter em matriz.tsx).
+export type DrillDimension =
+  | "category"
+  | "operationalSituation"
+  | "significance"
+  | "temporality"
+  | "incidence"
+  | "impactClass"
+  | "ods";
+
+export type DrillFilter = null | {
+  dim: DrillDimension;
+  value: string;
+  label: string; // human-readable, ex: "ODS 6 · Água Limpa"
+};
+
 export interface LaiaAssessmentListItem {
   id: number;
   unitId: number | null;
@@ -448,6 +465,8 @@ export function useLaiaDashboard(orgId?: number) {
   return useQuery({
     queryKey: laiaKeys.dashboard(orgId || 0),
     enabled: !!orgId,
+    // Dashboard agregado é caro: 5 min de staleTime evita refetch ao trocar de aba.
+    staleTime: 5 * 60 * 1000,
     queryFn: () =>
       laiaRequest<LaiaDashboardSummary>(
         `/api/organizations/${orgId}/environmental/laia/dashboard`,
@@ -508,6 +527,8 @@ export function useLaiaAssessments(
   return useQuery({
     queryKey: laiaKeys.assessments(orgId || 0, filters),
     enabled: !!orgId,
+    // Lista grande (2k+ rows reais): 2 min de staleTime; mutações invalidam manualmente.
+    staleTime: 2 * 60 * 1000,
     queryFn: () =>
       laiaRequest<LaiaAssessmentListItem[]>(
         `/api/organizations/${orgId}/environmental/laia/assessments${buildLaiaQueryString(filters)}`,
@@ -530,6 +551,8 @@ export function useLaiaRevisions(orgId?: number) {
   return useQuery({
     queryKey: laiaKeys.revisions(orgId || 0),
     enabled: !!orgId,
+    // Revisões raramente mudam fora de mutação: 5 min é seguro.
+    staleTime: 5 * 60 * 1000,
     queryFn: () =>
       laiaRequest<LaiaRevision[]>(
         `/api/organizations/${orgId}/environmental/laia/revisions`,

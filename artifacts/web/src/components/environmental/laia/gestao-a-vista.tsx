@@ -29,11 +29,14 @@ import {
   useLaiaAssessments,
   useLaiaDashboard,
   useLaiaRevisions,
+  type DrillFilter,
   type LaiaAssessmentListItem,
 } from "@/lib/environmental-laia-client";
 
 interface GestaoAVistaProps {
   orgId?: number;
+  // Opcional: clique em chart dispara filtro de drill-down na Matriz.
+  onDrill?: (filter: DrillFilter) => void;
 }
 
 const COLORS = {
@@ -180,7 +183,7 @@ function semaforoFromAssessment(
   };
 }
 
-export function LaiaGestaoAVista({ orgId }: GestaoAVistaProps) {
+export function LaiaGestaoAVista({ orgId, onDrill }: GestaoAVistaProps) {
   const { data: dashboard } = useLaiaDashboard(orgId);
   const { data: assessments = [] } = useLaiaAssessments(orgId);
   const { data: revisions = [] } = useLaiaRevisions(orgId);
@@ -201,16 +204,19 @@ export function LaiaGestaoAVista({ orgId }: GestaoAVistaProps) {
     if (!dashboard) return [];
     return [
       {
+        key: "critico",
         name: "Crítico",
         value: dashboard.criticalAssessments,
         color: COLORS.critical,
       },
       {
+        key: "moderado",
         name: "Moderado",
         value: dashboard.moderateAssessments,
         color: COLORS.moderate,
       },
       {
+        key: "desprezivel",
         name: "Desprezível",
         value: dashboard.negligibleAssessments,
         color: COLORS.negligible,
@@ -228,6 +234,7 @@ export function LaiaGestaoAVista({ orgId }: GestaoAVistaProps) {
     };
     return Object.entries(dashboard.byOperationalSituation)
       .map(([key, value]) => ({
+        key,
         name: map[key]?.name ?? key,
         total: value,
         color: map[key]?.color ?? COLORS.neutral,
@@ -241,6 +248,7 @@ export function LaiaGestaoAVista({ orgId }: GestaoAVistaProps) {
     return Object.entries(dashboard.byOds)
       .map(([key, value]) => ({
         ods: Number(key),
+        key,
         name: `ODS ${key} · ${ODS_NAMES[Number(key)] ?? ""}`,
         total: value.total,
         significant: value.significant,
@@ -361,7 +369,7 @@ export function LaiaGestaoAVista({ orgId }: GestaoAVistaProps) {
               </p>
             ) : (
               <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" debounce={300}>
                   <PieChart>
                     <Pie
                       data={significanceData}
@@ -370,9 +378,24 @@ export function LaiaGestaoAVista({ orgId }: GestaoAVistaProps) {
                       innerRadius={45}
                       outerRadius={75}
                       paddingAngle={2}
+                      isAnimationActive={false}
+                      onClick={(payload) => {
+                        if (!onDrill || !payload) return;
+                        const entry = payload as unknown as { key?: string; name?: string };
+                        if (!entry.key || !entry.name) return;
+                        onDrill({
+                          dim: "category",
+                          value: entry.key,
+                          label: `Categoria · ${entry.name}`,
+                        });
+                      }}
                     >
-                      {significanceData.map((entry, idx) => (
-                        <Cell key={idx} fill={entry.color} />
+                      {significanceData.map((entry) => (
+                        <Cell
+                          key={entry.key}
+                          fill={entry.color}
+                          cursor={onDrill ? "pointer" : undefined}
+                        />
                       ))}
                     </Pie>
                     <Tooltip
@@ -386,21 +409,46 @@ export function LaiaGestaoAVista({ orgId }: GestaoAVistaProps) {
               </div>
             )}
             <div className="mt-2 space-y-1 text-[12px]">
-              {significanceData.map((entry) => (
-                <div
-                  key={entry.name}
-                  className="flex items-center justify-between"
-                >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{ background: entry.color }}
-                    />
-                    {entry.name}
-                  </span>
-                  <span className="text-muted-foreground">{entry.value}</span>
-                </div>
-              ))}
+              {significanceData.map((entry) =>
+                onDrill ? (
+                  <button
+                    key={entry.key}
+                    type="button"
+                    onClick={() =>
+                      onDrill({
+                        dim: "category",
+                        value: entry.key,
+                        label: `Categoria · ${entry.name}`,
+                      })
+                    }
+                    aria-label={`Mostrar avaliações da categoria ${entry.name}`}
+                    className="flex w-full items-center justify-between rounded px-1 py-0.5 text-left hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ background: entry.color }}
+                      />
+                      {entry.name}
+                    </span>
+                    <span className="text-muted-foreground">{entry.value}</span>
+                  </button>
+                ) : (
+                  <div
+                    key={entry.key}
+                    className="flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ background: entry.color }}
+                      />
+                      {entry.name}
+                    </span>
+                    <span className="text-muted-foreground">{entry.value}</span>
+                  </div>
+                ),
+              )}
             </div>
           </CardContent>
         </Card>
@@ -418,7 +466,7 @@ export function LaiaGestaoAVista({ orgId }: GestaoAVistaProps) {
               <p className="text-sm text-muted-foreground">Sem dados.</p>
             ) : (
               <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" debounce={300}>
                   <BarChart data={opSituationData} layout="vertical">
                     <XAxis type="number" hide />
                     <YAxis
@@ -428,9 +476,27 @@ export function LaiaGestaoAVista({ orgId }: GestaoAVistaProps) {
                       tick={{ fontSize: 11 }}
                     />
                     <Tooltip cursor={{ fill: "transparent" }} />
-                    <Bar dataKey="total" radius={[0, 4, 4, 0]}>
-                      {opSituationData.map((entry, idx) => (
-                        <Cell key={idx} fill={entry.color} />
+                    <Bar
+                      dataKey="total"
+                      radius={[0, 4, 4, 0]}
+                      isAnimationActive={false}
+                      onClick={(data) => {
+                        if (!onDrill || !data) return;
+                        const entry = data as unknown as { key?: string; name?: string };
+                        if (!entry.key || !entry.name) return;
+                        onDrill({
+                          dim: "operationalSituation",
+                          value: entry.key,
+                          label: `Operacional · ${entry.name}`,
+                        });
+                      }}
+                    >
+                      {opSituationData.map((entry) => (
+                        <Cell
+                          key={entry.key}
+                          fill={entry.color}
+                          cursor={onDrill ? "pointer" : undefined}
+                        />
                       ))}
                     </Bar>
                   </BarChart>
@@ -453,20 +519,43 @@ export function LaiaGestaoAVista({ orgId }: GestaoAVistaProps) {
               </p>
             ) : (
               <ul className="space-y-2 text-[12px]">
-                {odsData.map((entry) => (
-                  <li
-                    key={entry.ods}
-                    className="flex items-center justify-between gap-2"
-                  >
-                    <span className="line-clamp-1">{entry.name}</span>
-                    <span className="flex items-center gap-2 text-muted-foreground">
-                      <Badge variant="outline" className="text-[10px]">
-                        {entry.significant} sig.
-                      </Badge>
-                      <span>{entry.total}</span>
-                    </span>
-                  </li>
-                ))}
+                {odsData.map((entry) => {
+                  const content = (
+                    <>
+                      <span className="line-clamp-1">{entry.name}</span>
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <Badge variant="outline" className="text-[10px]">
+                          {entry.significant} sig.
+                        </Badge>
+                        <span>{entry.total}</span>
+                      </span>
+                    </>
+                  );
+                  return (
+                    <li key={entry.ods}>
+                      {onDrill ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onDrill({
+                              dim: "ods",
+                              value: entry.key,
+                              label: `ODS ${entry.ods} · ${ODS_NAMES[entry.ods] ?? ""}`,
+                            })
+                          }
+                          aria-label={`Mostrar avaliações alinhadas ao ODS ${entry.ods}`}
+                          className="flex w-full items-center justify-between gap-2 rounded px-1 py-0.5 text-left hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {content}
+                        </button>
+                      ) : (
+                        <div className="flex items-center justify-between gap-2">
+                          {content}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardContent>

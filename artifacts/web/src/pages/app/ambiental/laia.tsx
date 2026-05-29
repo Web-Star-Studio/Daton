@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getListLegislationsQueryKey,
   getListUnitsQueryKey,
@@ -63,6 +63,7 @@ import {
   useLaiaSectors,
   usePublishLaiaMethodology,
   useUpdateLaiaAssessment,
+  type DrillFilter,
   type LaiaAssessmentDetail,
   type LaiaAssessmentInput,
   type LaiaAssessmentListFilters,
@@ -627,6 +628,14 @@ export default function EnvironmentalLaiaPage() {
   const [matrixFilters, setMatrixFilters] = useState<MatrixFiltersState>(
     DEFAULT_MATRIX_FILTERS,
   );
+  const [activeTab, setActiveTab] = useState<string>("matriz");
+  const [drillFilter, setDrillFilter] = useState<DrillFilter>(null);
+
+  const handleDrill = useCallback((filter: DrillFilter) => {
+    setDrillFilter(filter);
+    if (filter) setActiveTab("matriz");
+  }, []);
+  const handleClearDrill = useCallback(() => setDrillFilter(null), []);
   const [sectorDialogOpen, setSectorDialogOpen] = useState(false);
   const [methodologyDialogOpen, setMethodologyDialogOpen] = useState(false);
   const [assessmentDialogOpen, setAssessmentDialogOpen] = useState(false);
@@ -2202,9 +2211,9 @@ export default function EnvironmentalLaiaPage() {
         ))}
       </div>
 
-      <LaiaGestaoAVista orgId={orgId} />
+      <LaiaGestaoAVista orgId={orgId} onDrill={handleDrill} />
 
-      <Tabs defaultValue="matriz">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="matriz">Matriz</TabsTrigger>
           <TabsTrigger value="evidencias">Evidências</TabsTrigger>
@@ -2217,6 +2226,8 @@ export default function EnvironmentalLaiaPage() {
         <TabsContent value="matriz" className="space-y-4">
           <LaiaMatriz
             orgId={orgId}
+            drillFilter={drillFilter}
+            onClearDrill={handleClearDrill}
             onOpenAssessment={(row) =>
               handleOpenEditAssessment(row.id, row.status)
             }
