@@ -100,7 +100,7 @@ async function main() {
         'DRY.01', 'Consumo de energia', 'Consumo de energia elétrica', 'Esgotamento de recursos',
         'atual', 'normal', 'direto', 'adverso', 'local', 'media',
         40, 'media', 20, 60,
-        'moderado', 'significativo', true, true, false, true,
+        'moderado', 'significativo', true, true, true, true,
         ARRAY['administrativo']::text[], ARRAY['operacao']::text[],
         '[{"reference":"NR-10","summary":"Segurança em eletricidade"}]'::jsonb,
         NULL, NULL, 'Implementar monitoramento mensal',
