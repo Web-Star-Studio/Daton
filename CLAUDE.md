@@ -192,3 +192,13 @@ See `DEPLOYMENT.md` for full operational details.
 - I prefer iterative development, focusing on one feature or bug fix at a time. Please explain your thought process and proposed changes clearly before implementation. I value clean, readable code and comprehensive tests.
 - Never stage, commit or push without being explicitly asked for
 - Never start dev servers (frontend or backend) without being explicitly asked for
+
+## Diário de bordo (registro diário para auditoria)
+
+Mantemos um diário de tudo que é feito no projeto — para auditoria e para envio aos superiores.
+
+- **Local:** `docs/diario/AAAA-MM-DD.md` — um arquivo por dia. O modelo/convenção está em `docs/diario/README.md`.
+- **Regra:** ao concluir uma tarefa, feature ou correção significativa, registrar uma entrada no diário do dia. Se o arquivo do dia ainda não existir, criá-lo a partir do modelo.
+- **Conteúdo de cada entrada:** o que foi feito, por quê, impacto/área afetada, status e validações (ex.: `pnpm typecheck` / `pnpm build`). Escrever em **PT-BR**, de forma profissional e objetiva — o conteúdo vai para superiores.
+- **Fidelidade:** registrar o que foi de fato concluído, o que ficou pendente e o que falhou. Não inflar nem omitir.
+- **PDF:** ao final do dia (ou quando solicitado), gerar o PDF a partir do MD do dia (skill `pdf`).
