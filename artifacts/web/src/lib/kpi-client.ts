@@ -258,18 +258,73 @@ export function formatKpiNumber(value: number | null | undefined): string {
   });
 }
 
-/** Formata número para cards/dashboards: casas decimais adaptativas, com zeros à direita preservados. */
+/** Número com casas fixas (zeros à direita preservados), SEM unidade. */
+function formatKpiNumberFixedRaw(value: number): string {
+  const decimals = pickKpiDecimals(value);
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+/**
+ * Detecta unidade de moeda (BRL). Retorna o sufixo de taxa preservado
+ * (ex.: "/Km", "/1000 Km", "/mês") ou "" quando é moeda pura; `null` quando
+ * NÃO é moeda. Cobre "R$", "real", "reais", "BRL", "$" e taxas "R$/algo".
+ */
+function currencyRateSuffix(measureUnit: string): string | null {
+  const norm = measureUnit
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase();
+  if (!/^(r\$|reais|real|brl|\$)(\s*\/.*)?$/.test(norm)) return null;
+  // Remove o token de moeda do início, preservando o sufixo de taxa original.
+  return measureUnit.trim().replace(/^\s*(r\$|reais|real|brl|\$)\s*/i, "");
+}
+
+/** A unidade representa moeda (BRL)? Útil pra UI (ex.: esconder chip redundante). */
+export function isCurrencyUnit(measureUnit?: string | null): boolean {
+  return measureUnit != null && currencyRateSuffix(measureUnit) !== null;
+}
+
+/**
+ * Formata um valor de KPI conforme a unidade de medida — fonte única de
+ * verdade para exibição de valores. Regras:
+ * - Moeda (R$, real, reais, BRL, $, inclusive taxas "R$/Km"): prefixo
+ *   "R$ " + 2 casas decimais (ex.: "R$ 1.234,56", "R$ 1.234,56/Km").
+ * - Percentual e demais unidades: número + " unidade" (ex.: "12,5 %", "27 KG").
+ * - Sem unidade: só o número.
+ * `opts.fixed` = casas fixas (cards/dashboards) vs adaptativas (tabelas).
+ */
+export function formatKpiValue(
+  value: number | null | undefined,
+  measureUnit?: string | null,
+  opts?: { fixed?: boolean },
+): string {
+  if (value === null || value === undefined) return "—";
+  if (measureUnit) {
+    const rateSuffix = currencyRateSuffix(measureUnit);
+    if (rateSuffix !== null) {
+      // Sinal antes do símbolo (pt-BR): "-R$ 1.234,56", não "R$ -1.234,56".
+      const neg = value < 0;
+      const money = Math.abs(value).toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return `${neg ? "-" : ""}R$ ${money}${rateSuffix}`;
+    }
+  }
+  const num = opts?.fixed ? formatKpiNumberFixedRaw(value) : formatKpiNumber(value);
+  return measureUnit ? `${num} ${measureUnit}` : num;
+}
+
+/** Formata número para cards/dashboards (casas fixas), ciente da unidade. */
 export function formatKpiNumberFixed(
   value: number | null | undefined,
   measureUnit?: string | null,
 ): string {
-  if (value === null || value === undefined) return "—";
-  const decimals = pickKpiDecimals(value);
-  const formatted = value.toLocaleString("pt-BR", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-  return measureUnit ? `${formatted} ${measureUnit}` : formatted;
+  return formatKpiValue(value, measureUnit, { fixed: true });
 }
 
 // ─── Periodicity label ─────────────────────────────────────────────────────

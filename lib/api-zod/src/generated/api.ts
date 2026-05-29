@@ -13587,26 +13587,24 @@ export const ListKpiYearDataResponseItem = zod.object({
           .boolean()
           .optional()
           .describe(
-            "True quando a Ana entrou um valor manual sobrepondo o cálculo automático (rollup). False = livre pra recompute.",
+            "True quando o valor foi entrado manualmente (override sobre o cálculo do corporativo).",
           ),
         isComputed: zod
           .boolean()
           .optional()
           .describe(
-            "True quando o `value` exibido foi calculado on-read a partir dos filhos do rollup (não é o valor cru do row). Indicador deve ter rollup_strategy != null e isOverridden=false.",
+            "True quando o valor foi calculado on-read a partir dos filhos do corporativo (não é lançamento manual).",
           ),
         childrenWithData: zod
           .number()
           .nullish()
           .describe(
-            "Quando isComputed=true, quantos filhos contribuíram com dados neste mês.",
+            "Quando isComputed=true, quantos filhos tinham dado no mês.",
           ),
         childrenTotal: zod
           .number()
           .nullish()
-          .describe(
-            "Quando isComputed=true, total de filhos configurados pro rollup.",
-          ),
+          .describe("Quando isComputed=true, total de filhos do corporativo."),
       })
       .describe(
         "Read shape of a monthly cell — includes server-resolved metadata",
@@ -13667,7 +13665,7 @@ export const UpsertKpiValuesBody = zod.object({
           .boolean()
           .optional()
           .describe(
-            "Override manual sobre cálculo automático do rollup. Default true quando value!=null, false quando value=null.",
+            "Marca o valor como entrada manual. Default true quando value!=null, false quando value=null.",
           ),
       })
       .describe(
@@ -13717,26 +13715,22 @@ export const UpsertKpiValuesResponseItem = zod
       .boolean()
       .optional()
       .describe(
-        "True quando a Ana entrou um valor manual sobrepondo o cálculo automático (rollup). False = livre pra recompute.",
+        "True quando o valor foi entrado manualmente (override sobre o cálculo do corporativo).",
       ),
     isComputed: zod
       .boolean()
       .optional()
       .describe(
-        "True quando o `value` exibido foi calculado on-read a partir dos filhos do rollup (não é o valor cru do row). Indicador deve ter rollup_strategy != null e isOverridden=false.",
+        "True quando o valor foi calculado on-read a partir dos filhos do corporativo (não é lançamento manual).",
       ),
     childrenWithData: zod
       .number()
       .nullish()
-      .describe(
-        "Quando isComputed=true, quantos filhos contribuíram com dados neste mês.",
-      ),
+      .describe("Quando isComputed=true, quantos filhos tinham dado no mês."),
     childrenTotal: zod
       .number()
       .nullish()
-      .describe(
-        "Quando isComputed=true, total de filhos configurados pro rollup.",
-      ),
+      .describe("Quando isComputed=true, total de filhos do corporativo."),
   })
   .describe("Read shape of a monthly cell — includes server-resolved metadata");
 export const UpsertKpiValuesResponse = zod.array(UpsertKpiValuesResponseItem);
@@ -16447,244 +16441,41 @@ export const AddKpiMonthJustificationBody = zod.object({
 });
 
 /**
- * @summary Lista filhos configurados pro rollup de um indicador corporativo
+ * @summary Cria um indicador corporativo que agrega (média/soma/mín/máx) os valores dos indicadores-filhos selecionados
  */
-export const ListKpiRollupChildrenParams = zod.object({
-  orgId: zod.coerce.number(),
-  indicatorId: zod.coerce.number(),
-});
-
-export const ListKpiRollupChildrenResponseItem = zod.object({
-  id: zod.number(),
-  parentIndicatorId: zod.number(),
-  childIndicatorId: zod.number(),
-  variableMapping: zod.record(zod.string(), zod.string()),
-  createdAt: zod.string(),
-});
-export const ListKpiRollupChildrenResponse = zod.array(
-  ListKpiRollupChildrenResponseItem,
-);
-
-/**
- * @summary Substitui (replace-all) os filhos do rollup. Define rollupStrategy.
- */
-export const PutKpiRollupChildrenParams = zod.object({
-  orgId: zod.coerce.number(),
-  indicatorId: zod.coerce.number(),
-});
-
-export const PutKpiRollupChildrenBody = zod.object({
-  strategy: zod
-    .enum(["sum_inputs", "sum_values", "average", "min", "max"])
-    .optional(),
-  children: zod.array(
-    zod.object({
-      childIndicatorId: zod.number(),
-      variableMapping: zod.record(zod.string(), zod.string()).optional(),
-    }),
-  ),
-});
-
-export const PutKpiRollupChildrenResponse = zod.object({
-  ok: zod.boolean(),
-  count: zod.number(),
-  strategy: zod.string().nullish(),
-});
-
-/**
- * @summary IA sugere filhos do rollup com base no catálogo da org
- */
-export const SuggestKpiRollupChildrenParams = zod.object({
-  orgId: zod.coerce.number(),
-  indicatorId: zod.coerce.number(),
-});
-
-export const SuggestKpiRollupChildrenResponse = zod.object({
-  suggestions: zod.array(
-    zod.object({
-      childIndicatorId: zod.number(),
-      confidence: zod.number(),
-      reason: zod.string(),
-      variableMapping: zod.record(zod.string(), zod.string()),
-    }),
-  ),
-});
-
-/**
- * @summary Compute on-demand do valor de rollup pra um mês (preview)
- */
-export const GetKpiRollupValueParams = zod.object({
-  orgId: zod.coerce.number(),
-  indicatorId: zod.coerce.number(),
-});
-
-export const GetKpiRollupValueQueryParams = zod.object({
-  year: zod.coerce.number(),
-  month: zod.coerce.number(),
-});
-
-export const GetKpiRollupValueResponse = zod.object({
-  computed: zod.number().nullable(),
-  strategy: zod
-    .union([
-      zod.literal("sum_inputs"),
-      zod.literal("sum_values"),
-      zod.literal("average"),
-      zod.literal("min"),
-      zod.literal("max"),
-      zod.literal(null),
-    ])
-    .nullish(),
-  childrenWithData: zod.number(),
-  childrenTotal: zod.number(),
-  breakdown: zod.array(
-    zod.object({
-      childIndicatorId: zod.number(),
-      childUnit: zod.string().nullish(),
-      inputs: zod.record(zod.string(), zod.number().nullable()),
-      value: zod.number().nullish(),
-    }),
-  ),
-});
-
-/**
- * Detecta agrupamentos no catálogo (mesma forma de fórmula + classe de
-measurement + nome similar) que provavelmente representam o mesmo
-indicador em filiais diferentes. Filtra os que já estão vinculados a
-algum Corporativo. Usado pela tab "Corporativos" da página de KPI.
-
- * @summary Detecta clusters de indicadores filial-level pra criar Corporativos
- */
-export const ListKpiRollupClustersParams = zod.object({
+export const CreateKpiCorporateIndicatorParams = zod.object({
   orgId: zod.coerce.number(),
 });
 
-export const ListKpiRollupClustersResponse = zod.object({
-  clusters: zod.array(
-    zod
-      .object({
-        clusterKey: zod.string(),
-        formulaShape: zod.string(),
-        measurementClass: zod.enum([
-          "percent",
-          "per_thousand",
-          "duration",
-          "currency",
-          "count",
-          "volume_or_mass",
-          "ratio_other",
-          "none",
-        ]),
-        periodicity: zod.string(),
-        members: zod.array(
-          zod
-            .object({
-              indicatorId: zod.number(),
-              name: zod.string(),
-              unit: zod.string().nullish(),
-              measureUnit: zod.string().nullish(),
-              measurement: zod.string(),
-              formulaExpression: zod.string(),
-              formulaVariables: zod.array(
-                zod.object({
-                  key: zod.string(),
-                  label: zod.string(),
-                }),
-              ),
-              positionToKey: zod
-                .array(zod.string())
-                .describe(
-                  "Mapeia posição na fórmula → key da variável (preserva ordem).",
-                ),
-            })
-            .describe(
-              "Membro proposto de um cluster de indicadores filial-level.",
-            ),
-        ),
-        proposedName: zod.string(),
-        variableMappingByPosition: zod
-          .record(zod.string(), zod.record(zod.string(), zod.string()))
-          .describe(
-            'Mapping pré-preenchido por POSIÇÃO. Chaves externas são posições\n(0, 1, ...) da fórmula normalizada. Valores são mapas indicatorId\n→ child var key. Ex: variableMappingByPosition[\"0\"] = { 9: \"avarias\", 12: \"ocorrencias\" }\nsignifica: na posição 1 da fórmula, o indicador 9 contribui com\nsua variável \"avarias\" e o indicador 12 com \"ocorrencias\".\n',
-          ),
-      })
-      .describe(
-        "Cluster de indicadores filial-level detectado pela heurística.",
-      ),
-  ),
-});
+export const createKpiCorporateIndicatorBodyChildIndicatorIdsMin = 2;
 
-/**
- * @summary Refina um cluster via IA — confirma membros + propõe nome canônico
- */
-export const ValidateKpiRollupClusterParams = zod.object({
-  orgId: zod.coerce.number(),
-});
-
-export const validateKpiRollupClusterBodyChildIndicatorIdsMin = 2;
-
-export const ValidateKpiRollupClusterBody = zod.object({
-  childIndicatorIds: zod
-    .array(zod.number())
-    .min(validateKpiRollupClusterBodyChildIndicatorIdsMin),
-});
-
-export const validateKpiRollupClusterResponseConfidenceMin = 0;
-export const validateKpiRollupClusterResponseConfidenceMax = 1;
-
-export const ValidateKpiRollupClusterResponse = zod.object({
-  isValid: zod.boolean(),
-  confidence: zod
-    .number()
-    .min(validateKpiRollupClusterResponseConfidenceMin)
-    .max(validateKpiRollupClusterResponseConfidenceMax),
-  canonicalName: zod.string(),
-  outlierIndicatorIds: zod.array(zod.number()),
-  reasoning: zod.string(),
-});
-
-/**
- * Cria um novo indicador com unit="Corporativo" e rollupStrategy != null,
-e popula os children no kpi_indicator_rollups. Atômico — se algo
-falhar, nada é persistido.
-
- * @summary Cria indicador Corporativo + composição em uma transação
- */
-export const CreateKpiRollupFromClusterParams = zod.object({
-  orgId: zod.coerce.number(),
-});
-
-export const CreateKpiRollupFromClusterBody = zod
+export const CreateKpiCorporateIndicatorBody = zod
   .object({
-    name: zod.string(),
-    measurement: zod.string(),
+    name: zod.string().min(1),
+    strategy: zod
+      .enum(["average", "sum_values", "min", "max"])
+      .describe("Operação de agregação sobre os valores mensais dos filhos."),
+    childIndicatorIds: zod
+      .array(zod.number())
+      .min(createKpiCorporateIndicatorBodyChildIndicatorIdsMin)
+      .describe(
+        "Indicadores-filhos selecionados (mín. 2, não-corporativos, não usados em outro corporativo).",
+      ),
+    year: zod
+      .number()
+      .optional()
+      .describe("Ano da configuração inicial (tolerância\/meta)."),
+    goal: zod.number().nullish().describe("Tolerância\/meta do corporativo."),
     measureUnit: zod.string().nullish(),
     direction: zod.enum(["up", "down"]),
     periodicity: zod.string(),
+    referenceMonth: zod.number().nullish(),
     category: zod.string().nullish(),
-    formulaExpression: zod.string(),
-    formulaVariables: zod.array(
-      zod.object({
-        key: zod.string(),
-        label: zod.string(),
-      }),
-    ),
-    responsibleUserId: zod.number().nullish(),
     norms: zod.array(zod.string()).optional(),
-    strategy: zod
-      .enum(["sum_inputs", "sum_values", "average", "min", "max"])
-      .optional(),
-    children: zod
-      .array(
-        zod.object({
-          childIndicatorId: zod.number(),
-          variableMapping: zod.record(zod.string(), zod.string()),
-        }),
-      )
-      .min(1),
+    responsibleUserId: zod.number().nullish(),
   })
   .describe(
-    'Cria indicador Corporativo + composição em uma transação. O servidor\nforça unit=\"Corporativo\" e rollupStrategy != null; cliente fornece\na fórmula\/vars canonicalizadas (geralmente herdadas de um membro do\ncluster) e o mapping de cada filho.\n',
+    "Cria um corporativo que agrega os valores dos filhos selecionados.",
   );
 
 /**

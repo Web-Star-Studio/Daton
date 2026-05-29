@@ -14,6 +14,7 @@ import {
   computeMonthlyStats,
   formatKpiNumberFixed,
   getTrafficLight,
+  isCurrencyUnit,
   restrictedMonths,
   type KpiDirection,
   type KpiIndicator,
@@ -286,7 +287,8 @@ export function IndicatorCard({
           {PERIODICITY_LABELS[indicator.periodicity as keyof typeof PERIODICITY_LABELS] ??
             indicator.periodicity}
         </Badge>
-        {indicator.measureUnit ? (
+        {indicator.measureUnit && !isCurrencyUnit(indicator.measureUnit) ? (
+          // Em moeda, o valor já mostra "R$ ..." — o chip "R$" seria redundante.
           <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-medium">
             {indicator.measureUnit}
           </Badge>

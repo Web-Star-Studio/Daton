@@ -26,6 +26,7 @@ import {
   MONTH_LABELS,
   PERIODICITY_LABELS,
   computeMonthlyStats,
+  formatKpiValue,
   getTrafficLight,
   racColor,
   racLabel,
@@ -93,6 +94,7 @@ export default function KpiAlimentacaoPage({
     monthlyValueId: number | null;
     value: number | null;
     goal: number | null;
+    measureUnit: string | null;
   } | null>(null);
 
   function openFormulaDialog(row: KpiYearRow) {
@@ -444,7 +446,9 @@ export default function KpiAlimentacaoPage({
                     </td>
                     <td className="border px-2 py-1.5 text-muted-foreground">{row.indicator.unit ?? "—"}</td>
                     <td className="border px-2 py-1.5 text-right font-medium">
-                      {row.yearConfig.goal != null ? formatNumber(row.yearConfig.goal) : "—"}
+                      {row.yearConfig.goal != null
+                        ? formatKpiValue(row.yearConfig.goal, row.indicator.measureUnit)
+                        : "—"}
                     </td>
 
                     {/* Month cells */}
@@ -571,6 +575,7 @@ export default function KpiAlimentacaoPage({
                                   monthlyValueId,
                                   value: val,
                                   goal: row.yearConfig.goal ?? null,
+                                  measureUnit: row.indicator.measureUnit ?? null,
                                 });
                               }}
                               title={
@@ -609,8 +614,8 @@ export default function KpiAlimentacaoPage({
                       );
                     })}
 
-                    <td className="border px-2 py-1.5 text-right">{formatNumber(average)}</td>
-                    <td className="border px-2 py-1.5 text-right">{formatNumber(accumulated)}</td>
+                    <td className="border px-2 py-1.5 text-right">{formatKpiValue(average, row.indicator.measureUnit)}</td>
+                    <td className="border px-2 py-1.5 text-right">{formatKpiValue(accumulated, row.indicator.measureUnit)}</td>
                     <td className="border px-2 py-1.5 text-right">
                       {progress != null ? `${Math.round(progress)}%` : "—"}
                     </td>
@@ -775,6 +780,7 @@ export default function KpiAlimentacaoPage({
             monthlyValueId: cellDialog.monthlyValueId,
             value: cellDialog.value,
             goal: cellDialog.goal,
+            measureUnit: cellDialog.measureUnit,
           }}
           onClose={() => setCellDialog(null)}
         />
