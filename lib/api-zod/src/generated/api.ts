@@ -16597,7 +16597,12 @@ export const CreateSwotFactorBody = zod.object({
   performance: zod.number().min(1).max(createSwotFactorBodyPerformanceMax),
   relevance: zod.number().min(1).max(createSwotFactorBodyRelevanceMax),
   unitId: zod.number().nullish(),
-  objectiveSource: zod.string().nullish(),
+  objectiveSource: zod
+    .string()
+    .nullish()
+    .describe(
+      "Fonte do objetivo (swot|kpi). Enviar junto com objectiveSourceId; ambos nulos = sem objetivo.",
+    ),
   objectiveSourceId: zod.number().nullish(),
 });
 
@@ -16629,7 +16634,12 @@ export const UpdateSwotFactorBody = zod.object({
     .max(updateSwotFactorBodyRelevanceMax)
     .optional(),
   unitId: zod.number().nullish(),
-  objectiveSource: zod.string().nullish(),
+  objectiveSource: zod
+    .string()
+    .nullish()
+    .describe(
+      "Fonte do objetivo (swot|kpi). Enviar junto com objectiveSourceId; ambos nulos = sem objetivo.",
+    ),
   objectiveSourceId: zod.number().nullish(),
 });
 

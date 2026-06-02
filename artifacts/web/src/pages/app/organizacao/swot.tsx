@@ -442,7 +442,7 @@ export default function OrganizacaoSwotPage() {
       ) : (
         <ObjectivesPanel
           objectives={objectives}
-          factors={scoped}
+          factors={factors}
           onNew={openNewObjective}
           onEdit={openEditObjective}
           onDelete={removeObjective}
@@ -827,7 +827,9 @@ function SwotView({
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
                       <span className={cn("font-semibold tabular-nums", swotResultColor(f.result))}>Resultado {f.result}</span>
                       {f.perspective && <span>· {f.perspective}</span>}
-                      {obj && <span>· {SWOT_OBJECTIVE_SOURCE_LABELS[obj.source]}: {obj.label}</span>}
+                      {obj
+                        ? <span>· {SWOT_OBJECTIVE_SOURCE_LABELS[obj.source]}: {obj.label}</span>
+                        : objRef && <span className="italic">· objetivo removido</span>}
                     </div>
                   </div>
                   {canWrite && (
@@ -937,7 +939,9 @@ function FactorsTable({
                   <tr key={f.id} className="border-b last:border-0 hover:bg-muted/40">
                     <td className="px-3 py-2 max-w-[260px]">
                       <div className="truncate" title={f.description}>{f.description}</div>
-                      {obj && <div className="truncate text-[11px] text-muted-foreground">{SWOT_OBJECTIVE_SOURCE_LABELS[obj.source]} · {obj.label}</div>}
+                      {obj
+                        ? <div className="truncate text-[11px] text-muted-foreground">{SWOT_OBJECTIVE_SOURCE_LABELS[obj.source]} · {obj.label}</div>
+                        : objRef && <div className="truncate text-[11px] italic text-muted-foreground">objetivo removido</div>}
                     </td>
                     <td className="px-3 py-2">
                       <Badge variant="secondary" className={cn("text-[10px]", swotTypeBadgeColor(f.type))}>{SWOT_TYPE_LABELS[f.type]}</Badge>

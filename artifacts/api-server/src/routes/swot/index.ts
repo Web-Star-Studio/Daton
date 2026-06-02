@@ -204,8 +204,9 @@ router.post("/organizations/:orgId/swot/factors", requireAuth, requireWriteAcces
     perspective: body.data.perspective ?? null,
     performance: body.data.performance,
     relevance: body.data.relevance,
-    objectiveSource: body.data.objectiveSource ?? null,
-    objectiveSourceId: body.data.objectiveSourceId ?? null,
+    // Normaliza: fonte vazia/ausente => sem objetivo (id também nulo).
+    objectiveSource: body.data.objectiveSource || null,
+    objectiveSourceId: body.data.objectiveSource ? (body.data.objectiveSourceId ?? null) : null,
   }).returning();
 
   res.status(201).json(serializeFactor(row));
@@ -241,8 +242,9 @@ router.patch("/organizations/:orgId/swot/factors/:factorId", requireAuth, requir
   if (body.data.relevance !== undefined) updateData.relevance = body.data.relevance;
   if (body.data.unitId !== undefined) updateData.unitId = body.data.unitId;
   if (body.data.objectiveSource !== undefined || body.data.objectiveSourceId !== undefined) {
-    updateData.objectiveSource = body.data.objectiveSource ?? null;
-    updateData.objectiveSourceId = body.data.objectiveSourceId ?? null;
+    const src = body.data.objectiveSource || null;
+    updateData.objectiveSource = src;
+    updateData.objectiveSourceId = src ? (body.data.objectiveSourceId ?? null) : null;
   }
 
   const [row] = await db.update(swotFactorsTable)

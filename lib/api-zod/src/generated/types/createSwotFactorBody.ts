@@ -25,6 +25,7 @@ export interface CreateSwotFactorBody {
    */
   relevance: number;
   unitId?: number | null;
+  /** Fonte do objetivo (swot|kpi). Enviar junto com objectiveSourceId; ambos nulos = sem objetivo. */
   objectiveSource?: string | null;
   objectiveSourceId?: number | null;
 }

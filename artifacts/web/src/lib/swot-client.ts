@@ -73,8 +73,9 @@ export function parseObjectiveRef(ref: string): { source: SwotObjectiveSource; i
   const idx = ref.indexOf(":");
   if (idx < 0) return null;
   const source = ref.slice(0, idx);
-  const id = Number(ref.slice(idx + 1));
-  if (!source || !Number.isFinite(id)) return null;
+  const idRaw = ref.slice(idx + 1);
+  const id = Number(idRaw);
+  if (!source || idRaw === "" || !Number.isInteger(id) || id <= 0) return null;
   return { source: source as SwotObjectiveSource, id };
 }
 

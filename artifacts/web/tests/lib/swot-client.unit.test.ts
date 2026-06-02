@@ -61,6 +61,9 @@ describe("objective ref (fonte:id)", () => {
     expect(parseObjectiveRef("")).toBeNull();
     expect(parseObjectiveRef("kpi")).toBeNull();
     expect(parseObjectiveRef("kpi:abc")).toBeNull();
+    expect(parseObjectiveRef("swot:")).toBeNull();
+    expect(parseObjectiveRef("swot:0")).toBeNull();
+    expect(parseObjectiveRef("swot:-3")).toBeNull();
   });
 });
 

@@ -15929,6 +15929,7 @@ components:
         objectiveSource:
           type: string
           nullable: true
+          description: "Fonte do objetivo (swot|kpi). Enviar junto com objectiveSourceId; ambos nulos = sem objetivo."
         objectiveSourceId:
           type: integer
           nullable: true
@@ -15966,6 +15967,7 @@ components:
         objectiveSource:
           type: string
           nullable: true
+          description: "Fonte do objetivo (swot|kpi). Enviar junto com objectiveSourceId; ambos nulos = sem objetivo."
         objectiveSourceId:
           type: integer
           nullable: true
