@@ -15874,7 +15874,11 @@ components:
           type: integer
           minimum: 1
           maximum: 4
-        objectiveId:
+        objectiveSource:
+          type: string
+          nullable: true
+          description: "Fonte do objetivo vinculado: swot | kpi (extensível)"
+        objectiveSourceId:
           type: integer
           nullable: true
         createdAt:
@@ -15893,7 +15897,8 @@ components:
         - perspective
         - performance
         - relevance
-        - objectiveId
+        - objectiveSource
+        - objectiveSourceId
         - createdAt
         - updatedAt
 
@@ -15921,7 +15926,10 @@ components:
         unitId:
           type: integer
           nullable: true
-        objectiveId:
+        objectiveSource:
+          type: string
+          nullable: true
+        objectiveSourceId:
           type: integer
           nullable: true
       required:
@@ -15955,7 +15963,10 @@ components:
         unitId:
           type: integer
           nullable: true
-        objectiveId:
+        objectiveSource:
+          type: string
+          nullable: true
+        objectiveSourceId:
           type: integer
           nullable: true
 

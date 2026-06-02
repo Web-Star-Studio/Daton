@@ -54,6 +54,30 @@ export const SWOT_ENVIRONMENT_LABELS: Record<SwotEnvironment, string> = {
   external: "Externo",
 };
 
+/**
+ * Fonte do objetivo vinculado a um fator (polimórfico, extensível).
+ * Novas fontes geradoras de objetivos podem ser adicionadas aqui.
+ */
+export type SwotObjectiveSource = "swot" | "kpi";
+export const SWOT_OBJECTIVE_SOURCE_LABELS: Record<SwotObjectiveSource, string> = {
+  swot: "SWOT",
+  kpi: "KPI",
+};
+
+/** Combina fonte + id num valor único para o seletor (ex.: "kpi:5"). */
+export function encodeObjectiveRef(source: string, id: number): string {
+  return `${source}:${id}`;
+}
+export function parseObjectiveRef(ref: string): { source: SwotObjectiveSource; id: number } | null {
+  if (!ref) return null;
+  const idx = ref.indexOf(":");
+  if (idx < 0) return null;
+  const source = ref.slice(0, idx);
+  const id = Number(ref.slice(idx + 1));
+  if (!source || !Number.isFinite(id)) return null;
+  return { source: source as SwotObjectiveSource, id };
+}
+
 /** Perspectivas padrão do SGI (cliente pode reutilizar as já cadastradas). */
 export const SWOT_PERSPECTIVES = [
   "Qualidade",

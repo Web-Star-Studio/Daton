@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { and, asc, eq } from "drizzle-orm";
 import {
   db,
+  kpiObjectivesTable,
   swotFactorsTable,
   swotObjectivesTable,
   unitsTable,
@@ -48,7 +49,8 @@ function serializeFactor(r: typeof swotFactorsTable.$inferSelect) {
     perspective: r.perspective ?? null,
     performance: r.performance,
     relevance: r.relevance,
-    objectiveId: r.objectiveId ?? null,
+    objectiveSource: r.objectiveSource ?? null,
+    objectiveSourceId: r.objectiveSourceId ?? null,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };
@@ -63,13 +65,36 @@ async function unitBelongsToOrg(unitId: number, orgId: number): Promise<boolean>
   return !!u;
 }
 
-/** Ensure an objective FK belongs to the org. */
-async function objectiveBelongsToOrg(objectiveId: number, orgId: number): Promise<boolean> {
-  const [o] = await db
-    .select({ id: swotObjectivesTable.id })
-    .from(swotObjectivesTable)
-    .where(and(eq(swotObjectivesTable.id, objectiveId), eq(swotObjectivesTable.organizationId, orgId)));
-  return !!o;
+/**
+ * Valida o vínculo polimórfico de objetivo (fonte + id) contra a org.
+ * Ambos nulos = sem objetivo. Fontes suportadas: "swot", "kpi".
+ */
+async function validateObjectiveRef(
+  source: string | null | undefined,
+  sourceId: number | null | undefined,
+  orgId: number,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const hasSource = source !== null && source !== undefined && source !== "";
+  const hasId = sourceId !== null && sourceId !== undefined;
+  if (!hasSource && !hasId) return { ok: true };
+  if (!hasSource || !hasId) {
+    return { ok: false, error: "objectiveSource e objectiveSourceId devem ser informados juntos" };
+  }
+  if (source === "swot") {
+    const [o] = await db
+      .select({ id: swotObjectivesTable.id })
+      .from(swotObjectivesTable)
+      .where(and(eq(swotObjectivesTable.id, sourceId!), eq(swotObjectivesTable.organizationId, orgId)));
+    return o ? { ok: true } : { ok: false, error: "Objetivo SWOT não encontrado nesta organização" };
+  }
+  if (source === "kpi") {
+    const [o] = await db
+      .select({ id: kpiObjectivesTable.id })
+      .from(kpiObjectivesTable)
+      .where(and(eq(kpiObjectivesTable.id, sourceId!), eq(kpiObjectivesTable.organizationId, orgId)));
+    return o ? { ok: true } : { ok: false, error: "Objetivo do KPI não encontrado nesta organização" };
+  }
+  return { ok: false, error: `Fonte de objetivo desconhecida: ${source}` };
 }
 
 // ─── Objectives ──────────────────────────────────────────────────────────────
@@ -165,11 +190,9 @@ router.post("/organizations/:orgId/swot/factors", requireAuth, requireWriteAcces
       return;
     }
   }
-  if (body.data.objectiveId !== null && body.data.objectiveId !== undefined) {
-    if (!(await objectiveBelongsToOrg(body.data.objectiveId, params.data.orgId))) {
-      res.status(400).json({ error: "objectiveId não corresponde a um objetivo desta organização" });
-      return;
-    }
+  {
+    const chk = await validateObjectiveRef(body.data.objectiveSource, body.data.objectiveSourceId, params.data.orgId);
+    if (!chk.ok) { res.status(400).json({ error: chk.error }); return; }
   }
 
   const [row] = await db.insert(swotFactorsTable).values({
@@ -181,7 +204,8 @@ router.post("/organizations/:orgId/swot/factors", requireAuth, requireWriteAcces
     perspective: body.data.perspective ?? null,
     performance: body.data.performance,
     relevance: body.data.relevance,
-    objectiveId: body.data.objectiveId ?? null,
+    objectiveSource: body.data.objectiveSource ?? null,
+    objectiveSourceId: body.data.objectiveSourceId ?? null,
   }).returning();
 
   res.status(201).json(serializeFactor(row));
@@ -201,11 +225,11 @@ router.patch("/organizations/:orgId/swot/factors/:factorId", requireAuth, requir
       return;
     }
   }
-  if (body.data.objectiveId !== null && body.data.objectiveId !== undefined) {
-    if (!(await objectiveBelongsToOrg(body.data.objectiveId, params.data.orgId))) {
-      res.status(400).json({ error: "objectiveId não corresponde a um objetivo desta organização" });
-      return;
-    }
+  if (body.data.objectiveSource !== undefined || body.data.objectiveSourceId !== undefined) {
+    const src = body.data.objectiveSource ?? null;
+    const sid = body.data.objectiveSourceId ?? null;
+    const chk = await validateObjectiveRef(src, sid, params.data.orgId);
+    if (!chk.ok) { res.status(400).json({ error: chk.error }); return; }
   }
 
   const updateData: Record<string, unknown> = {};
@@ -216,7 +240,10 @@ router.patch("/organizations/:orgId/swot/factors/:factorId", requireAuth, requir
   if (body.data.performance !== undefined) updateData.performance = body.data.performance;
   if (body.data.relevance !== undefined) updateData.relevance = body.data.relevance;
   if (body.data.unitId !== undefined) updateData.unitId = body.data.unitId;
-  if (body.data.objectiveId !== undefined) updateData.objectiveId = body.data.objectiveId;
+  if (body.data.objectiveSource !== undefined || body.data.objectiveSourceId !== undefined) {
+    updateData.objectiveSource = body.data.objectiveSource ?? null;
+    updateData.objectiveSourceId = body.data.objectiveSourceId ?? null;
+  }
 
   const [row] = await db.update(swotFactorsTable)
     .set(Object.keys(updateData).length > 0 ? updateData : { updatedAt: new Date() })

@@ -32,16 +32,20 @@ import {
   useCreateActionPlanWithInvalidation,
   type ActionPlanPriority,
 } from "@/lib/action-plans-client";
+import { useKpiObjectives } from "@/lib/kpi-client";
 import {
   RELEVANCE_SCALE_LEGEND,
   SWOT_DECISION_LABELS,
   SWOT_DECISION_SHORT,
   SWOT_ENVIRONMENT_LABELS,
+  SWOT_OBJECTIVE_SOURCE_LABELS,
   SWOT_PERSPECTIVES,
   SWOT_TYPE_LABELS,
   SWOT_TYPE_PLURAL,
   SWOT_TYPES,
   defaultEnvironmentFor,
+  encodeObjectiveRef,
+  parseObjectiveRef,
   performanceAxisLabel,
   performanceScaleLegend,
   type SwotScaleLegend,
@@ -77,7 +81,7 @@ type FactorForm = {
   perspective: string;
   performance: number;
   relevance: number;
-  objectiveId: string; // "" = nenhum
+  objectiveRef: string; // "" = nenhum | "<source>:<id>" (ex.: "kpi:5")
   unitId: string; // "" = Corporativo
 };
 
@@ -89,7 +93,7 @@ function blankFactorForm(): FactorForm {
     perspective: "",
     performance: 3,
     relevance: 3,
-    objectiveId: "",
+    objectiveRef: "",
     unitId: "",
   };
 }
@@ -113,6 +117,7 @@ export default function OrganizacaoSwotPage() {
 
   const { data: factors = [], isLoading } = useSwotFactors(orgId);
   const { data: objectives = [] } = useSwotObjectives(orgId);
+  const { data: kpiObjectives = [] } = useKpiObjectives(orgId);
   const { data: units = [] } = useListUnits(orgId);
   const { data: orgUsersData } = useListOrgUsers(orgId, {
     query: { queryKey: getListOrgUsersQueryKey(orgId), staleTime: 60_000 },
@@ -127,10 +132,25 @@ export default function OrganizacaoSwotPage() {
   const deleteObjective = useDeleteSwotObjectiveWithInvalidation(orgId);
   const createAction = useCreateActionPlanWithInvalidation(orgId);
 
-  const objectiveById = useMemo(
-    () => new Map(objectives.map((o) => [o.id, o])),
-    [objectives],
-  );
+  // Resolução unificada de objetivo por referência "<fonte>:<id>".
+  const objectiveByRef = useMemo(() => {
+    const m = new Map<string, { label: string; source: "swot" | "kpi" }>();
+    const fmt = (code: string | null, name: string) => (code ? `${code} · ${name}` : name);
+    for (const o of kpiObjectives) m.set(`kpi:${o.id}`, { label: fmt(o.code ?? null, o.name), source: "kpi" });
+    for (const o of objectives) m.set(`swot:${o.id}`, { label: fmt(o.code ?? null, o.name), source: "swot" });
+    return m;
+  }, [kpiObjectives, objectives]);
+
+  // Opções do seletor de objetivo, agrupadas por fonte.
+  const objectiveOptions = useMemo(() => {
+    const fmt = (code: string | null | undefined, name: string) => (code ? `${code} · ${name}` : name);
+    return [
+      { value: "", label: "Nenhum" },
+      ...kpiObjectives.map((o) => ({ value: `kpi:${o.id}`, label: `[KPI] ${fmt(o.code, o.name)}` })),
+      ...objectives.map((o) => ({ value: `swot:${o.id}`, label: `[SWOT] ${fmt(o.code, o.name)}` })),
+    ];
+  }, [kpiObjectives, objectives]);
+
   const unitNameById = useMemo(
     () => new Map(units.map((u) => [u.id, u.name])),
     [units],
@@ -184,7 +204,10 @@ export default function OrganizacaoSwotPage() {
       perspective: f.perspective ?? "",
       performance: f.performance,
       relevance: f.relevance,
-      objectiveId: f.objectiveId !== null ? String(f.objectiveId) : "",
+      objectiveRef:
+        f.objectiveSource && f.objectiveSourceId !== null
+          ? encodeObjectiveRef(f.objectiveSource, f.objectiveSourceId)
+          : "",
       unitId: f.unitId !== null ? String(f.unitId) : "",
     });
     setFactorDialogOpen(true);
@@ -195,6 +218,7 @@ export default function OrganizacaoSwotPage() {
       toast({ title: "Informe a descrição do fator", variant: "destructive" });
       return;
     }
+    const objRef = parseObjectiveRef(factorForm.objectiveRef);
     const data = {
       description,
       type: factorForm.type,
@@ -202,7 +226,8 @@ export default function OrganizacaoSwotPage() {
       perspective: factorForm.perspective.trim() || null,
       performance: factorForm.performance,
       relevance: factorForm.relevance,
-      objectiveId: factorForm.objectiveId ? Number(factorForm.objectiveId) : null,
+      objectiveSource: objRef?.source ?? null,
+      objectiveSourceId: objRef?.id ?? null,
       unitId: factorForm.unitId ? Number(factorForm.unitId) : null,
     };
     try {
@@ -399,7 +424,7 @@ export default function OrganizacaoSwotPage() {
           counts={counts}
           withResult={withResult}
           requerList={requerList}
-          objectiveById={objectiveById}
+          objectiveByRef={objectiveByRef}
           onCreateAction={openCreateAction}
           onEdit={openEditFactor}
           canWrite={canWrite}
@@ -407,7 +432,7 @@ export default function OrganizacaoSwotPage() {
       ) : tab === "fatores" ? (
         <FactorsTable
           rows={withResult}
-          objectiveById={objectiveById}
+          objectiveByRef={objectiveByRef}
           unitNameById={unitNameById}
           onEdit={openEditFactor}
           onDelete={removeFactor}
@@ -506,16 +531,16 @@ export default function OrganizacaoSwotPage() {
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Objetivo estratégico</Label>
             <SearchableSelect
-              value={factorForm.objectiveId}
-              onChange={(v) => setFactorForm((f) => ({ ...f, objectiveId: v }))}
-              options={[
-                { value: "", label: "Nenhum" },
-                ...objectives.map((o) => ({ value: String(o.id), label: o.code ? `${o.code} · ${o.name}` : o.name })),
-              ]}
+              value={factorForm.objectiveRef}
+              onChange={(v) => setFactorForm((f) => ({ ...f, objectiveRef: v }))}
+              options={objectiveOptions}
               placeholder="Selecione um objetivo"
-              searchPlaceholder="Buscar objetivo..."
-              emptyMessage="Nenhum objetivo cadastrado"
+              searchPlaceholder="Buscar objetivo (KPI ou SWOT)..."
+              emptyMessage="Nenhum objetivo disponível"
             />
+            <p className="text-[11px] text-muted-foreground">
+              Objetivos vêm do KPI/Indicadores ou dos cadastrados na aba Objetivos do SWOT.
+            </p>
           </div>
           {(() => {
             const result = swotResult(factorForm.performance, factorForm.relevance);
@@ -697,7 +722,7 @@ function SwotView({
   counts,
   withResult,
   requerList,
-  objectiveById,
+  objectiveByRef,
   onCreateAction,
   onEdit,
   canWrite,
@@ -705,7 +730,7 @@ function SwotView({
   counts: Record<SwotFactorType, number>;
   withResult: ScoredFactor[];
   requerList: ScoredFactor[];
-  objectiveById: Map<number, { code: string | null; name: string }>;
+  objectiveByRef: Map<string, { label: string; source: "swot" | "kpi" }>;
   onCreateAction: (f: SwotFactor) => void;
   onEdit: (f: SwotFactor) => void;
   canWrite: boolean;
@@ -785,7 +810,10 @@ function SwotView({
         ) : (
           <div className="space-y-2">
             {requerList.map((f) => {
-              const obj = f.objectiveId !== null ? objectiveById.get(f.objectiveId) : null;
+              const objRef = f.objectiveSource && f.objectiveSourceId !== null
+                ? `${f.objectiveSource}:${f.objectiveSourceId}`
+                : null;
+              const obj = objRef ? objectiveByRef.get(objRef) : null;
               return (
                 <div
                   key={f.id}
@@ -799,7 +827,7 @@ function SwotView({
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
                       <span className={cn("font-semibold tabular-nums", swotResultColor(f.result))}>Resultado {f.result}</span>
                       {f.perspective && <span>· {f.perspective}</span>}
-                      {obj && <span>· {obj.code ? `${obj.code} ` : ""}{obj.name}</span>}
+                      {obj && <span>· {SWOT_OBJECTIVE_SOURCE_LABELS[obj.source]}: {obj.label}</span>}
                     </div>
                   </div>
                   {canWrite && (
@@ -822,7 +850,7 @@ function SwotView({
 
 function FactorsTable({
   rows,
-  objectiveById,
+  objectiveByRef,
   unitNameById,
   onEdit,
   onDelete,
@@ -830,7 +858,7 @@ function FactorsTable({
   canWrite,
 }: {
   rows: ScoredFactor[];
-  objectiveById: Map<number, { code: string | null; name: string }>;
+  objectiveByRef: Map<string, { label: string; source: "swot" | "kpi" }>;
   unitNameById: Map<number, string>;
   onEdit: (f: SwotFactor) => void;
   onDelete: (f: SwotFactor) => void;
@@ -901,12 +929,15 @@ function FactorsTable({
               <tr><td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">Nenhum fator encontrado.</td></tr>
             ) : (
               filtered.map((f) => {
-                const obj = f.objectiveId !== null ? objectiveById.get(f.objectiveId) : null;
+                const objRef = f.objectiveSource && f.objectiveSourceId !== null
+                  ? `${f.objectiveSource}:${f.objectiveSourceId}`
+                  : null;
+                const obj = objRef ? objectiveByRef.get(objRef) : null;
                 return (
                   <tr key={f.id} className="border-b last:border-0 hover:bg-muted/40">
                     <td className="px-3 py-2 max-w-[260px]">
                       <div className="truncate" title={f.description}>{f.description}</div>
-                      {obj && <div className="truncate text-[11px] text-muted-foreground">{obj.code ? `${obj.code} · ` : ""}{obj.name}</div>}
+                      {obj && <div className="truncate text-[11px] text-muted-foreground">{SWOT_OBJECTIVE_SOURCE_LABELS[obj.source]} · {obj.label}</div>}
                     </td>
                     <td className="px-3 py-2">
                       <Badge variant="secondary" className={cn("text-[10px]", swotTypeBadgeColor(f.type))}>{SWOT_TYPE_LABELS[f.type]}</Badge>
@@ -967,7 +998,9 @@ function ObjectivesPanel({
   const countByObjective = useMemo(() => {
     const m = new Map<number, number>();
     for (const f of factors) {
-      if (f.objectiveId !== null) m.set(f.objectiveId, (m.get(f.objectiveId) ?? 0) + 1);
+      if (f.objectiveSource === "swot" && f.objectiveSourceId !== null) {
+        m.set(f.objectiveSourceId, (m.get(f.objectiveSourceId) ?? 0) + 1);
+      }
     }
     return m;
   }, [factors]);
@@ -975,7 +1008,7 @@ function ObjectivesPanel({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Objetivos estratégicos vinculáveis aos fatores SWOT.</p>
+        <p className="text-sm text-muted-foreground">Objetivos próprios do SWOT. Os fatores também podem usar os objetivos do módulo Indicadores (KPI).</p>
         {canWrite && (
           <Button size="sm" variant="outline" onClick={onNew}><Plus className="mr-1.5 h-4 w-4" />Novo objetivo</Button>
         )}

@@ -25,5 +25,6 @@ export interface CreateSwotFactorBody {
    */
   relevance: number;
   unitId?: number | null;
-  objectiveId?: number | null;
+  objectiveSource?: string | null;
+  objectiveSourceId?: number | null;
 }

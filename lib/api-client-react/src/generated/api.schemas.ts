@@ -3801,7 +3801,9 @@ export interface SwotFactor {
    * @maximum 4
    */
   relevance: number;
-  objectiveId: number | null;
+  /** Fonte do objetivo vinculado: swot | kpi (extensível) */
+  objectiveSource: string | null;
+  objectiveSourceId: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -3823,7 +3825,8 @@ export interface CreateSwotFactorBody {
    */
   relevance: number;
   unitId?: number | null;
-  objectiveId?: number | null;
+  objectiveSource?: string | null;
+  objectiveSourceId?: number | null;
 }
 
 export interface UpdateSwotFactorBody {
@@ -3843,7 +3846,8 @@ export interface UpdateSwotFactorBody {
    */
   relevance?: number;
   unitId?: number | null;
-  objectiveId?: number | null;
+  objectiveSource?: string | null;
+  objectiveSourceId?: number | null;
 }
 
 export type ActionPlanSourceModule =

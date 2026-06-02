@@ -8,6 +8,13 @@ import { unitsTable } from "./units";
 export type SwotFactorType = "strength" | "weakness" | "opportunity" | "threat";
 export type SwotEnvironment = "internal" | "external";
 
+/**
+ * Fonte do objetivo estratégico vinculado a um fator (polimórfico, extensível).
+ * `swot` = objetivo próprio do módulo SWOT; `kpi` = objetivo do módulo
+ * Indicadores. Novas fontes podem ser adicionadas sem mudança de schema.
+ */
+export type SwotObjectiveSource = "swot" | "kpi";
+
 export const swotFactorTypeEnum = pgEnum("swot_factor_type", [
   "strength",
   "weakness",
@@ -48,7 +55,15 @@ export const swotFactorsTable = pgTable(
     // Performance e Relevância na escala FPLAN 1–4.
     performance: integer("performance").notNull().default(3),
     relevance: integer("relevance").notNull().default(3),
+    /**
+     * @deprecated substituído por objectiveSource + objectiveSourceId.
+     * Mantido (sem uso) durante a transição para não dropar coluna em produção;
+     * será removido em cleanup futuro.
+     */
     objectiveId: integer("objective_id").references(() => swotObjectivesTable.id, { onDelete: "set null" }),
+    // Vínculo polimórfico ao objetivo: fonte ("swot" | "kpi" | futuras) + id na fonte.
+    objectiveSource: varchar("objective_source", { length: 20 }),
+    objectiveSourceId: integer("objective_source_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   },
