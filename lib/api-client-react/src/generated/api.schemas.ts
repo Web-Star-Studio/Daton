@@ -368,6 +368,7 @@ export const AppModule = {
   roadSafety: "roadSafety",
   assets: "assets",
   regulatoryDocuments: "regulatoryDocuments",
+  swot: "swot",
 } as const;
 
 export interface MeResponse {
@@ -3742,18 +3743,122 @@ export const ActionPlanPriority = {
   high: "high",
 } as const;
 
+export type SwotFactorType =
+  (typeof SwotFactorType)[keyof typeof SwotFactorType];
+
+export const SwotFactorType = {
+  strength: "strength",
+  weakness: "weakness",
+  opportunity: "opportunity",
+  threat: "threat",
+} as const;
+
+export type SwotEnvironment =
+  (typeof SwotEnvironment)[keyof typeof SwotEnvironment];
+
+export const SwotEnvironment = {
+  internal: "internal",
+  external: "external",
+} as const;
+
+export interface SwotObjective {
+  id: number;
+  organizationId: number;
+  code: string | null;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSwotObjectiveBody {
+  code?: string | null;
+  /** @minLength 1 */
+  name: string;
+}
+
+export interface UpdateSwotObjectiveBody {
+  code?: string | null;
+  /** @minLength 1 */
+  name?: string;
+}
+
+export interface SwotFactor {
+  id: number;
+  organizationId: number;
+  /** null = Corporativo */
+  unitId: number | null;
+  description: string;
+  type: SwotFactorType;
+  environment: SwotEnvironment;
+  perspective: string | null;
+  /**
+   * @minimum 1
+   * @maximum 4
+   */
+  performance: number;
+  /**
+   * @minimum 1
+   * @maximum 4
+   */
+  relevance: number;
+  objectiveId: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSwotFactorBody {
+  /** @minLength 1 */
+  description: string;
+  type: SwotFactorType;
+  environment: SwotEnvironment;
+  perspective?: string | null;
+  /**
+   * @minimum 1
+   * @maximum 4
+   */
+  performance: number;
+  /**
+   * @minimum 1
+   * @maximum 4
+   */
+  relevance: number;
+  unitId?: number | null;
+  objectiveId?: number | null;
+}
+
+export interface UpdateSwotFactorBody {
+  /** @minLength 1 */
+  description?: string;
+  type?: SwotFactorType;
+  environment?: SwotEnvironment;
+  perspective?: string | null;
+  /**
+   * @minimum 1
+   * @maximum 4
+   */
+  performance?: number;
+  /**
+   * @minimum 1
+   * @maximum 4
+   */
+  relevance?: number;
+  unitId?: number | null;
+  objectiveId?: number | null;
+}
+
 export type ActionPlanSourceModule =
   (typeof ActionPlanSourceModule)[keyof typeof ActionPlanSourceModule];
 
 export const ActionPlanSourceModule = {
   kpi: "kpi",
+  swot: "swot",
 } as const;
 
 /**
- * Polymorphic reference to the entity that originated the action plan. For kpi, kpiMonthlyValueId is mandatory; the triplet (indicatorId/year/month) is optional context.
+ * Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required.
  */
 export interface ActionPlanSourceRef {
-  kpiMonthlyValueId: number;
+  kpiMonthlyValueId?: number;
   kpiIndicatorId?: number;
   kpiYear?: number;
   /**
@@ -3761,6 +3866,8 @@ export interface ActionPlanSourceRef {
    * @maximum 12
    */
   kpiMonth?: number;
+  swotFactorId?: number;
+  swotFactorDescription?: string;
 }
 
 export type ActionPlanSourceContextKpiDirection =

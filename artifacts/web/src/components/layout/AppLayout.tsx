@@ -43,7 +43,8 @@ type AppModule =
   | "kpi"
   | "roadSafety"
   | "assets"
-  | "regulatoryDocuments";
+  | "regulatoryDocuments"
+  | "swot";
 
 type NavLink = {
   href: string;
@@ -181,6 +182,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       { prefix: "/organizacao/unidades", module: "units" },
       { prefix: "/organizacao/departamentos", module: "departments" },
       { prefix: "/organizacao/cargos", module: "positions" },
+      { prefix: "/organizacao/swot", module: "swot" },
       { prefix: "/governanca", module: "governance" },
       { prefix: "/ambiental", module: "environmental" },
       { prefix: "/kpi", module: "kpi" },
@@ -253,6 +255,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         });
       } else if (normalizedLocation.startsWith("/organizacao/cargos")) {
         crumbs.push({ label: "Cargos", href: "/organizacao/cargos" });
+      } else if (normalizedLocation.startsWith("/organizacao/swot")) {
+        crumbs.push({ label: "SWOT", href: "/organizacao/swot" });
       }
     } else if (normalizedLocation.startsWith("/infraestrutura")) {
       crumbs.push({ label: "Infraestrutura" });
@@ -380,6 +384,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       : []),
     ...(hasModuleAccess("positions")
       ? [{ href: "/organizacao/cargos", label: "Cargos" }]
+      : []),
+    ...(hasModuleAccess("swot")
+      ? [{ href: "/organizacao/swot", label: "SWOT" }]
       : []),
   ];
 

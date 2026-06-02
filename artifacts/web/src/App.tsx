@@ -16,6 +16,7 @@ import OrganizacaoOverviewPage from "@/pages/app/organizacao/visao-geral";
 import OrganizacaoUnitsPage from "@/pages/app/organizacao/unidades";
 import OrganizacaoDepartmentsPage from "@/pages/app/organizacao/departamentos";
 import OrganizacaoPositionsPage from "@/pages/app/organizacao/cargos";
+import OrganizacaoSwotPage from "@/pages/app/organizacao/swot";
 import OrganizacaoEmployeesPage from "@/pages/app/organizacao/colaboradores";
 import OrganizacaoEmployeeTrainingsPage from "@/pages/app/organizacao/colaboradores/treinamentos";
 import OrganizacaoTrainingDetailPage from "@/pages/app/organizacao/colaboradores/treinamento-detalhe";
@@ -155,6 +156,7 @@ function AppPages() {
         component={OrganizacaoDepartmentsPage}
       />
       <Route path="/organizacao/cargos" component={OrganizacaoPositionsPage} />
+      <Route path="/organizacao/swot" component={OrganizacaoSwotPage} />
       <Route path="/infraestrutura/ativos" component={AtivosPage} />
       <Route path="/app/infraestrutura/ativos" component={AtivosPage} />
       <Route path="/infraestrutura/ambiente" component={AmbientePage} />
@@ -280,6 +282,7 @@ function AppPages() {
         path="/app/organizacao/cargos"
         component={OrganizacaoPositionsPage}
       />
+      <Route path="/app/organizacao/swot" component={OrganizacaoSwotPage} />
       <Route path="/app/governanca/planejamento" component={GovernancePage} />
       <Route
         path="/app/governanca/planejamento/:id"

@@ -7,10 +7,10 @@
  */
 
 /**
- * Polymorphic reference to the entity that originated the action plan. For kpi, kpiMonthlyValueId is mandatory; the triplet (indicatorId/year/month) is optional context.
+ * Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required.
  */
 export interface ActionPlanSourceRef {
-  kpiMonthlyValueId: number;
+  kpiMonthlyValueId?: number;
   kpiIndicatorId?: number;
   kpiYear?: number;
   /**
@@ -18,4 +18,6 @@ export interface ActionPlanSourceRef {
    * @maximum 12
    */
   kpiMonth?: number;
+  swotFactorId?: number;
+  swotFactorDescription?: string;
 }

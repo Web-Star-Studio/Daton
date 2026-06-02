@@ -11,4 +11,5 @@ export type ActionPlanSourceModule =
 
 export const ActionPlanSourceModule = {
   kpi: "kpi",
+  swot: "swot",
 } as const;

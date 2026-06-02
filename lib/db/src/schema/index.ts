@@ -28,6 +28,7 @@ export * from "./work-environment";
 export * from "./operational-planning";
 export * from "./project-development";
 export * from "./action-plans";
+export * from "./swot";
 export * from "./critical-reviews";
 export * from "./regulatory-documents";
 export * from "./regulatory-documents-audit";
