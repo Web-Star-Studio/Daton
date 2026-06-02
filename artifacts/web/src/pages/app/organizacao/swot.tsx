@@ -13,7 +13,7 @@ import {
   useListOrgUsers,
   useListUnits,
 } from "@workspace/api-client-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { usePageSubtitle, usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Badge } from "@/components/ui/badge";
@@ -104,7 +104,9 @@ type ActionForm = {
 
 export default function OrganizacaoSwotPage() {
   const { organization } = useAuth();
+  const { canWriteModule } = usePermissions();
   const orgId = organization!.id;
+  const canWrite = canWriteModule("swot");
 
   usePageTitle("SWOT");
   usePageSubtitle("Análise de contexto — forças, fraquezas, oportunidades e ameaças (ISO 9001 §4.1)");
@@ -325,7 +327,9 @@ export default function OrganizacaoSwotPage() {
         <Target className="h-4 w-4 mr-1.5" />
         Objetivos
       </Button>
-      <HeaderActionButton label="Novo fator" icon={<Plus className="h-4 w-4" />} onClick={openNewFactor} />
+      {canWrite && (
+        <HeaderActionButton label="Novo fator" icon={<Plus className="h-4 w-4" />} onClick={openNewFactor} />
+      )}
     </div>,
   );
 
@@ -398,6 +402,7 @@ export default function OrganizacaoSwotPage() {
           objectiveById={objectiveById}
           onCreateAction={openCreateAction}
           onEdit={openEditFactor}
+          canWrite={canWrite}
         />
       ) : tab === "fatores" ? (
         <FactorsTable
@@ -407,14 +412,16 @@ export default function OrganizacaoSwotPage() {
           onEdit={openEditFactor}
           onDelete={removeFactor}
           onCreateAction={openCreateAction}
+          canWrite={canWrite}
         />
       ) : (
         <ObjectivesPanel
           objectives={objectives}
-          factors={factors}
+          factors={scoped}
           onNew={openNewObjective}
           onEdit={openEditObjective}
           onDelete={removeObjective}
+          canWrite={canWrite}
         />
       )}
 
@@ -693,6 +700,7 @@ function SwotView({
   objectiveById,
   onCreateAction,
   onEdit,
+  canWrite,
 }: {
   counts: Record<SwotFactorType, number>;
   withResult: ScoredFactor[];
@@ -700,6 +708,7 @@ function SwotView({
   objectiveById: Map<number, { code: string | null; name: string }>;
   onCreateAction: (f: SwotFactor) => void;
   onEdit: (f: SwotFactor) => void;
+  canWrite: boolean;
 }) {
   return (
     <div className="space-y-6">
@@ -728,19 +737,32 @@ function SwotView({
                 <p className="py-4 text-center text-xs text-muted-foreground">Nenhum fator cadastrado</p>
               ) : (
                 <ul className="-mx-1 space-y-0.5">
-                  {items.map((f) => (
-                    <li key={f.id}>
-                      <button
-                        type="button"
-                        onClick={() => onEdit(f)}
-                        className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-background/70"
-                        title={f.description}
-                      >
+                  {items.map((f) => {
+                    const content = (
+                      <>
                         <span className="min-w-0 flex-1 truncate text-sm">{f.description}</span>
                         <span className={cn("shrink-0 text-sm font-semibold tabular-nums", swotResultColor(f.result))}>{f.result}</span>
-                      </button>
-                    </li>
-                  ))}
+                      </>
+                    );
+                    return (
+                      <li key={f.id}>
+                        {canWrite ? (
+                          <button
+                            type="button"
+                            onClick={() => onEdit(f)}
+                            className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-background/70"
+                            title={f.description}
+                          >
+                            {content}
+                          </button>
+                        ) : (
+                          <div className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5" title={f.description}>
+                            {content}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
@@ -780,10 +802,12 @@ function SwotView({
                       {obj && <span>· {obj.code ? `${obj.code} ` : ""}{obj.name}</span>}
                     </div>
                   </div>
-                  <Button size="sm" variant="outline" className="shrink-0" onClick={() => onCreateAction(f)}>
-                    <Plus className="mr-1 h-3.5 w-3.5" />
-                    Criar ação
-                  </Button>
+                  {canWrite && (
+                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => onCreateAction(f)}>
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      Criar ação
+                    </Button>
+                  )}
                 </div>
               );
             })}
@@ -803,6 +827,7 @@ function FactorsTable({
   onEdit,
   onDelete,
   onCreateAction,
+  canWrite,
 }: {
   rows: ScoredFactor[];
   objectiveById: Map<number, { code: string | null; name: string }>;
@@ -810,6 +835,7 @@ function FactorsTable({
   onEdit: (f: SwotFactor) => void;
   onDelete: (f: SwotFactor) => void;
   onCreateAction: (f: SwotFactor) => void;
+  canWrite: boolean;
 }) {
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [decisionFilter, setDecisionFilter] = useState<string>("");
@@ -894,19 +920,21 @@ function FactorsTable({
                       <Badge variant="secondary" className={cn("text-[10px]", swotDecisionBadgeColor(f.decision))}>{SWOT_DECISION_SHORT[f.decision]}</Badge>
                     </td>
                     <td className="px-3 py-2">
-                      <div className="flex justify-end gap-1">
-                        {f.decision === "requer" && (
-                          <Button size="icon" variant="ghost" className="h-7 w-7" title="Criar ação" onClick={() => onCreateAction(f)}>
-                            <ClipboardList className="h-3.5 w-3.5" />
+                      {canWrite && (
+                        <div className="flex justify-end gap-1">
+                          {f.decision === "requer" && (
+                            <Button size="icon" variant="ghost" className="h-7 w-7" title="Criar ação" onClick={() => onCreateAction(f)}>
+                              <ClipboardList className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button size="icon" variant="ghost" className="h-7 w-7" title="Editar" onClick={() => onEdit(f)}>
+                            <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                        )}
-                        <Button size="icon" variant="ghost" className="h-7 w-7" title="Editar" onClick={() => onEdit(f)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" title="Excluir" onClick={() => onDelete(f)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" title="Excluir" onClick={() => onDelete(f)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -927,12 +955,14 @@ function ObjectivesPanel({
   onNew,
   onEdit,
   onDelete,
+  canWrite,
 }: {
   objectives: { id: number; code: string | null; name: string }[];
   factors: SwotFactor[];
   onNew: () => void;
   onEdit: (id: number, code: string | null, name: string) => void;
   onDelete: (id: number, name: string) => void;
+  canWrite: boolean;
 }) {
   const countByObjective = useMemo(() => {
     const m = new Map<number, number>();
@@ -946,7 +976,9 @@ function ObjectivesPanel({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">Objetivos estratégicos vinculáveis aos fatores SWOT.</p>
-        <Button size="sm" variant="outline" onClick={onNew}><Plus className="mr-1.5 h-4 w-4" />Novo objetivo</Button>
+        {canWrite && (
+          <Button size="sm" variant="outline" onClick={onNew}><Plus className="mr-1.5 h-4 w-4" />Novo objetivo</Button>
+        )}
       </div>
       <div className="rounded-lg border bg-card">
         {objectives.length === 0 ? (
@@ -958,12 +990,16 @@ function ObjectivesPanel({
                 {o.code && <Badge variant="secondary" className="text-[10px]">{o.code}</Badge>}
                 <span className="min-w-0 flex-1 truncate text-sm">{o.name}</span>
                 <span className="text-xs text-muted-foreground">{countByObjective.get(o.id) ?? 0} fator(es)</span>
-                <Button size="icon" variant="ghost" className="h-7 w-7" title="Editar" onClick={() => onEdit(o.id, o.code, o.name)}>
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" title="Excluir" onClick={() => onDelete(o.id, o.name)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {canWrite && (
+                  <>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Editar" onClick={() => onEdit(o.id, o.code, o.name)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" title="Excluir" onClick={() => onDelete(o.id, o.name)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                )}
               </div>
             ))}
           </div>
