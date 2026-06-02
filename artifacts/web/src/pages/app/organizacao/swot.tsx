@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
+  ChevronRight,
   ClipboardList,
   Pencil,
   Plus,
@@ -20,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -465,6 +467,7 @@ export default function OrganizacaoSwotPage() {
           withResult={withResult}
           requerList={requerList}
           objectiveByRef={objectiveByRef}
+          unitNameById={unitNameById}
           onCreateAction={openCreateAction}
           onEdit={openEditFactor}
           canWrite={canWrite}
@@ -774,6 +777,7 @@ function SwotView({
   withResult,
   requerList,
   objectiveByRef,
+  unitNameById,
   onCreateAction,
   onEdit,
   canWrite,
@@ -782,10 +786,16 @@ function SwotView({
   withResult: ScoredFactor[];
   requerList: ScoredFactor[];
   objectiveByRef: Map<string, { label: string; source: "swot" | "kpi" }>;
+  unitNameById: Map<number, string>;
   onCreateAction: (f: SwotFactor) => void;
   onEdit: (f: SwotFactor) => void;
   canWrite: boolean;
 }) {
+  const [detailType, setDetailType] = useState<SwotFactorType | null>(null);
+  const detailList = detailType
+    ? withResult.filter((f) => f.type === detailType).sort((a, b) => b.result - a.result)
+    : [];
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -802,45 +812,44 @@ function SwotView({
 
       <div className="grid gap-4 lg:grid-cols-2">
         {SWOT_TYPES.map((t) => {
-          const items = withResult.filter((f) => f.type === t).sort((a, b) => b.result - a.result);
+          const all = withResult.filter((f) => f.type === t).sort((a, b) => b.result - a.result);
+          const preview = all.slice(0, 4);
           return (
-            <div key={t} className={cn("rounded-xl border p-4", swotTypeTint(t))}>
+            <div
+              key={t}
+              role="button"
+              tabIndex={0}
+              onClick={() => setDetailType(t)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDetailType(t); }
+              }}
+              className={cn(
+                "group cursor-pointer rounded-xl border p-4 outline-none transition-all hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring",
+                swotTypeTint(t),
+              )}
+            >
               <div className="mb-3 flex items-center justify-between">
                 <span className={cn("text-sm font-semibold", swotTypeText(t))}>{SWOT_TYPE_PLURAL[t]}</span>
-                <span className="rounded-full bg-background/70 px-2 py-0.5 text-xs font-medium text-muted-foreground">{counts[t]}</span>
+                <span className="rounded-full bg-background/70 px-2 py-0.5 text-xs font-medium text-muted-foreground">{all.length}</span>
               </div>
-              {items.length === 0 ? (
+              {all.length === 0 ? (
                 <p className="py-4 text-center text-xs text-muted-foreground">Nenhum fator cadastrado</p>
               ) : (
-                <ul className="-mx-1 max-h-72 space-y-0.5 overflow-y-auto px-1">
-                  {items.map((f) => {
-                    const content = (
-                      <>
-                        <span className="min-w-0 flex-1 truncate text-sm">{f.description}</span>
-                        <span className={cn("shrink-0 text-sm font-semibold tabular-nums", swotResultColor(f.result))}>{f.result}</span>
-                      </>
-                    );
-                    return (
-                      <li key={f.id}>
-                        {canWrite ? (
-                          <button
-                            type="button"
-                            onClick={() => onEdit(f)}
-                            className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-background/70"
-                            title={f.description}
-                          >
-                            {content}
-                          </button>
-                        ) : (
-                          <div className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5" title={f.description}>
-                            {content}
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
+                <ul className="space-y-0.5">
+                  {preview.map((f) => (
+                    <li key={f.id} className="flex items-center justify-between gap-3 py-1">
+                      <span className="min-w-0 flex-1 truncate text-sm" title={f.description}>{f.description}</span>
+                      <span className={cn("shrink-0 text-sm font-semibold tabular-nums", swotResultColor(f.result))}>{f.result}</span>
+                    </li>
+                  ))}
                 </ul>
               )}
+              <div className="mt-2 flex items-center justify-between border-t border-border/40 pt-2 text-xs text-muted-foreground">
+                <span>{all.length > preview.length ? `+${all.length - preview.length} fator(es)` : ""}</span>
+                <span className="flex items-center gap-0.5 font-medium text-foreground/70 transition-colors group-hover:text-foreground">
+                  Ver detalhes <ChevronRight className="h-3.5 w-3.5" />
+                </span>
+              </div>
             </div>
           );
         })}
@@ -895,6 +904,63 @@ function SwotView({
           </div>
         )}
       </div>
+
+      {/* ── Detalhe do quadrante (expandir) ── */}
+      <Dialog
+        open={detailType !== null}
+        onOpenChange={(o) => { if (!o) setDetailType(null); }}
+        title={detailType ? `${SWOT_TYPE_PLURAL[detailType]} · ${detailList.length} fator(es)` : ""}
+        description="Todos os fatores deste quadrante, ordenados por resultado."
+        size="lg"
+      >
+        {detailList.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Nenhum fator cadastrado.</p>
+        ) : (
+          <ScrollArea className="-mr-3 max-h-[60vh] pr-3">
+            <ul className="space-y-2">
+              {detailList.map((f) => {
+                const objRef = f.objectiveSource && f.objectiveSourceId !== null
+                  ? `${f.objectiveSource}:${f.objectiveSourceId}`
+                  : null;
+                const obj = objRef ? objectiveByRef.get(objRef) : null;
+                return (
+                  <li key={f.id} className="rounded-lg border bg-background p-3 transition-colors hover:border-primary/40">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium leading-snug">{f.description}</div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                          <span>{f.unitId !== null ? (unitNameById.get(f.unitId) ?? "—") : "Corporativo"}</span>
+                          {f.perspective && <span>· {f.perspective}</span>}
+                          <span>· {SWOT_ENVIRONMENT_LABELS[f.environment]}</span>
+                          {obj
+                            ? <span>· {SWOT_OBJECTIVE_SOURCE_LABELS[obj.source]}: {obj.label}</span>
+                            : objRef && <span className="italic">· objetivo removido</span>}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span className={cn("text-lg font-semibold leading-none tabular-nums", swotResultColor(f.result))}>{f.result}</span>
+                        <Badge variant="secondary" className={cn("text-[10px]", swotDecisionBadgeColor(f.decision))}>{SWOT_DECISION_SHORT[f.decision]}</Badge>
+                      </div>
+                    </div>
+                    {canWrite && (
+                      <div className="mt-2.5 flex gap-1.5">
+                        {f.decision === "requer" && (
+                          <Button size="sm" variant="outline" onClick={() => { setDetailType(null); onCreateAction(f); }}>
+                            <Plus className="mr-1 h-3.5 w-3.5" /> Criar ação
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" onClick={() => { setDetailType(null); onEdit(f); }}>
+                          <Pencil className="mr-1 h-3.5 w-3.5" /> Editar
+                        </Button>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </ScrollArea>
+        )}
+      </Dialog>
     </div>
   );
 }
