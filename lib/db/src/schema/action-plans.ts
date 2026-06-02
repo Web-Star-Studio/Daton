@@ -6,13 +6,23 @@ import { usersTable } from "./users";
 
 export type ActionPlanStatus = "open" | "in_progress" | "completed" | "cancelled";
 export type ActionPlanPriority = "low" | "medium" | "high";
-export type ActionPlanSourceModule = "kpi";
+export type ActionPlanSourceModule = "kpi" | "swot";
 
+/**
+ * Polymorphic source reference. The relevant fields depend on `sourceModule`
+ * (validated server-side at create time): kpi → kpiMonthlyValueId; swot →
+ * swotFactorId. Kept as a single optional-field object (not a union) so the
+ * existing `typeof` guards in source-context resolution stay simple.
+ */
 export type ActionPlanSourceRef = {
-  kpiMonthlyValueId: number;
+  // kpi origin
+  kpiMonthlyValueId?: number;
   kpiIndicatorId?: number;
   kpiYear?: number;
   kpiMonth?: number;
+  // swot origin
+  swotFactorId?: number;
+  swotFactorDescription?: string;
 };
 
 export const actionPlanStatusEnum = pgEnum("action_plan_status", [
@@ -28,6 +38,7 @@ export const actionPlanPriorityEnum = pgEnum("action_plan_priority", [
 ]);
 export const actionPlanSourceModuleEnum = pgEnum("action_plan_source_module", [
   "kpi",
+  "swot",
 ]);
 
 export const actionPlansTable = pgTable(

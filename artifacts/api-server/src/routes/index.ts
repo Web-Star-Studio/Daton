@@ -27,6 +27,7 @@ import kpiRouter from "./kpi/index";
 import roadSafetyRouter from "./road-safety/index";
 import criticalReviewsRouter from "./critical-reviews";
 import actionPlansRouter from "./action-plans";
+import swotRouter from "./swot/index";
 import assetsRouter from "./assets";
 import assetMaintenanceRouter from "./asset-maintenance";
 import workEnvironmentRouter from "./work-environment";
@@ -157,6 +158,12 @@ router.use(
   roadSafetyRouter,
 );
 router.use(requireAuth, requireCompletedOnboarding, actionPlansRouter);
+router.use(
+  requireAuth,
+  requireCompletedOnboarding,
+  requireModuleAccessForPaths("swot", [/^\/organizations\/[^/]+\/swot(?:\/|$)/]),
+  swotRouter,
+);
 router.use(
   requireAuth,
   requireCompletedOnboarding,

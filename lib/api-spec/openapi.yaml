@@ -52,6 +52,8 @@ tags:
     description: Road safety performance factors and GUT analysis (ISO 39001 §6.3)
   - name: action-plans
     description: Cross-module action plans (RAC) with corrective actions and evidences
+  - name: swot
+    description: SWOT analysis — strategic context factors and objectives (ISO 9001:2015 §4.1)
   - name: assets
   - name: work-environment
     description: Critical asset registry and infrastructure management (ISO 9001:2015 §7.1.3)
@@ -8503,6 +8505,190 @@ paths:
               schema:
                 $ref: "#/components/schemas/CreateKpiCorporateIndicatorResponse"
 
+  /organizations/{orgId}/swot/objectives:
+    get:
+      operationId: listSwotObjectives
+      tags: [swot]
+      summary: List SWOT strategic objectives in the organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: SWOT objectives
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SwotObjective"
+    post:
+      operationId: createSwotObjective
+      tags: [swot]
+      summary: Create a SWOT strategic objective
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSwotObjectiveBody"
+      responses:
+        "201":
+          description: Objective created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwotObjective"
+
+  /organizations/{orgId}/swot/objectives/{objectiveId}:
+    patch:
+      operationId: updateSwotObjective
+      tags: [swot]
+      summary: Update a SWOT strategic objective
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: objectiveId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSwotObjectiveBody"
+      responses:
+        "200":
+          description: Objective updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwotObjective"
+    delete:
+      operationId: deleteSwotObjective
+      tags: [swot]
+      summary: Delete a SWOT strategic objective
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: objectiveId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /organizations/{orgId}/swot/factors:
+    get:
+      operationId: listSwotFactors
+      tags: [swot]
+      summary: List all SWOT factors in the organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: SWOT factors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SwotFactor"
+    post:
+      operationId: createSwotFactor
+      tags: [swot]
+      summary: Create a SWOT factor
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSwotFactorBody"
+      responses:
+        "201":
+          description: Factor created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwotFactor"
+
+  /organizations/{orgId}/swot/factors/{factorId}:
+    patch:
+      operationId: updateSwotFactor
+      tags: [swot]
+      summary: Update a SWOT factor
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: factorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSwotFactorBody"
+      responses:
+        "200":
+          description: Factor updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwotFactor"
+    delete:
+      operationId: deleteSwotFactor
+      tags: [swot]
+      summary: Delete a SWOT factor
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: factorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   /organizations/{orgId}/action-plans:
     get:
       operationId: listActionPlans
@@ -11382,6 +11568,7 @@ components:
           roadSafety,
           assets,
           regulatoryDocuments,
+          swot,
         ]
 
     OrgUser:
@@ -15603,13 +15790,185 @@ components:
       type: string
       enum: [low, medium, high]
 
+    SwotFactorType:
+      type: string
+      enum: [strength, weakness, opportunity, threat]
+
+    SwotEnvironment:
+      type: string
+      enum: [internal, external]
+
+    SwotObjective:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        code:
+          type: string
+          nullable: true
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - code
+        - name
+        - createdAt
+        - updatedAt
+
+    CreateSwotObjectiveBody:
+      type: object
+      properties:
+        code:
+          type: string
+          nullable: true
+        name:
+          type: string
+          minLength: 1
+      required:
+        - name
+
+    UpdateSwotObjectiveBody:
+      type: object
+      properties:
+        code:
+          type: string
+          nullable: true
+        name:
+          type: string
+          minLength: 1
+
+    SwotFactor:
+      type: object
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        unitId:
+          type: integer
+          nullable: true
+          description: null = Corporativo
+        description:
+          type: string
+        type:
+          $ref: "#/components/schemas/SwotFactorType"
+        environment:
+          $ref: "#/components/schemas/SwotEnvironment"
+        perspective:
+          type: string
+          nullable: true
+        performance:
+          type: integer
+          minimum: 1
+          maximum: 4
+        relevance:
+          type: integer
+          minimum: 1
+          maximum: 4
+        objectiveId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - unitId
+        - description
+        - type
+        - environment
+        - perspective
+        - performance
+        - relevance
+        - objectiveId
+        - createdAt
+        - updatedAt
+
+    CreateSwotFactorBody:
+      type: object
+      properties:
+        description:
+          type: string
+          minLength: 1
+        type:
+          $ref: "#/components/schemas/SwotFactorType"
+        environment:
+          $ref: "#/components/schemas/SwotEnvironment"
+        perspective:
+          type: string
+          nullable: true
+        performance:
+          type: integer
+          minimum: 1
+          maximum: 4
+        relevance:
+          type: integer
+          minimum: 1
+          maximum: 4
+        unitId:
+          type: integer
+          nullable: true
+        objectiveId:
+          type: integer
+          nullable: true
+      required:
+        - description
+        - type
+        - environment
+        - performance
+        - relevance
+
+    UpdateSwotFactorBody:
+      type: object
+      properties:
+        description:
+          type: string
+          minLength: 1
+        type:
+          $ref: "#/components/schemas/SwotFactorType"
+        environment:
+          $ref: "#/components/schemas/SwotEnvironment"
+        perspective:
+          type: string
+          nullable: true
+        performance:
+          type: integer
+          minimum: 1
+          maximum: 4
+        relevance:
+          type: integer
+          minimum: 1
+          maximum: 4
+        unitId:
+          type: integer
+          nullable: true
+        objectiveId:
+          type: integer
+          nullable: true
+
     ActionPlanSourceModule:
       type: string
-      enum: [kpi]
+      enum: [kpi, swot]
 
     ActionPlanSourceRef:
       type: object
-      description: Polymorphic reference to the entity that originated the action plan. For kpi, kpiMonthlyValueId is mandatory; the triplet (indicatorId/year/month) is optional context.
+      description: >-
+        Polymorphic reference to the entity that originated the action plan. The
+        relevant fields depend on sourceModule (enforced server-side): for kpi,
+        kpiMonthlyValueId is required; for swot, swotFactorId is required.
       properties:
         kpiMonthlyValueId:
           type: integer
@@ -15621,8 +15980,10 @@ components:
           type: integer
           minimum: 1
           maximum: 12
-      required:
-        - kpiMonthlyValueId
+        swotFactorId:
+          type: integer
+        swotFactorDescription:
+          type: string
 
     ActionPlanSourceContext:
       type: object

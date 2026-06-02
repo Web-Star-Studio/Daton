@@ -87,6 +87,8 @@ import type {
   CreateStrategicPlanRiskOpportunityEffectivenessReviewBody,
   CreateStrategicPlanRiskOpportunityItemBody,
   CreateStrategicPlanSwotItemBody,
+  CreateSwotFactorBody,
+  CreateSwotObjectiveBody,
   CreateTrainingBody,
   CreateTrainingEffectivenessReviewBody,
   CreateUnitBody,
@@ -228,6 +230,8 @@ import type {
   SubmitDocumentForReviewBody,
   SubmitQuestionnaireResponse,
   SuccessResponse,
+  SwotFactor,
+  SwotObjective,
   SyncInternalAuditChecklistBody,
   TrainingEffectivenessReview,
   Unit,
@@ -279,6 +283,8 @@ import type {
   UpdateStrategicPlanObjectiveBody,
   UpdateStrategicPlanRiskOpportunityItemBody,
   UpdateStrategicPlanSwotItemBody,
+  UpdateSwotFactorBody,
+  UpdateSwotObjectiveBody,
   UpdateTrainingBody,
   UpdateUnitBody,
   UpdateUnitLegislationBody,
@@ -29726,6 +29732,730 @@ export const useCreateKpiCorporateIndicator = <
   TContext
 > => {
   return useMutation(getCreateKpiCorporateIndicatorMutationOptions(options));
+};
+
+/**
+ * @summary List SWOT strategic objectives in the organization
+ */
+export const getListSwotObjectivesUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/swot/objectives`;
+};
+
+export const listSwotObjectives = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<SwotObjective[]> => {
+  return customFetch<SwotObjective[]>(getListSwotObjectivesUrl(orgId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSwotObjectivesQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/swot/objectives`] as const;
+};
+
+export const getListSwotObjectivesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSwotObjectives>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSwotObjectives>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListSwotObjectivesQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSwotObjectives>>
+  > = ({ signal }) => listSwotObjectives(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSwotObjectives>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSwotObjectivesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSwotObjectives>>
+>;
+export type ListSwotObjectivesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List SWOT strategic objectives in the organization
+ */
+
+export function useListSwotObjectives<
+  TData = Awaited<ReturnType<typeof listSwotObjectives>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSwotObjectives>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSwotObjectivesQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a SWOT strategic objective
+ */
+export const getCreateSwotObjectiveUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/swot/objectives`;
+};
+
+export const createSwotObjective = async (
+  orgId: number,
+  createSwotObjectiveBody: CreateSwotObjectiveBody,
+  options?: RequestInit,
+): Promise<SwotObjective> => {
+  return customFetch<SwotObjective>(getCreateSwotObjectiveUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSwotObjectiveBody),
+  });
+};
+
+export const getCreateSwotObjectiveMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSwotObjective>>,
+    TError,
+    { orgId: number; data: BodyType<CreateSwotObjectiveBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSwotObjective>>,
+  TError,
+  { orgId: number; data: BodyType<CreateSwotObjectiveBody> },
+  TContext
+> => {
+  const mutationKey = ["createSwotObjective"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSwotObjective>>,
+    { orgId: number; data: BodyType<CreateSwotObjectiveBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createSwotObjective(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSwotObjectiveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSwotObjective>>
+>;
+export type CreateSwotObjectiveMutationBody = BodyType<CreateSwotObjectiveBody>;
+export type CreateSwotObjectiveMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a SWOT strategic objective
+ */
+export const useCreateSwotObjective = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSwotObjective>>,
+    TError,
+    { orgId: number; data: BodyType<CreateSwotObjectiveBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSwotObjective>>,
+  TError,
+  { orgId: number; data: BodyType<CreateSwotObjectiveBody> },
+  TContext
+> => {
+  return useMutation(getCreateSwotObjectiveMutationOptions(options));
+};
+
+/**
+ * @summary Update a SWOT strategic objective
+ */
+export const getUpdateSwotObjectiveUrl = (
+  orgId: number,
+  objectiveId: number,
+) => {
+  return `/api/organizations/${orgId}/swot/objectives/${objectiveId}`;
+};
+
+export const updateSwotObjective = async (
+  orgId: number,
+  objectiveId: number,
+  updateSwotObjectiveBody: UpdateSwotObjectiveBody,
+  options?: RequestInit,
+): Promise<SwotObjective> => {
+  return customFetch<SwotObjective>(
+    getUpdateSwotObjectiveUrl(orgId, objectiveId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateSwotObjectiveBody),
+    },
+  );
+};
+
+export const getUpdateSwotObjectiveMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSwotObjective>>,
+    TError,
+    {
+      orgId: number;
+      objectiveId: number;
+      data: BodyType<UpdateSwotObjectiveBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSwotObjective>>,
+  TError,
+  {
+    orgId: number;
+    objectiveId: number;
+    data: BodyType<UpdateSwotObjectiveBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateSwotObjective"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSwotObjective>>,
+    {
+      orgId: number;
+      objectiveId: number;
+      data: BodyType<UpdateSwotObjectiveBody>;
+    }
+  > = (props) => {
+    const { orgId, objectiveId, data } = props ?? {};
+
+    return updateSwotObjective(orgId, objectiveId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSwotObjectiveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSwotObjective>>
+>;
+export type UpdateSwotObjectiveMutationBody = BodyType<UpdateSwotObjectiveBody>;
+export type UpdateSwotObjectiveMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a SWOT strategic objective
+ */
+export const useUpdateSwotObjective = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSwotObjective>>,
+    TError,
+    {
+      orgId: number;
+      objectiveId: number;
+      data: BodyType<UpdateSwotObjectiveBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSwotObjective>>,
+  TError,
+  {
+    orgId: number;
+    objectiveId: number;
+    data: BodyType<UpdateSwotObjectiveBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateSwotObjectiveMutationOptions(options));
+};
+
+/**
+ * @summary Delete a SWOT strategic objective
+ */
+export const getDeleteSwotObjectiveUrl = (
+  orgId: number,
+  objectiveId: number,
+) => {
+  return `/api/organizations/${orgId}/swot/objectives/${objectiveId}`;
+};
+
+export const deleteSwotObjective = async (
+  orgId: number,
+  objectiveId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteSwotObjectiveUrl(orgId, objectiveId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteSwotObjectiveMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSwotObjective>>,
+    TError,
+    { orgId: number; objectiveId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSwotObjective>>,
+  TError,
+  { orgId: number; objectiveId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSwotObjective"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSwotObjective>>,
+    { orgId: number; objectiveId: number }
+  > = (props) => {
+    const { orgId, objectiveId } = props ?? {};
+
+    return deleteSwotObjective(orgId, objectiveId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSwotObjectiveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSwotObjective>>
+>;
+
+export type DeleteSwotObjectiveMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a SWOT strategic objective
+ */
+export const useDeleteSwotObjective = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSwotObjective>>,
+    TError,
+    { orgId: number; objectiveId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSwotObjective>>,
+  TError,
+  { orgId: number; objectiveId: number },
+  TContext
+> => {
+  return useMutation(getDeleteSwotObjectiveMutationOptions(options));
+};
+
+/**
+ * @summary List all SWOT factors in the organization
+ */
+export const getListSwotFactorsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/swot/factors`;
+};
+
+export const listSwotFactors = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<SwotFactor[]> => {
+  return customFetch<SwotFactor[]>(getListSwotFactorsUrl(orgId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSwotFactorsQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/swot/factors`] as const;
+};
+
+export const getListSwotFactorsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSwotFactors>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSwotFactors>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListSwotFactorsQueryKey(orgId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listSwotFactors>>> = ({
+    signal,
+  }) => listSwotFactors(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSwotFactors>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSwotFactorsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSwotFactors>>
+>;
+export type ListSwotFactorsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all SWOT factors in the organization
+ */
+
+export function useListSwotFactors<
+  TData = Awaited<ReturnType<typeof listSwotFactors>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSwotFactors>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSwotFactorsQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a SWOT factor
+ */
+export const getCreateSwotFactorUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/swot/factors`;
+};
+
+export const createSwotFactor = async (
+  orgId: number,
+  createSwotFactorBody: CreateSwotFactorBody,
+  options?: RequestInit,
+): Promise<SwotFactor> => {
+  return customFetch<SwotFactor>(getCreateSwotFactorUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSwotFactorBody),
+  });
+};
+
+export const getCreateSwotFactorMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSwotFactor>>,
+    TError,
+    { orgId: number; data: BodyType<CreateSwotFactorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSwotFactor>>,
+  TError,
+  { orgId: number; data: BodyType<CreateSwotFactorBody> },
+  TContext
+> => {
+  const mutationKey = ["createSwotFactor"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSwotFactor>>,
+    { orgId: number; data: BodyType<CreateSwotFactorBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createSwotFactor(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSwotFactorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSwotFactor>>
+>;
+export type CreateSwotFactorMutationBody = BodyType<CreateSwotFactorBody>;
+export type CreateSwotFactorMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a SWOT factor
+ */
+export const useCreateSwotFactor = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSwotFactor>>,
+    TError,
+    { orgId: number; data: BodyType<CreateSwotFactorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSwotFactor>>,
+  TError,
+  { orgId: number; data: BodyType<CreateSwotFactorBody> },
+  TContext
+> => {
+  return useMutation(getCreateSwotFactorMutationOptions(options));
+};
+
+/**
+ * @summary Update a SWOT factor
+ */
+export const getUpdateSwotFactorUrl = (orgId: number, factorId: number) => {
+  return `/api/organizations/${orgId}/swot/factors/${factorId}`;
+};
+
+export const updateSwotFactor = async (
+  orgId: number,
+  factorId: number,
+  updateSwotFactorBody: UpdateSwotFactorBody,
+  options?: RequestInit,
+): Promise<SwotFactor> => {
+  return customFetch<SwotFactor>(getUpdateSwotFactorUrl(orgId, factorId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateSwotFactorBody),
+  });
+};
+
+export const getUpdateSwotFactorMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSwotFactor>>,
+    TError,
+    { orgId: number; factorId: number; data: BodyType<UpdateSwotFactorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSwotFactor>>,
+  TError,
+  { orgId: number; factorId: number; data: BodyType<UpdateSwotFactorBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSwotFactor"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSwotFactor>>,
+    { orgId: number; factorId: number; data: BodyType<UpdateSwotFactorBody> }
+  > = (props) => {
+    const { orgId, factorId, data } = props ?? {};
+
+    return updateSwotFactor(orgId, factorId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSwotFactorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSwotFactor>>
+>;
+export type UpdateSwotFactorMutationBody = BodyType<UpdateSwotFactorBody>;
+export type UpdateSwotFactorMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a SWOT factor
+ */
+export const useUpdateSwotFactor = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSwotFactor>>,
+    TError,
+    { orgId: number; factorId: number; data: BodyType<UpdateSwotFactorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSwotFactor>>,
+  TError,
+  { orgId: number; factorId: number; data: BodyType<UpdateSwotFactorBody> },
+  TContext
+> => {
+  return useMutation(getUpdateSwotFactorMutationOptions(options));
+};
+
+/**
+ * @summary Delete a SWOT factor
+ */
+export const getDeleteSwotFactorUrl = (orgId: number, factorId: number) => {
+  return `/api/organizations/${orgId}/swot/factors/${factorId}`;
+};
+
+export const deleteSwotFactor = async (
+  orgId: number,
+  factorId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteSwotFactorUrl(orgId, factorId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteSwotFactorMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSwotFactor>>,
+    TError,
+    { orgId: number; factorId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSwotFactor>>,
+  TError,
+  { orgId: number; factorId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSwotFactor"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSwotFactor>>,
+    { orgId: number; factorId: number }
+  > = (props) => {
+    const { orgId, factorId } = props ?? {};
+
+    return deleteSwotFactor(orgId, factorId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSwotFactorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSwotFactor>>
+>;
+
+export type DeleteSwotFactorMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a SWOT factor
+ */
+export const useDeleteSwotFactor = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSwotFactor>>,
+    TError,
+    { orgId: number; factorId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSwotFactor>>,
+  TError,
+  { orgId: number; factorId: number },
+  TContext
+> => {
+  return useMutation(getDeleteSwotFactorMutationOptions(options));
 };
 
 /**

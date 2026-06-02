@@ -4,10 +4,18 @@ import {
   kpiIndicatorsTable,
   kpiMonthlyValuesTable,
   kpiYearConfigsTable,
+  swotFactorsTable,
   type ActionPlanSourceRef,
 } from "@workspace/db";
 
 const MONTH_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+const SWOT_TYPE_PT: Record<string, string> = {
+  strength: "Força",
+  weakness: "Fraqueza",
+  opportunity: "Oportunidade",
+  threat: "Ameaça",
+};
 
 function formatNumber(v: number): string {
   return v % 1 === 0 ? v.toFixed(0) : v.toFixed(2);
@@ -83,6 +91,30 @@ export async function resolveSourceContexts(
     kpiMap = new Map(rows.map((r) => [r.mvId, r]));
   }
 
+  // ─── SWOT factors ──────────────────────────────────────────────────────────
+  const swotFactorIds = refs
+    .filter((r) => r.sourceModule === "swot" && typeof r.sourceRef.swotFactorId === "number")
+    .map((r) => r.sourceRef.swotFactorId as number);
+
+  type SwotRow = { id: number; description: string; type: string; performance: number; relevance: number };
+  let swotMap = new Map<number, SwotRow>();
+  if (swotFactorIds.length > 0) {
+    const rows = await db
+      .select({
+        id: swotFactorsTable.id,
+        description: swotFactorsTable.description,
+        type: swotFactorsTable.type,
+        performance: swotFactorsTable.performance,
+        relevance: swotFactorsTable.relevance,
+      })
+      .from(swotFactorsTable)
+      .where(and(
+        eq(swotFactorsTable.organizationId, orgId),
+        inArray(swotFactorsTable.id, swotFactorIds),
+      ));
+    swotMap = new Map(rows.map((r) => [r.id, r]));
+  }
+
   for (const r of refs) {
     if (r.sourceModule === "kpi" && typeof r.sourceRef.kpiMonthlyValueId === "number") {
       const k = kpiMap.get(r.sourceRef.kpiMonthlyValueId);
@@ -107,6 +139,16 @@ export async function resolveSourceContexts(
         });
       } else {
         out.set(r.id, { label: "KPI · origem removida", kpi: null });
+      }
+    } else if (r.sourceModule === "swot" && typeof r.sourceRef.swotFactorId === "number") {
+      const f = swotMap.get(r.sourceRef.swotFactorId);
+      if (f) {
+        const typeLabel = SWOT_TYPE_PT[f.type] ?? f.type;
+        const result = f.performance * f.relevance;
+        const desc = f.description.length > 60 ? `${f.description.slice(0, 60)}…` : f.description;
+        out.set(r.id, { label: `SWOT · ${typeLabel} · ${desc} · resultado ${result}`, kpi: null });
+      } else {
+        out.set(r.id, { label: "SWOT · origem removida", kpi: null });
       }
     } else {
       out.set(r.id, { label: r.sourceModule, kpi: null });

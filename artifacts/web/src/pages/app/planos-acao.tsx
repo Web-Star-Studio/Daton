@@ -96,6 +96,7 @@ export default function ActionPlansListPage() {
         >
           <option value="">Todas as origens</option>
           <option value="kpi">KPI</option>
+          <option value="swot">SWOT</option>
         </Select>
 
         <span className="text-sm text-muted-foreground ml-auto">
@@ -114,7 +115,7 @@ export default function ActionPlansListPage() {
               Nenhum plano de ação encontrado.
             </p>
             <p className="text-xs text-muted-foreground">
-              Os planos são criados a partir de células vermelhas em Indicadores → Lançamentos.
+              Os planos são criados a partir de células vermelhas em Indicadores → Lançamentos, ou de fatores SWOT que requerem ação.
             </p>
           </div>
         ) : (

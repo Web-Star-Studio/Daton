@@ -158,6 +158,7 @@ export const GetMeResponse = zod.object({
       "roadSafety",
       "assets",
       "regulatoryDocuments",
+      "swot",
     ]),
   ),
 });
@@ -270,6 +271,7 @@ export const UpdateMeResponse = zod.object({
       "roadSafety",
       "assets",
       "regulatoryDocuments",
+      "swot",
     ]),
   ),
 });
@@ -5773,6 +5775,7 @@ export const ListOrgUsersResponse = zod.object({
           "roadSafety",
           "assets",
           "regulatoryDocuments",
+          "swot",
         ]),
       ),
     }),
@@ -5808,6 +5811,7 @@ export const CreateOrgUserBody = zod.object({
       "roadSafety",
       "assets",
       "regulatoryDocuments",
+      "swot",
     ]),
   ),
 });
@@ -5879,6 +5883,7 @@ export const UpdateUserModulesBody = zod.object({
       "roadSafety",
       "assets",
       "regulatoryDocuments",
+      "swot",
     ]),
   ),
 });
@@ -5901,6 +5906,7 @@ export const UpdateUserModulesResponse = zod.object({
         "roadSafety",
         "assets",
         "regulatoryDocuments",
+        "swot",
       ]),
     )
     .optional(),
@@ -5928,6 +5934,7 @@ export const CreateInvitationBody = zod.object({
         "roadSafety",
         "assets",
         "regulatoryDocuments",
+        "swot",
       ]),
     )
     .optional(),
@@ -5960,6 +5967,7 @@ export const ListInvitationsResponse = zod.object({
           "roadSafety",
           "assets",
           "regulatoryDocuments",
+          "swot",
         ]),
       ),
       expiresAt: zod.string(),
@@ -16479,6 +16487,174 @@ export const CreateKpiCorporateIndicatorBody = zod
   );
 
 /**
+ * @summary List SWOT strategic objectives in the organization
+ */
+export const ListSwotObjectivesParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListSwotObjectivesResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  code: zod.string().nullable(),
+  name: zod.string(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+export const ListSwotObjectivesResponse = zod.array(
+  ListSwotObjectivesResponseItem,
+);
+
+/**
+ * @summary Create a SWOT strategic objective
+ */
+export const CreateSwotObjectiveParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateSwotObjectiveBody = zod.object({
+  code: zod.string().nullish(),
+  name: zod.string().min(1),
+});
+
+/**
+ * @summary Update a SWOT strategic objective
+ */
+export const UpdateSwotObjectiveParams = zod.object({
+  orgId: zod.coerce.number(),
+  objectiveId: zod.coerce.number(),
+});
+
+export const UpdateSwotObjectiveBody = zod.object({
+  code: zod.string().nullish(),
+  name: zod.string().min(1).optional(),
+});
+
+export const UpdateSwotObjectiveResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  code: zod.string().nullable(),
+  name: zod.string(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * @summary Delete a SWOT strategic objective
+ */
+export const DeleteSwotObjectiveParams = zod.object({
+  orgId: zod.coerce.number(),
+  objectiveId: zod.coerce.number(),
+});
+
+/**
+ * @summary List all SWOT factors in the organization
+ */
+export const ListSwotFactorsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const listSwotFactorsResponsePerformanceMax = 4;
+
+export const listSwotFactorsResponseRelevanceMax = 4;
+
+export const ListSwotFactorsResponseItem = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullable().describe("null = Corporativo"),
+  description: zod.string(),
+  type: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+  environment: zod.enum(["internal", "external"]),
+  perspective: zod.string().nullable(),
+  performance: zod.number().min(1).max(listSwotFactorsResponsePerformanceMax),
+  relevance: zod.number().min(1).max(listSwotFactorsResponseRelevanceMax),
+  objectiveId: zod.number().nullable(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+export const ListSwotFactorsResponse = zod.array(ListSwotFactorsResponseItem);
+
+/**
+ * @summary Create a SWOT factor
+ */
+export const CreateSwotFactorParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const createSwotFactorBodyPerformanceMax = 4;
+
+export const createSwotFactorBodyRelevanceMax = 4;
+
+export const CreateSwotFactorBody = zod.object({
+  description: zod.string().min(1),
+  type: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+  environment: zod.enum(["internal", "external"]),
+  perspective: zod.string().nullish(),
+  performance: zod.number().min(1).max(createSwotFactorBodyPerformanceMax),
+  relevance: zod.number().min(1).max(createSwotFactorBodyRelevanceMax),
+  unitId: zod.number().nullish(),
+  objectiveId: zod.number().nullish(),
+});
+
+/**
+ * @summary Update a SWOT factor
+ */
+export const UpdateSwotFactorParams = zod.object({
+  orgId: zod.coerce.number(),
+  factorId: zod.coerce.number(),
+});
+
+export const updateSwotFactorBodyPerformanceMax = 4;
+
+export const updateSwotFactorBodyRelevanceMax = 4;
+
+export const UpdateSwotFactorBody = zod.object({
+  description: zod.string().min(1).optional(),
+  type: zod.enum(["strength", "weakness", "opportunity", "threat"]).optional(),
+  environment: zod.enum(["internal", "external"]).optional(),
+  perspective: zod.string().nullish(),
+  performance: zod
+    .number()
+    .min(1)
+    .max(updateSwotFactorBodyPerformanceMax)
+    .optional(),
+  relevance: zod
+    .number()
+    .min(1)
+    .max(updateSwotFactorBodyRelevanceMax)
+    .optional(),
+  unitId: zod.number().nullish(),
+  objectiveId: zod.number().nullish(),
+});
+
+export const updateSwotFactorResponsePerformanceMax = 4;
+
+export const updateSwotFactorResponseRelevanceMax = 4;
+
+export const UpdateSwotFactorResponse = zod.object({
+  id: zod.number(),
+  organizationId: zod.number(),
+  unitId: zod.number().nullable().describe("null = Corporativo"),
+  description: zod.string(),
+  type: zod.enum(["strength", "weakness", "opportunity", "threat"]),
+  environment: zod.enum(["internal", "external"]),
+  perspective: zod.string().nullable(),
+  performance: zod.number().min(1).max(updateSwotFactorResponsePerformanceMax),
+  relevance: zod.number().min(1).max(updateSwotFactorResponseRelevanceMax),
+  objectiveId: zod.number().nullable(),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * @summary Delete a SWOT factor
+ */
+export const DeleteSwotFactorParams = zod.object({
+  orgId: zod.coerce.number(),
+  factorId: zod.coerce.number(),
+});
+
+/**
  * @summary List action plans in the organization with filters
  */
 export const ListActionPlansParams = zod.object({
@@ -16490,7 +16666,7 @@ export const ListActionPlansQueryParams = zod.object({
     .enum(["open", "in_progress", "completed", "cancelled"])
     .optional(),
   priority: zod.enum(["low", "medium", "high"]).optional(),
-  sourceModule: zod.enum(["kpi"]).optional(),
+  sourceModule: zod.enum(["kpi", "swot"]).optional(),
   responsibleUserId: zod.coerce.number().optional(),
   sourceKpiMonthlyValueId: zod.coerce
     .number()
@@ -16503,7 +16679,7 @@ export const listActionPlansResponseEvidencesCountMin = 0;
 export const ListActionPlansResponseItem = zod.object({
   id: zod.number(),
   organizationId: zod.number(),
-  sourceModule: zod.enum(["kpi"]),
+  sourceModule: zod.enum(["kpi", "swot"]),
   sourceContext: zod
     .object({
       label: zod
@@ -16548,10 +16724,10 @@ export const CreateActionPlanParams = zod.object({
 export const createActionPlanBodySourceRefKpiMonthMax = 12;
 
 export const CreateActionPlanBody = zod.object({
-  sourceModule: zod.enum(["kpi"]),
+  sourceModule: zod.enum(["kpi", "swot"]),
   sourceRef: zod
     .object({
-      kpiMonthlyValueId: zod.number(),
+      kpiMonthlyValueId: zod.number().optional(),
       kpiIndicatorId: zod.number().optional(),
       kpiYear: zod.number().optional(),
       kpiMonth: zod
@@ -16559,9 +16735,11 @@ export const CreateActionPlanBody = zod.object({
         .min(1)
         .max(createActionPlanBodySourceRefKpiMonthMax)
         .optional(),
+      swotFactorId: zod.number().optional(),
+      swotFactorDescription: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. For kpi, kpiMonthlyValueId is mandatory; the triplet (indicatorId\/year\/month) is optional context.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required.",
     ),
   title: zod.string().min(1),
   description: zod.string().nullish(),
@@ -16587,10 +16765,10 @@ export const getActionPlanResponseSourceRefKpiMonthMax = 12;
 export const GetActionPlanResponse = zod.object({
   id: zod.number(),
   organizationId: zod.number(),
-  sourceModule: zod.enum(["kpi"]),
+  sourceModule: zod.enum(["kpi", "swot"]),
   sourceRef: zod
     .object({
-      kpiMonthlyValueId: zod.number(),
+      kpiMonthlyValueId: zod.number().optional(),
       kpiIndicatorId: zod.number().optional(),
       kpiYear: zod.number().optional(),
       kpiMonth: zod
@@ -16598,9 +16776,11 @@ export const GetActionPlanResponse = zod.object({
         .min(1)
         .max(getActionPlanResponseSourceRefKpiMonthMax)
         .optional(),
+      swotFactorId: zod.number().optional(),
+      swotFactorDescription: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. For kpi, kpiMonthlyValueId is mandatory; the triplet (indicatorId\/year\/month) is optional context.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required.",
     ),
   sourceContext: zod
     .object({
@@ -16681,10 +16861,10 @@ export const updateActionPlanResponseSourceRefKpiMonthMax = 12;
 export const UpdateActionPlanResponse = zod.object({
   id: zod.number(),
   organizationId: zod.number(),
-  sourceModule: zod.enum(["kpi"]),
+  sourceModule: zod.enum(["kpi", "swot"]),
   sourceRef: zod
     .object({
-      kpiMonthlyValueId: zod.number(),
+      kpiMonthlyValueId: zod.number().optional(),
       kpiIndicatorId: zod.number().optional(),
       kpiYear: zod.number().optional(),
       kpiMonth: zod
@@ -16692,9 +16872,11 @@ export const UpdateActionPlanResponse = zod.object({
         .min(1)
         .max(updateActionPlanResponseSourceRefKpiMonthMax)
         .optional(),
+      swotFactorId: zod.number().optional(),
+      swotFactorDescription: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. For kpi, kpiMonthlyValueId is mandatory; the triplet (indicatorId\/year\/month) is optional context.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required.",
     ),
   sourceContext: zod
     .object({

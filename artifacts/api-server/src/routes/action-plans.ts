@@ -5,6 +5,7 @@ import {
   actionPlansTable,
   db,
   kpiMonthlyValuesTable,
+  swotFactorsTable,
   usersTable,
 } from "@workspace/db";
 import {
@@ -168,6 +169,26 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
       ));
     if (!mv) {
       res.status(400).json({ error: "Célula KPI de origem não encontrada nesta organização" });
+      return;
+    }
+  }
+
+  // Validate SWOT source: ensure the referenced factor belongs to this org
+  if (body.data.sourceModule === "swot") {
+    const factorId = body.data.sourceRef.swotFactorId;
+    if (typeof factorId !== "number") {
+      res.status(400).json({ error: "sourceRef.swotFactorId é obrigatório quando sourceModule=swot" });
+      return;
+    }
+    const [factor] = await db
+      .select({ id: swotFactorsTable.id })
+      .from(swotFactorsTable)
+      .where(and(
+        eq(swotFactorsTable.id, factorId),
+        eq(swotFactorsTable.organizationId, params.data.orgId),
+      ));
+    if (!factor) {
+      res.status(400).json({ error: "Fator SWOT de origem não encontrado nesta organização" });
       return;
     }
   }
