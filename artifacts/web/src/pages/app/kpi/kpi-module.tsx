@@ -20,7 +20,8 @@ function initialTab(): KpiTabId {
   if (
     typeof window !== "undefined" &&
     (window.location.hash.startsWith("#ind-card-") ||
-      window.location.hash.startsWith("#ind-edit-"))
+      window.location.hash.startsWith("#ind-edit-") ||
+      window.location.hash.startsWith("#obj-"))
   ) {
     return "indicadores";
   }
@@ -105,6 +106,16 @@ export default function KpiModulePage() {
               null,
               "",
               `${window.location.pathname}#ind-card-${id}`,
+            );
+            setTab("indicadores");
+          }}
+          onSelectObjective={(objectiveId) => {
+            // indicadores.tsx lê #obj-{id|none} ao montar e aplica o filtro.
+            const frag = objectiveId == null ? "none" : String(objectiveId);
+            window.history.replaceState(
+              null,
+              "",
+              `${window.location.pathname}#obj-${frag}`,
             );
             setTab("indicadores");
           }}

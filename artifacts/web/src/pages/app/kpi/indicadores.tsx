@@ -680,6 +680,31 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [indicators.length]);
 
+  // Deep-link #obj-{id} (ou #obj-none): vem do card de Objetivos Estratégicos
+  // no dashboard. Aplica o filtro de objetivo e limpa os demais pra listar
+  // todos os indicadores daquele objetivo (na visão "Por filial", onde o
+  // filtro de objetivo vale).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash;
+    if (!hash.startsWith("#obj-")) return;
+    const raw = hash.slice("#obj-".length);
+    setViewMode("branches");
+    setSearchQuery("");
+    setUnitFilter("");
+    setNormaFilter("");
+    setCategoriaFilter("");
+    setResponsibleFilter("");
+    setStatusFilter("");
+    setObjectiveFilter(raw === "none" ? "none" : raw);
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + window.location.search,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Conta quantos Corporativos existem (pra badge da tab)
   const corporateCount = indicators.filter(
     (i) => i.unit?.trim().toLowerCase() === CORPORATE_UNIT_LABEL.toLowerCase(),
@@ -791,7 +816,16 @@ export default function KpiIndicadoresPage({ onOpenInLancar }: KpiIndicadoresPag
               {o.code ? `${o.code} · ${o.name}` : o.name}
             </option>
           ))}
-          {hasUnlinkedIndicators && <option value="none">Sem objetivo vinculado</option>}
+          {/* Fallback p/ deep-link #obj-{id} de objetivo ausente/stale: garante
+              que o <select> controlado tenha a option do seu value atual. */}
+          {objectiveFilter &&
+            objectiveFilter !== "none" &&
+            !objectives.some((o) => String(o.id) === objectiveFilter) && (
+              <option value={objectiveFilter}>Objetivo {objectiveFilter}</option>
+            )}
+          {(hasUnlinkedIndicators || objectiveFilter === "none") && (
+            <option value="none">Sem objetivo vinculado</option>
+          )}
         </Select>
         <Select
           value={responsibleFilter}

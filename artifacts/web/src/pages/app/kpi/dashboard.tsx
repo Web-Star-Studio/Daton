@@ -13,6 +13,7 @@ import { YearPicker } from "@/components/ui/year-picker";
 import {
   type KpiIndicator,
   useKpiIndicators,
+  useKpiObjectives,
   useKpiYearData,
 } from "@/lib/kpi-client";
 import {
@@ -22,6 +23,7 @@ import {
 import { DashboardSummary } from "./_components/dashboard-summary";
 import { getIndicatorStatus, type CardStatus } from "./_components/indicator-card";
 import { FilialStatus } from "./_components/filial-status";
+import { ObjectiveStatus } from "./_components/objective-status";
 import { CategorySemaphore } from "./_components/category-semaphore";
 import { CriticalIndicators } from "./_components/critical-indicators";
 import { EvolutionPanel } from "./_components/evolution-panel";
@@ -47,10 +49,14 @@ type KpiDashboardPageProps = {
   /** Shell mode: clicking a critical indicator switches to the Indicadores
    *  tab instead of navigating by route. */
   onSelectIndicator?: (indicatorId: number) => void;
+  /** Shell mode: clicking an objective card switches to the Indicadores tab
+   *  filtered by that objective (`null` = "sem objetivo") instead of navigating. */
+  onSelectObjective?: (objectiveId: number | null) => void;
 };
 
 export default function KpiDashboardPage({
   onSelectIndicator,
+  onSelectObjective,
 }: KpiDashboardPageProps = {}) {
   const { organization } = useAuth();
   const orgId = organization!.id;
@@ -62,6 +68,7 @@ export default function KpiDashboardPage({
   const [feedFilter, setFeedFilter] = useState<FeedFilter>("");
 
   const { data: indicators = [], isLoading } = useKpiIndicators(orgId);
+  const { data: objectives = [] } = useKpiObjectives(orgId);
   const { data: yearRows = [] } = useKpiYearData(
     orgId,
     year,
@@ -174,6 +181,15 @@ export default function KpiDashboardPage({
     navigate(`/kpi/indicadores#ind-card-${ind.id}`);
   };
 
+  const handleObjectiveSelect = (objectiveId: number | null) => {
+    if (onSelectObjective) {
+      onSelectObjective(objectiveId);
+      return;
+    }
+    const frag = objectiveId == null ? "none" : String(objectiveId);
+    navigate(`/kpi/indicadores#obj-${frag}`);
+  };
+
   return (
     <div className="space-y-4 p-6">
       <header className="flex flex-wrap items-end justify-between gap-3 border-b pb-3">
@@ -235,6 +251,13 @@ export default function KpiDashboardPage({
               yearRows={yearRows}
             />
           </div>
+
+          <ObjectiveStatus
+            objectives={objectives}
+            indicators={focusedIndicators}
+            yearRows={yearRows}
+            onSelectObjective={handleObjectiveSelect}
+          />
 
           <CriticalIndicators
             indicators={focusedIndicators}
