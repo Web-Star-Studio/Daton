@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, Pencil, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,20 +41,19 @@ type Props = {
 const BAND_LABEL: Record<SwotRiskBand, string> = { baixo: "Baixo", alto: "Alto", extremo: "Extremo" };
 const BAND_ORDER: SwotRiskBand[] = ["extremo", "alto", "baixo"];
 
-/** Fundo da célula da matriz por faixa de risco (ou emerald uniforme p/ Força). */
-function cellClass(band: SwotRiskBand, isStrength: boolean, active: boolean): string {
-  if (isStrength) {
-    return cn(
-      "border-emerald-200/60 bg-emerald-50 text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/[0.10] dark:text-emerald-300",
-      active && "ring-2 ring-ring",
-    );
+/** Fundo da célula da matriz: tint por faixa de risco quando há fatores; neutra (tracejada) quando vazia. */
+function cellClass(band: SwotRiskBand, isStrength: boolean, active: boolean, populated: boolean): string {
+  if (!populated) {
+    return cn("border-dashed border-border bg-muted/30 text-muted-foreground", active && "ring-2 ring-ring");
   }
   const map: Record<SwotRiskBand, string> = {
     baixo: "border-emerald-200/60 bg-emerald-50 text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/[0.10] dark:text-emerald-300",
     alto: "border-amber-200/70 bg-amber-100 text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/15 dark:text-amber-300",
     extremo: "border-red-200/70 bg-red-100 text-red-900 dark:border-red-500/20 dark:bg-red-500/15 dark:text-red-300",
   };
-  return cn(map[band], active && "ring-2 ring-ring");
+  // Força: grade uniformemente "já positivo" (emerald), sem semântica de risco.
+  const base = isStrength ? map.baixo : map[band];
+  return cn(base, active && "ring-2 ring-ring");
 }
 
 function barClass(band: SwotRiskBand): string {
@@ -133,6 +132,13 @@ export function SwotQuadrantDashboard({
   const hasFilter = cell !== null || riskFilter !== null || perspFilter !== null;
   function clearAll() { setCell(null); setRiskFilter(null); setPerspFilter(null); }
 
+  // Limpa seleções que deixaram de existir após edição/exclusão de fatores
+  // (célula esvaziada vira não-clicável; perspectiva some da distribuição).
+  useEffect(() => {
+    if (cell && !agg.cellCount.get(`${cell.p}:${cell.r}`)) setCell(null);
+    if (perspFilter && !agg.byPersp.has(perspFilter)) setPerspFilter(null);
+  }, [agg, cell, perspFilter]);
+
   const perspEntries = useMemo(
     () => [...agg.byPersp.entries()].sort((a, b) => b[1] - a[1]),
     [agg.byPersp],
@@ -168,20 +174,30 @@ export function SwotQuadrantDashboard({
           value={isStrength ? agg.total : agg.requer}
           valueClass={!isStrength && agg.requer > 0 ? "text-red-600 dark:text-red-400" : undefined}
         />
-        <div className="rounded-xl border-l-4 bg-card p-4 shadow-sm" style={{ borderLeftColor: "transparent" }}>
+        <div className={cn("rounded-xl border-l-4 bg-card p-4 shadow-sm", swotTypeBorderLeft(type))}>
           <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Resultado médio</div>
-          <div className={cn("mt-1 text-3xl font-semibold tabular-nums", swotResultColor(Math.round(agg.avg)))}>
+          <div className={cn(
+            "mt-1 text-3xl font-semibold tabular-nums",
+            isStrength ? "text-emerald-600 dark:text-emerald-400" : swotResultColor(Math.round(agg.avg)),
+          )}>
             {agg.avg.toFixed(1)}
           </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-            <div className={cn("h-full rounded-full", barClass(swotRiskBand(Math.round(agg.avg))))} style={{ width: `${(agg.avg / 16) * 100}%` }} />
+            <div
+              className={cn("h-full rounded-full", isStrength ? "bg-emerald-500/70" : barClass(swotRiskBand(Math.round(agg.avg))))}
+              style={{ width: `${(agg.avg / 16) * 100}%` }}
+            />
           </div>
         </div>
         <StatCard
           type={type}
-          label="Risco extremo"
+          label={isStrength ? "Alto impacto" : "Risco extremo"}
           value={agg.extremo}
-          valueClass={agg.extremo > 0 ? "text-red-600 dark:text-red-400" : undefined}
+          valueClass={
+            isStrength
+              ? "text-emerald-600 dark:text-emerald-400"
+              : agg.extremo > 0 ? "text-red-600 dark:text-red-400" : undefined
+          }
           sub="resultado 13–16"
         />
       </div>
@@ -230,9 +246,14 @@ export function SwotQuadrantDashboard({
                   <button
                     key={m}
                     type="button"
-                    onClick={() => setDistMode(m)}
+                    aria-pressed={distMode === m}
+                    onClick={() => {
+                      setDistMode(m);
+                      if (m === "risk") setPerspFilter(null);
+                      else setRiskFilter(null);
+                    }}
                     className={cn(
-                      "rounded-md px-2 py-0.5 transition-colors",
+                      "rounded-md px-2 py-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       distMode === m ? "bg-background font-medium text-foreground shadow-sm" : "text-muted-foreground",
                     )}
                   >
@@ -251,8 +272,9 @@ export function SwotQuadrantDashboard({
                   <button
                     key={b}
                     type="button"
+                    aria-pressed={riskFilter === b}
                     onClick={() => setRiskFilter((cur) => (cur === b ? null : b))}
-                    className={cn("group w-full text-left", riskFilter === b && "")}
+                    className="group w-full rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <div className="mb-1 flex items-center justify-between text-xs">
                       <span className={cn(riskFilter === b && "font-semibold")}>{BAND_LABEL[b]}</span>
@@ -274,8 +296,9 @@ export function SwotQuadrantDashboard({
                   <button
                     key={p}
                     type="button"
+                    aria-pressed={perspFilter === p}
                     onClick={() => setPerspFilter((cur) => (cur === p ? null : p))}
-                    className="w-full text-left"
+                    className="w-full rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <div className="mb-1 flex items-center justify-between gap-2 text-xs">
                       <span className={cn("truncate", perspFilter === p && "font-semibold")} title={p}>{p}</span>
@@ -431,9 +454,9 @@ function RowOfMatrix({
             onClick={() => onSelect(p)}
             title={`${performanceAxisLabel(type)} ${p}, Relevância ${relev} · resultado ${result} · ${n} fator(es)`}
             className={cn(
-              "flex min-h-[58px] flex-col items-center justify-center rounded-lg border transition-all",
-              cellClass(band, isStrength, active),
-              clickable ? "cursor-pointer hover:ring-2 hover:ring-ring/60" : "opacity-55",
+              "flex min-h-[58px] flex-col items-center justify-center rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              cellClass(band, isStrength, active, clickable),
+              clickable && "cursor-pointer hover:ring-2 hover:ring-ring/60",
             )}
           >
             <span className="text-base font-semibold tabular-nums">{n || ""}</span>
