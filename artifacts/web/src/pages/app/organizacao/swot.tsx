@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   ClipboardList,
@@ -19,6 +19,7 @@ import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -132,6 +133,25 @@ export default function OrganizacaoSwotPage() {
   const deleteObjective = useDeleteSwotObjectiveWithInvalidation(orgId);
   const createAction = useCreateActionPlanWithInvalidation(orgId);
 
+  // Confirmação fluída e estilizada (substitui window.confirm).
+  const [confirmState, setConfirmState] = useState<{
+    title: string;
+    description?: ReactNode;
+    confirmLabel?: string;
+    action: () => Promise<void>;
+  } | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  async function runConfirm() {
+    if (!confirmState) return;
+    setConfirming(true);
+    try {
+      await confirmState.action();
+    } finally {
+      setConfirming(false);
+      setConfirmState(null);
+    }
+  }
+
   // Resolução unificada de objetivo por referência "<fonte>:<id>".
   const objectiveByRef = useMemo(() => {
     const m = new Map<string, { label: string; source: "swot" | "kpi" }>();
@@ -243,14 +263,24 @@ export default function OrganizacaoSwotPage() {
       toast({ title: "Não foi possível salvar o fator", variant: "destructive" });
     }
   }
-  async function removeFactor(f: SwotFactor) {
-    if (!window.confirm(`Excluir o fator "${f.description}"?`)) return;
-    try {
-      await deleteFactor.mutateAsync({ orgId, factorId: f.id });
-      toast({ title: "Fator excluído" });
-    } catch {
-      toast({ title: "Não foi possível excluir o fator", variant: "destructive" });
-    }
+  function removeFactor(f: SwotFactor) {
+    setConfirmState({
+      title: "Excluir fator?",
+      description: (
+        <>
+          O fator “<span className="font-medium text-foreground">{f.description}</span>” será removido permanentemente.
+        </>
+      ),
+      confirmLabel: "Excluir",
+      action: async () => {
+        try {
+          await deleteFactor.mutateAsync({ orgId, factorId: f.id });
+          toast({ title: "Fator excluído" });
+        } catch {
+          toast({ title: "Não foi possível excluir o fator", variant: "destructive" });
+        }
+      },
+    });
   }
 
   // ─── Objective dialog ───────────────────────────────────────────────────────
@@ -288,14 +318,24 @@ export default function OrganizacaoSwotPage() {
       toast({ title: "Não foi possível salvar o objetivo", variant: "destructive" });
     }
   }
-  async function removeObjective(id: number, name: string) {
-    if (!window.confirm(`Excluir o objetivo "${name}"? Os fatores vinculados ficarão sem objetivo.`)) return;
-    try {
-      await deleteObjective.mutateAsync({ orgId, objectiveId: id });
-      toast({ title: "Objetivo excluído" });
-    } catch {
-      toast({ title: "Não foi possível excluir o objetivo", variant: "destructive" });
-    }
+  function removeObjective(id: number, name: string) {
+    setConfirmState({
+      title: "Excluir objetivo?",
+      description: (
+        <>
+          O objetivo “<span className="font-medium text-foreground">{name}</span>” será removido. Os fatores vinculados ficarão sem objetivo.
+        </>
+      ),
+      confirmLabel: "Excluir",
+      action: async () => {
+        try {
+          await deleteObjective.mutateAsync({ orgId, objectiveId: id });
+          toast({ title: "Objetivo excluído" });
+        } catch {
+          toast({ title: "Não foi possível excluir o objetivo", variant: "destructive" });
+        }
+      },
+    });
   }
 
   // ─── Action dialog (origina uma ação no Plano de Ação) ──────────────────────
@@ -673,6 +713,17 @@ export default function OrganizacaoSwotPage() {
           <Button onClick={submitAction} disabled={createAction.isPending}>Criar ação</Button>
         </DialogFooter>
       </Dialog>
+
+      {/* ── Confirmação de exclusão (popup estilizado) ── */}
+      <ConfirmDialog
+        open={confirmState !== null}
+        onOpenChange={(o) => { if (!o) setConfirmState(null); }}
+        title={confirmState?.title ?? ""}
+        description={confirmState?.description}
+        confirmLabel={confirmState?.confirmLabel ?? "Confirmar"}
+        loading={confirming}
+        onConfirm={runConfirm}
+      />
     </div>
   );
 }
@@ -751,7 +802,7 @@ function SwotView({
 
       <div className="grid gap-4 lg:grid-cols-2">
         {SWOT_TYPES.map((t) => {
-          const items = withResult.filter((f) => f.type === t).sort((a, b) => b.result - a.result).slice(0, 5);
+          const items = withResult.filter((f) => f.type === t).sort((a, b) => b.result - a.result);
           return (
             <div key={t} className={cn("rounded-xl border p-4", swotTypeTint(t))}>
               <div className="mb-3 flex items-center justify-between">
@@ -761,7 +812,7 @@ function SwotView({
               {items.length === 0 ? (
                 <p className="py-4 text-center text-xs text-muted-foreground">Nenhum fator cadastrado</p>
               ) : (
-                <ul className="-mx-1 space-y-0.5">
+                <ul className="-mx-1 max-h-72 space-y-0.5 overflow-y-auto px-1">
                   {items.map((f) => {
                     const content = (
                       <>
