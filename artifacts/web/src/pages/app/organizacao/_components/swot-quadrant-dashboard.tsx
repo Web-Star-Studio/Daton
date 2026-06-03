@@ -1,21 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, Pencil, Plus, X } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import { ChevronLeft, Pencil, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
-  RELEVANCE_SCALE_LEGEND,
-  SWOT_DECISION_SHORT,
-  SWOT_ENVIRONMENT_LABELS,
-  SWOT_OBJECTIVE_SOURCE_LABELS,
   SWOT_TYPE_PLURAL,
   performanceAxisLabel,
-  performanceScaleLegend,
   swotDecision,
-  swotDecisionBadgeColor,
   swotResult,
-  swotResultColor,
   swotRiskBand,
   swotTypeBadgeColor,
   swotTypeText,
@@ -38,112 +30,111 @@ type Props = {
   onCreateAction: (f: SwotFactor) => void;
 };
 
-const BAND_LABEL: Record<SwotRiskBand, string> = { baixo: "Baixo", alto: "Alto", extremo: "Extremo" };
-const BAND_ORDER: SwotRiskBand[] = ["extremo", "alto", "baixo"];
+type ScoredFactor = SwotFactor & {
+  result: number;
+  decision: ReturnType<typeof swotDecision>;
+  band: SwotRiskBand;
+};
 
-/** Fundo da célula da matriz: tint por faixa de risco quando há fatores; neutra (tracejada) quando vazia. */
-function cellClass(band: SwotRiskBand, isStrength: boolean, active: boolean, populated: boolean): string {
-  if (!populated) {
-    return cn("border-dashed border-border bg-muted/30 text-muted-foreground", active && "ring-2 ring-ring");
-  }
-  const map: Record<SwotRiskBand, string> = {
-    baixo: "border-emerald-200/60 bg-emerald-50 text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/[0.10] dark:text-emerald-300",
-    alto: "border-amber-200/70 bg-amber-100 text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/15 dark:text-amber-300",
-    extremo: "border-red-200/70 bg-red-100 text-red-900 dark:border-red-500/20 dark:bg-red-500/15 dark:text-red-300",
-  };
-  // Força: grade uniformemente "já positivo" (emerald), sem semântica de risco.
-  const base = isStrength ? map.baixo : map[band];
-  return cn(base, active && "ring-2 ring-ring");
+type PerspStat = {
+  persp: string;
+  total: number;
+  requer: number;
+  byBand: Record<SwotRiskBand, number>;
+};
+
+const BAND_ORDER: SwotRiskBand[] = ["extremo", "alto", "baixo"];
+const MAX_PERSP = 8; // máx. de áreas exibidas na aba "Por área".
+
+/** Scroll sutil, nativo e discoverable (barra fina visível quando há overflow). */
+const SCROLL_CLS =
+  "overflow-y-auto [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border";
+
+/** Rótulo da faixa: risco (Fraqueza/Ameaça/Oportunidade) vs alavancagem (Força). */
+const ZONE_LABELS: Record<"risk" | "leverage", Record<SwotRiskBand, string>> = {
+  risk: { extremo: "Extremo", alto: "Alto", baixo: "Baixo" },
+  leverage: { extremo: "Alavancar agora", alto: "Sustentar", baixo: "Monitorar" },
+};
+function zoneLabel(band: SwotRiskBand, isStrength: boolean): string {
+  return ZONE_LABELS[isStrength ? "leverage" : "risk"][band];
 }
 
 function barClass(band: SwotRiskBand): string {
   return { baixo: "bg-emerald-500/70", alto: "bg-amber-500/80", extremo: "bg-red-500/80" }[band];
 }
 
-/** Cor sólida da barra de distribuição por perspectiva (classes literais p/ Tailwind). */
-function typeBarBg(type: SwotFactorType): string {
-  switch (type) {
-    case "strength": return "bg-emerald-500/70";
-    case "weakness": return "bg-rose-500/70";
-    case "opportunity": return "bg-blue-500/70";
-    case "threat": return "bg-amber-500/70";
+/** Preenchimento da barra por faixa. Força usa escala emerald (sem semântica de risco). */
+function magnitudeBarClass(band: SwotRiskBand, isStrength: boolean): string {
+  if (isStrength) {
+    return { baixo: "bg-emerald-500/60", alto: "bg-emerald-500/80", extremo: "bg-emerald-600" }[band];
   }
+  return barClass(band);
+}
+
+/** Cor do número do resultado (segundo canal além do comprimento da barra). */
+function bandTextClass(band: SwotRiskBand, isStrength: boolean): string {
+  if (isStrength) return "text-emerald-700 dark:text-emerald-300";
+  return {
+    baixo: "text-emerald-700 dark:text-emerald-300",
+    alto: "text-amber-700 dark:text-amber-400",
+    extremo: "text-red-700 dark:text-red-400",
+  }[band];
 }
 
 export function SwotQuadrantDashboard({
   type,
   factors,
-  objectiveByRef,
-  unitNameById,
   canWrite,
   onBack,
   onEdit,
   onCreateAction,
 }: Props) {
   const isStrength = type === "strength";
+  const [view, setView] = useState<"prio" | "persp">("prio");
 
-  // Deriva resultado/decisão/faixa uma vez.
-  const scored = useMemo(
+  // Deriva resultado/decisão/faixa e ordena por gravidade (desempate estável).
+  const ranked = useMemo<ScoredFactor[]>(
     () =>
-      factors.map((f) => {
-        const result = swotResult(f.performance, f.relevance);
-        return { ...f, result, decision: swotDecision(f.type, result), band: swotRiskBand(result) };
-      }),
+      factors
+        .map((f) => {
+          const result = swotResult(f.performance, f.relevance);
+          return { ...f, result, decision: swotDecision(f.type, result), band: swotRiskBand(result) };
+        })
+        .sort((a, b) => b.result - a.result || b.relevance - a.relevance || b.performance - a.performance),
     [factors],
   );
 
-  // Agregações base (não reagem ao filtro — referência estável).
   const agg = useMemo(() => {
-    const total = scored.length;
-    const requer = scored.filter((f) => f.decision === "requer").length;
-    const extremo = scored.filter((f) => f.band === "extremo").length;
-    const avg = total ? scored.reduce((s, f) => s + f.result, 0) / total : 0;
-    const cellCount = new Map<string, number>();
-    const byBand: Record<SwotRiskBand, number> = { baixo: 0, alto: 0, extremo: 0 };
-    const byPersp = new Map<string, number>();
-    for (const f of scored) {
-      cellCount.set(`${f.performance}:${f.relevance}`, (cellCount.get(`${f.performance}:${f.relevance}`) ?? 0) + 1);
-      byBand[f.band] += 1;
+    const total = ranked.length;
+    const requer = ranked.filter((f) => f.decision === "requer").length;
+    const extremo = ranked.filter((f) => f.band === "extremo").length;
+    const avg = total ? ranked.reduce((s, f) => s + f.result, 0) / total : 0;
+    return { total, requer, extremo, avg };
+  }, [ranked]);
+
+  // Perspectiva × faixa (aba "Por área"): onde o risco/força se concentra.
+  const perspStats = useMemo<PerspStat[]>(() => {
+    const m = new Map<string, PerspStat>();
+    for (const f of ranked) {
       const p = f.perspective || "Sem perspectiva";
-      byPersp.set(p, (byPersp.get(p) ?? 0) + 1);
+      let e = m.get(p);
+      if (!e) {
+        e = { persp: p, total: 0, requer: 0, byBand: { baixo: 0, alto: 0, extremo: 0 } };
+        m.set(p, e);
+      }
+      e.total += 1;
+      e.byBand[f.band] += 1;
+      if (f.decision === "requer") e.requer += 1;
     }
-    return { total, requer, extremo, avg, cellCount, byBand, byPersp };
-  }, [scored]);
+    // Áreas mais "pesadas" primeiro (extremo conta dobrado).
+    return [...m.values()].sort(
+      (a, b) =>
+        b.byBand.extremo * 2 + b.byBand.alto - (a.byBand.extremo * 2 + a.byBand.alto) || b.total - a.total,
+    );
+  }, [ranked]);
 
-  // ─── Filter bus ──────────────────────────────────────────────────────────
-  const [cell, setCell] = useState<{ p: number; r: number } | null>(null);
-  const [riskFilter, setRiskFilter] = useState<SwotRiskBand | null>(null);
-  const [perspFilter, setPerspFilter] = useState<string | null>(null);
-  const [distMode, setDistMode] = useState<"risk" | "perspective">(isStrength ? "perspective" : "risk");
-
-  const filtered = useMemo(
-    () =>
-      scored
-        .filter((f) => {
-          if (cell && (f.performance !== cell.p || f.relevance !== cell.r)) return false;
-          if (riskFilter && f.band !== riskFilter) return false;
-          if (perspFilter && (f.perspective || "Sem perspectiva") !== perspFilter) return false;
-          return true;
-        })
-        .sort((a, b) => b.result - a.result),
-    [scored, cell, riskFilter, perspFilter],
-  );
-
-  const hasFilter = cell !== null || riskFilter !== null || perspFilter !== null;
-  function clearAll() { setCell(null); setRiskFilter(null); setPerspFilter(null); }
-
-  // Limpa seleções que deixaram de existir após edição/exclusão de fatores
-  // (célula esvaziada vira não-clicável; perspectiva some da distribuição).
-  useEffect(() => {
-    if (cell && !agg.cellCount.get(`${cell.p}:${cell.r}`)) setCell(null);
-    if (perspFilter && !agg.byPersp.has(perspFilter)) setPerspFilter(null);
-  }, [agg, cell, perspFilter]);
-
-  const perspEntries = useMemo(
-    () => [...agg.byPersp.entries()].sort((a, b) => b[1] - a[1]),
-    [agg.byPersp],
-  );
-  const maxPersp = perspEntries.reduce((m, [, n]) => Math.max(m, n), 0);
+  const hasPersp = useMemo(() => factors.some((f) => f.perspective), [factors]);
+  const showPersp = view === "persp" && hasPersp;
 
   return (
     <div className="space-y-5">
@@ -165,219 +156,80 @@ export function SwotQuadrantDashboard({
         </Badge>
       </div>
 
-      {/* 2. KPIs */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard type={type} label="Total" value={agg.total} />
-        <StatCard
-          type={type}
-          label={isStrength ? "Já positivos" : "Requer ação"}
-          value={isStrength ? agg.total : agg.requer}
-          valueClass={!isStrength && agg.requer > 0 ? "text-red-600 dark:text-red-400" : undefined}
-        />
-        <div className={cn("rounded-xl border-l-4 bg-card p-4 shadow-sm", swotTypeBorderLeft(type))}>
-          <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Resultado médio</div>
-          <div className={cn(
-            "mt-1 text-3xl font-semibold tabular-nums",
-            isStrength ? "text-emerald-600 dark:text-emerald-400" : swotResultColor(Math.round(agg.avg)),
-          )}>
-            {agg.avg.toFixed(1)}
-          </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-            <div
-              className={cn("h-full rounded-full", isStrength ? "bg-emerald-500/70" : barClass(swotRiskBand(Math.round(agg.avg))))}
-              style={{ width: `${(agg.avg / 16) * 100}%` }}
-            />
-          </div>
-        </div>
-        <StatCard
-          type={type}
-          label={isStrength ? "Alto impacto" : "Risco extremo"}
-          value={agg.extremo}
-          valueClass={
-            isStrength
-              ? "text-emerald-600 dark:text-emerald-400"
-              : agg.extremo > 0 ? "text-red-600 dark:text-red-400" : undefined
-          }
-          sub="resultado 13–16"
-        />
-      </div>
-
-      {/* 3. Hero matrix + distribution */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
-        {/* Matrix */}
-        <div className="rounded-xl border bg-card p-4 shadow-sm">
-          <div className="mb-3 text-sm font-semibold">Matriz de prioridade</div>
-          <div className="grid grid-cols-[3.5rem_repeat(4,minmax(0,1fr))] gap-1.5">
-            {[4, 3, 2, 1].map((r) => (
-              <RowOfMatrix
-                key={r}
-                relev={r}
-                type={type}
-                isStrength={isStrength}
-                cellCount={agg.cellCount}
-                selected={cell}
-                onSelect={(p) => setCell((c) => (c && c.p === p && c.r === r ? null : { p, r }))}
-              />
-            ))}
-            {/* eixo X */}
-            <div />
-            {[1, 2, 3, 4].map((p) => {
-              const leg = performanceScaleLegend(type).find((s) => s.value === p);
-              return (
-                <div key={p} className="px-1 pt-1 text-center text-[10px] leading-tight text-muted-foreground">
-                  <div className="font-semibold text-foreground/70">{p}</div>
-                  <div className="truncate" title={leg?.label}>{leg?.label}</div>
-                </div>
-              );
-            })}
-          </div>
-          <p className="mt-3 text-[11px] text-muted-foreground">
-            Eixo X: {performanceAxisLabel(type)} (1–4) · Eixo Y: Relevância (1–4) · cada célula = resultado e nº de fatores.
-          </p>
-        </div>
-
-        {/* Distribution */}
-        <div className="rounded-xl border bg-card p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm font-semibold">Distribuição</span>
-            {!isStrength && (
-              <div className="flex gap-1 rounded-lg bg-muted p-0.5 text-[11px]">
-                {(["risk", "perspective"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    aria-pressed={distMode === m}
-                    onClick={() => {
-                      setDistMode(m);
-                      if (m === "risk") setPerspFilter(null);
-                      else setRiskFilter(null);
-                    }}
-                    className={cn(
-                      "rounded-md px-2 py-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      distMode === m ? "bg-background font-medium text-foreground shadow-sm" : "text-muted-foreground",
-                    )}
-                  >
-                    {m === "risk" ? "Risco" : "Perspectiva"}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          {distMode === "risk" && !isStrength ? (
-            <div className="space-y-2.5">
-              {BAND_ORDER.map((b) => {
-                const n = agg.byBand[b];
-                const pct = agg.total ? (n / agg.total) * 100 : 0;
-                return (
-                  <button
-                    key={b}
-                    type="button"
-                    aria-pressed={riskFilter === b}
-                    onClick={() => setRiskFilter((cur) => (cur === b ? null : b))}
-                    className="group w-full rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <div className="mb-1 flex items-center justify-between text-xs">
-                      <span className={cn(riskFilter === b && "font-semibold")}>{BAND_LABEL[b]}</span>
-                      <span className="tabular-nums text-muted-foreground">{n}</span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-muted">
-                      <div className={cn("h-full rounded-full transition-all", barClass(b))} style={{ width: `${pct}%` }} />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+      {/* 2. Frase-resposta + gráfico de prioridade (barras) */}
+      <div className="rounded-xl border bg-card p-4 shadow-sm">
+        {/* Frase-herói: a conclusão em uma linha, antes do gráfico. */}
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          {isStrength ? (
+            <>
+              <span className="text-3xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{agg.total}</span>
+              <span className="text-sm text-muted-foreground">
+                {agg.total === 1 ? "força mapeada" : "forças mapeadas"}
+                {agg.extremo > 0 && (
+                  <>
+                    {" "}· <span className="font-medium text-foreground">{agg.extremo}</span> de alto impacto
+                  </>
+                )}
+              </span>
+            </>
           ) : (
-            <div className="space-y-2.5">
-              {perspEntries.length === 0 ? (
-                <p className="py-3 text-center text-xs text-muted-foreground">Sem dados</p>
-              ) : (
-                perspEntries.map(([p, n]) => (
-                  <button
-                    key={p}
-                    type="button"
-                    aria-pressed={perspFilter === p}
-                    onClick={() => setPerspFilter((cur) => (cur === p ? null : p))}
-                    className="w-full rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <div className="mb-1 flex items-center justify-between gap-2 text-xs">
-                      <span className={cn("truncate", perspFilter === p && "font-semibold")} title={p}>{p}</span>
-                      <span className="shrink-0 tabular-nums text-muted-foreground">{n}</span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={cn("h-full rounded-full transition-all", typeBarBg(type))}
-                        style={{ width: `${maxPersp ? (n / maxPersp) * 100 : 0}%` }}
-                      />
-                    </div>
-                  </button>
-                ))
+            <>
+              <span
+                className={cn(
+                  "text-3xl font-semibold tabular-nums",
+                  agg.requer > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400",
+                )}
+              >
+                {agg.requer}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                de {agg.total} {agg.total === 1 ? "fator" : "fatores"}{" "}
+                <span className="font-medium text-foreground">{agg.requer === 1 ? "requer ação" : "requerem ação"}</span>
+              </span>
+            </>
+          )}
+          <span className="ml-auto text-xs text-muted-foreground">
+            média <span className="tabular-nums">{agg.avg.toFixed(1)}</span> / 16
+          </span>
+        </div>
+
+        {agg.total === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Nenhum fator cadastrado neste pilar.</p>
+        ) : (
+          <>
+            {/* Mini-abas: Prioridade (barras por fator) × Por área (barras por perspectiva). */}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex gap-1 rounded-lg bg-muted p-0.5 text-xs">
+                <TabButton active={!showPersp} onClick={() => setView("prio")}>
+                  {isStrength ? "Destaques" : "Prioridade"}
+                </TabButton>
+                {hasPersp && (
+                  <TabButton active={showPersp} onClick={() => setView("persp")}>
+                    Por área
+                  </TabButton>
+                )}
+              </div>
+              {!showPersp && !isStrength && (
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <span className="inline-block h-3 w-0.5 bg-foreground" /> linha = corte 8 (requer ação)
+                </span>
               )}
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* 4. Actionable list (filtered) */}
-      <div className="rounded-xl border bg-card p-4 shadow-sm">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold">Fatores</span>
-          <span className="text-xs text-muted-foreground">({filtered.length})</span>
-          {hasFilter && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {cell && <FilterChip label={`Célula ${cell.p}×${cell.r} · resultado ${cell.p * cell.r}`} onClear={() => setCell(null)} />}
-              {riskFilter && <FilterChip label={`Risco ${BAND_LABEL[riskFilter]}`} onClear={() => setRiskFilter(null)} />}
-              {perspFilter && <FilterChip label={perspFilter} onClear={() => setPerspFilter(null)} />}
-              <button type="button" onClick={clearAll} className="text-[11px] text-muted-foreground underline-offset-2 hover:underline">
-                limpar tudo
-              </button>
+            <div className="mt-3">
+              {showPersp ? (
+                <PerspectiveBars stats={perspStats} isStrength={isStrength} />
+              ) : (
+                <PriorityBars
+                  rows={ranked}
+                  isStrength={isStrength}
+                  canWrite={canWrite}
+                  onEdit={onEdit}
+                  onCreateAction={onCreateAction}
+                />
+              )}
             </div>
-          )}
-        </div>
-        {filtered.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Nenhum fator {hasFilter ? "para este filtro" : "cadastrado"}.</p>
-        ) : (
-          <ScrollArea className="-mr-3 max-h-[420px] pr-3">
-            <ul className="space-y-2">
-              {filtered.map((f) => {
-                const objRef = f.objectiveSource && f.objectiveSourceId !== null ? `${f.objectiveSource}:${f.objectiveSourceId}` : null;
-                const obj = objRef ? objectiveByRef.get(objRef) : null;
-                return (
-                  <li key={f.id} className="rounded-lg border bg-background p-3 transition-colors hover:border-primary/40">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium leading-snug">{f.description}</div>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-                          <span>{f.unitId !== null ? (unitNameById.get(f.unitId) ?? "—") : "Corporativo"}</span>
-                          {f.perspective && <span>· {f.perspective}</span>}
-                          <span>· {SWOT_ENVIRONMENT_LABELS[f.environment]}</span>
-                          {obj
-                            ? <span>· {SWOT_OBJECTIVE_SOURCE_LABELS[obj.source]}: {obj.label}</span>
-                            : objRef && <span className="italic">· objetivo removido</span>}
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        <span className={cn("text-lg font-semibold leading-none tabular-nums", swotResultColor(f.result))}>{f.result}</span>
-                        <Badge variant="secondary" className={cn("text-[10px]", swotDecisionBadgeColor(f.decision))}>{SWOT_DECISION_SHORT[f.decision]}</Badge>
-                      </div>
-                    </div>
-                    {canWrite && (
-                      <div className="mt-2.5 flex gap-1.5">
-                        {f.decision === "requer" && (
-                          <Button size="sm" variant="outline" onClick={() => onCreateAction(f)}>
-                            <Plus className="mr-1 h-3.5 w-3.5" /> Criar ação
-                          </Button>
-                        )}
-                        <Button size="sm" variant="ghost" onClick={() => onEdit(f)}>
-                          <Pencil className="mr-1 h-3.5 w-3.5" /> Editar
-                        </Button>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </ScrollArea>
+          </>
         )}
       </div>
     </div>
@@ -386,95 +238,160 @@ export function SwotQuadrantDashboard({
 
 // ─── Subcomponents ─────────────────────────────────────────────────────────
 
-function StatCard({
-  type,
-  label,
-  value,
-  valueClass,
-  sub,
-}: {
-  type: SwotFactorType;
-  label: string;
-  value: number;
-  valueClass?: string;
-  sub?: string;
-}) {
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <div className={cn("rounded-xl border-l-4 bg-card p-4 shadow-sm", swotTypeBorderLeft(type))}>
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={cn("mt-1 text-3xl font-semibold tabular-nums", valueClass ?? "text-foreground")}>{value}</div>
-      {sub && <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>}
-    </div>
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "rounded-md px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        active ? "bg-background font-medium text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
-function swotTypeBorderLeft(type: SwotFactorType): string {
-  switch (type) {
-    case "strength": return "border-l-emerald-400 dark:border-l-emerald-500/60";
-    case "weakness": return "border-l-rose-400 dark:border-l-rose-500/60";
-    case "opportunity": return "border-l-blue-400 dark:border-l-blue-500/60";
-    case "threat": return "border-l-amber-400 dark:border-l-amber-500/60";
-  }
-}
-
-function RowOfMatrix({
-  relev,
-  type,
+/** Gráfico de barras horizontais: todos os fatores por gravidade (com scroll), régua do corte 8. */
+function PriorityBars({
+  rows,
   isStrength,
-  cellCount,
-  selected,
-  onSelect,
+  canWrite,
+  onEdit,
+  onCreateAction,
 }: {
-  relev: number;
-  type: SwotFactorType;
+  rows: ScoredFactor[];
   isStrength: boolean;
-  cellCount: Map<string, number>;
-  selected: { p: number; r: number } | null;
-  onSelect: (p: number) => void;
+  canWrite: boolean;
+  onEdit: (f: SwotFactor) => void;
+  onCreateAction: (f: SwotFactor) => void;
 }) {
-  const relevLeg = RELEVANCE_SCALE_LEGEND.find((s) => s.value === relev);
   return (
-    <>
-      <div className="flex flex-col justify-center pr-1 text-right text-[10px] leading-tight text-muted-foreground">
-        <span className="font-semibold text-foreground/70">{relev}</span>
-        <span className="truncate" title={relevLeg?.label}>{relevLeg?.label}</span>
-      </div>
-      {[1, 2, 3, 4].map((p) => {
-        const result = p * relev;
-        const band = swotRiskBand(result);
-        const n = cellCount.get(`${p}:${relev}`) ?? 0;
-        const active = selected?.p === p && selected?.r === relev;
-        const clickable = n > 0;
+    <ul className={cn("max-h-[20rem] space-y-1.5 pr-1.5", SCROLL_CLS)}>
+      {rows.map((f) => {
+        // Sinal textual de decisão (independe de cor e de canWrite) — para read-only e leitor de tela.
+        const decisionText = isStrength
+          ? "força já positiva"
+          : f.decision === "requer"
+            ? "requer ação"
+            : "facultativo";
+        const labelInner = (
+          <>
+            {f.description}
+            <span className="sr-only"> — resultado {f.result} de 16, {decisionText}</span>
+          </>
+        );
         return (
-          <button
-            key={p}
-            type="button"
-            disabled={!clickable}
-            aria-pressed={active}
-            onClick={() => onSelect(p)}
-            title={`${performanceAxisLabel(type)} ${p}, Relevância ${relev} · resultado ${result} · ${n} fator(es)`}
-            className={cn(
-              "flex min-h-[58px] flex-col items-center justify-center rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              cellClass(band, isStrength, active, clickable),
-              clickable && "cursor-pointer hover:ring-2 hover:ring-ring/60",
+          <li key={f.id} className="group grid grid-cols-[minmax(6rem,38%)_1fr_auto] items-center gap-2 sm:gap-3">
+            {canWrite ? (
+              <button
+                type="button"
+                onClick={() => onEdit(f)}
+                title={f.description}
+                className="block w-full truncate rounded text-left text-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {labelInner}
+              </button>
+            ) : (
+              <span className="block w-full truncate text-sm" title={f.description}>
+                {labelInner}
+              </span>
             )}
-          >
-            <span className="text-base font-semibold tabular-nums">{n || ""}</span>
-            <span className="text-[9px] opacity-70">{result}</span>
-          </button>
+            <div className="flex items-center gap-2">
+              <div aria-hidden="true" className="relative h-5 min-w-[2.5rem] flex-1 overflow-hidden rounded bg-muted/50">
+                <div
+                  className={cn("h-full rounded", magnitudeBarClass(f.band, isStrength))}
+                  style={{ width: `${Math.max((f.result / 16) * 100, 4)}%` }}
+                />
+                {!isStrength && (
+                  <span className="absolute top-0 h-full w-0.5 bg-foreground" style={{ left: "50%" }} />
+                )}
+              </div>
+              <span className={cn("w-6 shrink-0 text-right text-sm font-semibold tabular-nums", bandTextClass(f.band, isStrength))}>
+                {f.result}
+              </span>
+            </div>
+            {canWrite && (
+              <div className="flex shrink-0 items-center gap-1">
+                {f.decision === "requer" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => onCreateAction(f)}
+                    aria-label={`Criar ação para: ${f.description}`}
+                  >
+                    <Plus className="h-3.5 w-3.5 sm:mr-1" />
+                    <span className="hidden sm:inline">Ação</span>
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 w-7 p-0 text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+                  onClick={() => onEdit(f)}
+                  aria-label={`Editar: ${f.description}`}
+                  title="Editar"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+          </li>
         );
       })}
-    </>
+    </ul>
   );
 }
 
-function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+/** Barras por perspectiva × faixa: onde o risco/força se concentra. */
+function PerspectiveBars({ stats, isStrength }: { stats: PerspStat[]; isStrength: boolean }) {
+  const maxTotal = Math.max(...stats.map((e) => e.total), 1);
+  const shown = stats.slice(0, MAX_PERSP);
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[11px] text-primary">
-      {label}
-      <button type="button" onClick={onClear} aria-label={`Remover filtro ${label}`} className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full hover:bg-primary/10">
-        <X className="h-3 w-3" />
-      </button>
-    </span>
+    <div>
+      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        {BAND_ORDER.map((b) => (
+          <span key={b} className="inline-flex items-center gap-1">
+            <span className={cn("h-2 w-2 rounded-full", magnitudeBarClass(b, isStrength))} />
+            {zoneLabel(b, isStrength)}
+          </span>
+        ))}
+      </div>
+      <ul className="space-y-2.5">
+        {shown.map((e) => (
+          <li key={e.persp}>
+            <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+              <span className="min-w-0 truncate font-medium" title={e.persp}>{e.persp}</span>
+              <span className="shrink-0 tabular-nums text-muted-foreground">
+                {e.total}
+                {!isStrength && e.requer > 0 && (
+                  <> · {e.requer} {e.requer === 1 ? "requer" : "requerem"} ação</>
+                )}
+                {isStrength && e.byBand.extremo > 0 && <> · {e.byBand.extremo} de alto impacto</>}
+              </span>
+            </div>
+            <div aria-hidden="true" className="h-3 w-full overflow-hidden rounded-full bg-muted/40">
+              <div className="flex h-full" style={{ width: `${(e.total / maxTotal) * 100}%` }}>
+                {BAND_ORDER.map((b) =>
+                  e.byBand[b] ? (
+                    <div
+                      key={b}
+                      className={cn("h-full", magnitudeBarClass(b, isStrength))}
+                      style={{ width: `${(e.byBand[b] / e.total) * 100}%` }}
+                    />
+                  ) : null,
+                )}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {stats.length > MAX_PERSP && (
+        <p className="mt-2 text-[11px] text-muted-foreground">+ {stats.length - MAX_PERSP} outra(s) área(s)</p>
+      )}
+    </div>
   );
 }
