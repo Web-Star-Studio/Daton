@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { swotDecision, swotResult, swotRiskBand } from "@/lib/swot-client";
+import {
+  encodeObjectiveRef,
+  parseObjectiveRef,
+  swotDecision,
+  swotResult,
+  swotRiskBand,
+} from "@/lib/swot-client";
 
 describe("swotResult", () => {
   it("multiplies performance by relevance (1-4 scale → 1-16)", () => {
@@ -37,6 +43,27 @@ describe("swotDecision (FPLAN methodology — ≥8 requer ação)", () => {
   it("uses 8 (not 9) as the threshold — boundary check", () => {
     expect(swotDecision("weakness", 7)).toBe("irrelevante");
     expect(swotDecision("weakness", 8)).toBe("requer");
+  });
+});
+
+describe("objective ref (fonte:id)", () => {
+  it("encodes source + id", () => {
+    expect(encodeObjectiveRef("kpi", 5)).toBe("kpi:5");
+    expect(encodeObjectiveRef("swot", 12)).toBe("swot:12");
+  });
+
+  it("parses a valid ref round-trip", () => {
+    expect(parseObjectiveRef("kpi:5")).toEqual({ source: "kpi", id: 5 });
+    expect(parseObjectiveRef("swot:12")).toEqual({ source: "swot", id: 12 });
+  });
+
+  it("returns null for empty or malformed refs", () => {
+    expect(parseObjectiveRef("")).toBeNull();
+    expect(parseObjectiveRef("kpi")).toBeNull();
+    expect(parseObjectiveRef("kpi:abc")).toBeNull();
+    expect(parseObjectiveRef("swot:")).toBeNull();
+    expect(parseObjectiveRef("swot:0")).toBeNull();
+    expect(parseObjectiveRef("swot:-3")).toBeNull();
   });
 });
 
