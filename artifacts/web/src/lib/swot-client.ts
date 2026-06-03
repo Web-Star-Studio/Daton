@@ -3,32 +3,25 @@ import {
   getListSwotFactorsQueryKey,
   getListSwotObjectivesQueryKey,
   useCreateSwotFactor,
-  useCreateSwotObjective,
   useDeleteSwotFactor,
-  useDeleteSwotObjective,
   useListSwotFactors,
   useListSwotObjectives,
   useUpdateSwotFactor,
-  useUpdateSwotObjective,
   type CreateSwotFactorBody,
-  type CreateSwotObjectiveBody,
   type SwotEnvironment,
   type SwotFactor,
   type SwotFactorType,
   type SwotObjective,
   type UpdateSwotFactorBody,
-  type UpdateSwotObjectiveBody,
 } from "@workspace/api-client-react";
 
 export type {
   CreateSwotFactorBody,
-  CreateSwotObjectiveBody,
   SwotEnvironment,
   SwotFactor,
   SwotFactorType,
   SwotObjective,
   UpdateSwotFactorBody,
-  UpdateSwotObjectiveBody,
 };
 
 // ─── Domain labels ───────────────────────────────────────────────────────────
@@ -269,21 +262,6 @@ export function useSwotFactors(orgId: number) {
 function invalidate(queryClient: ReturnType<typeof useQueryClient>, orgId: number) {
   queryClient.invalidateQueries({ queryKey: getListSwotFactorsQueryKey(orgId) });
   queryClient.invalidateQueries({ queryKey: getListSwotObjectivesQueryKey(orgId) });
-}
-
-export function useCreateSwotObjectiveWithInvalidation(orgId: number) {
-  const queryClient = useQueryClient();
-  return useCreateSwotObjective({ mutation: { onSuccess: () => invalidate(queryClient, orgId) } });
-}
-
-export function useUpdateSwotObjectiveWithInvalidation(orgId: number) {
-  const queryClient = useQueryClient();
-  return useUpdateSwotObjective({ mutation: { onSuccess: () => invalidate(queryClient, orgId) } });
-}
-
-export function useDeleteSwotObjectiveWithInvalidation(orgId: number) {
-  const queryClient = useQueryClient();
-  return useDeleteSwotObjective({ mutation: { onSuccess: () => invalidate(queryClient, orgId) } });
 }
 
 export function useCreateSwotFactorWithInvalidation(orgId: number) {

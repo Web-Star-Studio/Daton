@@ -207,6 +207,16 @@ export default function OrganizacaoSwotPage() {
   const [editingFactorId, setEditingFactorId] = useState<number | null>(null);
   const [factorForm, setFactorForm] = useState<FactorForm>(blankFactorForm());
 
+  // Mantém o objetivo atualmente vinculado visível mesmo se for SWOT legado (não mais ofertado).
+  const objectiveOptionsForFactor = useMemo(() => {
+    const ref = factorForm.objectiveRef;
+    if (ref && ref.startsWith("swot:") && !objectiveOptions.some((o) => o.value === ref)) {
+      const obj = objectiveByRef.get(ref);
+      return [...objectiveOptions, { value: ref, label: `${obj?.label ?? "(objetivo removido)"} (SWOT, legado)` }];
+    }
+    return objectiveOptions;
+  }, [objectiveOptions, objectiveByRef, factorForm.objectiveRef]);
+
   function openNewFactor() {
     setEditingFactorId(null);
     const form = blankFactorForm();
@@ -520,13 +530,13 @@ export default function OrganizacaoSwotPage() {
             <SearchableSelect
               value={factorForm.objectiveRef}
               onChange={(v) => setFactorForm((f) => ({ ...f, objectiveRef: v }))}
-              options={objectiveOptions}
+              options={objectiveOptionsForFactor}
               placeholder="Selecione um objetivo"
-              searchPlaceholder="Buscar objetivo (KPI ou SWOT)..."
+              searchPlaceholder="Buscar objetivo (Indicadores)..."
               emptyMessage="Nenhum objetivo disponível"
             />
             <p className="text-[11px] text-muted-foreground">
-              Objetivos vêm do KPI/Indicadores ou dos cadastrados na aba Objetivos do SWOT.
+              Objetivos vêm do módulo Indicadores (KPI). A aba Objetivos do SWOT é somente leitura.
             </p>
           </div>
           {(() => {
@@ -710,8 +720,6 @@ function SwotView({
       <SwotQuadrantDashboard
         type={detailType}
         factors={withResult.filter((f) => f.type === detailType)}
-        objectiveByRef={objectiveByRef}
-        unitNameById={unitNameById}
         canWrite={canWrite}
         onBack={() => setDetailType(null)}
         onEdit={onEdit}
@@ -761,7 +769,10 @@ function SwotView({
                 // Lista rolável de TODOS os fatores; altura fixa (~4 linhas) p/ não crescer o card.
                 // stopPropagation: rolar/clicar na lista não dispara a navegação do card.
                 <ul
-                  className={cn("max-h-[7.5rem] space-y-0.5 pr-1.5", SWOT_SCROLL_CLS)}
+                  tabIndex={0}
+                  role="group"
+                  aria-label={`${SWOT_TYPE_PLURAL[t]} — role para ver todos os fatores`}
+                  className={cn("max-h-[7.5rem] space-y-0.5 rounded pr-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", SWOT_SCROLL_CLS)}
                   onClick={(e) => e.stopPropagation()}
                 >
                   {all.map((f) => (
@@ -1018,11 +1029,13 @@ function ObjectivesPanel({
   function renderRow(refKey: string, label: string, code: string | null, count: number) {
     const isOpen = expanded === refKey;
     const rows = factorsByRef.get(refKey) ?? [];
+    const panelId = `swot-obj-panel-${refKey.replace(":", "-")}`;
     return (
       <div key={refKey}>
         <button
           type="button"
           aria-expanded={isOpen}
+          aria-controls={panelId}
           onClick={() => setExpanded((c) => (c === refKey ? null : refKey))}
           className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
@@ -1032,7 +1045,7 @@ function ObjectivesPanel({
           <span className="shrink-0 text-xs text-muted-foreground">{count} fator(es)</span>
         </button>
         {isOpen && (
-          <div className="border-t bg-muted/20">
+          <div id={panelId} role="region" className="border-t bg-muted/20">
             {rows.length === 0 ? (
               <p className="py-3 pl-10 pr-4 text-xs text-muted-foreground">Nenhum fator vinculado.</p>
             ) : (

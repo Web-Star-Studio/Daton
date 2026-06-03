@@ -17,13 +17,9 @@ import {
   type SwotRiskBand,
 } from "@/lib/swot-client";
 
-type ObjectiveRefMap = Map<string, { label: string; source: "swot" | "kpi" }>;
-
 type Props = {
   type: SwotFactorType;
   factors: SwotFactor[];
-  objectiveByRef: ObjectiveRefMap;
-  unitNameById: Map<number, string>;
   canWrite: boolean;
   onBack: () => void;
   onEdit: (f: SwotFactor) => void;
@@ -66,7 +62,8 @@ function barClass(band: SwotRiskBand): string {
 /** Preenchimento da barra por faixa. Força usa escala emerald (sem semântica de risco). */
 function magnitudeBarClass(band: SwotRiskBand, isStrength: boolean): string {
   if (isStrength) {
-    return { baixo: "bg-emerald-500/60", alto: "bg-emerald-500/80", extremo: "bg-emerald-600" }[band];
+    // 3 tons distinguíveis (claro → forte): Monitorar / Sustentar / Alavancar agora.
+    return { baixo: "bg-emerald-300", alto: "bg-emerald-500", extremo: "bg-emerald-700" }[band];
   }
   return barClass(band);
 }
@@ -330,9 +327,10 @@ function PriorityBars({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-7 w-7 p-0 text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="h-7 w-7 p-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
                   onClick={() => onEdit(f)}
-                  aria-label={`Editar: ${f.description}`}
                   title="Editar"
                 >
                   <Pencil className="h-3.5 w-3.5" />
