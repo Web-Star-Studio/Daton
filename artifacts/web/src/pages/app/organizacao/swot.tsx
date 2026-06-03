@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
+  ChevronRight,
   ClipboardList,
   Pencil,
   Plus,
@@ -19,6 +20,8 @@ import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { SwotQuadrantDashboard } from "./_components/swot-quadrant-dashboard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -32,16 +35,20 @@ import {
   useCreateActionPlanWithInvalidation,
   type ActionPlanPriority,
 } from "@/lib/action-plans-client";
+import { useKpiObjectives } from "@/lib/kpi-client";
 import {
   RELEVANCE_SCALE_LEGEND,
   SWOT_DECISION_LABELS,
   SWOT_DECISION_SHORT,
   SWOT_ENVIRONMENT_LABELS,
+  SWOT_OBJECTIVE_SOURCE_LABELS,
   SWOT_PERSPECTIVES,
   SWOT_TYPE_LABELS,
   SWOT_TYPE_PLURAL,
   SWOT_TYPES,
   defaultEnvironmentFor,
+  encodeObjectiveRef,
+  parseObjectiveRef,
   performanceAxisLabel,
   performanceScaleLegend,
   type SwotScaleLegend,
@@ -53,17 +60,18 @@ import {
   swotTypeText,
   swotTypeTint,
   useCreateSwotFactorWithInvalidation,
-  useCreateSwotObjectiveWithInvalidation,
   useDeleteSwotFactorWithInvalidation,
-  useDeleteSwotObjectiveWithInvalidation,
   useSwotFactors,
   useSwotObjectives,
   useUpdateSwotFactorWithInvalidation,
-  useUpdateSwotObjectiveWithInvalidation,
   type SwotEnvironment,
   type SwotFactor,
   type SwotFactorType,
 } from "@/lib/swot-client";
+
+/** Scroll sutil, nativo e discoverable (barra fina visível quando há overflow). */
+const SWOT_SCROLL_CLS =
+  "overflow-y-auto [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border";
 
 type Tab = "swot" | "fatores" | "objetivos";
 
@@ -77,7 +85,7 @@ type FactorForm = {
   perspective: string;
   performance: number;
   relevance: number;
-  objectiveId: string; // "" = nenhum
+  objectiveRef: string; // "" = nenhum | "<source>:<id>" (ex.: "kpi:5")
   unitId: string; // "" = Corporativo
 };
 
@@ -89,7 +97,7 @@ function blankFactorForm(): FactorForm {
     perspective: "",
     performance: 3,
     relevance: 3,
-    objectiveId: "",
+    objectiveRef: "",
     unitId: "",
   };
 }
@@ -113,6 +121,7 @@ export default function OrganizacaoSwotPage() {
 
   const { data: factors = [], isLoading } = useSwotFactors(orgId);
   const { data: objectives = [] } = useSwotObjectives(orgId);
+  const { data: kpiObjectives = [] } = useKpiObjectives(orgId);
   const { data: units = [] } = useListUnits(orgId);
   const { data: orgUsersData } = useListOrgUsers(orgId, {
     query: { queryKey: getListOrgUsersQueryKey(orgId), staleTime: 60_000 },
@@ -122,15 +131,45 @@ export default function OrganizacaoSwotPage() {
   const createFactor = useCreateSwotFactorWithInvalidation(orgId);
   const updateFactor = useUpdateSwotFactorWithInvalidation(orgId);
   const deleteFactor = useDeleteSwotFactorWithInvalidation(orgId);
-  const createObjective = useCreateSwotObjectiveWithInvalidation(orgId);
-  const updateObjective = useUpdateSwotObjectiveWithInvalidation(orgId);
-  const deleteObjective = useDeleteSwotObjectiveWithInvalidation(orgId);
   const createAction = useCreateActionPlanWithInvalidation(orgId);
 
-  const objectiveById = useMemo(
-    () => new Map(objectives.map((o) => [o.id, o])),
-    [objectives],
-  );
+  // Confirmação fluída e estilizada (substitui window.confirm).
+  const [confirmState, setConfirmState] = useState<{
+    title: string;
+    description?: ReactNode;
+    confirmLabel?: string;
+    action: () => Promise<void>;
+  } | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  async function runConfirm() {
+    if (!confirmState) return;
+    setConfirming(true);
+    try {
+      await confirmState.action();
+    } finally {
+      setConfirming(false);
+      setConfirmState(null);
+    }
+  }
+
+  // Resolução unificada de objetivo por referência "<fonte>:<id>".
+  const objectiveByRef = useMemo(() => {
+    const m = new Map<string, { label: string; source: "swot" | "kpi" }>();
+    const fmt = (code: string | null, name: string) => (code ? `${code} · ${name}` : name);
+    for (const o of kpiObjectives) m.set(`kpi:${o.id}`, { label: fmt(o.code ?? null, o.name), source: "kpi" });
+    for (const o of objectives) m.set(`swot:${o.id}`, { label: fmt(o.code ?? null, o.name), source: "swot" });
+    return m;
+  }, [kpiObjectives, objectives]);
+
+  // Opções do seletor de objetivo, agrupadas por fonte.
+  const objectiveOptions = useMemo(() => {
+    const fmt = (code: string | null | undefined, name: string) => (code ? `${code} · ${name}` : name);
+    return [
+      { value: "", label: "Nenhum" },
+      ...kpiObjectives.map((o) => ({ value: `kpi:${o.id}`, label: fmt(o.code, o.name) })),
+    ];
+  }, [kpiObjectives]);
+
   const unitNameById = useMemo(
     () => new Map(units.map((u) => [u.id, u.name])),
     [units],
@@ -168,6 +207,16 @@ export default function OrganizacaoSwotPage() {
   const [editingFactorId, setEditingFactorId] = useState<number | null>(null);
   const [factorForm, setFactorForm] = useState<FactorForm>(blankFactorForm());
 
+  // Mantém o objetivo atualmente vinculado visível mesmo se for SWOT legado (não mais ofertado).
+  const objectiveOptionsForFactor = useMemo(() => {
+    const ref = factorForm.objectiveRef;
+    if (ref && ref.startsWith("swot:") && !objectiveOptions.some((o) => o.value === ref)) {
+      const obj = objectiveByRef.get(ref);
+      return [...objectiveOptions, { value: ref, label: `${obj?.label ?? "(objetivo removido)"} (SWOT, legado)` }];
+    }
+    return objectiveOptions;
+  }, [objectiveOptions, objectiveByRef, factorForm.objectiveRef]);
+
   function openNewFactor() {
     setEditingFactorId(null);
     const form = blankFactorForm();
@@ -184,7 +233,10 @@ export default function OrganizacaoSwotPage() {
       perspective: f.perspective ?? "",
       performance: f.performance,
       relevance: f.relevance,
-      objectiveId: f.objectiveId !== null ? String(f.objectiveId) : "",
+      objectiveRef:
+        f.objectiveSource && f.objectiveSourceId !== null
+          ? encodeObjectiveRef(f.objectiveSource, f.objectiveSourceId)
+          : "",
       unitId: f.unitId !== null ? String(f.unitId) : "",
     });
     setFactorDialogOpen(true);
@@ -195,6 +247,7 @@ export default function OrganizacaoSwotPage() {
       toast({ title: "Informe a descrição do fator", variant: "destructive" });
       return;
     }
+    const objRef = parseObjectiveRef(factorForm.objectiveRef);
     const data = {
       description,
       type: factorForm.type,
@@ -202,7 +255,8 @@ export default function OrganizacaoSwotPage() {
       perspective: factorForm.perspective.trim() || null,
       performance: factorForm.performance,
       relevance: factorForm.relevance,
-      objectiveId: factorForm.objectiveId ? Number(factorForm.objectiveId) : null,
+      objectiveSource: objRef?.source ?? null,
+      objectiveSourceId: objRef?.id ?? null,
       unitId: factorForm.unitId ? Number(factorForm.unitId) : null,
     };
     try {
@@ -218,60 +272,28 @@ export default function OrganizacaoSwotPage() {
       toast({ title: "Não foi possível salvar o fator", variant: "destructive" });
     }
   }
-  async function removeFactor(f: SwotFactor) {
-    if (!window.confirm(`Excluir o fator "${f.description}"?`)) return;
-    try {
-      await deleteFactor.mutateAsync({ orgId, factorId: f.id });
-      toast({ title: "Fator excluído" });
-    } catch {
-      toast({ title: "Não foi possível excluir o fator", variant: "destructive" });
-    }
+  function removeFactor(f: SwotFactor) {
+    setConfirmState({
+      title: "Excluir fator?",
+      description: (
+        <>
+          O fator “<span className="font-medium text-foreground">{f.description}</span>” será removido permanentemente.
+        </>
+      ),
+      confirmLabel: "Excluir",
+      action: async () => {
+        try {
+          await deleteFactor.mutateAsync({ orgId, factorId: f.id });
+          toast({ title: "Fator excluído" });
+        } catch {
+          toast({ title: "Não foi possível excluir o fator", variant: "destructive" });
+        }
+      },
+    });
   }
 
-  // ─── Objective dialog ───────────────────────────────────────────────────────
-  const [objDialogOpen, setObjDialogOpen] = useState(false);
-  const [editingObjId, setEditingObjId] = useState<number | null>(null);
-  const [objForm, setObjForm] = useState<{ code: string; name: string }>({ code: "", name: "" });
-
-  function openNewObjective() {
-    setEditingObjId(null);
-    setObjForm({ code: "", name: "" });
-    setObjDialogOpen(true);
-  }
-  function openEditObjective(id: number, code: string | null, name: string) {
-    setEditingObjId(id);
-    setObjForm({ code: code ?? "", name });
-    setObjDialogOpen(true);
-  }
-  async function saveObjective() {
-    const name = objForm.name.trim();
-    if (!name) {
-      toast({ title: "Informe o nome do objetivo", variant: "destructive" });
-      return;
-    }
-    const data = { code: objForm.code.trim() || null, name };
-    try {
-      if (editingObjId !== null) {
-        await updateObjective.mutateAsync({ orgId, objectiveId: editingObjId, data });
-        toast({ title: "Objetivo atualizado" });
-      } else {
-        await createObjective.mutateAsync({ orgId, data });
-        toast({ title: "Objetivo criado" });
-      }
-      setObjDialogOpen(false);
-    } catch {
-      toast({ title: "Não foi possível salvar o objetivo", variant: "destructive" });
-    }
-  }
-  async function removeObjective(id: number, name: string) {
-    if (!window.confirm(`Excluir o objetivo "${name}"? Os fatores vinculados ficarão sem objetivo.`)) return;
-    try {
-      await deleteObjective.mutateAsync({ orgId, objectiveId: id });
-      toast({ title: "Objetivo excluído" });
-    } catch {
-      toast({ title: "Não foi possível excluir o objetivo", variant: "destructive" });
-    }
-  }
+  // SWOT é consumidor puro de objetivos: criação/edição vive no módulo gerador
+  // (Indicadores/KPI). A aba "Objetivos" abaixo é apenas leitura/agregação.
 
   // ─── Action dialog (origina uma ação no Plano de Ação) ──────────────────────
   const [actionFactor, setActionFactor] = useState<SwotFactor | null>(null);
@@ -399,7 +421,8 @@ export default function OrganizacaoSwotPage() {
           counts={counts}
           withResult={withResult}
           requerList={requerList}
-          objectiveById={objectiveById}
+          objectiveByRef={objectiveByRef}
+          unitNameById={unitNameById}
           onCreateAction={openCreateAction}
           onEdit={openEditFactor}
           canWrite={canWrite}
@@ -407,7 +430,7 @@ export default function OrganizacaoSwotPage() {
       ) : tab === "fatores" ? (
         <FactorsTable
           rows={withResult}
-          objectiveById={objectiveById}
+          objectiveByRef={objectiveByRef}
           unitNameById={unitNameById}
           onEdit={openEditFactor}
           onDelete={removeFactor}
@@ -417,11 +440,10 @@ export default function OrganizacaoSwotPage() {
       ) : (
         <ObjectivesPanel
           objectives={objectives}
-          factors={scoped}
-          onNew={openNewObjective}
-          onEdit={openEditObjective}
-          onDelete={removeObjective}
+          factors={withResult}
+          objectiveByRef={objectiveByRef}
           canWrite={canWrite}
+          onEditFactor={openEditFactor}
         />
       )}
 
@@ -506,16 +528,16 @@ export default function OrganizacaoSwotPage() {
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Objetivo estratégico</Label>
             <SearchableSelect
-              value={factorForm.objectiveId}
-              onChange={(v) => setFactorForm((f) => ({ ...f, objectiveId: v }))}
-              options={[
-                { value: "", label: "Nenhum" },
-                ...objectives.map((o) => ({ value: String(o.id), label: o.code ? `${o.code} · ${o.name}` : o.name })),
-              ]}
+              value={factorForm.objectiveRef}
+              onChange={(v) => setFactorForm((f) => ({ ...f, objectiveRef: v }))}
+              options={objectiveOptionsForFactor}
               placeholder="Selecione um objetivo"
-              searchPlaceholder="Buscar objetivo..."
-              emptyMessage="Nenhum objetivo cadastrado"
+              searchPlaceholder="Buscar objetivo (Indicadores)..."
+              emptyMessage="Nenhum objetivo disponível"
             />
+            <p className="text-[11px] text-muted-foreground">
+              Objetivos vêm do módulo Indicadores (KPI). A aba Objetivos do SWOT é somente leitura.
+            </p>
           </div>
           {(() => {
             const result = swotResult(factorForm.performance, factorForm.relevance);
@@ -540,38 +562,6 @@ export default function OrganizacaoSwotPage() {
         <DialogFooter>
           <Button variant="ghost" onClick={() => setFactorDialogOpen(false)}>Cancelar</Button>
           <Button onClick={saveFactor} disabled={createFactor.isPending || updateFactor.isPending}>
-            Salvar
-          </Button>
-        </DialogFooter>
-      </Dialog>
-
-      {/* ── Objective dialog ── */}
-      <Dialog
-        open={objDialogOpen}
-        onOpenChange={setObjDialogOpen}
-        title={editingObjId !== null ? "Editar objetivo" : "Novo objetivo estratégico"}
-      >
-        <div className="grid gap-4 sm:grid-cols-[120px_1fr]">
-          <div className="space-y-1.5">
-            <Label>Código</Label>
-            <Input
-              value={objForm.code}
-              onChange={(e) => setObjForm((f) => ({ ...f, code: e.target.value }))}
-              placeholder="Q1"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Nome do objetivo</Label>
-            <Input
-              value={objForm.name}
-              onChange={(e) => setObjForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="ex.: Aumentar a eficiência operacional dos processos"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setObjDialogOpen(false)}>Cancelar</Button>
-          <Button onClick={saveObjective} disabled={createObjective.isPending || updateObjective.isPending}>
             Salvar
           </Button>
         </DialogFooter>
@@ -648,6 +638,17 @@ export default function OrganizacaoSwotPage() {
           <Button onClick={submitAction} disabled={createAction.isPending}>Criar ação</Button>
         </DialogFooter>
       </Dialog>
+
+      {/* ── Confirmação de exclusão (popup estilizado) ── */}
+      <ConfirmDialog
+        open={confirmState !== null}
+        onOpenChange={(o) => { if (!o) setConfirmState(null); }}
+        title={confirmState?.title ?? ""}
+        description={confirmState?.description}
+        confirmLabel={confirmState?.confirmLabel ?? "Confirmar"}
+        loading={confirming}
+        onConfirm={runConfirm}
+      />
     </div>
   );
 }
@@ -697,7 +698,8 @@ function SwotView({
   counts,
   withResult,
   requerList,
-  objectiveById,
+  objectiveByRef,
+  unitNameById,
   onCreateAction,
   onEdit,
   canWrite,
@@ -705,11 +707,27 @@ function SwotView({
   counts: Record<SwotFactorType, number>;
   withResult: ScoredFactor[];
   requerList: ScoredFactor[];
-  objectiveById: Map<number, { code: string | null; name: string }>;
+  objectiveByRef: Map<string, { label: string; source: "swot" | "kpi" }>;
+  unitNameById: Map<number, string>;
   onCreateAction: (f: SwotFactor) => void;
   onEdit: (f: SwotFactor) => void;
   canWrite: boolean;
 }) {
+  const [detailType, setDetailType] = useState<SwotFactorType | null>(null);
+
+  if (detailType) {
+    return (
+      <SwotQuadrantDashboard
+        type={detailType}
+        factors={withResult.filter((f) => f.type === detailType)}
+        canWrite={canWrite}
+        onBack={() => setDetailType(null)}
+        onEdit={onEdit}
+        onCreateAction={onCreateAction}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -726,45 +744,50 @@ function SwotView({
 
       <div className="grid gap-4 lg:grid-cols-2">
         {SWOT_TYPES.map((t) => {
-          const items = withResult.filter((f) => f.type === t).sort((a, b) => b.result - a.result).slice(0, 5);
+          const all = withResult.filter((f) => f.type === t).sort((a, b) => b.result - a.result);
           return (
-            <div key={t} className={cn("rounded-xl border p-4", swotTypeTint(t))}>
+            <div
+              key={t}
+              role="button"
+              tabIndex={0}
+              onClick={() => setDetailType(t)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDetailType(t); }
+              }}
+              className={cn(
+                "group cursor-pointer rounded-xl border p-4 outline-none transition-all hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring",
+                swotTypeTint(t),
+              )}
+            >
               <div className="mb-3 flex items-center justify-between">
                 <span className={cn("text-sm font-semibold", swotTypeText(t))}>{SWOT_TYPE_PLURAL[t]}</span>
-                <span className="rounded-full bg-background/70 px-2 py-0.5 text-xs font-medium text-muted-foreground">{counts[t]}</span>
+                <span className="rounded-full bg-background/70 px-2 py-0.5 text-xs font-medium text-muted-foreground">{all.length}</span>
               </div>
-              {items.length === 0 ? (
+              {all.length === 0 ? (
                 <p className="py-4 text-center text-xs text-muted-foreground">Nenhum fator cadastrado</p>
               ) : (
-                <ul className="-mx-1 space-y-0.5">
-                  {items.map((f) => {
-                    const content = (
-                      <>
-                        <span className="min-w-0 flex-1 truncate text-sm">{f.description}</span>
-                        <span className={cn("shrink-0 text-sm font-semibold tabular-nums", swotResultColor(f.result))}>{f.result}</span>
-                      </>
-                    );
-                    return (
-                      <li key={f.id}>
-                        {canWrite ? (
-                          <button
-                            type="button"
-                            onClick={() => onEdit(f)}
-                            className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-background/70"
-                            title={f.description}
-                          >
-                            {content}
-                          </button>
-                        ) : (
-                          <div className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5" title={f.description}>
-                            {content}
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
+                // Lista rolável de TODOS os fatores; altura fixa (~4 linhas) p/ não crescer o card.
+                // stopPropagation: rolar/clicar na lista não dispara a navegação do card.
+                <ul
+                  tabIndex={0}
+                  role="group"
+                  aria-label={`${SWOT_TYPE_PLURAL[t]} — role para ver todos os fatores`}
+                  className={cn("max-h-[7.5rem] space-y-0.5 rounded pr-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", SWOT_SCROLL_CLS)}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {all.map((f) => (
+                    <li key={f.id} className="flex items-center justify-between gap-3 py-1">
+                      <span className="min-w-0 flex-1 truncate text-sm" title={f.description}>{f.description}</span>
+                      <span className={cn("shrink-0 text-sm font-semibold tabular-nums", swotResultColor(f.result))}>{f.result}</span>
+                    </li>
+                  ))}
                 </ul>
               )}
+              <div className="mt-2 flex items-center justify-end border-t border-border/40 pt-2 text-xs text-muted-foreground">
+                <span className="flex items-center gap-0.5 font-medium text-foreground/70 transition-colors group-hover:text-foreground">
+                  Ver detalhes <ChevronRight className="h-3.5 w-3.5" />
+                </span>
+              </div>
             </div>
           );
         })}
@@ -785,7 +808,10 @@ function SwotView({
         ) : (
           <div className="space-y-2">
             {requerList.map((f) => {
-              const obj = f.objectiveId !== null ? objectiveById.get(f.objectiveId) : null;
+              const objRef = f.objectiveSource && f.objectiveSourceId !== null
+                ? `${f.objectiveSource}:${f.objectiveSourceId}`
+                : null;
+              const obj = objRef ? objectiveByRef.get(objRef) : null;
               return (
                 <div
                   key={f.id}
@@ -799,7 +825,9 @@ function SwotView({
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
                       <span className={cn("font-semibold tabular-nums", swotResultColor(f.result))}>Resultado {f.result}</span>
                       {f.perspective && <span>· {f.perspective}</span>}
-                      {obj && <span>· {obj.code ? `${obj.code} ` : ""}{obj.name}</span>}
+                      {obj
+                        ? <span>· {SWOT_OBJECTIVE_SOURCE_LABELS[obj.source]}: {obj.label}</span>
+                        : objRef && <span className="italic">· objetivo removido</span>}
                     </div>
                   </div>
                   {canWrite && (
@@ -814,6 +842,7 @@ function SwotView({
           </div>
         )}
       </div>
+
     </div>
   );
 }
@@ -822,7 +851,7 @@ function SwotView({
 
 function FactorsTable({
   rows,
-  objectiveById,
+  objectiveByRef,
   unitNameById,
   onEdit,
   onDelete,
@@ -830,7 +859,7 @@ function FactorsTable({
   canWrite,
 }: {
   rows: ScoredFactor[];
-  objectiveById: Map<number, { code: string | null; name: string }>;
+  objectiveByRef: Map<string, { label: string; source: "swot" | "kpi" }>;
   unitNameById: Map<number, string>;
   onEdit: (f: SwotFactor) => void;
   onDelete: (f: SwotFactor) => void;
@@ -901,12 +930,17 @@ function FactorsTable({
               <tr><td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">Nenhum fator encontrado.</td></tr>
             ) : (
               filtered.map((f) => {
-                const obj = f.objectiveId !== null ? objectiveById.get(f.objectiveId) : null;
+                const objRef = f.objectiveSource && f.objectiveSourceId !== null
+                  ? `${f.objectiveSource}:${f.objectiveSourceId}`
+                  : null;
+                const obj = objRef ? objectiveByRef.get(objRef) : null;
                 return (
                   <tr key={f.id} className="border-b last:border-0 hover:bg-muted/40">
                     <td className="px-3 py-2 max-w-[260px]">
                       <div className="truncate" title={f.description}>{f.description}</div>
-                      {obj && <div className="truncate text-[11px] text-muted-foreground">{obj.code ? `${obj.code} · ` : ""}{obj.name}</div>}
+                      {obj
+                        ? <div className="truncate text-[11px] text-muted-foreground">{SWOT_OBJECTIVE_SOURCE_LABELS[obj.source]} · {obj.label}</div>
+                        : objRef && <div className="truncate text-[11px] italic text-muted-foreground">objetivo removido</div>}
                     </td>
                     <td className="px-3 py-2">
                       <Badge variant="secondary" className={cn("text-[10px]", swotTypeBadgeColor(f.type))}>{SWOT_TYPE_LABELS[f.type]}</Badge>
@@ -952,59 +986,142 @@ function FactorsTable({
 function ObjectivesPanel({
   objectives,
   factors,
-  onNew,
-  onEdit,
-  onDelete,
+  objectiveByRef,
   canWrite,
+  onEditFactor,
 }: {
   objectives: { id: number; code: string | null; name: string }[];
-  factors: SwotFactor[];
-  onNew: () => void;
-  onEdit: (id: number, code: string | null, name: string) => void;
-  onDelete: (id: number, name: string) => void;
+  factors: ScoredFactor[];
+  objectiveByRef: Map<string, { label: string; source: "swot" | "kpi" }>;
   canWrite: boolean;
+  onEditFactor: (f: SwotFactor) => void;
 }) {
-  const countByObjective = useMemo(() => {
-    const m = new Map<number, number>();
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  // Fatores agrupados por objetivo (referência "<fonte>:<id>"), ordenados por resultado.
+  const factorsByRef = useMemo(() => {
+    const m = new Map<string, ScoredFactor[]>();
     for (const f of factors) {
-      if (f.objectiveId !== null) m.set(f.objectiveId, (m.get(f.objectiveId) ?? 0) + 1);
+      if (f.objectiveSource && f.objectiveSourceId !== null) {
+        const ref = `${f.objectiveSource}:${f.objectiveSourceId}`;
+        const arr = m.get(ref) ?? [];
+        arr.push(f);
+        m.set(ref, arr);
+      }
     }
+    for (const arr of m.values()) arr.sort((a, b) => b.result - a.result);
     return m;
   }, [factors]);
 
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Objetivos estratégicos vinculáveis aos fatores SWOT.</p>
-        {canWrite && (
-          <Button size="sm" variant="outline" onClick={onNew}><Plus className="mr-1.5 h-4 w-4" />Novo objetivo</Button>
-        )}
-      </div>
-      <div className="rounded-lg border bg-card">
-        {objectives.length === 0 ? (
-          <div className="p-10 text-center text-sm text-muted-foreground">Nenhum objetivo cadastrado.</div>
-        ) : (
-          <div className="divide-y">
-            {objectives.map((o) => (
-              <div key={o.id} className="flex items-center gap-3 px-4 py-3">
-                {o.code && <Badge variant="secondary" className="text-[10px]">{o.code}</Badge>}
-                <span className="min-w-0 flex-1 truncate text-sm">{o.name}</span>
-                <span className="text-xs text-muted-foreground">{countByObjective.get(o.id) ?? 0} fator(es)</span>
-                {canWrite && (
-                  <>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Editar" onClick={() => onEdit(o.id, o.code, o.name)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" title="Excluir" onClick={() => onDelete(o.id, o.name)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </>
-                )}
-              </div>
-            ))}
+  // Objetivos do KPI (Indicadores) EM USO pelos fatores — geridos no módulo de origem.
+  const kpiInUse = useMemo(() => {
+    const out: { ref: string; label: string; count: number }[] = [];
+    for (const [ref, arr] of factorsByRef) {
+      if (!ref.startsWith("kpi:")) continue;
+      out.push({ ref, label: objectiveByRef.get(ref)?.label ?? "(objetivo removido)", count: arr.length });
+    }
+    return out.sort((a, b) => b.count - a.count);
+  }, [factorsByRef, objectiveByRef]);
+
+  const isEmpty = kpiInUse.length === 0 && objectives.length === 0;
+
+  // Linha de objetivo: clicável → expande os fatores associados.
+  function renderRow(refKey: string, label: string, code: string | null, count: number) {
+    const isOpen = expanded === refKey;
+    const rows = factorsByRef.get(refKey) ?? [];
+    const panelId = `swot-obj-panel-${refKey.replace(":", "-")}`;
+    return (
+      <div key={refKey}>
+        <button
+          type="button"
+          aria-expanded={isOpen}
+          aria-controls={panelId}
+          onClick={() => setExpanded((c) => (c === refKey ? null : refKey))}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        >
+          <ChevronRight className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-90")} />
+          {code && <Badge variant="secondary" className="text-[10px]">{code}</Badge>}
+          <span className="min-w-0 flex-1 truncate text-sm">{label}</span>
+          <span className="shrink-0 text-xs text-muted-foreground">{count} fator(es)</span>
+        </button>
+        {isOpen && (
+          <div id={panelId} role="region" className="border-t bg-muted/20">
+            {rows.length === 0 ? (
+              <p className="py-3 pl-10 pr-4 text-xs text-muted-foreground">Nenhum fator vinculado.</p>
+            ) : (
+              <ul>
+                {rows.map((f) => {
+                  const inner = (
+                    <>
+                      <Badge variant="secondary" className={cn("shrink-0 text-[10px]", swotTypeBadgeColor(f.type))}>
+                        {SWOT_TYPE_LABELS[f.type]}
+                      </Badge>
+                      <span className="min-w-0 flex-1 truncate text-sm" title={f.description}>{f.description}</span>
+                      <span className={cn("shrink-0 text-sm font-semibold tabular-nums", swotResultColor(f.result))}>{f.result}</span>
+                    </>
+                  );
+                  return (
+                    <li key={f.id}>
+                      {canWrite ? (
+                        <button
+                          type="button"
+                          onClick={() => onEditFactor(f)}
+                          title="Editar fator"
+                          className="flex w-full items-center gap-2.5 py-2 pl-10 pr-4 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                        >
+                          {inner}
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2.5 py-2 pl-10 pr-4">{inner}</div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         )}
       </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {isEmpty ? (
+        <div className="rounded-lg border bg-card p-10 text-center text-sm text-muted-foreground">
+          Nenhum objetivo em uso ainda. Vincule um objetivo (do módulo Indicadores) ao criar ou editar um fator.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Módulo: Indicadores (KPI) — somente leitura, geridos lá. */}
+          {kpiInUse.length > 0 && (
+            <section>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-blue-500/70" />
+                <h3 className="text-sm font-semibold">Indicadores (KPI)</h3>
+                <span className="text-xs text-muted-foreground">{kpiInUse.length} em uso · clique para ver os fatores</span>
+              </div>
+              <div className="divide-y overflow-hidden rounded-lg border bg-card">
+                {kpiInUse.map((o) => renderRow(o.ref, o.label, null, o.count))}
+              </div>
+            </section>
+          )}
+
+          {/* Módulo: SWOT (objetivos próprios — legado). */}
+          {objectives.length > 0 && (
+            <section>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-muted-foreground/50" />
+                <h3 className="text-sm font-semibold">SWOT (legado)</h3>
+                <span className="text-xs text-muted-foreground">{objectives.length} · objetivos próprios antigos</span>
+              </div>
+              <div className="divide-y overflow-hidden rounded-lg border bg-card">
+                {objectives.map((o) => renderRow(`swot:${o.id}`, o.name, o.code, factorsByRef.get(`swot:${o.id}`)?.length ?? 0))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
     </div>
   );
 }

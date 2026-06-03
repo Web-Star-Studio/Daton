@@ -3,32 +3,25 @@ import {
   getListSwotFactorsQueryKey,
   getListSwotObjectivesQueryKey,
   useCreateSwotFactor,
-  useCreateSwotObjective,
   useDeleteSwotFactor,
-  useDeleteSwotObjective,
   useListSwotFactors,
   useListSwotObjectives,
   useUpdateSwotFactor,
-  useUpdateSwotObjective,
   type CreateSwotFactorBody,
-  type CreateSwotObjectiveBody,
   type SwotEnvironment,
   type SwotFactor,
   type SwotFactorType,
   type SwotObjective,
   type UpdateSwotFactorBody,
-  type UpdateSwotObjectiveBody,
 } from "@workspace/api-client-react";
 
 export type {
   CreateSwotFactorBody,
-  CreateSwotObjectiveBody,
   SwotEnvironment,
   SwotFactor,
   SwotFactorType,
   SwotObjective,
   UpdateSwotFactorBody,
-  UpdateSwotObjectiveBody,
 };
 
 // ─── Domain labels ───────────────────────────────────────────────────────────
@@ -53,6 +46,31 @@ export const SWOT_ENVIRONMENT_LABELS: Record<SwotEnvironment, string> = {
   internal: "Interno",
   external: "Externo",
 };
+
+/**
+ * Fonte do objetivo vinculado a um fator (polimórfico, extensível).
+ * Novas fontes geradoras de objetivos podem ser adicionadas aqui.
+ */
+export type SwotObjectiveSource = "swot" | "kpi";
+export const SWOT_OBJECTIVE_SOURCE_LABELS: Record<SwotObjectiveSource, string> = {
+  swot: "SWOT",
+  kpi: "KPI",
+};
+
+/** Combina fonte + id num valor único para o seletor (ex.: "kpi:5"). */
+export function encodeObjectiveRef(source: string, id: number): string {
+  return `${source}:${id}`;
+}
+export function parseObjectiveRef(ref: string): { source: SwotObjectiveSource; id: number } | null {
+  if (!ref) return null;
+  const idx = ref.indexOf(":");
+  if (idx < 0) return null;
+  const source = ref.slice(0, idx);
+  const idRaw = ref.slice(idx + 1);
+  const id = Number(idRaw);
+  if (!source || idRaw === "" || !Number.isInteger(id) || id <= 0) return null;
+  return { source: source as SwotObjectiveSource, id };
+}
 
 /** Perspectivas padrão do SGI (cliente pode reutilizar as já cadastradas). */
 export const SWOT_PERSPECTIVES = [
@@ -244,21 +262,6 @@ export function useSwotFactors(orgId: number) {
 function invalidate(queryClient: ReturnType<typeof useQueryClient>, orgId: number) {
   queryClient.invalidateQueries({ queryKey: getListSwotFactorsQueryKey(orgId) });
   queryClient.invalidateQueries({ queryKey: getListSwotObjectivesQueryKey(orgId) });
-}
-
-export function useCreateSwotObjectiveWithInvalidation(orgId: number) {
-  const queryClient = useQueryClient();
-  return useCreateSwotObjective({ mutation: { onSuccess: () => invalidate(queryClient, orgId) } });
-}
-
-export function useUpdateSwotObjectiveWithInvalidation(orgId: number) {
-  const queryClient = useQueryClient();
-  return useUpdateSwotObjective({ mutation: { onSuccess: () => invalidate(queryClient, orgId) } });
-}
-
-export function useDeleteSwotObjectiveWithInvalidation(orgId: number) {
-  const queryClient = useQueryClient();
-  return useDeleteSwotObjective({ mutation: { onSuccess: () => invalidate(queryClient, orgId) } });
 }
 
 export function useCreateSwotFactorWithInvalidation(orgId: number) {
