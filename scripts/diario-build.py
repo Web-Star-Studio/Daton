@@ -22,6 +22,11 @@ import tempfile
 
 BRANCH = "diario"
 
+# Entradas "meta" (o tooling do próprio diário documentando a si mesmo) são
+# irrelevantes para o relatório do projeto — omitidas do consolidado por padrão.
+# Os fragmentos continuam no branch `diario` (trilha de auditoria).
+EXCLUDED_MODULES = {"Diário de bordo"}
+
 
 def run(args: list[str], cwd: str | None = None, check: bool = True) -> str:
     r = subprocess.run(args, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -48,7 +53,12 @@ def main() -> None:
     ap.add_argument("--day", default=dt.date.today().strftime("%Y-%m-%d"), help="AAAA-MM-DD (default: hoje).")
     ap.add_argument("--out", help="Saída .md (default: docs/diario/<dia>.md).")
     ap.add_argument("--pdf", action="store_true", help="Também gera o PDF (gen-diario-pdf.py).")
+    ap.add_argument("--exclude-modulo", action="append", default=[], help="Módulo a omitir do consolidado (repetível). Soma-se aos meta já omitidos por padrão.")
+    ap.add_argument("--include-meta", action="store_true", help="Inclui também entradas meta (tooling do diário), normalmente omitidas.")
     a = ap.parse_args()
+
+    excluded = set() if a.include_meta else set(EXCLUDED_MODULES)
+    excluded |= set(a.exclude_modulo or [])
 
     repo = run(["git", "rev-parse", "--show-toplevel"])
     out = a.out or os.path.join(repo, "docs", "diario", f"{a.day}.md")
@@ -68,18 +78,26 @@ def main() -> None:
         if not frags:
             sys.exit(f"[diario-build] sem fragmentos para {a.day}.")
 
-        parts = [f"# Diário de Bordo — {a.day}\n",
-                 "**Projeto:** Daton (plataforma ESG / Qualidade / Compliance — ISO 9001/14001)\n",
-                 f"**Entradas:** {len(frags)}\n"]
-        modulos = []
-        bodies = []
+        entries = []
         for fn in frags:
             meta, body = parse_fragment(open(os.path.join(day_dir, fn), encoding="utf-8").read())
             mod = meta.get("modulo") or ""
+            if mod in excluded:
+                continue
+            entries.append((meta, body, mod))
+        if not entries:
+            sys.exit(f"[diario-build] sem entradas para {a.day} após os filtros (excluídos: {', '.join(sorted(excluded)) or '—'}).")
+
+        parts = [f"# Diário de Bordo — {a.day}\n",
+                 "**Projeto:** Daton (plataforma ESG / Qualidade / Compliance — ISO 9001/14001)\n",
+                 f"**Entradas:** {len(entries)}\n"]
+        modulos = []
+        bodies = []
+        for meta, body, mod in entries:
             if mod and mod not in modulos:
                 modulos.append(mod)
             head = "## " + " · ".join(
-                x for x in [meta.get("hora", ""), mod, meta.get("titulo", "")] if x
+                x for x in [mod, meta.get("titulo", "")] if x
             )
             sub = " | ".join(
                 x for x in [
@@ -96,7 +114,7 @@ def main() -> None:
         os.makedirs(os.path.dirname(out), exist_ok=True)
         with open(out, "w", encoding="utf-8") as f:
             f.write(md)
-        print(f"[diario-build] consolidado: {out}  ({len(frags)} entradas)")
+        print(f"[diario-build] consolidado: {out}  ({len(entries)} entradas)")
 
         if a.pdf:
             pdf = out[:-3] + ".pdf" if out.endswith(".md") else out + ".pdf"
