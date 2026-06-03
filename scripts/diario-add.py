@@ -52,12 +52,13 @@ def main() -> None:
     ap.add_argument("--modulo", default="", help="Módulo/área (ex.: SWOT, KPI).")
     ap.add_argument("--titulo", default="", help="Título curto da entrada.")
     ap.add_argument("--autor", default="", help="Autor (default: git config user.name).")
+    ap.add_argument("--branch", default="", help="Atribui a entrada a este branch (default: o branch atual). Útil para reunir feitos de outra branch.")
     ap.add_argument("--file", help="Arquivo .md com o conteúdo da entrada (default: stdin).")
     ap.add_argument("--no-push", action="store_true", help="Não publicar (commit local no worktree).")
     a = ap.parse_args()
 
     repo = run(["git", "rev-parse", "--show-toplevel"])
-    feature = run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo)
+    feature = a.branch or run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo)
     autor = a.autor or run(["git", "config", "user.name"], cwd=repo, check=False) or "—"
 
     content = open(a.file, encoding="utf-8").read() if a.file else sys.stdin.read()
