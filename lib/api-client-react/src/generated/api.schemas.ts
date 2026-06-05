@@ -205,10 +205,23 @@ export interface RequestPasswordResetBody {
   email: string;
 }
 
+export type UpdateMeBodyTheme =
+  (typeof UpdateMeBodyTheme)[keyof typeof UpdateMeBodyTheme];
+
+export const UpdateMeBodyTheme = {
+  light: "light",
+  dark: "dark",
+  system: "system",
+} as const;
+
+/**
+ * Partial update of the current user. Provide only the fields you want to change (e.g. just `theme` to persist the appearance preference).
+ */
 export interface UpdateMeBody {
   /** @minLength 1 */
-  name: string;
-  email: string;
+  name?: string;
+  email?: string;
+  theme?: UpdateMeBodyTheme;
 }
 
 export interface UpdateMyPasswordBody {
@@ -219,12 +232,21 @@ export interface UpdateMyPasswordBody {
   confirmPassword: string;
 }
 
+export type UserTheme = (typeof UserTheme)[keyof typeof UserTheme];
+
+export const UserTheme = {
+  light: "light",
+  dark: "dark",
+  system: "system",
+} as const;
+
 export interface User {
   id: number;
   name: string;
   email: string;
   organizationId: number;
   role: string;
+  theme: UserTheme;
   createdAt: string;
 }
 
