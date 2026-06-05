@@ -48,6 +48,7 @@ import {
   LaiaEvidencias,
 } from "@/components/environmental/laia/conformidade";
 import { LegislationSuggesterButton } from "@/components/environmental/laia/legislation-suggester-button";
+import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -3197,6 +3198,24 @@ export default function EnvironmentalLaiaPage() {
             >
               Salvar rascunho
             </Button>
+            {orgId &&
+              assessmentSession.mode === "edit" &&
+              assessmentSession.assessmentId && (
+                <CriarAcaoButton
+                  orgId={orgId}
+                  source={{
+                    sourceModule: "environmental",
+                    sourceRef: {
+                      laiaAssessmentId: assessmentSession.assessmentId,
+                    },
+                    defaultTitle: assessmentForm.environmentalAspect,
+                    originLabel: assessmentForm.environmentalAspect || undefined,
+                  }}
+                  label="Criar plano de ação"
+                  variant="outline"
+                  size="sm"
+                />
+              )}
           </div>
           <div className="flex items-center gap-2">
             <Button

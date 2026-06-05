@@ -53,6 +53,7 @@ import {
   ShieldAlert,
   Trash2,
 } from "lucide-react";
+import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
 
 const governanceActionSchema = z.object({
   title: z.string().min(1, "Informe o título"),
@@ -1132,6 +1133,18 @@ export default function GovernanceRiskOpportunityPage() {
                 </div>
                 {canEditItem && (
                   <div className="flex shrink-0 flex-wrap gap-2">
+                    <CriarAcaoButton
+                      orgId={orgId!}
+                      source={{
+                        sourceModule: "risk",
+                        sourceRef: { riskOpportunityItemId: item.id },
+                        defaultTitle: item.title,
+                        originLabel: item.title,
+                      }}
+                      label="Criar plano de ação"
+                      variant="outline"
+                      size="sm"
+                    />
                     <Button
                       size="sm"
                       variant="outline"

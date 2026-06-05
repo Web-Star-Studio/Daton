@@ -1,14 +1,16 @@
 import { Router, type IRouter } from "express";
 import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import {
+  actionPlanActivityLogTable,
+  actionPlanCommentsTable,
   actionPlanEvidencesTable,
   actionPlansTable,
   db,
-  kpiMonthlyValuesTable,
-  swotFactorsTable,
-  usersTable,
+  type ActionPlanActivityChanges,
 } from "@workspace/db";
 import {
+  AddActionPlanCommentBody,
+  AddActionPlanCommentParams,
   AddActionPlanEvidenceBody,
   AddActionPlanEvidenceParams,
   CreateActionPlanBody,
@@ -16,6 +18,10 @@ import {
   DeleteActionPlanEvidenceParams,
   DeleteActionPlanParams,
   GetActionPlanParams,
+  GetActionPlansSummaryParams,
+  ListExternalActionsParams,
+  ListActionPlanActivityParams,
+  ListActionPlanCommentsParams,
   ListActionPlansParams,
   ListActionPlansQueryParams,
   UpdateActionPlanBody,
@@ -26,11 +32,41 @@ import { resolveSourceContexts } from "../services/action-plans/source-context";
 import {
   assertUserBelongsToOrg,
   resolveUserNames,
+  serializeActivityEntry,
+  serializeComment,
   serializeEvidence,
   serializePlan,
 } from "../services/action-plans/serializers";
+import { gutScore } from "../services/action-plans/gut";
+import { generateActionPlanCode } from "../services/action-plans/code";
+import { deriveCreateDefaults } from "../services/action-plans/derivation";
+import { validateSourceRef } from "../services/action-plans/validate-source";
+import { computeActionPlanSummary } from "../services/action-plans/summary";
+import { listExternalActions } from "../services/action-plans/external";
+import { buildDiff, logActionPlanActivity } from "../services/action-plans/activity";
 
 const router: IRouter = Router();
+
+/** Tracked fields for the update activity diff (display labels handled client-side). */
+const DIFF_FIELDS = [
+  "title",
+  "description",
+  "actionType",
+  "priority",
+  "gutGravity",
+  "gutUrgency",
+  "gutTendency",
+  "responsibleUserId",
+  "dueDate",
+  "correctiveActionDescription",
+  "rootCause",
+];
+
+async function currentUserName(userId: number | null | undefined): Promise<string | null> {
+  if (userId == null) return null;
+  const map = await resolveUserNames([userId]);
+  return map.get(userId) ?? null;
+}
 
 // ─── List ──────────────────────────────────────────────────────────────────
 
@@ -86,11 +122,15 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
   res.json(plans.map((p) => ({
     id: p.id,
     organizationId: p.organizationId,
+    code: p.code ?? null,
     sourceModule: p.sourceModule,
     sourceContext: sourceContexts.get(p.id) ?? { label: p.sourceModule, kpi: null },
+    actionType: p.actionType,
     title: p.title,
     status: p.status,
     priority: p.priority,
+    gutScore: gutScore(p.gutGravity, p.gutUrgency, p.gutTendency),
+    effectivenessResult: p.effectivenessResult ?? null,
     responsibleUserId: p.responsibleUserId ?? null,
     responsibleUserName: p.responsibleUserId !== null ? (userNameMap.get(p.responsibleUserId) ?? null) : null,
     dueDate: p.dueDate ? p.dueDate.toISOString() : null,
@@ -100,22 +140,38 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
   })));
 });
 
-// ─── Get one ───────────────────────────────────────────────────────────────
+// ─── Summary (dashboards) ────────────────────────────────────────────────────
+// NOTE: must be registered before "/:planId" so "summary" is not parsed as an id.
 
-router.get("/organizations/:orgId/action-plans/:planId", requireAuth, async (req, res): Promise<void> => {
-  const params = GetActionPlanParams.safeParse(req.params);
+router.get("/organizations/:orgId/action-plans/summary", requireAuth, async (req, res): Promise<void> => {
+  const params = GetActionPlansSummaryParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
 
+  const summary = await computeActionPlanSummary(params.data.orgId);
+  res.json(summary);
+});
+
+// ─── External actions (read-only bridge: governance corrective actions) ───────
+// NOTE: must be registered before "/:planId" so the literal path isn't parsed as an id.
+
+router.get("/organizations/:orgId/action-plans/external-actions", requireAuth, async (req, res): Promise<void> => {
+  const params = ListExternalActionsParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const items = await listExternalActions(params.data.orgId);
+  res.json(items);
+});
+
+// ─── Get one ───────────────────────────────────────────────────────────────
+
+async function loadAndSerializePlan(orgId: number, planId: number) {
   const [plan] = await db
     .select()
     .from(actionPlansTable)
-    .where(and(
-      eq(actionPlansTable.id, params.data.planId),
-      eq(actionPlansTable.organizationId, params.data.orgId),
-    ));
-
-  if (!plan) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
+    .where(and(eq(actionPlansTable.id, planId), eq(actionPlansTable.organizationId, orgId)));
+  if (!plan) return null;
 
   const evidences = await db
     .select()
@@ -126,21 +182,35 @@ router.get("/organizations/:orgId/action-plans/:planId", requireAuth, async (req
   const userNameMap = await resolveUserNames([
     plan.responsibleUserId,
     plan.createdByUserId,
+    plan.effectivenessEvaluatorUserId,
     ...evidences.map((e) => e.uploadedByUserId),
   ]);
   const sourceContexts = await resolveSourceContexts(
-    params.data.orgId,
+    orgId,
     [{ id: plan.id, sourceModule: plan.sourceModule, sourceRef: plan.sourceRef }],
   );
 
-  res.json(serializePlan(plan, sourceContexts.get(plan.id) ?? { label: plan.sourceModule, kpi: null }, {
+  return serializePlan(plan, sourceContexts.get(plan.id) ?? { label: plan.sourceModule, kpi: null }, {
     responsibleUserName: plan.responsibleUserId !== null ? (userNameMap.get(plan.responsibleUserId) ?? null) : null,
     createdByUserName: plan.createdByUserId !== null ? (userNameMap.get(plan.createdByUserId) ?? null) : null,
+    effectivenessEvaluatorUserName: plan.effectivenessEvaluatorUserId !== null
+      ? (userNameMap.get(plan.effectivenessEvaluatorUserId) ?? null)
+      : null,
     evidences: evidences.map((e) => serializeEvidence(
       e,
       e.uploadedByUserId !== null ? (userNameMap.get(e.uploadedByUserId) ?? null) : null,
     )),
-  }));
+  });
+}
+
+router.get("/organizations/:orgId/action-plans/:planId", requireAuth, async (req, res): Promise<void> => {
+  const params = GetActionPlanParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const out = await loadAndSerializePlan(params.data.orgId, params.data.planId);
+  if (!out) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
+  res.json(out);
 });
 
 // ─── Create ────────────────────────────────────────────────────────────────
@@ -153,80 +223,70 @@ router.post("/organizations/:orgId/action-plans", requireAuth, requireWriteAcces
   const body = CreateActionPlanBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  // Validate KPI source: ensure the referenced monthly value belongs to this org
-  if (body.data.sourceModule === "kpi") {
-    const mvId = body.data.sourceRef.kpiMonthlyValueId;
-    if (typeof mvId !== "number") {
-      res.status(400).json({ error: "sourceRef.kpiMonthlyValueId é obrigatório quando sourceModule=kpi" });
-      return;
-    }
-    const [mv] = await db
-      .select({ id: kpiMonthlyValuesTable.id })
-      .from(kpiMonthlyValuesTable)
-      .where(and(
-        eq(kpiMonthlyValuesTable.id, mvId),
-        eq(kpiMonthlyValuesTable.organizationId, params.data.orgId),
-      ));
-    if (!mv) {
-      res.status(400).json({ error: "Célula KPI de origem não encontrada nesta organização" });
-      return;
+  // Validate the origin reference (well-formed + belongs to this org).
+  const sourceError = await validateSourceRef(params.data.orgId, body.data.sourceModule, body.data.sourceRef);
+  if (sourceError) { res.status(400).json({ error: sourceError }); return; }
+
+  // Validate user references belong to the org (prevents cross-tenant + FK errors)
+  for (const [field, value] of [
+    ["responsibleUserId", body.data.responsibleUserId],
+    ["effectivenessEvaluatorUserId", body.data.effectivenessEvaluatorUserId],
+  ] as const) {
+    if (value !== null && value !== undefined) {
+      const ok = await assertUserBelongsToOrg(value, params.data.orgId);
+      if (!ok) {
+        res.status(400).json({ error: `${field} não corresponde a um usuário desta organização` });
+        return;
+      }
     }
   }
 
-  // Validate SWOT source: ensure the referenced factor belongs to this org
-  if (body.data.sourceModule === "swot") {
-    const factorId = body.data.sourceRef.swotFactorId;
-    if (typeof factorId !== "number") {
-      res.status(400).json({ error: "sourceRef.swotFactorId é obrigatório quando sourceModule=swot" });
-      return;
-    }
-    const [factor] = await db
-      .select({ id: swotFactorsTable.id })
-      .from(swotFactorsTable)
-      .where(and(
-        eq(swotFactorsTable.id, factorId),
-        eq(swotFactorsTable.organizationId, params.data.orgId),
-      ));
-    if (!factor) {
-      res.status(400).json({ error: "Fator SWOT de origem não encontrado nesta organização" });
-      return;
-    }
-  }
-
-  // Validate responsibleUserId belongs to the org (prevents cross-tenant assignment + FK errors)
-  if (body.data.responsibleUserId !== null && body.data.responsibleUserId !== undefined) {
-    const ok = await assertUserBelongsToOrg(body.data.responsibleUserId, params.data.orgId);
-    if (!ok) {
-      res.status(400).json({ error: "responsibleUserId não corresponde a um usuário desta organização" });
-      return;
-    }
-  }
+  const actionType = body.data.actionType ?? "corrective";
+  const derived = await deriveCreateDefaults(params.data.orgId, body.data.sourceModule, body.data.sourceRef);
+  const code = await generateActionPlanCode(params.data.orgId, actionType, new Date().getFullYear());
+  const status = body.data.status ?? "open";
 
   const [row] = await db.insert(actionPlansTable).values({
     organizationId: params.data.orgId,
+    code,
     sourceModule: body.data.sourceModule,
     sourceRef: body.data.sourceRef,
+    actionType,
     title: body.data.title,
     description: body.data.description ?? null,
-    status: body.data.status ?? "open",
+    status,
     priority: body.data.priority ?? "medium",
+    gutGravity: body.data.gutGravity ?? null,
+    gutUrgency: body.data.gutUrgency ?? null,
+    gutTendency: body.data.gutTendency ?? null,
+    plan5w2h: body.data.plan5w2h ?? null,
+    rootCause: body.data.rootCause ?? derived.rootCause ?? null,
+    rootCauseWhys: body.data.rootCauseWhys ?? null,
     responsibleUserId: body.data.responsibleUserId ?? null,
     dueDate: body.data.dueDate ? new Date(body.data.dueDate) : null,
     correctiveActionDescription: body.data.correctiveActionDescription ?? null,
+    effectivenessMethod: body.data.effectivenessMethod ?? null,
+    effectivenessDueDate: body.data.effectivenessDueDate ? new Date(body.data.effectivenessDueDate) : null,
+    effectivenessEvaluatorUserId: body.data.effectivenessEvaluatorUserId ?? null,
+    odsNumbers: body.data.odsNumbers ?? null,
+    normRefs: body.data.normRefs ?? derived.normRefs ?? null,
+    relatedIndicatorIds: body.data.relatedIndicatorIds ?? derived.relatedIndicatorIds ?? null,
+    relatedRiskIds: body.data.relatedRiskIds ?? derived.relatedRiskIds ?? null,
     createdByUserId: req.auth!.userId,
+    closedAt: status === "completed" || status === "cancelled" ? new Date() : null,
   }).returning();
 
-  const userNameMap = await resolveUserNames([row.responsibleUserId, row.createdByUserId]);
-  const sourceContexts = await resolveSourceContexts(
-    params.data.orgId,
-    [{ id: row.id, sourceModule: row.sourceModule, sourceRef: row.sourceRef }],
-  );
+  await logActionPlanActivity({
+    orgId: params.data.orgId,
+    actionPlanId: row.id,
+    action: "created",
+    userId: req.auth!.userId,
+    userName: await currentUserName(req.auth!.userId),
+    changes: { kind: "snapshot", data: { code, title: row.title, sourceModule: row.sourceModule, status: row.status } },
+  });
 
-  res.status(201).json(serializePlan(row, sourceContexts.get(row.id) ?? { label: row.sourceModule, kpi: null }, {
-    responsibleUserName: row.responsibleUserId !== null ? (userNameMap.get(row.responsibleUserId) ?? null) : null,
-    createdByUserName: row.createdByUserId !== null ? (userNameMap.get(row.createdByUserId) ?? null) : null,
-    evidences: [],
-  }));
+  const out = await loadAndSerializePlan(params.data.orgId, row.id);
+  res.status(201).json(out);
 });
 
 // ─── Update ────────────────────────────────────────────────────────────────
@@ -249,25 +309,35 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
   if (!existing) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
 
   const update: Record<string, unknown> = {};
+  if (body.data.actionType !== undefined) update.actionType = body.data.actionType;
   if (body.data.title !== undefined) update.title = body.data.title;
   if (body.data.description !== undefined) update.description = body.data.description;
+
+  let statusChanged = false;
+  let reopened = false;
   if (body.data.status !== undefined) {
     update.status = body.data.status;
+    statusChanged = body.data.status !== existing.status;
     if ((body.data.status === "completed" || body.data.status === "cancelled") && !existing.closedAt) {
       update.closedAt = new Date();
     }
     if (body.data.status === "open" || body.data.status === "in_progress") {
       update.closedAt = null;
+      if (existing.status === "completed" || existing.status === "cancelled") reopened = true;
     }
   }
   if (body.data.priority !== undefined) update.priority = body.data.priority;
+  if (body.data.gutGravity !== undefined) update.gutGravity = body.data.gutGravity;
+  if (body.data.gutUrgency !== undefined) update.gutUrgency = body.data.gutUrgency;
+  if (body.data.gutTendency !== undefined) update.gutTendency = body.data.gutTendency;
+  if (body.data.plan5w2h !== undefined) update.plan5w2h = body.data.plan5w2h;
+  if (body.data.rootCause !== undefined) update.rootCause = body.data.rootCause;
+  if (body.data.rootCauseWhys !== undefined) update.rootCauseWhys = body.data.rootCauseWhys;
+
   if (body.data.responsibleUserId !== undefined) {
     if (body.data.responsibleUserId !== null) {
       const ok = await assertUserBelongsToOrg(body.data.responsibleUserId, params.data.orgId);
-      if (!ok) {
-        res.status(400).json({ error: "responsibleUserId não corresponde a um usuário desta organização" });
-        return;
-      }
+      if (!ok) { res.status(400).json({ error: "responsibleUserId não corresponde a um usuário desta organização" }); return; }
     }
     update.responsibleUserId = body.data.responsibleUserId;
   }
@@ -283,6 +353,39 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
       : null;
   }
 
+  // ─── Effectiveness ─────────────────────────────────────────────────────────
+  let effectivenessEvaluated = false;
+  if (body.data.effectivenessMethod !== undefined) update.effectivenessMethod = body.data.effectivenessMethod;
+  if (body.data.effectivenessDueDate !== undefined) {
+    update.effectivenessDueDate = body.data.effectivenessDueDate ? new Date(body.data.effectivenessDueDate) : null;
+  }
+  if (body.data.effectivenessEvaluatorUserId !== undefined) {
+    if (body.data.effectivenessEvaluatorUserId !== null) {
+      const ok = await assertUserBelongsToOrg(body.data.effectivenessEvaluatorUserId, params.data.orgId);
+      if (!ok) { res.status(400).json({ error: "effectivenessEvaluatorUserId não corresponde a um usuário desta organização" }); return; }
+    }
+    update.effectivenessEvaluatorUserId = body.data.effectivenessEvaluatorUserId;
+  }
+  if (body.data.effectivenessBefore !== undefined) update.effectivenessBefore = body.data.effectivenessBefore;
+  if (body.data.effectivenessAfter !== undefined) update.effectivenessAfter = body.data.effectivenessAfter;
+  if (body.data.effectivenessComment !== undefined) update.effectivenessComment = body.data.effectivenessComment;
+  if (body.data.effectivenessResult !== undefined) {
+    update.effectivenessResult = body.data.effectivenessResult;
+    const becameVerdict = body.data.effectivenessResult === "effective" || body.data.effectivenessResult === "ineffective";
+    if (becameVerdict && body.data.effectivenessResult !== existing.effectivenessResult) {
+      update.effectivenessCheckedAt = new Date();
+      effectivenessEvaluated = true;
+    }
+    if (body.data.effectivenessResult === null || body.data.effectivenessResult === "pending") {
+      update.effectivenessCheckedAt = null;
+    }
+  }
+
+  if (body.data.odsNumbers !== undefined) update.odsNumbers = body.data.odsNumbers;
+  if (body.data.normRefs !== undefined) update.normRefs = body.data.normRefs;
+  if (body.data.relatedIndicatorIds !== undefined) update.relatedIndicatorIds = body.data.relatedIndicatorIds;
+  if (body.data.relatedRiskIds !== undefined) update.relatedRiskIds = body.data.relatedRiskIds;
+
   const [row] = await db.update(actionPlansTable)
     .set(Object.keys(update).length > 0 ? update : { updatedAt: new Date() })
     .where(and(
@@ -291,30 +394,26 @@ router.patch("/organizations/:orgId/action-plans/:planId", requireAuth, requireW
     ))
     .returning();
 
-  const evidences = await db
-    .select()
-    .from(actionPlanEvidencesTable)
-    .where(eq(actionPlanEvidencesTable.actionPlanId, row.id))
-    .orderBy(asc(actionPlanEvidencesTable.uploadedAt));
+  // ─── Activity log (one prioritized entry per update) ───────────────────────
+  const userName = await currentUserName(req.auth!.userId);
+  const logBase = { orgId: params.data.orgId, actionPlanId: row.id, userId: req.auth!.userId, userName };
+  if (reopened) {
+    await logActionPlanActivity({ ...logBase, action: "reopened", changes: { kind: "note", message: `Reaberta (${existing.status} → ${row.status})` } });
+  } else if (statusChanged) {
+    await logActionPlanActivity({ ...logBase, action: "status_changed", changes: { kind: "diff", fields: { status: { from: existing.status, to: row.status } } } });
+  } else if (effectivenessEvaluated) {
+    await logActionPlanActivity({ ...logBase, action: "effectiveness_evaluated", changes: { kind: "diff", fields: { effectivenessResult: { from: existing.effectivenessResult ?? null, to: row.effectivenessResult ?? null } } } });
+  } else {
+    const diff: ActionPlanActivityChanges | null = buildDiff(
+      existing as unknown as Record<string, unknown>,
+      row as unknown as Record<string, unknown>,
+      DIFF_FIELDS,
+    );
+    if (diff) await logActionPlanActivity({ ...logBase, action: "updated", changes: diff });
+  }
 
-  const userNameMap = await resolveUserNames([
-    row.responsibleUserId,
-    row.createdByUserId,
-    ...evidences.map((e) => e.uploadedByUserId),
-  ]);
-  const sourceContexts = await resolveSourceContexts(
-    params.data.orgId,
-    [{ id: row.id, sourceModule: row.sourceModule, sourceRef: row.sourceRef }],
-  );
-
-  res.json(serializePlan(row, sourceContexts.get(row.id) ?? { label: row.sourceModule, kpi: null }, {
-    responsibleUserName: row.responsibleUserId !== null ? (userNameMap.get(row.responsibleUserId) ?? null) : null,
-    createdByUserName: row.createdByUserId !== null ? (userNameMap.get(row.createdByUserId) ?? null) : null,
-    evidences: evidences.map((e) => serializeEvidence(
-      e,
-      e.uploadedByUserId !== null ? (userNameMap.get(e.uploadedByUserId) ?? null) : null,
-    )),
-  }));
+  const out = await loadAndSerializePlan(params.data.orgId, row.id);
+  res.json(out);
 });
 
 // ─── Delete ────────────────────────────────────────────────────────────────
@@ -333,6 +432,78 @@ router.delete("/organizations/:orgId/action-plans/:planId", requireAuth, require
 
   if (!row) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
   res.status(204).send();
+});
+
+// ─── Comments ────────────────────────────────────────────────────────────────
+
+router.get("/organizations/:orgId/action-plans/:planId/comments", requireAuth, async (req, res): Promise<void> => {
+  const params = ListActionPlanCommentsParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const [plan] = await db
+    .select({ id: actionPlansTable.id })
+    .from(actionPlansTable)
+    .where(and(eq(actionPlansTable.id, params.data.planId), eq(actionPlansTable.organizationId, params.data.orgId)));
+  if (!plan) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
+
+  const comments = await db
+    .select()
+    .from(actionPlanCommentsTable)
+    .where(eq(actionPlanCommentsTable.actionPlanId, params.data.planId))
+    .orderBy(desc(actionPlanCommentsTable.createdAt));
+
+  const userNameMap = await resolveUserNames(comments.map((c) => c.createdByUserId));
+  res.json(comments.map((c) => serializeComment(
+    c,
+    c.createdByUserId !== null ? (userNameMap.get(c.createdByUserId) ?? null) : null,
+  )));
+});
+
+router.post("/organizations/:orgId/action-plans/:planId/comments", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = AddActionPlanCommentParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = AddActionPlanCommentBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const [plan] = await db
+    .select({ id: actionPlansTable.id })
+    .from(actionPlansTable)
+    .where(and(eq(actionPlansTable.id, params.data.planId), eq(actionPlansTable.organizationId, params.data.orgId)));
+  if (!plan) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
+
+  const [row] = await db.insert(actionPlanCommentsTable).values({
+    organizationId: params.data.orgId,
+    actionPlanId: params.data.planId,
+    body: body.data.body,
+    createdByUserId: req.auth!.userId,
+  }).returning();
+
+  res.status(201).json(serializeComment(row, await currentUserName(req.auth!.userId)));
+});
+
+// ─── Activity log ─────────────────────────────────────────────────────────────
+
+router.get("/organizations/:orgId/action-plans/:planId/activity", requireAuth, async (req, res): Promise<void> => {
+  const params = ListActionPlanActivityParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const [plan] = await db
+    .select({ id: actionPlansTable.id })
+    .from(actionPlansTable)
+    .where(and(eq(actionPlansTable.id, params.data.planId), eq(actionPlansTable.organizationId, params.data.orgId)));
+  if (!plan) { res.status(404).json({ error: "Plano de ação não encontrado" }); return; }
+
+  const entries = await db
+    .select()
+    .from(actionPlanActivityLogTable)
+    .where(eq(actionPlanActivityLogTable.actionPlanId, params.data.planId))
+    .orderBy(desc(actionPlanActivityLogTable.createdAt));
+
+  res.json(entries.map(serializeActivityEntry));
 });
 
 // ─── Evidence: add ─────────────────────────────────────────────────────────
@@ -371,11 +542,15 @@ router.post("/organizations/:orgId/action-plans/:planId/evidences", requireAuth,
     uploadedByUserId: req.auth!.userId,
   }).returning();
 
-  let uploadedByUserName: string | null = null;
-  if (row.uploadedByUserId !== null) {
-    const [u] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, row.uploadedByUserId));
-    uploadedByUserName = u?.name ?? null;
-  }
+  const uploadedByUserName = await currentUserName(row.uploadedByUserId);
+  await logActionPlanActivity({
+    orgId: params.data.orgId,
+    actionPlanId: params.data.planId,
+    action: "evidence_added",
+    userId: req.auth!.userId,
+    userName: uploadedByUserName,
+    changes: { kind: "note", message: `Evidência anexada: ${row.fileName}` },
+  });
 
   res.status(201).json(serializeEvidence(row, uploadedByUserName));
 });
@@ -404,6 +579,16 @@ router.delete("/organizations/:orgId/action-plans/:planId/evidences/:evidenceId"
     .returning();
 
   if (!row) { res.status(404).json({ error: "Evidência não encontrada" }); return; }
+
+  await logActionPlanActivity({
+    orgId: params.data.orgId,
+    actionPlanId: params.data.planId,
+    action: "evidence_removed",
+    userId: req.auth!.userId,
+    userName: await currentUserName(req.auth!.userId),
+    changes: { kind: "note", message: `Evidência removida: ${row.fileName}` },
+  });
+
   res.status(204).send();
 });
 

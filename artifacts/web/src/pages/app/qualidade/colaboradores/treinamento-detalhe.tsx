@@ -40,6 +40,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ProfileItemAttachmentsField } from "@/components/employees/profile-item-form-fields";
+import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
 import {
   EMPLOYEE_RECORD_ATTACHMENT_ACCEPT,
   type UploadedFileRef,
@@ -716,6 +717,18 @@ export default function TrainingDetailPage() {
                             </Tooltip>
                             {canWriteEmployees && (
                               <>
+                                <CriarAcaoButton
+                                  orgId={orgId}
+                                  source={{
+                                    sourceModule: "training",
+                                    sourceRef: { trainingId: training.id },
+                                    defaultTitle: training.title,
+                                    originLabel: training.title,
+                                  }}
+                                  label="Criar plano de ação"
+                                  variant="outline"
+                                  size="sm"
+                                />
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button

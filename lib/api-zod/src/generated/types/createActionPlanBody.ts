@@ -5,20 +5,50 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ActionPlan5W2H } from "./actionPlan5W2H";
+import type { ActionPlanEffectivenessMethod } from "./actionPlanEffectivenessMethod";
+import type { ActionPlanNormRef } from "./actionPlanNormRef";
 import type { ActionPlanPriority } from "./actionPlanPriority";
 import type { ActionPlanSourceModule } from "./actionPlanSourceModule";
 import type { ActionPlanSourceRef } from "./actionPlanSourceRef";
 import type { ActionPlanStatus } from "./actionPlanStatus";
+import type { ActionPlanType } from "./actionPlanType";
 
 export interface CreateActionPlanBody {
   sourceModule: ActionPlanSourceModule;
   sourceRef: ActionPlanSourceRef;
+  actionType?: ActionPlanType;
   /** @minLength 1 */
   title: string;
   description?: string | null;
   status?: ActionPlanStatus;
   priority?: ActionPlanPriority;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  gutGravity?: number | null;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  gutUrgency?: number | null;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  gutTendency?: number | null;
+  plan5w2h?: ActionPlan5W2H | null;
+  rootCause?: string | null;
+  rootCauseWhys?: string[] | null;
   responsibleUserId?: number | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
+  effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  effectivenessDueDate?: string | null;
+  effectivenessEvaluatorUserId?: number | null;
+  odsNumbers?: number[] | null;
+  normRefs?: ActionPlanNormRef[] | null;
+  relatedIndicatorIds?: number[] | null;
+  relatedRiskIds?: number[] | null;
 }

@@ -8929,6 +8929,126 @@ paths:
         "204":
           description: Evidence deleted
 
+  /organizations/{orgId}/action-plans/summary:
+    get:
+      operationId: getActionPlansSummary
+      tags: [action-plans]
+      summary: Aggregated metrics for the action-plans dashboards
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Aggregated action-plan metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionPlanSummary"
+
+  /organizations/{orgId}/action-plans/{planId}/comments:
+    get:
+      operationId: listActionPlanComments
+      tags: [action-plans]
+      summary: List the comment thread of an action plan (newest first)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActionPlanComment"
+    post:
+      operationId: addActionPlanComment
+      tags: [action-plans]
+      summary: Append a comment to an action plan
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddActionPlanCommentBody"
+      responses:
+        "201":
+          description: Comment added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionPlanComment"
+
+  /organizations/{orgId}/action-plans/external-actions:
+    get:
+      operationId: listExternalActions
+      tags: [action-plans]
+      summary: Read-only treatment actions from other modules (governance corrective actions) surfaced in the unified hub
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: External (read-only) actions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExternalActionItem"
+
+  /organizations/{orgId}/action-plans/{planId}/activity:
+    get:
+      operationId: listActionPlanActivity
+      tags: [action-plans]
+      summary: List the audit/activity log of an action plan (newest first)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Activity log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActionPlanActivityLogEntry"
+
   /organizations/{orgId}/road-safety/factors:
     get:
       operationId: listRoadSafetyFactors
@@ -16137,14 +16257,47 @@ components:
 
     ActionPlanSourceModule:
       type: string
-      enum: [kpi, swot]
+      enum: [kpi, swot, manual, nonconformity, audit_finding, risk, training, environmental, road_safety, incident]
+
+    ActionPlanType:
+      type: string
+      enum: [corrective, preventive, improvement]
+
+    ActionPlanEffectivenessMethod:
+      type: string
+      enum: [indicator, internal_audit, field_inspection, training, sampling, risk_reduction]
+
+    ActionPlanEffectivenessResult:
+      type: string
+      enum: [effective, ineffective, pending]
+
+    ActionPlan5W2H:
+      type: object
+      description: Structured 5W2H plan. howMuch carries estimated cost (free text).
+      properties:
+        what: { type: string }
+        why: { type: string }
+        where: { type: string }
+        who: { type: string }
+        when: { type: string }
+        how: { type: string }
+        howMuch: { type: string }
+
+    ActionPlanNormRef:
+      type: object
+      properties:
+        code: { type: string }
+        clause: { type: string }
+        description: { type: string }
+      required: [code]
 
     ActionPlanSourceRef:
       type: object
       description: >-
         Polymorphic reference to the entity that originated the action plan. The
         relevant fields depend on sourceModule (enforced server-side): for kpi,
-        kpiMonthlyValueId is required; for swot, swotFactorId is required.
+        kpiMonthlyValueId is required; for swot, swotFactorId is required; for
+        manual, none are required.
       properties:
         kpiMonthlyValueId:
           type: integer
@@ -16159,6 +16312,22 @@ components:
         swotFactorId:
           type: integer
         swotFactorDescription:
+          type: string
+        manualContext:
+          type: string
+        nonconformityId:
+          type: integer
+        auditFindingId:
+          type: integer
+        riskOpportunityItemId:
+          type: integer
+        trainingId:
+          type: integer
+        laiaAssessmentId:
+          type: integer
+        roadSafetyFactorId:
+          type: integer
+        incidentDescription:
           type: string
 
     ActionPlanSourceContext:
@@ -16238,12 +16407,16 @@ components:
           type: integer
         organizationId:
           type: integer
+        code:
+          type: ["string", "null"]
         sourceModule:
           $ref: "#/components/schemas/ActionPlanSourceModule"
         sourceRef:
           $ref: "#/components/schemas/ActionPlanSourceRef"
         sourceContext:
           $ref: "#/components/schemas/ActionPlanSourceContext"
+        actionType:
+          $ref: "#/components/schemas/ActionPlanType"
         title:
           type: string
         description:
@@ -16252,6 +16425,31 @@ components:
           $ref: "#/components/schemas/ActionPlanStatus"
         priority:
           $ref: "#/components/schemas/ActionPlanPriority"
+        gutGravity:
+          type: ["integer", "null"]
+          minimum: 1
+          maximum: 5
+        gutUrgency:
+          type: ["integer", "null"]
+          minimum: 1
+          maximum: 5
+        gutTendency:
+          type: ["integer", "null"]
+          minimum: 1
+          maximum: 5
+        gutScore:
+          type: ["integer", "null"]
+          description: Server-computed G×U×T (1–125), null when any axis is unset
+        plan5w2h:
+          oneOf:
+            - $ref: "#/components/schemas/ActionPlan5W2H"
+            - type: "null"
+        rootCause:
+          type: ["string", "null"]
+        rootCauseWhys:
+          type: ["array", "null"]
+          items:
+            type: string
         responsibleUserId:
           type: ["integer", "null"]
         responsibleUserName:
@@ -16264,6 +16462,46 @@ components:
         correctiveActionCompletedAt:
           type: ["string", "null"]
           format: date-time
+        effectivenessMethod:
+          oneOf:
+            - $ref: "#/components/schemas/ActionPlanEffectivenessMethod"
+            - type: "null"
+        effectivenessDueDate:
+          type: ["string", "null"]
+          format: date-time
+        effectivenessEvaluatorUserId:
+          type: ["integer", "null"]
+        effectivenessEvaluatorUserName:
+          type: ["string", "null"]
+        effectivenessResult:
+          oneOf:
+            - $ref: "#/components/schemas/ActionPlanEffectivenessResult"
+            - type: "null"
+        effectivenessBefore:
+          type: ["string", "null"]
+        effectivenessAfter:
+          type: ["string", "null"]
+        effectivenessComment:
+          type: ["string", "null"]
+        effectivenessCheckedAt:
+          type: ["string", "null"]
+          format: date-time
+        odsNumbers:
+          type: ["array", "null"]
+          items:
+            type: integer
+        normRefs:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/ActionPlanNormRef"
+        relatedIndicatorIds:
+          type: ["array", "null"]
+          items:
+            type: integer
+        relatedRiskIds:
+          type: ["array", "null"]
+          items:
+            type: integer
         createdByUserId:
           type: ["integer", "null"]
         createdByUserName:
@@ -16287,6 +16525,7 @@ components:
         - sourceModule
         - sourceRef
         - sourceContext
+        - actionType
         - title
         - status
         - priority
@@ -16300,16 +16539,27 @@ components:
           type: integer
         organizationId:
           type: integer
+        code:
+          type: ["string", "null"]
         sourceModule:
           $ref: "#/components/schemas/ActionPlanSourceModule"
         sourceContext:
           $ref: "#/components/schemas/ActionPlanSourceContext"
+        actionType:
+          $ref: "#/components/schemas/ActionPlanType"
         title:
           type: string
         status:
           $ref: "#/components/schemas/ActionPlanStatus"
         priority:
           $ref: "#/components/schemas/ActionPlanPriority"
+        gutScore:
+          type: ["integer", "null"]
+          description: Server-computed G×U×T (1–125), null when any axis is unset
+        effectivenessResult:
+          oneOf:
+            - $ref: "#/components/schemas/ActionPlanEffectivenessResult"
+            - type: "null"
         responsibleUserId:
           type: ["integer", "null"]
         responsibleUserName:
@@ -16331,6 +16581,7 @@ components:
         - organizationId
         - sourceModule
         - sourceContext
+        - actionType
         - title
         - status
         - priority
@@ -16345,6 +16596,8 @@ components:
           $ref: "#/components/schemas/ActionPlanSourceModule"
         sourceRef:
           $ref: "#/components/schemas/ActionPlanSourceRef"
+        actionType:
+          $ref: "#/components/schemas/ActionPlanType"
         title:
           type: string
           minLength: 1
@@ -16355,6 +16608,33 @@ components:
           $ref: "#/components/schemas/ActionPlanStatus"
         priority:
           $ref: "#/components/schemas/ActionPlanPriority"
+        gutGravity:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        gutUrgency:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        gutTendency:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        plan5w2h:
+          oneOf:
+            - $ref: "#/components/schemas/ActionPlan5W2H"
+            - type: "null"
+        rootCause:
+          type: string
+          nullable: true
+        rootCauseWhys:
+          type: array
+          nullable: true
+          items:
+            type: string
         responsibleUserId:
           type: integer
           nullable: true
@@ -16365,6 +16645,37 @@ components:
         correctiveActionDescription:
           type: string
           nullable: true
+        effectivenessMethod:
+          oneOf:
+            - $ref: "#/components/schemas/ActionPlanEffectivenessMethod"
+            - type: "null"
+        effectivenessDueDate:
+          type: string
+          format: date-time
+          nullable: true
+        effectivenessEvaluatorUserId:
+          type: integer
+          nullable: true
+        odsNumbers:
+          type: array
+          nullable: true
+          items:
+            type: integer
+        normRefs:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ActionPlanNormRef"
+        relatedIndicatorIds:
+          type: array
+          nullable: true
+          items:
+            type: integer
+        relatedRiskIds:
+          type: array
+          nullable: true
+          items:
+            type: integer
       required:
         - sourceModule
         - sourceRef
@@ -16373,6 +16684,8 @@ components:
     UpdateActionPlanBody:
       type: object
       properties:
+        actionType:
+          $ref: "#/components/schemas/ActionPlanType"
         title:
           type: string
           minLength: 1
@@ -16383,6 +16696,33 @@ components:
           $ref: "#/components/schemas/ActionPlanStatus"
         priority:
           $ref: "#/components/schemas/ActionPlanPriority"
+        gutGravity:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        gutUrgency:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        gutTendency:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        plan5w2h:
+          oneOf:
+            - $ref: "#/components/schemas/ActionPlan5W2H"
+            - type: "null"
+        rootCause:
+          type: string
+          nullable: true
+        rootCauseWhys:
+          type: array
+          nullable: true
+          items:
+            type: string
         responsibleUserId:
           type: integer
           nullable: true
@@ -16397,6 +16737,50 @@ components:
           type: string
           format: date-time
           nullable: true
+        effectivenessMethod:
+          oneOf:
+            - $ref: "#/components/schemas/ActionPlanEffectivenessMethod"
+            - type: "null"
+        effectivenessDueDate:
+          type: string
+          format: date-time
+          nullable: true
+        effectivenessEvaluatorUserId:
+          type: integer
+          nullable: true
+        effectivenessResult:
+          oneOf:
+            - $ref: "#/components/schemas/ActionPlanEffectivenessResult"
+            - type: "null"
+        effectivenessBefore:
+          type: string
+          nullable: true
+        effectivenessAfter:
+          type: string
+          nullable: true
+        effectivenessComment:
+          type: string
+          nullable: true
+        odsNumbers:
+          type: array
+          nullable: true
+          items:
+            type: integer
+        normRefs:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ActionPlanNormRef"
+        relatedIndicatorIds:
+          type: array
+          nullable: true
+          items:
+            type: integer
+        relatedRiskIds:
+          type: array
+          nullable: true
+          items:
+            type: integer
 
     AddActionPlanEvidenceBody:
       type: object
@@ -16424,6 +16808,189 @@ components:
         - fileSize
         - contentType
         - objectPath
+
+    AddActionPlanCommentBody:
+      type: object
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 4000
+      required:
+        - body
+
+    ActionPlanComment:
+      type: object
+      properties:
+        id:
+          type: integer
+        actionPlanId:
+          type: integer
+        body:
+          type: string
+        createdByUserId:
+          type: ["integer", "null"]
+        createdByUserName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - actionPlanId
+        - body
+        - createdAt
+
+    ActionPlanActivityLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        actionPlanId:
+          type: integer
+        action:
+          type: string
+          enum:
+            - created
+            - updated
+            - status_changed
+            - evidence_added
+            - evidence_removed
+            - effectiveness_evaluated
+            - escalated
+            - reopened
+        userId:
+          type: ["integer", "null"]
+        userName:
+          type: ["string", "null"]
+        changes:
+          type: ["object", "null"]
+          description: >-
+            Payload describing the change. kind=snapshot (full state on create),
+            kind=diff (fields {from,to}), or kind=note (system event message).
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - actionPlanId
+        - action
+        - createdAt
+
+    ExternalActionItem:
+      type: object
+      description: A read-only treatment action owned by another module (currently governance corrective actions). Surfaced in the hub for a unified view; managed in its own module.
+      properties:
+        id:
+          type: integer
+        origin:
+          type: string
+          enum: [governance_corrective_action]
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/ActionPlanStatus"
+        nonconformityId:
+          type: integer
+        nonconformityTitle:
+          type: ["string", "null"]
+        responsibleUserName:
+          type: ["string", "null"]
+        dueDate:
+          type: ["string", "null"]
+          format: date-time
+        link:
+          type: string
+          description: In-app route to manage this action in its owning module
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - origin
+        - title
+        - status
+        - nonconformityId
+        - link
+        - createdAt
+
+    ActionPlanSummary:
+      type: object
+      description: Aggregated metrics for the action-plans executive/operational dashboards
+      properties:
+        total:
+          type: integer
+        byStatus:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Count keyed by ActionPlanStatus
+        byPriority:
+          type: object
+          additionalProperties:
+            type: integer
+        bySourceModule:
+          type: object
+          additionalProperties:
+            type: integer
+        byActionType:
+          type: object
+          additionalProperties:
+            type: integer
+        overdue:
+          type: integer
+          description: status not completed/cancelled and dueDate < today
+        dueSoon:
+          type: integer
+          description: due within the next 7 days
+        completedThisMonth:
+          type: integer
+        effectivenessRatePct:
+          type: ["number", "null"]
+          description: effective / (effective + ineffective) × 100, null when none evaluated
+        avgCompletionDays:
+          type: ["number", "null"]
+          description: mean days from createdAt to correctiveActionCompletedAt for completed plans
+        gutAverage:
+          type: ["number", "null"]
+          description: mean G×U×T over plans that have GUT set
+        odsDistribution:
+          type: array
+          items:
+            type: object
+            properties:
+              ods:
+                type: integer
+              count:
+                type: integer
+            required: [ods, count]
+        effectivenessEvolution:
+          type: array
+          description: last 6 months effectiveness rate
+          items:
+            type: object
+            properties:
+              year:
+                type: integer
+              month:
+                type: integer
+              ratePct:
+                type: ["number", "null"]
+            required: [year, month, ratePct]
+      required:
+        - total
+        - byStatus
+        - byPriority
+        - bySourceModule
+        - byActionType
+        - overdue
+        - dueSoon
+        - completedThisMonth
+        - effectivenessRatePct
+        - avgCompletionDays
+        - gutAverage
+        - odsDistribution
+        - effectivenessEvolution
 
     Asset:
       type: object

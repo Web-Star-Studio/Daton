@@ -26,6 +26,7 @@ import {
   getListUserOptionsQueryKey,
   useListUserOptions,
 } from "@workspace/api-client-react";
+import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
 
 const auditFormSchema = z
   .object({
@@ -503,6 +504,22 @@ export default function GovernanceAuditsPage() {
                       <Badge variant="secondary">{finding.processName || "Sem processo"}</Badge>
                     </div>
                     <p className="mt-2 text-sm text-muted-foreground">{finding.description}</p>
+                    {orgId ? (
+                      <div className="mt-3 flex justify-end">
+                        <CriarAcaoButton
+                          orgId={orgId}
+                          source={{
+                            sourceModule: "audit_finding",
+                            sourceRef: { auditFindingId: finding.id },
+                            defaultTitle: finding.description,
+                            originLabel: finding.processName || undefined,
+                          }}
+                          label="Criar plano de ação"
+                          variant="outline"
+                          size="sm"
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 ))}
 

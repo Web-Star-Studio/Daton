@@ -1,6 +1,7 @@
 import { schedule as cronSchedule, validate as cronValidate, type ScheduledTask } from "node-cron";
 import { runGovernanceMaintenancePass } from "./governance";
 import { runRegulatoryDocumentAlertsPass } from "../services/regulatory-documents/alerts";
+import { runActionPlanEscalationPass } from "../services/action-plans/escalation";
 
 // --- Defaults ---
 //
@@ -18,6 +19,7 @@ import { runRegulatoryDocumentAlertsPass } from "../services/regulatory-document
 
 const DEFAULT_GOVERNANCE_CRON = "0 * * * *"; // every hour at :00
 const DEFAULT_REGULATORY_CRON = "0 1 * * *"; // every day at 01:00 server-local
+const DEFAULT_ACTION_PLAN_CRON = "0 9 * * *"; // every day at 09:00 server-local
 const DEFAULT_INITIAL_DELAY_MS = 5_000;
 const DEFAULT_TIMEZONE = "America/Sao_Paulo";
 
@@ -76,19 +78,22 @@ export function startGovernanceMaintenanceScheduler() {
   const timezone = process.env.SCHEDULER_TIMEZONE ?? DEFAULT_TIMEZONE;
   const governanceCron = process.env.GOVERNANCE_MAINTENANCE_CRON ?? DEFAULT_GOVERNANCE_CRON;
   const regulatoryCron = process.env.REGULATORY_ALERTS_CRON ?? DEFAULT_REGULATORY_CRON;
+  const actionPlanCron = process.env.ACTION_PLAN_ESCALATION_CRON ?? DEFAULT_ACTION_PLAN_CRON;
   const initialDelayMs = parsePositiveInt(
     process.env.GOVERNANCE_MAINTENANCE_INITIAL_DELAY_MS,
     DEFAULT_INITIAL_DELAY_MS,
   );
 
-  // Boot warmup: run both passes once shortly after the server is up.
+  // Boot warmup: run all passes once shortly after the server is up.
   setTimeout(() => {
     void runPass("governance-maintenance", runGovernanceMaintenancePass);
     void runPass("regulatory-alerts", runRegulatoryDocumentAlertsPass);
+    void runPass("action-plan-escalation", runActionPlanEscalationPass);
   }, initialDelayMs);
 
   scheduleIfValid("governance-maintenance", governanceCron, runGovernanceMaintenancePass, timezone);
   scheduleIfValid("regulatory-alerts", regulatoryCron, runRegulatoryDocumentAlertsPass, timezone);
+  scheduleIfValid("action-plan-escalation", actionPlanCron, runActionPlanEscalationPass, timezone);
 }
 
 export function stopGovernanceMaintenanceScheduler() {

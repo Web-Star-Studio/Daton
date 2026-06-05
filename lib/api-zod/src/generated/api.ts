@@ -16830,7 +16830,20 @@ export const ListActionPlansQueryParams = zod.object({
     .enum(["open", "in_progress", "completed", "cancelled"])
     .optional(),
   priority: zod.enum(["low", "medium", "high"]).optional(),
-  sourceModule: zod.enum(["kpi", "swot"]).optional(),
+  sourceModule: zod
+    .enum([
+      "kpi",
+      "swot",
+      "manual",
+      "nonconformity",
+      "audit_finding",
+      "risk",
+      "training",
+      "environmental",
+      "road_safety",
+      "incident",
+    ])
+    .optional(),
   responsibleUserId: zod.coerce.number().optional(),
   sourceKpiMonthlyValueId: zod.coerce
     .number()
@@ -16843,7 +16856,19 @@ export const listActionPlansResponseEvidencesCountMin = 0;
 export const ListActionPlansResponseItem = zod.object({
   id: zod.number(),
   organizationId: zod.number(),
-  sourceModule: zod.enum(["kpi", "swot"]),
+  code: zod.string().nullish(),
+  sourceModule: zod.enum([
+    "kpi",
+    "swot",
+    "manual",
+    "nonconformity",
+    "audit_finding",
+    "risk",
+    "training",
+    "environmental",
+    "road_safety",
+    "incident",
+  ]),
   sourceContext: zod
     .object({
       label: zod
@@ -16866,9 +16891,17 @@ export const ListActionPlansResponseItem = zod.object({
     .describe(
       "Server-resolved context about the source, used for display in lists\/details",
     ),
+  actionType: zod.enum(["corrective", "preventive", "improvement"]),
   title: zod.string(),
   status: zod.enum(["open", "in_progress", "completed", "cancelled"]),
   priority: zod.enum(["low", "medium", "high"]),
+  gutScore: zod
+    .number()
+    .nullish()
+    .describe("Server-computed G×U×T (1–125), null when any axis is unset"),
+  effectivenessResult: zod
+    .union([zod.enum(["effective", "ineffective", "pending"]), zod.null()])
+    .optional(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
   dueDate: zod.string().datetime({}).nullish(),
@@ -16887,8 +16920,25 @@ export const CreateActionPlanParams = zod.object({
 
 export const createActionPlanBodySourceRefKpiMonthMax = 12;
 
+export const createActionPlanBodyGutGravityMax = 5;
+
+export const createActionPlanBodyGutUrgencyMax = 5;
+
+export const createActionPlanBodyGutTendencyMax = 5;
+
 export const CreateActionPlanBody = zod.object({
-  sourceModule: zod.enum(["kpi", "swot"]),
+  sourceModule: zod.enum([
+    "kpi",
+    "swot",
+    "manual",
+    "nonconformity",
+    "audit_finding",
+    "risk",
+    "training",
+    "environmental",
+    "road_safety",
+    "incident",
+  ]),
   sourceRef: zod
     .object({
       kpiMonthlyValueId: zod.number().optional(),
@@ -16901,19 +16951,90 @@ export const CreateActionPlanBody = zod.object({
         .optional(),
       swotFactorId: zod.number().optional(),
       swotFactorDescription: zod.string().optional(),
+      manualContext: zod.string().optional(),
+      nonconformityId: zod.number().optional(),
+      auditFindingId: zod.number().optional(),
+      riskOpportunityItemId: zod.number().optional(),
+      trainingId: zod.number().optional(),
+      laiaAssessmentId: zod.number().optional(),
+      roadSafetyFactorId: zod.number().optional(),
+      incidentDescription: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
     ),
+  actionType: zod.enum(["corrective", "preventive", "improvement"]).optional(),
   title: zod.string().min(1),
   description: zod.string().nullish(),
   status: zod
     .enum(["open", "in_progress", "completed", "cancelled"])
     .optional(),
   priority: zod.enum(["low", "medium", "high"]).optional(),
+  gutGravity: zod
+    .number()
+    .min(1)
+    .max(createActionPlanBodyGutGravityMax)
+    .nullish(),
+  gutUrgency: zod
+    .number()
+    .min(1)
+    .max(createActionPlanBodyGutUrgencyMax)
+    .nullish(),
+  gutTendency: zod
+    .number()
+    .min(1)
+    .max(createActionPlanBodyGutTendencyMax)
+    .nullish(),
+  plan5w2h: zod
+    .union([
+      zod
+        .object({
+          what: zod.string().optional(),
+          why: zod.string().optional(),
+          where: zod.string().optional(),
+          who: zod.string().optional(),
+          when: zod.string().optional(),
+          how: zod.string().optional(),
+          howMuch: zod.string().optional(),
+        })
+        .describe(
+          "Structured 5W2H plan. howMuch carries estimated cost (free text).",
+        ),
+      zod.null(),
+    ])
+    .optional(),
+  rootCause: zod.string().nullish(),
+  rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
+  effectivenessMethod: zod
+    .union([
+      zod.enum([
+        "indicator",
+        "internal_audit",
+        "field_inspection",
+        "training",
+        "sampling",
+        "risk_reduction",
+      ]),
+      zod.null(),
+    ])
+    .optional(),
+  effectivenessDueDate: zod.string().datetime({}).nullish(),
+  effectivenessEvaluatorUserId: zod.number().nullish(),
+  odsNumbers: zod.array(zod.number()).nullish(),
+  normRefs: zod
+    .array(
+      zod.object({
+        code: zod.string(),
+        clause: zod.string().optional(),
+        description: zod.string().optional(),
+      }),
+    )
+    .nullish(),
+  relatedIndicatorIds: zod.array(zod.number()).nullish(),
+  relatedRiskIds: zod.array(zod.number()).nullish(),
 });
 
 /**
@@ -16926,10 +17047,28 @@ export const GetActionPlanParams = zod.object({
 
 export const getActionPlanResponseSourceRefKpiMonthMax = 12;
 
+export const getActionPlanResponseGutGravityMax = 5;
+
+export const getActionPlanResponseGutUrgencyMax = 5;
+
+export const getActionPlanResponseGutTendencyMax = 5;
+
 export const GetActionPlanResponse = zod.object({
   id: zod.number(),
   organizationId: zod.number(),
-  sourceModule: zod.enum(["kpi", "swot"]),
+  code: zod.string().nullish(),
+  sourceModule: zod.enum([
+    "kpi",
+    "swot",
+    "manual",
+    "nonconformity",
+    "audit_finding",
+    "risk",
+    "training",
+    "environmental",
+    "road_safety",
+    "incident",
+  ]),
   sourceRef: zod
     .object({
       kpiMonthlyValueId: zod.number().optional(),
@@ -16942,9 +17081,17 @@ export const GetActionPlanResponse = zod.object({
         .optional(),
       swotFactorId: zod.number().optional(),
       swotFactorDescription: zod.string().optional(),
+      manualContext: zod.string().optional(),
+      nonconformityId: zod.number().optional(),
+      auditFindingId: zod.number().optional(),
+      riskOpportunityItemId: zod.number().optional(),
+      trainingId: zod.number().optional(),
+      laiaAssessmentId: zod.number().optional(),
+      roadSafetyFactorId: zod.number().optional(),
+      incidentDescription: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
     ),
   sourceContext: zod
     .object({
@@ -16968,15 +17115,90 @@ export const GetActionPlanResponse = zod.object({
     .describe(
       "Server-resolved context about the source, used for display in lists\/details",
     ),
+  actionType: zod.enum(["corrective", "preventive", "improvement"]),
   title: zod.string(),
   description: zod.string().nullish(),
   status: zod.enum(["open", "in_progress", "completed", "cancelled"]),
   priority: zod.enum(["low", "medium", "high"]),
+  gutGravity: zod
+    .number()
+    .min(1)
+    .max(getActionPlanResponseGutGravityMax)
+    .nullish(),
+  gutUrgency: zod
+    .number()
+    .min(1)
+    .max(getActionPlanResponseGutUrgencyMax)
+    .nullish(),
+  gutTendency: zod
+    .number()
+    .min(1)
+    .max(getActionPlanResponseGutTendencyMax)
+    .nullish(),
+  gutScore: zod
+    .number()
+    .nullish()
+    .describe("Server-computed G×U×T (1–125), null when any axis is unset"),
+  plan5w2h: zod
+    .union([
+      zod
+        .object({
+          what: zod.string().optional(),
+          why: zod.string().optional(),
+          where: zod.string().optional(),
+          who: zod.string().optional(),
+          when: zod.string().optional(),
+          how: zod.string().optional(),
+          howMuch: zod.string().optional(),
+        })
+        .describe(
+          "Structured 5W2H plan. howMuch carries estimated cost (free text).",
+        ),
+      zod.null(),
+    ])
+    .optional(),
+  rootCause: zod.string().nullish(),
+  rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
+  effectivenessMethod: zod
+    .union([
+      zod.enum([
+        "indicator",
+        "internal_audit",
+        "field_inspection",
+        "training",
+        "sampling",
+        "risk_reduction",
+      ]),
+      zod.null(),
+    ])
+    .optional(),
+  effectivenessDueDate: zod.string().datetime({}).nullish(),
+  effectivenessEvaluatorUserId: zod.number().nullish(),
+  effectivenessEvaluatorUserName: zod.string().nullish(),
+  effectivenessResult: zod
+    .union([zod.enum(["effective", "ineffective", "pending"]), zod.null()])
+    .optional(),
+  effectivenessBefore: zod.string().nullish(),
+  effectivenessAfter: zod.string().nullish(),
+  effectivenessComment: zod.string().nullish(),
+  effectivenessCheckedAt: zod.string().datetime({}).nullish(),
+  odsNumbers: zod.array(zod.number()).nullish(),
+  normRefs: zod
+    .array(
+      zod.object({
+        code: zod.string(),
+        clause: zod.string().optional(),
+        description: zod.string().optional(),
+      }),
+    )
+    .nullish(),
+  relatedIndicatorIds: zod.array(zod.number()).nullish(),
+  relatedRiskIds: zod.array(zod.number()).nullish(),
   createdByUserId: zod.number().nullish(),
   createdByUserName: zod.string().nullish(),
   closedAt: zod.string().datetime({}).nullish(),
@@ -17007,25 +17229,118 @@ export const UpdateActionPlanParams = zod.object({
   planId: zod.coerce.number(),
 });
 
+export const updateActionPlanBodyGutGravityMax = 5;
+
+export const updateActionPlanBodyGutUrgencyMax = 5;
+
+export const updateActionPlanBodyGutTendencyMax = 5;
+
 export const UpdateActionPlanBody = zod.object({
+  actionType: zod.enum(["corrective", "preventive", "improvement"]).optional(),
   title: zod.string().min(1).optional(),
   description: zod.string().nullish(),
   status: zod
     .enum(["open", "in_progress", "completed", "cancelled"])
     .optional(),
   priority: zod.enum(["low", "medium", "high"]).optional(),
+  gutGravity: zod
+    .number()
+    .min(1)
+    .max(updateActionPlanBodyGutGravityMax)
+    .nullish(),
+  gutUrgency: zod
+    .number()
+    .min(1)
+    .max(updateActionPlanBodyGutUrgencyMax)
+    .nullish(),
+  gutTendency: zod
+    .number()
+    .min(1)
+    .max(updateActionPlanBodyGutTendencyMax)
+    .nullish(),
+  plan5w2h: zod
+    .union([
+      zod
+        .object({
+          what: zod.string().optional(),
+          why: zod.string().optional(),
+          where: zod.string().optional(),
+          who: zod.string().optional(),
+          when: zod.string().optional(),
+          how: zod.string().optional(),
+          howMuch: zod.string().optional(),
+        })
+        .describe(
+          "Structured 5W2H plan. howMuch carries estimated cost (free text).",
+        ),
+      zod.null(),
+    ])
+    .optional(),
+  rootCause: zod.string().nullish(),
+  rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
+  effectivenessMethod: zod
+    .union([
+      zod.enum([
+        "indicator",
+        "internal_audit",
+        "field_inspection",
+        "training",
+        "sampling",
+        "risk_reduction",
+      ]),
+      zod.null(),
+    ])
+    .optional(),
+  effectivenessDueDate: zod.string().datetime({}).nullish(),
+  effectivenessEvaluatorUserId: zod.number().nullish(),
+  effectivenessResult: zod
+    .union([zod.enum(["effective", "ineffective", "pending"]), zod.null()])
+    .optional(),
+  effectivenessBefore: zod.string().nullish(),
+  effectivenessAfter: zod.string().nullish(),
+  effectivenessComment: zod.string().nullish(),
+  odsNumbers: zod.array(zod.number()).nullish(),
+  normRefs: zod
+    .array(
+      zod.object({
+        code: zod.string(),
+        clause: zod.string().optional(),
+        description: zod.string().optional(),
+      }),
+    )
+    .nullish(),
+  relatedIndicatorIds: zod.array(zod.number()).nullish(),
+  relatedRiskIds: zod.array(zod.number()).nullish(),
 });
 
 export const updateActionPlanResponseSourceRefKpiMonthMax = 12;
 
+export const updateActionPlanResponseGutGravityMax = 5;
+
+export const updateActionPlanResponseGutUrgencyMax = 5;
+
+export const updateActionPlanResponseGutTendencyMax = 5;
+
 export const UpdateActionPlanResponse = zod.object({
   id: zod.number(),
   organizationId: zod.number(),
-  sourceModule: zod.enum(["kpi", "swot"]),
+  code: zod.string().nullish(),
+  sourceModule: zod.enum([
+    "kpi",
+    "swot",
+    "manual",
+    "nonconformity",
+    "audit_finding",
+    "risk",
+    "training",
+    "environmental",
+    "road_safety",
+    "incident",
+  ]),
   sourceRef: zod
     .object({
       kpiMonthlyValueId: zod.number().optional(),
@@ -17038,9 +17353,17 @@ export const UpdateActionPlanResponse = zod.object({
         .optional(),
       swotFactorId: zod.number().optional(),
       swotFactorDescription: zod.string().optional(),
+      manualContext: zod.string().optional(),
+      nonconformityId: zod.number().optional(),
+      auditFindingId: zod.number().optional(),
+      riskOpportunityItemId: zod.number().optional(),
+      trainingId: zod.number().optional(),
+      laiaAssessmentId: zod.number().optional(),
+      roadSafetyFactorId: zod.number().optional(),
+      incidentDescription: zod.string().optional(),
     })
     .describe(
-      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required.",
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
     ),
   sourceContext: zod
     .object({
@@ -17064,15 +17387,90 @@ export const UpdateActionPlanResponse = zod.object({
     .describe(
       "Server-resolved context about the source, used for display in lists\/details",
     ),
+  actionType: zod.enum(["corrective", "preventive", "improvement"]),
   title: zod.string(),
   description: zod.string().nullish(),
   status: zod.enum(["open", "in_progress", "completed", "cancelled"]),
   priority: zod.enum(["low", "medium", "high"]),
+  gutGravity: zod
+    .number()
+    .min(1)
+    .max(updateActionPlanResponseGutGravityMax)
+    .nullish(),
+  gutUrgency: zod
+    .number()
+    .min(1)
+    .max(updateActionPlanResponseGutUrgencyMax)
+    .nullish(),
+  gutTendency: zod
+    .number()
+    .min(1)
+    .max(updateActionPlanResponseGutTendencyMax)
+    .nullish(),
+  gutScore: zod
+    .number()
+    .nullish()
+    .describe("Server-computed G×U×T (1–125), null when any axis is unset"),
+  plan5w2h: zod
+    .union([
+      zod
+        .object({
+          what: zod.string().optional(),
+          why: zod.string().optional(),
+          where: zod.string().optional(),
+          who: zod.string().optional(),
+          when: zod.string().optional(),
+          how: zod.string().optional(),
+          howMuch: zod.string().optional(),
+        })
+        .describe(
+          "Structured 5W2H plan. howMuch carries estimated cost (free text).",
+        ),
+      zod.null(),
+    ])
+    .optional(),
+  rootCause: zod.string().nullish(),
+  rootCauseWhys: zod.array(zod.string()).nullish(),
   responsibleUserId: zod.number().nullish(),
   responsibleUserName: zod.string().nullish(),
   dueDate: zod.string().datetime({}).nullish(),
   correctiveActionDescription: zod.string().nullish(),
   correctiveActionCompletedAt: zod.string().datetime({}).nullish(),
+  effectivenessMethod: zod
+    .union([
+      zod.enum([
+        "indicator",
+        "internal_audit",
+        "field_inspection",
+        "training",
+        "sampling",
+        "risk_reduction",
+      ]),
+      zod.null(),
+    ])
+    .optional(),
+  effectivenessDueDate: zod.string().datetime({}).nullish(),
+  effectivenessEvaluatorUserId: zod.number().nullish(),
+  effectivenessEvaluatorUserName: zod.string().nullish(),
+  effectivenessResult: zod
+    .union([zod.enum(["effective", "ineffective", "pending"]), zod.null()])
+    .optional(),
+  effectivenessBefore: zod.string().nullish(),
+  effectivenessAfter: zod.string().nullish(),
+  effectivenessComment: zod.string().nullish(),
+  effectivenessCheckedAt: zod.string().datetime({}).nullish(),
+  odsNumbers: zod.array(zod.number()).nullish(),
+  normRefs: zod
+    .array(
+      zod.object({
+        code: zod.string(),
+        clause: zod.string().optional(),
+        description: zod.string().optional(),
+      }),
+    )
+    .nullish(),
+  relatedIndicatorIds: zod.array(zod.number()).nullish(),
+  relatedRiskIds: zod.array(zod.number()).nullish(),
   createdByUserId: zod.number().nullish(),
   createdByUserName: zod.string().nullish(),
   closedAt: zod.string().datetime({}).nullish(),
@@ -17148,6 +17546,162 @@ export const DeleteActionPlanEvidenceParams = zod.object({
   planId: zod.coerce.number(),
   evidenceId: zod.coerce.number(),
 });
+
+/**
+ * @summary Aggregated metrics for the action-plans dashboards
+ */
+export const GetActionPlansSummaryParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const GetActionPlansSummaryResponse = zod
+  .object({
+    total: zod.number(),
+    byStatus: zod
+      .record(zod.string(), zod.number())
+      .describe("Count keyed by ActionPlanStatus"),
+    byPriority: zod.record(zod.string(), zod.number()),
+    bySourceModule: zod.record(zod.string(), zod.number()),
+    byActionType: zod.record(zod.string(), zod.number()),
+    overdue: zod
+      .number()
+      .describe("status not completed\/cancelled and dueDate < today"),
+    dueSoon: zod.number().describe("due within the next 7 days"),
+    completedThisMonth: zod.number(),
+    effectivenessRatePct: zod
+      .number()
+      .nullable()
+      .describe(
+        "effective \/ (effective + ineffective) × 100, null when none evaluated",
+      ),
+    avgCompletionDays: zod
+      .number()
+      .nullable()
+      .describe(
+        "mean days from createdAt to correctiveActionCompletedAt for completed plans",
+      ),
+    gutAverage: zod
+      .number()
+      .nullable()
+      .describe("mean G×U×T over plans that have GUT set"),
+    odsDistribution: zod.array(
+      zod.object({
+        ods: zod.number(),
+        count: zod.number(),
+      }),
+    ),
+    effectivenessEvolution: zod
+      .array(
+        zod.object({
+          year: zod.number(),
+          month: zod.number(),
+          ratePct: zod.number().nullable(),
+        }),
+      )
+      .describe("last 6 months effectiveness rate"),
+  })
+  .describe(
+    "Aggregated metrics for the action-plans executive\/operational dashboards",
+  );
+
+/**
+ * @summary List the comment thread of an action plan (newest first)
+ */
+export const ListActionPlanCommentsParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const ListActionPlanCommentsResponseItem = zod.object({
+  id: zod.number(),
+  actionPlanId: zod.number(),
+  body: zod.string(),
+  createdByUserId: zod.number().nullish(),
+  createdByUserName: zod.string().nullish(),
+  createdAt: zod.string().datetime({}),
+});
+export const ListActionPlanCommentsResponse = zod.array(
+  ListActionPlanCommentsResponseItem,
+);
+
+/**
+ * @summary Append a comment to an action plan
+ */
+export const AddActionPlanCommentParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const addActionPlanCommentBodyBodyMax = 4000;
+
+export const AddActionPlanCommentBody = zod.object({
+  body: zod.string().min(1).max(addActionPlanCommentBodyBodyMax),
+});
+
+/**
+ * @summary Read-only treatment actions from other modules (governance corrective actions) surfaced in the unified hub
+ */
+export const ListExternalActionsParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListExternalActionsResponseItem = zod
+  .object({
+    id: zod.number(),
+    origin: zod.enum(["governance_corrective_action"]),
+    title: zod.string(),
+    status: zod.enum(["open", "in_progress", "completed", "cancelled"]),
+    nonconformityId: zod.number(),
+    nonconformityTitle: zod.string().nullish(),
+    responsibleUserName: zod.string().nullish(),
+    dueDate: zod.string().datetime({}).nullish(),
+    link: zod
+      .string()
+      .describe("In-app route to manage this action in its owning module"),
+    createdAt: zod.string().datetime({}),
+  })
+  .describe(
+    "A read-only treatment action owned by another module (currently governance corrective actions). Surfaced in the hub for a unified view; managed in its own module.",
+  );
+export const ListExternalActionsResponse = zod.array(
+  ListExternalActionsResponseItem,
+);
+
+/**
+ * @summary List the audit/activity log of an action plan (newest first)
+ */
+export const ListActionPlanActivityParams = zod.object({
+  orgId: zod.coerce.number(),
+  planId: zod.coerce.number(),
+});
+
+export const ListActionPlanActivityResponseItem = zod.object({
+  id: zod.number(),
+  actionPlanId: zod.number(),
+  action: zod.enum([
+    "created",
+    "updated",
+    "status_changed",
+    "evidence_added",
+    "evidence_removed",
+    "effectiveness_evaluated",
+    "escalated",
+    "reopened",
+  ]),
+  userId: zod.number().nullish(),
+  userName: zod.string().nullish(),
+  changes: zod
+    .object({})
+    .passthrough()
+    .nullish()
+    .describe(
+      "Payload describing the change. kind=snapshot (full state on create), kind=diff (fields {from,to}), or kind=note (system event message).",
+    ),
+  createdAt: zod.string().datetime({}),
+});
+export const ListActionPlanActivityResponse = zod.array(
+  ListActionPlanActivityResponseItem,
+);
 
 /**
  * @summary List road safety performance factors

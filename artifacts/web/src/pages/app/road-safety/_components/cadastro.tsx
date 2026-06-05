@@ -34,6 +34,7 @@ import {
   type WithCurrentDiagnosis,
 } from "@/lib/road-safety-client";
 import { RelevanceBadge } from "./badges";
+import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
 
 type CadastroScreenProps = {
   orgId: number;
@@ -224,13 +225,29 @@ export function CadastroScreen({ orgId, factorId, onSaved, onCancel }: CadastroS
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-base font-semibold text-foreground">
-          {editing ? `Editar ${factor?.code ?? "fator"}` : "Cadastro de fator de desempenho"}
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          Configure um FD da Segurança Viária — válido para qualquer segmento.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">
+            {editing ? `Editar ${factor?.code ?? "fator"}` : "Cadastro de fator de desempenho"}
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Configure um FD da Segurança Viária — válido para qualquer segmento.
+          </p>
+        </div>
+        {editing && factor && (
+          <CriarAcaoButton
+            orgId={orgId}
+            source={{
+              sourceModule: "road_safety",
+              sourceRef: { roadSafetyFactorId: factor.id },
+              defaultTitle: factor.code ? `${factor.code} — ${factor.name}` : factor.name,
+              originLabel: factor.code ?? factor.name,
+            }}
+            label="Criar plano de ação"
+            variant="outline"
+            size="sm"
+          />
+        )}
       </div>
 
       <Block icon={IdCard} title="Bloco A — Identificação do fator">

@@ -6,13 +6,72 @@ import { usersTable } from "./users";
 
 export type ActionPlanStatus = "open" | "in_progress" | "completed" | "cancelled";
 export type ActionPlanPriority = "low" | "medium" | "high";
-export type ActionPlanSourceModule = "kpi" | "swot";
+/**
+ * Origin that spawned the action. `manual` = created directly in the action
+ * module (no upstream entity). The action module is the unified treatment hub,
+ * so origins span every SGI source. The enum is append-only — adding values is
+ * a safe `push`.
+ */
+export type ActionPlanSourceModule =
+  | "kpi"
+  | "swot"
+  | "manual"
+  | "nonconformity"
+  | "audit_finding"
+  | "risk"
+  | "training"
+  | "environmental"
+  | "road_safety"
+  | "incident";
+export type ActionPlanType = "corrective" | "preventive" | "improvement";
+export type ActionPlanEffectivenessMethod =
+  | "indicator"
+  | "internal_audit"
+  | "field_inspection"
+  | "training"
+  | "sampling"
+  | "risk_reduction";
+export type ActionPlanEffectivenessResult = "effective" | "ineffective" | "pending";
+export type ActionPlanActivityAction =
+  | "created"
+  | "updated"
+  | "status_changed"
+  | "evidence_added"
+  | "evidence_removed"
+  | "effectiveness_evaluated"
+  | "escalated"
+  | "reopened";
+
+/** Structured 5W2H plan. "howMuch" carries estimated cost (free text). */
+export type ActionPlan5W2H = {
+  what?: string;
+  why?: string;
+  where?: string;
+  who?: string;
+  when?: string;
+  how?: string;
+  howMuch?: string;
+};
+
+/** A normative reference the action addresses, e.g. { code: "ISO 45001", clause: "8.1" }. */
+export type ActionPlanNormRef = {
+  code: string;
+  clause?: string;
+  description?: string;
+};
+
+/** Activity-log payload. Diff for field changes, snapshot on create, note for
+ * system events (escalation, etc.). Mirrors the regulatory-documents audit log. */
+export type ActionPlanActivityChanges =
+  | { kind: "snapshot"; data: Record<string, unknown> }
+  | { kind: "diff"; fields: Record<string, { from: unknown; to: unknown }> }
+  | { kind: "note"; message: string };
 
 /**
  * Polymorphic source reference. The relevant fields depend on `sourceModule`
  * (validated server-side at create time): kpi → kpiMonthlyValueId; swot →
- * swotFactorId. Kept as a single optional-field object (not a union) so the
- * existing `typeof` guards in source-context resolution stay simple.
+ * swotFactorId; manual → none. Kept as a single optional-field object (not a
+ * union) so the existing `typeof` guards in source-context resolution stay simple.
  */
 export type ActionPlanSourceRef = {
   // kpi origin
@@ -23,6 +82,20 @@ export type ActionPlanSourceRef = {
   // swot origin
   swotFactorId?: number;
   swotFactorDescription?: string;
+  // manual origin (optional free context)
+  manualContext?: string;
+  // governance: nonconformity / audit finding / strategic-plan risk
+  nonconformityId?: number;
+  auditFindingId?: number;
+  riskOpportunityItemId?: number;
+  // people: training
+  trainingId?: number;
+  // environmental: LAIA assessment
+  laiaAssessmentId?: number;
+  // road safety factor
+  roadSafetyFactorId?: number;
+  // incident (no dedicated entity — free description)
+  incidentDescription?: string;
 };
 
 export const actionPlanStatusEnum = pgEnum("action_plan_status", [
@@ -39,6 +112,42 @@ export const actionPlanPriorityEnum = pgEnum("action_plan_priority", [
 export const actionPlanSourceModuleEnum = pgEnum("action_plan_source_module", [
   "kpi",
   "swot",
+  "manual",
+  "nonconformity",
+  "audit_finding",
+  "risk",
+  "training",
+  "environmental",
+  "road_safety",
+  "incident",
+]);
+export const actionPlanTypeEnum = pgEnum("action_plan_type", [
+  "corrective",
+  "preventive",
+  "improvement",
+]);
+export const actionPlanEffectivenessMethodEnum = pgEnum("action_plan_effectiveness_method", [
+  "indicator",
+  "internal_audit",
+  "field_inspection",
+  "training",
+  "sampling",
+  "risk_reduction",
+]);
+export const actionPlanEffectivenessResultEnum = pgEnum("action_plan_effectiveness_result", [
+  "effective",
+  "ineffective",
+  "pending",
+]);
+export const actionPlanActivityActionEnum = pgEnum("action_plan_activity_action", [
+  "created",
+  "updated",
+  "status_changed",
+  "evidence_added",
+  "evidence_removed",
+  "effectiveness_evaluated",
+  "escalated",
+  "reopened",
 ]);
 
 export const actionPlansTable = pgTable(
@@ -46,16 +155,43 @@ export const actionPlansTable = pgTable(
   {
     id: serial("id").primaryKey(),
     organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
+    /** Human-readable per-org code, e.g. "AC-2026-047". Generated at create time. */
+    code: text("code"),
     sourceModule: actionPlanSourceModuleEnum("source_module").notNull(),
     sourceRef: jsonb("source_ref").$type<ActionPlanSourceRef>().notNull(),
+    actionType: actionPlanTypeEnum("action_type").notNull().default("corrective"),
     title: text("title").notNull(),
     description: text("description"),
     status: actionPlanStatusEnum("status").notNull().default("open"),
     priority: actionPlanPriorityEnum("priority").notNull().default("medium"),
+    // ─── GUT prioritization (each axis 1–5; relevância = G × U × T, 1–125) ──────
+    gutGravity: integer("gut_gravity"),
+    gutUrgency: integer("gut_urgency"),
+    gutTendency: integer("gut_tendency"),
+    // ─── Structured planning (5W2H) + root cause (5 whys) ──────────────────────
+    plan5w2h: jsonb("plan_5w2h").$type<ActionPlan5W2H>(),
+    rootCause: text("root_cause"),
+    rootCauseWhys: jsonb("root_cause_whys").$type<string[]>(),
+    // ─── Assignment & deadline ─────────────────────────────────────────────────
     responsibleUserId: integer("responsible_user_id").references(() => usersTable.id, { onDelete: "set null" }),
     dueDate: timestamp("due_date", { withTimezone: true }),
     correctiveActionDescription: text("corrective_action_description"),
     correctiveActionCompletedAt: timestamp("corrective_action_completed_at", { withTimezone: true }),
+    // ─── Effectiveness verification (mirrors governance NC fields) ──────────────
+    effectivenessMethod: actionPlanEffectivenessMethodEnum("effectiveness_method"),
+    effectivenessDueDate: timestamp("effectiveness_due_date", { withTimezone: true }),
+    effectivenessEvaluatorUserId: integer("effectiveness_evaluator_user_id").references(() => usersTable.id, { onDelete: "set null" }),
+    effectivenessResult: actionPlanEffectivenessResultEnum("effectiveness_result"),
+    effectivenessBefore: text("effectiveness_before"),
+    effectivenessAfter: text("effectiveness_after"),
+    effectivenessComment: text("effectiveness_comment"),
+    effectivenessCheckedAt: timestamp("effectiveness_checked_at", { withTimezone: true }),
+    // ─── Strategic / normative links ───────────────────────────────────────────
+    odsNumbers: jsonb("ods_numbers").$type<number[]>(),
+    normRefs: jsonb("norm_refs").$type<ActionPlanNormRef[]>(),
+    relatedIndicatorIds: jsonb("related_indicator_ids").$type<number[]>(),
+    relatedRiskIds: jsonb("related_risk_ids").$type<number[]>(),
+    // ─── Bookkeeping ───────────────────────────────────────────────────────────
     createdByUserId: integer("created_by_user_id").references(() => usersTable.id, { onDelete: "set null" }),
     closedAt: timestamp("closed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -64,6 +200,7 @@ export const actionPlansTable = pgTable(
   (table) => [
     index("action_plans_org_source_idx").on(table.organizationId, table.sourceModule),
     index("action_plans_org_status_idx").on(table.organizationId, table.status),
+    index("action_plans_org_code_idx").on(table.organizationId, table.code),
   ],
 );
 
@@ -81,6 +218,41 @@ export const actionPlanEvidencesTable = pgTable("action_plan_evidences", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
+/** Append-only comment thread, one row per comment (mirrors kpi_monthly_value_justifications). */
+export const actionPlanCommentsTable = pgTable(
+  "action_plan_comments",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
+    actionPlanId: integer("action_plan_id").notNull().references(() => actionPlansTable.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdByUserId: integer("created_by_user_id").references(() => usersTable.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("action_plan_comments_plan_idx").on(table.actionPlanId, table.createdAt),
+  ],
+);
+
+/** Append-only audit trail. `userName` is snapshotted so the log survives user
+ * deletion (auditors will ask who did what and when). */
+export const actionPlanActivityLogTable = pgTable(
+  "action_plan_activity_log",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
+    actionPlanId: integer("action_plan_id").notNull().references(() => actionPlansTable.id, { onDelete: "cascade" }),
+    action: actionPlanActivityActionEnum("action").notNull(),
+    userId: integer("user_id").references(() => usersTable.id, { onDelete: "set null" }),
+    userName: text("user_name"),
+    changes: jsonb("changes").$type<ActionPlanActivityChanges>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("action_plan_activity_plan_idx").on(table.actionPlanId, table.createdAt),
+  ],
+);
+
 export const insertActionPlanSchema = createInsertSchema(actionPlansTable).omit({
   id: true,
   createdAt: true,
@@ -95,3 +267,17 @@ export const insertActionPlanEvidenceSchema = createInsertSchema(actionPlanEvide
 });
 export type InsertActionPlanEvidence = z.infer<typeof insertActionPlanEvidenceSchema>;
 export type ActionPlanEvidence = typeof actionPlanEvidencesTable.$inferSelect;
+
+export const insertActionPlanCommentSchema = createInsertSchema(actionPlanCommentsTable).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertActionPlanComment = z.infer<typeof insertActionPlanCommentSchema>;
+export type ActionPlanComment = typeof actionPlanCommentsTable.$inferSelect;
+
+export const insertActionPlanActivityLogSchema = createInsertSchema(actionPlanActivityLogTable).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertActionPlanActivityLog = z.infer<typeof insertActionPlanActivityLogSchema>;
+export type ActionPlanActivityLogEntry = typeof actionPlanActivityLogTable.$inferSelect;
