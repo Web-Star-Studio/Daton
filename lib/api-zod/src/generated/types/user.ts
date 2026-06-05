@@ -5,6 +5,7 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { UserTheme } from "./userTheme";
 
 export interface User {
   id: number;
@@ -12,5 +13,6 @@ export interface User {
   email: string;
   organizationId: number;
   role: string;
+  theme: UserTheme;
   createdAt: string;
 }

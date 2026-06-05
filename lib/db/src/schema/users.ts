@@ -10,6 +10,7 @@ export const usersTable = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
   role: text("role").notNull().default("analyst"),
+  theme: text("theme").notNull().default("light"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

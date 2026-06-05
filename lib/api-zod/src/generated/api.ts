@@ -44,6 +44,7 @@ export const LoginResponse = zod.object({
     email: zod.string(),
     organizationId: zod.number(),
     role: zod.string(),
+    theme: zod.enum(["light", "dark", "system"]),
     createdAt: zod.string().datetime({}),
   }),
   token: zod.string(),
@@ -66,6 +67,7 @@ export const GetMeResponse = zod.object({
     email: zod.string(),
     organizationId: zod.number(),
     role: zod.string(),
+    theme: zod.enum(["light", "dark", "system"]),
     createdAt: zod.string().datetime({}),
   }),
   organization: zod.object({
@@ -167,10 +169,15 @@ export const GetMeResponse = zod.object({
  * @summary Update current user profile
  */
 
-export const UpdateMeBody = zod.object({
-  name: zod.string().min(1),
-  email: zod.string().email(),
-});
+export const UpdateMeBody = zod
+  .object({
+    name: zod.string().min(1).optional(),
+    email: zod.string().email().optional(),
+    theme: zod.enum(["light", "dark", "system"]).optional(),
+  })
+  .describe(
+    "Partial update of the current user. Provide only the fields you want to change (e.g. just `theme` to persist the appearance preference).",
+  );
 
 export const UpdateMeResponse = zod.object({
   user: zod.object({
@@ -179,6 +186,7 @@ export const UpdateMeResponse = zod.object({
     email: zod.string(),
     organizationId: zod.number(),
     role: zod.string(),
+    theme: zod.enum(["light", "dark", "system"]),
     createdAt: zod.string().datetime({}),
   }),
   organization: zod.object({
