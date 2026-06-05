@@ -9401,6 +9401,9 @@ components:
 
     UpdateMeBody:
       type: object
+      description: >-
+        Partial update of the current user. Provide only the fields you want to
+        change (e.g. just `theme` to persist the appearance preference).
       properties:
         name:
           type: string
@@ -9408,9 +9411,9 @@ components:
         email:
           type: string
           format: email
-      required:
-        - name
-        - email
+        theme:
+          type: string
+          enum: [light, dark, system]
 
     UpdateMyPasswordBody:
       type: object
@@ -9452,6 +9455,9 @@ components:
           type: integer
         role:
           type: string
+        theme:
+          type: string
+          enum: [light, dark, system]
         createdAt:
           type: string
           format: date-time
@@ -9461,6 +9467,7 @@ components:
         - email
         - organizationId
         - role
+        - theme
         - createdAt
 
     MeResponse:

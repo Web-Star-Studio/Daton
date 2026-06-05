@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "next-themes";
+import { ThemeProvider, useTheme } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
 
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -73,44 +73,38 @@ const queryClient = new QueryClient({
   },
 });
 
-const LEGACY_THEME_STORAGE_KEY = "theme";
-const ANONYMOUS_THEME_STORAGE_KEY = "daton_theme_anonymous";
+// Cache local apenas para evitar "flash" de tema entre carregamentos.
+// A fonte da verdade é a conta (campo `theme` em /auth/me), aplicada por
+// ThemeAccountSync; o localStorage é só um espelho gerenciado pelo next-themes.
+const THEME_STORAGE_KEY = "daton_theme";
 
-function getUserThemeStorageKey(userId: number | string | undefined) {
-  return userId ? `daton_theme_user_${userId}` : ANONYMOUS_THEME_STORAGE_KEY;
-}
-
-function UserScopedThemeProvider({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated } = useAuth();
-  const storageKey = getUserThemeStorageKey(user?.id);
+// Reconcilia o tema salvo na conta do usuário com o next-themes.
+// Sempre que o tema vindo do servidor muda (ex.: após o login resolver, ou
+// após salvar nas configurações), ele é reaplicado — garantindo que a
+// preferência persista entre dispositivos, navegadores e limpeza de cache.
+function ThemeAccountSync() {
+  const { user } = useAuth();
+  const { setTheme } = useTheme();
+  const serverTheme = user?.theme;
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!serverTheme) return;
+    setTheme(serverTheme);
+  }, [serverTheme, setTheme]);
 
-    const currentStoredTheme = window.localStorage.getItem(storageKey);
-    if (currentStoredTheme) return;
+  return null;
+}
 
-    const legacyStoredTheme = window.localStorage.getItem(
-      LEGACY_THEME_STORAGE_KEY,
-    );
-    if (!legacyStoredTheme) return;
-
-    window.localStorage.setItem(storageKey, legacyStoredTheme);
-
-    if (isAuthenticated && user?.id) {
-      window.localStorage.removeItem(LEGACY_THEME_STORAGE_KEY);
-    }
-  }, [isAuthenticated, storageKey, user?.id]);
-
+function AppThemeProvider({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider
-      key={storageKey}
       attribute="class"
-      storageKey={storageKey}
-      defaultTheme="system"
+      storageKey={THEME_STORAGE_KEY}
+      defaultTheme="light"
       enableSystem
       disableTransitionOnChange
     >
+      <ThemeAccountSync />
       {children}
     </ThemeProvider>
   );
@@ -484,12 +478,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <UserScopedThemeProvider>
+        <AppThemeProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <Router />
           </WouterRouter>
           <Toaster />
-        </UserScopedThemeProvider>
+        </AppThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

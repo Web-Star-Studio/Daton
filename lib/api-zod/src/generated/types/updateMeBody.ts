@@ -5,9 +5,14 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateMeBodyTheme } from "./updateMeBodyTheme";
 
+/**
+ * Partial update of the current user. Provide only the fields you want to change (e.g. just `theme` to persist the appearance preference).
+ */
 export interface UpdateMeBody {
   /** @minLength 1 */
-  name: string;
-  email: string;
+  name?: string;
+  email?: string;
+  theme?: UpdateMeBodyTheme;
 }

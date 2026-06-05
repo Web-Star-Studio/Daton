@@ -10,8 +10,9 @@ import { serializeOrganization } from "../lib/serialize-organization";
 const router: IRouter = Router();
 
 const updateMeBodySchema = z.object({
-  name: z.string().trim().min(1),
-  email: z.string().trim().email(),
+  name: z.string().trim().min(1).optional(),
+  email: z.string().trim().email().optional(),
+  theme: z.enum(["light", "dark", "system"]).optional(),
 });
 
 const updateMyPasswordBodySchema = z
@@ -31,6 +32,7 @@ function serializeAuthUser(user: {
   email: string;
   organizationId: number;
   role: string;
+  theme: string;
   createdAt: Date;
 }) {
   return {
@@ -39,6 +41,7 @@ function serializeAuthUser(user: {
     email: user.email,
     organizationId: user.organizationId,
     role: user.role,
+    theme: user.theme,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -50,6 +53,7 @@ function serializeMeResponse(
     email: string;
     organizationId: number;
     role: string;
+    theme: string;
     createdAt: Date;
   },
   organization: Parameters<typeof serializeOrganization>[0],
@@ -202,28 +206,41 @@ router.patch("/auth/me", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const { name, email } = parsed.data;
-  const normalizedEmail = email.trim();
-  const normalizedName = name.trim().toUpperCase();
+  const { name, email, theme } = parsed.data;
+  const updates: Partial<{ name: string; email: string; theme: string }> = {};
 
-  const [existingUser] = await db
-    .select({ id: usersTable.id })
-    .from(usersTable)
-    .where(and(eq(usersTable.email, normalizedEmail), ne(usersTable.id, userId)));
-
-  if (existingUser) {
-    res.status(400).json({ error: "Este email já possui uma conta na plataforma" });
-    return;
+  if (name !== undefined) {
+    updates.name = name.trim().toUpperCase();
   }
 
-  const [updatedUser] = await db
-    .update(usersTable)
-    .set({
-      name: normalizedName,
-      email: normalizedEmail,
-    })
-    .where(eq(usersTable.id, userId))
-    .returning();
+  if (email !== undefined) {
+    const normalizedEmail = email.trim();
+
+    const [existingUser] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(and(eq(usersTable.email, normalizedEmail), ne(usersTable.id, userId)));
+
+    if (existingUser) {
+      res.status(400).json({ error: "Este email já possui uma conta na plataforma" });
+      return;
+    }
+
+    updates.email = normalizedEmail;
+  }
+
+  if (theme !== undefined) {
+    updates.theme = theme;
+  }
+
+  let updatedUser = user;
+  if (Object.keys(updates).length > 0) {
+    [updatedUser] = await db
+      .update(usersTable)
+      .set(updates)
+      .where(eq(usersTable.id, userId))
+      .returning();
+  }
 
   const modulePerms = await db
     .select()
