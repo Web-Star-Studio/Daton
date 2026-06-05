@@ -1,18 +1,25 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  getGetSwotMethodologyQueryKey,
   getListSwotFactorsQueryKey,
   getListSwotObjectivesQueryKey,
   useCreateSwotFactor,
   useDeleteSwotFactor,
+  useGetSwotMethodology,
   useListSwotFactors,
   useListSwotObjectives,
   useUpdateSwotFactor,
+  useUpdateSwotMethodology,
   type CreateSwotFactorBody,
   type SwotEnvironment,
   type SwotFactor,
   type SwotFactorType,
+  type SwotMethodology,
+  type SwotMethodologyVersion,
   type SwotObjective,
+  type SwotTolerances,
   type UpdateSwotFactorBody,
+  type UpdateSwotMethodologyBody,
 } from "@workspace/api-client-react";
 
 export type {
@@ -20,8 +27,24 @@ export type {
   SwotEnvironment,
   SwotFactor,
   SwotFactorType,
+  SwotMethodology,
+  SwotMethodologyVersion,
   SwotObjective,
+  SwotTolerances,
   UpdateSwotFactorBody,
+  UpdateSwotMethodologyBody,
+};
+
+/**
+ * Padrão por tipo — resultado ≥ 8 exige plano de ação. Baseline (1ª versão de
+ * referência) conforme a rev 17 do formulário de planejamento da Gabardo; também é
+ * o valor inicial para novas organizações enquanto não configuram a metodologia.
+ * Preserva o valor operante histórico (8). Provenance interna — não exibir na UI.
+ */
+export const DEFAULT_SWOT_TOLERANCES: SwotTolerances = {
+  weakness: 8,
+  opportunity: 8,
+  threat: 8,
 };
 
 // ─── Domain labels ───────────────────────────────────────────────────────────
@@ -87,9 +110,9 @@ export function defaultEnvironmentFor(type: SwotFactorType): SwotEnvironment {
   return type === "strength" || type === "weakness" ? "internal" : "external";
 }
 
-// ─── Pontuação e decisão (metodologia FPLAN 001) ─────────────────────────────
+// ─── Pontuação e decisão (tolerância por tipo) ───────────────────────────────
 
-export type SwotDecision = "positivo" | "requer" | "irrelevante";
+export type SwotDecision = "positivo" | "requer" | "conforme";
 
 /** Resultado = Performance × Relevância (escala 1–4 cada → 1–16). */
 export function swotResult(performance: number, relevance: number): number {
@@ -97,34 +120,34 @@ export function swotResult(performance: number, relevance: number): number {
 }
 
 /**
- * Decisão quanto ao tratamento, conforme a aba "A0) METODOLOGIA" da planilha:
- * - Força → sempre "já positivo" (facultativo).
- * - Fraqueza/Ameaça/Oportunidade → resultado ≥ 8 requer ações; ≤ 7 irrelevante.
+ * Decisão quanto ao tratamento:
+ * - Força → sempre "positivo" (sem corte).
+ * - Fraqueza/Oportunidade/Ameaça → `resultado ≥ valor do tipo` ⇒ "requer" (plano
+ *   de ação); abaixo ⇒ "conforme" (dentro da tolerância).
+ *
+ * O valor (resultado a partir do qual se exige ação) é configurável por empresa e
+ * por tipo (aba Metodologia). Padrão FPLAN 001 = 8.
  */
-export function swotDecision(type: SwotFactorType, result: number): SwotDecision {
+export function swotDecision(
+  type: SwotFactorType,
+  result: number,
+  tolerances: SwotTolerances = DEFAULT_SWOT_TOLERANCES,
+): SwotDecision {
   if (type === "strength") return "positivo";
-  return result >= 8 ? "requer" : "irrelevante";
+  return result >= tolerances[type] ? "requer" : "conforme";
 }
 
 export const SWOT_DECISION_LABELS: Record<SwotDecision, string> = {
   positivo: "Fatores já positivos: facultativo o estabelecimento de ações",
-  requer: "Relevante: requer ações",
-  irrelevante: "Irrelevante: facultativo o estabelecimento de ações",
+  requer: "Fora da tolerância: requer plano de ação",
+  conforme: "Dentro da tolerância: nenhuma ação obrigatória",
 };
 
 export const SWOT_DECISION_SHORT: Record<SwotDecision, string> = {
   positivo: "Já positivo",
-  requer: "Requer ações",
-  irrelevante: "Irrelevante",
+  requer: "Requer plano de ação",
+  conforme: "Dentro da tolerância",
 };
-
-/** Faixa de risco pela pontuação: ≤7 baixo · 8–12 alto · 13–16 extremo. */
-export type SwotRiskBand = "baixo" | "alto" | "extremo";
-export function swotRiskBand(result: number): SwotRiskBand {
-  if (result >= 13) return "extremo";
-  if (result >= 8) return "alto";
-  return "baixo";
-}
 
 // ─── Cores (Tailwind) ────────────────────────────────────────────────────────
 
@@ -177,11 +200,15 @@ export function swotDecisionBadgeColor(decision: SwotDecision): string {
   return "bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300";
 }
 
-/** Cor do número do resultado por faixa de risco. */
-export function swotResultColor(result: number): string {
-  const band = swotRiskBand(result);
-  if (band === "extremo") return "text-red-600 dark:text-red-400";
-  if (band === "alto") return "text-amber-600 dark:text-amber-400";
+/** Cor do número do resultado pela decisão (requer ação · conforme · positivo). */
+export function swotResultColor(
+  type: SwotFactorType,
+  result: number,
+  tolerances: SwotTolerances = DEFAULT_SWOT_TOLERANCES,
+): string {
+  const decision = swotDecision(type, result, tolerances);
+  if (decision === "requer") return "text-red-600 dark:text-red-400";
+  if (decision === "positivo") return "text-emerald-600 dark:text-emerald-400";
   return "text-slate-500 dark:text-slate-400";
 }
 
@@ -257,6 +284,22 @@ export function useSwotFactors(orgId: number) {
   });
 }
 
+/** Metodologia da org (tolerâncias vigentes + histórico de versões). */
+export function useSwotMethodology(orgId: number) {
+  return useGetSwotMethodology(orgId, {
+    query: { queryKey: getGetSwotMethodologyQueryKey(orgId), enabled: !!orgId },
+  });
+}
+
+/**
+ * Tolerâncias vigentes da org (por tipo), prontas para uso nos cálculos/exibição.
+ * Enquanto a query carrega (ou se a empresa não configurou), cai no padrão (8).
+ */
+export function useSwotTolerances(orgId: number): SwotTolerances {
+  const { data } = useSwotMethodology(orgId);
+  return data?.tolerances ?? DEFAULT_SWOT_TOLERANCES;
+}
+
 // ─── Mutations com invalidação ───────────────────────────────────────────────
 
 function invalidate(queryClient: ReturnType<typeof useQueryClient>, orgId: number) {
@@ -277,4 +320,18 @@ export function useUpdateSwotFactorWithInvalidation(orgId: number) {
 export function useDeleteSwotFactorWithInvalidation(orgId: number) {
   const queryClient = useQueryClient();
   return useDeleteSwotFactor({ mutation: { onSuccess: () => invalidate(queryClient, orgId) } });
+}
+
+/**
+ * Salva os limiares (cria nova versão no servidor). Invalida a query da
+ * metodologia para que a tela de lançamento e os dashboards reflitam de imediato.
+ */
+export function useUpdateSwotMethodologyWithInvalidation(orgId: number) {
+  const queryClient = useQueryClient();
+  return useUpdateSwotMethodology({
+    mutation: {
+      onSuccess: () =>
+        queryClient.invalidateQueries({ queryKey: getGetSwotMethodologyQueryKey(orgId) }),
+    },
+  });
 }

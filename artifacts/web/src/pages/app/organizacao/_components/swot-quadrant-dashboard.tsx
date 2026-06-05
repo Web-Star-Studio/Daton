@@ -8,13 +8,13 @@ import {
   performanceAxisLabel,
   swotDecision,
   swotResult,
-  swotRiskBand,
   swotTypeBadgeColor,
   swotTypeText,
   swotTypeTint,
+  type SwotDecision,
   type SwotFactor,
   type SwotFactorType,
-  type SwotRiskBand,
+  type SwotTolerances,
 } from "@/lib/swot-client";
 
 type Props = {
@@ -24,58 +24,37 @@ type Props = {
   onBack: () => void;
   onEdit: (f: SwotFactor) => void;
   onCreateAction: (f: SwotFactor) => void;
+  tolerances: SwotTolerances;
 };
 
 type ScoredFactor = SwotFactor & {
   result: number;
-  decision: ReturnType<typeof swotDecision>;
-  band: SwotRiskBand;
+  decision: SwotDecision;
 };
 
 type PerspStat = {
   persp: string;
   total: number;
   requer: number;
-  byBand: Record<SwotRiskBand, number>;
+  conforme: number;
 };
 
-const BAND_ORDER: SwotRiskBand[] = ["extremo", "alto", "baixo"];
 const MAX_PERSP = 8; // máx. de áreas exibidas na aba "Por área".
 
 /** Scroll sutil, nativo e discoverable (barra fina visível quando há overflow). */
 const SCROLL_CLS =
   "overflow-y-auto [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border";
 
-/** Rótulo da faixa: risco (Fraqueza/Ameaça/Oportunidade) vs alavancagem (Força). */
-const ZONE_LABELS: Record<"risk" | "leverage", Record<SwotRiskBand, string>> = {
-  risk: { extremo: "Extremo", alto: "Alto", baixo: "Baixo" },
-  leverage: { extremo: "Alavancar agora", alto: "Sustentar", baixo: "Monitorar" },
-};
-function zoneLabel(band: SwotRiskBand, isStrength: boolean): string {
-  return ZONE_LABELS[isStrength ? "leverage" : "risk"][band];
-}
-
-function barClass(band: SwotRiskBand): string {
-  return { baixo: "bg-emerald-500/70", alto: "bg-amber-500/80", extremo: "bg-red-500/80" }[band];
-}
-
-/** Preenchimento da barra por faixa. Força usa escala emerald (sem semântica de risco). */
-function magnitudeBarClass(band: SwotRiskBand, isStrength: boolean): string {
-  if (isStrength) {
-    // 3 tons distinguíveis (claro → forte): Monitorar / Sustentar / Alavancar agora.
-    return { baixo: "bg-emerald-300", alto: "bg-emerald-500", extremo: "bg-emerald-700" }[band];
-  }
-  return barClass(band);
+/** Cor da barra pela decisão: requer ação (âmbar) vs dentro da tolerância (esmeralda). */
+function decisionBarClass(decision: SwotDecision): string {
+  return decision === "requer" ? "bg-amber-500/80" : "bg-emerald-500/70";
 }
 
 /** Cor do número do resultado (segundo canal além do comprimento da barra). */
-function bandTextClass(band: SwotRiskBand, isStrength: boolean): string {
-  if (isStrength) return "text-emerald-700 dark:text-emerald-300";
-  return {
-    baixo: "text-emerald-700 dark:text-emerald-300",
-    alto: "text-amber-700 dark:text-amber-400",
-    extremo: "text-red-700 dark:text-red-400",
-  }[band];
+function decisionTextClass(decision: SwotDecision): string {
+  return decision === "requer"
+    ? "text-amber-700 dark:text-amber-400"
+    : "text-emerald-700 dark:text-emerald-300";
 }
 
 export function SwotQuadrantDashboard({
@@ -85,49 +64,49 @@ export function SwotQuadrantDashboard({
   onBack,
   onEdit,
   onCreateAction,
+  tolerances,
 }: Props) {
   const isStrength = type === "strength";
   const [view, setView] = useState<"prio" | "persp">("prio");
 
-  // Deriva resultado/decisão/faixa e ordena por gravidade (desempate estável).
+  // Tolerância do pilar atual (Força não tem; null oculta a régua de corte).
+  const tolerance = isStrength ? null : tolerances[type];
+
+  // Deriva resultado/decisão e ordena por gravidade (desempate estável).
   const ranked = useMemo<ScoredFactor[]>(
     () =>
       factors
         .map((f) => {
           const result = swotResult(f.performance, f.relevance);
-          return { ...f, result, decision: swotDecision(f.type, result), band: swotRiskBand(result) };
+          return { ...f, result, decision: swotDecision(f.type, result, tolerances) };
         })
         .sort((a, b) => b.result - a.result || b.relevance - a.relevance || b.performance - a.performance),
-    [factors],
+    [factors, tolerances],
   );
 
   const agg = useMemo(() => {
     const total = ranked.length;
     const requer = ranked.filter((f) => f.decision === "requer").length;
-    const extremo = ranked.filter((f) => f.band === "extremo").length;
     const avg = total ? ranked.reduce((s, f) => s + f.result, 0) / total : 0;
-    return { total, requer, extremo, avg };
+    return { total, requer, avg };
   }, [ranked]);
 
-  // Perspectiva × faixa (aba "Por área"): onde o risco/força se concentra.
+  // Perspectiva × decisão (aba "Por área"): onde a ação se concentra.
   const perspStats = useMemo<PerspStat[]>(() => {
     const m = new Map<string, PerspStat>();
     for (const f of ranked) {
       const p = f.perspective || "Sem perspectiva";
       let e = m.get(p);
       if (!e) {
-        e = { persp: p, total: 0, requer: 0, byBand: { baixo: 0, alto: 0, extremo: 0 } };
+        e = { persp: p, total: 0, requer: 0, conforme: 0 };
         m.set(p, e);
       }
       e.total += 1;
-      e.byBand[f.band] += 1;
       if (f.decision === "requer") e.requer += 1;
+      else e.conforme += 1;
     }
-    // Áreas mais "pesadas" primeiro (extremo conta dobrado).
-    return [...m.values()].sort(
-      (a, b) =>
-        b.byBand.extremo * 2 + b.byBand.alto - (a.byBand.extremo * 2 + a.byBand.alto) || b.total - a.total,
-    );
+    // Áreas com mais ações pendentes primeiro.
+    return [...m.values()].sort((a, b) => b.requer - a.requer || b.total - a.total);
   }, [ranked]);
 
   const hasPersp = useMemo(() => factors.some((f) => f.perspective), [factors]);
@@ -145,7 +124,7 @@ export function SwotQuadrantDashboard({
           <h2 className={cn("text-lg font-semibold leading-none", swotTypeText(type))}>{SWOT_TYPE_PLURAL[type]}</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             {performanceAxisLabel(type)} × Relevância ·{" "}
-            {isStrength ? "fatores já positivos" : "resultado ≥ 8 requer ação"}
+            {isStrength ? "fatores já positivos" : `resultado ≥ ${tolerance} requer plano de ação`}
           </p>
         </div>
         <Badge variant="secondary" className={cn("ml-auto text-[10px]", swotTypeBadgeColor(type))}>
@@ -162,11 +141,6 @@ export function SwotQuadrantDashboard({
               <span className="text-3xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{agg.total}</span>
               <span className="text-sm text-muted-foreground">
                 {agg.total === 1 ? "força mapeada" : "forças mapeadas"}
-                {agg.extremo > 0 && (
-                  <>
-                    {" "}· <span className="font-medium text-foreground">{agg.extremo}</span> de alto impacto
-                  </>
-                )}
               </span>
             </>
           ) : (
@@ -174,14 +148,16 @@ export function SwotQuadrantDashboard({
               <span
                 className={cn(
                   "text-3xl font-semibold tabular-nums",
-                  agg.requer > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400",
+                  agg.requer > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400",
                 )}
               >
                 {agg.requer}
               </span>
               <span className="text-sm text-muted-foreground">
                 de {agg.total} {agg.total === 1 ? "fator" : "fatores"}{" "}
-                <span className="font-medium text-foreground">{agg.requer === 1 ? "requer ação" : "requerem ação"}</span>
+                <span className="font-medium text-foreground">
+                  {agg.requer === 1 ? "requer plano de ação" : "requerem plano de ação"}
+                </span>
               </span>
             </>
           )}
@@ -206,9 +182,9 @@ export function SwotQuadrantDashboard({
                   </TabButton>
                 )}
               </div>
-              {!showPersp && !isStrength && (
+              {!showPersp && !isStrength && tolerance !== null && (
                 <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <span className="inline-block h-3 w-0.5 bg-foreground" /> linha = corte 8 (requer ação)
+                  <span className="inline-block h-3 w-0.5 bg-foreground" /> linha = corte {tolerance} (≥ requer ação)
                 </span>
               )}
             </div>
@@ -223,6 +199,7 @@ export function SwotQuadrantDashboard({
                   canWrite={canWrite}
                   onEdit={onEdit}
                   onCreateAction={onCreateAction}
+                  tolerance={tolerance}
                 />
               )}
             </div>
@@ -251,19 +228,21 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   );
 }
 
-/** Gráfico de barras horizontais: todos os fatores por gravidade (com scroll), régua do corte 8. */
+/** Gráfico de barras horizontais: todos os fatores por gravidade (com scroll), régua da tolerância. */
 function PriorityBars({
   rows,
   isStrength,
   canWrite,
   onEdit,
   onCreateAction,
+  tolerance,
 }: {
   rows: ScoredFactor[];
   isStrength: boolean;
   canWrite: boolean;
   onEdit: (f: SwotFactor) => void;
   onCreateAction: (f: SwotFactor) => void;
+  tolerance: number | null;
 }) {
   return (
     <ul className={cn("max-h-[20rem] space-y-1.5 pr-1.5", SCROLL_CLS)}>
@@ -272,8 +251,8 @@ function PriorityBars({
         const decisionText = isStrength
           ? "força já positiva"
           : f.decision === "requer"
-            ? "requer ação"
-            : "facultativo";
+            ? "requer plano de ação"
+            : "dentro da tolerância";
         const labelInner = (
           <>
             {f.description}
@@ -299,14 +278,22 @@ function PriorityBars({
             <div className="flex items-center gap-2">
               <div aria-hidden="true" className="relative h-5 min-w-[2.5rem] flex-1 overflow-hidden rounded bg-muted/50">
                 <div
-                  className={cn("h-full rounded", magnitudeBarClass(f.band, isStrength))}
+                  className={cn("h-full rounded", isStrength ? "bg-emerald-500/80" : decisionBarClass(f.decision))}
                   style={{ width: `${Math.max((f.result / 16) * 100, 4)}%` }}
                 />
-                {!isStrength && (
-                  <span className="absolute top-0 h-full w-0.5 bg-foreground" style={{ left: "50%" }} />
+                {!isStrength && tolerance !== null && (
+                  <span
+                    className="absolute top-0 h-full w-0.5 bg-foreground"
+                    style={{ left: `${(tolerance / 16) * 100}%` }}
+                  />
                 )}
               </div>
-              <span className={cn("w-6 shrink-0 text-right text-sm font-semibold tabular-nums", bandTextClass(f.band, isStrength))}>
+              <span
+                className={cn(
+                  "w-6 shrink-0 text-right text-sm font-semibold tabular-nums",
+                  isStrength ? "text-emerald-700 dark:text-emerald-300" : decisionTextClass(f.decision),
+                )}
+              >
                 {f.result}
               </span>
             </div>
@@ -344,19 +331,27 @@ function PriorityBars({
   );
 }
 
-/** Barras por perspectiva × faixa: onde o risco/força se concentra. */
+/** Barras por perspectiva × decisão: onde a ação (ou a força) se concentra. */
 function PerspectiveBars({ stats, isStrength }: { stats: PerspStat[]; isStrength: boolean }) {
   const maxTotal = Math.max(...stats.map((e) => e.total), 1);
   const shown = stats.slice(0, MAX_PERSP);
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-        {BAND_ORDER.map((b) => (
-          <span key={b} className="inline-flex items-center gap-1">
-            <span className={cn("h-2 w-2 rounded-full", magnitudeBarClass(b, isStrength))} />
-            {zoneLabel(b, isStrength)}
+        {isStrength ? (
+          <span className="inline-flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-emerald-500/80" /> Forças
           </span>
-        ))}
+        ) : (
+          <>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-amber-500/80" /> Requer ação
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-emerald-500/70" /> Dentro da tolerância
+            </span>
+          </>
+        )}
       </div>
       <ul className="space-y-2.5">
         {shown.map((e) => (
@@ -368,19 +363,21 @@ function PerspectiveBars({ stats, isStrength }: { stats: PerspStat[]; isStrength
                 {!isStrength && e.requer > 0 && (
                   <> · {e.requer} {e.requer === 1 ? "requer" : "requerem"} ação</>
                 )}
-                {isStrength && e.byBand.extremo > 0 && <> · {e.byBand.extremo} de alto impacto</>}
               </span>
             </div>
             <div aria-hidden="true" className="h-3 w-full overflow-hidden rounded-full bg-muted/40">
               <div className="flex h-full" style={{ width: `${(e.total / maxTotal) * 100}%` }}>
-                {BAND_ORDER.map((b) =>
-                  e.byBand[b] ? (
-                    <div
-                      key={b}
-                      className={cn("h-full", magnitudeBarClass(b, isStrength))}
-                      style={{ width: `${(e.byBand[b] / e.total) * 100}%` }}
-                    />
-                  ) : null,
+                {isStrength ? (
+                  <div className="h-full w-full bg-emerald-500/80" />
+                ) : (
+                  <>
+                    {e.requer > 0 && (
+                      <div className="h-full bg-amber-500/80" style={{ width: `${(e.requer / e.total) * 100}%` }} />
+                    )}
+                    {e.conforme > 0 && (
+                      <div className="h-full bg-emerald-500/70" style={{ width: `${(e.conforme / e.total) * 100}%` }} />
+                    )}
+                  </>
                 )}
               </div>
             </div>

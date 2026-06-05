@@ -16683,6 +16683,142 @@ export const DeleteSwotFactorParams = zod.object({
 });
 
 /**
+ * @summary Get the organization's SWOT methodology (active per-type tolerances + version history)
+ */
+export const GetSwotMethodologyParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const getSwotMethodologyResponseTolerancesWeaknessMin = 2;
+export const getSwotMethodologyResponseTolerancesWeaknessMax = 16;
+
+export const getSwotMethodologyResponseTolerancesOpportunityMin = 2;
+export const getSwotMethodologyResponseTolerancesOpportunityMax = 16;
+
+export const getSwotMethodologyResponseTolerancesThreatMin = 2;
+export const getSwotMethodologyResponseTolerancesThreatMax = 16;
+
+export const getSwotMethodologyResponseVersionsItemTolerancesWeaknessMin = 2;
+export const getSwotMethodologyResponseVersionsItemTolerancesWeaknessMax = 16;
+
+export const getSwotMethodologyResponseVersionsItemTolerancesOpportunityMin = 2;
+export const getSwotMethodologyResponseVersionsItemTolerancesOpportunityMax = 16;
+
+export const getSwotMethodologyResponseVersionsItemTolerancesThreatMin = 2;
+export const getSwotMethodologyResponseVersionsItemTolerancesThreatMax = 16;
+
+export const GetSwotMethodologyResponse = zod
+  .object({
+    organizationId: zod.number(),
+    configured: zod
+      .boolean()
+      .describe(
+        "false quando a empresa ainda não salvou uma metodologia (usando padrões).",
+      ),
+    tolerances: zod
+      .object({
+        weakness: zod
+          .number()
+          .min(getSwotMethodologyResponseTolerancesWeaknessMin)
+          .max(getSwotMethodologyResponseTolerancesWeaknessMax)
+          .describe("Fraquezas — resultado ≥ este valor exige plano de ação."),
+        opportunity: zod
+          .number()
+          .min(getSwotMethodologyResponseTolerancesOpportunityMin)
+          .max(getSwotMethodologyResponseTolerancesOpportunityMax)
+          .describe(
+            "Oportunidades — resultado ≥ este valor exige plano de ação.",
+          ),
+        threat: zod
+          .number()
+          .min(getSwotMethodologyResponseTolerancesThreatMin)
+          .max(getSwotMethodologyResponseTolerancesThreatMax)
+          .describe("Ameaças — resultado ≥ este valor exige plano de ação."),
+      })
+      .describe(
+        "Metodologia SWOT por tipo de fator (escala de resultado 1–16). Para cada tipo, o valor é o resultado a partir do qual se exige ação: resultado ≥ valor ⇒ requer plano de ação; abaixo ⇒ dentro da tolerância (conforme). Padrão FPLAN 001 = 8. Força é sempre positiva.",
+      ),
+    activeVersionNumber: zod.number().nullable(),
+    updatedAt: zod.string().datetime({}).nullable(),
+    versions: zod.array(
+      zod.object({
+        id: zod.number(),
+        versionNumber: zod.number(),
+        tolerances: zod
+          .object({
+            weakness: zod
+              .number()
+              .min(getSwotMethodologyResponseVersionsItemTolerancesWeaknessMin)
+              .max(getSwotMethodologyResponseVersionsItemTolerancesWeaknessMax)
+              .describe(
+                "Fraquezas — resultado ≥ este valor exige plano de ação.",
+              ),
+            opportunity: zod
+              .number()
+              .min(
+                getSwotMethodologyResponseVersionsItemTolerancesOpportunityMin,
+              )
+              .max(
+                getSwotMethodologyResponseVersionsItemTolerancesOpportunityMax,
+              )
+              .describe(
+                "Oportunidades — resultado ≥ este valor exige plano de ação.",
+              ),
+            threat: zod
+              .number()
+              .min(getSwotMethodologyResponseVersionsItemTolerancesThreatMin)
+              .max(getSwotMethodologyResponseVersionsItemTolerancesThreatMax)
+              .describe(
+                "Ameaças — resultado ≥ este valor exige plano de ação.",
+              ),
+          })
+          .describe(
+            "Metodologia SWOT por tipo de fator (escala de resultado 1–16). Para cada tipo, o valor é o resultado a partir do qual se exige ação: resultado ≥ valor ⇒ requer plano de ação; abaixo ⇒ dentro da tolerância (conforme). Padrão FPLAN 001 = 8. Força é sempre positiva.",
+          ),
+        notes: zod.string().nullable(),
+        createdById: zod.number(),
+        createdByName: zod.string().nullable(),
+        createdAt: zod.string().datetime({}),
+      }),
+    ),
+  })
+  .describe(
+    "Metodologia SWOT vigente da organização. Quando nunca configurada, retorna o padrão (8) com configured=false e versions vazio.",
+  );
+
+/**
+ * @summary Update the SWOT per-type tolerances (creates a new version)
+ */
+export const UpdateSwotMethodologyParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const updateSwotMethodologyBodyWeaknessMin = 2;
+export const updateSwotMethodologyBodyWeaknessMax = 16;
+
+export const updateSwotMethodologyBodyOpportunityMin = 2;
+export const updateSwotMethodologyBodyOpportunityMax = 16;
+
+export const updateSwotMethodologyBodyThreatMin = 2;
+export const updateSwotMethodologyBodyThreatMax = 16;
+
+export const UpdateSwotMethodologyBody = zod.object({
+  weakness: zod
+    .number()
+    .min(updateSwotMethodologyBodyWeaknessMin)
+    .max(updateSwotMethodologyBodyWeaknessMax),
+  opportunity: zod
+    .number()
+    .min(updateSwotMethodologyBodyOpportunityMin)
+    .max(updateSwotMethodologyBodyOpportunityMax),
+  threat: zod
+    .number()
+    .min(updateSwotMethodologyBodyThreatMin)
+    .max(updateSwotMethodologyBodyThreatMax),
+  notes: zod.string().nullish(),
+});
+
+/**
  * @summary List action plans in the organization with filters
  */
 export const ListActionPlansParams = zod.object({
