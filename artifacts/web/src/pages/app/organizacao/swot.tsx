@@ -1229,8 +1229,8 @@ function isActiveBand(
   kind: SupportBand["kind"],
   tolerances: SwotTolerances,
 ): boolean {
-  if (type === "strength") return kind === "positivo";
-  return kind === "requer" ? result >= tolerances[type] : result < tolerances[type];
+  // A faixa ativa é a que coincide com a decisão — fonte única da regra (swotDecision).
+  return swotDecision(type, result, tolerances) === kind;
 }
 
 function SwotSupportGuide({

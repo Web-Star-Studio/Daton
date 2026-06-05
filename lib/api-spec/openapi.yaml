@@ -16084,7 +16084,7 @@ components:
 
     SwotMethodology:
       type: object
-      description: "Metodologia SWOT vigente da organização. Quando nunca configurada, retorna as tolerâncias padrão (7) com configured=false e versions vazio."
+      description: "Metodologia SWOT vigente da organização. Quando nunca configurada, retorna o padrão (8) com configured=false e versions vazio."
       properties:
         organizationId:
           type: integer

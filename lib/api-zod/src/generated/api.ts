@@ -16783,7 +16783,7 @@ export const GetSwotMethodologyResponse = zod
     ),
   })
   .describe(
-    "Metodologia SWOT vigente da organização. Quando nunca configurada, retorna as tolerâncias padrão (7) com configured=false e versions vazio.",
+    "Metodologia SWOT vigente da organização. Quando nunca configurada, retorna o padrão (8) com configured=false e versions vazio.",
   );
 
 /**

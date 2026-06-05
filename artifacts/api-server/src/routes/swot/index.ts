@@ -365,11 +365,9 @@ router.put("/organizations/:orgId/swot/methodology", requireAuth, requireWriteAc
       createdById: req.auth!.userId,
       updatedById: req.auth!.userId,
     }).returning();
-  } else {
-    await db.update(swotMethodologiesTable)
-      .set({ updatedById: req.auth!.userId })
-      .where(eq(swotMethodologiesTable.id, methodology.id));
   }
+  // Para metodologia já existente, updatedById é atualizado no update final (abaixo),
+  // junto com activeVersionId — evita um UPDATE redundante aqui.
 
   const [aggregate] = await db
     .select({ versionNumber: sql<number>`coalesce(max(${swotMethodologyVersionsTable.versionNumber}), 0) + 1` })
