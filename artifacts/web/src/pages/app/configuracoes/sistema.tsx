@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { Sun, Moon, Monitor } from "lucide-react";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -18,6 +18,8 @@ export default function SystemSettingsPage() {
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
   const updateMeMut = useUpdateMe();
+  // Último tema selecionado, para descartar respostas obsoletas (ver abaixo).
+  const latestThemeRef = useRef<ThemePreference | null>(null);
   const defaultTab: SystemTab = isOrgAdmin ? "users" : "appearance";
   const [activeTab, setActiveTab] = useState<SystemTab>(defaultTab);
 
@@ -31,14 +33,18 @@ export default function SystemSettingsPage() {
   // Aplica a escolha imediatamente neste dispositivo (next-themes) e a
   // persiste na conta, para que sobreviva a novo login / outro navegador.
   const handleSelectTheme = (value: ThemePreference) => {
+    latestThemeRef.current = value;
     setTheme(value);
     updateMeMut.mutate(
       { data: { theme: value } },
       {
         onSuccess: (data) => {
-          // Atualiza o cache do /me com a resposta autoritativa do servidor,
-          // mantendo user.theme em sincronia sem um refetch (evita corrida
-          // em trocas rápidas e flash de tema).
+          // Em cliques rápidos, vários PATCH /auth/me ficam em voo e o React
+          // Query não garante a ordem dos onSuccess. Descarta respostas
+          // obsoletas: só atualiza o cache se este ainda for o último tema
+          // selecionado — caso contrário, uma resposta antiga (ex.: dark)
+          // reverteria a escolha mais recente (ex.: light) via ThemeAccountSync.
+          if (value !== latestThemeRef.current) return;
           queryClient.setQueryData(getGetMeQueryKey(), data);
         },
         onError: () => {
