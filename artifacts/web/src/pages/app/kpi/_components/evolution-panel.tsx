@@ -1,20 +1,9 @@
 import { useMemo } from "react";
 import { TrendingUp } from "lucide-react";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { cn } from "@/lib/utils";
-import { formatKpiNumberFixed, isCurrencyUnit, type KpiIndicator, type KpiYearRow } from "@/lib/kpi-client";
+import type { KpiIndicator, KpiYearRow } from "@/lib/kpi-client";
 import { getIndicatorStatus, type CardStatus } from "./indicator-card";
-
-const MONTH_ABBR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+import { MonthlyTrendChart } from "./monthly-trend-chart";
 
 type EvolutionPanelProps = {
   indicators: KpiIndicator[];
@@ -28,13 +17,6 @@ type Pick = {
   row: KpiYearRow;
   status: CardStatus;
   filledCount: number;
-};
-
-const COLOR_BY_STATUS: Record<CardStatus, string> = {
-  green: "#10b981",
-  yellow: "#f59e0b",
-  red: "#ef4444",
-  nodata: "#64748b",
 };
 
 function pickFeatured(indicators: KpiIndicator[], yearRows: KpiYearRow[], limit: number): Pick[] {
@@ -56,24 +38,11 @@ function pickFeatured(indicators: KpiIndicator[], yearRows: KpiYearRow[], limit:
   return picks.slice(0, limit);
 }
 
-function buildSeries(row: KpiYearRow): { name: string; value: number | null; meta: number | null }[] {
-  const goal = row.yearConfig.goal ?? null;
-  return Array.from({ length: 12 }, (_, i) => {
-    const m = row.monthlyValues.find((v) => v.month === i + 1);
-    return {
-      name: MONTH_ABBR[i],
-      value: m?.value ?? null,
-      meta: goal,
-    };
-  });
-}
-
-function formatTick(value: number, measureUnit?: string | null): string {
-  const formatted = formatKpiNumberFixed(value);
-  // Moeda: mantém o eixo/tooltip compacto (só número) — "R$" colado ficaria feio
-  // e o prefixo R$ alargaria o eixo. A unidade fica no contexto do gráfico.
-  if (isCurrencyUnit(measureUnit)) return formatted;
-  return measureUnit && measureUnit.length <= 3 ? `${formatted}${measureUnit}` : formatted;
+function monthSeries(row: KpiYearRow): (number | null)[] {
+  return Array.from(
+    { length: 12 },
+    (_, i) => row.monthlyValues.find((v) => v.month === i + 1)?.value ?? null,
+  );
 }
 
 export function EvolutionPanel({ indicators, yearRows, limit = 3 }: EvolutionPanelProps) {
@@ -91,10 +60,7 @@ export function EvolutionPanel({ indicators, yearRows, limit = 3 }: EvolutionPan
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {picks.map(({ indicator, row, status }) => {
-          const data = buildSeries(row);
           const goal = row.yearConfig.goal ?? null;
-          const color = COLOR_BY_STATUS[status];
-          const measureUnit = indicator.measureUnit;
           return (
             <article key={indicator.id} className="flex flex-col">
               <div className="mb-1.5 flex items-start justify-between gap-2">
@@ -122,82 +88,14 @@ export function EvolutionPanel({ indicators, yearRows, limit = 3 }: EvolutionPan
                         : "Sem dados"}
                 </span>
               </div>
-              <div className="mb-2 flex items-center gap-3 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <span className="inline-block h-1 w-2.5 rounded" style={{ background: color }} />
-                  Resultado
-                </span>
-                {goal !== null ? (
-                  <span className="flex items-center gap-1">
-                    <span
-                      className="inline-block h-0 w-2.5 border-t-2 border-dashed"
-                      style={{ borderColor: "#ef4444" }}
-                    />
-                    Tolerância {formatTick(goal, measureUnit)}
-                  </span>
-                ) : null}
-                {indicator.unit ? (
-                  <span className="ml-auto truncate" title={indicator.unit}>
-                    {indicator.unit}
-                  </span>
-                ) : null}
-              </div>
-              <div className="h-32">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={data} margin={{ top: 5, right: 6, bottom: 0, left: 0 }}>
-                    <CartesianGrid stroke="rgba(148,163,184,0.18)" strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      width={48}
-                      tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
-                      tickFormatter={(v: number) => formatTick(v, measureUnit)}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    {goal !== null ? (
-                      <ReferenceLine
-                        y={goal}
-                        stroke="#ef4444"
-                        strokeDasharray="4 3"
-                        strokeWidth={1.25}
-                        opacity={0.7}
-                      />
-                    ) : null}
-                    <Tooltip
-                      contentStyle={{
-                        background: "var(--popover, white)",
-                        border: "1px solid rgba(148,163,184,0.25)",
-                        borderRadius: 6,
-                        fontSize: 11,
-                        padding: "4px 8px",
-                      }}
-                      labelStyle={{ fontWeight: 500 }}
-                      formatter={(value) => {
-                        const num = typeof value === "number" ? value : null;
-                        return [
-                          num === null ? "—" : formatTick(num, measureUnit),
-                          "Resultado",
-                        ];
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      stroke={color}
-                      strokeWidth={2}
-                      dot={{ r: 3, fill: color, strokeWidth: 0 }}
-                      activeDot={{ r: 4 }}
-                      connectNulls
-                      isAnimationActive={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+              <MonthlyTrendChart
+                values={monthSeries(row)}
+                goal={goal}
+                status={status}
+                measureUnit={indicator.measureUnit}
+                unit={indicator.unit}
+                height={128}
+              />
             </article>
           );
         })}
