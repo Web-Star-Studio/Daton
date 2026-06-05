@@ -347,11 +347,14 @@ router.put("/organizations/:orgId/swot/methodology", requireAuth, requireWriteAc
   const body = UpdateSwotMethodologyBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
-  const tolerances: SwotTolerances = {
-    weakness: body.data.weakness,
-    opportunity: body.data.opportunity,
-    threat: body.data.threat,
-  };
+  // O zod gerado valida faixa (2–16) mas não inteiro — garante cortes inteiros.
+  const { weakness, opportunity, threat } = body.data;
+  if (![weakness, opportunity, threat].every(Number.isInteger)) {
+    res.status(400).json({ error: "Os cortes da metodologia devem ser números inteiros." });
+    return;
+  }
+
+  const tolerances: SwotTolerances = { weakness, opportunity, threat };
 
   // Upsert da metodologia-pai (uma por org).
   let [methodology] = await db.select().from(swotMethodologiesTable)

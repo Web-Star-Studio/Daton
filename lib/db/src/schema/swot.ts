@@ -136,7 +136,10 @@ export const swotMethodologiesTable = pgTable("swot_methodologies", {
     .notNull()
     .defaultNow()
     .$onUpdate(() => new Date()),
-});
+}, (table) => [
+  // Uma metodologia por organização — impede parents duplicados em saves concorrentes.
+  unique("swot_methodologies_organization_id_unique").on(table.organizationId),
+]);
 
 /**
  * Versão imutável da metodologia SWOT. Cada alteração das tolerâncias cria uma

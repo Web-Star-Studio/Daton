@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   ChevronRight,
@@ -938,12 +938,17 @@ function FactorsTable({
   }, [rows, typeFilter, decisionFilter, perspectiveFilter, search]);
 
   // Ao receber um alvo de deep-link, rola até a linha e a destaca por ~2,5s.
-  // Depende de `filtered` pra rodar só depois que a linha existir no DOM.
+  // Depende de `filtered` pra rodar só depois que a linha existir no DOM, mas
+  // consome o alvo uma única vez (consumedHighlightRef) — sem isso, qualquer
+  // mudança de filtro/busca re-dispararia o scroll/flash.
+  const consumedHighlightRef = useRef<number | null>(null);
   useEffect(() => {
     if (highlightId == null) return;
+    if (consumedHighlightRef.current === highlightId) return;
     if (!filtered.some((f) => f.id === highlightId)) return;
     const el = document.getElementById(`fator-${highlightId}`);
     if (!el) return;
+    consumedHighlightRef.current = highlightId;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
     setFlashId(highlightId);
     const t = setTimeout(() => setFlashId(null), 2500);
