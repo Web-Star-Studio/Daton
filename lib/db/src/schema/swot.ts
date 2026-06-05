@@ -1,8 +1,20 @@
-import { index, integer, pgEnum, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import {
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  unique,
+  varchar,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
 import { unitsTable } from "./units";
+import { usersTable } from "./users";
 
 // SWOT factor type (rótulos PT-BR aplicados no cliente).
 export type SwotFactorType = "strength" | "weakness" | "opportunity" | "threat";
@@ -87,3 +99,73 @@ export const insertSwotFactorSchema = createInsertSchema(swotFactorsTable).omit(
 });
 export type InsertSwotFactor = z.infer<typeof insertSwotFactorSchema>;
 export type SwotFactor = typeof swotFactorsTable.$inferSelect;
+
+/**
+ * Metodologia SWOT por tipo — configurável por empresa. Para cada tipo (exceto
+ * Força, sempre positiva), o valor é o resultado a partir do qual se exige ação:
+ * `resultado ≥ valor` ⇒ "requer plano de ação"; abaixo ⇒ "dentro da tolerância"
+ * (conforme). Escala de resultado 1–16 (performance × relevância). Padrão = 8 para
+ * os três tipos — baseline da rev 17 do formulário de planejamento da Gabardo
+ * (1ª versão de referência) e valor inicial para novas organizações.
+ */
+export type SwotTolerances = {
+  weakness: number;
+  opportunity: number;
+  threat: number;
+};
+
+/**
+ * Metodologia SWOT da organização (uma por org). Aponta para a versão ativa;
+ * o histórico de versões fica em `swotMethodologyVersionsTable` (auditável).
+ * Espelha o padrão versionado da metodologia LAIA.
+ */
+export const swotMethodologiesTable = pgTable("swot_methodologies", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id")
+    .notNull()
+    .references(() => organizationsTable.id, { onDelete: "cascade" }),
+  activeVersionId: integer("active_version_id"),
+  createdById: integer("created_by_id")
+    .notNull()
+    .references(() => usersTable.id),
+  updatedById: integer("updated_by_id")
+    .notNull()
+    .references(() => usersTable.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+/**
+ * Versão imutável da metodologia SWOT. Cada alteração das tolerâncias cria uma
+ * nova versão (`versionNumber` incremental por metodologia), preservando o
+ * histórico. A coluna `score_thresholds` (mantida por compatibilidade) guarda o
+ * objeto de tolerâncias por tipo.
+ */
+export const swotMethodologyVersionsTable = pgTable(
+  "swot_methodology_versions",
+  {
+    id: serial("id").primaryKey(),
+    methodologyId: integer("methodology_id")
+      .notNull()
+      .references(() => swotMethodologiesTable.id, { onDelete: "cascade" }),
+    organizationId: integer("organization_id")
+      .notNull()
+      .references(() => organizationsTable.id, { onDelete: "cascade" }),
+    versionNumber: integer("version_number").notNull(),
+    tolerances: jsonb("score_thresholds").$type<SwotTolerances>().notNull(),
+    notes: text("notes"),
+    createdById: integer("created_by_id")
+      .notNull()
+      .references(() => usersTable.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique("swot_methodology_version_unique").on(table.methodologyId, table.versionNumber),
+  ],
+);
+
+export type SwotMethodology = typeof swotMethodologiesTable.$inferSelect;
+export type SwotMethodologyVersion = typeof swotMethodologyVersionsTable.$inferSelect;

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_SWOT_TOLERANCES,
   encodeObjectiveRef,
   parseObjectiveRef,
   swotDecision,
   swotResult,
-  swotRiskBand,
 } from "@/lib/swot-client";
 
 describe("swotResult", () => {
@@ -16,32 +16,27 @@ describe("swotResult", () => {
   });
 });
 
-describe("swotDecision (FPLAN methodology — ≥8 requer ação)", () => {
-  it("força is always 'positivo', regardless of result", () => {
+describe("swotDecision (FPLAN — requer ação a partir de ≥ 8)", () => {
+  it("força é sempre 'positivo', independentemente do resultado", () => {
     expect(swotDecision("strength", 16)).toBe("positivo");
     expect(swotDecision("strength", 8)).toBe("positivo");
     expect(swotDecision("strength", 4)).toBe("positivo");
   });
 
-  it("fraqueza/ameaça/oportunidade require action at result ≥ 8", () => {
-    // R20 planilha: Fraqueza resultado 8 → requer
+  it("fraqueza/oportunidade/ameaça requerem plano de ação com resultado ≥ 8", () => {
     expect(swotDecision("weakness", 8)).toBe("requer");
-    // R23 planilha: Oportunidade resultado 9 → requer
     expect(swotDecision("opportunity", 9)).toBe("requer");
-    // R59 planilha: Ameaça resultado 9 → requer
     expect(swotDecision("threat", 9)).toBe("requer");
   });
 
-  it("fraqueza/ameaça/oportunidade are 'irrelevante' at result ≤ 7", () => {
-    expect(swotDecision("weakness", 7)).toBe("irrelevante");
-    // R45 planilha: Oportunidade resultado 6 → irrelevante
-    expect(swotDecision("opportunity", 6)).toBe("irrelevante");
-    // R24 planilha: Ameaça resultado 3 → irrelevante
-    expect(swotDecision("threat", 3)).toBe("irrelevante");
+  it("fraqueza/oportunidade/ameaça ficam 'conforme' com resultado ≤ 7 (dentro da tolerância)", () => {
+    expect(swotDecision("weakness", 7)).toBe("conforme");
+    expect(swotDecision("opportunity", 6)).toBe("conforme");
+    expect(swotDecision("threat", 3)).toBe("conforme");
   });
 
-  it("uses 8 (not 9) as the threshold — boundary check", () => {
-    expect(swotDecision("weakness", 7)).toBe("irrelevante");
+  it("usa o corte ≥ — boundary check (7 conforme, 8 requer)", () => {
+    expect(swotDecision("weakness", 7)).toBe("conforme");
     expect(swotDecision("weakness", 8)).toBe("requer");
   });
 });
@@ -67,12 +62,25 @@ describe("objective ref (fonte:id)", () => {
   });
 });
 
-describe("swotRiskBand", () => {
-  it("classifies ≤7 baixo, 8–12 alto, 13–16 extremo", () => {
-    expect(swotRiskBand(7)).toBe("baixo");
-    expect(swotRiskBand(8)).toBe("alto");
-    expect(swotRiskBand(12)).toBe("alto");
-    expect(swotRiskBand(13)).toBe("extremo");
-    expect(swotRiskBand(16)).toBe("extremo");
+describe("DEFAULT_SWOT_TOLERANCES", () => {
+  it("padrão FPLAN 001 = 8 para os três tipos", () => {
+    expect(DEFAULT_SWOT_TOLERANCES).toEqual({ weakness: 8, opportunity: 8, threat: 8 });
+  });
+});
+
+describe("corte configurável por tipo (metodologia da org)", () => {
+  it("swotDecision usa o corte (≥) específico de cada tipo", () => {
+    const t = { weakness: 6, opportunity: 9, threat: 4 };
+    // Fraqueza: corte 6 → 5 conforme, 6 requer.
+    expect(swotDecision("weakness", 5, t)).toBe("conforme");
+    expect(swotDecision("weakness", 6, t)).toBe("requer");
+    // Oportunidade: corte 9 → 8 conforme, 9 requer.
+    expect(swotDecision("opportunity", 8, t)).toBe("conforme");
+    expect(swotDecision("opportunity", 9, t)).toBe("requer");
+    // Ameaça: corte 4 → 3 conforme, 4 requer.
+    expect(swotDecision("threat", 3, t)).toBe("conforme");
+    expect(swotDecision("threat", 4, t)).toBe("requer");
+    // Força segue sempre positivo, independentemente do corte.
+    expect(swotDecision("strength", 1, t)).toBe("positivo");
   });
 });

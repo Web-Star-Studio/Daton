@@ -8689,6 +8689,56 @@ paths:
         "204":
           description: Deleted
 
+  /organizations/{orgId}/swot/methodology:
+    get:
+      operationId: getSwotMethodology
+      tags: [swot]
+      summary: Get the organization's SWOT methodology (active per-type tolerances + version history)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: SWOT methodology (defaults when never configured)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwotMethodology"
+    put:
+      operationId: updateSwotMethodology
+      tags: [swot]
+      summary: Update the SWOT per-type tolerances (creates a new version)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSwotMethodologyBody"
+      responses:
+        "201":
+          description: New methodology version created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  versionNumber:
+                    type: integer
+                  activeVersionId:
+                    type: integer
+                required:
+                  - versionNumber
+                  - activeVersionId
+
   /organizations/{orgId}/action-plans:
     get:
       operationId: listActionPlans
@@ -15978,6 +16028,112 @@ components:
         objectiveSourceId:
           type: integer
           nullable: true
+
+    SwotTolerances:
+      type: object
+      description: "Metodologia SWOT por tipo de fator (escala de resultado 1–16). Para cada tipo, o valor é o resultado a partir do qual se exige ação: resultado ≥ valor ⇒ requer plano de ação; abaixo ⇒ dentro da tolerância (conforme). Padrão FPLAN 001 = 8. Força é sempre positiva."
+      properties:
+        weakness:
+          type: integer
+          minimum: 2
+          maximum: 16
+          description: "Fraquezas — resultado ≥ este valor exige plano de ação."
+        opportunity:
+          type: integer
+          minimum: 2
+          maximum: 16
+          description: "Oportunidades — resultado ≥ este valor exige plano de ação."
+        threat:
+          type: integer
+          minimum: 2
+          maximum: 16
+          description: "Ameaças — resultado ≥ este valor exige plano de ação."
+      required:
+        - weakness
+        - opportunity
+        - threat
+
+    SwotMethodologyVersion:
+      type: object
+      properties:
+        id:
+          type: integer
+        versionNumber:
+          type: integer
+        tolerances:
+          $ref: "#/components/schemas/SwotTolerances"
+        notes:
+          type: string
+          nullable: true
+        createdById:
+          type: integer
+        createdByName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - versionNumber
+        - tolerances
+        - notes
+        - createdById
+        - createdByName
+        - createdAt
+
+    SwotMethodology:
+      type: object
+      description: "Metodologia SWOT vigente da organização. Quando nunca configurada, retorna as tolerâncias padrão (7) com configured=false e versions vazio."
+      properties:
+        organizationId:
+          type: integer
+        configured:
+          type: boolean
+          description: "false quando a empresa ainda não salvou uma metodologia (usando padrões)."
+        tolerances:
+          $ref: "#/components/schemas/SwotTolerances"
+        activeVersionNumber:
+          type: integer
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        versions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SwotMethodologyVersion"
+      required:
+        - organizationId
+        - configured
+        - tolerances
+        - activeVersionNumber
+        - updatedAt
+        - versions
+
+    UpdateSwotMethodologyBody:
+      type: object
+      properties:
+        weakness:
+          type: integer
+          minimum: 2
+          maximum: 16
+        opportunity:
+          type: integer
+          minimum: 2
+          maximum: 16
+        threat:
+          type: integer
+          minimum: 2
+          maximum: 16
+        notes:
+          type: string
+          nullable: true
+      required:
+        - weakness
+        - opportunity
+        - threat
 
     ActionPlanSourceModule:
       type: string

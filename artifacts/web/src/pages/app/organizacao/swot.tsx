@@ -1,11 +1,15 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   ChevronRight,
   ClipboardList,
+  History,
   Pencil,
   Plus,
+  RotateCcw,
+  Save,
   Search,
+  Settings,
   Target,
   Trash2,
 } from "lucide-react";
@@ -37,6 +41,7 @@ import {
 } from "@/lib/action-plans-client";
 import { useKpiObjectives } from "@/lib/kpi-client";
 import {
+  DEFAULT_SWOT_TOLERANCES,
   RELEVANCE_SCALE_LEGEND,
   SWOT_DECISION_LABELS,
   SWOT_DECISION_SHORT,
@@ -62,18 +67,23 @@ import {
   useCreateSwotFactorWithInvalidation,
   useDeleteSwotFactorWithInvalidation,
   useSwotFactors,
+  useSwotMethodology,
   useSwotObjectives,
+  useSwotTolerances,
   useUpdateSwotFactorWithInvalidation,
+  useUpdateSwotMethodologyWithInvalidation,
   type SwotEnvironment,
   type SwotFactor,
   type SwotFactorType,
+  type SwotMethodologyVersion,
+  type SwotTolerances,
 } from "@/lib/swot-client";
 
 /** Scroll sutil, nativo e discoverable (barra fina visível quando há overflow). */
 const SWOT_SCROLL_CLS =
   "overflow-y-auto [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border";
 
-type Tab = "swot" | "fatores" | "objetivos";
+type Tab = "swot" | "fatores" | "objetivos" | "metodologia";
 
 const UNIT_ALL = "all";
 const UNIT_CORP = "corp";
@@ -120,6 +130,7 @@ export default function OrganizacaoSwotPage() {
   usePageSubtitle("Análise de contexto — forças, fraquezas, oportunidades e ameaças (ISO 9001 §4.1)");
 
   const { data: factors = [], isLoading } = useSwotFactors(orgId);
+  const tolerances = useSwotTolerances(orgId);
   const { data: objectives = [] } = useSwotObjectives(orgId);
   const { data: kpiObjectives = [] } = useKpiObjectives(orgId);
   const { data: units = [] } = useListUnits(orgId);
@@ -177,6 +188,21 @@ export default function OrganizacaoSwotPage() {
 
   const [tab, setTab] = useState<Tab>("swot");
   const [unitFilter, setUnitFilter] = useState<string>(UNIT_ALL);
+
+  // Deep-link `#fator-N` (ex.: vindo da origem de um plano de ação): abre a aba
+  // de fatores e rola/destaca o fator. Lê o hash uma vez na montagem e o limpa.
+  const [highlightFactorId, setHighlightFactorId] = useState<number | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash;
+    if (!hash.startsWith("#fator-")) return;
+    const id = Number(hash.slice("#fator-".length));
+    if (Number.isInteger(id) && id > 0) {
+      setTab("fatores");
+      setHighlightFactorId(id);
+    }
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  }, []);
 
   // ─── Unit filter applied to all views ──────────────────────────────────────
   const scoped = useMemo(() => {
@@ -367,9 +393,9 @@ export default function OrganizacaoSwotPage() {
       scoped.map((f) => ({
         ...f,
         result: swotResult(f.performance, f.relevance),
-        decision: swotDecision(f.type, swotResult(f.performance, f.relevance)),
+        decision: swotDecision(f.type, swotResult(f.performance, f.relevance), tolerances),
       })),
-    [scoped],
+    [scoped, tolerances],
   );
 
   const requerList = useMemo(
@@ -395,6 +421,7 @@ export default function OrganizacaoSwotPage() {
             ["swot", "Visão SWOT"],
             ["fatores", "Todos os fatores"],
             ["objetivos", "Objetivos"],
+            ["metodologia", "Metodologia"],
           ] as [Tab, string][]).map(([key, label]) => (
             <button
               key={key}
@@ -414,7 +441,9 @@ export default function OrganizacaoSwotPage() {
         </div>
       </div>
 
-      {isLoading ? (
+      {tab === "metodologia" ? (
+        <MethodologyConfigPanel orgId={orgId} canWrite={canWrite} />
+      ) : isLoading ? (
         <div className="p-10 text-center text-sm text-muted-foreground">Carregando...</div>
       ) : tab === "swot" ? (
         <SwotView
@@ -426,6 +455,7 @@ export default function OrganizacaoSwotPage() {
           onCreateAction={openCreateAction}
           onEdit={openEditFactor}
           canWrite={canWrite}
+          tolerances={tolerances}
         />
       ) : tab === "fatores" ? (
         <FactorsTable
@@ -436,6 +466,8 @@ export default function OrganizacaoSwotPage() {
           onDelete={removeFactor}
           onCreateAction={openCreateAction}
           canWrite={canWrite}
+          highlightId={highlightFactorId}
+          tolerances={tolerances}
         />
       ) : (
         <ObjectivesPanel
@@ -444,6 +476,7 @@ export default function OrganizacaoSwotPage() {
           objectiveByRef={objectiveByRef}
           canWrite={canWrite}
           onEditFactor={openEditFactor}
+          tolerances={tolerances}
         />
       )}
 
@@ -452,112 +485,119 @@ export default function OrganizacaoSwotPage() {
         open={factorDialogOpen}
         onOpenChange={setFactorDialogOpen}
         title={editingFactorId !== null ? "Editar fator SWOT" : "Novo fator SWOT"}
-        size="lg"
+        size="xl"
       >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2 space-y-1.5">
-            <Label>Descrição do fator</Label>
-            <textarea
-              value={factorForm.description}
-              onChange={(e) => setFactorForm((f) => ({ ...f, description: e.target.value }))}
-              rows={2}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Tipo</Label>
-            <Select
-              value={factorForm.type}
-              onChange={(e) => {
-                const type = e.target.value as SwotFactorType;
-                setFactorForm((f) => ({ ...f, type, environment: defaultEnvironmentFor(type) }));
-              }}
-            >
-              {SWOT_TYPES.map((t) => (
-                <option key={t} value={t}>{SWOT_TYPE_LABELS[t]}</option>
-              ))}
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Ambiente</Label>
-            <Select
-              value={factorForm.environment}
-              onChange={(e) => setFactorForm((f) => ({ ...f, environment: e.target.value as SwotEnvironment }))}
-            >
-              {(Object.keys(SWOT_ENVIRONMENT_LABELS) as SwotEnvironment[]).map((env) => (
-                <option key={env} value={env}>{SWOT_ENVIRONMENT_LABELS[env]}</option>
-              ))}
-            </Select>
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>{performanceAxisLabel(factorForm.type)} <span className="text-muted-foreground font-normal">(1–4)</span></Label>
-            <ScaleSelector
-              value={factorForm.performance}
-              onChange={(v) => setFactorForm((f) => ({ ...f, performance: v }))}
-              legend={performanceScaleLegend(factorForm.type)}
-            />
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Relevância <span className="text-muted-foreground font-normal">(1–4)</span></Label>
-            <ScaleSelector
-              value={factorForm.relevance}
-              onChange={(v) => setFactorForm((f) => ({ ...f, relevance: v }))}
-              legend={RELEVANCE_SCALE_LEGEND}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Perspectiva</Label>
-            <SearchableSelect
-              value={factorForm.perspective}
-              onChange={(v) => setFactorForm((f) => ({ ...f, perspective: v }))}
-              options={perspectiveOptions}
-              placeholder="Selecione a perspectiva"
-              searchPlaceholder="Buscar perspectiva..."
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Unidade</Label>
-            <SearchableSelect
-              value={factorForm.unitId}
-              onChange={(v) => setFactorForm((f) => ({ ...f, unitId: v }))}
-              options={[{ value: "", label: "Corporativo" }, ...units.map((u) => ({ value: String(u.id), label: u.name }))]}
-              placeholder="Corporativo"
-              searchPlaceholder="Buscar unidade..."
-            />
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Objetivo estratégico</Label>
-            <SearchableSelect
-              value={factorForm.objectiveRef}
-              onChange={(v) => setFactorForm((f) => ({ ...f, objectiveRef: v }))}
-              options={objectiveOptionsForFactor}
-              placeholder="Selecione um objetivo"
-              searchPlaceholder="Buscar objetivo (Indicadores)..."
-              emptyMessage="Nenhum objetivo disponível"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Objetivos vêm do módulo Indicadores (KPI). A aba Objetivos do SWOT é somente leitura.
-            </p>
-          </div>
-          {(() => {
-            const result = swotResult(factorForm.performance, factorForm.relevance);
-            const decision = swotDecision(factorForm.type, result);
-            return (
-              <div className="sm:col-span-2 flex items-center gap-3.5 rounded-lg border bg-muted/30 px-4 py-3">
-                <div className="flex flex-col items-center">
-                  <span className={cn("text-2xl font-semibold leading-none tabular-nums", swotResultColor(result))}>{result}</span>
-                  <span className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">resultado</span>
+        <div className="flex flex-col gap-5 lg:flex-row">
+          <div className="grid min-w-0 flex-1 gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label>Descrição do fator</Label>
+              <textarea
+                value={factorForm.description}
+                onChange={(e) => setFactorForm((f) => ({ ...f, description: e.target.value }))}
+                rows={2}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tipo</Label>
+              <Select
+                value={factorForm.type}
+                onChange={(e) => {
+                  const type = e.target.value as SwotFactorType;
+                  setFactorForm((f) => ({ ...f, type, environment: defaultEnvironmentFor(type) }));
+                }}
+              >
+                {SWOT_TYPES.map((t) => (
+                  <option key={t} value={t}>{SWOT_TYPE_LABELS[t]}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Ambiente</Label>
+              <Select
+                value={factorForm.environment}
+                onChange={(e) => setFactorForm((f) => ({ ...f, environment: e.target.value as SwotEnvironment }))}
+              >
+                {(Object.keys(SWOT_ENVIRONMENT_LABELS) as SwotEnvironment[]).map((env) => (
+                  <option key={env} value={env}>{SWOT_ENVIRONMENT_LABELS[env]}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>{performanceAxisLabel(factorForm.type)} <span className="text-muted-foreground font-normal">(1–4)</span></Label>
+              <ScaleSelector
+                value={factorForm.performance}
+                onChange={(v) => setFactorForm((f) => ({ ...f, performance: v }))}
+                legend={performanceScaleLegend(factorForm.type)}
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Relevância <span className="text-muted-foreground font-normal">(1–4)</span></Label>
+              <ScaleSelector
+                value={factorForm.relevance}
+                onChange={(v) => setFactorForm((f) => ({ ...f, relevance: v }))}
+                legend={RELEVANCE_SCALE_LEGEND}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Perspectiva</Label>
+              <SearchableSelect
+                value={factorForm.perspective}
+                onChange={(v) => setFactorForm((f) => ({ ...f, perspective: v }))}
+                options={perspectiveOptions}
+                placeholder="Selecione a perspectiva"
+                searchPlaceholder="Buscar perspectiva..."
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Unidade</Label>
+              <SearchableSelect
+                value={factorForm.unitId}
+                onChange={(v) => setFactorForm((f) => ({ ...f, unitId: v }))}
+                options={[{ value: "", label: "Corporativo" }, ...units.map((u) => ({ value: String(u.id), label: u.name }))]}
+                placeholder="Corporativo"
+                searchPlaceholder="Buscar unidade..."
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Objetivo estratégico</Label>
+              <SearchableSelect
+                value={factorForm.objectiveRef}
+                onChange={(v) => setFactorForm((f) => ({ ...f, objectiveRef: v }))}
+                options={objectiveOptionsForFactor}
+                placeholder="Selecione um objetivo"
+                searchPlaceholder="Buscar objetivo (Indicadores)..."
+                emptyMessage="Nenhum objetivo disponível"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Objetivos vêm do módulo Indicadores (KPI). A aba Objetivos do SWOT é somente leitura.
+              </p>
+            </div>
+            {(() => {
+              const result = swotResult(factorForm.performance, factorForm.relevance);
+              const decision = swotDecision(factorForm.type, result, tolerances);
+              return (
+                <div className="sm:col-span-2 flex items-center gap-3.5 rounded-lg border bg-muted/30 px-4 py-3">
+                  <div className="flex flex-col items-center">
+                    <span className={cn("text-2xl font-semibold leading-none tabular-nums", swotResultColor(factorForm.type, result, tolerances))}>{result}</span>
+                    <span className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">resultado</span>
+                  </div>
+                  <div className="h-9 w-px bg-border" />
+                  <div className="min-w-0 flex-1">
+                    <Badge variant="secondary" className={cn("text-[10px]", swotDecisionBadgeColor(decision))}>
+                      {SWOT_DECISION_SHORT[decision]}
+                    </Badge>
+                    <p className="mt-1 text-xs leading-snug text-muted-foreground">{SWOT_DECISION_LABELS[decision]}</p>
+                  </div>
                 </div>
-                <div className="h-9 w-px bg-border" />
-                <div className="min-w-0 flex-1">
-                  <Badge variant="secondary" className={cn("text-[10px]", swotDecisionBadgeColor(decision))}>
-                    {SWOT_DECISION_SHORT[decision]}
-                  </Badge>
-                  <p className="mt-1 text-xs leading-snug text-muted-foreground">{SWOT_DECISION_LABELS[decision]}</p>
-                </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
+          </div>
+          <SwotSupportGuide
+            type={factorForm.type}
+            result={swotResult(factorForm.performance, factorForm.relevance)}
+            tolerances={tolerances}
+          />
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setFactorDialogOpen(false)}>Cancelar</Button>
@@ -703,6 +743,7 @@ function SwotView({
   onCreateAction,
   onEdit,
   canWrite,
+  tolerances,
 }: {
   counts: Record<SwotFactorType, number>;
   withResult: ScoredFactor[];
@@ -712,6 +753,7 @@ function SwotView({
   onCreateAction: (f: SwotFactor) => void;
   onEdit: (f: SwotFactor) => void;
   canWrite: boolean;
+  tolerances: SwotTolerances;
 }) {
   const [detailType, setDetailType] = useState<SwotFactorType | null>(null);
 
@@ -724,6 +766,7 @@ function SwotView({
         onBack={() => setDetailType(null)}
         onEdit={onEdit}
         onCreateAction={onCreateAction}
+        tolerances={tolerances}
       />
     );
   }
@@ -778,7 +821,7 @@ function SwotView({
                   {all.map((f) => (
                     <li key={f.id} className="flex items-center justify-between gap-3 py-1">
                       <span className="min-w-0 flex-1 truncate text-sm" title={f.description}>{f.description}</span>
-                      <span className={cn("shrink-0 text-sm font-semibold tabular-nums", swotResultColor(f.result))}>{f.result}</span>
+                      <span className={cn("shrink-0 text-sm font-semibold tabular-nums", swotResultColor(f.type, f.result, tolerances))}>{f.result}</span>
                     </li>
                   ))}
                 </ul>
@@ -823,7 +866,7 @@ function SwotView({
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium leading-snug">{f.description}</div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
-                      <span className={cn("font-semibold tabular-nums", swotResultColor(f.result))}>Resultado {f.result}</span>
+                      <span className={cn("font-semibold tabular-nums", swotResultColor(f.type, f.result, tolerances))}>Resultado {f.result}</span>
                       {f.perspective && <span>· {f.perspective}</span>}
                       {obj
                         ? <span>· {SWOT_OBJECTIVE_SOURCE_LABELS[obj.source]}: {obj.label}</span>
@@ -857,6 +900,8 @@ function FactorsTable({
   onDelete,
   onCreateAction,
   canWrite,
+  highlightId,
+  tolerances,
 }: {
   rows: ScoredFactor[];
   objectiveByRef: Map<string, { label: string; source: "swot" | "kpi" }>;
@@ -865,11 +910,16 @@ function FactorsTable({
   onDelete: (f: SwotFactor) => void;
   onCreateAction: (f: SwotFactor) => void;
   canWrite: boolean;
+  /** Fator a rolar/destacar ao chegar via deep-link `#fator-N`. */
+  highlightId?: number | null;
+  tolerances: SwotTolerances;
 }) {
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [decisionFilter, setDecisionFilter] = useState<string>("");
   const [perspectiveFilter, setPerspectiveFilter] = useState<string>("");
   const [search, setSearch] = useState("");
+  // Realce temporário do fator alvo do deep-link.
+  const [flashId, setFlashId] = useState<number | null>(null);
 
   const perspectives = useMemo(
     () => [...new Set(rows.map((r) => r.perspective).filter((p): p is string => !!p))].sort(),
@@ -887,6 +937,19 @@ function FactorsTable({
     });
   }, [rows, typeFilter, decisionFilter, perspectiveFilter, search]);
 
+  // Ao receber um alvo de deep-link, rola até a linha e a destaca por ~2,5s.
+  // Depende de `filtered` pra rodar só depois que a linha existir no DOM.
+  useEffect(() => {
+    if (highlightId == null) return;
+    if (!filtered.some((f) => f.id === highlightId)) return;
+    const el = document.getElementById(`fator-${highlightId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setFlashId(highlightId);
+    const t = setTimeout(() => setFlashId(null), 2500);
+    return () => clearTimeout(t);
+  }, [highlightId, filtered]);
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -896,9 +959,9 @@ function FactorsTable({
         </Select>
         <Select value={decisionFilter} onChange={(e) => setDecisionFilter(e.target.value)} className="w-44">
           <option value="">Todas as decisões</option>
-          <option value="requer">Requer ações</option>
+          <option value="requer">Requer plano de ação</option>
           <option value="positivo">Já positivo</option>
-          <option value="irrelevante">Irrelevante</option>
+          <option value="conforme">Dentro da tolerância</option>
         </Select>
         <Select value={perspectiveFilter} onChange={(e) => setPerspectiveFilter(e.target.value)} className="w-44">
           <option value="">Todas as perspectivas</option>
@@ -935,7 +998,16 @@ function FactorsTable({
                   : null;
                 const obj = objRef ? objectiveByRef.get(objRef) : null;
                 return (
-                  <tr key={f.id} className="border-b last:border-0 hover:bg-muted/40">
+                  <tr
+                    key={f.id}
+                    id={`fator-${f.id}`}
+                    className={cn(
+                      "scroll-mt-6 border-b last:border-0 transition-colors",
+                      flashId === f.id
+                        ? "bg-primary/10 ring-2 ring-inset ring-primary"
+                        : "hover:bg-muted/40",
+                    )}
+                  >
                     <td className="px-3 py-2 max-w-[260px]">
                       <div className="truncate" title={f.description}>{f.description}</div>
                       {obj
@@ -949,7 +1021,7 @@ function FactorsTable({
                     <td className="px-3 py-2 text-xs text-muted-foreground">{f.perspective ?? "—"}</td>
                     <td className="px-3 py-2 text-center tabular-nums">{f.performance}</td>
                     <td className="px-3 py-2 text-center tabular-nums">{f.relevance}</td>
-                    <td className={cn("px-3 py-2 text-center font-medium tabular-nums", swotResultColor(f.result))}>{f.result}</td>
+                    <td className={cn("px-3 py-2 text-center font-medium tabular-nums", swotResultColor(f.type, f.result, tolerances))}>{f.result}</td>
                     <td className="px-3 py-2">
                       <Badge variant="secondary" className={cn("text-[10px]", swotDecisionBadgeColor(f.decision))}>{SWOT_DECISION_SHORT[f.decision]}</Badge>
                     </td>
@@ -989,12 +1061,14 @@ function ObjectivesPanel({
   objectiveByRef,
   canWrite,
   onEditFactor,
+  tolerances,
 }: {
   objectives: { id: number; code: string | null; name: string }[];
   factors: ScoredFactor[];
   objectiveByRef: Map<string, { label: string; source: "swot" | "kpi" }>;
   canWrite: boolean;
   onEditFactor: (f: SwotFactor) => void;
+  tolerances: SwotTolerances;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -1057,7 +1131,7 @@ function ObjectivesPanel({
                         {SWOT_TYPE_LABELS[f.type]}
                       </Badge>
                       <span className="min-w-0 flex-1 truncate text-sm" title={f.description}>{f.description}</span>
-                      <span className={cn("shrink-0 text-sm font-semibold tabular-nums", swotResultColor(f.result))}>{f.result}</span>
+                      <span className={cn("shrink-0 text-sm font-semibold tabular-nums", swotResultColor(f.type, f.result, tolerances))}>{f.result}</span>
                     </>
                   );
                   return (
@@ -1122,6 +1196,322 @@ function ObjectivesPanel({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+
+// ─── Tabela de apoio (guia no lançamento do fator) ──────────────────────────────
+// Critérios de decisão da SWOT em formato de tabela. Só referência: o resultado e
+// as tolerâncias (configuráveis na aba Metodologia) vêm dos helpers de swot-client
+// (não recalcula nada). Destaca o tipo selecionado e a faixa (dentro/acima da
+// tolerância) do resultado atual.
+
+const SUPPORT_GROUPS: { titulo: string; types: SwotFactorType[] }[] = [
+  { titulo: "Contexto interno", types: ["strength", "weakness"] },
+  { titulo: "Contexto externo", types: ["opportunity", "threat"] },
+];
+
+type SupportBand = { pont: string; saida: string; kind: "positivo" | "conforme" | "requer" };
+
+function supportBandsFor(type: SwotFactorType, tolerances: SwotTolerances): SupportBand[] {
+  if (type === "strength") return [{ pont: "—", saida: "Já positivo", kind: "positivo" }];
+  const v = tolerances[type];
+  return [
+    { pont: `≤ ${v - 1}`, saida: "Dentro da tolerância", kind: "conforme" },
+    { pont: `≥ ${v}`, saida: "Requer plano de ação", kind: "requer" },
+  ];
+}
+
+function isActiveBand(
+  type: SwotFactorType,
+  result: number,
+  kind: SupportBand["kind"],
+  tolerances: SwotTolerances,
+): boolean {
+  if (type === "strength") return kind === "positivo";
+  return kind === "requer" ? result >= tolerances[type] : result < tolerances[type];
+}
+
+function SwotSupportGuide({
+  type,
+  result,
+  tolerances,
+}: {
+  type: SwotFactorType;
+  result: number;
+  tolerances: SwotTolerances;
+}) {
+  return (
+    <aside className="lg:w-72 lg:shrink-0 lg:self-start">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Tabela de apoio
+      </p>
+      <div className="overflow-hidden rounded-lg border">
+        <table className="w-full border-collapse text-xs">
+          <tbody>
+            {SUPPORT_GROUPS.map((g, gi) => (
+              <Fragment key={g.titulo}>
+                <tr>
+                  <td
+                    colSpan={3}
+                    className={cn(
+                      "bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+                      gi > 0 && "border-t",
+                    )}
+                  >
+                    {g.titulo}
+                  </td>
+                </tr>
+                {g.types.map((t) => {
+                  const bands = supportBandsFor(t, tolerances);
+                  const active = t === type;
+                  return bands.map((b, i) => (
+                    <tr key={t + b.kind} className={cn("border-t", active && "bg-primary/5")}>
+                      {i === 0 && (
+                        <td rowSpan={bands.length} className="border-r px-2.5 py-1.5 align-middle">
+                          <span className="flex items-center gap-1.5">
+                            <span
+                              className={cn("h-1.5 w-1.5 shrink-0 rounded-full bg-current", swotTypeText(t))}
+                            />
+                            <span className={cn("font-medium", active ? "text-foreground" : "text-muted-foreground")}>
+                              {SWOT_TYPE_PLURAL[t]}
+                            </span>
+                          </span>
+                        </td>
+                      )}
+                      <td
+                        className={cn(
+                          "w-9 border-r px-2 py-1.5 text-center tabular-nums",
+                          isActiveBand(t, result, b.kind, tolerances)
+                            ? "font-semibold text-foreground"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {b.pont}
+                      </td>
+                      <td
+                        className={cn(
+                          "px-2.5 py-1.5",
+                          isActiveBand(t, result, b.kind, tolerances)
+                            ? "font-semibold text-foreground"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {b.saida}
+                      </td>
+                    </tr>
+                  ));
+                })}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        Resultado <span className="font-medium text-foreground">≥ o valor do tipo</span> exige plano de ação;
+        abaixo, dentro da tolerância.
+      </p>
+    </aside>
+  );
+}
+
+// ─── Metodologia (configuração das tolerâncias, por empresa, versionada) ────────
+
+/** Data/hora amigável (pt-BR) para o histórico de versões. */
+function formatMethodologyDate(iso: string): string {
+  return new Date(iso).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** Tipos com tolerância (Força é sempre positiva, sem tolerância). */
+const TOLERANCE_TYPES: (keyof SwotTolerances)[] = ["weakness", "opportunity", "threat"];
+
+function MethodologyConfigPanel({ orgId, canWrite }: { orgId: number; canWrite: boolean }) {
+  const { data: methodology, isLoading } = useSwotMethodology(orgId);
+  const updateMethodology = useUpdateSwotMethodologyWithInvalidation(orgId);
+
+  const saved = methodology?.tolerances ?? DEFAULT_SWOT_TOLERANCES;
+  const [vals, setVals] = useState<SwotTolerances>(saved);
+
+  // Sincroniza o formulário com o valor salvo (carregamento inicial e após salvar).
+  useEffect(() => {
+    setVals(saved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saved.weakness, saved.opportunity, saved.threat]);
+
+  const isValid = (n: number) => Number.isInteger(n) && n >= 2 && n <= 16;
+  const valid = TOLERANCE_TYPES.every((t) => isValid(vals[t]));
+  const changed = TOLERANCE_TYPES.some((t) => vals[t] !== saved[t]);
+
+  // Tolerâncias para a prévia (cai no salvo enquanto a edição estiver inválida).
+  const preview: SwotTolerances = valid ? vals : saved;
+
+  function setField(type: keyof SwotTolerances, raw: string) {
+    setVals((v) => ({ ...v, [type]: raw === "" ? NaN : Number(raw) }));
+  }
+
+  async function save() {
+    if (!valid || !changed) return;
+    try {
+      await updateMethodology.mutateAsync({
+        orgId,
+        data: { weakness: vals.weakness, opportunity: vals.opportunity, threat: vals.threat },
+      });
+      toast({ title: "Metodologia atualizada", description: "Nova versão registrada para auditoria." });
+    } catch {
+      toast({ title: "Não foi possível salvar a metodologia", variant: "destructive" });
+    }
+  }
+
+  function restoreDefaults() {
+    setVals(DEFAULT_SWOT_TOLERANCES);
+  }
+
+  const versions = methodology?.versions ?? [];
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <div className="space-y-5">
+        {/* Configuração */}
+        <div className="rounded-xl border bg-card p-6 shadow-sm">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <Settings className="h-5 w-5" />
+            </span>
+            <div className="space-y-1">
+              <h2 className="text-base font-semibold">Configuração da metodologia</h2>
+              <p className="text-sm text-muted-foreground">
+                Resultado a partir do qual (<strong className="font-medium text-foreground">≥</strong>) o fator
+                requer plano de ação, por tipo. Abaixo, fica dentro da tolerância.
+              </p>
+            </div>
+          </div>
+
+          {canWrite ? (
+            <div className="mt-5 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-3">
+                {TOLERANCE_TYPES.map((t) => (
+                  <div key={t} className="space-y-1.5">
+                    <Label className="flex items-center gap-1.5">
+                      <span className={cn("h-1.5 w-1.5 rounded-full bg-current", swotTypeText(t))} />
+                      {SWOT_TYPE_LABELS[t]}
+                    </Label>
+                    <Input
+                      type="number"
+                      min={2}
+                      max={16}
+                      value={Number.isNaN(vals[t]) ? "" : vals[t]}
+                      onChange={(e) => setField(t, e.target.value)}
+                      className={cn(!isValid(vals[t]) && "border-destructive")}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {!valid && (
+                <p className="text-xs text-destructive">Use números inteiros entre 2 e 16.</p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={save} disabled={!valid || !changed || updateMethodology.isPending}>
+                  <Save className="mr-1.5 h-4 w-4" />
+                  Salvar metodologia
+                </Button>
+                <Button variant="ghost" onClick={restoreDefaults}>
+                  <RotateCcw className="mr-1.5 h-4 w-4" />
+                  Restaurar padrão (8)
+                </Button>
+                {changed && <span className="text-xs text-muted-foreground">Alterações não salvas</span>}
+              </div>
+            </div>
+          ) : (
+            <div className="mt-5 rounded-lg border bg-muted/30 px-4 py-3 text-sm">
+              <p>
+                Requer plano de ação a partir de (resultado ≥):{" "}
+                <strong className="text-foreground">Fraqueza {saved.weakness}</strong> ·{" "}
+                <strong className="text-foreground">Oportunidade {saved.opportunity}</strong> ·{" "}
+                <strong className="text-foreground">Ameaça {saved.threat}</strong>.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Somente leitura — você não tem permissão para editar a metodologia.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Histórico de versões (auditoria) */}
+        <div className="rounded-xl border bg-card p-5 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <History className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Histórico de versões</h3>
+            {versions.length > 0 && (
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                {versions.length}
+              </span>
+            )}
+          </div>
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Carregando…</p>
+          ) : versions.length === 0 ? (
+            <ul className="space-y-2">
+              <li className="flex items-start gap-3 rounded-lg border bg-background px-3 py-2 text-sm">
+                <span className="mt-0.5 shrink-0 rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium">
+                  Padrão
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium tabular-nums">
+                    Fraqueza ≥ {saved.weakness} · Oportunidade ≥ {saved.opportunity} · Ameaça ≥ {saved.threat}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Versão inicial ·{" "}
+                    <span className="font-medium text-emerald-600 dark:text-emerald-400">vigente</span> · salve
+                    para registrar a primeira versão própria
+                  </div>
+                </div>
+              </li>
+            </ul>
+          ) : (
+            <ul className="space-y-2">
+              {versions.map((v: SwotMethodologyVersion) => (
+                <li
+                  key={v.id}
+                  className="flex items-start gap-3 rounded-lg border bg-background px-3 py-2 text-sm"
+                >
+                  <span className="mt-0.5 shrink-0 rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
+                    v{v.versionNumber}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium tabular-nums">
+                      Fraqueza ≥ {v.tolerances.weakness} · Oportunidade ≥ {v.tolerances.opportunity} ·
+                      Ameaça ≥ {v.tolerances.threat}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {v.createdByName ?? "—"} · {formatMethodologyDate(v.createdAt)}
+                      {methodology?.activeVersionNumber === v.versionNumber && (
+                        <span className="ml-1.5 font-medium text-emerald-600 dark:text-emerald-400">· vigente</span>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* Prévia: a mesma tabela de apoio que aparece ao lançar/editar um fator. */}
+      <div className="lg:self-start">
+        <p className="mb-2 text-[11px] text-muted-foreground">
+          Prévia — como aparece ao lançar um fator:
+        </p>
+        <SwotSupportGuide type="weakness" result={preview.weakness} tolerances={preview} />
+      </div>
     </div>
   );
 }

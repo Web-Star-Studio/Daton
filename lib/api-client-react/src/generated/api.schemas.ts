@@ -3874,6 +3874,72 @@ export interface UpdateSwotFactorBody {
   objectiveSourceId?: number | null;
 }
 
+/**
+ * Metodologia SWOT por tipo de fator (escala de resultado 1–16). Para cada tipo, o valor é o resultado a partir do qual se exige ação: resultado ≥ valor ⇒ requer plano de ação; abaixo ⇒ dentro da tolerância (conforme). Padrão FPLAN 001 = 8. Força é sempre positiva.
+ */
+export interface SwotTolerances {
+  /**
+   * Fraquezas — resultado ≥ este valor exige plano de ação.
+   * @minimum 2
+   * @maximum 16
+   */
+  weakness: number;
+  /**
+   * Oportunidades — resultado ≥ este valor exige plano de ação.
+   * @minimum 2
+   * @maximum 16
+   */
+  opportunity: number;
+  /**
+   * Ameaças — resultado ≥ este valor exige plano de ação.
+   * @minimum 2
+   * @maximum 16
+   */
+  threat: number;
+}
+
+export interface SwotMethodologyVersion {
+  id: number;
+  versionNumber: number;
+  tolerances: SwotTolerances;
+  notes: string | null;
+  createdById: number;
+  createdByName: string | null;
+  createdAt: string;
+}
+
+/**
+ * Metodologia SWOT vigente da organização. Quando nunca configurada, retorna as tolerâncias padrão (7) com configured=false e versions vazio.
+ */
+export interface SwotMethodology {
+  organizationId: number;
+  /** false quando a empresa ainda não salvou uma metodologia (usando padrões). */
+  configured: boolean;
+  tolerances: SwotTolerances;
+  activeVersionNumber: number | null;
+  updatedAt: string | null;
+  versions: SwotMethodologyVersion[];
+}
+
+export interface UpdateSwotMethodologyBody {
+  /**
+   * @minimum 2
+   * @maximum 16
+   */
+  weakness: number;
+  /**
+   * @minimum 2
+   * @maximum 16
+   */
+  opportunity: number;
+  /**
+   * @minimum 2
+   * @maximum 16
+   */
+  threat: number;
+  notes?: string | null;
+}
+
 export type ActionPlanSourceModule =
   (typeof ActionPlanSourceModule)[keyof typeof ActionPlanSourceModule];
 
@@ -5718,6 +5784,11 @@ export type ListRegulatoryDocumentAuditParams = {
    * @maximum 1000
    */
   limit?: number;
+};
+
+export type UpdateSwotMethodology201 = {
+  versionNumber: number;
+  activeVersionId: number;
 };
 
 export type ListActionPlansParams = {

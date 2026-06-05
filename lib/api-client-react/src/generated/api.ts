@@ -231,6 +231,7 @@ import type {
   SubmitQuestionnaireResponse,
   SuccessResponse,
   SwotFactor,
+  SwotMethodology,
   SwotObjective,
   SyncInternalAuditChecklistBody,
   TrainingEffectivenessReview,
@@ -284,6 +285,8 @@ import type {
   UpdateStrategicPlanRiskOpportunityItemBody,
   UpdateStrategicPlanSwotItemBody,
   UpdateSwotFactorBody,
+  UpdateSwotMethodology201,
+  UpdateSwotMethodologyBody,
   UpdateSwotObjectiveBody,
   UpdateTrainingBody,
   UpdateUnitBody,
@@ -30456,6 +30459,185 @@ export const useDeleteSwotFactor = <
   TContext
 > => {
   return useMutation(getDeleteSwotFactorMutationOptions(options));
+};
+
+/**
+ * @summary Get the organization's SWOT methodology (active per-type tolerances + version history)
+ */
+export const getGetSwotMethodologyUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/swot/methodology`;
+};
+
+export const getSwotMethodology = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<SwotMethodology> => {
+  return customFetch<SwotMethodology>(getGetSwotMethodologyUrl(orgId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSwotMethodologyQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/swot/methodology`] as const;
+};
+
+export const getGetSwotMethodologyQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSwotMethodology>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSwotMethodology>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSwotMethodologyQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSwotMethodology>>
+  > = ({ signal }) => getSwotMethodology(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSwotMethodology>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSwotMethodologyQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSwotMethodology>>
+>;
+export type GetSwotMethodologyQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the organization's SWOT methodology (active per-type tolerances + version history)
+ */
+
+export function useGetSwotMethodology<
+  TData = Awaited<ReturnType<typeof getSwotMethodology>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSwotMethodology>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSwotMethodologyQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update the SWOT per-type tolerances (creates a new version)
+ */
+export const getUpdateSwotMethodologyUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/swot/methodology`;
+};
+
+export const updateSwotMethodology = async (
+  orgId: number,
+  updateSwotMethodologyBody: UpdateSwotMethodologyBody,
+  options?: RequestInit,
+): Promise<UpdateSwotMethodology201> => {
+  return customFetch<UpdateSwotMethodology201>(
+    getUpdateSwotMethodologyUrl(orgId),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateSwotMethodologyBody),
+    },
+  );
+};
+
+export const getUpdateSwotMethodologyMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSwotMethodology>>,
+    TError,
+    { orgId: number; data: BodyType<UpdateSwotMethodologyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSwotMethodology>>,
+  TError,
+  { orgId: number; data: BodyType<UpdateSwotMethodologyBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSwotMethodology"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSwotMethodology>>,
+    { orgId: number; data: BodyType<UpdateSwotMethodologyBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return updateSwotMethodology(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSwotMethodologyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSwotMethodology>>
+>;
+export type UpdateSwotMethodologyMutationBody =
+  BodyType<UpdateSwotMethodologyBody>;
+export type UpdateSwotMethodologyMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update the SWOT per-type tolerances (creates a new version)
+ */
+export const useUpdateSwotMethodology = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSwotMethodology>>,
+    TError,
+    { orgId: number; data: BodyType<UpdateSwotMethodologyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSwotMethodology>>,
+  TError,
+  { orgId: number; data: BodyType<UpdateSwotMethodologyBody> },
+  TContext
+> => {
+  return useMutation(getUpdateSwotMethodologyMutationOptions(options));
 };
 
 /**
