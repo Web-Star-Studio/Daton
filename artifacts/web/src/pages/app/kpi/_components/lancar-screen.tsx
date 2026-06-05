@@ -46,7 +46,7 @@ import {
   type KpiDirection,
   type KpiYearRow,
 } from "@/lib/kpi-client";
-import { Sparkline } from "./sparkline";
+import { MonthlyTrendChart } from "./monthly-trend-chart";
 import { getIndicatorStatus, type CardStatus } from "./indicator-card";
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -295,11 +295,13 @@ function HistoryPanel({
           Clique em um mês pra editar o lançamento ou lançar o valor.
         </p>
       )}
-      <Sparkline
+      <MonthlyTrendChart
         values={monthValues}
         goal={goal}
         status={stats.overallStatus ?? "nodata"}
-        height={44}
+        measureUnit={measureUnit}
+        selectedMonth={selectedMonth}
+        height={132}
       />
       <dl className="space-y-1 border-t pt-2 text-[11px]">
         <div className="flex items-center justify-between">
