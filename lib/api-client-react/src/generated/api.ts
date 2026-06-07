@@ -235,6 +235,8 @@ import type {
   SubmitDocumentForReviewBody,
   SubmitQuestionnaireResponse,
   SuccessResponse,
+  SuggestActionPlanDraftBody,
+  SuggestActionPlanDraftResponse,
   SwotFactor,
   SwotMethodology,
   SwotObjective,
@@ -31780,6 +31782,97 @@ export function useListActionPlanActivity<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Draft 5W2H and 5-whys for an action plan from a problem statement (opt-in AI; never persisted)
+ */
+export const getSuggestActionPlanDraftUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/action-plans/ai-suggest`;
+};
+
+export const suggestActionPlanDraft = async (
+  orgId: number,
+  suggestActionPlanDraftBody: SuggestActionPlanDraftBody,
+  options?: RequestInit,
+): Promise<SuggestActionPlanDraftResponse> => {
+  return customFetch<SuggestActionPlanDraftResponse>(
+    getSuggestActionPlanDraftUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(suggestActionPlanDraftBody),
+    },
+  );
+};
+
+export const getSuggestActionPlanDraftMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof suggestActionPlanDraft>>,
+    TError,
+    { orgId: number; data: BodyType<SuggestActionPlanDraftBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof suggestActionPlanDraft>>,
+  TError,
+  { orgId: number; data: BodyType<SuggestActionPlanDraftBody> },
+  TContext
+> => {
+  const mutationKey = ["suggestActionPlanDraft"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof suggestActionPlanDraft>>,
+    { orgId: number; data: BodyType<SuggestActionPlanDraftBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return suggestActionPlanDraft(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SuggestActionPlanDraftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof suggestActionPlanDraft>>
+>;
+export type SuggestActionPlanDraftMutationBody =
+  BodyType<SuggestActionPlanDraftBody>;
+export type SuggestActionPlanDraftMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Draft 5W2H and 5-whys for an action plan from a problem statement (opt-in AI; never persisted)
+ */
+export const useSuggestActionPlanDraft = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof suggestActionPlanDraft>>,
+    TError,
+    { orgId: number; data: BodyType<SuggestActionPlanDraftBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof suggestActionPlanDraft>>,
+  TError,
+  { orgId: number; data: BodyType<SuggestActionPlanDraftBody> },
+  TContext
+> => {
+  return useMutation(getSuggestActionPlanDraftMutationOptions(options));
+};
 
 /**
  * @summary List road safety performance factors

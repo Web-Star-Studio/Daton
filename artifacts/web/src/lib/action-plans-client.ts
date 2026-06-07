@@ -21,6 +21,7 @@ import {
   useListActionPlans,
   useListExternalActions,
   useListKpiMonthJustifications,
+  useSuggestActionPlanDraft,
   useUpdateActionPlan,
   type ActionPlan,
   type ActionPlan5W2H,
@@ -41,6 +42,8 @@ import {
   type ExternalActionItem,
   type KpiMonthlyValueJustification,
   type ListActionPlansParams,
+  type SuggestActionPlanDraftBody,
+  type SuggestActionPlanDraftResponse,
   type UpdateActionPlanBody,
 } from "@workspace/api-client-react";
 // GUT relevance bands are shared with the road-safety module (single source of truth).
@@ -66,9 +69,18 @@ export type {
   ExternalActionItem,
   KpiMonthlyValueJustification,
   ListActionPlansParams,
+  SuggestActionPlanDraftBody,
+  SuggestActionPlanDraftResponse,
   UpdateActionPlanBody,
 };
 export { GUT_RELEVANCE_LABELS, gutRelevance, type GutRelevance };
+
+// ─── AI draft (opt-in "Sugerir plano") ───────────────────────────────────────
+// Pass-through over the generated mutation. No cache invalidation: the draft is
+// never persisted — it only pre-fills the editable form, and the user saves via
+// the existing PATCH. Keeping it here lets the page import every action-plans
+// hook from one client module.
+export { useSuggestActionPlanDraft };
 
 export const ACTION_PLAN_STATUS_LABELS: Record<ActionPlanStatus, string> = {
   open: "Aberto",

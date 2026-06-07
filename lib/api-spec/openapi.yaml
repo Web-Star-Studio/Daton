@@ -9049,6 +9049,31 @@ paths:
                 items:
                   $ref: "#/components/schemas/ActionPlanActivityLogEntry"
 
+  /organizations/{orgId}/action-plans/ai-suggest:
+    post:
+      operationId: suggestActionPlanDraft
+      tags: [action-plans]
+      summary: Draft 5W2H and 5-whys for an action plan from a problem statement (opt-in AI; never persisted)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuggestActionPlanDraftBody"
+      responses:
+        "200":
+          description: AI-drafted 5W2H and root-cause whys (not persisted; user edits before saving)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuggestActionPlanDraftResponse"
+
   /organizations/{orgId}/road-safety/factors:
     get:
       operationId: listRoadSafetyFactors
@@ -16781,6 +16806,52 @@ components:
           nullable: true
           items:
             type: integer
+
+    SuggestActionPlanDraftBody:
+      type: object
+      description: >-
+        Input for the opt-in AI draft ("Sugerir plano"). The model reads the
+        problem statement (and optional origin context) and returns a suggested
+        5W2H plan and a 5-whys root-cause chain. Nothing is persisted; the core
+        flow does not depend on this endpoint.
+      properties:
+        problem:
+          type: string
+          minLength: 1
+          description: Free-text problem / nonconformity statement the draft reasons from.
+        title:
+          type: string
+          nullable: true
+          description: Optional action title, for extra context.
+        sourceModule:
+          $ref: "#/components/schemas/ActionPlanSourceModule"
+        contextLabel:
+          type: string
+          nullable: true
+          description: Optional human-readable origin (e.g. "KPI · Indicador X · Mai/2026").
+      required:
+        - problem
+
+    SuggestActionPlanDraftResponse:
+      type: object
+      description: >-
+        AI-drafted fields. The client pre-fills the editable form and the user
+        reviews/edits before saving — never auto-applied. Field shapes mirror
+        CreateActionPlanBody so the draft maps 1:1 onto the form.
+      properties:
+        plan5w2h:
+          $ref: "#/components/schemas/ActionPlan5W2H"
+        rootCause:
+          type: string
+          nullable: true
+        rootCauseWhys:
+          type: array
+          items:
+            type: string
+          description: Ordered 5-whys chain (root-cause analysis), up to 5 entries.
+      required:
+        - plan5w2h
+        - rootCauseWhys
 
     AddActionPlanEvidenceBody:
       type: object

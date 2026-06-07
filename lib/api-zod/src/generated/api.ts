@@ -17704,6 +17704,74 @@ export const ListActionPlanActivityResponse = zod.array(
 );
 
 /**
+ * @summary Draft 5W2H and 5-whys for an action plan from a problem statement (opt-in AI; never persisted)
+ */
+export const SuggestActionPlanDraftParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const SuggestActionPlanDraftBody = zod
+  .object({
+    problem: zod
+      .string()
+      .min(1)
+      .describe(
+        "Free-text problem \/ nonconformity statement the draft reasons from.",
+      ),
+    title: zod
+      .string()
+      .nullish()
+      .describe("Optional action title, for extra context."),
+    sourceModule: zod
+      .enum([
+        "kpi",
+        "swot",
+        "manual",
+        "nonconformity",
+        "audit_finding",
+        "risk",
+        "training",
+        "environmental",
+        "road_safety",
+        "incident",
+      ])
+      .optional(),
+    contextLabel: zod
+      .string()
+      .nullish()
+      .describe(
+        'Optional human-readable origin (e.g. \"KPI · Indicador X · Mai\/2026\").',
+      ),
+  })
+  .describe(
+    'Input for the opt-in AI draft (\"Sugerir plano\"). The model reads the problem statement (and optional origin context) and returns a suggested 5W2H plan and a 5-whys root-cause chain. Nothing is persisted; the core flow does not depend on this endpoint.',
+  );
+
+export const SuggestActionPlanDraftResponse = zod
+  .object({
+    plan5w2h: zod
+      .object({
+        what: zod.string().optional(),
+        why: zod.string().optional(),
+        where: zod.string().optional(),
+        who: zod.string().optional(),
+        when: zod.string().optional(),
+        how: zod.string().optional(),
+        howMuch: zod.string().optional(),
+      })
+      .describe(
+        "Structured 5W2H plan. howMuch carries estimated cost (free text).",
+      ),
+    rootCause: zod.string().nullish(),
+    rootCauseWhys: zod
+      .array(zod.string())
+      .describe("Ordered 5-whys chain (root-cause analysis), up to 5 entries."),
+  })
+  .describe(
+    "AI-drafted fields. The client pre-fills the editable form and the user reviews\/edits before saving — never auto-applied. Field shapes mirror CreateActionPlanBody so the draft maps 1:1 onto the form.",
+  );
+
+/**
  * @summary List road safety performance factors
  */
 export const ListRoadSafetyFactorsParams = zod.object({

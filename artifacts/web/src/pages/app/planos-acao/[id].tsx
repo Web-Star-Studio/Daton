@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Paperclip,
   Save,
+  Sparkles,
   Trash2,
   User,
 } from "lucide-react";
@@ -39,6 +40,7 @@ import {
   useAddActionPlanEvidenceWithInvalidation,
   useDeleteActionPlanEvidenceWithInvalidation,
   useDeleteActionPlanWithInvalidation,
+  useSuggestActionPlanDraft,
   useUpdateActionPlanWithInvalidation,
   type ActionPlan5W2H,
   type ActionPlanNormRef,
@@ -101,6 +103,7 @@ export default function ActionPlanFichaPage() {
   const deletePlan = useDeleteActionPlanWithInvalidation(orgId);
   const addEvidence = useAddActionPlanEvidenceWithInvalidation(orgId);
   const deleteEvidence = useDeleteActionPlanEvidenceWithInvalidation(orgId);
+  const suggestDraft = useSuggestActionPlanDraft();
 
   const emptyEfic: EficaciaValue = { method: "", dueDate: "", evaluatorUserId: "", before: "", after: "", result: "", comment: "" };
   const [form, setForm] = useState({
@@ -204,6 +207,62 @@ export default function ActionPlanFichaPage() {
       toast({ title: "Ação atualizada" });
     } catch (err) {
       toast({ title: "Erro ao salvar", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
+    }
+  }
+
+  // Opt-in AI assist: drafts 5W2H + 5-whys from the problem text. Fill-only — it
+  // never overwrites what the user already typed, never persists, and only marks
+  // the form dirty so the user reviews and saves via the existing "Salvar".
+  async function handleSuggest() {
+    const problem = form.description.trim() || form.title.trim();
+    if (!problem) {
+      toast({ title: "Descreva o problema antes de sugerir", variant: "destructive" });
+      return;
+    }
+    try {
+      const draft = await suggestDraft.mutateAsync({
+        orgId,
+        data: {
+          problem,
+          title: form.title.trim() || null,
+          sourceModule: plan?.sourceModule,
+          contextLabel: sourceContext?.label ?? null,
+        },
+      });
+      const filledNothing =
+        Object.keys(draft.plan5w2h).length === 0 && !draft.rootCause && draft.rootCauseWhys.length === 0;
+      if (filledNothing) {
+        toast({ title: "A IA não retornou sugestões", variant: "destructive" });
+        return;
+      }
+      // Fill-only merge: only fills fields the user left blank. `changed` tracks
+      // whether anything was actually added, so we don't mark the form dirty (and
+      // trigger a no-op save) when every field was already filled.
+      let changed = false;
+      setForm((f) => {
+        const merged5w2h: ActionPlan5W2H = { ...f.plan5w2h };
+        for (const key of Object.keys(draft.plan5w2h) as (keyof ActionPlan5W2H)[]) {
+          const value = draft.plan5w2h[key];
+          if (value && !merged5w2h[key]?.trim()) {
+            merged5w2h[key] = value;
+            changed = true;
+          }
+        }
+        const rootCause = !f.rootCause.trim() && draft.rootCause ? draft.rootCause : f.rootCause;
+        if (rootCause !== f.rootCause) changed = true;
+        const hasWhys = f.rootCauseWhys.some((w) => w.trim());
+        const rootCauseWhys = !hasWhys && draft.rootCauseWhys.length > 0 ? draft.rootCauseWhys : f.rootCauseWhys;
+        if (rootCauseWhys !== f.rootCauseWhys) changed = true;
+        return { ...f, plan5w2h: merged5w2h, rootCause, rootCauseWhys };
+      });
+      if (changed) {
+        setDirty(true);
+        toast({ title: "Rascunho gerado — revise e salve" });
+      } else {
+        toast({ title: "Seus campos já estão preenchidos", description: "A IA não tinha o que adicionar." });
+      }
+    } catch (err) {
+      toast({ title: "Não foi possível gerar a sugestão", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
     }
   }
 
@@ -385,7 +444,23 @@ export default function ActionPlanFichaPage() {
             </div>
           </Section>
 
-          <Section title="Plano de ação (5W2H)">
+          <Section
+            title="Plano de ação (5W2H)"
+            action={canWrite ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                isLoading={suggestDraft.isPending}
+                disabled={!form.description.trim() && !form.title.trim()}
+                onClick={() => void handleSuggest()}
+                title="Rascunhar 5W2H e 5 porquês a partir do problema (IA). Você revisa antes de salvar."
+              >
+                {!suggestDraft.isPending && <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
+                Sugerir plano (IA)
+              </Button>
+            ) : undefined}
+          >
             <Plano5W2H value={form.plan5w2h} onChange={(v) => patch("plan5w2h", v)} readOnly={!canWrite} />
           </Section>
 

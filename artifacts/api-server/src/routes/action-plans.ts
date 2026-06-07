@@ -24,6 +24,8 @@ import {
   ListActionPlanCommentsParams,
   ListActionPlansParams,
   ListActionPlansQueryParams,
+  SuggestActionPlanDraftBody,
+  SuggestActionPlanDraftParams,
   UpdateActionPlanBody,
   UpdateActionPlanParams,
 } from "@workspace/api-zod";
@@ -44,6 +46,7 @@ import { validateSourceRef } from "../services/action-plans/validate-source";
 import { computeActionPlanSummary } from "../services/action-plans/summary";
 import { listExternalActions } from "../services/action-plans/external";
 import { buildDiff, logActionPlanActivity } from "../services/action-plans/activity";
+import { draftActionPlanFromProblem } from "../services/action-plans/ai-draft";
 
 const router: IRouter = Router();
 
@@ -162,6 +165,35 @@ router.get("/organizations/:orgId/action-plans/external-actions", requireAuth, a
 
   const items = await listExternalActions(params.data.orgId);
   res.json(items);
+});
+
+// ─── AI draft (opt-in "Sugerir plano") ───────────────────────────────────────
+// NOTE: must be registered before "/:planId" so "ai-suggest" is not parsed as an id.
+// Drafts 5W2H + 5-whys from the problem text; NEVER persists. The client pre-fills
+// the editable form and the user reviews/saves via PATCH. The core does not depend
+// on AI: failures answer 502 and leave the form untouched. requireWriteAccess()
+// keeps read-only analysts from triggering paid AI calls.
+
+router.post("/organizations/:orgId/action-plans/ai-suggest", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = SuggestActionPlanDraftParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = SuggestActionPlanDraftBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  try {
+    const draft = await draftActionPlanFromProblem({
+      problem: body.data.problem,
+      title: body.data.title,
+      sourceModule: body.data.sourceModule,
+      contextLabel: body.data.contextLabel,
+    });
+    res.json(draft);
+  } catch (error) {
+    console.error("[action-plans/ai-suggest] failed", error);
+    res.status(502).json({ error: "Não foi possível gerar a sugestão por IA no momento." });
+  }
 });
 
 // ─── Get one ───────────────────────────────────────────────────────────────

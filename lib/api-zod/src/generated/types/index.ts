@@ -420,6 +420,8 @@ export * from "./strategicPlanSwotType";
 export * from "./submitDocumentForReviewBody";
 export * from "./submitQuestionnaireResponse";
 export * from "./successResponse";
+export * from "./suggestActionPlanDraftBody";
+export * from "./suggestActionPlanDraftResponse";
 export * from "./swotEnvironment";
 export * from "./swotFactor";
 export * from "./swotFactorType";

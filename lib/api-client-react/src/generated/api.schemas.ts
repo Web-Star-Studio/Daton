@@ -4267,6 +4267,32 @@ export interface UpdateActionPlanBody {
   relatedRiskIds?: number[] | null;
 }
 
+/**
+ * Input for the opt-in AI draft ("Sugerir plano"). The model reads the problem statement (and optional origin context) and returns a suggested 5W2H plan and a 5-whys root-cause chain. Nothing is persisted; the core flow does not depend on this endpoint.
+ */
+export interface SuggestActionPlanDraftBody {
+  /**
+   * Free-text problem / nonconformity statement the draft reasons from.
+   * @minLength 1
+   */
+  problem: string;
+  /** Optional action title, for extra context. */
+  title?: string | null;
+  sourceModule?: ActionPlanSourceModule;
+  /** Optional human-readable origin (e.g. "KPI · Indicador X · Mai/2026"). */
+  contextLabel?: string | null;
+}
+
+/**
+ * AI-drafted fields. The client pre-fills the editable form and the user reviews/edits before saving — never auto-applied. Field shapes mirror CreateActionPlanBody so the draft maps 1:1 onto the form.
+ */
+export interface SuggestActionPlanDraftResponse {
+  plan5w2h: ActionPlan5W2H;
+  rootCause?: string | null;
+  /** Ordered 5-whys chain (root-cause analysis), up to 5 entries. */
+  rootCauseWhys: string[];
+}
+
 export interface AddActionPlanEvidenceBody {
   /**
    * @minLength 1
