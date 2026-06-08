@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ProfileItemAttachmentsField } from "@/components/employees/profile-item-form-fields";
 import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
+import { AcoesVinculadas } from "@/pages/app/planos-acao/_components/acoes-vinculadas";
 import {
   EMPLOYEE_RECORD_ATTACHMENT_ACCEPT,
   type UploadedFileRef,
@@ -717,6 +718,7 @@ export default function TrainingDetailPage() {
                             </Tooltip>
                             {canWriteEmployees && (
                               <>
+                                <AcoesVinculadas orgId={orgId} sourceModule="training" refId={training.id} />
                                 <CriarAcaoButton
                                   orgId={orgId}
                                   source={{

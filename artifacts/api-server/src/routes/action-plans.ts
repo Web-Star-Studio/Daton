@@ -127,6 +127,7 @@ router.get("/organizations/:orgId/action-plans", requireAuth, async (req, res): 
     organizationId: p.organizationId,
     code: p.code ?? null,
     sourceModule: p.sourceModule,
+    sourceRef: p.sourceRef,
     sourceContext: sourceContexts.get(p.id) ?? { label: p.sourceModule, kpi: null },
     actionType: p.actionType,
     title: p.title,

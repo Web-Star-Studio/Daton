@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetActionPlanQueryKey,
@@ -112,11 +113,50 @@ export const SOURCE_MODULE_LABELS: Record<string, string> = {
   environmental: "Ambiental (LAIA)",
   road_safety: "Segurança viária",
   incident: "Incidente",
+  rac: "Análise Crítica",
 };
 
 // Canonical ordered list of action-plan origins (filters, menus) — derived from the
 // label map so it never drifts as new source modules are added.
 export const SOURCE_MODULE_OPTIONS = Object.keys(SOURCE_MODULE_LABELS);
+
+/**
+ * Back-link from an action plan to its origin entity's page. Returns a RELATIVE
+ * path (no `/app` prefix — the caller prepends the current base) with a label,
+ * or `null` when the origin has no navigable destination (manual / incident have
+ * no entity; training's detail route keys by title, not id). SWOT reuses the
+ * existing `#fator-N` deep-link receiver on the SWOT page; the other modules
+ * link to their module page (no per-row anchor yet).
+ */
+export function originLink(plan: Pick<ActionPlan, "sourceModule" | "sourceRef">): { path: string; label: string } | null {
+  const ref = plan.sourceRef ?? {};
+  switch (plan.sourceModule) {
+    case "kpi":
+      return { path: "/kpi/lancamentos", label: "Abrir KPI" };
+    case "swot":
+      return {
+        path: typeof ref.swotFactorId === "number" ? `/organizacao/swot#fator-${ref.swotFactorId}` : "/organizacao/swot",
+        label: "Abrir SWOT",
+      };
+    case "nonconformity":
+      return { path: "/governanca/nao-conformidades", label: "Abrir não conformidade" };
+    case "audit_finding":
+      return { path: "/governanca/auditorias", label: "Abrir auditoria" };
+    case "risk":
+      return { path: "/governanca/riscos-oportunidades", label: "Abrir risco/oportunidade" };
+    case "environmental":
+      return { path: "/ambiental/laia", label: "Abrir LAIA" };
+    case "road_safety":
+      return { path: "/fatores-desempenho", label: "Abrir fator de desempenho" };
+    case "rac":
+      return { path: "/kpi/indicadores", label: "Abrir análise crítica" };
+    case "training":
+    case "incident":
+    case "manual":
+    default:
+      return null;
+  }
+}
 
 export const EFFECTIVENESS_METHOD_LABELS: Record<ActionPlanEffectivenessMethod, string> = {
   indicator: "Verificação por indicador",
@@ -269,6 +309,46 @@ export function useActionPlansForKpiCell(orgId: number, monthlyValueId: number |
       enabled: monthlyValueId !== null,
     },
   });
+}
+
+/** Maps a source module to the sourceRef field that identifies its origin entity. */
+const SOURCE_REF_ID_FIELD: Partial<Record<ActionPlanSourceModule, keyof ActionPlanSourceRef>> = {
+  kpi: "kpiMonthlyValueId",
+  swot: "swotFactorId",
+  nonconformity: "nonconformityId",
+  audit_finding: "auditFindingId",
+  risk: "riskOpportunityItemId",
+  training: "trainingId",
+  environmental: "laiaAssessmentId",
+  road_safety: "roadSafetyFactorId",
+  rac: "criticalReviewId",
+};
+
+/**
+ * Lists the action plans spawned from ONE origin entity (e.g. a single SWOT
+ * factor, one nonconformity). Fetches the module's plans, then filters by the
+ * entity id carried in sourceRef. Disabled (returns []) when refId is null —
+ * so it's safe to mount before the entity is selected.
+ */
+export function useActionsForSource(
+  orgId: number,
+  sourceModule: ActionPlanSourceModule,
+  refId: number | null | undefined,
+) {
+  const field = SOURCE_REF_ID_FIELD[sourceModule];
+  const enabled = refId != null && field != null;
+  const params: ListActionPlansParams | undefined = enabled ? { sourceModule } : undefined;
+  const query = useListActionPlans(orgId, params, {
+    query: {
+      queryKey: getListActionPlansQueryKey(orgId, params),
+      enabled,
+    },
+  });
+  const data = useMemo(
+    () => (enabled && field ? (query.data ?? []).filter((p) => p.sourceRef?.[field] === refId) : []),
+    [query.data, enabled, field, refId],
+  );
+  return { ...query, data };
 }
 
 export function useActionPlan(orgId: number, planId: number | null) {

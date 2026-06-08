@@ -54,6 +54,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
+import { AcoesVinculadas } from "@/pages/app/planos-acao/_components/acoes-vinculadas";
 
 const governanceActionSchema = z.object({
   title: z.string().min(1, "Informe o título"),
@@ -1132,7 +1133,8 @@ export default function GovernanceRiskOpportunityPage() {
                   </div>
                 </div>
                 {canEditItem && (
-                  <div className="flex shrink-0 flex-wrap gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <AcoesVinculadas orgId={orgId!} sourceModule="risk" refId={item.id} />
                     <CriarAcaoButton
                       orgId={orgId!}
                       source={{

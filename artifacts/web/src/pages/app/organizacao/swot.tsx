@@ -21,6 +21,7 @@ import {
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { usePageSubtitle, usePageTitle, useHeaderActions } from "@/contexts/LayoutContext";
 import { HeaderActionButton } from "@/components/layout/HeaderActionButton";
+import { AcoesVinculadas } from "@/pages/app/planos-acao/_components/acoes-vinculadas";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
@@ -756,6 +757,7 @@ function SwotView({
   tolerances: SwotTolerances;
 }) {
   const [detailType, setDetailType] = useState<SwotFactorType | null>(null);
+  const swotOrgId = useAuth().organization!.id;
 
   if (detailType) {
     return (
@@ -873,6 +875,7 @@ function SwotView({
                         : objRef && <span className="italic">· objetivo removido</span>}
                     </div>
                   </div>
+                  <AcoesVinculadas orgId={swotOrgId} sourceModule="swot" refId={f.id} className="shrink-0" />
                   {canWrite && (
                     <Button size="sm" variant="outline" className="shrink-0" onClick={() => onCreateAction(f)}>
                       <Plus className="mr-1 h-3.5 w-3.5" />

@@ -20,4 +20,5 @@ export const ActionPlanSourceModule = {
   environmental: "environmental",
   road_safety: "road_safety",
   incident: "incident",
+  rac: "rac",
 } as const;

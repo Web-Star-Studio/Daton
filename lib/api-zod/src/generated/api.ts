@@ -16842,6 +16842,7 @@ export const ListActionPlansQueryParams = zod.object({
       "environmental",
       "road_safety",
       "incident",
+      "rac",
     ])
     .optional(),
   responsibleUserId: zod.coerce.number().optional(),
@@ -16850,6 +16851,8 @@ export const ListActionPlansQueryParams = zod.object({
     .optional()
     .describe("When sourceModule=kpi, filter by linked monthly value id"),
 });
+
+export const listActionPlansResponseSourceRefKpiMonthMax = 12;
 
 export const listActionPlansResponseEvidencesCountMin = 0;
 
@@ -16868,7 +16871,34 @@ export const ListActionPlansResponseItem = zod.object({
     "environmental",
     "road_safety",
     "incident",
+    "rac",
   ]),
+  sourceRef: zod
+    .object({
+      kpiMonthlyValueId: zod.number().optional(),
+      kpiIndicatorId: zod.number().optional(),
+      kpiYear: zod.number().optional(),
+      kpiMonth: zod
+        .number()
+        .min(1)
+        .max(listActionPlansResponseSourceRefKpiMonthMax)
+        .optional(),
+      swotFactorId: zod.number().optional(),
+      swotFactorDescription: zod.string().optional(),
+      manualContext: zod.string().optional(),
+      nonconformityId: zod.number().optional(),
+      auditFindingId: zod.number().optional(),
+      riskOpportunityItemId: zod.number().optional(),
+      trainingId: zod.number().optional(),
+      laiaAssessmentId: zod.number().optional(),
+      roadSafetyFactorId: zod.number().optional(),
+      incidentDescription: zod.string().optional(),
+      criticalReviewId: zod.number().optional(),
+      racLabel: zod.string().optional(),
+    })
+    .describe(
+      "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
+    ),
   sourceContext: zod
     .object({
       label: zod
@@ -16938,6 +16968,7 @@ export const CreateActionPlanBody = zod.object({
     "environmental",
     "road_safety",
     "incident",
+    "rac",
   ]),
   sourceRef: zod
     .object({
@@ -16959,6 +16990,8 @@ export const CreateActionPlanBody = zod.object({
       laiaAssessmentId: zod.number().optional(),
       roadSafetyFactorId: zod.number().optional(),
       incidentDescription: zod.string().optional(),
+      criticalReviewId: zod.number().optional(),
+      racLabel: zod.string().optional(),
     })
     .describe(
       "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
@@ -17068,6 +17101,7 @@ export const GetActionPlanResponse = zod.object({
     "environmental",
     "road_safety",
     "incident",
+    "rac",
   ]),
   sourceRef: zod
     .object({
@@ -17089,6 +17123,8 @@ export const GetActionPlanResponse = zod.object({
       laiaAssessmentId: zod.number().optional(),
       roadSafetyFactorId: zod.number().optional(),
       incidentDescription: zod.string().optional(),
+      criticalReviewId: zod.number().optional(),
+      racLabel: zod.string().optional(),
     })
     .describe(
       "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
@@ -17340,6 +17376,7 @@ export const UpdateActionPlanResponse = zod.object({
     "environmental",
     "road_safety",
     "incident",
+    "rac",
   ]),
   sourceRef: zod
     .object({
@@ -17361,6 +17398,8 @@ export const UpdateActionPlanResponse = zod.object({
       laiaAssessmentId: zod.number().optional(),
       roadSafetyFactorId: zod.number().optional(),
       incidentDescription: zod.string().optional(),
+      criticalReviewId: zod.number().optional(),
+      racLabel: zod.string().optional(),
     })
     .describe(
       "Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.",
@@ -17734,6 +17773,7 @@ export const SuggestActionPlanDraftBody = zod
         "environmental",
         "road_safety",
         "incident",
+        "rac",
       ])
       .optional(),
     contextLabel: zod

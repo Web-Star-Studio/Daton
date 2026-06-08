@@ -28,4 +28,6 @@ export interface ActionPlanSourceRef {
   laiaAssessmentId?: number;
   roadSafetyFactorId?: number;
   incidentDescription?: string;
+  criticalReviewId?: number;
+  racLabel?: string;
 }

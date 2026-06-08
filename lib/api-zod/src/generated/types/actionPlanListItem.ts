@@ -9,6 +9,7 @@ import type { ActionPlanEffectivenessResult } from "./actionPlanEffectivenessRes
 import type { ActionPlanPriority } from "./actionPlanPriority";
 import type { ActionPlanSourceContext } from "./actionPlanSourceContext";
 import type { ActionPlanSourceModule } from "./actionPlanSourceModule";
+import type { ActionPlanSourceRef } from "./actionPlanSourceRef";
 import type { ActionPlanStatus } from "./actionPlanStatus";
 import type { ActionPlanType } from "./actionPlanType";
 
@@ -18,6 +19,7 @@ export interface ActionPlanListItem {
   /** @nullable */
   code?: string | null;
   sourceModule: ActionPlanSourceModule;
+  sourceRef: ActionPlanSourceRef;
   sourceContext: ActionPlanSourceContext;
   actionType: ActionPlanType;
   title: string;

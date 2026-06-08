@@ -34,6 +34,7 @@ import {
   actionPlanPriorityColor,
   actionPlanStatusColor,
   calendarDateToStorageIso,
+  originLink,
   storageIsoToCalendarDate,
   todayCalendarDate,
   useActionPlan,
@@ -88,7 +89,7 @@ export default function ActionPlanFichaPage() {
   const { organization } = useAuth();
   const { canWrite } = usePermissions();
   const orgId = organization!.id;
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   usePageTitle("Plano de Ação");
   usePageSubtitle("");
@@ -159,6 +160,8 @@ export default function ActionPlanFichaPage() {
 
   const sourceContext = plan?.sourceContext;
   const kpiContext = sourceContext?.kpi ?? null;
+  const originDest = plan ? originLink(plan) : null;
+  const originHref = originDest ? `${location.startsWith("/app/") ? "/app" : ""}${originDest.path}` : null;
 
   function patch<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -393,15 +396,21 @@ export default function ActionPlanFichaPage() {
               </div>
               {/* Origin */}
               <div className="rounded-lg border bg-muted/30 px-3 py-2">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Origem</p>
-                <p className="text-sm font-medium">{sourceContext?.label ?? plan.sourceModule}</p>
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Origem</p>
+                    <p className="text-sm font-medium">{sourceContext?.label ?? plan.sourceModule}</p>
+                  </div>
+                  {originHref && originDest && (
+                    <a href={originHref} className="inline-flex shrink-0 items-center gap-1 text-xs text-primary hover:underline" title={originDest.label}>
+                      <ExternalLink className="h-3 w-3" /> {originDest.label}
+                    </a>
+                  )}
+                </div>
                 {kpiContext && (
                   <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                     <span>{kpiContext.indicatorName} · {MONTH_LABELS[kpiContext.month - 1]}/{kpiContext.year}</span>
                     {kpiContext.value !== null && kpiContext.goal !== null && <span>· Valor {kpiContext.value} / Meta {kpiContext.goal}</span>}
-                    <a href="/kpi/lancamentos" className="ml-auto inline-flex items-center gap-1 text-primary hover:underline">
-                      <ExternalLink className="h-3 w-3" /> Abrir
-                    </a>
                   </div>
                 )}
               </div>

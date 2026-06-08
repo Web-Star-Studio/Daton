@@ -76,7 +76,8 @@ export async function validateSourceRef(
     }
     case "incident":
     case "manual":
-      return null; // free-form origins, no entity to validate
+    case "rac":
+      return null; // free-form / self-describing origins, no entity to validate
     default:
       return null;
   }

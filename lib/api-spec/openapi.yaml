@@ -16282,7 +16282,7 @@ components:
 
     ActionPlanSourceModule:
       type: string
-      enum: [kpi, swot, manual, nonconformity, audit_finding, risk, training, environmental, road_safety, incident]
+      enum: [kpi, swot, manual, nonconformity, audit_finding, risk, training, environmental, road_safety, incident, rac]
 
     ActionPlanType:
       type: string
@@ -16353,6 +16353,10 @@ components:
         roadSafetyFactorId:
           type: integer
         incidentDescription:
+          type: string
+        criticalReviewId:
+          type: integer
+        racLabel:
           type: string
 
     ActionPlanSourceContext:
@@ -16568,6 +16572,8 @@ components:
           type: ["string", "null"]
         sourceModule:
           $ref: "#/components/schemas/ActionPlanSourceModule"
+        sourceRef:
+          $ref: "#/components/schemas/ActionPlanSourceRef"
         sourceContext:
           $ref: "#/components/schemas/ActionPlanSourceContext"
         actionType:
@@ -16605,6 +16611,7 @@ components:
         - id
         - organizationId
         - sourceModule
+        - sourceRef
         - sourceContext
         - actionType
         - title

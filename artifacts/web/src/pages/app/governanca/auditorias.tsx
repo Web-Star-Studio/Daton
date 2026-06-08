@@ -27,6 +27,7 @@ import {
   useListUserOptions,
 } from "@workspace/api-client-react";
 import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
+import { AcoesVinculadas } from "@/pages/app/planos-acao/_components/acoes-vinculadas";
 
 const auditFormSchema = z
   .object({
@@ -505,7 +506,8 @@ export default function GovernanceAuditsPage() {
                     </div>
                     <p className="mt-2 text-sm text-muted-foreground">{finding.description}</p>
                     {orgId ? (
-                      <div className="mt-3 flex justify-end">
+                      <div className="mt-3 flex items-center justify-end gap-2">
+                        <AcoesVinculadas orgId={orgId} sourceModule="audit_finding" refId={finding.id} />
                         <CriarAcaoButton
                           orgId={orgId}
                           source={{

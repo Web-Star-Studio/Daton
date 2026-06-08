@@ -3954,6 +3954,7 @@ export const ActionPlanSourceModule = {
   environmental: "environmental",
   road_safety: "road_safety",
   incident: "incident",
+  rac: "rac",
 } as const;
 
 export type ActionPlanType =
@@ -4027,6 +4028,8 @@ export interface ActionPlanSourceRef {
   laiaAssessmentId?: number;
   roadSafetyFactorId?: number;
   incidentDescription?: string;
+  criticalReviewId?: number;
+  racLabel?: string;
 }
 
 export type ActionPlanSourceContextKpiDirection =
@@ -4163,6 +4166,7 @@ export interface ActionPlanListItem {
   /** @nullable */
   code?: string | null;
   sourceModule: ActionPlanSourceModule;
+  sourceRef: ActionPlanSourceRef;
   sourceContext: ActionPlanSourceContext;
   actionType: ActionPlanType;
   title: string;

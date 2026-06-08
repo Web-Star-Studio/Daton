@@ -245,6 +245,10 @@ function resolveOne(r: SourceContextInput, m: Maps): SourceContext {
       const ctx = typeof ref.manualContext === "string" ? ref.manualContext.trim() : "";
       return { label: ctx ? `Manual · ${truncate(ctx)}` : "Ação manual", kpi: null };
     }
+    case "rac": {
+      const lbl = typeof ref.racLabel === "string" ? ref.racLabel.trim() : "";
+      return { label: lbl ? `Análise Crítica · ${truncate(lbl)}` : "Análise Crítica", kpi: null };
+    }
     default:
       return { label: r.sourceModule, kpi: null };
   }

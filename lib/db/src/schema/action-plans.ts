@@ -22,7 +22,8 @@ export type ActionPlanSourceModule =
   | "training"
   | "environmental"
   | "road_safety"
-  | "incident";
+  | "incident"
+  | "rac";
 export type ActionPlanType = "corrective" | "preventive" | "improvement";
 export type ActionPlanEffectivenessMethod =
   | "indicator"
@@ -96,6 +97,9 @@ export type ActionPlanSourceRef = {
   roadSafetyFactorId?: number;
   // incident (no dedicated entity — free description)
   incidentDescription?: string;
+  // rac (análise crítica / management review) — links back to a critical review
+  criticalReviewId?: number;
+  racLabel?: string;
 };
 
 export const actionPlanStatusEnum = pgEnum("action_plan_status", [
@@ -120,6 +124,7 @@ export const actionPlanSourceModuleEnum = pgEnum("action_plan_source_module", [
   "environmental",
   "road_safety",
   "incident",
+  "rac",
 ]);
 export const actionPlanTypeEnum = pgEnum("action_plan_type", [
   "corrective",
