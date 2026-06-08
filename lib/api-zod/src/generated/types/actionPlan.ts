@@ -5,24 +5,60 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ActionPlan5W2H } from "./actionPlan5W2H";
+import type { ActionPlanEffectivenessMethod } from "./actionPlanEffectivenessMethod";
+import type { ActionPlanEffectivenessResult } from "./actionPlanEffectivenessResult";
 import type { ActionPlanEvidence } from "./actionPlanEvidence";
+import type { ActionPlanNormRef } from "./actionPlanNormRef";
 import type { ActionPlanPriority } from "./actionPlanPriority";
 import type { ActionPlanSourceContext } from "./actionPlanSourceContext";
 import type { ActionPlanSourceModule } from "./actionPlanSourceModule";
 import type { ActionPlanSourceRef } from "./actionPlanSourceRef";
 import type { ActionPlanStatus } from "./actionPlanStatus";
+import type { ActionPlanType } from "./actionPlanType";
 
 export interface ActionPlan {
   id: number;
   organizationId: number;
+  /** @nullable */
+  code?: string | null;
   sourceModule: ActionPlanSourceModule;
   sourceRef: ActionPlanSourceRef;
   sourceContext: ActionPlanSourceContext;
+  actionType: ActionPlanType;
   title: string;
   /** @nullable */
   description?: string | null;
   status: ActionPlanStatus;
   priority: ActionPlanPriority;
+  /**
+   * @minimum 1
+   * @maximum 5
+   * @nullable
+   */
+  gutGravity?: number | null;
+  /**
+   * @minimum 1
+   * @maximum 5
+   * @nullable
+   */
+  gutUrgency?: number | null;
+  /**
+   * @minimum 1
+   * @maximum 5
+   * @nullable
+   */
+  gutTendency?: number | null;
+  /**
+   * Server-computed G×U×T (1–125), null when any axis is unset
+   * @nullable
+   */
+  gutScore?: number | null;
+  plan5w2h?: ActionPlan5W2H | null;
+  /** @nullable */
+  rootCause?: string | null;
+  /** @nullable */
+  rootCauseWhys?: string[] | null;
   /** @nullable */
   responsibleUserId?: number | null;
   /** @nullable */
@@ -33,6 +69,30 @@ export interface ActionPlan {
   correctiveActionDescription?: string | null;
   /** @nullable */
   correctiveActionCompletedAt?: string | null;
+  effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  /** @nullable */
+  effectivenessDueDate?: string | null;
+  /** @nullable */
+  effectivenessEvaluatorUserId?: number | null;
+  /** @nullable */
+  effectivenessEvaluatorUserName?: string | null;
+  effectivenessResult?: ActionPlanEffectivenessResult | null;
+  /** @nullable */
+  effectivenessBefore?: string | null;
+  /** @nullable */
+  effectivenessAfter?: string | null;
+  /** @nullable */
+  effectivenessComment?: string | null;
+  /** @nullable */
+  effectivenessCheckedAt?: string | null;
+  /** @nullable */
+  odsNumbers?: number[] | null;
+  /** @nullable */
+  normRefs?: ActionPlanNormRef[] | null;
+  /** @nullable */
+  relatedIndicatorIds?: number[] | null;
+  /** @nullable */
+  relatedRiskIds?: number[] | null;
   /** @nullable */
   createdByUserId?: number | null;
   /** @nullable */

@@ -19,8 +19,12 @@ import type {
 import type {
   AcceptInvitationBody,
   ActionPlan,
+  ActionPlanActivityLogEntry,
+  ActionPlanComment,
   ActionPlanEvidence,
   ActionPlanListItem,
+  ActionPlanSummary,
+  AddActionPlanCommentBody,
   AddActionPlanEvidenceBody,
   AddAssetDocumentBody,
   AddDocumentAttachmentBody,
@@ -125,6 +129,7 @@ import type {
   EmployeeProfileItemAttachment,
   EmployeeTraining,
   ErrorResponse,
+  ExternalActionItem,
   GetDocumentAttachmentFileParams,
   GetUnitQuestionnaireResponses200,
   GovernanceRiskOpportunityListItem,
@@ -231,6 +236,8 @@ import type {
   SubmitDocumentForReviewBody,
   SubmitQuestionnaireResponse,
   SuccessResponse,
+  SuggestActionPlanDraftBody,
+  SuggestActionPlanDraftResponse,
   SwotFactor,
   SwotMethodology,
   SwotObjective,
@@ -31680,6 +31687,574 @@ export const useDeleteActionPlanEvidence = <
   TContext
 > => {
   return useMutation(getDeleteActionPlanEvidenceMutationOptions(options));
+};
+
+/**
+ * @summary Aggregated metrics for the action-plans dashboards
+ */
+export const getGetActionPlansSummaryUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/action-plans/summary`;
+};
+
+export const getActionPlansSummary = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<ActionPlanSummary> => {
+  return customFetch<ActionPlanSummary>(getGetActionPlansSummaryUrl(orgId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetActionPlansSummaryQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/action-plans/summary`] as const;
+};
+
+export const getGetActionPlansSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getActionPlansSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getActionPlansSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetActionPlansSummaryQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getActionPlansSummary>>
+  > = ({ signal }) =>
+    getActionPlansSummary(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getActionPlansSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetActionPlansSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getActionPlansSummary>>
+>;
+export type GetActionPlansSummaryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Aggregated metrics for the action-plans dashboards
+ */
+
+export function useGetActionPlansSummary<
+  TData = Awaited<ReturnType<typeof getActionPlansSummary>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getActionPlansSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetActionPlansSummaryQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List the comment thread of an action plan (newest first)
+ */
+export const getListActionPlanCommentsUrl = (orgId: number, planId: number) => {
+  return `/api/organizations/${orgId}/action-plans/${planId}/comments`;
+};
+
+export const listActionPlanComments = async (
+  orgId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<ActionPlanComment[]> => {
+  return customFetch<ActionPlanComment[]>(
+    getListActionPlanCommentsUrl(orgId, planId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListActionPlanCommentsQueryKey = (
+  orgId: number,
+  planId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/action-plans/${planId}/comments`,
+  ] as const;
+};
+
+export const getListActionPlanCommentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listActionPlanComments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listActionPlanComments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListActionPlanCommentsQueryKey(orgId, planId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listActionPlanComments>>
+  > = ({ signal }) =>
+    listActionPlanComments(orgId, planId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && planId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listActionPlanComments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListActionPlanCommentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listActionPlanComments>>
+>;
+export type ListActionPlanCommentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the comment thread of an action plan (newest first)
+ */
+
+export function useListActionPlanComments<
+  TData = Awaited<ReturnType<typeof listActionPlanComments>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listActionPlanComments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListActionPlanCommentsQueryOptions(
+    orgId,
+    planId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Append a comment to an action plan
+ */
+export const getAddActionPlanCommentUrl = (orgId: number, planId: number) => {
+  return `/api/organizations/${orgId}/action-plans/${planId}/comments`;
+};
+
+export const addActionPlanComment = async (
+  orgId: number,
+  planId: number,
+  addActionPlanCommentBody: AddActionPlanCommentBody,
+  options?: RequestInit,
+): Promise<ActionPlanComment> => {
+  return customFetch<ActionPlanComment>(
+    getAddActionPlanCommentUrl(orgId, planId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(addActionPlanCommentBody),
+    },
+  );
+};
+
+export const getAddActionPlanCommentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addActionPlanComment>>,
+    TError,
+    { orgId: number; planId: number; data: BodyType<AddActionPlanCommentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addActionPlanComment>>,
+  TError,
+  { orgId: number; planId: number; data: BodyType<AddActionPlanCommentBody> },
+  TContext
+> => {
+  const mutationKey = ["addActionPlanComment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addActionPlanComment>>,
+    { orgId: number; planId: number; data: BodyType<AddActionPlanCommentBody> }
+  > = (props) => {
+    const { orgId, planId, data } = props ?? {};
+
+    return addActionPlanComment(orgId, planId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddActionPlanCommentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addActionPlanComment>>
+>;
+export type AddActionPlanCommentMutationBody =
+  BodyType<AddActionPlanCommentBody>;
+export type AddActionPlanCommentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Append a comment to an action plan
+ */
+export const useAddActionPlanComment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addActionPlanComment>>,
+    TError,
+    { orgId: number; planId: number; data: BodyType<AddActionPlanCommentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addActionPlanComment>>,
+  TError,
+  { orgId: number; planId: number; data: BodyType<AddActionPlanCommentBody> },
+  TContext
+> => {
+  return useMutation(getAddActionPlanCommentMutationOptions(options));
+};
+
+/**
+ * @summary Read-only treatment actions from other modules (governance corrective actions) surfaced in the unified hub
+ */
+export const getListExternalActionsUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/action-plans/external-actions`;
+};
+
+export const listExternalActions = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<ExternalActionItem[]> => {
+  return customFetch<ExternalActionItem[]>(getListExternalActionsUrl(orgId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListExternalActionsQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/action-plans/external-actions`] as const;
+};
+
+export const getListExternalActionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listExternalActions>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listExternalActions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListExternalActionsQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listExternalActions>>
+  > = ({ signal }) => listExternalActions(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listExternalActions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListExternalActionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listExternalActions>>
+>;
+export type ListExternalActionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Read-only treatment actions from other modules (governance corrective actions) surfaced in the unified hub
+ */
+
+export function useListExternalActions<
+  TData = Awaited<ReturnType<typeof listExternalActions>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listExternalActions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListExternalActionsQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List the audit/activity log of an action plan (newest first)
+ */
+export const getListActionPlanActivityUrl = (orgId: number, planId: number) => {
+  return `/api/organizations/${orgId}/action-plans/${planId}/activity`;
+};
+
+export const listActionPlanActivity = async (
+  orgId: number,
+  planId: number,
+  options?: RequestInit,
+): Promise<ActionPlanActivityLogEntry[]> => {
+  return customFetch<ActionPlanActivityLogEntry[]>(
+    getListActionPlanActivityUrl(orgId, planId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListActionPlanActivityQueryKey = (
+  orgId: number,
+  planId: number,
+) => {
+  return [
+    `/api/organizations/${orgId}/action-plans/${planId}/activity`,
+  ] as const;
+};
+
+export const getListActionPlanActivityQueryOptions = <
+  TData = Awaited<ReturnType<typeof listActionPlanActivity>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listActionPlanActivity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListActionPlanActivityQueryKey(orgId, planId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listActionPlanActivity>>
+  > = ({ signal }) =>
+    listActionPlanActivity(orgId, planId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(orgId && planId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listActionPlanActivity>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListActionPlanActivityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listActionPlanActivity>>
+>;
+export type ListActionPlanActivityQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the audit/activity log of an action plan (newest first)
+ */
+
+export function useListActionPlanActivity<
+  TData = Awaited<ReturnType<typeof listActionPlanActivity>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  planId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listActionPlanActivity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListActionPlanActivityQueryOptions(
+    orgId,
+    planId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Draft 5W2H and 5-whys for an action plan from a problem statement (opt-in AI; never persisted)
+ */
+export const getSuggestActionPlanDraftUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/action-plans/ai-suggest`;
+};
+
+export const suggestActionPlanDraft = async (
+  orgId: number,
+  suggestActionPlanDraftBody: SuggestActionPlanDraftBody,
+  options?: RequestInit,
+): Promise<SuggestActionPlanDraftResponse> => {
+  return customFetch<SuggestActionPlanDraftResponse>(
+    getSuggestActionPlanDraftUrl(orgId),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(suggestActionPlanDraftBody),
+    },
+  );
+};
+
+export const getSuggestActionPlanDraftMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof suggestActionPlanDraft>>,
+    TError,
+    { orgId: number; data: BodyType<SuggestActionPlanDraftBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof suggestActionPlanDraft>>,
+  TError,
+  { orgId: number; data: BodyType<SuggestActionPlanDraftBody> },
+  TContext
+> => {
+  const mutationKey = ["suggestActionPlanDraft"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof suggestActionPlanDraft>>,
+    { orgId: number; data: BodyType<SuggestActionPlanDraftBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return suggestActionPlanDraft(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SuggestActionPlanDraftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof suggestActionPlanDraft>>
+>;
+export type SuggestActionPlanDraftMutationBody =
+  BodyType<SuggestActionPlanDraftBody>;
+export type SuggestActionPlanDraftMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Draft 5W2H and 5-whys for an action plan from a problem statement (opt-in AI; never persisted)
+ */
+export const useSuggestActionPlanDraft = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof suggestActionPlanDraft>>,
+    TError,
+    { orgId: number; data: BodyType<SuggestActionPlanDraftBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof suggestActionPlanDraft>>,
+  TError,
+  { orgId: number; data: BodyType<SuggestActionPlanDraftBody> },
+  TContext
+> => {
+  return useMutation(getSuggestActionPlanDraftMutationOptions(options));
 };
 
 /**

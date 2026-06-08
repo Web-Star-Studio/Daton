@@ -26,6 +26,8 @@ import {
   getListUserOptionsQueryKey,
   useListUserOptions,
 } from "@workspace/api-client-react";
+import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
+import { AcoesVinculadas } from "@/pages/app/planos-acao/_components/acoes-vinculadas";
 
 const ncFormSchema = z.object({
   originType: z.enum(["audit_finding", "incident", "document", "process", "risk", "other"]),
@@ -342,8 +344,25 @@ export default function GovernanceNonconformitiesPage() {
 
       <div className="space-y-4">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
             <CardTitle>{selectedId ? "Editar não conformidade" : "Nova não conformidade"}</CardTitle>
+            {orgId && selectedId && ncDetail ? (
+              <div className="flex items-center gap-2">
+                <AcoesVinculadas orgId={orgId} sourceModule="nonconformity" refId={ncDetail.id} />
+                <CriarAcaoButton
+                  orgId={orgId}
+                  source={{
+                    sourceModule: "nonconformity",
+                    sourceRef: { nonconformityId: ncDetail.id },
+                    defaultTitle: ncDetail.title,
+                    originLabel: ncDetail.title,
+                  }}
+                  label="Criar plano de ação"
+                  variant="outline"
+                  size="sm"
+                />
+              </div>
+            ) : null}
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">

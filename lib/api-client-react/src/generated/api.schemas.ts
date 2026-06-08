@@ -3967,10 +3967,68 @@ export type ActionPlanSourceModule =
 export const ActionPlanSourceModule = {
   kpi: "kpi",
   swot: "swot",
+  manual: "manual",
+  nonconformity: "nonconformity",
+  audit_finding: "audit_finding",
+  risk: "risk",
+  training: "training",
+  environmental: "environmental",
+  road_safety: "road_safety",
+  incident: "incident",
+  rac: "rac",
+} as const;
+
+export type ActionPlanType =
+  (typeof ActionPlanType)[keyof typeof ActionPlanType];
+
+export const ActionPlanType = {
+  corrective: "corrective",
+  preventive: "preventive",
+  improvement: "improvement",
+} as const;
+
+export type ActionPlanEffectivenessMethod =
+  (typeof ActionPlanEffectivenessMethod)[keyof typeof ActionPlanEffectivenessMethod];
+
+export const ActionPlanEffectivenessMethod = {
+  indicator: "indicator",
+  internal_audit: "internal_audit",
+  field_inspection: "field_inspection",
+  training: "training",
+  sampling: "sampling",
+  risk_reduction: "risk_reduction",
+} as const;
+
+export type ActionPlanEffectivenessResult =
+  (typeof ActionPlanEffectivenessResult)[keyof typeof ActionPlanEffectivenessResult];
+
+export const ActionPlanEffectivenessResult = {
+  effective: "effective",
+  ineffective: "ineffective",
+  pending: "pending",
 } as const;
 
 /**
- * Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required.
+ * Structured 5W2H plan. howMuch carries estimated cost (free text).
+ */
+export interface ActionPlan5W2H {
+  what?: string;
+  why?: string;
+  where?: string;
+  who?: string;
+  when?: string;
+  how?: string;
+  howMuch?: string;
+}
+
+export interface ActionPlanNormRef {
+  code: string;
+  clause?: string;
+  description?: string;
+}
+
+/**
+ * Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.
  */
 export interface ActionPlanSourceRef {
   kpiMonthlyValueId?: number;
@@ -3983,6 +4041,16 @@ export interface ActionPlanSourceRef {
   kpiMonth?: number;
   swotFactorId?: number;
   swotFactorDescription?: string;
+  manualContext?: string;
+  nonconformityId?: number;
+  auditFindingId?: number;
+  riskOpportunityItemId?: number;
+  trainingId?: number;
+  laiaAssessmentId?: number;
+  roadSafetyFactorId?: number;
+  incidentDescription?: string;
+  criticalReviewId?: number;
+  racLabel?: string;
 }
 
 export type ActionPlanSourceContextKpiDirection =
@@ -4029,14 +4097,45 @@ export interface ActionPlanEvidence {
 export interface ActionPlan {
   id: number;
   organizationId: number;
+  /** @nullable */
+  code?: string | null;
   sourceModule: ActionPlanSourceModule;
   sourceRef: ActionPlanSourceRef;
   sourceContext: ActionPlanSourceContext;
+  actionType: ActionPlanType;
   title: string;
   /** @nullable */
   description?: string | null;
   status: ActionPlanStatus;
   priority: ActionPlanPriority;
+  /**
+   * @minimum 1
+   * @maximum 5
+   * @nullable
+   */
+  gutGravity?: number | null;
+  /**
+   * @minimum 1
+   * @maximum 5
+   * @nullable
+   */
+  gutUrgency?: number | null;
+  /**
+   * @minimum 1
+   * @maximum 5
+   * @nullable
+   */
+  gutTendency?: number | null;
+  /**
+   * Server-computed G×U×T (1–125), null when any axis is unset
+   * @nullable
+   */
+  gutScore?: number | null;
+  plan5w2h?: ActionPlan5W2H | null;
+  /** @nullable */
+  rootCause?: string | null;
+  /** @nullable */
+  rootCauseWhys?: string[] | null;
   /** @nullable */
   responsibleUserId?: number | null;
   /** @nullable */
@@ -4047,6 +4146,30 @@ export interface ActionPlan {
   correctiveActionDescription?: string | null;
   /** @nullable */
   correctiveActionCompletedAt?: string | null;
+  effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  /** @nullable */
+  effectivenessDueDate?: string | null;
+  /** @nullable */
+  effectivenessEvaluatorUserId?: number | null;
+  /** @nullable */
+  effectivenessEvaluatorUserName?: string | null;
+  effectivenessResult?: ActionPlanEffectivenessResult | null;
+  /** @nullable */
+  effectivenessBefore?: string | null;
+  /** @nullable */
+  effectivenessAfter?: string | null;
+  /** @nullable */
+  effectivenessComment?: string | null;
+  /** @nullable */
+  effectivenessCheckedAt?: string | null;
+  /** @nullable */
+  odsNumbers?: number[] | null;
+  /** @nullable */
+  normRefs?: ActionPlanNormRef[] | null;
+  /** @nullable */
+  relatedIndicatorIds?: number[] | null;
+  /** @nullable */
+  relatedRiskIds?: number[] | null;
   /** @nullable */
   createdByUserId?: number | null;
   /** @nullable */
@@ -4061,11 +4184,21 @@ export interface ActionPlan {
 export interface ActionPlanListItem {
   id: number;
   organizationId: number;
+  /** @nullable */
+  code?: string | null;
   sourceModule: ActionPlanSourceModule;
+  sourceRef: ActionPlanSourceRef;
   sourceContext: ActionPlanSourceContext;
+  actionType: ActionPlanType;
   title: string;
   status: ActionPlanStatus;
   priority: ActionPlanPriority;
+  /**
+   * Server-computed G×U×T (1–125), null when any axis is unset
+   * @nullable
+   */
+  gutScore?: number | null;
+  effectivenessResult?: ActionPlanEffectivenessResult | null;
   /** @nullable */
   responsibleUserId?: number | null;
   /** @nullable */
@@ -4081,26 +4214,108 @@ export interface ActionPlanListItem {
 export interface CreateActionPlanBody {
   sourceModule: ActionPlanSourceModule;
   sourceRef: ActionPlanSourceRef;
+  actionType?: ActionPlanType;
   /** @minLength 1 */
   title: string;
   description?: string | null;
   status?: ActionPlanStatus;
   priority?: ActionPlanPriority;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  gutGravity?: number | null;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  gutUrgency?: number | null;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  gutTendency?: number | null;
+  plan5w2h?: ActionPlan5W2H | null;
+  rootCause?: string | null;
+  rootCauseWhys?: string[] | null;
   responsibleUserId?: number | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
+  effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  effectivenessDueDate?: string | null;
+  effectivenessEvaluatorUserId?: number | null;
+  odsNumbers?: number[] | null;
+  normRefs?: ActionPlanNormRef[] | null;
+  relatedIndicatorIds?: number[] | null;
+  relatedRiskIds?: number[] | null;
 }
 
 export interface UpdateActionPlanBody {
+  actionType?: ActionPlanType;
   /** @minLength 1 */
   title?: string;
   description?: string | null;
   status?: ActionPlanStatus;
   priority?: ActionPlanPriority;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  gutGravity?: number | null;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  gutUrgency?: number | null;
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  gutTendency?: number | null;
+  plan5w2h?: ActionPlan5W2H | null;
+  rootCause?: string | null;
+  rootCauseWhys?: string[] | null;
   responsibleUserId?: number | null;
   dueDate?: string | null;
   correctiveActionDescription?: string | null;
   correctiveActionCompletedAt?: string | null;
+  effectivenessMethod?: ActionPlanEffectivenessMethod | null;
+  effectivenessDueDate?: string | null;
+  effectivenessEvaluatorUserId?: number | null;
+  effectivenessResult?: ActionPlanEffectivenessResult | null;
+  effectivenessBefore?: string | null;
+  effectivenessAfter?: string | null;
+  effectivenessComment?: string | null;
+  odsNumbers?: number[] | null;
+  normRefs?: ActionPlanNormRef[] | null;
+  relatedIndicatorIds?: number[] | null;
+  relatedRiskIds?: number[] | null;
+}
+
+/**
+ * Input for the opt-in AI draft ("Sugerir plano"). The model reads the problem statement (and optional origin context) and returns a suggested 5W2H plan and a 5-whys root-cause chain. Nothing is persisted; the core flow does not depend on this endpoint.
+ */
+export interface SuggestActionPlanDraftBody {
+  /**
+   * Free-text problem / nonconformity statement the draft reasons from.
+   * @minLength 1
+   */
+  problem: string;
+  /** Optional action title, for extra context. */
+  title?: string | null;
+  sourceModule?: ActionPlanSourceModule;
+  /** Optional human-readable origin (e.g. "KPI · Indicador X · Mai/2026"). */
+  contextLabel?: string | null;
+}
+
+/**
+ * AI-drafted fields. The client pre-fills the editable form and the user reviews/edits before saving — never auto-applied. Field shapes mirror CreateActionPlanBody so the draft maps 1:1 onto the form.
+ */
+export interface SuggestActionPlanDraftResponse {
+  plan5w2h: ActionPlan5W2H;
+  rootCause?: string | null;
+  /** Ordered 5-whys chain (root-cause analysis), up to 5 entries. */
+  rootCauseWhys: string[];
 }
 
 export interface AddActionPlanEvidenceBody {
@@ -4126,6 +4341,148 @@ export interface AddActionPlanEvidenceBody {
    * @pattern ^/objects/uploads/
    */
   objectPath: string;
+}
+
+export interface AddActionPlanCommentBody {
+  /**
+   * @minLength 1
+   * @maxLength 4000
+   */
+  body: string;
+}
+
+export interface ActionPlanComment {
+  id: number;
+  actionPlanId: number;
+  body: string;
+  /** @nullable */
+  createdByUserId?: number | null;
+  /** @nullable */
+  createdByUserName?: string | null;
+  createdAt: string;
+}
+
+export type ActionPlanActivityLogEntryAction =
+  (typeof ActionPlanActivityLogEntryAction)[keyof typeof ActionPlanActivityLogEntryAction];
+
+export const ActionPlanActivityLogEntryAction = {
+  created: "created",
+  updated: "updated",
+  status_changed: "status_changed",
+  evidence_added: "evidence_added",
+  evidence_removed: "evidence_removed",
+  effectiveness_evaluated: "effectiveness_evaluated",
+  escalated: "escalated",
+  reopened: "reopened",
+} as const;
+
+/**
+ * Payload describing the change. kind=snapshot (full state on create), kind=diff (fields {from,to}), or kind=note (system event message).
+ * @nullable
+ */
+export type ActionPlanActivityLogEntryChanges = {
+  [key: string]: unknown;
+} | null;
+
+export interface ActionPlanActivityLogEntry {
+  id: number;
+  actionPlanId: number;
+  action: ActionPlanActivityLogEntryAction;
+  /** @nullable */
+  userId?: number | null;
+  /** @nullable */
+  userName?: string | null;
+  /**
+   * Payload describing the change. kind=snapshot (full state on create), kind=diff (fields {from,to}), or kind=note (system event message).
+   * @nullable
+   */
+  changes?: ActionPlanActivityLogEntryChanges;
+  createdAt: string;
+}
+
+export type ExternalActionItemOrigin =
+  (typeof ExternalActionItemOrigin)[keyof typeof ExternalActionItemOrigin];
+
+export const ExternalActionItemOrigin = {
+  governance_corrective_action: "governance_corrective_action",
+} as const;
+
+/**
+ * A read-only treatment action owned by another module (currently governance corrective actions). Surfaced in the hub for a unified view; managed in its own module.
+ */
+export interface ExternalActionItem {
+  id: number;
+  origin: ExternalActionItemOrigin;
+  title: string;
+  status: ActionPlanStatus;
+  nonconformityId: number;
+  /** @nullable */
+  nonconformityTitle?: string | null;
+  /** @nullable */
+  responsibleUserName?: string | null;
+  /** @nullable */
+  dueDate?: string | null;
+  /** In-app route to manage this action in its owning module */
+  link: string;
+  createdAt: string;
+}
+
+/**
+ * Count keyed by ActionPlanStatus
+ */
+export type ActionPlanSummaryByStatus = { [key: string]: number };
+
+export type ActionPlanSummaryByPriority = { [key: string]: number };
+
+export type ActionPlanSummaryBySourceModule = { [key: string]: number };
+
+export type ActionPlanSummaryByActionType = { [key: string]: number };
+
+export type ActionPlanSummaryOdsDistributionItem = {
+  ods: number;
+  count: number;
+};
+
+export type ActionPlanSummaryEffectivenessEvolutionItem = {
+  year: number;
+  month: number;
+  /** @nullable */
+  ratePct: number | null;
+};
+
+/**
+ * Aggregated metrics for the action-plans executive/operational dashboards
+ */
+export interface ActionPlanSummary {
+  total: number;
+  /** Count keyed by ActionPlanStatus */
+  byStatus: ActionPlanSummaryByStatus;
+  byPriority: ActionPlanSummaryByPriority;
+  bySourceModule: ActionPlanSummaryBySourceModule;
+  byActionType: ActionPlanSummaryByActionType;
+  /** status not completed/cancelled and dueDate < today */
+  overdue: number;
+  /** due within the next 7 days */
+  dueSoon: number;
+  completedThisMonth: number;
+  /**
+   * effective / (effective + ineffective) × 100, null when none evaluated
+   * @nullable
+   */
+  effectivenessRatePct: number | null;
+  /**
+   * mean days from createdAt to correctiveActionCompletedAt for completed plans
+   * @nullable
+   */
+  avgCompletionDays: number | null;
+  /**
+   * mean G×U×T over plans that have GUT set
+   * @nullable
+   */
+  gutAverage: number | null;
+  odsDistribution: ActionPlanSummaryOdsDistributionItem[];
+  /** last 6 months effectiveness rate */
+  effectivenessEvolution: ActionPlanSummaryEffectivenessEvolutionItem[];
 }
 
 export type AssetCriticality =

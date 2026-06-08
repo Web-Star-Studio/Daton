@@ -5,19 +5,32 @@
  * Daton Platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ActionPlanEffectivenessResult } from "./actionPlanEffectivenessResult";
 import type { ActionPlanPriority } from "./actionPlanPriority";
 import type { ActionPlanSourceContext } from "./actionPlanSourceContext";
 import type { ActionPlanSourceModule } from "./actionPlanSourceModule";
+import type { ActionPlanSourceRef } from "./actionPlanSourceRef";
 import type { ActionPlanStatus } from "./actionPlanStatus";
+import type { ActionPlanType } from "./actionPlanType";
 
 export interface ActionPlanListItem {
   id: number;
   organizationId: number;
+  /** @nullable */
+  code?: string | null;
   sourceModule: ActionPlanSourceModule;
+  sourceRef: ActionPlanSourceRef;
   sourceContext: ActionPlanSourceContext;
+  actionType: ActionPlanType;
   title: string;
   status: ActionPlanStatus;
   priority: ActionPlanPriority;
+  /**
+   * Server-computed G×U×T (1–125), null when any axis is unset
+   * @nullable
+   */
+  gutScore?: number | null;
+  effectivenessResult?: ActionPlanEffectivenessResult | null;
   /** @nullable */
   responsibleUserId?: number | null;
   /** @nullable */

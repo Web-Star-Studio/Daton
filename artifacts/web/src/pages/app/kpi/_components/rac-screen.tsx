@@ -19,6 +19,8 @@ import {
   type CriticalReviewPeriodKind,
   type CriticalReviewStatus,
 } from "@/lib/critical-reviews-client";
+import { CriarAcaoButton } from "@/pages/app/planos-acao/_components/criar-acao-button";
+import { AcoesVinculadas } from "@/pages/app/planos-acao/_components/acoes-vinculadas";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -375,10 +377,33 @@ export function RacScreen() {
                 />
               </div>
             ))}
-            <p className="text-[11px] text-muted-foreground">
-              As decisões aqui registradas devem gerar planos de ação na gestão
-              central de ações.
-            </p>
+            {editing && editing !== "new" ? (
+              <div className="flex flex-wrap items-center gap-2 border-t pt-3">
+                <span className="text-[11px] text-muted-foreground">
+                  Transforme estas decisões em planos de ação rastreáveis:
+                </span>
+                <AcoesVinculadas orgId={orgId} sourceModule="rac" refId={editing.id} />
+                <CriarAcaoButton
+                  orgId={orgId}
+                  source={{
+                    sourceModule: "rac",
+                    sourceRef: {
+                      criticalReviewId: editing.id,
+                      racLabel: `${periodLabel(editing.periodKind, editing.periodNumber)} · ${editing.year}`,
+                    },
+                    defaultTitle: `Ação — Análise Crítica ${editing.year}`,
+                    originLabel: `${periodLabel(editing.periodKind, editing.periodNumber)} · ${editing.year}`,
+                  }}
+                  label="Criar plano de ação"
+                  variant="outline"
+                  size="sm"
+                />
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Salve a análise crítica para gerar planos de ação a partir das decisões.
+              </p>
+            )}
           </div>
 
           <div className="flex items-center justify-between">

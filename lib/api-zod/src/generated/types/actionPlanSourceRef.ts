@@ -7,7 +7,7 @@
  */
 
 /**
- * Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required.
+ * Polymorphic reference to the entity that originated the action plan. The relevant fields depend on sourceModule (enforced server-side): for kpi, kpiMonthlyValueId is required; for swot, swotFactorId is required; for manual, none are required.
  */
 export interface ActionPlanSourceRef {
   kpiMonthlyValueId?: number;
@@ -20,4 +20,14 @@ export interface ActionPlanSourceRef {
   kpiMonth?: number;
   swotFactorId?: number;
   swotFactorDescription?: string;
+  manualContext?: string;
+  nonconformityId?: number;
+  auditFindingId?: number;
+  riskOpportunityItemId?: number;
+  trainingId?: number;
+  laiaAssessmentId?: number;
+  roadSafetyFactorId?: number;
+  incidentDescription?: string;
+  criticalReviewId?: number;
+  racLabel?: string;
 }

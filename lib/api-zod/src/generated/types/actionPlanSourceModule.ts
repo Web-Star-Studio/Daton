@@ -12,4 +12,13 @@ export type ActionPlanSourceModule =
 export const ActionPlanSourceModule = {
   kpi: "kpi",
   swot: "swot",
+  manual: "manual",
+  nonconformity: "nonconformity",
+  audit_finding: "audit_finding",
+  risk: "risk",
+  training: "training",
+  environmental: "environmental",
+  road_safety: "road_safety",
+  incident: "incident",
+  rac: "rac",
 } as const;
