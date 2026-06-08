@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Command as CommandPrimitive } from "cmdk";
-import { Check, ChevronsUpDown, Search, X } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,15 @@ export type SearchableSelectProps = {
   emptyMessage?: string;
   isLoading?: boolean;
   disabled?: boolean;
+  /**
+   * Quando definido, habilita a criação inline: se o texto buscado não casar
+   * (case-insensitive) com nenhuma opção, surge um item "Adicionar …" que chama
+   * este callback com o texto digitado (já trimado). Use para catálogos que o
+   * usuário pode ampliar (ex.: perspectivas do SWOT).
+   */
+  onCreateOption?: (label: string) => void;
+  /** Rótulo do item de criação (padrão: `Adicionar "<texto>"`). */
+  createOptionLabel?: (input: string) => string;
 };
 
 /**
@@ -38,10 +47,26 @@ export function SearchableSelect({
   emptyMessage = "Nenhum resultado.",
   isLoading,
   disabled,
+  onCreateOption,
+  createOptionLabel = (input) => `Adicionar “${input}”`,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const selected = options.find((o) => o.value === value);
+
+  const trimmed = search.trim();
+  const hasExactMatch = options.some(
+    (o) => o.label.trim().toLowerCase() === trimmed.toLowerCase(),
+  );
+  // Item de criação inline: só quando habilitado, há texto e nada casa exatamente.
+  const showCreate = !!onCreateOption && trimmed.length > 0 && !hasExactMatch;
+
+  function handleCreate() {
+    if (!onCreateOption || !trimmed) return;
+    onCreateOption(trimmed);
+    setSearch("");
+    setOpen(false);
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -82,9 +107,23 @@ export function SearchableSelect({
                 Carregando...
               </div>
             ) : (
-              <CommandPrimitive.Empty className="px-3 py-4 text-center text-xs text-muted-foreground">
-                {emptyMessage}
-              </CommandPrimitive.Empty>
+              // Quando há item de criação, ele substitui o estado vazio.
+              !showCreate && (
+                <CommandPrimitive.Empty className="px-3 py-4 text-center text-xs text-muted-foreground">
+                  {emptyMessage}
+                </CommandPrimitive.Empty>
+              )
+            )}
+            {showCreate && (
+              <CommandPrimitive.Item
+                forceMount
+                value={`__create__${trimmed}`}
+                onSelect={handleCreate}
+                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-primary data-[selected=true]:bg-muted"
+              >
+                <Plus className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{createOptionLabel(trimmed)}</span>
+              </CommandPrimitive.Item>
             )}
             {value && (
               <CommandPrimitive.Item

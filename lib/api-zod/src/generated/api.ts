@@ -16819,6 +16819,77 @@ export const UpdateSwotMethodologyBody = zod.object({
 });
 
 /**
+ * @summary List the organization's SWOT perspective catalog
+ */
+export const ListSwotPerspectivesParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const ListSwotPerspectivesResponseItem = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    name: zod.string(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe("Item do catálogo de perspectivas SWOT da organização.");
+export const ListSwotPerspectivesResponse = zod.array(
+  ListSwotPerspectivesResponseItem,
+);
+
+/**
+ * @summary Add a perspective to the organization's SWOT catalog (idempotent by name, case-insensitive)
+ */
+export const CreateSwotPerspectiveParams = zod.object({
+  orgId: zod.coerce.number(),
+});
+
+export const CreateSwotPerspectiveBody = zod.object({
+  name: zod.string().min(1),
+});
+
+export const CreateSwotPerspectiveResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    name: zod.string(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe("Item do catálogo de perspectivas SWOT da organização.");
+
+/**
+ * @summary Rename a SWOT perspective (also propagates the new name to factors using it)
+ */
+export const UpdateSwotPerspectiveParams = zod.object({
+  orgId: zod.coerce.number(),
+  perspectiveId: zod.coerce.number(),
+});
+
+export const UpdateSwotPerspectiveBody = zod.object({
+  name: zod.string().min(1),
+});
+
+export const UpdateSwotPerspectiveResponse = zod
+  .object({
+    id: zod.number(),
+    organizationId: zod.number(),
+    name: zod.string(),
+    createdAt: zod.string().datetime({}),
+    updatedAt: zod.string().datetime({}),
+  })
+  .describe("Item do catálogo de perspectivas SWOT da organização.");
+
+/**
+ * @summary Remove a perspective from the catalog (factors keep their stored text)
+ */
+export const DeleteSwotPerspectiveParams = zod.object({
+  orgId: zod.coerce.number(),
+  perspectiveId: zod.coerce.number(),
+});
+
+/**
  * @summary List action plans in the organization with filters
  */
 export const ListActionPlansParams = zod.object({
