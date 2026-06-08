@@ -1318,14 +1318,19 @@ function PerspectivesPanel({
   const [editName, setEditName] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // Quantos fatores usam cada perspectiva (match exato pelo texto gravado).
+  // Quantos fatores usam cada perspectiva — chave case-insensitive (fatores legados
+  // podem ter outra grafia; o catálogo trata "Qualidade"/"qualidade" como a mesma).
   const usageByName = useMemo(() => {
     const m = new Map<string, number>();
     for (const f of factors) {
-      if (f.perspective) m.set(f.perspective, (m.get(f.perspective) ?? 0) + 1);
+      if (f.perspective) {
+        const key = f.perspective.trim().toLowerCase();
+        m.set(key, (m.get(key) ?? 0) + 1);
+      }
     }
     return m;
   }, [factors]);
+  const usageOf = (name: string) => usageByName.get(name.trim().toLowerCase()) ?? 0;
 
   const sorted = useMemo(
     () => [...perspectives].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
@@ -1411,7 +1416,7 @@ function PerspectivesPanel({
             ) : (
               <ul className="divide-y overflow-hidden rounded-lg border">
                 {sorted.map((p) => {
-                  const usage = usageByName.get(p.name) ?? 0;
+                  const usage = usageOf(p.name);
                   const isEditing = editingId === p.id;
                   return (
                     <li key={p.id} className="flex items-center gap-3 bg-card px-3 py-2.5">

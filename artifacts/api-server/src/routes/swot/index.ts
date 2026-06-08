@@ -321,21 +321,33 @@ router.post("/organizations/:orgId/swot/perspectives", requireAuth, requireWrite
   const name = body.data.name.trim();
   if (!name) { res.status(400).json({ error: "Informe o nome da perspectiva" }); return; }
 
-  // Idempotente por nome (case-insensitive): se já existe, devolve a existente —
-  // assim a criação inline no diálogo de fator nunca erra por duplicata.
-  const [existing] = await db.select().from(swotPerspectivesTable)
-    .where(and(
-      eq(swotPerspectivesTable.organizationId, params.data.orgId),
-      sql`lower(${swotPerspectivesTable.name}) = lower(${name})`,
-    ));
+  const findByName = async () => {
+    const [row] = await db.select().from(swotPerspectivesTable)
+      .where(and(
+        eq(swotPerspectivesTable.organizationId, params.data.orgId),
+        sql`lower(${swotPerspectivesTable.name}) = lower(${name})`,
+      ));
+    return row;
+  };
+
+  // Idempotente por nome (case-insensitive): caminho rápido devolve a existente
+  // sem inserir — assim a criação inline no diálogo de fator nunca erra por duplicata.
+  const existing = await findByName();
   if (existing) { res.status(200).json(serializePerspective(existing)); return; }
 
-  const [row] = await db.insert(swotPerspectivesTable).values({
+  // Sob concorrência, duas requisições podem passar do SELECT acima; o índice único
+  // funcional (org, lower(name)) garante que o ON CONFLICT não insira a 2ª — então
+  // devolvemos a que a requisição concorrente criou (evita 500 e duplicata por casing).
+  const [inserted] = await db.insert(swotPerspectivesTable).values({
     organizationId: params.data.orgId,
     name,
-  }).returning();
+  }).onConflictDoNothing().returning();
+  if (inserted) { res.status(201).json(serializePerspective(inserted)); return; }
 
-  res.status(201).json(serializePerspective(row));
+  const raced = await findByName();
+  if (raced) { res.status(200).json(serializePerspective(raced)); return; }
+
+  res.status(409).json({ error: "Não foi possível criar a perspectiva" });
 });
 
 router.patch("/organizations/:orgId/swot/perspectives/:perspectiveId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
@@ -374,13 +386,15 @@ router.patch("/organizations/:orgId/swot/perspectives/:perspectiveId", requireAu
     .returning();
 
   // Propaga o novo nome aos fatores que usam o nome antigo (texto livre) — mantém
-  // a consistência do rótulo sem migrar o modelo para FK.
+  // a consistência do rótulo sem migrar o modelo para FK. Match case-insensitive:
+  // o catálogo/seletor já trata grafias diferentes (ex.: "qualidade") como a mesma
+  // perspectiva, então o rename precisa normalizar todas as variantes de casing.
   if (current.name !== name) {
     await db.update(swotFactorsTable)
       .set({ perspective: name })
       .where(and(
         eq(swotFactorsTable.organizationId, params.data.orgId),
-        eq(swotFactorsTable.perspective, current.name),
+        sql`lower(${swotFactorsTable.perspective}) = lower(${current.name})`,
       ));
   }
 

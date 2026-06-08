@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   index,
   integer,
@@ -8,6 +9,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -105,8 +107,9 @@ export type SwotFactor = typeof swotFactorsTable.$inferSelect;
  * empresa pode ampliar (ex.: Qualidade, Ambiental, ESG...). A perspectiva
  * escolhida continua sendo persistida como texto em `swot_factors.perspective`
  * (sem FK), preservando os fatores já cadastrados; esta tabela apenas governa
- * quais nomes ficam disponíveis para seleção. Unicidade por (organização, nome);
- * a checagem case-insensitive fica no serviço (evita "Qualidade" vs "qualidade").
+ * quais nomes ficam disponíveis para seleção. Unicidade **case-insensitive** por
+ * (organização, lower(nome)) — índice funcional que impede duplicatas por casing
+ * ("Qualidade" vs "qualidade") e dá suporte ao create idempotente (ON CONFLICT).
  */
 export const swotPerspectivesTable = pgTable(
   "swot_perspectives",
@@ -120,7 +123,10 @@ export const swotPerspectivesTable = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   },
   (table) => [
-    unique("swot_perspective_org_name_unique").on(table.organizationId, table.name),
+    uniqueIndex("swot_perspective_org_lower_name_unique").on(
+      table.organizationId,
+      sql`lower(${table.name})`,
+    ),
   ],
 );
 
