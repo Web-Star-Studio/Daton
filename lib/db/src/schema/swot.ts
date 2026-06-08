@@ -101,6 +101,38 @@ export type InsertSwotFactor = z.infer<typeof insertSwotFactorSchema>;
 export type SwotFactor = typeof swotFactorsTable.$inferSelect;
 
 /**
+ * Catálogo de perspectivas SWOT por organização — a lista gerenciável que a
+ * empresa pode ampliar (ex.: Qualidade, Ambiental, ESG...). A perspectiva
+ * escolhida continua sendo persistida como texto em `swot_factors.perspective`
+ * (sem FK), preservando os fatores já cadastrados; esta tabela apenas governa
+ * quais nomes ficam disponíveis para seleção. Unicidade por (organização, nome);
+ * a checagem case-insensitive fica no serviço (evita "Qualidade" vs "qualidade").
+ */
+export const swotPerspectivesTable = pgTable(
+  "swot_perspectives",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: integer("organization_id")
+      .notNull()
+      .references(() => organizationsTable.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  },
+  (table) => [
+    unique("swot_perspective_org_name_unique").on(table.organizationId, table.name),
+  ],
+);
+
+export const insertSwotPerspectiveSchema = createInsertSchema(swotPerspectivesTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSwotPerspective = z.infer<typeof insertSwotPerspectiveSchema>;
+export type SwotPerspective = typeof swotPerspectivesTable.$inferSelect;
+
+/**
  * Metodologia SWOT por tipo — configurável por empresa. Para cada tipo (exceto
  * Força, sempre positiva), o valor é o resultado a partir do qual se exige ação:
  * `resultado ≥ valor` ⇒ "requer plano de ação"; abaixo ⇒ "dentro da tolerância"

@@ -7,6 +7,7 @@ import {
   swotMethodologiesTable,
   swotMethodologyVersionsTable,
   swotObjectivesTable,
+  swotPerspectivesTable,
   unitsTable,
   usersTable,
   type SwotTolerances,
@@ -16,17 +17,23 @@ import {
   CreateSwotFactorParams,
   CreateSwotObjectiveBody,
   CreateSwotObjectiveParams,
+  CreateSwotPerspectiveBody,
+  CreateSwotPerspectiveParams,
   DeleteSwotFactorParams,
   DeleteSwotObjectiveParams,
+  DeleteSwotPerspectiveParams,
   GetSwotMethodologyParams,
   ListSwotFactorsParams,
   ListSwotObjectivesParams,
+  ListSwotPerspectivesParams,
   UpdateSwotFactorBody,
   UpdateSwotFactorParams,
   UpdateSwotMethodologyBody,
   UpdateSwotMethodologyParams,
   UpdateSwotObjectiveBody,
   UpdateSwotObjectiveParams,
+  UpdateSwotPerspectiveBody,
+  UpdateSwotPerspectiveParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireWriteAccess } from "../../middlewares/auth";
 
@@ -42,6 +49,16 @@ function serializeObjective(r: typeof swotObjectivesTable.$inferSelect) {
     id: r.id,
     organizationId: r.organizationId,
     code: r.code ?? null,
+    name: r.name,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
+}
+
+function serializePerspective(r: typeof swotPerspectivesTable.$inferSelect) {
+  return {
+    id: r.id,
+    organizationId: r.organizationId,
     name: r.name,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
@@ -276,6 +293,114 @@ router.delete("/organizations/:orgId/swot/factors/:factorId", requireAuth, requi
     .returning();
 
   if (!row) { res.status(404).json({ error: "Fator não encontrado" }); return; }
+  res.status(204).send();
+});
+
+// ─── Perspectives (catálogo gerenciável por organização) ──────────────────────
+
+router.get("/organizations/:orgId/swot/perspectives", requireAuth, async (req, res): Promise<void> => {
+  const params = ListSwotPerspectivesParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const rows = await db.select().from(swotPerspectivesTable)
+    .where(eq(swotPerspectivesTable.organizationId, params.data.orgId))
+    .orderBy(asc(swotPerspectivesTable.name));
+
+  res.json(rows.map(serializePerspective));
+});
+
+router.post("/organizations/:orgId/swot/perspectives", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = CreateSwotPerspectiveParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = CreateSwotPerspectiveBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const name = body.data.name.trim();
+  if (!name) { res.status(400).json({ error: "Informe o nome da perspectiva" }); return; }
+
+  // Idempotente por nome (case-insensitive): se já existe, devolve a existente —
+  // assim a criação inline no diálogo de fator nunca erra por duplicata.
+  const [existing] = await db.select().from(swotPerspectivesTable)
+    .where(and(
+      eq(swotPerspectivesTable.organizationId, params.data.orgId),
+      sql`lower(${swotPerspectivesTable.name}) = lower(${name})`,
+    ));
+  if (existing) { res.status(200).json(serializePerspective(existing)); return; }
+
+  const [row] = await db.insert(swotPerspectivesTable).values({
+    organizationId: params.data.orgId,
+    name,
+  }).returning();
+
+  res.status(201).json(serializePerspective(row));
+});
+
+router.patch("/organizations/:orgId/swot/perspectives/:perspectiveId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = UpdateSwotPerspectiveParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  const body = UpdateSwotPerspectiveBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const name = body.data.name.trim();
+  if (!name) { res.status(400).json({ error: "Informe o nome da perspectiva" }); return; }
+
+  const [current] = await db.select().from(swotPerspectivesTable)
+    .where(and(
+      eq(swotPerspectivesTable.id, params.data.perspectiveId),
+      eq(swotPerspectivesTable.organizationId, params.data.orgId),
+    ));
+  if (!current) { res.status(404).json({ error: "Perspectiva não encontrada" }); return; }
+
+  // Colisão com outra perspectiva (case-insensitive) — exceto ela mesma.
+  const [clash] = await db.select({ id: swotPerspectivesTable.id }).from(swotPerspectivesTable)
+    .where(and(
+      eq(swotPerspectivesTable.organizationId, params.data.orgId),
+      sql`lower(${swotPerspectivesTable.name}) = lower(${name})`,
+      sql`${swotPerspectivesTable.id} <> ${params.data.perspectiveId}`,
+    ));
+  if (clash) { res.status(409).json({ error: "Já existe uma perspectiva com esse nome" }); return; }
+
+  const [row] = await db.update(swotPerspectivesTable)
+    .set({ name })
+    .where(and(
+      eq(swotPerspectivesTable.id, params.data.perspectiveId),
+      eq(swotPerspectivesTable.organizationId, params.data.orgId),
+    ))
+    .returning();
+
+  // Propaga o novo nome aos fatores que usam o nome antigo (texto livre) — mantém
+  // a consistência do rótulo sem migrar o modelo para FK.
+  if (current.name !== name) {
+    await db.update(swotFactorsTable)
+      .set({ perspective: name })
+      .where(and(
+        eq(swotFactorsTable.organizationId, params.data.orgId),
+        eq(swotFactorsTable.perspective, current.name),
+      ));
+  }
+
+  res.json(serializePerspective(row));
+});
+
+router.delete("/organizations/:orgId/swot/perspectives/:perspectiveId", requireAuth, requireWriteAccess(), async (req, res): Promise<void> => {
+  const params = DeleteSwotPerspectiveParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (params.data.orgId !== req.auth!.organizationId) { res.status(403).json({ error: "Acesso negado" }); return; }
+
+  // Remove apenas do catálogo; os fatores preservam o texto já gravado.
+  const [row] = await db.delete(swotPerspectivesTable)
+    .where(and(
+      eq(swotPerspectivesTable.id, params.data.perspectiveId),
+      eq(swotPerspectivesTable.organizationId, params.data.orgId),
+    ))
+    .returning();
+
+  if (!row) { res.status(404).json({ error: "Perspectiva não encontrada" }); return; }
   res.status(204).send();
 });
 

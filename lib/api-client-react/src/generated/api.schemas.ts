@@ -3940,6 +3940,27 @@ export interface UpdateSwotMethodologyBody {
   notes?: string | null;
 }
 
+/**
+ * Item do catálogo de perspectivas SWOT da organização.
+ */
+export interface SwotPerspective {
+  id: number;
+  organizationId: number;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSwotPerspectiveBody {
+  /** @minLength 1 */
+  name: string;
+}
+
+export interface UpdateSwotPerspectiveBody {
+  /** @minLength 1 */
+  name: string;
+}
+
 export type ActionPlanSourceModule =
   (typeof ActionPlanSourceModule)[keyof typeof ActionPlanSourceModule];
 
