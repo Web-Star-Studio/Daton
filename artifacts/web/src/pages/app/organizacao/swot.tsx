@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
+  Check,
   ChevronRight,
   ClipboardList,
   History,
@@ -10,8 +11,10 @@ import {
   Save,
   Search,
   Settings,
+  Tag,
   Target,
   Trash2,
+  X,
 } from "lucide-react";
 import {
   getListOrgUsersQueryKey,
@@ -54,6 +57,7 @@ import {
   SWOT_TYPES,
   defaultEnvironmentFor,
   encodeObjectiveRef,
+  mergePerspectiveNames,
   parseObjectiveRef,
   performanceAxisLabel,
   performanceScaleLegend,
@@ -66,17 +70,22 @@ import {
   swotTypeText,
   swotTypeTint,
   useCreateSwotFactorWithInvalidation,
+  useCreateSwotPerspectiveWithInvalidation,
   useDeleteSwotFactorWithInvalidation,
+  useDeleteSwotPerspectiveWithInvalidation,
   useSwotFactors,
   useSwotMethodology,
   useSwotObjectives,
+  useSwotPerspectives,
   useSwotTolerances,
   useUpdateSwotFactorWithInvalidation,
   useUpdateSwotMethodologyWithInvalidation,
+  useUpdateSwotPerspectiveWithInvalidation,
   type SwotEnvironment,
   type SwotFactor,
   type SwotFactorType,
   type SwotMethodologyVersion,
+  type SwotPerspective,
   type SwotTolerances,
 } from "@/lib/swot-client";
 
@@ -84,7 +93,7 @@ import {
 const SWOT_SCROLL_CLS =
   "overflow-y-auto [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border";
 
-type Tab = "swot" | "fatores" | "objetivos" | "metodologia";
+type Tab = "swot" | "fatores" | "objetivos" | "perspectivas" | "metodologia";
 
 const UNIT_ALL = "all";
 const UNIT_CORP = "corp";
@@ -133,6 +142,7 @@ export default function OrganizacaoSwotPage() {
   const { data: factors = [], isLoading } = useSwotFactors(orgId);
   const tolerances = useSwotTolerances(orgId);
   const { data: objectives = [] } = useSwotObjectives(orgId);
+  const { data: perspectives = [] } = useSwotPerspectives(orgId);
   const { data: kpiObjectives = [] } = useKpiObjectives(orgId);
   const { data: units = [] } = useListUnits(orgId);
   const { data: orgUsersData } = useListOrgUsers(orgId, {
@@ -144,6 +154,9 @@ export default function OrganizacaoSwotPage() {
   const updateFactor = useUpdateSwotFactorWithInvalidation(orgId);
   const deleteFactor = useDeleteSwotFactorWithInvalidation(orgId);
   const createAction = useCreateActionPlanWithInvalidation(orgId);
+  const createPerspective = useCreateSwotPerspectiveWithInvalidation(orgId);
+  const updatePerspective = useUpdateSwotPerspectiveWithInvalidation(orgId);
+  const deletePerspective = useDeleteSwotPerspectiveWithInvalidation(orgId);
 
   // Confirmação fluída e estilizada (substitui window.confirm).
   const [confirmState, setConfirmState] = useState<{
@@ -222,12 +235,76 @@ export default function OrganizacaoSwotPage() {
     [units],
   );
 
-  // Perspectivas: padrão do SGI + as já cadastradas nos fatores.
+  // Perspectivas para o seletor: catálogo gerenciável + as já usadas nos fatores +
+  // sugestões padrão do SGI. Dedup case-insensitive (catálogo tem o nome canônico).
   const perspectiveOptions = useMemo(() => {
-    const used = factors.map((f) => f.perspective).filter((p): p is string => !!p);
-    const all = [...new Set([...SWOT_PERSPECTIVES, ...used])].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    const all = mergePerspectiveNames(
+      perspectives.map((p) => p.name),
+      factors.map((f) => f.perspective).filter((p): p is string => !!p),
+    );
     return [{ value: "", label: "Nenhuma" }, ...all.map((p) => ({ value: p, label: p }))];
-  }, [factors]);
+  }, [perspectives, factors]);
+
+  // ─── Perspectivas: criação inline (diálogo de fator) + gestão (aba) ───────────
+  // Inline: seleciona já no fator (texto livre) e registra no catálogo (idempotente
+  // no servidor) — a invalidação atualiza a lista para os próximos fatores.
+  function handleCreatePerspectiveInline(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setFactorForm((f) => ({ ...f, perspective: trimmed }));
+    createPerspective.mutate({ orgId, data: { name: trimmed } });
+  }
+
+  async function addPerspective(name: string): Promise<boolean> {
+    const trimmed = name.trim();
+    if (!trimmed) return false;
+    try {
+      await createPerspective.mutateAsync({ orgId, data: { name: trimmed } });
+      toast({ title: "Perspectiva adicionada" });
+      return true;
+    } catch {
+      toast({ title: "Não foi possível adicionar a perspectiva", variant: "destructive" });
+      return false;
+    }
+  }
+
+  async function renamePerspective(p: SwotPerspective, name: string): Promise<boolean> {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === p.name) return false;
+    try {
+      await updatePerspective.mutateAsync({ orgId, perspectiveId: p.id, data: { name: trimmed } });
+      toast({ title: "Perspectiva renomeada", description: "Fatores que a usavam foram atualizados." });
+      return true;
+    } catch {
+      toast({ title: "Não foi possível renomear", description: "Talvez já exista uma com esse nome.", variant: "destructive" });
+      return false;
+    }
+  }
+
+  function removePerspective(p: SwotPerspective, usage: number) {
+    setConfirmState({
+      title: "Remover perspectiva?",
+      description: usage > 0 ? (
+        <>
+          A perspectiva “<span className="font-medium text-foreground">{p.name}</span>” sairá do catálogo.
+          Os {usage} fator(es) que já a utilizam mantêm o texto.
+        </>
+      ) : (
+        <>
+          A perspectiva “<span className="font-medium text-foreground">{p.name}</span>” será removida do catálogo.
+        </>
+      ),
+      confirmLabel: "Remover",
+      action: async () => {
+        try {
+          await deletePerspective.mutateAsync({ orgId, perspectiveId: p.id });
+          toast({ title: "Perspectiva removida" });
+        } catch {
+          toast({ title: "Não foi possível remover a perspectiva", variant: "destructive" });
+        }
+      },
+    });
+  }
 
   // ─── Factor dialog ──────────────────────────────────────────────────────────
   const [factorDialogOpen, setFactorDialogOpen] = useState(false);
@@ -422,6 +499,7 @@ export default function OrganizacaoSwotPage() {
             ["swot", "Visão SWOT"],
             ["fatores", "Todos os fatores"],
             ["objetivos", "Objetivos"],
+            ["perspectivas", "Perspectivas"],
             ["metodologia", "Metodologia"],
           ] as [Tab, string][]).map(([key, label]) => (
             <button
@@ -444,6 +522,15 @@ export default function OrganizacaoSwotPage() {
 
       {tab === "metodologia" ? (
         <MethodologyConfigPanel orgId={orgId} canWrite={canWrite} />
+      ) : tab === "perspectivas" ? (
+        <PerspectivesPanel
+          perspectives={perspectives}
+          factors={factors}
+          canWrite={canWrite}
+          onAdd={addPerspective}
+          onRename={renamePerspective}
+          onRemove={removePerspective}
+        />
       ) : isLoading ? (
         <div className="p-10 text-center text-sm text-muted-foreground">Carregando...</div>
       ) : tab === "swot" ? (
@@ -547,7 +634,9 @@ export default function OrganizacaoSwotPage() {
                 onChange={(v) => setFactorForm((f) => ({ ...f, perspective: v }))}
                 options={perspectiveOptions}
                 placeholder="Selecione a perspectiva"
-                searchPlaceholder="Buscar perspectiva..."
+                searchPlaceholder="Buscar ou adicionar..."
+                emptyMessage="Digite para adicionar uma nova"
+                onCreateOption={canWrite ? handleCreatePerspectiveInline : undefined}
               />
             </div>
             <div className="space-y-1.5">
@@ -1208,6 +1297,219 @@ function ObjectivesPanel({
   );
 }
 
+
+// ─── Perspectivas (catálogo gerenciável) ───────────────────────────────────────
+
+function PerspectivesPanel({
+  perspectives,
+  factors,
+  canWrite,
+  onAdd,
+  onRename,
+  onRemove,
+}: {
+  perspectives: SwotPerspective[];
+  factors: SwotFactor[];
+  canWrite: boolean;
+  onAdd: (name: string) => Promise<boolean>;
+  onRename: (p: SwotPerspective, name: string) => Promise<boolean>;
+  onRemove: (p: SwotPerspective, usage: number) => void;
+}) {
+  const [newName, setNewName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Quantos fatores usam cada perspectiva — chave case-insensitive (fatores legados
+  // podem ter outra grafia; o catálogo trata "Qualidade"/"qualidade" como a mesma).
+  const usageByName = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const f of factors) {
+      if (f.perspective) {
+        const key = f.perspective.trim().toLowerCase();
+        m.set(key, (m.get(key) ?? 0) + 1);
+      }
+    }
+    return m;
+  }, [factors]);
+  const usageOf = (name: string) => usageByName.get(name.trim().toLowerCase()) ?? 0;
+
+  const sorted = useMemo(
+    () => [...perspectives].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    [perspectives],
+  );
+
+  // Nomes em uso (fatores) ou sugeridos (padrão SGI) que ainda não estão no
+  // catálogo — ofertam "adicionar ao catálogo" para formalizar/limpar.
+  const outsiders = useMemo(() => {
+    const inCatalog = new Set(perspectives.map((p) => p.name.trim().toLowerCase()));
+    const set = new Map<string, string>();
+    const add = (raw: string) => {
+      const label = raw.trim();
+      const key = label.toLowerCase();
+      if (key && !inCatalog.has(key) && !set.has(key)) set.set(key, label);
+    };
+    factors.forEach((f) => { if (f.perspective) add(f.perspective); });
+    SWOT_PERSPECTIVES.forEach(add);
+    return [...set.values()].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [perspectives, factors]);
+
+  async function submitNew() {
+    const name = newName.trim();
+    if (!name || adding) return;
+    setAdding(true);
+    const ok = await onAdd(name);
+    setAdding(false);
+    if (ok) setNewName("");
+  }
+
+  function startEdit(p: SwotPerspective) {
+    setEditingId(p.id);
+    setEditName(p.name);
+  }
+  async function saveEdit(p: SwotPerspective) {
+    if (savingEdit) return;
+    if (editName.trim() === p.name) { setEditingId(null); return; }
+    setSavingEdit(true);
+    const ok = await onRename(p, editName);
+    setSavingEdit(false);
+    if (ok) setEditingId(null);
+  }
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="space-y-4">
+        {/* Catálogo */}
+        <div className="rounded-xl border bg-card p-6 shadow-sm">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <Tag className="h-5 w-5" />
+            </span>
+            <div className="space-y-1">
+              <h2 className="text-base font-semibold">Catálogo de perspectivas</h2>
+              <p className="text-sm text-muted-foreground">
+                As perspectivas disponíveis ao classificar um fator (ex.: Qualidade, Ambiental, ESG).
+                Você pode adicionar, renomear e remover — sem limite.
+              </p>
+            </div>
+          </div>
+
+          {canWrite && (
+            <div className="mt-5 flex gap-2">
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void submitNew(); } }}
+                placeholder="Nova perspectiva…"
+                className="flex-1"
+              />
+              <Button onClick={() => void submitNew()} disabled={!newName.trim() || adding}>
+                <Plus className="mr-1.5 h-4 w-4" />
+                Adicionar
+              </Button>
+            </div>
+          )}
+
+          <div className="mt-4">
+            {sorted.length === 0 ? (
+              <p className="rounded-lg border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+                Nenhuma perspectiva no catálogo ainda{canWrite ? " — adicione acima" : ""}.
+              </p>
+            ) : (
+              <ul className="divide-y overflow-hidden rounded-lg border">
+                {sorted.map((p) => {
+                  const usage = usageOf(p.name);
+                  const isEditing = editingId === p.id;
+                  return (
+                    <li key={p.id} className="flex items-center gap-3 bg-card px-3 py-2.5">
+                      {isEditing ? (
+                        <>
+                          <Input
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") { e.preventDefault(); void saveEdit(p); }
+                              if (e.key === "Escape") { e.preventDefault(); setEditingId(null); }
+                            }}
+                            autoFocus
+                            className="h-8 flex-1"
+                          />
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-600" title="Salvar" onClick={() => void saveEdit(p)} disabled={savingEdit}>
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8" title="Cancelar" onClick={() => setEditingId(null)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="min-w-0 flex-1 truncate text-sm" title={p.name}>{p.name}</span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {usage > 0 ? `${usage} fator(es)` : "não usada"}
+                          </span>
+                          {canWrite && (
+                            <div className="flex shrink-0 gap-1">
+                              <Button size="icon" variant="ghost" className="h-8 w-8" title="Renomear" onClick={() => startEdit(p)}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" title="Remover" onClick={() => onRemove(p, usage)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        {/* Fora do catálogo: nomes já usados ou sugeridos, prontos para formalizar */}
+        {canWrite && outsiders.length > 0 && (
+          <div className="rounded-xl border bg-card p-5 shadow-sm">
+            <div className="mb-1 flex items-center gap-2">
+              <h3 className="text-sm font-semibold">Fora do catálogo</h3>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{outsiders.length}</span>
+            </div>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Nomes já usados em fatores ou sugeridos pelo SGI. Adicione-os ao catálogo para padronizar.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {outsiders.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => void onAdd(name)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-dashed px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+                >
+                  <Plus className="h-3 w-3" />
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Ajuda lateral */}
+      <aside className="lg:self-start">
+        <div className="rounded-xl border bg-muted/20 p-4 text-xs leading-relaxed text-muted-foreground">
+          <p className="mb-2 font-semibold uppercase tracking-wide text-muted-foreground">Como funciona</p>
+          <ul className="space-y-1.5">
+            <li>• A perspectiva categoriza o fator (filtro e relatórios).</li>
+            <li>• Ao lançar um fator, dá para escolher uma existente ou <span className="font-medium text-foreground">criar na hora</span>.</li>
+            <li>• Renomear aqui atualiza os fatores que já usavam o nome antigo.</li>
+            <li>• Remover do catálogo não apaga o texto dos fatores existentes.</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+  );
+}
 
 // ─── Tabela de apoio (guia no lançamento do fator) ──────────────────────────────
 // Critérios de decisão da SWOT em formato de tabela. Só referência: o resultado e

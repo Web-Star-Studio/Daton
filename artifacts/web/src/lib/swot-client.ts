@@ -3,13 +3,18 @@ import {
   getGetSwotMethodologyQueryKey,
   getListSwotFactorsQueryKey,
   getListSwotObjectivesQueryKey,
+  getListSwotPerspectivesQueryKey,
   useCreateSwotFactor,
+  useCreateSwotPerspective,
   useDeleteSwotFactor,
+  useDeleteSwotPerspective,
   useGetSwotMethodology,
   useListSwotFactors,
   useListSwotObjectives,
+  useListSwotPerspectives,
   useUpdateSwotFactor,
   useUpdateSwotMethodology,
+  useUpdateSwotPerspective,
   type CreateSwotFactorBody,
   type SwotEnvironment,
   type SwotFactor,
@@ -17,6 +22,7 @@ import {
   type SwotMethodology,
   type SwotMethodologyVersion,
   type SwotObjective,
+  type SwotPerspective,
   type SwotTolerances,
   type UpdateSwotFactorBody,
   type UpdateSwotMethodologyBody,
@@ -30,6 +36,7 @@ export type {
   SwotMethodology,
   SwotMethodologyVersion,
   SwotObjective,
+  SwotPerspective,
   SwotTolerances,
   UpdateSwotFactorBody,
   UpdateSwotMethodologyBody,
@@ -104,6 +111,29 @@ export const SWOT_PERSPECTIVES = [
   "ESG",
   "Saúde e Segurança",
 ];
+
+/**
+ * Une nomes de perspectiva de várias origens (catálogo gerenciável, nomes já
+ * usados em fatores e sugestões padrão do SGI) num conjunto único para o seletor.
+ * Dedup case-insensitive preservando a 1ª grafia encontrada — por isso a ordem de
+ * entrada importa: o catálogo vem primeiro (nome canônico). Resultado ordenado pt-BR.
+ */
+export function mergePerspectiveNames(
+  catalog: string[],
+  used: string[],
+  defaults: string[] = SWOT_PERSPECTIVES,
+): string[] {
+  const seen = new Map<string, string>();
+  const add = (raw: string) => {
+    const label = raw.trim();
+    const key = label.toLowerCase();
+    if (key && !seen.has(key)) seen.set(key, label);
+  };
+  catalog.forEach(add);
+  used.forEach(add);
+  defaults.forEach(add);
+  return [...seen.values()].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
 
 /** Ambiente padrão sugerido por tipo (Forças/Fraquezas = interno; Oportunidades/Ameaças = externo). */
 export function defaultEnvironmentFor(type: SwotFactorType): SwotEnvironment {
@@ -278,6 +308,13 @@ export function useSwotObjectives(orgId: number) {
   });
 }
 
+/** Catálogo de perspectivas da org (lista gerenciável para o seletor de fator). */
+export function useSwotPerspectives(orgId: number) {
+  return useListSwotPerspectives(orgId, {
+    query: { queryKey: getListSwotPerspectivesQueryKey(orgId), enabled: !!orgId },
+  });
+}
+
 export function useSwotFactors(orgId: number) {
   return useListSwotFactors(orgId, {
     query: { queryKey: getListSwotFactorsQueryKey(orgId), enabled: !!orgId },
@@ -333,5 +370,34 @@ export function useUpdateSwotMethodologyWithInvalidation(orgId: number) {
       onSuccess: () =>
         queryClient.invalidateQueries({ queryKey: getGetSwotMethodologyQueryKey(orgId) }),
     },
+  });
+}
+
+// ─── Perspectivas (catálogo) ──────────────────────────────────────────────────
+
+/** Invalida o catálogo e os fatores (renome propaga o nome aos fatores no servidor). */
+function invalidatePerspectives(queryClient: ReturnType<typeof useQueryClient>, orgId: number) {
+  queryClient.invalidateQueries({ queryKey: getListSwotPerspectivesQueryKey(orgId) });
+  queryClient.invalidateQueries({ queryKey: getListSwotFactorsQueryKey(orgId) });
+}
+
+export function useCreateSwotPerspectiveWithInvalidation(orgId: number) {
+  const queryClient = useQueryClient();
+  return useCreateSwotPerspective({
+    mutation: { onSuccess: () => invalidatePerspectives(queryClient, orgId) },
+  });
+}
+
+export function useUpdateSwotPerspectiveWithInvalidation(orgId: number) {
+  const queryClient = useQueryClient();
+  return useUpdateSwotPerspective({
+    mutation: { onSuccess: () => invalidatePerspectives(queryClient, orgId) },
+  });
+}
+
+export function useDeleteSwotPerspectiveWithInvalidation(orgId: number) {
+  const queryClient = useQueryClient();
+  return useDeleteSwotPerspective({
+    mutation: { onSuccess: () => invalidatePerspectives(queryClient, orgId) },
   });
 }

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   index,
   integer,
@@ -8,6 +9,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -99,6 +101,42 @@ export const insertSwotFactorSchema = createInsertSchema(swotFactorsTable).omit(
 });
 export type InsertSwotFactor = z.infer<typeof insertSwotFactorSchema>;
 export type SwotFactor = typeof swotFactorsTable.$inferSelect;
+
+/**
+ * Catálogo de perspectivas SWOT por organização — a lista gerenciável que a
+ * empresa pode ampliar (ex.: Qualidade, Ambiental, ESG...). A perspectiva
+ * escolhida continua sendo persistida como texto em `swot_factors.perspective`
+ * (sem FK), preservando os fatores já cadastrados; esta tabela apenas governa
+ * quais nomes ficam disponíveis para seleção. Unicidade **case-insensitive** por
+ * (organização, lower(nome)) — índice funcional que impede duplicatas por casing
+ * ("Qualidade" vs "qualidade") e dá suporte ao create idempotente (ON CONFLICT).
+ */
+export const swotPerspectivesTable = pgTable(
+  "swot_perspectives",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: integer("organization_id")
+      .notNull()
+      .references(() => organizationsTable.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("swot_perspective_org_lower_name_unique").on(
+      table.organizationId,
+      sql`lower(${table.name})`,
+    ),
+  ],
+);
+
+export const insertSwotPerspectiveSchema = createInsertSchema(swotPerspectivesTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSwotPerspective = z.infer<typeof insertSwotPerspectiveSchema>;
+export type SwotPerspective = typeof swotPerspectivesTable.$inferSelect;
 
 /**
  * Metodologia SWOT por tipo — configurável por empresa. Para cada tipo (exceto

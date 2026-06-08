@@ -8739,6 +8739,104 @@ paths:
                   - versionNumber
                   - activeVersionId
 
+  /organizations/{orgId}/swot/perspectives:
+    get:
+      operationId: listSwotPerspectives
+      tags: [swot]
+      summary: List the organization's SWOT perspective catalog
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: SWOT perspectives
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SwotPerspective"
+    post:
+      operationId: createSwotPerspective
+      tags: [swot]
+      summary: Add a perspective to the organization's SWOT catalog (idempotent by name, case-insensitive)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSwotPerspectiveBody"
+      responses:
+        "200":
+          description: Perspective already existed (returned as-is)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwotPerspective"
+        "201":
+          description: Perspective created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwotPerspective"
+
+  /organizations/{orgId}/swot/perspectives/{perspectiveId}:
+    patch:
+      operationId: updateSwotPerspective
+      tags: [swot]
+      summary: Rename a SWOT perspective (also propagates the new name to factors using it)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: perspectiveId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSwotPerspectiveBody"
+      responses:
+        "200":
+          description: Perspective renamed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwotPerspective"
+    delete:
+      operationId: deleteSwotPerspective
+      tags: [swot]
+      summary: Remove a perspective from the catalog (factors keep their stored text)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: perspectiveId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   /organizations/{orgId}/action-plans:
     get:
       operationId: listActionPlans
@@ -16279,6 +16377,47 @@ components:
         - weakness
         - opportunity
         - threat
+
+    SwotPerspective:
+      type: object
+      description: "Item do catálogo de perspectivas SWOT da organização."
+      properties:
+        id:
+          type: integer
+        organizationId:
+          type: integer
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - name
+        - createdAt
+        - updatedAt
+
+    CreateSwotPerspectiveBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+      required:
+        - name
+
+    UpdateSwotPerspectiveBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+      required:
+        - name
 
     ActionPlanSourceModule:
       type: string

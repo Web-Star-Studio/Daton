@@ -93,6 +93,7 @@ import type {
   CreateStrategicPlanSwotItemBody,
   CreateSwotFactorBody,
   CreateSwotObjectiveBody,
+  CreateSwotPerspectiveBody,
   CreateTrainingBody,
   CreateTrainingEffectivenessReviewBody,
   CreateUnitBody,
@@ -240,6 +241,7 @@ import type {
   SwotFactor,
   SwotMethodology,
   SwotObjective,
+  SwotPerspective,
   SyncInternalAuditChecklistBody,
   TrainingEffectivenessReview,
   Unit,
@@ -295,6 +297,7 @@ import type {
   UpdateSwotMethodology201,
   UpdateSwotMethodologyBody,
   UpdateSwotObjectiveBody,
+  UpdateSwotPerspectiveBody,
   UpdateTrainingBody,
   UpdateUnitBody,
   UpdateUnitLegislationBody,
@@ -30645,6 +30648,386 @@ export const useUpdateSwotMethodology = <
   TContext
 > => {
   return useMutation(getUpdateSwotMethodologyMutationOptions(options));
+};
+
+/**
+ * @summary List the organization's SWOT perspective catalog
+ */
+export const getListSwotPerspectivesUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/swot/perspectives`;
+};
+
+export const listSwotPerspectives = async (
+  orgId: number,
+  options?: RequestInit,
+): Promise<SwotPerspective[]> => {
+  return customFetch<SwotPerspective[]>(getListSwotPerspectivesUrl(orgId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSwotPerspectivesQueryKey = (orgId: number) => {
+  return [`/api/organizations/${orgId}/swot/perspectives`] as const;
+};
+
+export const getListSwotPerspectivesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSwotPerspectives>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSwotPerspectives>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListSwotPerspectivesQueryKey(orgId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSwotPerspectives>>
+  > = ({ signal }) =>
+    listSwotPerspectives(orgId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!orgId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSwotPerspectives>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSwotPerspectivesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSwotPerspectives>>
+>;
+export type ListSwotPerspectivesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the organization's SWOT perspective catalog
+ */
+
+export function useListSwotPerspectives<
+  TData = Awaited<ReturnType<typeof listSwotPerspectives>>,
+  TError = ErrorType<unknown>,
+>(
+  orgId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSwotPerspectives>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSwotPerspectivesQueryOptions(orgId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a perspective to the organization's SWOT catalog (idempotent by name, case-insensitive)
+ */
+export const getCreateSwotPerspectiveUrl = (orgId: number) => {
+  return `/api/organizations/${orgId}/swot/perspectives`;
+};
+
+export const createSwotPerspective = async (
+  orgId: number,
+  createSwotPerspectiveBody: CreateSwotPerspectiveBody,
+  options?: RequestInit,
+): Promise<SwotPerspective> => {
+  return customFetch<SwotPerspective>(getCreateSwotPerspectiveUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSwotPerspectiveBody),
+  });
+};
+
+export const getCreateSwotPerspectiveMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSwotPerspective>>,
+    TError,
+    { orgId: number; data: BodyType<CreateSwotPerspectiveBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSwotPerspective>>,
+  TError,
+  { orgId: number; data: BodyType<CreateSwotPerspectiveBody> },
+  TContext
+> => {
+  const mutationKey = ["createSwotPerspective"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSwotPerspective>>,
+    { orgId: number; data: BodyType<CreateSwotPerspectiveBody> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return createSwotPerspective(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSwotPerspectiveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSwotPerspective>>
+>;
+export type CreateSwotPerspectiveMutationBody =
+  BodyType<CreateSwotPerspectiveBody>;
+export type CreateSwotPerspectiveMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a perspective to the organization's SWOT catalog (idempotent by name, case-insensitive)
+ */
+export const useCreateSwotPerspective = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSwotPerspective>>,
+    TError,
+    { orgId: number; data: BodyType<CreateSwotPerspectiveBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSwotPerspective>>,
+  TError,
+  { orgId: number; data: BodyType<CreateSwotPerspectiveBody> },
+  TContext
+> => {
+  return useMutation(getCreateSwotPerspectiveMutationOptions(options));
+};
+
+/**
+ * @summary Rename a SWOT perspective (also propagates the new name to factors using it)
+ */
+export const getUpdateSwotPerspectiveUrl = (
+  orgId: number,
+  perspectiveId: number,
+) => {
+  return `/api/organizations/${orgId}/swot/perspectives/${perspectiveId}`;
+};
+
+export const updateSwotPerspective = async (
+  orgId: number,
+  perspectiveId: number,
+  updateSwotPerspectiveBody: UpdateSwotPerspectiveBody,
+  options?: RequestInit,
+): Promise<SwotPerspective> => {
+  return customFetch<SwotPerspective>(
+    getUpdateSwotPerspectiveUrl(orgId, perspectiveId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateSwotPerspectiveBody),
+    },
+  );
+};
+
+export const getUpdateSwotPerspectiveMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSwotPerspective>>,
+    TError,
+    {
+      orgId: number;
+      perspectiveId: number;
+      data: BodyType<UpdateSwotPerspectiveBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSwotPerspective>>,
+  TError,
+  {
+    orgId: number;
+    perspectiveId: number;
+    data: BodyType<UpdateSwotPerspectiveBody>;
+  },
+  TContext
+> => {
+  const mutationKey = ["updateSwotPerspective"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSwotPerspective>>,
+    {
+      orgId: number;
+      perspectiveId: number;
+      data: BodyType<UpdateSwotPerspectiveBody>;
+    }
+  > = (props) => {
+    const { orgId, perspectiveId, data } = props ?? {};
+
+    return updateSwotPerspective(orgId, perspectiveId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSwotPerspectiveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSwotPerspective>>
+>;
+export type UpdateSwotPerspectiveMutationBody =
+  BodyType<UpdateSwotPerspectiveBody>;
+export type UpdateSwotPerspectiveMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Rename a SWOT perspective (also propagates the new name to factors using it)
+ */
+export const useUpdateSwotPerspective = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSwotPerspective>>,
+    TError,
+    {
+      orgId: number;
+      perspectiveId: number;
+      data: BodyType<UpdateSwotPerspectiveBody>;
+    },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSwotPerspective>>,
+  TError,
+  {
+    orgId: number;
+    perspectiveId: number;
+    data: BodyType<UpdateSwotPerspectiveBody>;
+  },
+  TContext
+> => {
+  return useMutation(getUpdateSwotPerspectiveMutationOptions(options));
+};
+
+/**
+ * @summary Remove a perspective from the catalog (factors keep their stored text)
+ */
+export const getDeleteSwotPerspectiveUrl = (
+  orgId: number,
+  perspectiveId: number,
+) => {
+  return `/api/organizations/${orgId}/swot/perspectives/${perspectiveId}`;
+};
+
+export const deleteSwotPerspective = async (
+  orgId: number,
+  perspectiveId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteSwotPerspectiveUrl(orgId, perspectiveId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteSwotPerspectiveMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSwotPerspective>>,
+    TError,
+    { orgId: number; perspectiveId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSwotPerspective>>,
+  TError,
+  { orgId: number; perspectiveId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSwotPerspective"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSwotPerspective>>,
+    { orgId: number; perspectiveId: number }
+  > = (props) => {
+    const { orgId, perspectiveId } = props ?? {};
+
+    return deleteSwotPerspective(orgId, perspectiveId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSwotPerspectiveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSwotPerspective>>
+>;
+
+export type DeleteSwotPerspectiveMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove a perspective from the catalog (factors keep their stored text)
+ */
+export const useDeleteSwotPerspective = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSwotPerspective>>,
+    TError,
+    { orgId: number; perspectiveId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSwotPerspective>>,
+  TError,
+  { orgId: number; perspectiveId: number },
+  TContext
+> => {
+  return useMutation(getDeleteSwotPerspectiveMutationOptions(options));
 };
 
 /**

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SWOT_TOLERANCES,
   encodeObjectiveRef,
+  mergePerspectiveNames,
   parseObjectiveRef,
   swotDecision,
   swotResult,
@@ -65,6 +66,33 @@ describe("objective ref (fonte:id)", () => {
 describe("DEFAULT_SWOT_TOLERANCES", () => {
   it("padrão FPLAN 001 = 8 para os três tipos", () => {
     expect(DEFAULT_SWOT_TOLERANCES).toEqual({ weakness: 8, opportunity: 8, threat: 8 });
+  });
+});
+
+describe("mergePerspectiveNames (catálogo ∪ usadas ∪ padrão)", () => {
+  it("dedup case-insensitive preservando a grafia do catálogo (canônico)", () => {
+    const out = mergePerspectiveNames(["Qualidade"], ["qualidade", "QUALIDADE"], []);
+    expect(out).toEqual(["Qualidade"]);
+  });
+
+  it("une as três origens, ordena pt-BR e ignora vazios/espaços", () => {
+    const out = mergePerspectiveNames(
+      ["Financeiro"],
+      ["  ", "Ambiental"],
+      ["ESG", "Financeiro"],
+    );
+    expect(out).toEqual(["Ambiental", "ESG", "Financeiro"]);
+  });
+
+  it("prioriza a grafia do catálogo sobre a usada nos fatores", () => {
+    const out = mergePerspectiveNames(["ESG"], ["esg"], []);
+    expect(out).toEqual(["ESG"]);
+  });
+
+  it("usa as sugestões padrão do SGI quando não passa o 3º argumento", () => {
+    const out = mergePerspectiveNames([], []);
+    expect(out).toContain("Qualidade");
+    expect(out).toContain("ESG");
   });
 });
 
