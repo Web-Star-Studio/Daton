@@ -271,7 +271,14 @@ export function buildMeasurementLabel(
 // without declaring variables — any text run between operators (+ - * / ( ))
 // that isn't purely numeric becomes a variable automatically.
 
-const OPERATOR_CHARS = new Set(["+", "-", "*", "/", "(", ")", "×", "x", "X"]);
+// True symbol operators — always split the token stream.
+const OPERATOR_CHARS = new Set(["+", "-", "*", "/", "(", ")", "×"]);
+
+// A position counts as a boundary when it's the string edge, whitespace, or a
+// symbol operator. Used to decide whether a literal "x"/"X" is multiplication.
+function isFormulaBoundary(ch: string | undefined): boolean {
+  return ch === undefined || /\s/.test(ch) || OPERATOR_CHARS.has(ch);
+}
 
 function isNumericLiteral(s: string): boolean {
   return /^\d+([.,]\d+)?$/.test(s.trim());
@@ -305,7 +312,14 @@ export function parseNaturalFormula(text: string): {
   let buf = "";
   for (let i = 0; i < trimmed.length; i++) {
     const ch = trimmed[i];
-    if (OPERATOR_CHARS.has(ch)) {
+    // A literal "x"/"X" is multiplication ONLY when it stands alone between
+    // boundaries (e.g. "a x 100"). Inside a word like "Custos Fixos" it stays
+    // part of the label instead of splitting it into "Custos Fi" × "os".
+    const isMultiplyLetter =
+      (ch === "x" || ch === "X") &&
+      isFormulaBoundary(trimmed[i - 1]) &&
+      isFormulaBoundary(trimmed[i + 1]);
+    if (OPERATOR_CHARS.has(ch) || isMultiplyLetter) {
       if (buf.trim()) tokens.push({ type: "term", value: buf.trim() });
       buf = "";
       // Normalize multiplication aliases to *
