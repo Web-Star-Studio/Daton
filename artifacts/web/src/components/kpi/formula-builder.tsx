@@ -213,7 +213,15 @@ export function FormulaBuilder({ value, onChange }: FormulaBuilderProps) {
     if (editingIndex === null) return;
     const classified = classifyInput(editingValue);
     if (classified === null) {
-      removeAt(editingIndex);
+      // Texto inválido (ex.: grupo com sintaxe quebrada): mantém o conteúdo
+      // anterior da pill em vez de apagar o que o usuário tinha — só remove
+      // quando a pill é nova/vazia.
+      const current = pills[editingIndex];
+      const hadContent =
+        current &&
+        current.kind !== "op" &&
+        (current.kind === "group" ? current.text.trim() !== "" : current.value.trim() !== "");
+      if (!hadContent) removeAt(editingIndex);
       setEditingIndex(null);
       return;
     }
