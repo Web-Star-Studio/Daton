@@ -4,8 +4,10 @@ import {
   ChevronRight,
   ClipboardList,
   Loader2,
+  MessageSquareText,
   Pencil,
   TriangleAlert,
+  User,
   X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -162,6 +164,13 @@ function HistoryPanel({
   );
   const stats = computeMonthlyStats(monthValues, goal, direction, restrict);
   const untreated = new Set(untreatedRedMonths(row));
+  // Meses com justificativa ou plano de ação registrados — ganham um marcador
+  // pra Ana enxergar onde já existe tratativa sem precisar abrir cada mês.
+  const treatedMonths = new Set(
+    row.monthlyValues
+      .filter((m) => m.justificationsCount > 0 || m.actionPlansCount > 0)
+      .map((m) => m.month),
+  );
   const refMonthsLabel = [...expected]
     .sort((a, b) => a - b)
     .map((m) => MONTH_FULL[m - 1])
@@ -197,6 +206,7 @@ function HistoryPanel({
           const clickable = month <= maxLaunchableMonth && !locked;
           const isExpectedEmpty = v === null && expected.has(month);
           const isUntreatedRed = untreated.has(month);
+          const isTreated = treatedMonths.has(month);
           const cls = cn(
             "rounded-md border px-1 py-1 text-center",
             month === selectedMonth && !locked && "ring-2 ring-blue-500",
@@ -220,6 +230,8 @@ function HistoryPanel({
                   <TriangleAlert className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
                 ) : isUntreatedRed ? (
                   <TriangleAlert className="h-2.5 w-2.5 text-red-600 dark:text-red-400" />
+                ) : isTreated ? (
+                  <MessageSquareText className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
                 ) : null}
               </div>
               <div className="text-[11px] font-medium tabular-nums">
@@ -245,7 +257,13 @@ function HistoryPanel({
                   className={cn(cls, "w-full")}
                   onClick={() => onSelectMonth(month)}
                   title={
-                    v !== null ? "Editar lançamento" : "Lançar valor neste mês"
+                    v !== null
+                      ? isTreated
+                        ? "Editar lançamento — mês com justificativa/plano registrado"
+                        : "Editar lançamento"
+                      : isTreated
+                        ? "Lançar valor neste mês — já possui justificativa/plano registrado"
+                        : "Lançar valor neste mês"
                   }
                 >
                   {body}
@@ -253,11 +271,10 @@ function HistoryPanel({
               ) : (
                 <div
                   className={cls}
-                  title={
-                    locked
-                      ? lockedTitle
-                      : "Mês futuro — ainda não disponível"
-                  }
+                  title={cn(
+                    locked ? lockedTitle : "Mês futuro — ainda não disponível",
+                    isTreated && "· mês com justificativa/plano registrado",
+                  )}
                 >
                   {body}
                 </div>
@@ -288,7 +305,8 @@ function HistoryPanel({
         <p className="flex items-center gap-1.5 rounded-md bg-red-50 px-2 py-1.5 text-[11px] font-medium text-red-700 dark:bg-red-500/10 dark:text-red-300">
           <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
           {untreated.size} {untreated.size === 1 ? "mês" : "meses"} fora da tolerância
-          sem plano de ação — use o botão de justificativa abaixo do resultado.
+          sem justificativa nem plano de ação — clique no mês marcado e use o
+          botão de justificativa abaixo do resultado.
         </p>
       ) : (
         <p className="text-[10px] text-muted-foreground">
@@ -482,6 +500,14 @@ export function LancarScreen({
   const effectiveStatus = getTrafficLight(effectiveValue, goal, direction);
   const outOfTarget = effectiveStatus === "red";
 
+  // Tratativas do mês selecionado: uma justificativa OU um plano de ação já
+  // resolvem a pendência do desvio — nem todo resultado fora da tolerância
+  // exige plano de ação (a justificativa pontual basta).
+  const monthJustificationsCount = savedMonthly?.justificationsCount ?? 0;
+  const monthActionPlansCount = savedMonthly?.actionPlansCount ?? 0;
+  const monthTreated = monthJustificationsCount > 0 || monthActionPlansCount > 0;
+  const latestJustification = savedMonthly?.justification ?? null;
+
   // Meses que o form pode lançar: não-futuros e, p/ indicador não-mensal,
   // só os meses de referência. Fallback p/ todos quando a restrição ainda não
   // tem mês lançável (ex.: referência em dezembro no meio do ano corrente).
@@ -643,8 +669,9 @@ export function LancarScreen({
         // visible — the monthly value now exists and can receive a plan.
         toast({
           title: "Resultado lançado — fora da tolerância",
-          description:
-            "Registre a justificativa e, se necessário, um plano de ação.",
+          description: monthTreated
+            ? "Este mês já possui justificativa/plano — confira se ainda se aplica ao novo resultado."
+            : "Registre a justificativa e, se necessário, um plano de ação.",
         });
       } else {
         toast({ title: "Resultado lançado" });
@@ -885,8 +912,69 @@ export function LancarScreen({
             </Button>
 
             {/* Justificativa / plano de ação — abre o diálogo já existente.
-               Destacado quando o resultado está fora da tolerância. */}
-            {outOfTarget ? (
+               Três estados: mês já tratado (mostra a justificativa registrada),
+               fora da tolerância sem tratativa (CTA destacado) e o restante
+               (botão discreto). */}
+            {monthTreated ? (
+              <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-500/30 dark:bg-blue-500/10">
+                <div className="flex items-start gap-2">
+                  <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-blue-900 dark:text-blue-200">
+                      {outOfTarget
+                        ? "Fora da tolerância — tratativa registrada"
+                        : "Tratativas registradas neste mês"}
+                    </p>
+                    {outOfTarget ? (
+                      <p className="mt-0.5 text-[11px] text-blue-800/70 dark:text-blue-300/70">
+                        Confira se a tratativa ainda corresponde ao resultado
+                        atual do mês.
+                      </p>
+                    ) : null}
+                    <p className="mt-0.5 text-[11px] text-blue-800/80 dark:text-blue-300/80">
+                      {[
+                        monthJustificationsCount > 0
+                          ? `${monthJustificationsCount} justificativa${monthJustificationsCount === 1 ? "" : "s"}`
+                          : null,
+                        monthActionPlansCount > 0
+                          ? `${monthActionPlansCount} plano${monthActionPlansCount === 1 ? "" : "s"} de ação`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    {latestJustification ? (
+                      <div className="mt-2 rounded-md border border-blue-200/70 bg-card px-2.5 py-2 dark:border-blue-500/20">
+                        <p className="whitespace-pre-wrap break-words text-xs text-foreground">
+                          {latestJustification.body}
+                        </p>
+                        <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <User className="h-3 w-3" />
+                          {latestJustification.createdByUserName ??
+                            "Usuário removido"}
+                          {" · "}
+                          {new Date(
+                            latestJustification.createdAt,
+                          ).toLocaleDateString("pt-BR")}
+                          {monthJustificationsCount > 1
+                            ? ` · mais recente de ${monthJustificationsCount}`
+                            : ""}
+                        </p>
+                      </div>
+                    ) : null}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => setRacMonth(month)}
+                    >
+                      <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
+                      Ver e editar tratativas
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : outOfTarget ? (
               <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-500/40 dark:bg-amber-500/10">
                 <div className="flex items-start gap-2">
                   <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -1172,7 +1260,7 @@ export function LancarScreen({
                   aria-hidden
                 />
                 <h3 className="text-[11px] font-semibold uppercase tracking-wider text-red-800 dark:text-red-300">
-                  Requer plano de ação
+                  Requer justificativa ou plano de ação
                 </h3>
                 <span className="rounded-full bg-red-200 px-1.5 py-0.5 text-[10px] font-semibold text-red-800 dark:bg-red-500/25 dark:text-red-200">
                   {requerAcao.length}
