@@ -105,6 +105,82 @@ describe("validateFormula", () => {
   it("accepts expression with literals only", () => {
     expect(validateFormula("100 - 5", [])).toEqual({ ok: true });
   });
+
+  it("rejects operand followed by '(' without operator (preview ficava vazio)", () => {
+    // Caso real do screenshot: "100 - (Demitidos nos últimos 3 meses(recém - admitidos) * 100) / ..."
+    const natural =
+      "100 - (Demitidos nos últimos 3 meses(recém - admitidos) * 100) / Admitidos nos últimos 3 meses";
+    const { expression, variables } = parseNaturalFormula(natural);
+    const result = validateFormula(expression, variables);
+    expect(result).toEqual({
+      ok: false,
+      error: 'Faltou um operador (+, −, × ou ÷) entre "Demitidos nos últimos 3 meses" e "("',
+    });
+    expect(parseFormulaAst(expression, variables)).toBe(null);
+  });
+
+  it("rejects trailing operator (preview ficava vazio)", () => {
+    // Caso real do screenshot: "(soma de demitidos ...) X 100 /"
+    const natural =
+      "(soma de demitidos dos últimos três meses que foram admitidos nos últimos 3 meses) X 100 /";
+    const { expression, variables } = parseNaturalFormula(natural);
+    const result = validateFormula(expression, variables);
+    expect(result).toEqual({
+      ok: false,
+      error: 'Fórmula incompleta: faltou um valor depois de "÷"',
+    });
+    expect(parseFormulaAst(expression, variables)).toBe(null);
+  });
+
+  it("rejects two operands in sequence", () => {
+    const result = validateFormula("a b", [
+      { key: "a", label: "A" },
+      { key: "b", label: "B" },
+    ]);
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects two operators in sequence", () => {
+    const result = validateFormula("a + * b", [
+      { key: "a", label: "A" },
+      { key: "b", label: "B" },
+    ]);
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects leading operator and empty parens", () => {
+    expect(validateFormula("* a", [{ key: "a", label: "A" }]).ok).toBe(false);
+    expect(validateFormula("a + ()", [{ key: "a", label: "A" }]).ok).toBe(false);
+  });
+
+  it("rejects ')' adjacent to operand without operator", () => {
+    const result = validateFormula("(a) 100", [{ key: "a", label: "A" }]);
+    expect(result.ok).toBe(false);
+  });
+
+  it("keeps every validateFormula-accepted expression renderable by parseFormulaAst", () => {
+    const variables = [
+      { key: "a", label: "A" },
+      { key: "b", label: "B" },
+    ];
+    const candidates = [
+      "a / b",
+      "(a / b) * 100",
+      "100 - (a / b) * 100",
+      "a(b) * 100",
+      "(a) * 100 /",
+      "a b",
+      "a + * b",
+      "* a",
+      "(a) 100",
+    ];
+    for (const expr of candidates) {
+      const valid = validateFormula(expr, variables).ok;
+      const ast = parseFormulaAst(expr, variables);
+      // Invariante que corrige o bug: válido ⇔ o preview consegue desenhar.
+      expect(valid).toBe(ast !== null);
+    }
+  });
 });
 
 describe("extractVariableKeys", () => {
