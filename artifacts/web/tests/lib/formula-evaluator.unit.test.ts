@@ -252,6 +252,17 @@ describe("parseNaturalFormula", () => {
     expect(b.expression).toBe("a * 100");
   });
 
+  it("does not split a word that contains the letter x", () => {
+    const { variables, expression } = parseNaturalFormula("Custos Fixos");
+    expect(variables).toEqual([{ key: "custos_fixos", label: "Custos Fixos" }]);
+    expect(expression).toBe("custos_fixos");
+  });
+
+  it("keeps an embedded x as part of a multi-word label", () => {
+    const { variables } = parseNaturalFormula("taxa máxima / total");
+    expect(variables.map((v) => v.label)).toEqual(["taxa máxima", "total"]);
+  });
+
   it("dedupes repeated variables", () => {
     const { variables } = parseNaturalFormula("a + a + b");
     expect(variables.map((v) => v.key)).toEqual(["a", "b"]);
